@@ -1,0 +1,32 @@
+/*Response Codes:
+SomethingWentWrong = "000"
+HttpResponseNull = "009";
+ValidLogin = "001";
+Unauthorized = "002";
+PasswordExpired = "003";
+InternalServerError = "011";
+RecordFetched = "012";
+NoRecordFound = "013";
+RecordSaved = "014";
+ValidationFailed = "015";
+RecordDeleted = "016";*/
+
+class ApiCodes {
+  ApiCodes._();
+
+  static const String somethingWentWrong = "000";
+  static const String httpResponseNull = "009";
+  static const String validLogin = "001";
+  static const String unauthorized = "002";
+  static const String passwordExpired = "003";
+  static const String internalServerError = "011";
+  static const String recordFetched = "012";
+  static const String noRecordFound = "013";
+  static const String recordSaved = "014";
+  static const String validationFailed = "015";
+  static const String recordDeleted = "016";
+  static const String alreadyExist = "025";
+
+  static const String apiKey = "733768df-329a-42df-9d42-6378362ee231";
+  static const String accountId = "26";
+}

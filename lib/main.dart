@@ -1,0 +1,116 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:app/constants/constants_methods.dart';
+import 'package:app/services/push_notification_api.dart';
+import 'package:app_links/app_links.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+import 'package:hive_flutter/hive_flutter.dart';
+
+import 'app_config.dart';
+import 'app_root.dart';
+import 'bloc/global_bloc_observer.dart';
+import 'firebase_options.dart';
+import 'hive_local_database/hive_db.dart';
+
+// prod main file
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
+  // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+  //   // systemNavigationBarColor: Color(0xFF000000),
+  //   // systemNavigationBarIconBrightness: Brightness.light,
+  //   // systemNavigationBarDividerColor: null,
+  //   statusBarColor: AppColors.whiteColor,
+  //   statusBarIconBrightness: Brightness.light,
+  //   statusBarBrightness: Brightness.light,
+  // )
+  // );
+  // for loading data before running application
+  await init();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  // push notification
+  PushNotificationApi().initNotifications();
+
+  // initDeepLinks();
+
+  // for loading data before running application
+  final _baseUrl = dotenv.env['BASE_URL_DEV'];
+  final config = AppConfig(baseUrl: _baseUrl!)..initialize();
+
+  // stripe
+  // if (!kIsWeb) {
+  //   Stripe.publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']!;
+  //   Stripe.merchantIdentifier = 'merchant.flutter.stripe.test';
+  //   Stripe.urlScheme = 'flutterstripe';
+  //   await Stripe.instance.applySettings();
+  // }
+
+  HttpOverrides.global = MyHttpOverrides();
+  Bloc.observer = GlobalBlocObserver();
+  runApp(AppRoot(
+    config: config,
+  ));
+}
+
+Future<void> init() async {
+  // load .env file
+  await dotenv.load(fileName: ".env");
+  // initialize Hive database
+  await initHive();
+  // Future.delayed(const Duration(seconds: 3));
+  // FlutterNativeSplash.remove();
+}
+
+initHive() async {
+  /// hive database
+  // var path = Directory.current.path;
+  await Hive.initFlutter();
+  HiveDB.registerHiveAdapter();
+  // Hive
+  //   ..init(path)
+  //   ..registerAdapter(ProductDetailsModelAdapter());
+  // open hive database
+  await HiveDB.openAllHiveDbBoxes();
+}
+
+late AppLinks _appLinks;
+
+Future<void> initDeepLinks() async {
+  _appLinks = AppLinks();
+
+  // Check initial link if app was in cold state (terminated)
+  final appLink = await _appLinks.getInitialLink();
+  if (appLink != null) {
+    kDebugPrint('getInitialAppLink: $appLink');
+    openAppLink(appLink);
+  }
+
+  // Handle link when app is in warm state (front or background)
+  _appLinks.uriLinkStream.listen((uri) {
+    kDebugPrint('onAppLink: $uri');
+    openAppLink(uri);
+  });
+}
+
+void openAppLink(Uri uri) {
+  navigatorKey.currentState?.pushNamed(uri.fragment);
+}
+
+class MyHttpOverrides extends HttpOverrides {
+  @override
+  HttpClient createHttpClient(SecurityContext? context) {
+    return super.createHttpClient(context)
+      ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
