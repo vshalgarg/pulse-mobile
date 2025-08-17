@@ -1,9 +1,14 @@
 import 'package:app/routes/routes.dart';
+import 'package:app/screens/asset_audit_screen.dart';
+import 'package:app/screens/corrective_maintenance_screen.dart';
+import 'package:app/screens/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
+import 'package:app/screens/preventive_maintainance_screen.dart';
 import 'package:app/screens/reset_password_screen.dart';
 import 'package:app/screens/splash_screen.dart';
+import 'package:app/screens/ticket_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../screens/login_screen.dart';
@@ -33,7 +38,15 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return _push(const PasswordUpdatedScreen());
     case otpVerificationScreen:
       return _push(const EnterVerificationCodeScreen());
-    // for known route
+    case assetAuditScreen:
+      return _push(const AssetAuditScreen());
+    case correctiveMaintenanceScreen:
+      return _push(const CorrectiveMaintenanceScreen());
+    case preventiveMaintenanceScreen:
+      return _push(const PreventiveMaintenanceScreen());
+    case energyReadingScreen:
+      return _push(const EnergyReadingScreen());
+
     default:
       return MaterialPageRoute(
         builder: (context) {

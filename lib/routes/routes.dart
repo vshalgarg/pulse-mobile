@@ -8,6 +8,12 @@ const String welcomeScreen = "/welcomeScreen";
 const String resetPasswordScreen = "/ResetPasswordScreen";
 const String passwordUpdateScreen = "/passwordUpdateScreen";
 const String otpVerificationScreen = "/otpVerificationScreen";
+const String assetAuditScreen = "/assetAuditScreen";
+const String preventiveMaintenanceScreen = "/preventiveMaintenanceScreen";
+const String correctiveMaintenanceScreen = "/assetAuditScreen";
+const String energyReadingScreen = "/energyReadingScreen";
+
+
 
 
 

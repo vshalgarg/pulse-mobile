@@ -1,3 +1,5 @@
+import 'package:app/constants/constants_methods.dart';
+import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 
 class ArrowButton extends StatelessWidget {
@@ -18,33 +20,36 @@ class ArrowButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: backgroundColor,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: backgroundColor,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(5),
         ),
-        onPressed: onPressed,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (isLeftArrow) ...[
-              Icon(Icons.arrow_back, color: textColor),
-              const SizedBox(width: 8),
-            ],
-            Text(
-              text,
-              style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600),
-            ),
-            if (!isLeftArrow) ...[
-              const SizedBox(width: 8),
-              Icon(Icons.arrow_forward, color: textColor),
-            ],
+      ),
+      onPressed: onPressed,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (isLeftArrow) ...[
+            Icon(Icons.arrow_back, color: textColor),
+            getWidth(15),
           ],
-        ),
+          Text(
+            text,
+            style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontFamily: fontFamilyMontserrat,
+                fontWeight: FontWeight.w600
+            ),
+          ),
+          if (!isLeftArrow) ...[
+            getWidth(15),
+            Icon(Icons.arrow_forward, color: textColor),
+          ],
+        ],
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:app/commonWidgets/custom_buttons/custom_text_button.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/screens/forgot_password_screen.dart';
+import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
@@ -125,6 +126,8 @@ class _LoginScreenState extends State<LoginScreen> {
       print('Phone: ${phoneController.text}');
       print('Remember me: $isVal');
       // Add your login logic here
+    }else{
+      pushReplacementPage(context, HomeScreen());
     }
   }
 

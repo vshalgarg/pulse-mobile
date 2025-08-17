@@ -310,6 +310,8 @@ class AppColors {
   static const Color blue13 = Color(0xFF3C5482);
   static const Color blue14 = Color(0xFF33486F);
   static const Color blue15 = Color(0xFF192437);
+  static const Color locationColor = Color(0xFF385389);
+
   static const Color blue16 = Color(0xFF111825);
   static const Color blue17 = Color(0xFF080C12);
 
@@ -321,6 +323,10 @@ class AppColors {
   static const Color completedColor = Color(0xFFE0FFEA);
   static const Color closedColor = Color(0xFFF3E8FF);
   static const Color missedColor = Color(0xFFFFE6EB);
+  static const Color downloadIconColor = Color(0xFF0057FF);
+  static const Color bulletIcon = Color(0xFF00F6FF);
+  static const Color buttonColorSite = Color(0xFF174A2D);
+  static const Color buttonColorBg = Color(0xFFDAF0E7);
   // static const Color transparent1Color = Color(0XFFFFFF40);
 
 
