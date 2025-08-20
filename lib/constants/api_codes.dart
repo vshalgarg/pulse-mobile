@@ -27,6 +27,4 @@ class ApiCodes {
   static const String recordDeleted = "016";
   static const String alreadyExist = "025";
 
-  static const String apiKey = "733768df-329a-42df-9d42-6378362ee231";
-  static const String accountId = "26";
 }

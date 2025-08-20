@@ -13,6 +13,12 @@ class AppImages {
 
   static const String pulseImg = '${_basePath}pluseimg.svg';
   static const String tickIcon = '${_basePath}Vector.svg';
+  static const String allTicket = '${_basePath}allticket.svg';
+  static const String completed = '${_basePath}comp.svg';
+  static const String inProgress = '${_basePath}inPg.svg';
+  static const String missed = '${_basePath}miss.svg';
+  static const String closed = '${_basePath}close.svg';
+  static const String trash = '${_basePath}trash.svg';
 
 
   static const String whiteSplash = '${_basePath}white_splash.png';

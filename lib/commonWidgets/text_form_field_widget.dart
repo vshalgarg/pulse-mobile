@@ -89,15 +89,15 @@ class _TextFormFieldWidgetState extends State<TextFormFieldWidget> {
           ),
           alignLabelWithHint: widget.alignLabelWithHint,
           hintStyle: const TextStyle(
-            color: Color(0xFFB8B8B8), // Light gray placeholder
+            color: Color(0xFFB8B8B8),
             fontWeight: FontWeight.w400,
-            fontSize: 16,
+            fontSize: 18, // Increased from 16 to 18
             fontFamily: fontFamilyInter,
           ),
           labelStyle: TextStyle(
             color: _isFocused ? AppColors.primaryBlue : const Color(0xFF72777A),
             fontWeight: FontWeight.w400,
-            fontSize: 14,
+            fontSize: 16, // Increased from 14 to 16
             fontFamily: fontFamilyInter,
           ),
           border: OutlineInputBorder(
@@ -125,19 +125,25 @@ class _TextFormFieldWidgetState extends State<TextFormFieldWidget> {
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: AppColors.redColor),
+            borderSide: const BorderSide(color: AppColors.errorColor),
           ),
           focusedErrorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: AppColors.redColor,
+              color: AppColors.errorColor,
               width: 1.5,
             ),
+          ),
+          errorStyle: const TextStyle(
+            color: AppColors.errorColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            fontFamily: fontFamilyInter,
           ),
           suffixIcon: widget.suffixIcon,
         ),
         style: const TextStyle(
-          fontSize: 16,
+          fontSize: 18, // Increased from 16 to 18
           fontWeight: FontWeight.w400,
           color: Color(0xFF72777A),
           fontFamily: fontFamilyInter,

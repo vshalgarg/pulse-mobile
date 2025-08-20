@@ -65,15 +65,26 @@ class HiveDB {
   }
 
   static Future<void> logout() async {
-    await createSession();
     var userCredential = HiveDB.getHiveBox(HiveConstant.userCreds);
     // await userCredential.put("isBiometricValue", false);
     await userCredential.delete(HiveConstant.userId);
-    //await userCredential.delete(HiveConstant.token);
+    await userCredential.delete(HiveConstant.token);
+    
+    // Clear saved credentials if remember me is not enabled
+    if (!getRememberMe) {
+      await userCredential.delete(HiveConstant.username);
+      await userCredential.delete(HiveConstant.password);
+      await userCredential.delete(HiveConstant.rememberMe);
+    }
   }
 
-  static createSession() async {
-    // create session again
+  // Clear all saved credentials including remember me data
+  static Future<void> clearAllCredentials() async {
+    var userCredential = HiveDB.getHiveBox(HiveConstant.userCreds);
+    await userCredential.delete(HiveConstant.username);
+    await userCredential.delete(HiveConstant.password);
+    await userCredential.delete(HiveConstant.rememberMe);
+    await userCredential.delete(HiveConstant.token);
   }
 
   static var userCredential = HiveDB.getHiveBox(HiveConstant.userCreds);
@@ -90,6 +101,35 @@ class HiveDB {
   // get token
   static String? get getToken => userCredential.get(HiveConstant.token);
 
+  // save token
+  static Future<void> saveToken(String token) async {
+    await userCredential.put(HiveConstant.token, token);
+  }
+
+  // save username
+  static Future<void> saveUsername(String username) async {
+    await userCredential.put(HiveConstant.username, username);
+  }
+
+  // save password
+  static Future<void> savePassword(String password) async {
+    await userCredential.put(HiveConstant.password, password);
+  }
+
+  // set remember me status
+  static Future<void> setRememberMe(bool rememberMe) async {
+    await userCredential.put(HiveConstant.rememberMe, rememberMe);
+  }
+
+  // get username
+  static String? get getUsername => userCredential.get(HiveConstant.username);
+
+  // get password
+  static String? get getPassword => userCredential.get(HiveConstant.password);
+
+  // get remember me status
+  static bool get getRememberMe => userCredential.get(HiveConstant.rememberMe) ?? false;
+
   // get cart count
   static String? get getCartCount => userCredential.get(HiveConstant.cartCount);
 
@@ -104,22 +144,17 @@ class HiveDB {
   static String? get getFirstName => userCredential.get(HiveConstant.firstName, defaultValue: null);
 
   // get session key
-  static String get appSessionKey => userCredential.get('sessionKey');
+  static String? get appSessionKey => userCredential.get('sessionKey');
 
   //
   static Map<String, String> getHeadersWithToken() {
     return {
-      "lang": 'en-US', //userCredential.get('languageCode'),
-      "session": HiveDB.appSessionKey, //userCredential.get("sessionKey"),
       "Authorization": 'Bearer ${HiveDB.getToken}',
     };
   }
 
   static Map<String, String> getHeaders() {
-    return {
-      "lang": 'en-US', //userCredential.get('languageCode'),
-      "session": HiveDB.appSessionKey, //userCredential.get("sessionKey"),
-    };
+    return {};
   }
 //
 }

@@ -327,6 +327,10 @@ class AppColors {
   static const Color bulletIcon = Color(0xFF00F6FF);
   static const Color buttonColorSite = Color(0xFF174A2D);
   static const Color buttonColorBg = Color(0xFFDAF0E7);
+  static const Color doneColor = Color(0xFF009663);
+  static const Color pendingColor = Color(0xFFF5CB00);
+  static const Color missedLineColor = Color(0xFFB24343);
+  static const Color assignedColor = Color(0xFF8A38F5);
   // static const Color transparent1Color = Color(0XFFFFFF40);
 
 

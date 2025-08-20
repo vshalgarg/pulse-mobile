@@ -1,6 +1,8 @@
+import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
@@ -67,33 +69,41 @@ class FileUploadBox extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Upload Box with Dashed Border
-              GestureDetector(
-                onTap: onUploadTap,
-                child: DottedBorder(
-                  color: Colors.grey,
-                  strokeWidth: 1,
-                  dashPattern: const [6, 3],
-                  borderType: BorderType.RRect,
-                  radius: const Radius.circular(3),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 16,
-                      horizontal: 12,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
-                        Icon(Icons.file_upload_outlined, color: AppColors.color555555, size: 22),
-                        SizedBox(width: 8),
-                        Text(
-                          "Upload File (Max Size: 2MB)",
-                          style: TextStyle(fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.color555555,
-                            fontFamily: fontFamilyMontserrat,),
-                        ),
-                      ],
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onUploadTap,
+                  borderRadius: BorderRadius.circular(3),
+                  child: DottedBorder(
+                    color: Colors.grey,
+                    strokeWidth: 1,
+                    dashPattern: const [6, 3],
+                    borderType: BorderType.RRect,
+                    radius: const Radius.circular(3),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 16,
+                        horizontal: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: const [
+                          Icon(Icons.file_upload_outlined, color: AppColors.color555555, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            "Upload File (Max Size: 2MB)",
+                            style: TextStyle(fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.color555555,
+                              fontFamily: fontFamilyMontserrat,),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -116,10 +126,11 @@ class FileUploadBox extends StatelessWidget {
                         ),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: onDelete,
-                    ),
+                    SvgPicture.asset(AppImages.trash),
+                    // IconButton(
+                    //   icon: const Icon(Icons.restore_from_trash_outlined, color: Colors.red),
+                    //   onPressed: onDelete,
+                    // ),
                   ],
                 ),
               ],

@@ -4,11 +4,11 @@ import 'package:hive/hive.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
 import '../app_root.dart';
-import '../constants/api_codes.dart';
 import '../constants/constants_methods.dart';
 import '../hive_local_database/hive_constant.dart';
 import '../hive_local_database/hive_db.dart';
 import '../routes/routes.dart';
+import '../utils.dart';
 
 class ApiProvider {
   final String baseUrl;
@@ -16,8 +16,6 @@ class ApiProvider {
 
   final Dio _dio = Dio();
 
-  // dio.options.headers['content-Type'] = 'application/json';
-  // dio.options.headers["authorization"] = "token ${token}";
   ApiProvider({required this.baseUrl}) {
     BaseOptions options = BaseOptions(
       headers: {
@@ -26,12 +24,10 @@ class ApiProvider {
       },
       baseUrl: baseUrl,
       receiveDataWhenStatusError: true,
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 60),
+      connectTimeout: const Duration(seconds: 120),
+      receiveTimeout: const Duration(seconds: 120),
     );
 
-    // if (HiveDB.getUserId != null) _dio.options.headers["userId"] = "${HiveDB.getUserId}";
-    // if (HiveDB.getToken != null) _dio.options.headers["Authorization"] = "Bearer ${HiveDB.getToken}";
     _dio.options = options;
     _dio.interceptors.add(PrettyDioLogger(
       requestHeader: true,
@@ -40,20 +36,22 @@ class ApiProvider {
 
     _dio.interceptors.add(
       InterceptorsWrapper(
-        onRequest: (options, handler) {
-          // Add the access token to the request header
-          // if (HiveDB.getUserId != null) options.headers["userId"] = "${HiveDB.getUserId}";
-          // if (HiveDB.getToken != null) options.headers['Authorization'] = 'Bearer ${HiveDB.getToken}';
-
+        onRequest: (options, handler) async {
+          final isAuthEndpoint = options.path.contains('authenticate/login');
+          
+          if (!isAuthEndpoint) {
+            if (HiveDB.getToken != null) {
+              options.headers['Authorization'] = 'Bearer ${HiveDB.getToken}';
+            }
+          }
           return handler.next(options);
         },
         onError: (DioException e, handler) async {
           if (e.response?.statusCode == 401) {
-            // If a 401 response is received, refresh the access token
-           /* final newAccessToken = await refreshToken();
-            if (newAccessToken == null) return;
-            _dio.options.headers['Authorization'] = 'Bearer $newAccessToken';
-            return handler.resolve(await _dio.fetch(e.requestOptions));*/
+            // Check if token is expired and logout if needed
+            if (Utils.isCurrentTokenExpired()) {
+              await _logoutUser();
+            }
           }
           return handler.next(e);
         },
@@ -61,31 +59,17 @@ class ApiProvider {
     );
   }
 
-  Dio getClient() => _dio;
-
- /* // refresh token
-  Future<String?> refreshToken() async {
+  Future<void> _logoutUser() async {
     try {
-      final result = await navigatorKey.currentContext?.read<RefreshTokenRepository>().refreshToken();
-      if (result!.isSuccess) {
-        final data = result.data;
-        if (data?.responseCode == ApiCodes.recordFetched) {
-          if (data?.data != null) {
-            boxes.put(HiveConstant.token, data?.data?.access);
-            final tokenGet = boxes.get('token');
-            kDebugPrint("Bearer token- $tokenGet");
-            return data?.data?.access;
-          }
-        }
+      await HiveDB.clearAllData();
+      // Navigate to login screen
+      if (navigatorKey.currentContext != null) {
+        pushNamedAndRemoveUntil(navigatorKey.currentContext!, loginScreen);
       }
-      //TODO not success case pending
-    } catch (exception) {
-      HiveDB.clearAllData();
-      Future.delayed(const Duration(milliseconds: 10), () {
-        // pushNamedAndRemoveUntil(context, loginScreen);
-        pushNamedAndRemoveUntil(navigatorKey.currentContext!, mainScreen);
-      });
+    } catch (e) {
+      print('Logout failed: $e');
     }
-    return null;
-  }*/
+  }
+
+  Dio getClient() => _dio;
 }

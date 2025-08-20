@@ -7,6 +7,7 @@ import '../commonWidgets/ticket_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../constants/constants_strings.dart';
+import '../routes/routes.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -76,10 +77,35 @@ class _TicketScreenState extends State<TicketScreen> {
       'company': 'PTPL',
       'raisedOn': '27/04/2025',
       'dueDate': '29/04/2025',
-      'statusText': 'Missed Deadline',
+      'statusText': 'Missed',
       'statusColor': Colors.red,
     },
   ];
+
+  void _navigateToAuditScreen() {
+    switch (widget.auditName) {
+      case "Asset Audit":
+        Navigator.pushNamed(context, assetAuditScreen);
+        break;
+      case "PM":
+        Navigator.pushNamed(context, preventiveMaintenanceScreen);
+        break;
+      case "CM":
+        Navigator.pushNamed(context, correctiveMaintenanceScreen);
+        break;
+      case "ER":
+        Navigator.pushNamed(context, energyReadingScreen);
+        break;
+      default:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No specific audit screen for ${widget.auditName}'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -173,7 +199,8 @@ class _TicketScreenState extends State<TicketScreen> {
             raisedOn: ticket['raisedOn'],
             dueDate: ticket['dueDate'],
             statusText: ticket['statusText'],
-            statusColor: ticket['statusColor'],
+            // statusColor: ticket['statusColor'],
+            onTap: _navigateToAuditScreen,
             onDirectionTap: () {
               print("Open Google Maps or navigation for ${ticket['ticketId']}");
             },

@@ -31,7 +31,11 @@ class SerialNumberField extends StatelessWidget {
             children: const [
               TextSpan(
                 text: " *",
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(
+                  color: AppColors.errorColor,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                ),
               ),
             ],
           ),

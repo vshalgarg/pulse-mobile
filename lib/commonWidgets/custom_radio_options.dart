@@ -4,8 +4,8 @@ import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
 
 class CustomOptionSelector extends StatefulWidget {
-  final String label; // e.g. "Battery ODC Lock status"
-  final List<OptionItem> options; // custom icons + labels
+  final String label;
+  final List<OptionItem> options;
   final Function(String value) onChanged;
   final String? initialValue;
   final bool isRequired;
@@ -44,7 +44,7 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
               widget.label,
               style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w100,
                   color: Colors.white,
                   fontFamily: fontFamilyMontserrat
               ),
@@ -53,7 +53,7 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
               const Text(
                 " *",
                 style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w400,
                     color: AppColors.errorColor,
                     fontFamily: fontFamilyMontserrat
@@ -99,20 +99,20 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
           }).toList(),
         ),
 
-        // Validation
-        if (widget.isRequired && selectedValue == null)
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text(
-              "This field is required",
-              style: TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: fontFamilyMontserrat,
-                  color: AppColors.errorColor,
-                  fontSize: 13
-              ),
-            ),
-          ),
+        // // Validation
+        // if (widget.isRequired && selectedValue == null)
+        //   const Padding(
+        //     padding: EdgeInsets.only(top: 6),
+        //     child: Text(
+        //       "This field is required",
+        //       style: TextStyle(
+        //           fontWeight: FontWeight.w400,
+        //           fontFamily: fontFamilyMontserrat,
+        //           color: AppColors.errorColor,
+        //           fontSize: 13
+        //       ),
+        //     ),
+        //   ),
       ],
     );
   }

@@ -25,7 +25,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
   // according to route name goto screen
   switch (settings.name) {
     case "/":
-      return _push(const HomeScreen());
+      return _push(const SplashScreen());
     case loginScreen:
       return _push(const LoginScreen());
     case welcomeScreen:
@@ -46,6 +46,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return _push(const PreventiveMaintenanceScreen());
     case energyReadingScreen:
       return _push(const EnergyReadingScreen());
+    case ticketScreen:
+      return _push(const TicketScreen(auditName: "", status: ""));
 
     default:
       return MaterialPageRoute(

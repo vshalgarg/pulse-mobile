@@ -6,7 +6,6 @@ import 'package:app/services/push_notification_api.dart';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -19,6 +18,7 @@ import 'app_root.dart';
 import 'bloc/global_bloc_observer.dart';
 import 'firebase_options.dart';
 import 'hive_local_database/hive_db.dart';
+import 'utils.dart';
 
 // prod main file
 Future<void> main() async {
@@ -58,6 +58,10 @@ Future<void> main() async {
 
   HttpOverrides.global = MyHttpOverrides();
   Bloc.observer = GlobalBlocObserver();
+  
+  // Check token status on startup
+  _checkTokenStatus();
+  
   runApp(AppRoot(
     config: config,
   ));
@@ -112,5 +116,21 @@ class MyHttpOverrides extends HttpOverrides {
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
       ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
+// Check token status on app startup
+void _checkTokenStatus() async {
+  final token = HiveDB.getToken;
+  if (token != null) {
+    if (Utils.isTokenExpired(token)) {
+      print('Token is expired on app startup');
+      // Clear expired token
+      HiveDB.clearAllData();
+    } else {
+      print('Token is valid on app startup');
+    }
+  } else {
+    print('No token found on app startup');
   }
 }

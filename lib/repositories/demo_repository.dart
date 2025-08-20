@@ -17,7 +17,7 @@ class DemoRepository {
       );
       if (result.isSuccess) {
         kDebugPrint("data is here $result.data");
-        return ResponseResult.success(AskModel.fromJson(result.data));
+        return ResponseResult.success(AskModel.fromJson(result.data), result.statusCode);
       } else {
         return ResponseResult.error(errorMessage: result.errorMessage);
       }

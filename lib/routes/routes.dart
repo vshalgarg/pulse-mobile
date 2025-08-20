@@ -10,8 +10,9 @@ const String passwordUpdateScreen = "/passwordUpdateScreen";
 const String otpVerificationScreen = "/otpVerificationScreen";
 const String assetAuditScreen = "/assetAuditScreen";
 const String preventiveMaintenanceScreen = "/preventiveMaintenanceScreen";
-const String correctiveMaintenanceScreen = "/assetAuditScreen";
+const String correctiveMaintenanceScreen = "/correctiveMaintenanceScreen";
 const String energyReadingScreen = "/energyReadingScreen";
+const String ticketScreen = "/ticketScreen";
 
 
 

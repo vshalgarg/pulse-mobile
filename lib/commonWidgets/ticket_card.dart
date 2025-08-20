@@ -11,7 +11,6 @@ class TicketCard extends StatelessWidget {
   final String raisedOn;
   final String dueDate;
   final String statusText;
-  final Color statusColor;
   final VoidCallback? onDownloadTap;
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
@@ -26,11 +25,30 @@ class TicketCard extends StatelessWidget {
     required this.raisedOn,
     required this.dueDate,
     required this.statusText,
-    required this.statusColor,
     this.onDownloadTap,
     this.onDirectionTap,
     this.onTap,
   });
+
+  // Method to get status color based on status text
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'allocated':
+        return AppColors.forgotColor;
+      case 'completed':
+        return AppColors.green8;
+      case 'missed deadline':
+        return AppColors.missedLineColor;
+      case 'in progress':
+        return AppColors.pendingColor;
+      case 'pending':
+        return AppColors.bellColor;
+      case 'assigned to me':
+        return AppColors.assignedColor;
+      default:
+        return Colors.grey; // Default color for unknown status
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,8 +81,8 @@ class TicketCard extends StatelessWidget {
                       horizontal: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: statusColor,
-                      borderRadius: BorderRadius.circular(20),
+                      color: _getStatusColor(statusText),
+                      borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(
                       statusText,
@@ -93,10 +111,11 @@ class TicketCard extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(
-                      Icons.file_download_outlined,
-                      color: AppColors.downloadIconColor,
+                      Icons.directions,
+                      color: Colors.amber,
+                      size: 24,
                     ),
-                    onPressed: onDownloadTap,
+                    onPressed: onDirectionTap,
                   ),
                 ],
               ),
@@ -119,11 +138,11 @@ class TicketCard extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(
-                      Icons.directions,
-                      color: Colors.amber,
-                      size: 24,
+                      Icons.file_download_outlined,
+                      color: AppColors.downloadIconColor,
                     ),
-                    onPressed: onDirectionTap,
+
+                    onPressed: onDownloadTap,
                   ),
                 ],
               ),

@@ -26,18 +26,26 @@ class ApiService {
             options: Options(headers: headers),
           );
 
-      // If Dio didn't automatically decode the JSON, manually decode it.
-      if (result.data is String) {
-        return ResponseResult.success(jsonDecode(result.data));
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        // If Dio didn't automatically decode the JSON, manually decode it.
+        if (result.data is String) {
+          return ResponseResult.success(jsonDecode(result.data), result.statusCode);
+        }
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
       }
-
-      return ResponseResult.success(result.data);
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
       );
     }
   }
@@ -67,18 +75,26 @@ class ApiService {
             options: Options(headers: headers),
           );
 
-      // If Dio didn't automatically decode the JSON, manually decode it.
-      if (result.data is String) {
-        return ResponseResult.success(jsonDecode(result.data));
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        // If Dio didn't automatically decode the JSON, manually decode it.
+        if (result.data is String) {
+          return ResponseResult.success(jsonDecode(result.data), result.statusCode);
+        }
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
       }
-
-      return ResponseResult.success(result.data);
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
       );
     }
   }
@@ -108,13 +124,22 @@ class ApiService {
             options: Options(headers: headers),
           );
 
-      return ResponseResult.success(result.data);
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
+      }
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
       );
     }
   }
@@ -131,13 +156,22 @@ class ApiService {
             options: Options(headers: headers),
           );
 
-      return ResponseResult.success(result.data);
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
+      }
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
       );
     }
   }
@@ -152,13 +186,22 @@ class ApiService {
             options: Options(headers: headers),
           );
 
-      return ResponseResult.success(result.data);
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
+      }
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
       );
     }
   }
@@ -177,18 +220,20 @@ class ResponseResult<T> extends Equatable {
   final T? data;
   final String? errorMessage;
   final DioExceptionType? dioErrorType;
+  final int? statusCode;
 
-  const ResponseResult.success(this.data)
+  const ResponseResult.success(this.data, this.statusCode)
       : errorMessage = null,
         dioErrorType = null;
 
   const ResponseResult.error({
     required this.errorMessage,
     this.dioErrorType,
+    this.statusCode,
   }) : data = null;
 
-  bool get isSuccess => errorMessage == null;
+  bool get isSuccess => errorMessage == null && statusCode == 200;
 
   @override
-  List<Object?> get props => [data, errorMessage];
+  List<Object?> get props => [data, errorMessage, statusCode];
 }

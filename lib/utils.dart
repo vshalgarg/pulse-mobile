@@ -15,6 +15,8 @@ import 'constants/app_colors.dart';
 import 'constants/constants_methods.dart';
 import 'models/device_info/device_info.dart';
 
+import 'hive_local_database/hive_db.dart';
+
 class Utils {
   static String toDateTime(DateTime dateTime) {
     final date = DateFormat.yMMMEd().format(dateTime);
@@ -292,6 +294,61 @@ class Utils {
       return changeDateFormat;
     } else {
       return DateTime.parse(changeDateFormat);
+    }
+  }
+
+  // Check if JWT token is expired
+  static bool isTokenExpired(String? token) {
+    if (token == null || token.isEmpty) return true;
+    
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return true;
+      
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final resp = utf8.decode(base64Url.decode(normalized));
+      final payloadMap = json.decode(resp);
+      
+      final exp = payloadMap['exp'];
+      if (exp == null) return true;
+      
+      final expiry = DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+      final now = DateTime.now();
+      
+      return now.isAfter(expiry);
+    } catch (e) {
+      print('Error checking token expiration: $e');
+      return true;
+    }
+  }
+
+  // Check if current stored token is expired
+  static bool isCurrentTokenExpired() {
+    final token = HiveDB.getToken;
+    return isTokenExpired(token);
+  }
+
+  // Get token expiration time
+  static DateTime? getTokenExpiration(String? token) {
+    if (token == null || token.isEmpty) return null;
+    
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) return null;
+      
+      final payload = parts[1];
+      final normalized = base64Url.normalize(payload);
+      final resp = utf8.decode(base64Url.decode(normalized));
+      final payloadMap = json.decode(resp);
+      
+      final exp = payloadMap['exp'];
+      if (exp == null) return null;
+      
+      return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
+    } catch (e) {
+      print('Error getting token expiration: $e');
+      return null;
     }
   }
 }

@@ -1,8 +1,13 @@
 import 'dart:ui';
 
+import 'package:app/bloc/forgot_password_cubit.dart';
+import 'package:app/bloc/login_bloc/auth_cubit.dart';
+import 'package:app/bloc/otp_verification_cubit.dart';
+import 'package:app/bloc/reset_password_cubit.dart';
 import 'package:app/bloc/demo_bloc_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
+import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:flutter/material.dart';
@@ -29,6 +34,10 @@ class AppRoot extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (context) => DemoBlocCubit(config.askRepository)),
+        BlocProvider(create: (context) => AuthCubit(config.authRepository)),
+        BlocProvider(create: (context) => ForgotPasswordCubit(config.authRepository)),
+        BlocProvider(create: (context) => OtpVerificationCubit(config.authRepository)),
+        BlocProvider(create: (context) => ResetPasswordCubit(config.authRepository)),
       ],
       child: MultiProvider(
         providers: [

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+
 import '../../constants/app_colors.dart';
-import '../../constants/constants_strings.dart';
 
 class SuccessDialog extends StatelessWidget {
   final String ticketId;
@@ -17,89 +17,83 @@ class SuccessDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      insetPadding: const EdgeInsets.all(20),
       backgroundColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Success icon - centered at top
-            Center(
-              child: Container(
-                width: 60,
-                height: 60,
-                decoration: const BoxDecoration(
-                  color: Colors.green,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.check,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 300,
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
+                decoration: BoxDecoration(
                   color: Colors.white,
-                  size: 30,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Text(
+                      "Ticket ID : $ticketId",
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.black,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Ticket ID
-            Text(
-              "Ticket ID : $ticketId",
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.grey,
-                fontFamily: fontFamilyMontserrat,
-              ),
-            ),
-            
-            const SizedBox(height: 10),
-            
-            // Success message
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.black87,
-                fontFamily: fontFamilyMontserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: 25),
-            
-            // Done button - properly positioned within dialog
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  onDone();
-                },
+
+              const SizedBox(height: 20),
+
+              // Done button outside
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  backgroundColor: AppColors.doneColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  padding:
+                  const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
                 ),
+                onPressed: onDone,
                 child: const Text(
                   "Done",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
+                  style: TextStyle(color: Colors.white),
                 ),
               ),
+            ],
+          ),
+
+          // Green check icon
+          const Positioned(
+            top: -25,
+            child: CircleAvatar(
+              radius: 25,
+              backgroundColor: AppColors.doneColor,
+              child: Icon(Icons.check, color: Colors.white, size: 28),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
+
+

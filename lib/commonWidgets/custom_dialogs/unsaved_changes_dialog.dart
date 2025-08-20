@@ -1,146 +1,106 @@
+import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/constants_strings.dart';
 
 class UnsavedChangesDialog extends StatelessWidget {
-  final String title;
   final String message;
   final VoidCallback onSaveAndExit;
   final VoidCallback onDiscard;
-  final VoidCallback? onCancel;
 
   const UnsavedChangesDialog({
     super.key,
-    required this.title,
     required this.message,
     required this.onSaveAndExit,
     required this.onDiscard,
-    this.onCancel,
   });
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      insetPadding: const EdgeInsets.all(20),
       backgroundColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Close button - positioned at top-right corner
-            Align(
-              alignment: Alignment.topRight,
-              child: GestureDetector(
-                onTap: onCancel ?? () => Navigator.of(context).pop(),
-                child: Container(
-                  width: 30,
-                  height: 30,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 18,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.topCenter,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // White container with message
+              Container(
+                width: 300,
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
-            ),
-            
-            const SizedBox(height: 10),
-            
-            // Title
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
-                fontFamily: fontFamilyMontserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: 15),
-            
-            // Message
-            Text(
-              message,
-              style: const TextStyle(
-                fontSize: 14,
-                color: Colors.black54,
-                fontFamily: fontFamilyMontserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            
-            const SizedBox(height: 25),
-            
-            // Action buttons - properly positioned within dialog
-            Row(
-              children: [
-                // Save & Exit button
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onSaveAndExit();
-                    },
+
+              const SizedBox(height: 20),
+
+              // Buttons outside container
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.buttonColorBg,
-                      foregroundColor: AppColors.buttonColorSite,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor:AppColors.doneColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                     ),
-                    child: const Text(
-                      "Save & Exit",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
-                    ),
+                    onPressed: onSaveAndExit,
+                    child: const Text("Save & Exit",
+                        style: TextStyle(color: Colors.white)),
                   ),
-                ),
-                
-                const SizedBox(width: 12),
-                
-                // Discard button
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onDiscard();
-                    },
+                  const SizedBox(width: 16),
+                  ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: AppColors.heartColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                     ),
-                    child: const Text(
-                      "Discard",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
-                    ),
+                    onPressed: onDiscard,
+                    child: const Text("Discard",
+                        style: TextStyle(color: Colors.white)),
                   ),
-                ),
-              ],
+                ],
+              ),
+            ],
+          ),
+
+          // Red close icon
+          Positioned(
+            top: -25,
+            right: 20,
+            child: InkWell(
+              onTap: (){
+                Navigator.pop(context);
+              },
+              child: const CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.heartColor,
+                child: Icon(Icons.close, color: Colors.white, size: 22),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -32,8 +32,10 @@ class _CorrectiveMaintenanceScreenState extends State<CorrectiveMaintenanceScree
   }
 
   void _saveAndExit() {
-    // Here you would save the data
-    // For now, just show success dialog
+    // First close the unsaved changes dialog
+    Navigator.of(context).pop();
+    
+    // Then show success dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -41,6 +43,8 @@ class _CorrectiveMaintenanceScreenState extends State<CorrectiveMaintenanceScree
         ticketId: "UVORKJR00046",
         message: "Corrective Maintenance for Site (ID: SITE-38974) has been recorded and saved.",
         onDone: () {
+          // Close the success dialog and navigate back to previous screen
+          Navigator.of(context).pop();
           Navigator.of(context).pop();
         },
       ),
@@ -60,7 +64,7 @@ class _CorrectiveMaintenanceScreenState extends State<CorrectiveMaintenanceScree
             context: context,
             barrierDismissible: false,
             builder: (context) => UnsavedChangesDialog(
-              title: "Unsaved Changes",
+              // title: "Unsaved Changes",
               message: "Do you want to cancel the Corrective Maintenance for Site (ID: SITE-38974) ?",
               onSaveAndExit: () {
                 // Save the data and exit
@@ -85,7 +89,7 @@ class _CorrectiveMaintenanceScreenState extends State<CorrectiveMaintenanceScree
                 context: context,
                 barrierDismissible: false,
                 builder: (context) => UnsavedChangesDialog(
-                  title: "Unsaved Changes",
+                  // title: "Unsaved Changes",
                   message: "Do you want to cancel the Corrective Maintenance for Site (ID: SITE-38974) ?",
                   onSaveAndExit: () {
                     // Save the data and exit

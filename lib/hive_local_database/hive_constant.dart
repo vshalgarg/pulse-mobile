@@ -22,4 +22,9 @@ class HiveConstant {
   static const String profileImage = "profileImage";
   static const String firstName = "firstName";
   static const String firebaseToken = "firebaseToken";
+  
+  // Remember me functionality
+  static const String username = "username";
+  static const String password = "password";
+  static const String rememberMe = "rememberMe";
 }

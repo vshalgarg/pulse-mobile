@@ -44,7 +44,7 @@ class CustomFormField extends StatelessWidget {
               const Text(
                 " *",
                 style: TextStyle(
-                  fontSize: 16,
+                  fontSize: 14,
                   fontWeight: FontWeight.w500,
                   color: AppColors.errorColor,
                   fontFamily: fontFamilyMontserrat,
@@ -81,6 +81,9 @@ class CustomFormField extends StatelessWidget {
               return "$label is required";
             }
             return null;
+          },
+          onFieldSubmitted: (value) {
+            // Trigger validation
           },
           onChanged: onChanged,
         ),

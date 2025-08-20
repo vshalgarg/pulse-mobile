@@ -30,20 +30,20 @@ class _HomeScreenState extends State<HomeScreen> {
             child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
           ),
 
-          // AppBar on background image
           const DashBoardAppBar(),
-          
-          // User Detail on background image
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 80, left: 16, right: 16), // Added top padding to avoid AppBar
+
+          Positioned(
+            top: 80,
+            left: 16,
+            right: 16,
+            child: SafeArea(
               child: userDetail(),
             ),
           ),
           
           // Scrollable content below
           Positioned(
-            top: 190, // Position below user details
+            top: 200,
             left: 0,
             right: 0,
             bottom: 0,
@@ -79,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       correctiveMaintenance(),
                       const SizedBox(height: 5),
                       correctiveMaintenanceTicketStatus(),
-                      const SizedBox(height: 20), // Add bottom padding
+                      const SizedBox(height: 20),
                     ],
                   ),
                 ),
@@ -192,10 +192,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "All Tickets",
-                icon: Icons.menu,
-                backgroundColor: const Color(0xFFFFF3E0),
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: const Color(0xFFFFF3E0),
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -210,10 +210,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "In progress",
-                icon: Icons.menu,
-                backgroundColor: AppColors.progressColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.progressColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -232,10 +232,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Completed",
-                icon: Icons.menu,
-                backgroundColor:  AppColors.completedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor:  AppColors.completedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -250,10 +250,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Closed",
-                icon: Icons.menu,
-                backgroundColor: AppColors.closedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.closedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -272,10 +272,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Missed DeadLine",
-                icon: Icons.menu,
-                backgroundColor: AppColors.missedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.missedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -302,10 +302,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "All Tickets",
-                icon: Icons.menu,
-                backgroundColor: const Color(0xFFFFF3E0),
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: const Color(0xFFFFF3E0),
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -320,10 +320,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "In progress",
-                icon: Icons.menu,
-                backgroundColor: AppColors.progressColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.progressColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -342,10 +342,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Completed",
-                icon: Icons.menu,
-                backgroundColor:  AppColors.completedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor:  AppColors.completedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -360,10 +360,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Closed",
-                icon: Icons.menu,
-                backgroundColor: AppColors.closedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.closedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -382,10 +382,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Missed DeadLine",
-                icon: Icons.menu,
-                backgroundColor: AppColors.missedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.missedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -440,10 +440,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "All Tickets",
-                icon: Icons.menu,
-                backgroundColor: const Color(0xFFFFF3E0),
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: const Color(0xFFFFF3E0),
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -458,10 +458,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "In progress",
-                icon: Icons.menu,
-                backgroundColor: AppColors.progressColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.progressColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -480,10 +480,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Completed",
-                icon: Icons.menu,
-                backgroundColor:  AppColors.completedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor:  AppColors.completedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -498,10 +498,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Closed",
-                icon: Icons.menu,
-                backgroundColor: AppColors.closedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.closedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -520,10 +520,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "Missed DeadLine",
-                icon: Icons.menu,
-                backgroundColor: AppColors.missedColor,
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: AppColors.missedColor,
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -550,10 +550,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "02",
                 title: "All Tickets",
-                icon: Icons.menu,
-                backgroundColor: const Color(0xFFFFF3E0),
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.menu,
+                // backgroundColor: const Color(0xFFFFF3E0),
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -568,10 +568,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "01",
                 title: "In Progress",
-                icon: Icons.refresh,
-                backgroundColor: AppColors.progressColor,
-                iconColor: Colors.purple,
-                textColor: Colors.purple.shade800,
+                // icon: Icons.refresh,
+                // backgroundColor: AppColors.progressColor,
+                // iconColor: Colors.purple,
+                // textColor: Colors.purple.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -590,10 +590,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "03",
                 title: "Assigned to Me",
-                icon: Icons.check,
-                backgroundColor: const Color(0xFFFFF8E1),
-                iconColor: Colors.orange,
-                textColor: Colors.orange.shade800,
+                // icon: Icons.check,
+                // backgroundColor: const Color(0xFFFFF8E1),
+                // iconColor: Colors.orange,
+                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -608,10 +608,10 @@ class _HomeScreenState extends State<HomeScreen> {
               child: StatusCard(
                 count: "03",
                 title: "Closed",
-                icon: Icons.folder,
-                backgroundColor: const Color(0xFFF3E5F5),
-                iconColor: Colors.purple,
-                textColor: Colors.purple.shade800,
+                // icon: Icons.folder,
+                // backgroundColor: const Color(0xFFF3E5F5),
+                // iconColor: Colors.purple,
+                // textColor: Colors.purple.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
