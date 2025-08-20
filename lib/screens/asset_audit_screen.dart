@@ -3,11 +3,11 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
+import '../commonWidgets/asset_type_card.dart';
 import '../commonWidgets/custom_form_appbar.dart';
 import '../commonWidgets/custom_form_dropdown.dart';
 import '../commonWidgets/custom_form_field.dart';
 import '../commonWidgets/custom_radio_options.dart';
-import '../commonWidgets/dynamic_form_card.dart';
 import '../commonWidgets/qr_screen_form_field.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
@@ -32,7 +32,18 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
   String? selectedType;
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false; // Control when to show validation errors
-  int batteryCount = 3;
+  int totalItemsToScan = 6; // Total items to scan
+  int currentScannedItems = 0; // Number of items already scanned
+  List<Map<String, dynamic>> savedItems = []; // List to store saved items
+  Map<String, dynamic> currentFormData = {}; // Current form data
+
+  // AssetTypeCard field values
+  String? assetCardSerialNumber;
+  String? assetCardPhoto;
+  String? assetCardStatus;
+
+  // Controllers for CustomInfoCard
+  final TextEditingController cctvSerialController = TextEditingController();
 
   @override
   void initState() {
@@ -45,6 +56,7 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
   void dispose() {
     serialController.removeListener(_onFormChanged);
     serialController.dispose();
+    cctvSerialController.dispose();
     super.dispose();
   }
 
@@ -71,7 +83,7 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
   void _saveAndExit() {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
-    
+
     // Then show success dialog
     showDialog(
       context: context,
@@ -86,6 +98,14 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
         },
       ),
     );
+  }
+
+  bool _isFormValid() {
+    // Check if AssetTypeCard fields are filled
+    return assetCardSerialNumber != null &&
+        assetCardSerialNumber!.isNotEmpty &&
+        assetCardPhoto != null &&
+        assetCardStatus != null;
   }
 
   bool _validateForm() {
@@ -119,6 +139,149 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
     return isValid;
   }
 
+  // Save current form data
+  void _saveCurrentForm() {
+    if (_isFormValid()) {
+      setState(() {
+        // Create a map of current form data
+        Map<String, dynamic> currentFormData = {
+          'serialNumber': assetCardSerialNumber,
+          'photo': assetCardPhoto,
+          'status': assetCardStatus,
+          'timestamp': DateTime.now(),
+        };
+
+        // Add to saved items list
+        savedItems.add(currentFormData);
+        currentScannedItems++;
+
+        // Clear AssetTypeCard form for next entry
+        assetCardSerialNumber = null;
+        assetCardPhoto = null;
+        assetCardStatus = null;
+
+        // Clear the controller
+        cctvSerialController.clear();
+
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Item saved successfully!',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontFamily: fontFamilyMontserrat,
+            ),
+          ),
+          backgroundColor: AppColors.primaryGreen,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  // Check if all items are scanned
+  bool _isAllItemsScanned() {
+    return currentScannedItems >= totalItemsToScan;
+  }
+
+  // Format serial number to show first 5 digits + ...
+  String _formatSerialNumber(String serialNumber) {
+    if (serialNumber.length <= 7) {
+      return serialNumber;
+    }
+    return "${serialNumber.substring(0, 5)}...";
+  }
+
+  // Edit a specific item from the saved list
+  void _editItem(Map<String, dynamic> item) {
+    setState(() {
+      // Load the item data back into the form
+      assetCardSerialNumber = item["serialNumber"];
+      assetCardPhoto = item["photo"];
+      assetCardStatus = item["status"];
+
+      // Set the serial controller text
+      cctvSerialController.text = item["serialNumber"] ?? "";
+
+      // Remove the item from saved items
+      savedItems.remove(item);
+      currentScannedItems--;
+
+      hasUnsavedChanges = true;
+    });
+
+    // Force rebuild to update CustomInfoCard with new initial values
+    setState(() {});
+
+    // Show message to user
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Item loaded for editing. Make changes and save again.',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontFamily: fontFamilyMontserrat,
+          ),
+        ),
+        backgroundColor: AppColors.primaryGreen,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  final List<FieldConfig> cardFields = [
+    // FieldConfig(
+    //   type: FieldType.textField,
+    //   label: "Circle",
+    //   initialValue: "Haryana",
+    //   isRequired: true,
+    //   isEditable: false,
+    // ),
+    // FieldConfig(
+    //   type: FieldType.textField,
+    //   label: "Cluster",
+    //   initialValue: "Haryana",
+    //   isRequired: false,
+    //   isEditable: true,
+    // ),
+    FieldConfig(
+      type: FieldType.serial,
+      label: "ACDB - Serial Number",
+      controller: TextEditingController(),
+    ),
+    FieldConfig(
+      type: FieldType.upload,
+      label: "Customer Photo",
+      isRequired: true,
+    ),
+    FieldConfig(
+      type: FieldType.optionSelector,
+      label: "Battery ODC Lock status",
+      isRequired: true,
+      options: [
+        OptionItem(
+          value: "yes",
+          label: "Yes",
+          selectedIcon: Icons.check_circle,
+          unselectedIcon: Icons.circle_outlined,
+        ),
+        OptionItem(
+          value: "no",
+          label: "No",
+          selectedIcon: Icons.cancel,
+          unselectedIcon: Icons.circle_outlined,
+        ),
+      ],
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -145,11 +308,11 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
       },
       child: Scaffold(
         extendBodyBehindAppBar: true,
+        resizeToAvoidBottomInset: false,
         appBar: CustomFormAppbar(
           title: "Asset Audit",
           onClose: () async {
             if (hasUnsavedChanges) {
-              // Show unsaved changes dialog
               showDialog(
                 context: context,
                 barrierDismissible: false,
@@ -187,6 +350,10 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          bottom:
+                              MediaQuery.of(context).viewInsets.bottom + 120,
+                        ),
                         child: Container(
                           padding: const EdgeInsets.only(
                             top: 20,
@@ -194,99 +361,215 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
                             right: 16,
                             bottom: 20,
                           ),
-                          child: IntrinsicHeight(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CustomFormField(
-                                  label: "Circle",
-                                  initialValue: "Haryana",
-                                  isRequired: true,
-                                  isEditable: false,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              CustomFormField(
+                                label: "Circle",
+                                initialValue: "Haryana",
+                                isRequired: true,
+                                isEditable: false,
+                              ),
+                              getHeight(15),
+                              CustomFormField(
+                                label: "Cluster",
+                                initialValue: "Haryana",
+                                isRequired: false,
+                                isEditable: true,
+                              ),
+                              getHeight(15),
+                              // Battery/DC Type Dropdown
+                              CustomDropdown(
+                                label: "Type",
+                                items: ["Battery", "DC"],
+                                initialValue: selectedType,
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedType = value;
+                                    hasUnsavedChanges = true;
+                                  });
+                                },
+                              ),
+                              if (showValidationErrors && selectedType == null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 5),
+                                  child: Text(
+                                    'Type selection is required',
+                                    style: TextStyle(
+                                      color: AppColors.errorColor,
+                                      fontSize: 14,
+                                      fontFamily: fontFamilyMontserrat,
+                                    ),
+                                  ),
                                 ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Cluster",
-                                  initialValue: "Haryana",
-                                  isRequired: false,
-                                  isEditable: true,
-                                ),
-                                getHeight(15),
-                                // Battery/DC Type Dropdown
-                                CustomDropdown(
-                                  label: "Type",
-                                  items: ["Battery", "DC"],
-                                  initialValue: selectedType,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedType = value;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                if (showValidationErrors &&
-                                    selectedType == null)
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 5),
-                                    child: Text(
-                                      'Type selection is required',
+                              getHeight(15),
+                              CustomOptionSelector(
+                                label: "Battery ODC Lock status",
+                                isRequired: true,
+                                options: [
+                                  OptionItem(
+                                    value: "yes",
+                                    label: "Yes",
+                                    selectedIcon: Icons.check_circle,
+                                    unselectedIcon: Icons.circle_outlined,
+                                  ),
+                                  OptionItem(
+                                    value: "no",
+                                    label: "No",
+                                    selectedIcon: Icons.cancel,
+                                    unselectedIcon: Icons.circle_outlined,
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  print("Selected: $value");
+                                  setState(() {
+                                    selectedBatteryStatus = value;
+                                    hasUnsavedChanges = true;
+                                  });
+                                },
+                              ),
+
+                              getHeight(15),
+                              SerialNumberField(
+                                label: "ACDB - Serial Number",
+                                controller: serialController,
+                              ),
+                              getHeight(15),
+                              // Count Field
+                              CustomFormField(
+                                label:
+                                    "Number of ${selectedType ?? 'Batteries'}",
+                                initialValue: totalItemsToScan.toString(),
+                                isRequired: true,
+                                isEditable: true,
+                                onChanged: (value) {
+                                  setState(() {
+                                    totalItemsToScan = int.tryParse(value) ?? 6;
+                                    hasUnsavedChanges = true;
+                                  });
+                                },
+                              ),
+                              getHeight(10),
+                              CustomInfoCard(
+                                serialLabel: "CCTV - Serial Number",
+                                photoLabel: "Add a Photo",
+                                statusLabel: "Status",
+                                serialController: cctvSerialController,
+                                onSave: _saveCurrentForm,
+                                onPhotoTap: (photoPath) {
+                                  setState(() {
+                                    assetCardPhoto = photoPath;
+                                    hasUnsavedChanges = true;
+                                  });
+                                },
+                                onStatusChanged: (val) {
+                                  setState(() {
+                                    assetCardStatus = val ? "OK" : "Not OK";
+                                    hasUnsavedChanges = true;
+                                  });
+                                },
+                                onSerialChanged: (serialNumber) {
+                                  setState(() {
+                                    assetCardSerialNumber = serialNumber;
+                                    hasUnsavedChanges = true;
+                                  });
+                                },
+                                initialStatus: assetCardStatus == "OK"
+                                    ? true
+                                    : (assetCardStatus == "Not OK"
+                                          ? false
+                                          : null),
+                                initialPhotoPath: assetCardPhoto,
+                              ),
+
+                              // if (!_isAllItemsScanned() &&
+                              //     savedItems.isNotEmpty)
+                              //   Align(
+                              //     alignment: Alignment.centerRight,
+                              //     child: Container(
+                              //       width:150,
+                              //       child: ElevatedButton(
+                              //         onPressed: () {
+                              //           // Clear form for next scan
+                              //           setState(() {
+                              //             serialController.clear();
+                              //             selectedType = null;
+                              //             selectedBatteryStatus = null;
+                              //             selectedFile = null;
+                              //             hasUnsavedChanges = false;
+                              //             showValidationErrors = false;
+                              //           });
+                              //         },
+                              //         style: ElevatedButton.styleFrom(
+                              //           backgroundColor: Color(0xFFDBE2F0),
+                              //           padding: const EdgeInsets.symmetric(
+                              //             vertical: 12,
+                              //           ),
+                              //           shape: RoundedRectangleBorder(
+                              //             borderRadius: BorderRadius.circular(8),
+                              //           ),
+                              //         ),
+                              //         child: Text(
+                              //           // (${currentScannedItems}/${totalItemsToScan})
+                              //           "Scan More",
+                              //           style: const TextStyle(
+                              //             color:Color(0xFF2D426E),
+                              //             fontSize: 16,
+                              //             fontWeight: FontWeight.w600,
+                              //             fontFamily: fontFamilyMontserrat,
+                              //           ),
+                              //         ),
+                              //       ),
+                              //     ),
+                              //   ),
+                              if (savedItems.isNotEmpty) ...[
+                                _buildSavedItemsList(),
+                                getHeight(20),
+                              ],
+
+                              getHeight(20),
+
+                              // Save Button
+                              if (_validateForm())
+                                Container(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (context) => SuccessDialog(
+                                          ticketId: "UVORKJR00044",
+                                          message:
+                                              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
+                                          onDone: () {
+                                            Navigator.of(context).pop();
+                                            Navigator.of(context).pop();
+                                          },
+                                        ),
+                                      );
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primaryGreen,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: const Text(
+                                      "Save",
                                       style: TextStyle(
-                                        color: AppColors.errorColor,
-                                        fontSize: 14,
+                                        color: Colors.white,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
                                         fontFamily: fontFamilyMontserrat,
                                       ),
                                     ),
                                   ),
-                                getHeight(15),
-                                CustomOptionSelector(
-                                  label: "Battery ODC Lock status",
-                                  isRequired: true,
-                                  options: [
-                                    OptionItem(
-                                      value: "yes",
-                                      label: "Yes",
-                                      selectedIcon: Icons.check_circle,
-                                      unselectedIcon: Icons.circle_outlined,
-                                    ),
-                                    OptionItem(
-                                      value: "no",
-                                      label: "No",
-                                      selectedIcon: Icons.cancel,
-                                      unselectedIcon: Icons.circle_outlined,
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    print("Selected: $value");
-                                    setState(() {
-                                      selectedBatteryStatus = value;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
                                 ),
-
-                                getHeight(15),
-                                SerialNumberField(
-                                  label: "ACDB - Serial Number",
-                                  controller: serialController,
-                                 ),
-                                getHeight(15),
-                                // Count Dropdown
-                                CustomDropdown(
-                                  label:
-                                      "Number of ${selectedType ?? 'Batteries'}",
-                                  items: ["1", "2", "3", "4"],
-                                  initialValue: batteryCount.toString(),
-                                  onChanged: (value) {
-                                    setState(() {
-                                      batteryCount = int.parse(value!);
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(10),
-                                listItems(),
-                              ],
-                            ),
+                            ],
                           ),
                         ),
                       ),
@@ -346,102 +629,158 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
     );
   }
 
-  final List<FieldConfig> cardFields = [
-    FieldConfig(
-      type: FieldType.textField,
-      label: "Circle",
-      initialValue: "Haryana",
-      isRequired: true,
-      isEditable: false,
-    ),
-    FieldConfig(
-      type: FieldType.serial,
-      label: "ACDB - Serial Number",
-      controller: TextEditingController(),
-    ),
-    FieldConfig(
-      type: FieldType.upload,
-      label: "Customer Photo",
-      isRequired: true,
-    ),
-    FieldConfig(
-      type: FieldType.optionSelector,
-      label: "Battery ODC Lock status",
-      isRequired: true,
-      options: [
-        OptionItem(
-          value: "yes",
-          label: "Yes",
-          selectedIcon: Icons.check_circle,
-          unselectedIcon: Icons.circle_outlined,
-        ),
-        OptionItem(
-          value: "no",
-          label: "No",
-          selectedIcon: Icons.cancel,
-          unselectedIcon: Icons.circle_outlined,
-        ),
-      ],
-    ),
-  ];
-
-  Widget listItems() {
+  // Build saved items list
+  Widget _buildSavedItemsList() {
     return Column(
-      children: List.generate(batteryCount, (index) {
-        // Create dynamic fields with card number in labels
-        List<FieldConfig> dynamicFields = [
-          // FieldConfig(
-          //   type: FieldType.textField,
-          //   label: "Circle",
-          //   initialValue: "Haryana",
-          //   isRequired: true,
-          //   isEditable: false,
-          // ),
-          FieldConfig(
-            type: FieldType.serial,
-            label: "MPPT No. ${index + 1} - Serial Number",
-            controller: TextEditingController(),
+      children: [
+        // Header Row
+        Container(
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.green7,
+            borderRadius: BorderRadius.circular(5),
           ),
-          FieldConfig(
-            type: FieldType.upload,
-            label: "Customer Photo",
-            isRequired: true,
-          ),
-          FieldConfig(
-            type: FieldType.optionSelector,
-            label: "Battery ODC Lock status",
-            isRequired: true,
-            options: [
-              OptionItem(
-                value: "yes",
-                label: "Yes",
-                selectedIcon: Icons.check_circle,
-                unselectedIcon: Icons.circle_outlined,
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      "Serial No.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Status",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Scanned",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Photo",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  const Expanded(
+                    child: Text(
+                      "Edit",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              OptionItem(
-                value: "no",
-                label: "No",
-                selectedIcon: Icons.cancel,
-                unselectedIcon: Icons.circle_outlined,
-              ),
+              const SizedBox(height: 8),
+
+              ...savedItems
+                  .map(
+                    (item) => Container(
+                      margin: const EdgeInsets.only(top: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _formatSerialNumber(item["serialNumber"] ?? ""),
+                              style: const TextStyle(
+                                color: AppColors.color555555,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Text(
+                              item["status"] ?? "",
+                              style: const TextStyle(
+                                color: AppColors.color555555,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Icon(Icons.check, color: Colors.green),
+                          ),
+                          Expanded(
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.camera_alt,
+                                color: AppColors.color555555,
+                              ),
+                              onPressed: () {
+                                // handle photo click
+                              },
+                            ),
+                          ),
+                          Expanded(
+                            child: IconButton(
+                              icon: const Icon(
+                                Icons.edit_calendar_outlined,
+                                color: AppColors.color555555,
+                              ),
+                              onPressed: () {
+                                // handle edit click for this item
+                                _editItem(item);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
             ],
           ),
-        ];
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: 10),
-          child: DynamicFormCard(
-            index: index,
-            fields: dynamicFields,
-            onValueChanged: (fieldLabel, value) {
-              print("Card $index -> $fieldLabel: $value");
-              setState(() {
-                hasUnsavedChanges = true;
-              });
-            },
-          ),
-        );
-      }),
+        ),
+      ],
     );
   }
 }

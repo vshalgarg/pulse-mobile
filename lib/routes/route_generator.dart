@@ -3,7 +3,6 @@ import 'package:app/screens/asset_audit_screen.dart';
 import 'package:app/screens/corrective_maintenance_screen.dart';
 import 'package:app/screens/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
-import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
 import 'package:app/screens/preventive_maintainance_screen.dart';
 import 'package:app/screens/reset_password_screen.dart';

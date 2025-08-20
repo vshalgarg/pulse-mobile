@@ -41,14 +41,14 @@ class DynamicFormCard extends StatelessWidget {
             
             Widget fieldWidget;
             switch (field.type) {
-              case FieldType.textField:
-                fieldWidget = CustomFormField(
-                  label: field.label,
-                  initialValue: field.initialValue ?? "",
-                  isRequired: field.isRequired,
-                  isEditable: field.isEditable,
-                );
-                break;
+              // case FieldType.textField:
+              //   fieldWidget = CustomFormField(
+              //     label: field.label,
+              //     initialValue: field.initialValue ?? "",
+              //     isRequired: field.isRequired,
+              //     isEditable: field.isEditable,
+              //   );
+              //   break;
 
               case FieldType.dropdown:
                 fieldWidget = CustomDropdown(

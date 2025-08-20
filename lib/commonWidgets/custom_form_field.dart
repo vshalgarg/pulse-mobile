@@ -60,7 +60,7 @@ class CustomFormField extends StatelessWidget {
           readOnly: !isEditable,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isEditable ? Colors.white : AppColors.borderColorE0E0E0, // Grey when not editable
             contentPadding: const EdgeInsets.symmetric(
               vertical: 8,
               horizontal: 16,
@@ -70,7 +70,7 @@ class CustomFormField extends StatelessWidget {
               borderSide: BorderSide.none,
             ),
           ),
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
               fontSize: 16,
