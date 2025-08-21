@@ -1,3 +1,5 @@
+import 'package:app/bloc/dashboard_cubit.dart';
+import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/commonWidgets/dashBoard_appBar.dart';
 import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -6,6 +8,7 @@ import 'package:app/screens/corrective_maintenance_screen.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
@@ -20,73 +23,131 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   @override
+  void initState() {
+    super.initState();
+    context.read<DashboardCubit>().getDashboardCount();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          // Background
-          Positioned.fill(
-            child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
-          ),
+      body: BlocBuilder<DashboardCubit, DashboardState>(
+        builder: (context, state) {
+          return Stack(
+            children: [
+              // Background
+              Positioned.fill(
+                child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
+              ),
 
-          const DashBoardAppBar(),
+              const DashBoardAppBar(),
 
-          Positioned(
-            top: 80,
-            left: 16,
-            right: 16,
-            child: SafeArea(
-              child: userDetail(),
-            ),
-          ),
-          
-          // Scrollable content below
-          Positioned(
-            top: 200,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                color: AppColors.green7,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(10),
-                  topRight: Radius.circular(10),
+              Positioned(
+                top: 80,
+                left: 16,
+                right: 16,
+                child: SafeArea(
+                  child: userDetail(),
                 ),
               ),
-              child: SingleChildScrollView(
-                physics: const ClampingScrollPhysics(),
+              
+              // Scrollable content below
+              Positioned(
+                top: 200,
+                left: 0,
+                right: 0,
+                bottom: 0,
                 child: Container(
-                  constraints: BoxConstraints(
-                    minHeight: MediaQuery.of(context).size.height - 200, // Ensure minimum height
+                  decoration: BoxDecoration(
+                    color: AppColors.green7,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      topRight: Radius.circular(10),
+                    ),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                  child: Column(
-                    children: [
-                      assetAudit(),
-                      const SizedBox(height: 5),
-                      assetAuditTicketStatus(),
-                      const SizedBox(height: 15),
-                      pmAudit(),
-                      const SizedBox(height: 5),
-                      pmAuditTicketStatus(),
-                      const SizedBox(height: 15),
-                      energyReading(),
-                      const SizedBox(height: 5),
-                      energyReadingTicketStatus(),
-                      const SizedBox(height: 15),
-                      correctiveMaintenance(),
-                      const SizedBox(height: 5),
-                      correctiveMaintenanceTicketStatus(),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
+                  child: state is DashboardLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(),
+                        )
+                      : state is DashboardFailure
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    'Failed to load dashboard data',
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.red,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      context.read<DashboardCubit>().getDashboardCount();
+                                    },
+                                    child: Text('Retry'),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : RefreshIndicator(
+                              onRefresh: () async {
+                                context.read<DashboardCubit>().getDashboardCount();
+                              },
+                              child: SingleChildScrollView(
+                                physics: const ClampingScrollPhysics(),
+                                child: Container(
+                                  constraints: BoxConstraints(
+                                    minHeight: MediaQuery.of(context).size.height - 200,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                  child: Column(
+                                    children: [
+                                      // Asset Audit Section - Only show if data exists
+                                      if (_hasAssetAuditData(state)) ...[
+                                        assetAudit(),
+                                        const SizedBox(height: 5),
+                                        assetAuditTicketStatus(state),
+                                        const SizedBox(height: 15),
+                                      ],
+                                      
+                                      // Preventive Maintenance Section - Only show if data exists
+                                      if (_hasPreventiveMaintenanceData(state)) ...[
+                                        pmAudit(),
+                                        const SizedBox(height: 5),
+                                        pmAuditTicketStatus(state),
+                                        const SizedBox(height: 15),
+                                      ],
+                                      
+                                      // Energy Reading Section - Only show if data exists
+                                      if (_hasEnergyReadingData(state)) ...[
+                                        energyReading(),
+                                        const SizedBox(height: 5),
+                                        energyReadingTicketStatus(state),
+                                        const SizedBox(height: 15),
+                                      ],
+                                      
+                                      // Corrective Maintenance Section - Only show if data exists
+                                      if (_hasCorrectiveMaintenanceData(state)) ...[
+                                        correctiveMaintenance(),
+                                        const SizedBox(height: 5),
+                                        correctiveMaintenanceTicketStatus(state),
+                                        const SizedBox(height: 15),
+                                      ],
+                                      
+                                      const SizedBox(height: 20),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                 ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -108,7 +169,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             Text(
-              'Here’s a quick look at your tasks.',
+              'Here\'s a quick look at your tasks.',
               style: TextStyle(
                 fontSize: AppSizes.sixteen,
                 fontFamily: dmSans,
@@ -126,9 +187,11 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           offset: const Offset(0, 50),
           color: Colors.white,
-          onSelected: (value) {
+          onSelected: (value) async {
             if (value == 1) {
-             pushReplacementPage(context, LoginScreen());
+              // Clear all authentication data before navigating to login
+              await context.read<AuthCubit>().forceClearAllData();
+              pushReplacementPage(context, LoginScreen());
             }
           },
           itemBuilder: (context) => [
@@ -157,7 +220,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
   Widget assetAudit() {
     return Container(
       height: 45,
@@ -183,19 +245,47 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-  Widget assetAuditTicketStatus() {
+
+  Widget assetAuditTicketStatus(DashboardState state) {
+    String allTicketsCount = "0";
+    String dueCount = "0";
+    String completedCount = "0";
+    String closedCount = "0";
+    String missedDeadlineCount = "0";
+
+    if (state is DashboardSuccess) {
+      final assetAuditData = state.dashboardModel.data?["Asset Audit"];
+      if (assetAuditData != null) {
+        for (var ticket in assetAuditData) {
+          switch (ticket.ticketCode) {
+            case "All Tickets":
+              allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Due":
+              dueCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Completed":
+              completedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Closed":
+              closedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Missed Deadline":
+              missedDeadlineCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+          }
+        }
+      }
+    }
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: allTicketsCount,
                 title: "All Tickets",
-                // icon: Icons.menu,
-                // backgroundColor: const Color(0xFFFFF3E0),
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -208,12 +298,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "02",
-                title: "In progress",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.progressColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
+                count: dueCount,
+                title: "In Progress",
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -230,12 +316,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: completedCount,
                 title: "Completed",
-                // icon: Icons.menu,
-                // backgroundColor:  AppColors.completedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -248,12 +330,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: closedCount,
                 title: "Closed",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.closedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -270,12 +348,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: missedDeadlineCount,
                 title: "Missed DeadLine",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.missedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "Asset Audit",
@@ -293,19 +367,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget pmAuditTicketStatus() {
+  Widget pmAuditTicketStatus(DashboardState state) {
+    String allTicketsCount = "0";
+    String dueCount = "0";
+    String completedCount = "0";
+    String closedCount = "0";
+    String missedDeadlineCount = "0";
+
+    if (state is DashboardSuccess) {
+      final pmData = state.dashboardModel.data?["Preventive Maintenance"];
+      if (pmData != null) {
+        for (var ticket in pmData) {
+          switch (ticket.ticketCode) {
+            case "All Tickets":
+              allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Due":
+              dueCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Completed":
+              completedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Closed":
+              closedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Missed Deadline":
+              missedDeadlineCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+          }
+        }
+      }
+    }
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: allTicketsCount,
                 title: "All Tickets",
-                // icon: Icons.menu,
-                // backgroundColor: const Color(0xFFFFF3E0),
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -318,12 +419,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "02",
-                title: "In progress",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.progressColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
+                count: dueCount,
+                title: "In Progress",
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -340,12 +437,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: completedCount,
                 title: "Completed",
-                // icon: Icons.menu,
-                // backgroundColor:  AppColors.completedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -358,12 +451,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: closedCount,
                 title: "Closed",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.closedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -380,12 +469,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: missedDeadlineCount,
                 title: "Missed DeadLine",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.missedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "PM",
@@ -430,20 +515,46 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget energyReadingTicketStatus(DashboardState state) {
+    String allTicketsCount = "0";
+    String dueCount = "0";
+    String completedCount = "0";
+    String closedCount = "0";
+    String missedDeadlineCount = "0";
 
-  Widget energyReadingTicketStatus() {
+    if (state is DashboardSuccess) {
+      final erData = state.dashboardModel.data?["Energy Readiing"];
+      if (erData != null) {
+        for (var ticket in erData) {
+          switch (ticket.ticketCode) {
+            case "All Tickets":
+              allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Due":
+              dueCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Completed":
+              completedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Closed":
+              closedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Missed Deadline":
+              missedDeadlineCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+          }
+        }
+      }
+    }
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: allTicketsCount,
                 title: "All Tickets",
-                // icon: Icons.menu,
-                // backgroundColor: const Color(0xFFFFF3E0),
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -456,12 +567,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "02",
-                title: "In progress",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.progressColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
+                count: dueCount,
+                title: "In Progress",
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -478,12 +585,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: completedCount,
                 title: "Completed",
-                // icon: Icons.menu,
-                // backgroundColor:  AppColors.completedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -496,12 +599,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: closedCount,
                 title: "Closed",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.closedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -518,12 +617,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: missedDeadlineCount,
                 title: "Missed DeadLine",
-                // icon: Icons.menu,
-                // backgroundColor: AppColors.missedColor,
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
@@ -541,19 +636,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget correctiveMaintenanceTicketStatus() {
+  Widget correctiveMaintenanceTicketStatus(DashboardState state) {
+    String allTicketsCount = "0";
+    String inProgressCount = "0";
+    String assignedToMeCount = "0";
+    String closedCount = "0";
+
+    if (state is DashboardSuccess) {
+      final cmData = state.dashboardModel.data?["Corrective Maintenance"];
+      if (cmData != null) {
+        for (var ticket in cmData) {
+          switch (ticket.ticketCode) {
+            case "All Tickets":
+              allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "In Progress":
+              inProgressCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Assigned to Me":
+              assignedToMeCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "Closed":
+              closedCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+          }
+        }
+      }
+    }
+
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: StatusCard(
-                count: "02",
+                count: allTicketsCount,
                 title: "All Tickets",
-                // icon: Icons.menu,
-                // backgroundColor: const Color(0xFFFFF3E0),
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -566,12 +684,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "01",
+                count: inProgressCount,
                 title: "In Progress",
-                // icon: Icons.refresh,
-                // backgroundColor: AppColors.progressColor,
-                // iconColor: Colors.purple,
-                // textColor: Colors.purple.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -588,12 +702,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: StatusCard(
-                count: "03",
+                count: assignedToMeCount,
                 title: "Assigned to Me",
-                // icon: Icons.check,
-                // backgroundColor: const Color(0xFFFFF8E1),
-                // iconColor: Colors.orange,
-                // textColor: Colors.orange.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -606,12 +716,8 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: "03",
+                count: closedCount,
                 title: "Closed",
-                // icon: Icons.folder,
-                // backgroundColor: const Color(0xFFF3E5F5),
-                // iconColor: Colors.purple,
-                // textColor: Colors.purple.shade800,
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "CM",
@@ -667,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: AppColors.auditColor,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(10),
-                  topRight: Radius.circular(5),
+                topRight: Radius.circular(5),
                 bottomLeft: Radius.circular(5),
                 bottomRight: Radius.circular(5),
               ),
@@ -691,7 +797,7 @@ class _HomeScreenState extends State<HomeScreen> {
             color: AppColors.auditColor,
             borderRadius: BorderRadius.only(
               topRight: Radius.circular(10),
-              topLeft:  Radius.circular(5),
+              topLeft: Radius.circular(5),
               bottomRight: Radius.circular(5),
               bottomLeft: Radius.circular(5),
             ),
@@ -713,5 +819,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // Helper methods to check if data exists for each section
+  bool _hasAssetAuditData(DashboardState state) {
+    if (state is DashboardSuccess) {
+      final assetAuditData = state.dashboardModel.data?["Asset Audit"];
+      return assetAuditData != null && assetAuditData.isNotEmpty;
+    }
+    return false;
+  }
 
+  bool _hasPreventiveMaintenanceData(DashboardState state) {
+    if (state is DashboardSuccess) {
+      final pmData = state.dashboardModel.data?["Preventive Maintenance"];
+      return pmData != null && pmData.isNotEmpty;
+    }
+    return false;
+  }
+
+  bool _hasEnergyReadingData(DashboardState state) {
+    if (state is DashboardSuccess) {
+      final erData = state.dashboardModel.data?["Energy Readiing"];
+      return erData != null && erData.isNotEmpty;
+    }
+    return false;
+  }
+
+  bool _hasCorrectiveMaintenanceData(DashboardState state) {
+    if (state is DashboardSuccess) {
+      // For now, we'll check if there's any CM data in the response
+      // You can update this when the API includes CM data
+      final cmData = state.dashboardModel.data?["Corrective Maintenance"];
+      return cmData != null && cmData.isNotEmpty;
+    }
+    return false;
+  }
 }

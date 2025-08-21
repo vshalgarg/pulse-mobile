@@ -65,10 +65,15 @@ class HiveDB {
   }
 
   static Future<void> logout() async {
+    print("HiveDB: Starting logout process - clearing all authentication data");
     var userCredential = HiveDB.getHiveBox(HiveConstant.userCreds);
-    // await userCredential.put("isBiometricValue", false);
+    
+    // Clear all authentication-related data
     await userCredential.delete(HiveConstant.userId);
     await userCredential.delete(HiveConstant.token);
+    await userCredential.delete(HiveConstant.tokenExpiry);
+    await userCredential.delete(HiveConstant.firstName);
+    await userCredential.delete(HiveConstant.email);
     
     // Clear saved credentials if remember me is not enabled
     if (!getRememberMe) {
@@ -76,15 +81,23 @@ class HiveDB {
       await userCredential.delete(HiveConstant.password);
       await userCredential.delete(HiveConstant.rememberMe);
     }
+    
+    print("HiveDB: Logout completed - all authentication data cleared");
   }
 
   // Clear all saved credentials including remember me data
   static Future<void> clearAllCredentials() async {
+    print("HiveDB: Clearing all credentials including remember me data");
     var userCredential = HiveDB.getHiveBox(HiveConstant.userCreds);
     await userCredential.delete(HiveConstant.username);
     await userCredential.delete(HiveConstant.password);
     await userCredential.delete(HiveConstant.rememberMe);
     await userCredential.delete(HiveConstant.token);
+    await userCredential.delete(HiveConstant.tokenExpiry);
+    await userCredential.delete(HiveConstant.userId);
+    await userCredential.delete(HiveConstant.firstName);
+    await userCredential.delete(HiveConstant.email);
+    print("HiveDB: All credentials cleared successfully");
   }
 
   static var userCredential = HiveDB.getHiveBox(HiveConstant.userCreds);
@@ -104,6 +117,24 @@ class HiveDB {
   // save token
   static Future<void> saveToken(String token) async {
     await userCredential.put(HiveConstant.token, token);
+  }
+
+  // get token expiry
+  static DateTime? get getTokenExpiry {
+    final expiryString = userCredential.get(HiveConstant.tokenExpiry);
+    if (expiryString != null) {
+      try {
+        return DateTime.parse(expiryString);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  // save token expiry
+  static Future<void> saveTokenExpiry(DateTime expiry) async {
+    await userCredential.put(HiveConstant.tokenExpiry, expiry.toIso8601String());
   }
 
   // save username

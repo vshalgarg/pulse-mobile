@@ -126,7 +126,7 @@ void _checkTokenStatus() async {
     if (Utils.isTokenExpired(token)) {
       print('Token is expired on app startup');
       // Clear expired token
-      HiveDB.clearAllData();
+      await HiveDB.logout();
     } else {
       print('Token is valid on app startup');
     }

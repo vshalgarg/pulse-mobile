@@ -28,17 +28,40 @@ class DioExceptions implements Exception {
         break;
       case DioExceptionType.badResponse:
         if (dioError.response!.statusCode == 400) {
-          message = dioError.response!.statusMessage!;
+          // Try to extract error message from response body
+          try {
+            final responseData = dioError.response!.data;
+            if (responseData is Map<String, dynamic> && responseData.containsKey('message')) {
+              message = responseData['message'];
+            } else if (responseData is String) {
+              message = responseData;
+            } else {
+              message = dioError.response!.statusMessage ?? 'Bad request';
+            }
+          } catch (e) {
+            message = dioError.response!.statusMessage ?? 'Bad request';
+          }
           break;
         }
         _handleError(dioError.response?.statusCode, dioError);
         break;
       case DioExceptionType.unknown:
         if (dioError.message.toString().contains("SocketException")) {
-          message = 'No Internet';
+          message = 'No Internet connection. Please check your network and try again.';
           break;
         }
-        message = "Receive timeout in connection with API server";
+        // Check for other common network issues
+        if (dioError.message.toString().contains("timeout")) {
+          message = 'Request timed out. Please check your connection and try again.';
+          break;
+        }
+        if (dioError.message.toString().contains("connection")) {
+          message = 'Unable to connect to server. Please check your internet connection.';
+          break;
+        }
+        // Log the actual error for debugging
+        print("DioExceptionType.unknown - Actual error: ${dioError.message}");
+        message = "Connection failed. Please try again.";
         break;
       default:
         message = "Something went wrong";
@@ -49,13 +72,48 @@ class DioExceptions implements Exception {
   _handleError(int? statusCode, dynamic error) {
     switch (statusCode) {
       case 401:
-        // kDebugPrint('$error');
-        // return sessionExpire(error);
-        return error;
+        // Try to extract error message from response body
+        try {
+          final responseData = error.response?.data;
+          if (responseData is Map<String, dynamic> && responseData.containsKey('message')) {
+            message = responseData['message'];
+          } else if (responseData is String) {
+            message = responseData;
+          } else {
+            message = 'Unauthorized access';
+          }
+        } catch (e) {
+          message = 'Unauthorized access';
+        }
+        break;
       case 500:
-        return error;
+        try {
+          final responseData = error.response?.data;
+          if (responseData is Map<String, dynamic> && responseData.containsKey('message')) {
+            message = responseData['message'];
+          } else if (responseData is String) {
+            message = responseData;
+          } else {
+            message = 'Internal server error';
+          }
+        } catch (e) {
+          message = 'Internal server error';
+        }
+        break;
       default:
-        return error;
+        try {
+          final responseData = error.response?.data;
+          if (responseData is Map<String, dynamic> && responseData.containsKey('message')) {
+            message = responseData['message'];
+          } else if (responseData is String) {
+            message = responseData;
+          } else {
+            message = 'Request failed with status code: $statusCode';
+          }
+        } catch (e) {
+          message = 'Request failed with status code: $statusCode';
+        }
+        break;
     }
   }
 

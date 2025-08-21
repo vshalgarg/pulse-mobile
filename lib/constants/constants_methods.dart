@@ -82,10 +82,8 @@ kRoundedShape([
 const kCircularProgressIndicator = Center(child: CircularProgressIndicator());
 
 void showCustomToast(BuildContext context, String message) {
-  FToast fToast = FToast();
-  fToast.init(context);
-  fToast.removeCustomToast();
-  fToast.showToast(
+  FToast().init(context);
+  FToast().showToast(
     child: callToast(message),
     gravity: ToastGravity.CENTER,
     toastDuration: const Duration(seconds: 2),

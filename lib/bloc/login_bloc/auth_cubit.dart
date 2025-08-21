@@ -2,9 +2,11 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../constants/constants_strings.dart';
+import '../../hive_local_database/hive_constant.dart';
 import '../../hive_local_database/hive_db.dart';
 import '../../models/auth_model.dart';
 import '../../repositories/auth_repository.dart';
+import '../../utils.dart';
 
 part 'auth_state.dart';
 
@@ -21,25 +23,36 @@ class AuthCubit extends Cubit<AuthState> {
   }) async {
     if (state is AuthLoading) return;
     
+    print("AuthCubit: Starting login process for username: $username");
     emit(AuthLoading());
     
-    final result = await authRepository.login(
-      username: username,
-      password: password,
-    );
+    try {
+      final result = await authRepository.login(
+        username: username,
+        password: password,
+      );
 
-    if (result.isSuccess && result.data != null) {
-      // Save tokens to local storage
-      await _saveTokensToStorage(result.data!);
-      
-      // Save user credentials if remember me is checked
-      if (rememberMe) {
-        await _saveUserCredentials(username, password);
+      print("AuthCubit: Login result - isSuccess: ${result.isSuccess}, errorMessage: ${result.errorMessage}");
+
+      if (result.isSuccess && result.data != null) {
+        print("AuthCubit: Login successful, saving tokens to storage");
+        // Save tokens to local storage
+        await _saveTokensToStorage(result.data!);
+        
+        // Save user credentials if remember me is checked
+        if (rememberMe) {
+          await _saveUserCredentials(username, password);
+        }
+        
+        print("AuthCubit: Emitting AuthSuccess state");
+        emit(AuthSuccess(result.data!));
+      } else {
+        print("AuthCubit: Login failed, emitting AuthFailure state");
+        emit(AuthFailure(result.errorMessage ?? somethingWentWrong));
       }
-      
-      emit(AuthSuccess(result.data!));
-    } else {
-      emit(AuthFailure(result.errorMessage ?? somethingWentWrong));
+    } catch (e) {
+      print("AuthCubit: Login exception - $e");
+      emit(AuthFailure('Login failed: $e'));
     }
   }
 
@@ -48,6 +61,24 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       // Save access token
       await HiveDB.saveToken(authData.token);
+      
+      // Save token expiry if available
+      if (authData.tokenExpiry != null) {
+        await HiveDB.saveTokenExpiry(authData.tokenExpiry!);
+      }
+      
+      // Save user ID if available
+      if (authData.userId != null) {
+        await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.userId, authData.userId);
+      }
+      
+      // Save user info if available
+      if (authData.firstName != null) {
+        await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.firstName, authData.firstName);
+      }
+      if (authData.email != null) {
+        await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.email, authData.email);
+      }
     } catch (e) {
       // Handle storage error
       emit(AuthFailure('Failed to save authentication token'));
@@ -69,9 +100,12 @@ class AuthCubit extends Cubit<AuthState> {
   // Logout method
   Future<void> logout() async {
     try {
+      print("AuthCubit: Starting logout process");
       await HiveDB.logout();
+      print("AuthCubit: Logout completed, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {
+      print("AuthCubit: Logout failed - $e");
       emit(AuthFailure('Failed to logout'));
     }
   }
@@ -79,9 +113,89 @@ class AuthCubit extends Cubit<AuthState> {
   // Check if user is logged in
   bool get isLoggedIn {
     final token = HiveDB.getToken;
-    return token != null && token.isNotEmpty;
+    print("AuthCubit: Checking if user is logged in - token: ${token != null ? '${token.substring(0, 20)}...' : 'null'}");
+    
+    if (token == null || token.isEmpty) {
+      print("AuthCubit: No token found - user not logged in");
+      return false;
+    }
+    
+    // Check if token is expired
+    if (Utils.isTokenExpired(token)) {
+      print("AuthCubit: Token is expired - clearing token and logging out");
+      // Clear expired token
+      logout();
+      return false;
+    }
+    
+    print("AuthCubit: User is logged in with valid token");
+    return true;
   }
 
   // Get stored token
   String? get getStoredToken => HiveDB.getToken;
+
+  // Auto login with stored credentials
+  Future<void> autoLogin() async {
+    if (state is AuthLoading) return;
+    
+    final username = HiveDB.getUsername;
+    final password = HiveDB.getPassword;
+    final rememberMe = HiveDB.getRememberMe;
+    
+    // Only auto-login if remember me is enabled and credentials exist
+    if (rememberMe && username != null && password != null) {
+      emit(AuthLoading());
+      
+      final result = await authRepository.login(
+        username: username,
+        password: password,
+      );
+
+      if (result.isSuccess && result.data != null) {
+        // Save tokens to local storage
+        await _saveTokensToStorage(result.data!);
+        emit(AuthSuccess(result.data!));
+      } else {
+        // Auto-login failed, clear stored credentials
+        await HiveDB.clearAllCredentials();
+        emit(AuthInitial());
+      }
+    } else {
+      emit(AuthInitial());
+    }
+  }
+
+  // Check token validity
+  bool get isTokenValid {
+    final token = HiveDB.getToken;
+    if (token == null || token.isEmpty) return false;
+    
+    return !Utils.isTokenExpired(token);
+  }
+
+  // Get token expiration time
+  DateTime? get getTokenExpiration => HiveDB.getTokenExpiry;
+
+  // Get remember me status
+  bool get getRememberMe => HiveDB.getRememberMe;
+
+  // Get stored username
+  String? get getStoredUsername => HiveDB.getUsername;
+
+  // Get stored password
+  String? get getStoredPassword => HiveDB.getPassword;
+
+  // Force clear all data (for manual logout)
+  Future<void> forceClearAllData() async {
+    try {
+      print("AuthCubit: Force clearing all data");
+      await HiveDB.clearAllCredentials();
+      print("AuthCubit: All data cleared, emitting AuthInitial state");
+      emit(AuthInitial());
+    } catch (e) {
+      print("AuthCubit: Force clear failed - $e");
+      emit(AuthFailure('Failed to clear data'));
+    }
+  }
 }

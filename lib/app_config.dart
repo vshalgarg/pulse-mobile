@@ -1,5 +1,6 @@
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
+import 'package:app/repositories/dashboard_repository.dart';
 
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
@@ -10,6 +11,7 @@ class AppConfig {
 
   late final DemoRepository askRepository;
   late final AuthRepository authRepository;
+  late final DashboardRepository dashboardRepository;
 
   AppConfig({required String baseUrl}) {
     apiProvider = ApiProvider(baseUrl: baseUrl);
@@ -19,5 +21,6 @@ class AppConfig {
   void initialize() {
     askRepository = DemoRepository(apiService);
     authRepository = AuthRepository(apiService);
+    dashboardRepository = DashboardRepository(apiService);
   }
 }

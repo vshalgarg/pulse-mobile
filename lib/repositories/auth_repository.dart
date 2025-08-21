@@ -17,6 +17,8 @@ class AuthRepository {
     required String password,
   }) async {
     try {
+      print("AuthRepository: Attempting login for username: $username");
+      
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'authenticate/login',
         data: {
@@ -25,18 +27,48 @@ class AuthRepository {
         },
       );
 
+      print("AuthRepository: Login response - isSuccess: ${response.isSuccess}, statusCode: ${response.statusCode}");
+      print("AuthRepository: Login response data: ${response.data}");
+      print("AuthRepository: Login error message: ${response.errorMessage}");
+
       if (response.isSuccess && response.data != null) {
         final authModel = AuthModel.fromJson(response.data!);
+        print("AuthRepository: Login successful - token: ${authModel.token?.substring(0, 20)}...");
         return ResponseResult.success(authModel, response.statusCode);
       } else {
+        String errorMessage = 'Login failed';
+        if (response.errorMessage != null) {
+          if (response.errorMessage!.contains('timeout')) {
+            errorMessage = 'Login request timed out. Please check your connection and try again.';
+          } else if (response.errorMessage!.contains('connection')) {
+            errorMessage = 'Unable to connect to server. Please check your internet connection.';
+          } else if (response.errorMessage!.contains('401')) {
+            errorMessage = 'Invalid username or password. Please try again.';
+          } else {
+            errorMessage = response.errorMessage!;
+          }
+        }
         return ResponseResult.error(
-          errorMessage: response.errorMessage ?? 'Login failed',
+          errorMessage: errorMessage,
           statusCode: response.statusCode,
         );
       }
     } catch (e) {
+      print("AuthRepository: Login exception - $e");
+      String errorMessage = 'Login failed';
+      
+      if (e.toString().contains('timeout')) {
+        errorMessage = 'Login request timed out. Please check your connection and try again.';
+      } else if (e.toString().contains('connection')) {
+        errorMessage = 'Unable to connect to server. Please check your internet connection.';
+      } else if (e.toString().contains('SocketException')) {
+        errorMessage = 'No internet connection. Please check your network and try again.';
+      } else {
+        errorMessage = 'Login failed. Please try again.';
+      }
+      
       return ResponseResult.error(
-        errorMessage: 'Login failed: $e',
+        errorMessage: errorMessage,
       );
     }
   }

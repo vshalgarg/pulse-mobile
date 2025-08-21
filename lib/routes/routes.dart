@@ -5,6 +5,7 @@ const String changePasswordScreen = "/changePasswordScreen";
 const String loginScreen = "/loginScreen";
 const String splashScreen = "/splashScreen";
 const String welcomeScreen = "/welcomeScreen";
+const String homeScreen = "/homeScreen";
 const String resetPasswordScreen = "/ResetPasswordScreen";
 const String passwordUpdateScreen = "/passwordUpdateScreen";
 const String otpVerificationScreen = "/otpVerificationScreen";

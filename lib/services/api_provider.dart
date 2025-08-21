@@ -24,8 +24,8 @@ class ApiProvider {
       },
       baseUrl: baseUrl,
       receiveDataWhenStatusError: true,
-      connectTimeout: const Duration(seconds: 120),
-      receiveTimeout: const Duration(seconds: 120),
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 30),
     );
 
     _dio.options = options;
@@ -48,10 +48,9 @@ class ApiProvider {
         },
         onError: (DioException e, handler) async {
           if (e.response?.statusCode == 401) {
-            // Check if token is expired and logout if needed
-            if (Utils.isCurrentTokenExpired()) {
-              await _logoutUser();
-            }
+            // Token is invalid or expired
+            await _logoutUser();
+            return handler.next(e);
           }
           return handler.next(e);
         },
@@ -61,7 +60,7 @@ class ApiProvider {
 
   Future<void> _logoutUser() async {
     try {
-      await HiveDB.clearAllData();
+      await HiveDB.logout();
       // Navigate to login screen
       if (navigatorKey.currentContext != null) {
         pushNamedAndRemoveUntil(navigatorKey.currentContext!, loginScreen);

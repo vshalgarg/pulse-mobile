@@ -59,6 +59,10 @@ class ApiService {
     bool useFormDataFormat = false,
   }) async {
     try {
+      print("ApiService: Making POST request to $path");
+      print("ApiService: Request data: $data");
+      print("ApiService: Query parameters: $queryParameters");
+      
       final dataPayload = useFormDataFormat ? (data != null ? FormData.fromMap(data) : null) : data;
 
       if (dataPayload is FormData && files != null) {
@@ -68,12 +72,16 @@ class ApiService {
         }
       }
 
+      print("ApiService: Starting POST request...");
       final result = await apiProvider.getClient().post(
             path,
             data: dataPayload,
             queryParameters: queryParameters,
             options: Options(headers: headers),
           );
+
+      print("ApiService: POST request completed - statusCode: ${result.statusCode}");
+      print("ApiService: Response data: ${result.data}");
 
       // Check if status code is 200 for success
       if (result.statusCode == 200) {
@@ -89,12 +97,19 @@ class ApiService {
         );
       }
     } on DioException catch (e) {
+      print("ApiService: DioException caught - type: ${e.type}, message: ${e.message}");
+      print("ApiService: DioException response: ${e.response?.data}");
       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
         statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      print("ApiService: General exception caught - $e");
+      return ResponseResult.error(
+        errorMessage: 'Request failed: $e',
       );
     }
   }
@@ -213,7 +228,12 @@ class ApiService {
     //   reason: '${error.message} (${error.requestOptions.uri})',
     //   printDetails: true,
     // );
+    print("API Error: ${error.message}");
+    print("API Error Type: ${error.type}");
+    print("API Error Response: ${error.response?.data}");
   }
+
+
 }
 
 class ResponseResult<T> extends Equatable {

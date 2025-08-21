@@ -1,52 +1,67 @@
-import '../hive_local_database/hive_db.dart';
+import 'package:app/hive_local_database/hive_db.dart';
+import 'package:app/utils.dart';
 
 class AuthService {
   static AuthService? _instance;
   static AuthService get instance => _instance ??= AuthService._internal();
-
+  
   AuthService._internal();
 
   // Check if user is authenticated
   bool get isAuthenticated {
     final token = HiveDB.getToken;
-    return token != null && token.isNotEmpty;
+    if (token == null || token.isEmpty) return false;
+    
+    return !Utils.isTokenExpired(token);
   }
 
   // Get current token
   String? get currentToken => HiveDB.getToken;
 
-  // Save token
-  Future<void> saveToken(String token) async {
-    await HiveDB.saveToken(token);
+  // Get token expiration
+  DateTime? get tokenExpiration => HiveDB.getTokenExpiry;
+
+  // Check if token will expire soon (within 5 minutes)
+  bool get isTokenExpiringSoon {
+    final expiry = tokenExpiration;
+    if (expiry == null) return true;
+    
+    final now = DateTime.now();
+    final fiveMinutesFromNow = now.add(const Duration(minutes: 5));
+    
+    return expiry.isBefore(fiveMinutesFromNow);
   }
 
-  // Clear token (logout)
-  Future<void> clearToken() async {
+  // Logout user
+  Future<void> logout() async {
     await HiveDB.logout();
   }
 
-  // Get authorization header
-  String? get authorizationHeader {
+  // Clear all data
+  Future<void> clearAllData() async {
+    await HiveDB.clearAllData();
+  }
+
+  // Get headers with token
+  Map<String, String> getAuthHeaders() {
     final token = currentToken;
-    return token != null ? 'Bearer $token' : null;
+    if (token != null && !Utils.isTokenExpired(token)) {
+      return {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json',
+      };
+    }
+    return {
+      'Content-Type': 'application/json',
+    };
   }
 
-  // Remember me functionality
-  bool get isRememberMeEnabled => HiveDB.getRememberMe;
-  
-  String? get savedUsername => HiveDB.getUsername;
-  
-  String? get savedPassword => HiveDB.getPassword;
-
-  // Save user credentials for remember me
-  Future<void> saveUserCredentials(String username, String password) async {
-    await HiveDB.saveUsername(username);
-    await HiveDB.savePassword(password);
-    await HiveDB.setRememberMe(true);
-  }
-
-  // Clear all saved credentials
-  Future<void> clearAllCredentials() async {
-    await HiveDB.clearAllCredentials();
+  // Validate token format
+  bool isValidTokenFormat(String? token) {
+    if (token == null || token.isEmpty) return false;
+    
+    // Basic JWT format validation (3 parts separated by dots)
+    final parts = token.split('.');
+    return parts.length == 3;
   }
 }

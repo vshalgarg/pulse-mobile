@@ -18,6 +18,7 @@ class HiveConstant {
   static const String userId = "userId";
   static const String email = "email";
   static const String token = "token";
+  static const String tokenExpiry = "tokenExpiry";
   static const String cartCount = "cartCount";
   static const String profileImage = "profileImage";
   static const String firstName = "firstName";
