@@ -1,13 +1,18 @@
 
 import 'package:app/constants/constants_methods.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
+import '../bloc/ticket_cubit.dart';
+import '../bloc/ticket_state.dart';
 import '../commonWidgets/ticket_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../constants/constants_strings.dart';
+import '../models/ticket_model.dart';
 import '../routes/routes.dart';
+import '../services/location_service.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -24,63 +29,71 @@ class TicketScreen extends StatefulWidget {
 }
 
 class _TicketScreenState extends State<TicketScreen> {
-  final List<Map<String, dynamic>> ticketData = [
-    {
-      'ticketId': 'Telecom-23947',
-      'siteCode': 'SITE-FBD',
-      'siteId': 'SITE-38974',
-      'location': 'Faridabad',
-      'company': 'PTPL',
-      'raisedOn': '23/04/2025',
-      'dueDate': '25/04/2025',
-      'statusText': 'Allocated',
-      'statusColor': Colors.blue,
-    },
-    {
-      'ticketId': 'Telecom-23948',
-      'siteCode': 'SITE-DEL',
-      'siteId': 'SITE-38975',
-      'location': 'Delhi',
-      'company': 'PTPL',
-      'raisedOn': '24/04/2025',
-      'dueDate': '26/04/2025',
-      'statusText': 'In Progress',
-      'statusColor': Colors.orange,
-    },
-    {
-      'ticketId': 'Telecom-23949',
-      'siteCode': 'SITE-MUM',
-      'siteId': 'SITE-38976',
-      'location': 'Mumbai',
-      'company': 'PTPL',
-      'raisedOn': '25/04/2025',
-      'dueDate': '27/04/2025',
-      'statusText': 'Completed',
-      'statusColor': Colors.green,
-    },
-    {
-      'ticketId': 'Telecom-23950',
-      'siteCode': 'SITE-BLR',
-      'siteId': 'SITE-38977',
-      'location': 'Bangalore',
-      'company': 'PTPL',
-      'raisedOn': '26/04/2025',
-      'dueDate': '28/04/2025',
-      'statusText': 'Closed',
-      'statusColor': Colors.grey,
-    },
-    {
-      'ticketId': 'Telecom-23951',
-      'siteCode': 'SITE-HYD',
-      'siteId': 'SITE-38978',
-      'location': 'Hyderabad',
-      'company': 'PTPL',
-      'raisedOn': '27/04/2025',
-      'dueDate': '29/04/2025',
-      'statusText': 'Missed',
-      'statusColor': Colors.red,
-    },
-  ];
+  late String _currentTicketType;
+  late String _currentActivityType;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
+    _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
+    _loadTickets();
+  }
+
+  void _loadTickets() {
+    context.read<TicketCubit>().getTickets(
+      activityType: _currentActivityType,
+      ticketType: _currentTicketType,
+      pageSize: 50,
+      pageNo: 1,
+    );
+  }
+
+  String _getActivityTypeFromAuditName(String auditName) {
+    switch (auditName) {
+      case "Asset Audit":
+        return ActivityType.assetAudit;
+      case "PM":
+        return ActivityType.preventiveMaintenance;
+      case "ER":
+        return ActivityType.energyReading;
+      default:
+        return ActivityType.assetAudit;
+    }
+  }
+
+  String _getInitialTicketTypeFromStatus(String status) {
+    switch (status.toLowerCase()) {
+      case 'allocated':
+        return TicketType.all;
+      case 'in progress':
+        return TicketType.open;
+      case 'completed':
+        return TicketType.completed;
+      case 'closed':
+        return TicketType.closed;
+      case 'missed deadline':
+        return TicketType.missedDeadline;
+      default:
+        return TicketType.all;
+    }
+  }
+
+  String _getStatusFromTicketType(String ticketType) {
+    switch (ticketType) {
+      case TicketType.open:
+        return 'In Progress';
+      case TicketType.completed:
+        return 'Completed';
+      case TicketType.closed:
+        return 'Closed';
+      case TicketType.missedDeadline:
+        return 'Missed Deadline';
+      case TicketType.all:
+      default:
+        return 'Allocated';
+    }
+  }
 
   void _navigateToAuditScreen() {
     switch (widget.auditName) {
@@ -114,6 +127,7 @@ class _TicketScreenState extends State<TicketScreen> {
       appBar: _buildCustomAppBar(),
       body: Stack(
         children: [
+          // Background image that fully covers the screen
           Positioned.fill(
             child: SvgPicture.asset(
               AppImages.home,
@@ -122,17 +136,51 @@ class _TicketScreenState extends State<TicketScreen> {
               height: double.infinity,
             ),
           ),
-                    // Content
+          // Content overlay
           SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  getHeight(15),
-                  ticketRow(),
-                  getHeight(20), // Add bottom padding
-                ],
+            child: Container(
+              height: MediaQuery.of(context).size.height,
+              child: BlocBuilder<TicketCubit, TicketState>(
+                bloc: context.read<TicketCubit>(),
+                builder: (context, state) {
+                  if (state is TicketLoading) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryGreen,
+                      ),
+                    );
+                  } else if (state is TicketSuccess) {
+                    if (state.ticketResponse.tickets.isEmpty) {
+                      // Show "no tickets" message in center of screen
+                      return const Center(
+                        child: Text(
+                          'No tickets found for this selection',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      );
+                    } else {
+                      // Show ticket list
+                      return SingleChildScrollView(
+                        child: Column(
+                          children: [
+                            getHeight(15),
+                            _buildTicketList(state.ticketResponse),
+                            getHeight(20),
+                          ],
+                        ),
+                      );
+                    }
+                  } else if (state is TicketFailure) {
+                    return _buildErrorWidget(state.errorMessage);
+                  } else {
+                    return const SizedBox.shrink();
+                  }
+                },
               ),
             ),
           ),
@@ -181,35 +229,104 @@ class _TicketScreenState extends State<TicketScreen> {
     );
   }
 
-  Widget ticketRow() {
+  Widget _buildTicketList(TicketResponse ticketResponse) {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: ticketData.length,
+      itemCount: ticketResponse.tickets.length,
       itemBuilder: (context, index) {
-        final ticket = ticketData[index];
+        final ticket = ticketResponse.tickets[index];
+        final statusText = _getStatusFromTicketType(_currentTicketType);
         return Padding(
-          padding: EdgeInsets.only(bottom: index == ticketData.length - 1 ? 0 : 10),
+          padding: EdgeInsets.only(bottom: index == ticketResponse.tickets.length - 1 ? 0 : 10),
           child: TicketCard(
-            ticketId: ticket['ticketId'],
-            siteCode: ticket['siteCode'],
-            siteId: ticket['siteId'],
-            location: ticket['location'],
-            company: ticket['company'],
-            raisedOn: ticket['raisedOn'],
-            dueDate: ticket['dueDate'],
-            statusText: ticket['statusText'],
+            ticketId: ticket.pvTicketId,
+            siteCode: ticket.siteCode ?? 'N/A',
+            siteId: ticket.cluster ?? 'N/A',
+            location: ticket.cluster ?? 'N/A',
+            company: ticket.operator ?? 'N/A',
+            raisedOn: ticket.raisedDt,
+            dueDate: ticket.dueDt,
+            statusText: statusText,
             // statusColor: ticket['statusColor'],
             onTap: _navigateToAuditScreen,
             onDirectionTap: () {
-              print("Open Google Maps or navigation for ${ticket['ticketId']}");
+              if (ticket.longitude != null && ticket.latitude != null) {
+                print("Opening Google Maps for ${ticket.pvTicketId} at ${ticket.longitude}, ${ticket.latitude}");
+                
+                // Open Google Maps with directions to the site
+                LocationService.openDirectionsToSite(
+                  siteLat: ticket.latitude!,
+                  siteLng: ticket.longitude!,
+                  siteName: ticket.pvTicketId,
+                  context: context,
+                );
+              } else {
+                print("No coordinates available for ${ticket.pvTicketId}");
+                
+                // Show a message to the user
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('No location coordinates available for this site'),
+                    backgroundColor: AppColors.errorColor,
+                  ),
+                );
+              }
             },
             onDownloadTap: () {
-              print("Download ticket details for ${ticket['ticketId']}");
+              print("Download ticket details for ${ticket.pvTicketId}");
             },
           ),
         );
       },
+    );
+  }
+
+  Widget _buildErrorWidget(String errorMessage) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              color: AppColors.errorColor,
+              size: 64,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Error loading tickets',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              errorMessage,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 14,
+                fontFamily: fontFamilyMontserrat
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: _loadTickets,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+              ),
+              child: const Text(
+                'Retry',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

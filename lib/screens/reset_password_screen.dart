@@ -58,90 +58,101 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           height: double.infinity,
                         ),
                       ),
-                      Center(
+                      SafeArea(
                         child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text(
-                                "SET A NEW PASSWORD",
-                                style: TextStyle(
-                                  color: AppColors.textWhite,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  fontFamily: poppins,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: MediaQuery.of(context).size.height - 
+                                         MediaQuery.of(context).padding.top - 
+                                         MediaQuery.of(context).padding.bottom,
+                            ),
+                            child: IntrinsicHeight(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const Text(
+                                      "SET A NEW PASSWORD",
+                                      style: TextStyle(
+                                        color: AppColors.textWhite,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        fontFamily: poppins,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    pulseContainer(),
+                                    const SizedBox(height: 20),
+                                    Text(
+                                      "Create a strong password to protect your NexGen account.",
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: AppColors.white,
+                                        fontSize: 16,
+                                        fontFamily: poppins,
+                                        fontWeight: FontWeight.w100,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 30),
+
+                                    // New Password
+                                    passwordField(
+                                      label: "New Password",
+                                      controller: newPassController,
+                                      obscureText: obscureNewPass,
+                                      onToggle: () {
+                                        setState(() {
+                                          obscureNewPass = !obscureNewPass;
+                                        });
+                                      },
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return "Please enter your new password";
+                                        }
+                                        if (value.trim().length < 6) {
+                                          return "Password must be at least 6 characters";
+                                        }
+                                        return null;
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 20),
+
+                                    // Confirm Password
+                                    passwordField(
+                                      label: "Confirm Password",
+                                      controller: confirmPassController,
+                                      obscureText: obscureConfirmPass,
+                                      onToggle: () {
+                                        setState(() {
+                                          obscureConfirmPass = !obscureConfirmPass;
+                                        });
+                                      },
+                                      validator: (value) {
+                                        if (value == null || value.trim().isEmpty) {
+                                          return "Please confirm your password";
+                                        }
+                                        if (value.trim() != newPassController.text.trim()) {
+                                          return "Passwords do not match";
+                                        }
+                                        return null;
+                                      },
+                                    ),
+
+                                    const SizedBox(height: 30),
+
+                                    CustomButton(
+                                      text: "RESET PASSWORD",
+                                      color: AppColors.primaryGreen,
+                                      width: 200,
+                                      onPressed: state is ResetPasswordLoading ? () {} : _submitForm,
+                                    ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 10),
-                              pulseContainer(),
-                              const SizedBox(height: 20),
-                              Text(
-                                "Create a strong password to protect your NexGen account.",
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: AppColors.white,
-                                  fontSize: 16,
-                                  fontFamily: poppins,
-                                  fontWeight: FontWeight.w100,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                              const SizedBox(height: 30),
-
-                              // New Password
-                              passwordField(
-                                label: "New Password",
-                                controller: newPassController,
-                                obscureText: obscureNewPass,
-                                onToggle: () {
-                                  setState(() {
-                                    obscureNewPass = !obscureNewPass;
-                                  });
-                                },
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return "Please enter your new password";
-                                  }
-                                  if (value.trim().length < 6) {
-                                    return "Password must be at least 6 characters";
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              const SizedBox(height: 20),
-
-                              // Confirm Password
-                              passwordField(
-                                label: "Confirm Password",
-                                controller: confirmPassController,
-                                obscureText: obscureConfirmPass,
-                                onToggle: () {
-                                  setState(() {
-                                    obscureConfirmPass = !obscureConfirmPass;
-                                  });
-                                },
-                                validator: (value) {
-                                  if (value == null || value.trim().isEmpty) {
-                                    return "Please confirm your password";
-                                  }
-                                  if (value.trim() != newPassController.text.trim()) {
-                                    return "Passwords do not match";
-                                  }
-                                  return null;
-                                },
-                              ),
-
-                              const SizedBox(height: 30),
-
-                              CustomButton(
-                                text: "RESET PASSWORD",
-                                color: AppColors.primaryGreen,
-                                width: 200,
-                                onPressed: state is ResetPasswordLoading ? () {} : _submitForm,
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ),

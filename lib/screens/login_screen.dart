@@ -99,49 +99,60 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     // Content
-                    Center(
+                    SafeArea(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              "LOGIN TO",
-                              style: TextStyle(
-                                color: AppColors.textWhite,
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: poppins,
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            minHeight: MediaQuery.of(context).size.height - 
+                                       MediaQuery.of(context).padding.top - 
+                                       MediaQuery.of(context).padding.bottom,
+                          ),
+                          child: IntrinsicHeight(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Text(
+                                    "LOGIN TO",
+                                    style: TextStyle(
+                                      color: AppColors.textWhite,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      fontFamily: poppins,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  pulseContainer(),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    "Empowering energy and connectivity — securely and sustainably.",
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: AppColors.textWhite70,
+                                      fontSize: 16,
+                                      fontFamily: poppins,
+                                      fontWeight: FontWeight.w400,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 30),
+                                  mobileNumberField(),
+                                  const SizedBox(height: 10),
+                                  passwordField(),
+                                  const SizedBox(height: 20),
+                                  checkboxText(),
+                                  const SizedBox(height: 40),
+                                  CustomButton(
+                                    text: "LOGIN",
+                                    color: AppColors.primaryGreen,
+                                    width: 200,
+                                    onPressed: state is AuthLoading ? () {} : _submitForm,
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            pulseContainer(),
-                            const SizedBox(height: 10),
-                            Text(
-                              "Empowering energy and connectivity — securely and sustainably.",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: AppColors.textWhite70,
-                                fontSize: 16,
-                                fontFamily: poppins,
-                                fontWeight: FontWeight.w400,
-                                fontStyle: FontStyle.italic,
-                              ),
-                            ),
-                            const SizedBox(height: 30),
-                            mobileNumberField(),
-                            const SizedBox(height: 10),
-                            passwordField(),
-                            const SizedBox(height: 20),
-                            checkboxText(),
-                            const SizedBox(height: 40),
-                            CustomButton(
-                              text: "LOGIN",
-                              color: AppColors.primaryGreen,
-                              width: 200,
-                              onPressed: state is AuthLoading ? () {} : _submitForm,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),

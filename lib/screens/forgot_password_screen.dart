@@ -62,46 +62,57 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                   // Content
-                  Center(
+                  SafeArea(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          pulseContainer(),
-                          const SizedBox(height: 10),
-                          const Text(
-                            "FORGOT YOUR PASSWORD?",
-                            style: TextStyle(
-                              color: AppColors.textWhite,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              fontFamily: poppins,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: MediaQuery.of(context).size.height - 
+                                     MediaQuery.of(context).padding.top - 
+                                     MediaQuery.of(context).padding.bottom,
+                        ),
+                        child: IntrinsicHeight(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                pulseContainer(),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  "FORGOT YOUR PASSWORD?",
+                                  style: TextStyle(
+                                    color: AppColors.textWhite,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    fontFamily: poppins,
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                                Text(
+                                  "Enter your email address and we'll send you an OTP to reset your password.",
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 16,
+                                    fontFamily: poppins,
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                                const SizedBox(height: 30),
+                                emailField(),
+                                const SizedBox(height: 10),
+                                alreadyRemember(),
+                                const SizedBox(height: 30),
+                                CustomButton(
+                                  text: "SEND OTP",
+                                  color: AppColors.blue,
+                                  width: 150,
+                                  onPressed: state is ForgotPasswordLoading ? () {} : _submitForm,
+                                ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "Enter your email address and we'll send you an OTP to reset your password.",
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                              fontFamily: poppins,
-                              fontStyle: FontStyle.italic,
-                            ),
-                          ),
-                          const SizedBox(height: 30),
-                          emailField(),
-                          const SizedBox(height: 10),
-                          alreadyRemember(),
-                          const SizedBox(height: 30),
-                          CustomButton(
-                            text: "SEND OTP",
-                            color: AppColors.blue,
-                            width: 150,
-                            onPressed: state is ForgotPasswordLoading ? () {} : _submitForm,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

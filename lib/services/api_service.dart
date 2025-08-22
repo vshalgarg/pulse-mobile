@@ -7,7 +7,7 @@ import 'api_provider.dart';
 import 'dio_exception.dart';
 
 class ApiService {
-  ApiProvider apiProvider;
+  final ApiProvider apiProvider;
 
   String get baseUrl => apiProvider.baseUrl;
 

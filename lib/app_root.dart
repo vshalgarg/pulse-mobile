@@ -6,6 +6,7 @@ import 'package:app/bloc/otp_verification_cubit.dart';
 import 'package:app/bloc/reset_password_cubit.dart';
 import 'package:app/bloc/demo_bloc_cubit.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
+import 'package:app/bloc/ticket_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
 import 'package:app/repositories/auth_repository.dart';
@@ -41,6 +42,7 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => OtpVerificationCubit(config.authRepository)),
         BlocProvider(create: (context) => ResetPasswordCubit(config.authRepository)),
         BlocProvider(create: (context) => DashboardCubit(config.dashboardRepository)),
+        BlocProvider(create: (context) => TicketCubit(ticketRepository: config.ticketRepository)),
       ],
       child: MultiProvider(
         providers: [

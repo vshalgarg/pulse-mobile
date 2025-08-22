@@ -62,19 +62,24 @@ class TicketCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "Ticket ID : $ticketId",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: fontFamilyMontserrat,
+                  Expanded(
+                    child: Text(
+                      "Ticket ID : $ticketId",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w400,
+                        fontFamily: fontFamilyMontserrat,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(
                       vertical: 4,
@@ -100,15 +105,19 @@ class TicketCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "$siteCode (Site ID : $siteId)",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      fontFamily: poppins,
-                      color: AppColors.black,
+                  Expanded(
+                    child: Text(
+                      "$siteCode",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        fontFamily: poppins,
+                        color: AppColors.black,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(
                       Icons.directions,
@@ -127,21 +136,26 @@ class TicketCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                   fontFamily: fontFamilyMontserrat,
                 ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
               ),
 
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    company,
-                    style: const TextStyle(fontSize: 14, color: AppColors.black),
+                  Expanded(
+                    child: Text(
+                      company,
+                      style: const TextStyle(fontSize: 14, color: AppColors.black),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   IconButton(
                     icon: const Icon(
                       Icons.file_download_outlined,
                       color: AppColors.downloadIconColor,
                     ),
-
                     onPressed: onDownloadTap,
                   ),
                 ],
@@ -163,14 +177,20 @@ class TicketCard extends StatelessWidget {
                       fontFamily: fontFamilyMontserrat,
                       color: AppColors.color555555,
                     ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  Text(
-                    "Due : $dueDate",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: fontFamilyMontserrat,
-                      color: AppColors.color555555,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Due : $dueDate",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        fontFamily: fontFamilyMontserrat,
+                        color: AppColors.color555555,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.end,
                     ),
                   ),
                 ],
