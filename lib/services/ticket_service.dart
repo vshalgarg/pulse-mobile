@@ -63,8 +63,13 @@ class TicketService {
           // API returned a list directly - wrap it in TicketResponse
           try {
             print("📋 API returned List<dynamic>, converting to TicketResponse");
+            print("   First ticket data: ${responseData.isNotEmpty ? responseData.first : 'Empty list'}");
+            
             final tickets = (responseData as List<dynamic>)
-                .map((ticket) => Ticket.fromJson(ticket))
+                .map((ticket) {
+                  print("   Parsing ticket: $ticket");
+                  return Ticket.fromJson(ticket);
+                })
                 .toList();
             
             final ticketResponse = TicketResponse(
@@ -78,6 +83,7 @@ class TicketService {
             return ResponseResult.success(ticketResponse, response.statusCode);
           } catch (e) {
             print("❌ Failed to parse ticket list: $e");
+            print("   Stack trace: ${StackTrace.current}");
             return ResponseResult.error(
               errorMessage: 'Failed to parse ticket list: ${e.toString()}',
             );

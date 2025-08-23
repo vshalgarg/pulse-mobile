@@ -21,6 +21,7 @@ class UnsavedChangesDialog extends StatelessWidget {
       ),
       insetPadding: const EdgeInsets.all(20),
       backgroundColor: Colors.transparent,
+      elevation: 0,
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.topCenter,

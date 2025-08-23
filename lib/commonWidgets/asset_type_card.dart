@@ -27,6 +27,9 @@ class CustomInfoCard extends StatefulWidget {
   final ValueChanged<String>? onSerialChanged;
   final bool? initialStatus;
   final String? initialPhotoPath;
+  final bool isEditable; // Controls if the text field and other inputs are editable
+  final bool isStatusEditable; // Controls if the status radio buttons are editable
+  final bool? backendStatus; // New parameter for backend status value
 
   const CustomInfoCard({
     super.key,
@@ -41,6 +44,9 @@ class CustomInfoCard extends StatefulWidget {
     this.onSerialChanged,
     this.initialStatus,
     this.initialPhotoPath,
+    required this.isEditable,
+    this.isStatusEditable = true,
+    this.backendStatus,
   });
 
   @override
@@ -54,8 +60,13 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
   @override
   void initState() {
     super.initState();
-    // Initialize with provided values if editing
-    selectedStatus = widget.initialStatus;
+    // Initialize with backend status if not editable, otherwise use initial status
+    if (!widget.isStatusEditable && widget.backendStatus != null) {
+      selectedStatus = widget.backendStatus;
+    } else {
+      selectedStatus = widget.initialStatus;
+    }
+    
     if (widget.initialPhotoPath != null) {
       _selectedImage = File(widget.initialPhotoPath!);
     }
@@ -78,7 +89,6 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
     setState(() {
       _selectedImage = null;
     });
-    // Call the callback to notify parent that image was deleted
     widget.onPhotoTap(null);
   }
 
@@ -94,6 +104,26 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Read-only indicator
+          if (!widget.isEditable)
+            Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                "Read Only",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: fontFamilyMontserrat,
+                ),
+              ),
+            ),
+          
           // Serial Number field
           RichText(
             text: TextSpan(
@@ -122,11 +152,12 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
           const SizedBox(height: 6),
           TextFormField(
             controller: widget.serialController,
-            onChanged: (value) {
+            enabled: widget.isEditable,
+            onChanged: widget.isEditable ? (value) {
               if (widget.onSerialChanged != null) {
                 widget.onSerialChanged!(value);
               }
-            },
+            } : null,
             decoration: InputDecoration(
               hintText: widget.serialLabel,
               hintStyle: TextStyle(
@@ -135,7 +166,7 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                 fontSize: 16,
                 color: AppColors.color555555,
               ),
-              suffixIcon: IconButton(
+              suffixIcon: widget.isEditable ? IconButton(
                 icon: const Icon(Icons.qr_code_scanner),
                 onPressed: () async {
                   final result = await Navigator.push(
@@ -149,9 +180,9 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                     }
                   }
                 },
-              ),
+              ) : null, // Hide QR scanner icon if not editable
               filled: true,
-              fillColor: Colors.white,
+              fillColor: widget.isEditable ? Colors.white : Colors.grey.shade200,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(5),
                 borderSide: BorderSide.none,
@@ -276,86 +307,81 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
           ),
           Row(
             children: [
-
-              Expanded(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Radio<bool>(
-                            value: true,
-                            groupValue: selectedStatus,
-                            onChanged: (val) {
-                              setState(() {
-                                selectedStatus = val;
-                              });
-                              widget.onStatusChanged(val!);
-                            },
-                            activeColor: const Color(0xFF5678BA),
-                            fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                              if (states.contains(MaterialState.selected)) {
-                                return const Color(0xFF5678BA);
-                              }
-                              return Colors.white;
-                            }),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Ok",
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                              fontFamily: fontFamilyMontserrat,
-                            ),
-                          ),
-                        ],
+              // Radio buttons section - more compact
+              Row(
+                children: [
+                  Row(
+                    children: [
+                      Radio<bool>(
+                        value: true,
+                        groupValue: selectedStatus,
+                        onChanged: widget.isStatusEditable ? (val) {
+                          setState(() {
+                            selectedStatus = val;
+                          });
+                          widget.onStatusChanged(val!);
+                        } : null, // Disable radio button if not editable
+                        activeColor: const Color(0xFF5678BA),
+                        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
+                          if (states.contains(MaterialState.selected)) {
+                            return const Color(0xFF5678BA);
+                          }
+                          return Colors.white;
+                        }),
                       ),
-                    ),
-                    Expanded(
-                      child: Row(
-                        children: [
-                          Radio<bool>(
-                            value: false,
-                            groupValue: selectedStatus,
-                            onChanged: (val) {
-                              setState(() {
-                                selectedStatus = val;
-                              });
-                              widget.onStatusChanged(val!);
-                            },
-                            activeColor: const Color(0xFF5678BA),
-                            fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                              if (states.contains(MaterialState.selected)) {
-                                return const Color(0xFF5678BA);
-                              }
-                              return Colors.white;
-                            }),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            "Not Ok",
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                              fontFamily: fontFamilyMontserrat,
-                            ),
-                          ),
-                        ],
+                      const SizedBox(width: 4), // Reduced spacing
+                      Text(
+                        "Ok",
+                        style: TextStyle(
+                          color: widget.isStatusEditable ? AppColors.white : AppColors.white.withOpacity(0.6),
+                          fontSize: 16,
+                          fontFamily: fontFamilyMontserrat,
+                        ),
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+                  const SizedBox(width: 20), // Reduced spacing between radio groups
+                  Row(
+                    children: [
+                      Radio<bool>(
+                        value: false,
+                        groupValue: selectedStatus,
+                        onChanged: widget.isStatusEditable ? (val) {
+                          setState(() {
+                            selectedStatus = val;
+                          });
+                          widget.onStatusChanged(val!);
+                        } : null, // Disable radio button if not editable
+                        activeColor: const Color(0xFF5678BA),
+                        fillColor: MaterialStateProperty.resolveWith<Color>((states) {
+                          if (states.contains(MaterialState.selected)) {
+                            return const Color(0xFF5678BA);
+                          }
+                          return Colors.white;
+                        }),
+                      ),
+                      const SizedBox(width: 4), // Reduced spacing
+                      Text(
+                        "Not Ok",
+                        style: TextStyle(
+                          color: widget.isStatusEditable ? AppColors.white : AppColors.white.withOpacity(0.6),
+                          fontSize: 16,
+                          fontFamily: fontFamilyMontserrat,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               
-              const SizedBox(width: 50),
+              const Spacer(), // This will push the save button to the right
               
-              // Save button in same row
+              // Save button
               ElevatedButton(
-                onPressed: widget.onSave,
+                onPressed: widget.isEditable ? widget.onSave : null, // Disable button if not editable
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFDBE2F0),
-                  foregroundColor: const Color(0xFF2D426E),
+                  backgroundColor: widget.isEditable ? const Color(0xFFDBE2F0) : Colors.grey.shade400,
+                  foregroundColor: widget.isEditable ? const Color(0xFF2D426E) : Colors.grey.shade600,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(5),

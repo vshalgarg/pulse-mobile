@@ -80,24 +80,30 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
     });
   }
 
-  void _saveAndExit() {
+  void _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
-
-    // Then show success dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => SuccessDialog(
-        ticketId: "UVORKJR00044",
-        message:
-            "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-        onDone: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
-        },
-      ),
-    );
+    
+    // Wait a bit for the dialog to fully close and overlay to clear
+    await Future.delayed(const Duration(milliseconds: 200));
+    
+    // Then show success dialog with a clean barrier
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54, // Ensure clean barrier
+        builder: (context) => SuccessDialog(
+          ticketId: "UVORKJR00044",
+          message:
+              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
+          onDone: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+    }
   }
 
   bool _isFormValid() {
@@ -236,51 +242,51 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
     );
   }
 
-  final List<FieldConfig> cardFields = [
-    // FieldConfig(
-    //   type: FieldType.textField,
-    //   label: "Circle",
-    //   initialValue: "Haryana",
-    //   isRequired: true,
-    //   isEditable: false,
-    // ),
-    // FieldConfig(
-    //   type: FieldType.textField,
-    //   label: "Cluster",
-    //   initialValue: "Haryana",
-    //   isRequired: false,
-    //   isEditable: true,
-    // ),
-    FieldConfig(
-      type: FieldType.serial,
-      label: "ACDB - Serial Number",
-      controller: TextEditingController(),
-    ),
-    FieldConfig(
-      type: FieldType.upload,
-      label: "Customer Photo",
-      isRequired: true,
-    ),
-    FieldConfig(
-      type: FieldType.optionSelector,
-      label: "Battery ODC Lock status",
-      isRequired: true,
-      options: [
-        OptionItem(
-          value: "yes",
-          label: "Yes",
-          selectedIcon: Icons.check_circle,
-          unselectedIcon: Icons.circle_outlined,
-        ),
-        OptionItem(
-          value: "no",
-          label: "No",
-          selectedIcon: Icons.cancel,
-          unselectedIcon: Icons.circle_outlined,
-        ),
-      ],
-    ),
-  ];
+  // final List<FieldConfig> cardFields = [
+  //   // FieldConfig(
+  //   //   type: FieldType.textField,
+  //   //   label: "Circle",
+  //   //   initialValue: "Haryana",
+  //   //   isRequired: true,
+  //   //   isEditable: false,
+  //   // ),
+  //   // FieldConfig(
+  //   //   type: FieldType.textField,
+  //   //   label: "Cluster",
+  //   //   initialValue: "Haryana",
+  //   //   isRequired: false,
+  //   //   isEditable: true,
+  //   // ),
+  //   FieldConfig(
+  //     type: FieldType.serial,
+  //     label: "ACDB - Serial Number",
+  //     controller: TextEditingController(),
+  //   ),
+  //   FieldConfig(
+  //     type: FieldType.upload,
+  //     label: "Customer Photo",
+  //     isRequired: true,
+  //   ),
+  //   FieldConfig(
+  //     type: FieldType.optionSelector,
+  //     label: "Battery ODC Lock status",
+  //     isRequired: true,
+  //     options: [
+  //       OptionItem(
+  //         value: "yes",
+  //         label: "Yes",
+  //         selectedIcon: Icons.check_circle,
+  //         unselectedIcon: Icons.circle_outlined,
+  //       ),
+  //       OptionItem(
+  //         value: "no",
+  //         label: "No",
+  //         selectedIcon: Icons.cancel,
+  //         unselectedIcon: Icons.circle_outlined,
+  //       ),
+  //     ],
+  //   ),
+  // ];
 
   @override
   Widget build(BuildContext context) {
@@ -456,6 +462,8 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
                                 statusLabel: "Status",
                                 serialController: cctvSerialController,
                                 onSave: _saveCurrentForm,
+                                isStatusEditable: false,
+                                backendStatus: true,
                                 onPhotoTap: (photoPath) {
                                   setState(() {
                                     assetCardPhoto = photoPath;
@@ -480,6 +488,7 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
                                           ? false
                                           : null),
                                 initialPhotoPath: assetCardPhoto,
+                                isEditable: true,
                               ),
 
                               // if (!_isAllItemsScanned() &&

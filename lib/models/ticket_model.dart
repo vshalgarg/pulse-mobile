@@ -15,9 +15,9 @@ class TicketResponse extends Equatable {
 
   factory TicketResponse.fromJson(Map<String, dynamic> json) {
     return TicketResponse(
-      pageNo: json['pageNo'] ?? 1,
-      pageSize: json['pageSize'] ?? 50,
-      totalRecords: json['totalRecords'] ?? 0,
+      pageNo: int.tryParse(json['pageNo'].toString()) ?? 1,
+      pageSize: int.tryParse(json['pageSize'].toString()) ?? 50,
+      totalRecords: int.tryParse(json['totalRecords'].toString()) ?? 0,
       tickets: (json['tickets'] as List<dynamic>?)
               ?.map((ticket) => Ticket.fromJson(ticket))
               .toList() ??
@@ -64,17 +64,33 @@ class Ticket extends Equatable {
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
+    // Helper function to safely convert to double
+    double? parseDouble(dynamic value) {
+      if (value == null) return null;
+      if (value is double) return value;
+      if (value is int) return value.toDouble();
+      if (value is String) {
+        try {
+          return double.parse(value);
+        } catch (e) {
+          print("⚠️ Warning: Could not parse '$value' to double: $e");
+          return null;
+        }
+      }
+      return null;
+    }
+
     return Ticket(
-      ticketSchId: json['ticket_sch_id'] ?? 0,
+      ticketSchId: int.tryParse(json['ticket_sch_id'].toString()) ?? 0,
       pvTicketId: json['pv_ticket_id'] ?? '',
       siteCode: json['site_code'],
       cluster: json['cluster'],
       operator: json['operator'],
       raisedDt: json['raised_dt'] ?? '',
       dueDt: json['due_dt'] ?? '',
-      auditSchId: json['audit_sch_id'],
-      longitude: json['longitude']?.toDouble(),
-      latitude: json['latitude']?.toDouble(),
+      auditSchId: json['audit_sch_id'] != null ? int.tryParse(json['audit_sch_id'].toString()) : null,
+      longitude: parseDouble(json['longitude']),
+      latitude: parseDouble(json['latitude']),
     );
   }
 
