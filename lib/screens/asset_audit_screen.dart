@@ -106,12 +106,37 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
     }
   }
 
+  // Validate required fields for saved items only
   bool _isFormValid() {
-    // Check if AssetTypeCard fields are filled
-    return assetCardSerialNumber != null &&
-        assetCardSerialNumber!.isNotEmpty &&
-        assetCardPhoto != null &&
-        assetCardStatus != null;
+    print('=== Form Validation Debug ===');
+    
+    // Only check serial number and photo for saved items
+    // Type, battery status, and file are not required for individual item saving
+    
+    // Check if serial number is entered in the CustomInfoCard
+    print('cctvSerialController.text: "${cctvSerialController.text}"');
+    if (cctvSerialController.text.isEmpty) {
+      print('❌ Serial number validation failed');
+      return false;
+    } else {
+      print('✅ Serial number validation passed');
+    }
+
+    // Check if photo is added
+    print('assetCardPhoto: $assetCardPhoto');
+    if (assetCardPhoto == null || assetCardPhoto!.isEmpty) {
+      print('❌ Photo validation failed');
+      return false;
+    } else {
+      print('✅ Photo validation passed');
+    }
+
+    // Note: assetCardStatus is not required since it comes from API
+    // and is set to true by default (backendStatus: true)
+    print('assetCardStatus: $assetCardStatus (not required)');
+
+    print('✅ All validations passed!');
+    return true;
   }
 
   bool _validateForm() {
@@ -119,47 +144,65 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
       showValidationErrors = true;
     });
 
-    // Validate required fields
-    bool isValid = true;
+    print('=== Form Validation Debug (_validateForm) ===');
 
-    // Check if type is selected
-    if (selectedType == null) {
-      isValid = false;
+    // Only check serial number and photo for saved items
+    // Type, battery status, and file are not required for individual item saving
+    
+    // Check if serial number is entered in the CustomInfoCard
+    print('cctvSerialController.text: "${cctvSerialController.text}"');
+    if (cctvSerialController.text.isEmpty) {
+      print('❌ Serial number validation failed');
+      return false;
+    } else {
+      print('✅ Serial number validation passed');
     }
 
-    // Check if battery status is selected
-    if (selectedBatteryStatus == null) {
-      isValid = false;
+    // Check if photo is added
+    print('assetCardPhoto: $assetCardPhoto');
+    if (assetCardPhoto == null || assetCardPhoto!.isEmpty) {
+      print('❌ Photo validation failed');
+      return false;
+    } else {
+      print('✅ Photo validation passed');
     }
 
-    // Check if file is uploaded
-    if (selectedFile == null) {
-      isValid = false;
-    }
+    // Note: assetCardStatus is not required since it comes from API
+    // and is set to true by default (backendStatus: true)
+    print('assetCardStatus: $assetCardStatus (not required)');
 
-    // Check if serial number is entered
-    if (serialController.text.isEmpty) {
-      isValid = false;
-    }
-
-    return isValid;
+    print('Final validation result: true');
+    return true;
   }
 
   // Save current form data
   void _saveCurrentForm() {
+    print('Attempting to save form...');
+    print('Form validation result: ${_isFormValid()}');
+    print('cctvSerialController text: "${cctvSerialController.text}"');
+    print('assetCardSerialNumber: $assetCardSerialNumber');
+    print('assetCardPhoto: $assetCardPhoto');
+    print('assetCardStatus: $assetCardStatus');
+    
     if (_isFormValid()) {
       setState(() {
         // Create a map of current form data
         Map<String, dynamic> currentFormData = {
           'serialNumber': assetCardSerialNumber,
           'photo': assetCardPhoto,
-          'status': assetCardStatus,
+          'status': assetCardStatus ?? "OK", // Default to "OK" if null (since it comes from API)
           'timestamp': DateTime.now(),
         };
+
+        print('Saving item: $currentFormData');
+        print('Current savedItems count: ${savedItems.length}');
 
         // Add to saved items list
         savedItems.add(currentFormData);
         currentScannedItems++;
+
+        print('After saving - savedItems count: ${savedItems.length}');
+        print('currentScannedItems: $currentScannedItems');
 
         // Clear AssetTypeCard form for next entry
         assetCardSerialNumber = null;
@@ -188,6 +231,8 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
           duration: Duration(seconds: 2),
         ),
       );
+    } else {
+      print('Form validation failed - cannot save item');
     }
   }
 
@@ -654,63 +699,88 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
             children: [
               Row(
                 children: [
-                  const Expanded(
-                    child: Text(
-                      "Serial No.",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: fontFamilyMontserrat,
-                        fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        "Serial No.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontFamily: fontFamilyMontserrat,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  const Expanded(
-                    child: Text(
-                      "Status",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: fontFamilyMontserrat,
-                        fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        "Status",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontFamily: fontFamilyMontserrat,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  const Expanded(
-                    child: Text(
-                      "Scanned",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: fontFamilyMontserrat,
-                        fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        "Scanned",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontFamily: fontFamilyMontserrat,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  const Expanded(
-                    child: Text(
-                      "Photo",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: fontFamilyMontserrat,
-                        fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        "Photo",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontFamily: fontFamilyMontserrat,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                  const Expanded(
-                    child: Text(
-                      "Edit",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontFamily: fontFamilyMontserrat,
-                        fontWeight: FontWeight.w400,
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: const Text(
+                        "Edit",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontFamily: fontFamilyMontserrat,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -720,70 +790,73 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
 
               ...savedItems
                   .map(
-                    (item) => Container(
-                      margin: const EdgeInsets.only(top: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _formatSerialNumber(item["serialNumber"] ?? ""),
-                              style: const TextStyle(
-                                color: AppColors.color555555,
-                                fontSize: 14,
-                                fontFamily: fontFamilyMontserrat,
-                                fontWeight: FontWeight.w400,
+                    (item) {
+                      print('Building item row for: $item');
+                      return Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(5),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _formatSerialNumber(item["serialNumber"] ?? ""),
+                                style: const TextStyle(
+                                  color: AppColors.color555555,
+                                  fontSize: 14,
+                                  fontFamily: fontFamilyMontserrat,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: Text(
-                              item["status"] ?? "",
-                              style: const TextStyle(
-                                color: AppColors.color555555,
-                                fontSize: 14,
-                                fontFamily: fontFamilyMontserrat,
-                                fontWeight: FontWeight.w400,
+                            Expanded(
+                              child: Text(
+                                item["status"] ?? "",
+                                style: const TextStyle(
+                                  color: AppColors.color555555,
+                                  fontSize: 14,
+                                  fontFamily: fontFamilyMontserrat,
+                                  fontWeight: FontWeight.w400,
+                                ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            child: Icon(Icons.check, color: Colors.green),
-                          ),
-                          Expanded(
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.camera_alt,
-                                color: AppColors.color555555,
-                              ),
-                              onPressed: () {
-                                // handle photo click
-                              },
+                            const Expanded(
+                              child: Icon(Icons.check, color: Colors.green),
                             ),
-                          ),
-                          Expanded(
-                            child: IconButton(
-                              icon: const Icon(
-                                Icons.edit_calendar_outlined,
-                                color: AppColors.color555555,
+                            Expanded(
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.camera_alt,
+                                  color: AppColors.color555555,
+                                ),
+                                onPressed: () {
+                                  // handle photo click
+                                },
                               ),
-                              onPressed: () {
-                                // handle edit click for this item
-                                _editItem(item);
-                              },
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
+                            Expanded(
+                              child: IconButton(
+                                icon: const Icon(
+                                  Icons.edit_calendar_outlined,
+                                  color: AppColors.color555555,
+                                ),
+                                onPressed: () {
+                                  // handle edit click for this item
+                                  _editItem(item);
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   )
                   .toList(),
             ],

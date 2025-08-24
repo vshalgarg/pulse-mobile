@@ -251,7 +251,7 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                           borderRadius: BorderRadius.circular(5),
                           child: Image.file(
                             _selectedImage!,
-                            fit: BoxFit.contain,
+                            fit: BoxFit.cover,
                             width: double.infinity,
                           ),
                         ),

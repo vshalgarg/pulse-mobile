@@ -55,12 +55,30 @@ class SerialNumberField extends StatelessWidget {
             suffixIcon: IconButton(
               icon: const Icon(Icons.qr_code_scanner),
               onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const QRScannerScreen()),
-                );
-                if (result != null && result is String) {
-                  controller.text = result;
+                try {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const QRScannerScreen()),
+                  );
+                  
+                  // Debug print to see what's returned
+                  print('QR Scanner result: $result (type: ${result.runtimeType})');
+                  
+                  if (result != null && result is String && result.isNotEmpty) {
+                    controller.text = result;
+                    print('Serial number set to: $result');
+                  } else {
+                    print('Invalid or empty result from QR scanner');
+                  }
+                } catch (e) {
+                  print('Error in QR scanner: $e');
+                  // Show error to user
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Error scanning QR code: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
                 }
               },
             ),

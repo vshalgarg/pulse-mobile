@@ -62,22 +62,25 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
-                  child: Container(
-                    height: 50,
-                    margin: const EdgeInsets.only(bottom: 30),
-                    child: Lottie.asset(
-                      'assets/lottie/pulse.json',
-                      controller: _controller,
-                      onLoaded: (composition) {
-                        _controller
-                          ..duration = composition.duration
-                          ..forward();
-                      },
-                      fit: BoxFit.contain,
-                      repeat: true,
-                      animate: true,
-                    ),
+                  child: SvgPicture.asset(
+                    AppImages.pulseImg
                   ),
+                  // Container(
+                  //   height: 50,
+                  //   margin: const EdgeInsets.only(bottom: 30),
+                  //   child: Lottie.asset(
+                  //     'assets/lottie/pulse.json',
+                  //     controller: _controller,
+                  //     onLoaded: (composition) {
+                  //       _controller
+                  //         ..duration = composition.duration
+                  //         ..forward();
+                  //     },
+                  //     fit: BoxFit.contain,
+                  //     repeat: true,
+                  //     animate: true,
+                  //   ),
+                  // ),
                 ),
                 const Text(
                   "Managing Telecom, Decommission,\nInstallation & Warehouses",
