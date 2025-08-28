@@ -13,6 +13,9 @@ import '../constants/constants_strings.dart';
 import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
+import 'asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
+import 'asset_audit/asset_audit_solar/asset_audit_solar.dart';
+import 'energy_reading/energy_reading_screen.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -95,27 +98,63 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
-  void _navigateToAuditScreen() {
-    switch (widget.auditName) {
-      case "Asset Audit":
-        Navigator.pushNamed(context, assetAuditScreen);
-        break;
-      case "PM":
-        Navigator.pushNamed(context, preventiveMaintenanceScreen);
-        break;
-      case "CM":
-        Navigator.pushNamed(context, correctiveMaintenanceScreen);
-        break;
-      case "ER":
-        Navigator.pushNamed(context, energyReadingScreen);
-        break;
-      default:
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('No specific audit screen for ${widget.auditName}'),
-            backgroundColor: AppColors.errorColor,
+  void _navigateToAuditScreen(Ticket? ticket) {
+    if (widget.auditName == "Asset Audit") {
+      // Check site domain to determine which screen to navigate to
+      if (ticket?.siteDomainName == "Telecom") {
+        // Navigate to Telecom Asset Audit
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssetAuditTelecomScreen(
+              siteType: "Telecom",
+              auditSchId: ticket?.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
+            ),
           ),
         );
+      } else {
+        // Navigate to Solar Asset Audit
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssetAuditSolarScreen(
+              siteType: "Solar",
+              auditSchId: ticket?.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
+            ),
+          ),
+        );
+      }
+    } else {
+      switch (widget.auditName) {
+        case "PM":
+          Navigator.pushNamed(context, preventiveMaintenanceScreen);
+          break;
+        case "CM":
+          Navigator.pushNamed(context, correctiveMaintenanceScreen);
+          break;
+        case "ER":
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => EnergyReadingScreen(
+                siteType: ticket?.siteDomainName ?? "Telecom",
+                auditSchId: ticket?.auditSchId?.toString() ?? "",
+                siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
+                siteId: ticket?.ticketSchId.toString() ?? "0", // Using ticketSchId as siteId for now
+              ),
+            ),
+          );
+          break;
+        default:
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('No specific audit screen for ${widget.auditName}'),
+              backgroundColor: AppColors.errorColor,
+            ),
+          );
+      }
     }
   }
 
@@ -249,7 +288,7 @@ class _TicketScreenState extends State<TicketScreen> {
             dueDate: ticket.dueDt,
             statusText: statusText,
             // statusColor: ticket['statusColor'],
-            onTap: _navigateToAuditScreen,
+            onTap: () => _navigateToAuditScreen(ticket),
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
                 print("Opening Google Maps for ${ticket.pvTicketId} at ${ticket.longitude}, ${ticket.latitude}");

@@ -28,4 +28,10 @@ class HiveConstant {
   static const String username = "username";
   static const String password = "password";
   static const String rememberMe = "rememberMe";
+  
+  // Energy Reading Form Data
+  static const String energyReadingFormData = "energyReadingFormData";
+  static const String energyReadingAuditSchId = "energyReadingAuditSchId";
+  static const String energyReadingSiteAuditSchId = "energyReadingSiteAuditSchId";
+  static const String energyReadingSiteId = "energyReadingSiteId";
 }

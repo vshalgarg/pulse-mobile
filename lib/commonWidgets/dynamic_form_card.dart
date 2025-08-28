@@ -4,6 +4,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'dart:io';
 
 import '../models/form_fields_model.dart';
 import 'custom_file_upload.dart';
@@ -69,14 +70,13 @@ class DynamicFormCard extends StatelessWidget {
                   label: field.label,
                   isRequired: field.isRequired,
                   onUploadTap: () async {
-                    print("FileUploadBox tapped for field: ${field.label}");
                     try {
-                      // Open file picker
-                      final file = await Utils.pickSingleFile(
-                        fileType: FileType.custom,
-                        extensions: ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'],
+                      FilePickerResult? result = await FilePicker.platform.pickFiles(
+                        type: FileType.any,
+                        allowMultiple: false,
                       );
-                      if (file != null) {
+                      if (result != null && result.files.isNotEmpty) {
+                        final file = File(result.files.first.path!);
                         print("File selected: ${file.path}");
                         onValueChanged?.call(field.label, file.path);
                       } else {
@@ -93,7 +93,7 @@ class DynamicFormCard extends StatelessWidget {
                       );
                     }
                   },
-                  fileName: field.initialValue,
+                  selectedFileName: field.initialValue,
                   onDelete: () => onValueChanged?.call(field.label, null),
                 );
                 break;
@@ -168,7 +168,7 @@ class DynamicFormCard extends StatelessWidget {
 //                  hasUnsavedChanges = true;
 //                });
 //              },
-//              fileName: selectedFile,
+//              selectedFileName: selectedFile,
 //              onDelete: () {
 //                setState(() {
 //                  selectedFile = null;

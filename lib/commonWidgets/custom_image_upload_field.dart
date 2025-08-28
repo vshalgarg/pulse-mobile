@@ -95,11 +95,11 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
               ),
             )
                 : ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              // borderRadius: BorderRadius.circular(12),
               child: Image.file(
                 // height: 20,
                 _selectedImage!,
-                fit: BoxFit.contain,
+                fit: BoxFit.cover,
                 width: double.infinity,
               ),
             ),

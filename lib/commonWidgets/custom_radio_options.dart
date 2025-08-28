@@ -132,3 +132,31 @@ class OptionItem {
     required this.unselectedIcon,
   });
 }
+
+
+
+// CustomOptionSelector(
+// label: "Battery ODC Lock status",
+// isRequired: true,
+// options: [
+// OptionItem(
+// value: "yes",
+// label: "Yes",
+// selectedIcon: Icons.check_circle,
+// unselectedIcon: Icons.circle_outlined,
+// ),
+// OptionItem(
+// value: "no",
+// label: "No",
+// selectedIcon: Icons.cancel,
+// unselectedIcon: Icons.circle_outlined,
+// ),
+// ],
+// onChanged: (value) {
+// print("Selected: $value");
+// setState(() {
+// selectedBatteryStatus = value;
+// hasUnsavedChanges = true;
+// });
+// },
+// ),

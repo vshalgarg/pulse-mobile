@@ -44,7 +44,7 @@ class SerialNumberField extends StatelessWidget {
         TextFormField(
           controller: controller,
           decoration: InputDecoration(
-            hintText: "Enter or Scan Serial Number",
+            hintText: "Serial Number",
             hintStyle: TextStyle(
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,

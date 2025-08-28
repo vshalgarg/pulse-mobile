@@ -576,6 +576,8 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
                               //       ),
                               //     ),
                               //   ),
+                              // Always show the header, but only show items if list is not empty
+                              _buildSavedItemsHeader(),
                               if (savedItems.isNotEmpty) ...[
                                 _buildSavedItemsList(),
                                 getHeight(20),
@@ -683,185 +685,182 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
     );
   }
 
+  // Build saved items header
+  Widget _buildSavedItemsHeader() {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.green7,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: const Text(
+                "Serial No.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: const Text(
+                "Status",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: const Text(
+                "Scanned",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: const Text(
+                "Photo",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: const Text(
+                "Edit",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Build saved items list
   Widget _buildSavedItemsList() {
     return Column(
       children: [
-        // Header Row
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.green7,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Serial No.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+        ...savedItems
+            .map(
+              (item) {
+                print('Building item row for: $item');
+                return Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Status",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(5),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Scanned",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _formatSerialNumber(item["serialNumber"] ?? ""),
+                          style: const TextStyle(
+                            color: AppColors.color555555,
+                            fontSize: 14,
+                            fontFamily: fontFamilyMontserrat,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Photo",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
+                      Expanded(
+                        child: Text(
+                          item["status"] ?? "",
+                          style: const TextStyle(
+                            color: AppColors.color555555,
+                            fontSize: 14,
+                            fontFamily: fontFamilyMontserrat,
+                            fontWeight: FontWeight.w400,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Edit",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      const Expanded(
+                        child: Icon(Icons.check, color: Colors.green),
                       ),
-                    ),
+                      Expanded(
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.camera_alt,
+                            color: AppColors.color555555,
+                          ),
+                          onPressed: () {
+                            // handle photo click
+                          },
+                        ),
+                      ),
+                      Expanded(
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.edit_calendar_outlined,
+                            color: AppColors.color555555,
+                          ),
+                          onPressed: () {
+                            // handle edit click for this item
+                            _editItem(item);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              ...savedItems
-                  .map(
-                    (item) {
-                      print('Building item row for: $item');
-                      return Container(
-                        margin: const EdgeInsets.only(top: 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.white,
-                          borderRadius: BorderRadius.circular(5),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _formatSerialNumber(item["serialNumber"] ?? ""),
-                                style: const TextStyle(
-                                  color: AppColors.color555555,
-                                  fontSize: 14,
-                                  fontFamily: fontFamilyMontserrat,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                            Expanded(
-                              child: Text(
-                                item["status"] ?? "",
-                                style: const TextStyle(
-                                  color: AppColors.color555555,
-                                  fontSize: 14,
-                                  fontFamily: fontFamilyMontserrat,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ),
-                            const Expanded(
-                              child: Icon(Icons.check, color: Colors.green),
-                            ),
-                            Expanded(
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.camera_alt,
-                                  color: AppColors.color555555,
-                                ),
-                                onPressed: () {
-                                  // handle photo click
-                                },
-                              ),
-                            ),
-                            Expanded(
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.edit_calendar_outlined,
-                                  color: AppColors.color555555,
-                                ),
-                                onPressed: () {
-                                  // handle edit click for this item
-                                  _editItem(item);
-                                },
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  )
-                  .toList(),
-            ],
-          ),
-        ),
+                );
+              },
+            )
+            .toList(),
       ],
     );
   }

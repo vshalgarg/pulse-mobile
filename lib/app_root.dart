@@ -7,11 +7,16 @@ import 'package:app/bloc/reset_password_cubit.dart';
 import 'package:app/bloc/demo_bloc_cubit.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
 import 'package:app/bloc/ticket_cubit.dart';
+import 'package:app/bloc/asset_audit_cubit.dart';
+import 'package:app/bloc/energy_reading_cubit.dart';
+import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
+import 'package:app/repositories/asset_audit_repository.dart';
+import 'package:app/repositories/energy_reading_repository.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -43,9 +48,13 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => ResetPasswordCubit(config.authRepository)),
         BlocProvider(create: (context) => DashboardCubit(config.dashboardRepository)),
         BlocProvider(create: (context) => TicketCubit(ticketRepository: config.ticketRepository)),
+        BlocProvider(create: (context) => AssetAuditCubit(repository: config.assetAuditRepository)),
+        BlocProvider(create: (context) => EnergyReadingCubit(config.energyReadingRepository)),
+        BlocProvider(create: (context) => EnergyReadingDetailCubit(config.energyReadingDetailRepository)),
       ],
       child: MultiProvider(
         providers: [
+          Provider<AppConfig>.value(value: config),
           ChangeNotifierProvider(create: (context) => LocaleProvider()),
           ChangeNotifierProvider(create: (context) => ThemeProvider()),
           // ChangeNotifierProvider(create: (context) => ProviderDemoProvider(config.cartItemService)),

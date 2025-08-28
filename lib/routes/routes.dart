@@ -14,6 +14,11 @@ const String preventiveMaintenanceScreen = "/preventiveMaintenanceScreen";
 const String correctiveMaintenanceScreen = "/correctiveMaintenanceScreen";
 const String energyReadingScreen = "/energyReadingScreen";
 const String ticketScreen = "/ticketScreen";
+const String ccuScreen = "/ccuScreen";
+const String siteInfoScreen = "/siteInfoScreen";
+const String batteryScreen = "/batteryScreen";
+const String extinguisherScreen = "/extinguisherScreen";
+const String solarPlateScreen = "/solarPlateScreen";
 
 
 

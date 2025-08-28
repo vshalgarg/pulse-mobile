@@ -1,7 +1,13 @@
 import 'package:app/routes/routes.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/solar_plates.dart';
 import 'package:app/screens/asset_audit_screen.dart';
 import 'package:app/screens/corrective_maintenance_screen.dart';
-import 'package:app/screens/energy_reading_screen.dart';
+import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
@@ -47,7 +53,22 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case preventiveMaintenanceScreen:
       return _push(const PreventiveMaintenanceScreen());
     case energyReadingScreen:
-      return _push(const EnergyReadingScreen());
+      return _push(const EnergyReadingScreen(
+        siteType: "",
+        auditSchId: "",
+        siteAuditSchId: "",
+        siteId: "",
+      ));
+    case siteInfoScreen:
+      return _push(const SiteInfoScreen());
+    case ccuScreen:
+      return _push(const CCUScreen());
+    case batteryScreen:
+      return _push(const BatteryScreen());
+    case extinguisherScreen:
+      return _push(const ExtinguisherScreen());
+    case solarPlateScreen:
+      return _push(const SolarPlatesScreen());
     case ticketScreen:
       return _push(const TicketScreen(auditName: "", status: ""));
 

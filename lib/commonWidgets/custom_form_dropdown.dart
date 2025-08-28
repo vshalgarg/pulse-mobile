@@ -118,3 +118,14 @@ class _CustomDropdownState extends State<CustomDropdown> {
     );
   }
 }
+// CustomDropdown(
+// label: "Type",
+// items: ["Battery", "DC"],
+// initialValue: selectedType,
+// onChanged: (value) {
+// setState(() {
+// selectedType = value;
+// hasUnsavedChanges = true;
+// });
+// },
+// ),

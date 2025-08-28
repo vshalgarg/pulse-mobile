@@ -21,7 +21,7 @@ class CustomInfoCard extends StatefulWidget {
   final String statusLabel;
   final String buttonLabel;
   final TextEditingController serialController;
-  final VoidCallback onSave;
+  final VoidCallback? onSave;
   final Function(String?) onPhotoTap;
   final ValueChanged<bool> onStatusChanged;
   final ValueChanged<String>? onSerialChanged;
@@ -30,6 +30,12 @@ class CustomInfoCard extends StatefulWidget {
   final bool isEditable; // Controls if the text field and other inputs are editable
   final bool isStatusEditable; // Controls if the status radio buttons are editable
   final bool? backendStatus; // New parameter for backend status value
+  final String? serialHintText; // New parameter for hint text
+  final String? remarksLabel; // Optional remarks field label
+  final String? remarksHintText; // Optional remarks field hint text
+  final TextEditingController? remarksController; // Optional remarks controller
+  final ValueChanged<String>? onRemarksChanged; // Optional remarks change callback
+  final bool showSaveButton; // Controls whether to show the save button
 
   const CustomInfoCard({
     super.key,
@@ -38,7 +44,7 @@ class CustomInfoCard extends StatefulWidget {
     required this.statusLabel,
     this.buttonLabel = "Save",
     required this.serialController,
-    required this.onSave,
+     this.onSave,
     required this.onPhotoTap,
     required this.onStatusChanged,
     this.onSerialChanged,
@@ -47,6 +53,12 @@ class CustomInfoCard extends StatefulWidget {
     required this.isEditable,
     this.isStatusEditable = true,
     this.backendStatus,
+    this.serialHintText, // New parameter
+    this.remarksLabel, // Optional remarks field
+    this.remarksHintText, // Optional remarks hint
+    this.remarksController, // Optional remarks controller
+    this.onRemarksChanged, // Optional remarks callback
+    this.showSaveButton = true, // Default to true for backward compatibility
   });
 
   @override
@@ -159,7 +171,7 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
               }
             } : null,
             decoration: InputDecoration(
-              hintText: widget.serialLabel,
+              hintText: widget.serialHintText ?? widget.serialLabel,
               hintStyle: TextStyle(
                 fontWeight: FontWeight.w400,
                 fontFamily: fontFamilyMontserrat,
@@ -180,7 +192,7 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                     }
                   }
                 },
-              ) : null, // Hide QR scanner icon if not editable
+              ) : null,
               filled: true,
               fillColor: widget.isEditable ? Colors.white : Colors.grey.shade200,
               border: OutlineInputBorder(
@@ -281,6 +293,79 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
           ),
           const SizedBox(height: 16),
 
+          if (widget.remarksLabel != null) ...[
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Label with optional *
+                Row(
+                  children: [
+                    Text(
+                    widget.remarksLabel!,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                        fontFamily: fontFamilyMontserrat,
+                      ),
+                    ),
+                    // if (isRequired)
+                      const Text(
+                        " *",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.errorColor,
+                          fontFamily: fontFamilyMontserrat,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 5),
+
+                // Input field
+                TextFormField(
+                  controller: widget.remarksController,
+                  readOnly: !widget.isEditable,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: widget.isEditable ? Colors.white : AppColors.borderColorE0E0E0, // Grey when not editable
+                    contentPadding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(5),
+                      borderSide: BorderSide.none,
+                    ),
+                    hintText: widget.remarksHintText ?? widget.remarksLabel, // Show hint text if provided
+                    hintStyle: TextStyle(
+                      fontWeight: FontWeight.w400,
+                      fontFamily: fontFamilyMontserrat,
+                      fontSize: 16,
+                      color: AppColors.color555555.withOpacity(0.6), // Slightly transparent for hint
+                    ),
+                  ),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w400,
+                      fontFamily: fontFamilyMontserrat,
+                      fontSize: 16,
+                      color: AppColors.color555555
+                  ),
+                  validator: (value) {
+                    // Remarks is optional, so no validation required
+                    return null;
+                  },
+                  onFieldSubmitted: (value) {
+                    // Trigger validation
+                  },
+                  onChanged: widget.onRemarksChanged,
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+
           RichText(
             text: TextSpan(
               children: [
@@ -340,7 +425,7 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 20), // Reduced spacing between radio groups
+                  const SizedBox(width: 20),
                   Row(
                     children: [
                       Radio<bool>(
@@ -374,21 +459,24 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                 ],
               ),
               
-              const Spacer(), // This will push the save button to the right
-              
-              // Save button
-              ElevatedButton(
-                onPressed: widget.isEditable ? widget.onSave : null, // Disable button if not editable
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.isEditable ? const Color(0xFFDBE2F0) : Colors.grey.shade400,
-                  foregroundColor: widget.isEditable ? const Color(0xFF2D426E) : Colors.grey.shade600,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5),
+              // Only show Spacer and Save button if showSaveButton is true
+              if (widget.showSaveButton) ...[
+                const Spacer(),
+                
+                // Save button
+                ElevatedButton(
+                  onPressed: widget.isEditable ? widget.onSave : null, // Disable button if not editable
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: widget.isEditable ? const Color(0xFFDBE2F0) : Colors.grey.shade400,
+                    foregroundColor: widget.isEditable ? const Color(0xFF2D426E) : Colors.grey.shade600,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5),
+                    ),
                   ),
+                  child: Text(widget.buttonLabel),
                 ),
-                child: Text(widget.buttonLabel),
-              ),
+              ],
             ],
           ),
         ],

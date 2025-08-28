@@ -164,9 +164,43 @@ class HiveDB {
   // get cart count
   static String? get getCartCount => userCredential.get(HiveConstant.cartCount);
 
-  // save cart count
-  static Future<void> setCartCount(num? cartCount) async =>
-      await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.cartCount, cartCount ?? 0);
+  static Future<void> setCartCount(int? cartCount) async {
+    await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.cartCount, cartCount ?? 0);
+  }
+
+  // Energy Reading Form Data Methods
+  static Future<void> saveEnergyReadingFormData(Map<String, dynamic> formData) async {
+    await userCredential.put(HiveConstant.energyReadingFormData, formData);
+  }
+
+  static Map<String, dynamic>? get getEnergyReadingFormData => 
+      userCredential.get(HiveConstant.energyReadingFormData);
+
+  static Future<void> saveEnergyReadingIds({
+    required String auditSchId,
+    required String siteAuditSchId,
+    required String siteId,
+  }) async {
+    await userCredential.put(HiveConstant.energyReadingAuditSchId, auditSchId);
+    await userCredential.put(HiveConstant.energyReadingSiteAuditSchId, siteAuditSchId);
+    await userCredential.put(HiveConstant.energyReadingSiteId, siteId);
+  }
+
+  static String? get getEnergyReadingAuditSchId => 
+      userCredential.get(HiveConstant.energyReadingAuditSchId);
+  
+  static String? get getEnergyReadingSiteAuditSchId => 
+      userCredential.get(HiveConstant.energyReadingSiteAuditSchId);
+  
+  static String? get getEnergyReadingSiteId => 
+      userCredential.get(HiveConstant.energyReadingSiteId);
+
+  static Future<void> clearEnergyReadingData() async {
+    await userCredential.delete(HiveConstant.energyReadingFormData);
+    await userCredential.delete(HiveConstant.energyReadingAuditSchId);
+    await userCredential.delete(HiveConstant.energyReadingSiteAuditSchId);
+    await userCredential.delete(HiveConstant.energyReadingSiteId);
+  }
 
   // get profile image
   static String? get getProfileImage => userCredential.get(HiveConstant.profileImage, defaultValue: null);

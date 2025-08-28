@@ -52,7 +52,7 @@ class ApiService {
 
   Future<ResponseResult<T>> post<T>({
     required String path,
-    Map<String, dynamic>? data,
+    dynamic data, // Changed from Map<String, dynamic>? to dynamic
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
     List<MultipartFile>? files,
@@ -63,13 +63,25 @@ class ApiService {
       print("ApiService: Request data: $data");
       print("ApiService: Query parameters: $queryParameters");
       
-      final dataPayload = useFormDataFormat ? (data != null ? FormData.fromMap(data) : null) : data;
-
-      if (dataPayload is FormData && files != null) {
-        for (int i = 0; i < files.length; i++) {
-          final file = files[i];
-          dataPayload.files.add(MapEntry('image_$i', file));
+      dynamic dataPayload;
+      
+      if (useFormDataFormat) {
+        // Handle FormData creation
+        if (data is Map<String, dynamic>) {
+          dataPayload = FormData.fromMap(data);
+        } else {
+          dataPayload = null;
         }
+        
+        if (dataPayload is FormData && files != null) {
+          for (int i = 0; i < files.length; i++) {
+            final file = files[i];
+            dataPayload.files.add(MapEntry('Documents', file));
+          }
+        }
+      } else {
+        // Send data directly (could be Map, List, or any JSON-serializable type)
+        dataPayload = data;
       }
 
       print("ApiService: Starting POST request...");
@@ -83,8 +95,8 @@ class ApiService {
       print("ApiService: POST request completed - statusCode: ${result.statusCode}");
       print("ApiService: Response data: ${result.data}");
 
-      // Check if status code is 200 for success
-      if (result.statusCode == 200) {
+      // Check if status code indicates success (200, 201, 202, etc.)
+      if (result.statusCode! >= 200 && result.statusCode! < 300) {
         // If Dio didn't automatically decode the JSON, manually decode it.
         if (result.data is String) {
           return ResponseResult.success(jsonDecode(result.data), result.statusCode);

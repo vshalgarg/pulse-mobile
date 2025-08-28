@@ -46,7 +46,7 @@ Future<void> main() async {
 
   // for loading data before running application
   final _baseUrl = dotenv.env['BASE_URL_DEV'];
-  final config = AppConfig(baseUrl: _baseUrl!)..initialize();
+  final config = AppConfig(baseUrl: _baseUrl!);
 
   // stripe
   // if (!kIsWeb) {

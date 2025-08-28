@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class CustomFormField extends StatelessWidget {
   final String label;
   final String? initialValue;
+  final String? hintText;
   final bool isRequired;
   final bool isEditable;
   final TextEditingController? controller;
@@ -14,6 +15,7 @@ class CustomFormField extends StatelessWidget {
     super.key,
     required this.label,
     this.initialValue,
+    this.hintText,
     this.isRequired = false,
     this.isEditable = true,
     this.controller,
@@ -25,7 +27,8 @@ class CustomFormField extends StatelessWidget {
     final TextEditingController textController =
         controller ?? TextEditingController(text: initialValue ?? "");
 
-    return Column(
+    return
+      Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with optional *
@@ -68,6 +71,13 @@ class CustomFormField extends StatelessWidget {
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(5),
               borderSide: BorderSide.none,
+            ),
+            hintText: hintText, // Show hint text if provided
+            hintStyle: TextStyle(
+              fontWeight: FontWeight.w400,
+              fontFamily: fontFamilyMontserrat,
+              fontSize: 16,
+              color: AppColors.color555555.withOpacity(0.6), // Slightly transparent for hint
             ),
           ),
           style: TextStyle(
