@@ -10,6 +10,7 @@ import 'package:app/bloc/ticket_cubit.dart';
 import 'package:app/bloc/asset_audit_cubit.dart';
 import 'package:app/bloc/energy_reading_cubit.dart';
 import 'package:app/bloc/energy_reading_detail_cubit.dart';
+import 'package:app/bloc/selfie_upload_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
 import 'package:app/repositories/auth_repository.dart';
@@ -51,6 +52,7 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => AssetAuditCubit(repository: config.assetAuditRepository)),
         BlocProvider(create: (context) => EnergyReadingCubit(config.energyReadingRepository)),
         BlocProvider(create: (context) => EnergyReadingDetailCubit(config.energyReadingDetailRepository)),
+        BlocProvider(create: (context) => SelfieUploadCubit(config.selfieUploadRepository)),
       ],
       child: MultiProvider(
         providers: [

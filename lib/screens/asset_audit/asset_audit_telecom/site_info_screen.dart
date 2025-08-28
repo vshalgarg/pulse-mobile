@@ -13,7 +13,22 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
 
 class SiteInfoScreen extends StatefulWidget {
-  const SiteInfoScreen({super.key});
+  final String siteName;
+  final String siteTypeName;
+  final String indoorOutdoor;
+  final String ebNonEb;
+  final String op1Name;
+  final String op2Name;
+
+  const SiteInfoScreen({
+    super.key,
+    required this.siteName,
+    required this.siteTypeName,
+    required this.indoorOutdoor,
+    required this.ebNonEb,
+    required this.op1Name,
+    required this.op2Name,
+  });
 
   @override
   State<SiteInfoScreen> createState() => _SiteInfoScreenState();
@@ -207,35 +222,35 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                             children: [
                               CustomFormField(
                                 label: "Site Type",
-                                initialValue: "Haryana",
+                                initialValue: widget.siteTypeName,
                                 isRequired: false,
                                 isEditable: false,
                               ),
                               getHeight(15),
                               CustomFormField(
                                 label: "Indoor/Outdoor",
-                                initialValue: "Haryana",
+                                initialValue: widget.indoorOutdoor,
                                 isRequired: false,
                                 isEditable: false,
                               ),
                               getHeight(15),
                               CustomFormField(
                                 label: "EB/N-EB",
-                                initialValue: "Haryana",
+                                initialValue: widget.ebNonEb,
                                 isRequired: false,
                                 isEditable: false,
                               ),
                               getHeight(15),
                               CustomFormField(
                                 label: "Operator 1",
-                                initialValue: "Haryana",
+                                initialValue: widget.op1Name,
                                 isRequired: false,
                                 isEditable: false,
                               ),
                               getHeight(15),
                               CustomFormField(
                                 label: "Operator 2",
-                                initialValue: "Haryana",
+                                initialValue: widget.op2Name,
                                 isRequired: false,
                                 isEditable: false,
                               ),

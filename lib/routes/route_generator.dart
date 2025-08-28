@@ -17,6 +17,7 @@ import 'package:app/screens/splash_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:flutter/material.dart';
 
+import '../screens/asset_audit/asset_audit_solar/asset_audit_solar.dart';
 import '../screens/login_screen.dart';
 import '../screens/otp_verfication_screen.dart';
 import '../screens/welcome_screen.dart';
@@ -60,7 +61,14 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         siteId: "",
       ));
     case siteInfoScreen:
-      return _push(const SiteInfoScreen());
+      return _push(const SiteInfoScreen(
+        siteName: "",
+        siteTypeName: "",
+        indoorOutdoor: "",
+        ebNonEb: "",
+        op1Name: "",
+        op2Name: "",
+      ));
     case ccuScreen:
       return _push(const CCUScreen());
     case batteryScreen:

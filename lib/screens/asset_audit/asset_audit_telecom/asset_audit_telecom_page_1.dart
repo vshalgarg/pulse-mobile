@@ -5,9 +5,11 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dar
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'dart:io';
 
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../bloc/selfie_upload_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -29,7 +31,8 @@ class AssetAuditTelecomScreen extends StatefulWidget {
   });
 
   @override
-  State<AssetAuditTelecomScreen> createState() => _AssetAuditTelecomScreenState();
+  State<AssetAuditTelecomScreen> createState() =>
+      _AssetAuditTelecomScreenState();
 }
 
 class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
@@ -50,9 +53,10 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
   String? assetCardSerialNumber;
   String? assetCardPhoto;
   String? assetCardStatus;
-  
+
   // Track uploaded photo
   String? uploadedPhotoPath;
+  String? uploadedImgId; // Store the uploaded image ID from API
 
   // Controllers for CustomInfoCard
   final TextEditingController cctvSerialController = TextEditingController();
@@ -62,7 +66,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     super.initState();
     // Listen to form changes
     serialController.addListener(_onFormChanged);
-    
+
     // Load asset audit data
     context.read<AssetAuditCubit>().getAssetAuditData(
       siteType: widget.siteType,
@@ -83,28 +87,22 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     setState(() {
       hasUnsavedChanges =
           selectedFile != null ||
-              selectedStatus != null ||
-              selectedBatteryStatus != null ||
-              selectedType != null ||
-              serialController.text.isNotEmpty ||
-              uploadedPhotoPath != null;
+          selectedStatus != null ||
+          selectedBatteryStatus != null ||
+          selectedType != null ||
+          serialController.text.isNotEmpty ||
+          uploadedPhotoPath != null;
 
       // Hide validation errors when user starts filling the form
-      if (showValidationErrors &&
-          uploadedPhotoPath != null) {
+      if (showValidationErrors && uploadedPhotoPath != null) {
         showValidationErrors = false;
       }
     });
   }
 
   void _saveAndExit() async {
-    // First close the unsaved changes dialog
     Navigator.of(context).pop();
-
-    // Wait a bit for the dialog to fully close and overlay to clear
     await Future.delayed(const Duration(milliseconds: 200));
-
-    // Then show success dialog with a clean barrier
     if (mounted) {
       showDialog(
         context: context,
@@ -113,7 +111,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         builder: (context) => SuccessDialog(
           ticketId: "UVORKJR00044",
           message:
-          "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
+              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
           onDone: () {
             Navigator.of(context).pop();
             Navigator.of(context).pop();
@@ -129,8 +127,6 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     });
 
     print('=== Form Validation Debug (_validateForm) ===');
-
-    // Check if photo is uploaded
     print('uploadedPhotoPath: $uploadedPhotoPath');
     if (uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty) {
       print(' Photo validation failed - No photo uploaded');
@@ -143,210 +139,363 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     return true;
   }
 
+
+  void _uploadSelfie(File file) {
+    final assetAuditState = context.read<AssetAuditCubit>().state;
+    if (assetAuditState is AssetAuditLoaded &&
+        assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+      final schId = assetAuditState
+          .assetAuditData
+          .pageHeader
+          .first
+          .siteAuditSchId
+          .toString();
+
+      context.read<SelfieUploadCubit>().uploadSelfie(
+        file: file,
+        imgId: "0",
+        schId: schId,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please wait for site data to load before uploading selfie',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontFamily: fontFamilyMontserrat,
+            ),
+          ),
+          backgroundColor: AppColors.errorColor,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<AssetAuditCubit, AssetAuditState>(
-      listener: (context, state) {
-        if (state is AssetAuditError) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: AppColors.errorColor,
-            ),
-          );
-        }
-      },
-      builder: (context, state) {
-        return PopScope(
-      canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => UnsavedChangesDialog(
-              message:
-              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () {
-                _saveAndExit();
-              },
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        resizeToAvoidBottomInset: false,
-        appBar: CustomFormAppbar(
-          title: "Asset Audit",
-          onClose: () async {
-            if (hasUnsavedChanges) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message:
-                  "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () {
-                    _saveAndExit();
-                  },
-                  onDiscard: () {
-                    Navigator.of(context).pop();
-                  },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<AssetAuditCubit, AssetAuditState>(
+          listener: (context, state) {
+            if (state is AssetAuditError) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(state.message),
+                  backgroundColor: AppColors.errorColor,
                 ),
               );
-            } else {
-              Navigator.pop(context);
             }
           },
         ),
-        body: Stack(
-          children: [
-            // Background image
-            Positioned.fill(
-              child: SvgPicture.asset(
-                AppImages.home,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-              ),
-            ),
-            SafeArea(
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.only(
-                          bottom:
-                          MediaQuery.of(context).viewInsets.bottom + 120,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.only(
-                            top: 20,
-                            left: 16,
-                            right: 16,
-                            bottom: 20,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (state is AssetAuditLoaded && state.assetAuditData.pageHeader.isNotEmpty) ...[
-                                CustomFormField(
-                                  label: "Circle",
-                                  initialValue: state.assetAuditData.pageHeader.first.circle,
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Cluster",
-                                  initialValue: state.assetAuditData.pageHeader.first.cluster,
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "District",
-                                  initialValue: state.assetAuditData.pageHeader.first.district ?? "N/A",
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Customer",
-                                  initialValue: state.assetAuditData.pageHeader.first.clientName,
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Site Id",
-                                  initialValue: state.assetAuditData.pageHeader.first.siteCode,
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Site Name",
-                                  initialValue: state.assetAuditData.pageHeader.first.siteName,
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                              ],
-                              getHeight(15),
-                              ImageUploadField(
-                                label: "Add a Selfie",
-                                placeholder: "Selfie",
-                                isRequired: true,
-                                onImageSelected: (file) {
-                                  if (file != null) {
-                                    debugPrint(
-                                      "Selected image path: ${file.path}",
-                                    );
-                                    setState(() {
-                                      uploadedPhotoPath = file.path;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  } else {
-                                    setState(() {
-                                      uploadedPhotoPath = null;
-                                    });
-                                  }
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
+        BlocListener<SelfieUploadCubit, SelfieUploadState>(
+          listener: (context, state) {
+            if (state is SelfieUploadSuccess) {
+              setState(() {
+                uploadedImgId = state.response.imgId;
+              });
 
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      child: ArrowButton(
-                        text: "Site Info",
-                        isLeftArrow: false,
-                        backgroundColor: AppColors.buttonColorBg,
-                        textColor: AppColors.buttonColorSite,
-                        onPressed: () {
-                          if (_validateForm()) {
-                            pushPage(context, SiteInfoScreen());
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty
-                                      ? 'Please upload a selfie photo to continue'
-                                      : 'Please fill in all required fields',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontFamily: fontFamilyMontserrat,
-                                  ),
-                                ),
-                                backgroundColor: AppColors.errorColor,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Selfie uploaded successfully!',
+                    style: const TextStyle(
+                      color: AppColors.primaryGreen,
+                      fontSize: 14,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+                  backgroundColor: Colors.white,
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            } else if (state is SelfieUploadFailure) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    state.errorMessage,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+                  backgroundColor: AppColors.errorColor,
+                  duration: Duration(seconds: 3),
+                ),
+              );
+            }
+          },
+        ),
+      ],
+      child: BlocBuilder<AssetAuditCubit, AssetAuditState>(
+        builder: (context, state) {
+          return PopScope(
+            canPop: !hasUnsavedChanges,
+            onPopInvoked: (didPop) async {
+              if (didPop) return;
+
+              if (hasUnsavedChanges) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => UnsavedChangesDialog(
+                    message:
+                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                    onSaveAndExit: () {
+                      _saveAndExit();
+                    },
+                    onDiscard: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                );
+              }
+            },
+            child: Scaffold(
+              extendBodyBehindAppBar: true,
+              resizeToAvoidBottomInset: false,
+              appBar: CustomFormAppbar(
+                title: "Asset Audit",
+                onClose: () async {
+                  if (hasUnsavedChanges) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => UnsavedChangesDialog(
+                        message:
+                            "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                        onSaveAndExit: () {
+                          _saveAndExit();
+                        },
+                        onDiscard: () {
+                          Navigator.of(context).pop();
                         },
                       ),
+                    );
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              body: Stack(
+                children: [
+                  // Background image
+                  Positioned.fill(
+                    child: SvgPicture.asset(
+                      AppImages.home,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                      height: double.infinity,
                     ),
-                  ],
-                ),
+                  ),
+                  SafeArea(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.only(
+                                bottom:
+                                    MediaQuery.of(context).viewInsets.bottom +
+                                    120,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.only(
+                                  top: 20,
+                                  left: 16,
+                                  right: 16,
+                                  bottom: 20,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (state is AssetAuditLoaded &&
+                                        state
+                                            .assetAuditData
+                                            .pageHeader
+                                            .isNotEmpty) ...[
+                                      CustomFormField(
+                                        label: "Circle",
+                                        initialValue: state
+                                            .assetAuditData
+                                            .pageHeader
+                                            .first
+                                            .circle,
+                                        isRequired: false,
+                                        isEditable: false,
+                                      ),
+                                      getHeight(15),
+                                      CustomFormField(
+                                        label: "Cluster",
+                                        initialValue: state
+                                            .assetAuditData
+                                            .pageHeader
+                                            .first
+                                            .cluster,
+                                        isRequired: false,
+                                        isEditable: false,
+                                      ),
+                                      getHeight(15),
+                                      CustomFormField(
+                                        label: "District",
+                                        initialValue:
+                                            state
+                                                .assetAuditData
+                                                .pageHeader
+                                                .first
+                                                .district ??
+                                            "N/A",
+                                        isRequired: false,
+                                        isEditable: false,
+                                      ),
+                                      getHeight(15),
+                                      CustomFormField(
+                                        label: "Customer",
+                                        initialValue: state
+                                            .assetAuditData
+                                            .pageHeader
+                                            .first
+                                            .clientName,
+                                        isRequired: false,
+                                        isEditable: false,
+                                      ),
+                                      getHeight(15),
+                                      CustomFormField(
+                                        label: "Site Id",
+                                        initialValue: state
+                                            .assetAuditData
+                                            .pageHeader
+                                            .first
+                                            .siteCode,
+                                        isRequired: false,
+                                        isEditable: false,
+                                      ),
+                                      getHeight(15),
+                                      CustomFormField(
+                                        label: "Site Name",
+                                        initialValue: state
+                                            .assetAuditData
+                                            .pageHeader
+                                            .first
+                                            .siteName,
+                                        isRequired: false,
+                                        isEditable: false,
+                                      ),
+                                    ],
+                                    getHeight(15),
+                                    ImageUploadField(
+                                      label: "Add a Selfie",
+                                      placeholder: "Selfie",
+                                      isRequired: true,
+                                      onImageSelected: (file) {
+                                        if (file != null) {
+                                          debugPrint(
+                                            "Selected image path: ${file.path}",
+                                          );
+                                          setState(() {
+                                            uploadedPhotoPath = file.path;
+                                            hasUnsavedChanges = true;
+                                          });
+
+                                          // Upload selfie to server
+                                          _uploadSelfie(file);
+                                        } else {
+                                          setState(() {
+                                            uploadedPhotoPath = null;
+                                            uploadedImgId = null;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            child: ArrowButton(
+                              text: "Site Info",
+                              isLeftArrow: false,
+                              backgroundColor: AppColors.buttonColorBg,
+                              textColor: AppColors.buttonColorSite,
+                              onPressed: () {
+                                if (_validateForm()) {
+                                  // Get the site data from the asset audit state
+                                  final assetAuditState = context
+                                      .read<AssetAuditCubit>()
+                                      .state;
+                                  if (assetAuditState is AssetAuditLoaded &&
+                                      assetAuditState
+                                          .assetAuditData
+                                          .pageHeader
+                                          .isNotEmpty) {
+                                    final siteData = assetAuditState
+                                        .assetAuditData
+                                        .pageHeader
+                                        .first;
+                                    pushPage(
+                                      context,
+                                      SiteInfoScreen(
+                                        siteName: siteData.siteName,
+                                        siteTypeName: siteData.siteTypeName,
+                                        indoorOutdoor: siteData.indoorOutdoor,
+                                        ebNonEb: siteData.ebNonEb,
+                                        op1Name: siteData.op1Name,
+                                        op2Name: siteData.op2Name ?? "N/A",
+                                      ),
+                                    );
+                                  } else {
+                                    // Fallback with empty values if data is not loaded
+                                    pushPage(
+                                      context,
+                                      SiteInfoScreen(
+                                        siteName: "N/A",
+                                        siteTypeName: "N/A",
+                                        indoorOutdoor: "N/A",
+                                        ebNonEb: "N/A",
+                                        op1Name: "N/A",
+                                        op2Name: "N/A",
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        uploadedPhotoPath == null ||
+                                                uploadedPhotoPath!.isEmpty
+                                            ? 'Please upload a selfie photo to continue'
+                                            : 'Please fill in all required fields',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontFamily: fontFamilyMontserrat,
+                                        ),
+                                      ),
+                                      backgroundColor: AppColors.errorColor,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          );
+        },
       ),
-        );
-      },
     );
   }
 }
