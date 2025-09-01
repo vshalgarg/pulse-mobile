@@ -128,57 +128,62 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
 
   // Load saved form data from local storage
   void _loadSavedFormData() {
-    final savedData = HiveDB.getEnergyReadingFormData;
-    if (savedData != null) {
-      setState(() {
-        // Load dropdown selections
-        selectedStatus = savedData['selectedStatus'];
-        selectedBatteryStatus = savedData['selectedBatteryStatus'];
-        selectedType = savedData['selectedType'];
-        selectedMeterType = savedData['selectedMeterType'];
-        selectedConnectionType = savedData['selectedConnectionType'];
-        selectedEbConnectionType = savedData['selectedEbConnectionType'];
-        
-        // Load text controller values
-        ebMeterNumberController.text = savedData['ebMeterNumber'] ?? '';
-        ebMeterReadingController.text = savedData['ebMeterReading'] ?? '';
-        consumerNumberController.text = savedData['consumerNumber'] ?? '';
-        ebKwhInSebMeterController.text = savedData['ebKwhInSebMeter'] ?? '';
-        ebKwhInCcuController.text = savedData['ebKwhInCcu'] ?? '';
-        ebKvhInCcuController.text = savedData['ebKvhInCcu'] ?? '';
-        voltageController.text = savedData['voltage'] ?? '';
-        loadAmpsController.text = savedData['loadAmps'] ?? '';
-        powerFactorController.text = savedData['powerFactor'] ?? '';
-        frequencyController.text = savedData['frequency'] ?? '';
-        powerController.text = savedData['power'] ?? '';
-        energyController.text = savedData['energy'] ?? '';
-        remarksController.text = savedData['remarks'] ?? '';
-        
-        // Load file information
-        selectedFileName = savedData['selectedFileName'];
-        selectedFileSize = savedData['selectedFileSize'];
-        uploadedFileId = savedData['uploadedFileId'];
-        
-        hasUnsavedChanges = false;
-      });
+    try {
+      final savedData = HiveDB.getEnergyReadingFormData;
+      if (savedData != null) {
+        setState(() {
+          // Load dropdown selections
+          selectedStatus = savedData['selectedStatus']?.toString();
+          selectedBatteryStatus = savedData['selectedBatteryStatus']?.toString();
+          selectedType = savedData['selectedType']?.toString();
+          selectedMeterType = savedData['selectedMeterType']?.toString();
+          selectedConnectionType = savedData['selectedConnectionType']?.toString();
+          selectedEbConnectionType = savedData['selectedEbConnectionType']?.toString();
+          
+          // Load text controller values
+          ebMeterNumberController.text = savedData['ebMeterNumber']?.toString() ?? '';
+          ebMeterReadingController.text = savedData['ebMeterReading']?.toString() ?? '';
+          consumerNumberController.text = savedData['consumerNumber']?.toString() ?? '';
+          ebKwhInSebMeterController.text = savedData['ebKwhInSebMeter']?.toString() ?? '';
+          ebKwhInCcuController.text = savedData['ebKwhInCcu']?.toString() ?? '';
+          ebKvhInCcuController.text = savedData['ebKvhInCcu']?.toString() ?? '';
+          voltageController.text = savedData['voltage']?.toString() ?? '';
+          loadAmpsController.text = savedData['loadAmps']?.toString() ?? '';
+          powerFactorController.text = savedData['powerFactor']?.toString() ?? '';
+          frequencyController.text = savedData['frequency']?.toString() ?? '';
+          powerController.text = savedData['power']?.toString() ?? '';
+          energyController.text = savedData['energy']?.toString() ?? '';
+          remarksController.text = savedData['remarks']?.toString() ?? '';
+          
+          // Load file information
+          selectedFileName = savedData['selectedFileName']?.toString();
+          selectedFileSize = savedData['selectedFileSize']?.toString();
+          uploadedFileId = savedData['uploadedFileId']?.toString();
+          
+          hasUnsavedChanges = false;
+        });
       
-      // Show message that data was restored
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Previous form data has been restored!',
-              style: const TextStyle(
-                color: AppColors.primaryGreen,
-                fontSize: 14,
-                fontFamily: fontFamilyMontserrat,
+              // Show message that data was restored
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Previous form data has been restored!',
+                style: const TextStyle(
+                  color: AppColors.primaryGreen,
+                  fontSize: 14,
+                  fontFamily: fontFamilyMontserrat,
+                ),
               ),
+              backgroundColor: Colors.white,
+              duration: Duration(seconds: 3),
             ),
-            backgroundColor: Colors.white,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      });
+          );
+        });
+      }
+    } catch (e) {
+      // If there's an error loading saved data, just continue with empty form
+      print('Error loading saved form data: $e');
     }
   }
 
@@ -596,8 +601,6 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
       
       // Collect form data
       final formData = _collectFormData();
-      
-      showCustomToast(context, 'Saved');
       
       // Save data to server
       final energyReadingRequest = EnergyReadingDetailRequest(

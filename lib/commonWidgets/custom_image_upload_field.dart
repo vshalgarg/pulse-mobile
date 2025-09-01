@@ -10,6 +10,7 @@ class ImageUploadField extends StatefulWidget {
   final String placeholder;
   final bool isRequired;
   final Function(File?) onImageSelected;
+  final String? externalImageUrl; // Add external image URL parameter
 
   const ImageUploadField({
     super.key,
@@ -17,6 +18,7 @@ class ImageUploadField extends StatefulWidget {
     required this.placeholder,
     this.isRequired = false,
     required this.onImageSelected,
+    this.externalImageUrl, // Add external image URL parameter
   });
 
   @override
@@ -36,6 +38,26 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       });
       widget.onImageSelected(_selectedImage);
     }
+  }
+
+  Widget _buildPlaceholder() {
+    return Center(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.color555555),
+          const SizedBox(width: 6),
+          Text(
+            widget.placeholder,
+            style: const TextStyle(
+              fontWeight: FontWeight.w400,
+              color: AppColors.color555555,
+              fontFamily: fontFamilyMontserrat,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -78,31 +100,28 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
               borderRadius: BorderRadius.circular(5),
               border: Border.all(color: Colors.grey.shade400),
             ),
-            child: _selectedImage == null
-                ? Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.camera_alt_outlined, size: 20,  color: AppColors.color555555),
-                  const SizedBox(width: 6),
-                  Text(
-                    widget.placeholder,
-                    style: const TextStyle(fontWeight: FontWeight.w400,
-                        color: AppColors.color555555,
-                        fontFamily: fontFamilyMontserrat),
-                  ),
-                ],
-              ),
-            )
-                : ClipRRect(
-              // borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                // height: 20,
-                _selectedImage!,
-                fit: BoxFit.cover,
-                width: double.infinity,
-              ),
-            ),
+            child: _selectedImage != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: Image.file(
+                      _selectedImage!,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
+                    ),
+                  )
+                : widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(5),
+                        child: Image.network(
+                          widget.externalImageUrl!,
+                          fit: BoxFit.cover,
+                          width: double.infinity,
+                          errorBuilder: (context, error, stackTrace) {
+                            return _buildPlaceholder();
+                          },
+                        ),
+                      )
+                    : _buildPlaceholder(),
           ),
         ),
       ],

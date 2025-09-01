@@ -112,174 +112,247 @@ class PageHeader {
 }
 
 class ResponseData {
-  final List<AssetItem> vcb;
-  final List<AssetItem>? rectifier;
-  final List<AssetItem>? mppt;
-  final List<AssetItem>? battery;
-  final List<AssetItem>? cctv;
-  final List<AssetItem>? smps;
-  final List<AssetItem>? dg;
-  final List<AssetItem>? solarPlates;
-  final List<AssetItem>? fencing;
-  final List<AssetItem>? extinguisher;
-  final List<AssetItem>? floodLight;
-  final List<AssetItem>? sandBuckets;
+  final Map<String, CategoryData> categories;
 
   ResponseData({
-    required this.vcb,
-    this.rectifier,
-    this.mppt,
-    this.battery,
-    this.cctv,
-    this.smps,
-    this.dg,
-    this.solarPlates,
-    this.fencing,
-    this.extinguisher,
-    this.floodLight,
-    this.sandBuckets,
+    required this.categories,
   });
 
   factory ResponseData.fromJson(Map<String, dynamic> json) {
-    return ResponseData(
-      vcb: (json['VCB'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      rectifier: (json['Rectifier'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      mppt: (json['MPPT'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      battery: (json['Battery'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      cctv: (json['CCTV'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      smps: (json['SMPS'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      dg: (json['DG'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      solarPlates: (json['SolarPlates'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      fencing: (json['Fencing'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      extinguisher: (json['Extinguisher'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      floodLight: (json['FloodLight'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
-      sandBuckets: (json['SandBuckets'] as List?)
-              ?.map((item) => AssetItem.fromJson(item))
-              .toList() ??
-          [],
+    Map<String, CategoryData> categories = {};
+    
+    json.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        // This is a category with assets/remarks/subcategories
+        categories[key] = CategoryData.fromJson(value);
+      } else if (value is List) {
+        // This is a direct array (like "Boundary")
+        // Create a CategoryData with empty assets/remarks but the list as subcategories
+        categories[key] = CategoryData(
+          assets: [],
+          remarks: [],
+          subCategories: {key: value.map((item) => AssetItem.fromJson(item)).toList()},
+        );
+      }
+    });
+    
+    return ResponseData(categories: categories);
+  }
+
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> result = {};
+    categories.forEach((key, value) {
+      result[key] = value.toJson();
+    });
+    return result;
+  }
+
+  factory ResponseData.empty() {
+    return ResponseData(categories: {});
+  }
+
+  // Helper methods to get specific categories
+  CategoryData? get solarPlates => categories['Solar Plates'];
+  CategoryData? get fireExtinguisher => categories['Fire Extinguisher'];
+  CategoryData? get dg => categories['DG'];
+  CategoryData? get ccu => categories['CCU'];
+  CategoryData? get battery => categories['Battery'];
+  CategoryData? get smps => categories['SMPS'];
+  CategoryData? get cctv => categories['CCTV'];
+  CategoryData? get boundary => categories['Boundary'];
+  CategoryData? get spv => categories['SPV'];
+  CategoryData? get fencing => categories['Fencing'];
+
+  // Helper methods to get specific items from categories
+  List<AssetItem> get boundaryItems => getAllItemsFromCategory('Boundary');
+
+  // Helper method to get all assets from a category
+  List<AssetItem> getAllAssetsFromCategory(String categoryName) {
+    final category = categories[categoryName];
+    if (category == null) return [];
+    
+    List<AssetItem> allAssets = [];
+    allAssets.addAll(category.assets);
+    
+    if (category.subCategories != null) {
+      category.subCategories!.forEach((key, assets) {
+        allAssets.addAll(assets);
+      });
+    }
+    
+    return allAssets;
+  }
+
+  // Helper method to get all remarks from a category
+  List<AssetItem> getAllRemarksFromCategory(String categoryName) {
+    final category = categories[categoryName];
+    return category?.remarks ?? [];
+  }
+
+  // Helper method to get all items from a category (including subcategories)
+  List<AssetItem> getAllItemsFromCategory(String categoryName) {
+    final category = categories[categoryName];
+    if (category == null) return [];
+    
+    List<AssetItem> allItems = [];
+    allItems.addAll(category.assets);
+    
+    if (category.subCategories != null) {
+      category.subCategories!.forEach((key, items) {
+        allItems.addAll(items);
+      });
+    }
+    
+    return allItems;
+  }
+}
+
+class CategoryData {
+  final List<AssetItem> assets;
+  final List<AssetItem> remarks;
+  final Map<String, List<AssetItem>>? subCategories;
+
+  CategoryData({
+    required this.assets,
+    required this.remarks,
+    this.subCategories,
+  });
+
+  factory CategoryData.fromJson(Map<String, dynamic> json) {
+    List<AssetItem> assets = [];
+    List<AssetItem> remarks = [];
+    Map<String, List<AssetItem>>? subCategories;
+
+    json.forEach((key, value) {
+      if (key == 'assets' && value is List) {
+        assets = value.map((item) => AssetItem.fromJson(item)).toList();
+      } else if (key == 'remarks' && value is List) {
+        remarks = value.map((item) => AssetItem.fromJson(item)).toList();
+      } else if (value is List) {
+        // This is a subcategory
+        subCategories ??= {};
+        subCategories?[key] = value.map((item) => AssetItem.fromJson(item)).toList();
+      }
+    });
+
+    return CategoryData(
+      assets: assets,
+      remarks: remarks,
+      subCategories: subCategories,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'VCB': vcb.map((item) => item.toJson()).toList(),
-      'Rectifier': rectifier?.map((item) => item.toJson()).toList(),
-      'MPPT': mppt?.map((item) => item.toJson()).toList(),
-      'Battery': battery?.map((item) => item.toJson()).toList(),
-      'CCTV': cctv?.map((item) => item.toJson()).toList(),
-      'SMPS': smps?.map((item) => item.toJson()).toList(),
-      'DG': dg?.map((item) => item.toJson()).toList(),
-      'SolarPlates': solarPlates?.map((item) => item.toJson()).toList(),
-      'Fencing': fencing?.map((item) => item.toJson()).toList(),
-      'Extinguisher': extinguisher?.map((item) => item.toJson()).toList(),
-      'FloodLight': floodLight?.map((item) => item.toJson()).toList(),
-      'SandBuckets': sandBuckets?.map((item) => item.toJson()).toList(),
+    Map<String, dynamic> result = {
+      'assets': assets.map((item) => item.toJson()).toList(),
+      'remarks': remarks.map((item) => item.toJson()).toList(),
     };
+
+    if (subCategories != null) {
+      subCategories!.forEach((key, value) {
+        result[key] = value.map((item) => item.toJson()).toList();
+      });
+    }
+
+    return result;
   }
 
-  factory ResponseData.empty() {
-    return ResponseData(
-      vcb: [],
-      rectifier: [],
-      mppt: [],
-      battery: [],
-      cctv: [],
-      smps: [],
-      dg: [],
-      solarPlates: [],
-      fencing: [],
-      extinguisher: [],
-      floodLight: [],
-      sandBuckets: [],
-    );
+  // Helper methods to get subcategories
+  List<AssetItem>? get ccuCabinet => subCategories?['CCU Cabinet'];
+  List<AssetItem>? get ccuRectifiers => subCategories?['CCU Rectifiers'];
+  List<AssetItem>? get ccuMppt => subCategories?['CCU MPPT'];
+  List<AssetItem>? get batteryCabinet => subCategories?['Battery Cabinet'];
+  List<AssetItem>? get cbms => subCategories?['CBMS'];
+  List<AssetItem>? get smpsRectifiers => subCategories?['SMPS Rectifiers'];
+  List<AssetItem>? get smpsMppt => subCategories?['SMPS MPPT'];
+  List<AssetItem>? get smpsCabinet => subCategories?['SMPS Cabinet'];
+  List<AssetItem>? get acdb => subCategories?['ACDB'];
+  List<AssetItem>? get lspu => subCategories?['LSPU'];
+  List<AssetItem>? get floodLight => subCategories?['Flood Light'];
+  List<AssetItem>? get sandBucket => subCategories?['Sand Bucket'];
+  List<AssetItem>? get spv => subCategories?['SPV'];
+  List<AssetItem>? get boundary => subCategories?['Boundary'];
+  List<AssetItem>? get boundaryItems => subCategories?['Boundary'];
+
+  // Helper method to get all assets including subcategories
+  List<AssetItem> getAllAssets() {
+    List<AssetItem> allAssets = [];
+    allAssets.addAll(assets);
+    
+    if (subCategories != null) {
+      subCategories!.forEach((key, assets) {
+        allAssets.addAll(assets);
+      });
+    }
+    
+    return allAssets;
   }
+
+  // Helper method to check if category has any data
+  bool get hasData => assets.isNotEmpty || (subCategories?.isNotEmpty ?? false) || remarks.isNotEmpty;
 }
 
 class AssetItem {
   final int assetAuditSiteRespId;
   final int siteAuditSchId;
-  final int itemInstanceId;
-  final String itemType;
-  final String oemName;
-  final String nexgenSerialNo;
-  final String mfgSerialNo;
-  final String? qrCodeScanned;
+  final int? itemInstanceId;
+  final String? itemType;
+  final String? oemName;
+  final String? nexgenSerialNo;
+  final String? mfgSerialNo;
+  final bool? qrCodeScanned;
   final String? qrCodeScannedTs;
-  final String? photoId;
+  final int? photoId;
   final String? imageName;
-  final String longitude;
-  final String latitude;
+  final String? longitude;
+  final String? latitude;
   final String? assetStatus;
-  final String capacity;
+  final String? capacity;
+  final String? itemTypeGroup;
+  final String? recordType;
+  final String? itemTypeRemark;
 
   AssetItem({
     required this.assetAuditSiteRespId,
     required this.siteAuditSchId,
-    required this.itemInstanceId,
-    required this.itemType,
-    required this.oemName,
-    required this.nexgenSerialNo,
-    required this.mfgSerialNo,
+    this.itemInstanceId,
+    this.itemType,
+    this.oemName,
+    this.nexgenSerialNo,
+    this.mfgSerialNo,
     this.qrCodeScanned,
     this.qrCodeScannedTs,
     this.photoId,
     this.imageName,
-    required this.longitude,
-    required this.latitude,
+    this.longitude,
+    this.latitude,
     this.assetStatus,
-    required this.capacity,
+    this.capacity,
+    this.itemTypeGroup,
+    this.recordType,
+    this.itemTypeRemark,
   });
 
   factory AssetItem.fromJson(Map<String, dynamic> json) {
     return AssetItem(
       assetAuditSiteRespId: json['asset_audit_site_resp_id'] ?? 0,
       siteAuditSchId: json['site_audit_sch_id'] ?? 0,
-      itemInstanceId: json['item_instance_id'] ?? 0,
-      itemType: json['item_type'] ?? '',
-      oemName: json['oem_name'] ?? '',
-      nexgenSerialNo: json['nexgen_serial_no'] ?? '',
-      mfgSerialNo: json['mfg_serial_no'] ?? '',
+      itemInstanceId: json['item_instance_id'],
+      itemType: json['item_type'],
+      oemName: json['oem_name'],
+      nexgenSerialNo: json['nexgen_serial_no'],
+      mfgSerialNo: json['mfg_serial_no'],
       qrCodeScanned: json['qr_code_scanned'],
       qrCodeScannedTs: json['qr_code_scanned_ts'],
       photoId: json['photo_id'],
       imageName: json['image_name'],
-      longitude: json['longitude'] ?? '',
-      latitude: json['latitude'] ?? '',
+      longitude: json['longitude'],
+      latitude: json['latitude'],
       assetStatus: json['asset_status'],
-      capacity: json['capacity'] ?? '',
+      capacity: json['capacity'],
+      itemTypeGroup: json['item_type_group'],
+      recordType: json['record_type'],
+      itemTypeRemark: json['item_type_remark'],
     );
   }
 
@@ -300,6 +373,9 @@ class AssetItem {
       'latitude': latitude,
       'asset_status': assetStatus,
       'capacity': capacity,
+      'item_type_group': itemTypeGroup,
+      'record_type': recordType,
+      'item_type_remark': itemTypeRemark,
     };
   }
 }

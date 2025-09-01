@@ -31,7 +31,7 @@ class EnergyReadingRepository {
       }
     } catch (e) {
       return const ResponseResult.error(
-        errorMessage: 'We could not process your request',
+        errorMessage: 'We could not load energy reading data',
       );
     }
   }
@@ -42,25 +42,41 @@ class EnergyReadingRepository {
     required String id,
   }) async {
     try {
+      if (!await file.exists()) {
+        return const ResponseResult.error(
+          errorMessage: 'Selected file not found',
+        );
+      }
+      
       // Create multipart file
       final multipartFile = await MultipartFile.fromFile(
         file.path,
         filename: file.path.split('/').last,
       );
 
+      final dataMap = {
+        'activityType': 'ER',
+        'docId': '0',
+      };
+
       final result = await apiService.post<Map<String, dynamic>>(
-        path: "api/v1/common/downLoadFile",
-        data: {'id': id},
+        path: "api/v1/common/UploadDocuments",
+        data: dataMap,
         files: [multipartFile],
         useFormDataFormat: true,
       );
       
       if (result.isSuccess) {
         kDebugPrint("File uploaded successfully: ${result.data}");
-        return ResponseResult.success(
-          result.data?['fileId']?.toString() ?? result.data?.toString(),
-          result.statusCode,
-        );
+        
+        // Extract docId from response
+        final docId = result.data?['docId']?.toString();
+        
+        if (docId != null && docId.isNotEmpty) {
+          return ResponseResult.success(docId, result.statusCode);
+        } else {
+          return ResponseResult.success('0', result.statusCode);
+        }
       } else {
         return ResponseResult.error(errorMessage: result.errorMessage);
       }
@@ -76,18 +92,17 @@ class EnergyReadingRepository {
     required List<Map<String, dynamic>> energyReadingData,
   }) async {
     try {
-      // Convert list to map for API service compatibility
-      final dataMap = {'data': energyReadingData};
-      
-      final result = await apiService.post<Map<String, dynamic>>(
+      // Send the array directly as the API expects an ArrayList
+      final result = await apiService.post<List<dynamic>>(
         path: "api/v1/mobile/EbBillReading",
-        data: dataMap,
+        data: energyReadingData,
+        useFormDataFormat: false, // Send as JSON array
       );
       
       if (result.isSuccess) {
         kDebugPrint("Energy reading data saved successfully: ${result.data}");
         return ResponseResult.success(
-          result.data,
+          result.data != null ? {'data': result.data} : null,
           result.statusCode,
         );
       } else {

@@ -74,9 +74,27 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case batteryScreen:
       return _push(const BatteryScreen());
     case extinguisherScreen:
-      return _push(const ExtinguisherScreen());
+      final args = settings.arguments as Map<String, dynamic>?;
+      return _push(ExtinguisherScreen(
+        extinguisherData: args?['extinguisherData'],
+        assetAuditData: args?['assetAuditData'],
+        showSuccessMessage: args?['showSuccessMessage'] ?? false,
+      ));
     case solarPlateScreen:
-      return _push(const SolarPlatesScreen());
+      // SolarPlatesScreen should only be accessed through asset audit flow with proper data
+      // This route is kept for backward compatibility but will show an error
+      return _push(
+        Scaffold(
+          appBar: AppBar(title: const Text("Error")),
+          body: const Center(
+            child: Text(
+              "Solar Plates screen should be accessed through the asset audit flow with proper data.",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16),
+            ),
+          ),
+        ),
+      );
     case ticketScreen:
       return _push(const TicketScreen(auditName: "", status: ""));
 

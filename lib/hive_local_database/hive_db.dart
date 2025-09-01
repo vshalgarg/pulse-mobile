@@ -173,8 +173,19 @@ class HiveDB {
     await userCredential.put(HiveConstant.energyReadingFormData, formData);
   }
 
-  static Map<String, dynamic>? get getEnergyReadingFormData => 
-      userCredential.get(HiveConstant.energyReadingFormData);
+  static Map<String, dynamic>? get getEnergyReadingFormData {
+    try {
+      final data = userCredential.get(HiveConstant.energyReadingFormData);
+      if (data != null) {
+        return Map<String, dynamic>.from(data);
+      }
+      return null;
+    } catch (e) {
+      print('Error loading energy reading form data: $e');
+      clearCorruptedEnergyReadingData();
+      return null;
+    }
+  }
 
   static Future<void> saveEnergyReadingIds({
     required String auditSchId,
@@ -200,6 +211,11 @@ class HiveDB {
     await userCredential.delete(HiveConstant.energyReadingAuditSchId);
     await userCredential.delete(HiveConstant.energyReadingSiteAuditSchId);
     await userCredential.delete(HiveConstant.energyReadingSiteId);
+  }
+
+  // Clear corrupted energy reading form data
+  static Future<void> clearCorruptedEnergyReadingData() async {
+    await userCredential.delete(HiveConstant.energyReadingFormData);
   }
 
   // get profile image

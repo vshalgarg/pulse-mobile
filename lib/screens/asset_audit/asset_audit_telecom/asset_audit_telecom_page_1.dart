@@ -10,8 +10,12 @@ import 'dart:io';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/selfie_upload_cubit.dart';
+import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../repositories/image_repository.dart';
+import '../../../services/api_provider.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/custom_dialogs/custom_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
@@ -57,6 +61,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
   // Track uploaded photo
   String? uploadedPhotoPath;
   String? uploadedImgId; // Store the uploaded image ID from API
+  String? fetchedImageData; // Store the fetched image data from API
 
   // Controllers for CustomInfoCard
   final TextEditingController cctvSerialController = TextEditingController();
@@ -157,20 +162,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         schId: schId,
       );
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Please wait for site data to load before uploading selfie',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontFamily: fontFamilyMontserrat,
-            ),
-          ),
-          backgroundColor: AppColors.errorColor,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      showCustomToast(context, 'Please wait for site data to load before uploading selfie');
     }
   }
 
@@ -181,12 +173,38 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         BlocListener<AssetAuditCubit, AssetAuditState>(
           listener: (context, state) {
             if (state is AssetAuditError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: AppColors.errorColor,
-                ),
-              );
+              // Check if it's a "no site audit schedule" error
+              if (state.message.contains('NO_SITE_AUDIT_SCHEDULE:')) {
+                // Show custom dialog for no site audit schedule
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => CustomAlertDialog(
+                    title: 'No Site Audit Schedule Found',
+                    subTitle1: 'This ticket does not have an asset audit schedule created yet.',
+                    subTitle2: 'Please contact your administrator to create the asset audit schedule before proceeding with the audit.',
+                    buttonText1: 'Go Back',
+                    buttonText2: 'Retry',
+                    onButtonPressed1: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      Navigator.of(context).pop(); // Go back to previous screen
+                    },
+                    onButtonPressed2: () {
+                      Navigator.of(context).pop(); // Close dialog
+                      // Retry the API call
+                      context.read<AssetAuditCubit>().getAssetAuditData(
+                        siteType: widget.siteType,
+                        auditSchId: widget.auditSchId,
+                        siteAuditSchId: widget.siteAuditSchId,
+                      );
+                    },
+                    isSuccess: false,
+                  ),
+                );
+              } else {
+                // Show regular error toast for other errors
+                showCustomToast(context, '❌ ${state.message}');
+              }
             }
           },
         ),
@@ -197,35 +215,28 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                 uploadedImgId = state.response.imgId;
               });
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Selfie uploaded successfully!',
-                    style: const TextStyle(
-                      color: AppColors.primaryGreen,
-                      fontSize: 14,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                  backgroundColor: Colors.white,
-                  duration: const Duration(seconds: 2),
-                ),
-              );
+              showCustomToast(context, '✅ Selfie uploaded successfully!');
+
+              // Fetch the uploaded image using the imgId
+              if (state.response.imgId.isNotEmpty) {
+                final assetAuditState = context.read<AssetAuditCubit>().state;
+                if (assetAuditState is AssetAuditLoaded &&
+                    assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+                  final schId = assetAuditState
+                      .assetAuditData
+                      .pageHeader
+                      .first
+                      .siteAuditSchId
+                      .toString();
+
+                  context.read<AssetAuditGetImageCubit>().getImage(
+                    imgId: state.response.imgId,
+                    schId: schId,
+                  );
+                }
+              }
             } else if (state is SelfieUploadFailure) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    state.errorMessage,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                  backgroundColor: AppColors.errorColor,
-                  duration: Duration(seconds: 3),
-                ),
-              );
+              showCustomToast(context, ' ${state.errorMessage}');
             }
           },
         ),
@@ -313,7 +324,26 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (state is AssetAuditLoaded &&
+                                    if (state is AssetAuditLoading) ...[
+                                      const Center(
+                                        child: Padding(
+                                          padding: EdgeInsets.all(20.0),
+                                          child: CircularProgressIndicator(
+                                            color: AppColors.primaryGreen,
+                                          ),
+                                        ),
+                                      ),
+                                      const Center(
+                                        child: Text(
+                                          'Loading asset audit data...',
+                                          style: TextStyle(
+                                            color: AppColors.primaryGreen,
+                                            fontSize: 16,
+                                            fontFamily: fontFamilyMontserrat,
+                                          ),
+                                        ),
+                                      ),
+                                    ] else if (state is AssetAuditLoaded &&
                                         state
                                             .assetAuditData
                                             .pageHeader
@@ -448,6 +478,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                         ebNonEb: siteData.ebNonEb,
                                         op1Name: siteData.op1Name,
                                         op2Name: siteData.op2Name ?? "N/A",
+                                        assetAuditData: assetAuditState.assetAuditData,
                                       ),
                                     );
                                   } else {
@@ -461,27 +492,15 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                         ebNonEb: "N/A",
                                         op1Name: "N/A",
                                         op2Name: "N/A",
+                                        assetAuditData: null,
                                       ),
                                     );
                                   }
                                 } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        uploadedPhotoPath == null ||
-                                                uploadedPhotoPath!.isEmpty
-                                            ? 'Please upload a selfie photo to continue'
-                                            : 'Please fill in all required fields',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontFamily: fontFamilyMontserrat,
-                                        ),
-                                      ),
-                                      backgroundColor: AppColors.errorColor,
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
+                                  showCustomToast(context, uploadedPhotoPath == null ||
+                                          uploadedPhotoPath!.isEmpty
+                                      ? '❌ Please upload a selfie photo to continue'
+                                      : '❌ Please fill in all required fields');
                                 }
                               },
                             ),

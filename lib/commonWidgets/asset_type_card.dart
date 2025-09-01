@@ -36,6 +36,7 @@ class CustomInfoCard extends StatefulWidget {
   final TextEditingController? remarksController; // Optional remarks controller
   final ValueChanged<String>? onRemarksChanged; // Optional remarks change callback
   final bool showSaveButton; // Controls whether to show the save button
+  final bool isRemarksEditable; // Controls if the remarks field is editable
 
   const CustomInfoCard({
     super.key,
@@ -59,6 +60,7 @@ class CustomInfoCard extends StatefulWidget {
     this.remarksController, // Optional remarks controller
     this.onRemarksChanged, // Optional remarks callback
     this.showSaveButton = true, // Default to true for backward compatibility
+    this.isRemarksEditable = true, // Default to true for backward compatibility
   });
 
   @override
@@ -326,10 +328,10 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                 // Input field
                 TextFormField(
                   controller: widget.remarksController,
-                  readOnly: !widget.isEditable,
+                  readOnly: !widget.isRemarksEditable,
                   decoration: InputDecoration(
                     filled: true,
-                    fillColor: widget.isEditable ? Colors.white : AppColors.borderColorE0E0E0, // Grey when not editable
+                    fillColor: widget.isRemarksEditable ? Colors.white : AppColors.borderColorE0E0E0, // Grey when not editable
                     contentPadding: const EdgeInsets.symmetric(
                       vertical: 8,
                       horizontal: 16,

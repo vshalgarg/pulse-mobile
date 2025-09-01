@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import '../../../models/asset_audit_model.dart';
+import '../../../constants/constants_strings.dart';
 
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
@@ -19,6 +22,7 @@ class SiteInfoScreen extends StatefulWidget {
   final String ebNonEb;
   final String op1Name;
   final String op2Name;
+  final AssetAuditModel? assetAuditData;
 
   const SiteInfoScreen({
     super.key,
@@ -28,6 +32,7 @@ class SiteInfoScreen extends StatefulWidget {
     required this.ebNonEb,
     required this.op1Name,
     required this.op2Name,
+    this.assetAuditData,
   });
 
   @override
@@ -254,6 +259,8 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                                 isRequired: false,
                                 isEditable: false,
                               ),
+                              getHeight(15),
+
                             ],
                           ),
                         ),
@@ -284,7 +291,10 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                               backgroundColor: AppColors.buttonColorBackBg,
                               textColor: AppColors.buttonColorTextBg,
                               onPressed: () {
-                                pushPage(context, CCUScreen());
+                                pushPage(context, CCUScreen(
+                                  ccuData: widget.assetAuditData?.responseData.ccu,
+                                  assetAuditData: widget.assetAuditData,
+                                ));
                                 // if (_validateForm()) {
                                 //   showDialog(
                                 //     context: context,

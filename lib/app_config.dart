@@ -6,6 +6,7 @@ import 'package:app/repositories/asset_audit_repository.dart';
 import 'package:app/repositories/energy_reading_repository.dart';
 import 'package:app/repositories/energy_reading_detail_repository.dart';
 import 'package:app/repositories/selfie_upload_repository.dart';
+import 'package:app/repositories/asset_audit_photo_upload_repository.dart';
 
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
@@ -19,6 +20,7 @@ import 'bloc/asset_audit_cubit.dart';
 import 'bloc/energy_reading_cubit.dart';
 import 'bloc/energy_reading_detail_cubit.dart';
 import 'bloc/selfie_upload_cubit.dart';
+import 'bloc/asset_audit_photo_upload_cubit.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +37,7 @@ class AppConfig {
   late final EnergyReadingRepository energyReadingRepository;
   late final EnergyReadingDetailRepository energyReadingDetailRepository;
   late final SelfieUploadRepository selfieUploadRepository;
+  late final AssetAuditPhotoUploadRepository assetAuditPhotoUploadRepository;
 
   // Cubits
   late final DemoBlocCubit demoBlocCubit;
@@ -45,6 +48,7 @@ class AppConfig {
   late final EnergyReadingCubit energyReadingCubit;
   late final EnergyReadingDetailCubit energyReadingDetailCubit;
   late final SelfieUploadCubit selfieUploadCubit;
+  late final AssetAuditPhotoUploadCubit assetAuditPhotoUploadCubit;
 
   AppConfig({required String baseUrl}) {
     apiProvider = ApiProvider(baseUrl: baseUrl);
@@ -62,6 +66,7 @@ class AppConfig {
     energyReadingRepository = EnergyReadingRepository(apiService);
     energyReadingDetailRepository = EnergyReadingDetailRepository(apiService);
     selfieUploadRepository = SelfieUploadRepository(apiService);
+    assetAuditPhotoUploadRepository = AssetAuditPhotoUploadRepository(apiService);
 
     // Initialize cubits
     demoBlocCubit = DemoBlocCubit(askRepository);
@@ -72,6 +77,7 @@ class AppConfig {
     energyReadingCubit = EnergyReadingCubit(energyReadingRepository);
     energyReadingDetailCubit = EnergyReadingDetailCubit(energyReadingDetailRepository);
     selfieUploadCubit = SelfieUploadCubit(selfieUploadRepository);
+    assetAuditPhotoUploadCubit = AssetAuditPhotoUploadCubit(assetAuditPhotoUploadRepository);
   }
 
   static AppConfig of(BuildContext context) {

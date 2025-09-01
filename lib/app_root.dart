@@ -26,6 +26,7 @@ import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 
 import 'app_config.dart';
+import 'bloc/asset_audit_photo_upload_cubit.dart';
 import 'l10n/l10n.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -53,6 +54,7 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => EnergyReadingCubit(config.energyReadingRepository)),
         BlocProvider(create: (context) => EnergyReadingDetailCubit(config.energyReadingDetailRepository)),
         BlocProvider(create: (context) => SelfieUploadCubit(config.selfieUploadRepository)),
+        BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(config.assetAuditPhotoUploadRepository)),
       ],
       child: MultiProvider(
         providers: [
