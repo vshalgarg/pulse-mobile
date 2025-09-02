@@ -4,7 +4,6 @@ import 'package:app/screens/asset_audit/asset_audit_solar/dcba_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
-import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';

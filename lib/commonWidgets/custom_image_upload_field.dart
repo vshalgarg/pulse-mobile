@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -60,6 +61,39 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     );
   }
 
+  Widget _buildImageFromUrl(String url) {
+    try {
+      if (url.startsWith('data:image')) {
+        // Handle base64 data URL
+        final base64Data = url.split(',')[1];
+        final bytes = base64Decode(base64Data);
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            print('Error displaying base64 image: $error');
+            return _buildPlaceholder();
+          },
+        );
+      } else {
+        // Handle network URL
+        return Image.network(
+          url,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            print('Error displaying network image: $error');
+            return _buildPlaceholder();
+          },
+        );
+      }
+    } catch (e) {
+      print('Error in _buildImageFromUrl: $e');
+      return _buildPlaceholder();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -112,14 +146,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
                 : widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty
                     ? ClipRRect(
                         borderRadius: BorderRadius.circular(5),
-                        child: Image.network(
-                          widget.externalImageUrl!,
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildPlaceholder();
-                          },
-                        ),
+                        child: _buildImageFromUrl(widget.externalImageUrl!),
                       )
                     : _buildPlaceholder(),
           ),

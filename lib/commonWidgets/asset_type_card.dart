@@ -1,16 +1,11 @@
 import 'dart:io';
 
-import 'package:app/commonWidgets/qr_screen_form_field.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../constants/constants_strings.dart';
-import '../models/form_fields_model.dart';
 import '../screens/qrScannerScreen.dart';
-import 'custom_file_upload.dart';
-import 'custom_form_field.dart';
-import 'custom_radio_options.dart';
 
 
 

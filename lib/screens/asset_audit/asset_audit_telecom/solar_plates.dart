@@ -5,11 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../models/asset_audit_model.dart';
-import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../repositories/image_repository.dart';
+import '../../../app_config.dart';
 import 'dart:io';
 
 import '../../../commonWidgets/asset_type_card.dart';
@@ -18,6 +19,7 @@ import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -89,6 +91,12 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   
   // Flag to track if Solar Plates screen has posted data
   bool _hasPostedSolarPlatesData = false;
+
+  // ===== IMAGE LOADING INFRASTRUCTURE =====
+  late ImageRepository _imageService;
+  Map<int, String> _imageCache = {};
+  Set<int> _loadingImages = {};
+  // ===== END IMAGE LOADING INFRASTRUCTURE =====
 
   // Method to get OEM name from API data
   String _getSolarPlatesOEMName() {
@@ -231,6 +239,9 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         // Pre-fill capacity field with data from API
         solarPanelCapacityController.text = _getSolarPanelCapacity();
 
+        // Initialize image service
+        _imageService = ImageRepository(AppConfig.of(context).apiProvider);
+
         // Load Solar Plates data if available
         _loadSolarPlatesData();
       }
@@ -347,6 +358,138 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       print('Solar Plates Screen: Loaded ${savedRectifierItems.length} Solar Plates items');
       print('Solar Plates Screen: Current scanned items: $currentScannedItems');
     });
+    
+    // Load images for saved items
+    _loadImagesForSavedItems();
+  }
+
+  /// Load images for saved items using the image API
+  void _loadImagesForSavedItems() async {
+    print('=== Solar Plates Screen: Loading Images for Saved Items ===');
+    
+    // Collect all photo IDs from saved items
+    Set<int> photoIds = {};
+    
+    // Add photo IDs from rectifier items
+    for (var item in savedRectifierItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    // Add photo IDs from MPPT items
+    for (var item in savedMPPTItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    if (photoIds.isEmpty) {
+      print('Solar Plates Screen: No photo IDs found to load images');
+      return;
+    }
+    
+    print('Solar Plates Screen: Loading ${photoIds.length} images...');
+    
+    try {
+      // Mark images as loading
+      setState(() {
+        _loadingImages.addAll(photoIds);
+      });
+      
+      // Fetch images from API
+      final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
+      
+      // Update cache and remove loading state
+      setState(() {
+        _imageCache.addAll(imageMap);
+        _loadingImages.removeAll(photoIds);
+      });
+      
+      print('Solar Plates Screen: Successfully loaded ${imageMap.length} images');
+    } catch (e) {
+      print('Solar Plates Screen: Error loading images: $e');
+      setState(() {
+        _loadingImages.removeAll(photoIds);
+      });
+    }
+  }
+
+  /// Build photo column for saved items list
+  Widget _buildPhotoColumn(Map<String, dynamic> item) {
+    final photoId = item['photoId'];
+    
+    if (photoId == null) {
+      return Icon(
+        Icons.photo_camera_outlined,
+        color: AppColors.greyColor,
+        size: 20,
+      );
+    }
+    
+    // Check if image is cached
+    final imageData = _imageCache[photoId];
+    if (imageData != null) {
+      return GestureDetector(
+        onTap: () => _showImageDialog(imageData),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.green7, width: 1),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Base64ImageWidget(
+              base64Data: imageData,
+              width: 30,
+              height: 30,
+              boxFit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Show camera icon if no image data
+    return Icon(
+      Icons.photo_camera,
+      color: AppColors.green7,
+      size: 20,
+    );
+  }
+
+  /// Show image in full screen dialog
+  void _showImageDialog(String imageData) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text('Image View'),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Base64ImageWidget(
+                  base64Data: imageData,
+                  boxFit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -385,9 +528,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   void _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
-
-    // Wait a bit for the dialog to fully close and overlay to clear
-    await Future.delayed(const Duration(milliseconds: 200));
 
     // Then show success dialog with a clean barrier
     if (mounted) {
@@ -1006,54 +1146,50 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                 siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
               );
               
-              // Wait for data to refresh, then navigate
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  print('Solar Plates Screen: Data refreshed, navigating to next screen...');
-                  pushPage(
-                    context,
-                    SurveillianceScreen(
-                      cctvData: widget.assetAuditData?.responseData.cctv,
-                      assetAuditData: widget.assetAuditData,
-                      showSuccessMessage: false, // Don't show success message when skipping solar plates screen
-                      extinguisherItems: widget.extinguisherItems ?? [],
-                      solarPlatesItems: [
-                        ...savedRectifierItems,
-                        ...savedMPPTItems,
-                      ],
-                    ),
-                  );
-                  
-                  // Reset the flag after successful navigation
-                  setState(() {
-                    _hasPostedSolarPlatesData = false;
-                  });
-                  print('Solar Plates Screen: Reset _hasPostedSolarPlatesData flag to false after navigation');
-                }
-              });
+              // Navigate immediately after data refresh
+              if (mounted) {
+                print('Solar Plates Screen: Data refreshed, navigating to next screen...');
+                pushPage(
+                  context,
+                  SurveillianceScreen(
+                    cctvData: widget.assetAuditData?.responseData.cctv,
+                    assetAuditData: widget.assetAuditData,
+                    showSuccessMessage: false, // Don't show success message when skipping solar plates screen
+                    extinguisherItems: widget.extinguisherItems ?? [],
+                    solarPlatesItems: [
+                      ...savedRectifierItems,
+                      ...savedMPPTItems,
+                    ],
+                  ),
+                );
+                
+                // Reset the flag after successful navigation
+                setState(() {
+                  _hasPostedSolarPlatesData = false;
+                });
+                print('Solar Plates Screen: Reset _hasPostedSolarPlatesData flag to false after navigation');
+              }
             } catch (e) {
               print('Solar Plates Screen: Error refreshing data: $e');
-              // Fallback: navigate anyway after delay
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  pushPage(
-                    context,
-                    SurveillianceScreen(
-                      cctvData: widget.assetAuditData?.responseData.cctv,
-                      assetAuditData: widget.assetAuditData,
-                      showSuccessMessage: false,
-                      extinguisherItems: widget.extinguisherItems ?? [],
-                      solarPlatesItems: [
-                        ...savedRectifierItems,
-                        ...savedMPPTItems,
-                      ],
-                    ),
-                  );
-                  setState(() {
-                    _hasPostedSolarPlatesData = false;
-                  });
-                }
-              });
+              // Fallback: navigate immediately
+              if (mounted) {
+                pushPage(
+                  context,
+                  SurveillianceScreen(
+                    cctvData: widget.assetAuditData?.responseData.cctv,
+                    assetAuditData: widget.assetAuditData,
+                    showSuccessMessage: false,
+                    extinguisherItems: widget.extinguisherItems ?? [],
+                    solarPlatesItems: [
+                      ...savedRectifierItems,
+                      ...savedMPPTItems,
+                    ],
+                  ),
+                );
+                setState(() {
+                  _hasPostedSolarPlatesData = false;
+                });
+              }
             }
           } else {
             print('Solar Plates Screen: Success state received but not for Solar Plates screen data, ignoring...');
@@ -1580,17 +1716,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(
@@ -1814,17 +1940,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(

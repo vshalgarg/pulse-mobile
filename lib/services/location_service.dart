@@ -1,6 +1,5 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
 
 class LocationService {

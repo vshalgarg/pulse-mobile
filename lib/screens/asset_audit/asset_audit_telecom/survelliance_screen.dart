@@ -9,6 +9,8 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../repositories/image_repository.dart';
+import '../../../app_config.dart';
 import 'dart:io';
 
 import '../../../commonWidgets/asset_type_card.dart';
@@ -18,6 +20,7 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -74,6 +77,12 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   // Flag to track if Surveillance screen has posted data
   bool _hasPostedSurveillanceData = false;
 
+  // ===== IMAGE LOADING INFRASTRUCTURE =====
+  late ImageRepository _imageService;
+  Map<int, String> _imageCache = {};
+  Set<int> _loadingImages = {};
+  // ===== END IMAGE LOADING INFRASTRUCTURE =====
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +96,9 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       } else {
         // Pre-fill capacity field with data from API
         cctvCapacityController.text = _getCCTVCapacity();
+
+        // Initialize image service
+        _imageService = ImageRepository(AppConfig.of(context).apiProvider);
 
         // Load CCTV data if available
         _loadCCTVData();
@@ -442,6 +454,131 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       print('Surveillance Screen: Loaded ${savedCCTVItems.length} CCTV items total');
       print('Surveillance Screen: Current scanned items: $currentScannedItems');
     });
+    
+    // Load images for saved items
+    _loadImagesForSavedItems();
+  }
+
+  /// Load images for saved items using the image API
+  void _loadImagesForSavedItems() async {
+    print('=== Surveillance Screen: Loading Images for Saved Items ===');
+    
+    // Collect all photo IDs from saved items
+    Set<int> photoIds = {};
+    
+    // Add photo IDs from CCTV items
+    for (var item in savedCCTVItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    if (photoIds.isEmpty) {
+      print('Surveillance Screen: No photo IDs found to load images');
+      return;
+    }
+    
+    print('Surveillance Screen: Loading ${photoIds.length} images...');
+    
+    try {
+      // Mark images as loading
+      setState(() {
+        _loadingImages.addAll(photoIds);
+      });
+      
+      // Fetch images from API
+      final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
+      
+      // Update cache and remove loading state
+      setState(() {
+        _imageCache.addAll(imageMap);
+        _loadingImages.removeAll(photoIds);
+      });
+      
+      print('Surveillance Screen: Successfully loaded ${imageMap.length} images');
+    } catch (e) {
+      print('Surveillance Screen: Error loading images: $e');
+      setState(() {
+        _loadingImages.removeAll(photoIds);
+      });
+    }
+  }
+
+  /// Build photo column for saved items list
+  Widget _buildPhotoColumn(Map<String, dynamic> item) {
+    final photoId = item['photoId'];
+    
+    if (photoId == null) {
+      return Icon(
+        Icons.photo_camera_outlined,
+        color: AppColors.greyColor,
+        size: 20,
+      );
+    }
+    
+    // Check if image is cached
+    final imageData = _imageCache[photoId];
+    if (imageData != null) {
+      return GestureDetector(
+        onTap: () => _showImageDialog(imageData),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.green7, width: 1),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Base64ImageWidget(
+              base64Data: imageData,
+              width: 30,
+              height: 30,
+              boxFit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Show camera icon if no image data
+    return Icon(
+      Icons.photo_camera,
+      color: AppColors.green7,
+      size: 20,
+    );
+  }
+
+  /// Show image in full screen dialog
+  void _showImageDialog(String imageData) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text('Image View'),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Base64ImageWidget(
+                  base64Data: imageData,
+                  boxFit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1330,7 +1467,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: "Surveillance",
+                                text: "Solar Panel",
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
@@ -1607,17 +1744,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(

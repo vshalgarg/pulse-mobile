@@ -3,7 +3,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../constants/constants_methods.dart';
 import '../constants/constants_strings.dart';
-import '../routes/routes.dart';
 import '../services/google_repository.dart';
 
 class LogoutWidget extends StatelessWidget {

@@ -9,12 +9,15 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/survelliance_screen.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import '../../../constants/constants_strings.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../repositories/image_repository.dart';
+import '../../../app_config.dart';
 
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
@@ -24,9 +27,10 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
-import '../../../constants/constants_strings.dart';
+
 
 class DgScreen extends StatefulWidget {
   final CategoryData? dgData;
@@ -85,6 +89,12 @@ class _DgScreenState extends State<DgScreen> {
   
   // Flag to track if DG screen has posted data
   bool _hasPostedDGData = false;
+
+  // ===== IMAGE LOADING INFRASTRUCTURE =====
+  late ImageRepository _imageService;
+  Map<int, String> _imageCache = {};
+  Set<int> _loadingImages = {};
+  // ===== END IMAGE LOADING INFRASTRUCTURE =====
 
 
 
@@ -221,10 +231,13 @@ class _DgScreenState extends State<DgScreen> {
         
         // Show success message if coming from Fencing Screen
         if (widget.showSuccessMessage) {
-          showCustomToast(context, '✅ Fencing data saved successfully!');
+          // Fencing data saved successfully
         }
       }
     });
+    
+    // Initialize image service
+    _imageService = ImageRepository(AppConfig.of(context).apiProvider);
   }
 
   void _loadDGData() {
@@ -356,6 +369,131 @@ class _DgScreenState extends State<DgScreen> {
       print('DG Screen: Loaded ${savedCCTVItems.length} DG items');
       print('DG Screen: Current scanned items: $currentScannedItems');
     });
+    
+    // Load images for saved items
+    _loadImagesForSavedItems();
+  }
+
+  /// Load images for saved items using the image API
+  void _loadImagesForSavedItems() async {
+    print('=== DG Screen: Loading Images for Saved Items ===');
+    
+    // Collect all photo IDs from saved items
+    Set<int> photoIds = {};
+    
+    // Add photo IDs from CCTV items
+    for (var item in savedCCTVItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    if (photoIds.isEmpty) {
+      print('DG Screen: No photo IDs found to load images');
+      return;
+    }
+    
+    print('DG Screen: Loading ${photoIds.length} images...');
+    
+    try {
+      // Mark images as loading
+      setState(() {
+        _loadingImages.addAll(photoIds);
+      });
+      
+      // Fetch images from API
+      final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
+      
+      // Update cache and remove loading state
+      setState(() {
+        _imageCache.addAll(imageMap);
+        _loadingImages.removeAll(photoIds);
+      });
+      
+      print('DG Screen: Successfully loaded ${imageMap.length} images');
+    } catch (e) {
+      print('DG Screen: Error loading images: $e');
+      setState(() {
+        _loadingImages.removeAll(photoIds);
+      });
+    }
+  }
+
+  /// Build photo column for saved items list
+  Widget _buildPhotoColumn(Map<String, dynamic> item) {
+    final photoId = item['photoId'];
+    
+    if (photoId == null) {
+      return Icon(
+        Icons.photo_camera_outlined,
+        color: AppColors.greyColor,
+        size: 20,
+      );
+    }
+    
+    // Check if image is cached
+    final imageData = _imageCache[photoId];
+    if (imageData != null) {
+      return GestureDetector(
+        onTap: () => _showImageDialog(imageData),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.green7, width: 1),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Base64ImageWidget(
+              base64Data: imageData,
+              width: 30,
+              height: 30,
+              boxFit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Show camera icon if no image data
+    return Icon(
+      Icons.photo_camera,
+      color: AppColors.green7,
+      size: 20,
+    );
+  }
+
+  /// Show image in full screen dialog
+  void _showImageDialog(String imageData) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text('Image View'),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Base64ImageWidget(
+                  base64Data: imageData,
+                  boxFit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
 
@@ -487,7 +625,7 @@ class _DgScreenState extends State<DgScreen> {
       });
 
       int remainingCCTVs = totalCCTVItems - savedCCTVItems.length;
-      showCustomToast(context, 'CCTV item saved successfully! ${remainingCCTVs > 0 ? '(${remainingCCTVs} remaining)' : '(All items added)'}');
+      // CCTV item saved successfully
     }
   }
 
@@ -736,7 +874,7 @@ class _DgScreenState extends State<DgScreen> {
             print('DG Screen: Confirmed this is DG screen data, proceeding with data refresh...');
             
             // Show success message
-            showCustomToast(context, '✅ DG data saved successfully!');
+            // DG data saved successfully
 
             // Refresh data from API before navigating
             print('DG Screen: Refreshing data from API...');
@@ -1389,17 +1527,7 @@ class _DgScreenState extends State<DgScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(

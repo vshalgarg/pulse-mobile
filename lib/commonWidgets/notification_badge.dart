@@ -3,9 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_sizes.dart';
-import '../constants/constants_methods.dart';
 import '../constants/image_strings.dart';
-import '../routes/routes.dart';
 import 'custom_text_widget.dart';
 import 'image_widgets/svg_image_widget.dart';
 import 'ink_well_widget.dart';

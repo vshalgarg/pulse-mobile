@@ -1,6 +1,5 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/mms_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/pcu_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';

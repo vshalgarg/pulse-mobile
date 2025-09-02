@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
-import '../constants/constants_methods.dart';
 import '../constants/image_strings.dart';
-import '../routes/routes.dart';
 import 'image_widgets/svg_image_widget.dart';
 
 class CustomSearchIcon extends StatelessWidget {

@@ -34,4 +34,12 @@ class HiveConstant {
   static const String energyReadingAuditSchId = "energyReadingAuditSchId";
   static const String energyReadingSiteAuditSchId = "energyReadingSiteAuditSchId";
   static const String energyReadingSiteId = "energyReadingSiteId";
+  
+  // Asset Audit Image Management
+  static const String assetAuditImages = "assetAuditImages";
+  static const String assetAuditSelfieKey = "assetAuditSelfie_";
+  
+  // Asset Audit Form Data Persistence
+  static const String assetAuditFormData = "assetAuditFormData";
+  static const String assetAuditFormDataKey = "assetAuditFormData_";
 }

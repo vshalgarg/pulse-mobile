@@ -10,6 +10,8 @@ class HiveDB {
     await HiveDB.openHiveDB(HiveConstant.userCreds);
     await HiveDB.openHiveDB(HiveConstant.getConfiguration);
     await HiveDB.openHiveDB(HiveConstant.getContent);
+    await HiveDB.openHiveDB(HiveConstant.assetAuditImages);
+    await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
   }
 
   static registerHiveAdapter() {
@@ -236,6 +238,169 @@ class HiveDB {
 
   static Map<String, String> getHeaders() {
     return {};
+  }
+
+  // Asset Audit Image Management Methods
+  static Future<void> saveAssetAuditSelfie({
+    required String siteAuditSchId,
+    required String imageId,
+    required String imageData,
+  }) async {
+    final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
+    final key = '${HiveConstant.assetAuditSelfieKey}$siteAuditSchId';
+    await box.put(key, {
+      'imageId': imageId,
+      'imageData': imageData,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    print('HiveDB: Saved selfie for site $siteAuditSchId with image ID $imageId');
+  }
+
+  static Map<String, dynamic>? getAssetAuditSelfie(String siteAuditSchId) {
+    final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
+    final key = '${HiveConstant.assetAuditSelfieKey}$siteAuditSchId';
+    final data = box.get(key);
+    if (data != null) {
+      print('HiveDB: Retrieved selfie for site $siteAuditSchId: $data');
+      // Cast the Hive data to the expected type
+      return Map<String, dynamic>.from(data);
+    }
+    return null;
+  }
+
+  static Future<void> updateAssetAuditSelfie({
+    required String siteAuditSchId,
+    required String newImageId,
+    required String newImageData,
+  }) async {
+    final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
+    final key = '${HiveConstant.assetAuditSelfieKey}$siteAuditSchId';
+    await box.put(key, {
+      'imageId': newImageId,
+      'imageData': newImageData,
+      'timestamp': DateTime.now().millisecondsSinceEpoch,
+    });
+    print('HiveDB: Updated selfie for site $siteAuditSchId with new image ID $newImageId');
+  }
+
+  static Future<void> clearAssetAuditSelfie(String siteAuditSchId) async {
+    final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
+    final key = '${HiveConstant.assetAuditSelfieKey}$siteAuditSchId';
+    await box.delete(key);
+    print('HiveDB: Cleared selfie for site $siteAuditSchId');
+  }
+
+  // Asset Audit Form Data Persistence Methods
+  static Future<void> saveAssetAuditFormData({
+    required String siteAuditSchId,
+    required String screenName,
+    required Map<String, dynamic> formData,
+  }) async {
+    try {
+      // Ensure the box is opened
+      await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
+      final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+      final key = '${HiveConstant.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
+      await box.put(key, {
+        'formData': formData,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'screenName': screenName,
+        'siteAuditSchId': siteAuditSchId,
+      });
+      print('HiveDB: Saved form data for screen $screenName, site $siteAuditSchId');
+    } catch (e) {
+      print('HiveDB: Error saving form data: $e');
+      // Try to open the box again and retry
+      try {
+        await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
+        final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+        final key = '${HiveConstant.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
+        await box.put(key, {
+          'formData': formData,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'screenName': screenName,
+          'siteAuditSchId': siteAuditSchId,
+        });
+        print('HiveDB: Retry successful - Saved form data for screen $screenName, site $siteAuditSchId');
+      } catch (retryError) {
+        print('HiveDB: Retry failed - Error saving form data: $retryError');
+      }
+    }
+  }
+
+  static Map<String, dynamic>? getAssetAuditFormData({
+    required String siteAuditSchId,
+    required String screenName,
+  }) {
+    try {
+      final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+      final key = '${HiveConstant.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
+      final data = box.get(key);
+      if (data != null) {
+        print('HiveDB: Retrieved form data for screen $screenName, site $siteAuditSchId');
+        return Map<String, dynamic>.from(data);
+      }
+      return null;
+    } catch (e) {
+      print('HiveDB: Error getting form data: $e');
+      return null;
+    }
+  }
+
+  static Future<void> updateAssetAuditFormData({
+    required String siteAuditSchId,
+    required String screenName,
+    required Map<String, dynamic> newFormData,
+  }) async {
+    try {
+      // Ensure the box is opened
+      await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
+      final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+      final key = '${HiveConstant.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
+      await box.put(key, {
+        'formData': newFormData,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+        'screenName': screenName,
+        'siteAuditSchId': siteAuditSchId,
+      });
+      print('HiveDB: Updated form data for screen $screenName, site $siteAuditSchId');
+    } catch (e) {
+      print('HiveDB: Error updating form data: $e');
+      // Try to open the box again and retry
+      try {
+        await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
+        final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+        final key = '${HiveConstant.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
+        await box.put(key, {
+          'formData': newFormData,
+          'timestamp': DateTime.now().millisecondsSinceEpoch,
+          'screenName': screenName,
+          'siteAuditSchId': siteAuditSchId,
+        });
+        print('HiveDB: Retry successful - Updated form data for screen $screenName, site $siteAuditSchId');
+      } catch (retryError) {
+        print('HiveDB: Retry failed - Error updating form data: $retryError');
+      }
+    }
+  }
+
+  static Future<void> clearAssetAuditFormData({
+    required String siteAuditSchId,
+    required String screenName,
+  }) async {
+    final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+    final key = '${HiveConstant.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
+    await box.delete(key);
+    print('HiveDB: Cleared form data for screen $screenName, site $siteAuditSchId');
+  }
+
+  static Future<void> clearAllAssetAuditFormData(String siteAuditSchId) async {
+    final box = HiveDB.getHiveBox(HiveConstant.assetAuditFormData);
+    final keys = box.keys.where((key) => key.toString().startsWith('${HiveConstant.assetAuditFormDataKey}$siteAuditSchId'));
+    for (final key in keys) {
+      await box.delete(key);
+    }
+    print('HiveDB: Cleared all form data for site $siteAuditSchId');
   }
 //
 }

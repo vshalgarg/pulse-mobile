@@ -13,11 +13,6 @@ import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/bloc/selfie_upload_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
-import 'package:app/repositories/auth_repository.dart';
-import 'package:app/repositories/demo_repository.dart';
-import 'package:app/repositories/dashboard_repository.dart';
-import 'package:app/repositories/asset_audit_repository.dart';
-import 'package:app/repositories/energy_reading_repository.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -27,6 +22,7 @@ import 'package:provider/provider.dart';
 
 import 'app_config.dart';
 import 'bloc/asset_audit_photo_upload_cubit.dart';
+import 'bloc/asset_audit_get_image_cubit.dart';
 import 'l10n/l10n.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -55,6 +51,7 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => EnergyReadingDetailCubit(config.energyReadingDetailRepository)),
         BlocProvider(create: (context) => SelfieUploadCubit(config.selfieUploadRepository)),
         BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(config.assetAuditPhotoUploadRepository)),
+        BlocProvider(create: (context) => AssetAuditGetImageCubit(config.imageRepository)),
       ],
       child: MultiProvider(
         providers: [

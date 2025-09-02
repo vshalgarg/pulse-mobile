@@ -9,6 +9,8 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../repositories/image_repository.dart';
+import '../../../app_config.dart';
 import 'dart:io';
 
 import '../../../commonWidgets/asset_type_card.dart';
@@ -19,6 +21,7 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/qr_screen_form_field.dart';
+import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -100,13 +103,7 @@ class _CCUScreenState extends State<CCUScreen> {
     final hasDeletedItems = _deletedItemIds.isNotEmpty;
     
     final result = hasNewItems || hasModifiedItems || hasDeletedItems;
-    
-    print('CCU Screen: _hasChanges calculation:');
-    print('  - hasNewItems: $hasNewItems');
-    print('  - hasModifiedItems: $hasModifiedItems');
-    print('  - hasDeletedItems: $hasDeletedItems');
-    print('  - Final result: $result');
-    
+
     return result;
   }
   
@@ -114,6 +111,12 @@ class _CCUScreenState extends State<CCUScreen> {
   bool _isRectifierFormFilled = false;
   bool _isMPPTFormFilled = false;
   // ===== END CHANGE TRACKING SYSTEM =====
+
+  // ===== IMAGE LOADING INFRASTRUCTURE =====
+  late ImageRepository _imageService;
+  Map<int, String> _imageCache = {};
+  Set<int> _loadingImages = {};
+  // ===== END IMAGE LOADING INFRASTRUCTURE =====
 
   String _getCCUCapacity() {
     if (widget.assetAuditData == null) {
@@ -219,6 +222,9 @@ class _CCUScreenState extends State<CCUScreen> {
 
     capacityController.text = _getCCUCapacity();
 
+    // Initialize image service
+    _imageService = ImageRepository(AppConfig.of(context).apiProvider);
+
     _loadCCUData();
     
     // Initialize change tracking system
@@ -252,24 +258,146 @@ class _CCUScreenState extends State<CCUScreen> {
     return hasAnyItems;
   }
 
-  void _navigateToBatteryScreen() {
-    print('CCU Screen: Navigation requested - checking for changes...');
-    print('CCU Screen: _hasChanges: $_hasChanges');
-    print('CCU Screen: _newItems.length: ${_newItems.length}');
-    print('CCU Screen: _modifiedItems.length: ${_modifiedItems.length}');
-    print('CCU Screen: _deletedItemIds.length: ${_deletedItemIds.length}');
-    print('CCU Screen: hasUnsavedChanges: $hasUnsavedChanges');
+  /// Load images for saved items using the image API
+  void _loadImagesForSavedItems() async {
+    Set<int> photoIds = {};
     
+    // Add photo IDs from rectifier items
+    for (var item in savedRectifierItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    // Add photo IDs from MPPT items
+    for (var item in savedMPPTItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    // Add photo IDs from cabinet items
+    for (var item in savedCabinetItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+      }
+    }
+    
+    if (photoIds.isEmpty) {
+
+      return;
+    }
+    
+
+    try {
+      // Mark images as loading
+      setState(() {
+        _loadingImages.addAll(photoIds);
+      });
+      
+      // Fetch images from API
+      final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
+      
+      // Update cache and remove loading state
+      setState(() {
+        _imageCache.addAll(imageMap);
+        _loadingImages.removeAll(photoIds);
+      });
+
+    } catch (e) {
+
+      setState(() {
+        _loadingImages.removeAll(photoIds);
+      });
+    }
+  }
+
+  /// Build photo column for saved items list
+  Widget _buildPhotoColumn(Map<String, dynamic> item) {
+    final photoId = item['photoId'];
+    
+    if (photoId == null) {
+      return Icon(
+        Icons.photo_camera_outlined,
+        color: AppColors.greyColor,
+        size: 20,
+      );
+    }
+    
+    // Check if image is cached
+    final imageData = _imageCache[photoId];
+    if (imageData != null) {
+      return GestureDetector(
+        onTap: () => _showImageDialog(imageData),
+        child: Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.green7, width: 1),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Base64ImageWidget(
+              base64Data: imageData,
+              width: 30,
+              height: 30,
+              boxFit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // Show camera icon if no image data
+    return Icon(
+      Icons.photo_camera,
+      color: AppColors.green7,
+      size: 20,
+    );
+  }
+
+  /// Show image in full screen dialog
+  void _showImageDialog(String imageData) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text('Image View'),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Base64ImageWidget(
+                  base64Data: imageData,
+                  boxFit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToBatteryScreen() {
+
     // Check if we're just editing existing items (which shouldn't block navigation)
     if (_isJustEditingExistingItems()) {
-      print('CCU Screen: Only editing existing items - allowing navigation');
       _saveEditedItemsAndNavigate();
       return;
     }
     
     if (!_hasChanges) {
-      // No changes detected, navigate directly
-      print('CCU Screen: No changes detected, navigating directly to Battery screen');
     pushPage(
       context,
       BatteryScreen(
@@ -282,13 +410,12 @@ class _CCUScreenState extends State<CCUScreen> {
     
     // Check if the changes are just form fields that don't need validation
     if (_areChangesJustFormFields()) {
-      print('CCU Screen: Changes are just form fields - allowing navigation');
+
       _saveFormFieldsAndNavigate();
       return;
     }
     
-    // Changes detected, show confirmation dialog
-    print('CCU Screen: Changes detected, showing confirmation dialog');
+
     _showChangesConfirmationDialog();
   }
 
@@ -483,6 +610,9 @@ class _CCUScreenState extends State<CCUScreen> {
           }
         }
       });
+      
+      // Load images for saved items
+      _loadImagesForSavedItems();
     }
   }
 
@@ -1609,18 +1739,7 @@ class _CCUScreenState extends State<CCUScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child:
-                                item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(
@@ -1838,18 +1957,7 @@ class _CCUScreenState extends State<CCUScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child:
-                                item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(
@@ -2067,18 +2175,7 @@ class _CCUScreenState extends State<CCUScreen> {
                       Expanded(
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child:
-                              item['photo'] != null || item['photoId'] != null
-                              ? const Icon(
-                                  Icons.photo_camera,
-                                  color: AppColors.green7,
-                                  size: 20,
-                                )
-                              : Icon(
-                                  Icons.photo_camera_outlined,
-                                  color: AppColors.greyColor,
-                                  size: 20,
-                                ),
+                          child: _buildPhotoColumn(item),
                         ),
                       ),
                       Expanded(
@@ -2167,22 +2264,9 @@ class _CCUScreenState extends State<CCUScreen> {
             }
           }
 
-          // Only process this success state if it contains CCU screen data
           if (isCCUData) {
-            // Show success message
-            showCustomToast(context, '✅ CCU data saved successfully!');
-
-            // Navigate to next screen immediately
-            Future.delayed(const Duration(seconds: 1), () {
-              if (mounted) {
-                _navigateToBatteryScreen();
-
-                // Reset the flag after successful navigation
-                setState(() {
-                  _hasPostedCCUData = false;
-                });
-              }
-            });
+            _navigateToBatteryScreen();
+            _hasPostedCCUData = false;
           }
         } else if (state is AssetAuditPostError) {
           // Only show error message if this error belongs to CCU screen data
@@ -2701,15 +2785,7 @@ class _CCUScreenState extends State<CCUScreen> {
 
   /// Edit a saved item based on its type
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
-    // Debug: Print the item data to see what's actually stored
-    print('=== EDITING $itemType ITEM ===');
-    print('Item data: $item');
-    print('Serial Number: ${item['serialNumber']}');
-    print('Status: ${item['status']}');
-    print('Photo: ${item['photo']}');
-    print('Photo ID: ${item['photoId']}');
-    print('=============================');
-    
+
     setState(() {
       // Populate the form fields with the item's data for editing
       switch (itemType) {
@@ -2720,16 +2796,6 @@ class _CCUScreenState extends State<CCUScreen> {
           rectifierStatus = item['status'] ?? 'OK';
           rectifierPhotoId = item['photoId'];
           rectifierPhoto = item['photo'];
-          
-          // Debug: Print what we're setting
-          print('Setting rectifier form:');
-          print('  - Controller text: ${rectifierSerialController.text}');
-          print('  - Serial Number: $rectifierSerialNumber');
-          print('  - Status: $rectifierStatus');
-          print('  - Photo: $rectifierPhoto');
-          print('  - Photo ID: $rectifierPhotoId');
-          
-          // Remove the item from saved list since it's now in the form for editing
           savedRectifierItems.remove(item);
           currentScannedItems--;
           break;
@@ -2741,15 +2807,7 @@ class _CCUScreenState extends State<CCUScreen> {
           mpptStatus = item['status'] ?? 'OK';
           mpptPhotoId = item['photoId'];
           mpptPhoto = item['photo'];
-          
-          // Debug: Print what we're setting
-          print('Setting MPPT form:');
-          print('  - Controller text: ${mpptSerialController.text}');
-          print('  - Serial Number: $mpptSerialNumber');
-          print('  - Status: $mpptStatus');
-          print('  - Photo: $mpptPhoto');
-          print('  - Photo ID: $mpptPhotoId');
-          
+
           // Remove the item from saved list since it's now in the form for editing
           savedMPPTItems.remove(item);
           currentScannedItems--;
@@ -2813,8 +2871,7 @@ class _CCUScreenState extends State<CCUScreen> {
     
     // Add listeners to track changes
     _addFormListeners();
-    
-    print('CCU Screen: Change tracking system initialized');
+
   }
   
   /// Store original values for change detection
@@ -2832,12 +2889,7 @@ class _CCUScreenState extends State<CCUScreen> {
       'savedMPPTItems': List<Map<String, dynamic>>.from(savedMPPTItems),
       'savedCabinetItems': List<Map<String, dynamic>>.from(savedCabinetItems),
     };
-    
-    print('CCU Screen: Original values stored for change detection:');
-    print('  - rectifierSerialNumber: "${_originalFormData['rectifierSerialNumber']}"');
-    print('  - rectifierStatus: "${_originalFormData['rectifierStatus']}"');
-    print('  - mpptSerialNumber: "${_originalFormData['mpptSerialNumber']}"');
-    print('  - mpptStatus: "${_originalFormData['mpptStatus']}"');
+
   }
   
   /// Add listeners to track form changes
@@ -2867,10 +2919,7 @@ class _CCUScreenState extends State<CCUScreen> {
                         mpptSerialNumber!.trim() != '' &&
                         (mpptSerialNumber!.trim() != '' &&
                          (mpptPhoto != null || (mpptStatus != null && mpptStatus != 'OK')));
-    
-    print('CCU Screen: Form filling status:');
-    print('  - _isRectifierFormFilled: $_isRectifierFormFilled');
-    print('  - _isMPPTFormFilled: $_isMPPTFormFilled');
+
   }
   
   /// Track field changes
@@ -2878,9 +2927,7 @@ class _CCUScreenState extends State<CCUScreen> {
     final originalValue = _originalFormData[fieldName];
     
     if (_hasValueChanged(originalValue, newValue)) {
-      print('CCU Screen: Field "$fieldName" modified: "$originalValue" -> "$newValue"');
-      
-      // Mark as modified
+
       _modifiedItems[fieldName] = newValue;
       hasUnsavedChanges = true;
     } else {
@@ -2943,7 +2990,7 @@ class _CCUScreenState extends State<CCUScreen> {
             'photoId': rectifierPhotoId,
           }
         });
-        print('CCU Screen: New rectifier item detected: ${rectifierSerialNumber}');
+
       } else {
         print('CCU Screen: Rectifier item is existing (editing): ${rectifierSerialNumber}');
       }
@@ -2965,13 +3012,13 @@ class _CCUScreenState extends State<CCUScreen> {
             'photoId': mpptPhotoId,
           }
         });
-        print('CCU Screen: New MPPT item detected: ${mpptSerialNumber}');
+
       } else {
         print('CCU Screen: MPPT item is existing (editing): ${mpptSerialNumber}');
       }
     }
     
-    print('CCU Screen: Total new items detected: ${_newItems.length}');
+
   }
   
   /// Check if rectifier form data exists in original data
@@ -2985,11 +3032,7 @@ class _CCUScreenState extends State<CCUScreen> {
       rectifierSerialNumber != null && 
       rectifierSerialNumber!.trim().isNotEmpty
     );
-    
-    print('CCU Screen: Rectifier in original data check:');
-    print('  - Serial Number: "$rectifierSerialNumber"');
-    print('  - Has existing serial: $hasExistingSerial');
-    
+
     return hasExistingSerial;
   }
   
@@ -3004,10 +3047,7 @@ class _CCUScreenState extends State<CCUScreen> {
       mpptSerialNumber != null && 
       mpptSerialNumber!.trim().isNotEmpty
     );
-    
-    print('CCU Screen: MPPT in original data check:');
-    print('  - Serial Number: "$mpptSerialNumber"');
-    print('  - Has existing serial: $hasExistingSerial');
+
     
     return hasExistingSerial;
   }
@@ -3024,21 +3064,14 @@ class _CCUScreenState extends State<CCUScreen> {
     // 2. Some fields are modified (editing existing items)
     // 3. No items are being deleted
     final isJustEditing = hasNoNewItems && hasModifiedItems && !hasDeletedItems;
-    
-    print('CCU Screen: Just editing existing items check:');
-    print('  - hasNoNewItems: $hasNoNewItems');
-    print('  - hasModifiedItems: $hasModifiedItems');
-    print('  - hasDeletedItems: $hasDeletedItems');
-    print('  - isJustEditing: $isJustEditing');
+
     
     return isJustEditing;
   }
   
   /// Save edited items and navigate (for existing item edits)
   void _saveEditedItemsAndNavigate() {
-    print('CCU Screen: Saving edited items and navigating');
-    
-    // Update the saved items with the edited values
+
     _updateSavedItemsWithEdits();
     
     // Clear the forms
@@ -3059,7 +3092,7 @@ class _CCUScreenState extends State<CCUScreen> {
   
   /// Update saved items with edited values
   void _updateSavedItemsWithEdits() {
-    print('CCU Screen: Updating saved items with edits');
+
     
     // Update rectifier items if modified
     if (_modifiedItems.containsKey('rectifierSerialNumber') || 
@@ -3077,7 +3110,7 @@ class _CCUScreenState extends State<CCUScreen> {
             'photo': rectifierPhoto ?? item['photo'],
             'photoId': rectifierPhotoId ?? item['photoId'],
           };
-          print('CCU Screen: Updated rectifier item: ${rectifierSerialNumber}');
+
           break;
         }
       }
@@ -3099,7 +3132,6 @@ class _CCUScreenState extends State<CCUScreen> {
             'photo': mpptPhoto ?? item['photo'],
             'photoId': mpptPhotoId ?? item['photoId'],
           };
-          print('CCU Screen: Updated MPPT item: ${mpptSerialNumber}');
           break;
         }
       }
@@ -3121,23 +3153,14 @@ class _CCUScreenState extends State<CCUScreen> {
                             hasNoDeletedItems && 
                             hasModifiedFields && 
                             hasExistingItems;
-    
-    print('CCU Screen: Just form fields check:');
-    print('  - hasNoNewItems: $hasNoNewItems');
-    print('  - hasNoDeletedItems: $hasNoDeletedItems');
-    print('  - hasModifiedFields: $hasModifiedFields');
-    print('  - hasExistingItems: $hasExistingItems');
-    print('  - isJustFormFields: $isJustFormFields');
+
     
     return isJustFormFields;
   }
-  
+
   /// Save form fields and navigate (for form field changes only)
   void _saveFormFieldsAndNavigate() {
-    print('CCU Screen: Saving form fields and navigating');
-    
-    // Update the current form values
-    if (_modifiedItems.containsKey('rectifierSerialNumber')) {
+if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       rectifierSerialNumber = _modifiedItems['rectifierSerialNumber'];
     }
     if (_modifiedItems.containsKey('rectifierStatus')) {
@@ -3197,13 +3220,7 @@ class _CCUScreenState extends State<CCUScreen> {
     final isValidForNavigation = hasSavedItems || 
                                 !hasPartialFormData ||
                                 _areFormsCompletelyFilled();
-    
-    print('CCU Screen: Navigation validity check:');
-    print('  - hasSavedItems: $hasSavedItems');
-    print('  - hasPartialFormData: $hasPartialFormData');
-    print('  - _areFormsCompletelyFilled: ${_areFormsCompletelyFilled()}');
-    print('  - isValidForNavigation: $isValidForNavigation');
-    
+
     return isValidForNavigation;
   }
   
@@ -3222,12 +3239,7 @@ class _CCUScreenState extends State<CCUScreen> {
                          mpptStatus != null;
     
     final isComplete = rectifierComplete || mpptComplete;
-    
-    print('CCU Screen: Forms completion check:');
-    print('  - rectifierComplete: $rectifierComplete');
-    print('  - mpptComplete: $mpptComplete');
-    print('  - isComplete: $isComplete');
-    
+
     return isComplete;
   }
   
@@ -3323,9 +3335,7 @@ class _CCUScreenState extends State<CCUScreen> {
   /// Save all changes and navigate
   Future<void> _saveAllChangesAndNavigate() async {
     try {
-      print('CCU Screen: Saving all changes before navigation');
-      
-      // Save new items to saved lists
+
       if (_newItems.isNotEmpty) {
         await _saveNewItems();
       }
@@ -3348,15 +3358,14 @@ class _CCUScreenState extends State<CCUScreen> {
       );
       
     } catch (e) {
-      print('CCU Screen: Error saving changes: $e');
+
       showCustomToast(context, '❌ Error saving changes: $e');
     }
   }
   
   /// Save new items to saved lists
   Future<void> _saveNewItems() async {
-    print('CCU Screen: Saving ${_newItems.length} new items');
-    
+
     for (final newItem in _newItems) {
       final itemData = newItem['data'] as Map<String, dynamic>;
       
@@ -3391,15 +3400,12 @@ class _CCUScreenState extends State<CCUScreen> {
     
     // Clear forms after saving
     _clearFormData();
-    
-    print('CCU Screen: New items saved to lists');
+
   }
   
   /// Save modified items
   Future<void> _saveModifiedItems() async {
-    print('CCU Screen: Saving ${_modifiedItems.length} modified items');
-    
-    // Update the current form values
+
     if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       rectifierSerialNumber = _modifiedItems['rectifierSerialNumber'];
     }
@@ -3426,20 +3432,17 @@ class _CCUScreenState extends State<CCUScreen> {
       mpptPhotoId = _modifiedItems['mpptPhotoId'];
     }
     
-    print('CCU Screen: Modified items saved');
+
   }
   
   /// Discard all changes and navigate
   void _discardAllChangesAndNavigate() {
-    print('CCU Screen: Discarding all changes');
-    
-    // Reset to original values
+
     _resetToOriginalValues();
     
     // Clear all change tracking
     _clearChangeTracking();
     
-    print('CCU Screen: All changes discarded, navigating to Battery screen');
     pushPage(
       context,
       BatteryScreen(
@@ -3481,11 +3484,6 @@ class _CCUScreenState extends State<CCUScreen> {
     hasUnsavedChanges = false;
     _isRectifierFormFilled = false;
     _isMPPTFormFilled = false;
-    
-    print('CCU Screen: Change tracking cleared');
-  }
-  
 
-  
-  // ===== END CHANGE TRACKING SYSTEM METHODS =====
+  }
 }

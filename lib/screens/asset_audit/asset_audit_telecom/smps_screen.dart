@@ -2,14 +2,11 @@ import 'dart:io';
 
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/dg_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../models/asset_audit_model.dart';
-import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
@@ -20,16 +17,12 @@ import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../commonWidgets/custom_remark.dart';
-import '../../../commonWidgets/qr_screen_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
 import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../repositories/image_repository.dart';
-import '../../../services/api_provider.dart';
 import '../../../app_config.dart';
 
 class SMPSScreen extends StatefulWidget {
@@ -125,7 +118,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
   int acdbCardKey = 0;
   int lspuCardKey = 0;
 
-  // Flag to track if SMPS screen has posted data
+
   bool _hasPostedSMPSData = false;
 
   // Ticket ID from backend for final submission
@@ -136,12 +129,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
   
   // Cache for storing fetched images
   Map<int, String> _imageCache = {};
-  
-  // Loading state for images
-  Set<int> _loadingImages = {};
 
   void _navigateToHomeScreen() {
-    print('SMPS Screen: Navigating to home screen');
+
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const HomeScreen()),
       (route) => false, // Remove all previous routes
@@ -150,44 +140,20 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Get asset audit site response ID from GET API response for a specific item type
   int _getAssetAuditSiteRespId(String itemType) {
-    print('=== SMPS Screen: Getting AssetAuditSiteRespId for $itemType ===');
 
     if (widget.smpsData == null) {
-      print('SMPS Screen: smpsData is null, returning default ID');
+
       return 0; // Default ID
     }
 
-    print('SMPS Screen: smpsData is not null, searching for $itemType...');
-
-    // Debug: Print all available data structures
-    print('SMPS Screen: Available data structures:');
-    print('  - assets: ${widget.smpsData!.assets?.length ?? 0} items');
-    print(
-      '  - smpsRectifiers: ${widget.smpsData!.smpsRectifiers?.length ?? 0} items',
-    );
-    print('  - smpsMppt: ${widget.smpsData!.smpsMppt?.length ?? 0} items');
-    print(
-      '  - smpsCabinet: ${widget.smpsData!.smpsCabinet?.length ?? 0} items',
-    );
-    print('  - acdb: ${widget.smpsData!.acdb?.length ?? 0} items');
-    print('  - lspu: ${widget.smpsData!.lspu?.length ?? 0} items');
-    print('  - remarks: ${widget.smpsData!.remarks?.length ?? 0} items');
-
-    // First check in assets
     final smpsAssets = widget.smpsData!.assets ?? [];
     if (smpsAssets.isNotEmpty) {
-      print(
-        'SMPS Screen: Found ${smpsAssets.length} assets in CategoryData.assets',
-      );
+
       for (var asset in smpsAssets) {
-        print(
-          'SMPS Screen: Asset: ${asset.itemType} - ID: ${asset.assetAuditSiteRespId}',
-        );
+
         if (asset.assetAuditSiteRespId != null &&
             asset.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId: ${asset.assetAuditSiteRespId}',
-          );
+
           return asset.assetAuditSiteRespId!;
         }
       }
@@ -200,14 +166,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final smpsRectifierItems = widget.smpsData!.smpsRectifiers;
       if (smpsRectifierItems != null && smpsRectifierItems.isNotEmpty) {
         final firstItem = smpsRectifierItems.first;
-        print(
-          'SMPS Screen: SMPS Rectifier first item - ID: ${firstItem.assetAuditSiteRespId}',
-        );
+
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId in SMPS Rectifiers: ${firstItem.assetAuditSiteRespId}',
-          );
+
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -215,14 +177,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final smpsMpptItems = widget.smpsData!.smpsMppt;
       if (smpsMpptItems != null && smpsMpptItems.isNotEmpty) {
         final firstItem = smpsMpptItems.first;
-        print(
-          'SMPS Screen: SMPS MPPT first item - ID: ${firstItem.assetAuditSiteRespId}',
-        );
+
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId in SMPS MPPT: ${firstItem.assetAuditSiteRespId}',
-          );
+
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -230,14 +188,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final smpsCabinetItems = widget.smpsData!.smpsCabinet;
       if (smpsCabinetItems != null && smpsCabinetItems.isNotEmpty) {
         final firstItem = smpsCabinetItems.first;
-        print(
-          'SMPS Screen: SMPS Cabinet first item - ID: ${firstItem.assetAuditSiteRespId}',
-        );
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId in SMPS Cabinet: ${firstItem.assetAuditSiteRespId}',
-          );
+
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -245,14 +198,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final acdbItems = widget.smpsData!.acdb;
       if (acdbItems != null && acdbItems.isNotEmpty) {
         final firstItem = acdbItems.first;
-        print(
-          'SMPS Screen: ACDB first item - ID: ${firstItem.assetAuditSiteRespId}',
-        );
+
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId in ACDB: ${firstItem.assetAuditSiteRespId}',
-          );
+
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -260,32 +209,23 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final lspuItems = widget.smpsData!.lspu;
       if (lspuItems != null && lspuItems.isNotEmpty) {
         final firstItem = lspuItems.first;
-        print(
-          'SMPS Screen: LSPU first item - ID: ${firstItem.assetAuditSiteRespId}',
-        );
+
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId in LSPU: ${firstItem.assetAuditSiteRespId}',
-          );
+
           return firstItem.assetAuditSiteRespId!;
         }
       }
     }
 
-    // If still not found, check remarks
     final remarks = widget.smpsData!.remarks;
     if (remarks.isNotEmpty) {
-      print('SMPS Screen: Checking remarks for valid ID...');
+
       for (var remark in remarks) {
-        print(
-          'SMPS Screen: Remark: ${remark.itemType} - ID: ${remark.assetAuditSiteRespId}',
-        );
+
         if (remark.assetAuditSiteRespId != null &&
             remark.assetAuditSiteRespId! > 0) {
-          print(
-            'SMPS Screen: Found valid assetAuditSiteRespId in remarks: ${remark.assetAuditSiteRespId}',
-          );
+
           return remark.assetAuditSiteRespId!;
         }
       }
@@ -293,9 +233,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       print('SMPS Screen: No remarks found');
     }
 
-    print(
-      'SMPS Screen: No valid assetAuditSiteRespId found, returning default ID',
-    );
     return 0; // Default ID
   }
 
@@ -304,7 +241,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
     if (widget.ticketId != null && widget.ticketId!.isNotEmpty) {
       _ticketId = widget.ticketId;
-      print('SMPS Screen: Using ticket ID from TicketScreen: $_ticketId');
+
       return;
     }
 
@@ -340,11 +277,11 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
         if (ticketId.isNotEmpty) {
           _ticketId = ticketId;
-          print('SMPS Screen: Created meaningful ticket ID: $_ticketId');
+
         } else {
           // Fallback to site audit schedule ID
           _ticketId = 'SITE-${pageHeader.siteAuditSchId}';
-          print('SMPS Screen: Using fallback ticket ID: $_ticketId');
+
         }
       }
 
@@ -360,11 +297,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final now = DateTime.now();
       _ticketId =
           'AUDIT-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      print('SMPS Screen: Generated default ticket ID: $_ticketId');
+
     }
 
-    print('SMPS Screen: Final ticket ID: $_ticketId');
-    print('SMPS Screen: Ticket ID will be displayed in success dialog');
   }
 
   /// Get formatted ticket ID for display
@@ -414,21 +349,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
     super.initState();
     // Listen to form changes
     serialController.addListener(_onFormChanged);
-    
-    // Initialize image service - will be done in post frame callback
 
-    print('=== SMPS Screen: initState ===');
-    print(
-      'SMPS Screen: widget.smpsData: ${widget.smpsData != null ? 'NOT NULL' : 'NULL'}',
-    );
-    print(
-      'SMPS Screen: widget.assetAuditData: ${widget.assetAuditData != null ? 'NOT NULL' : 'NULL'}',
-    );
-    print(
-      'SMPS Screen: widget.showSuccessMessage: ${widget.showSuccessMessage}',
-    );
-
-    // Load SMPS data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Initialize image service
       _imageService = ImageRepository(AppConfig.of(context).apiProvider);
@@ -438,7 +359,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       // Show success message if coming from DG Screen
       if (widget.showSuccessMessage) {
-        showCustomToast(context, '✅ DG data saved successfully!');
+        // DG data saved successfully
       }
     });
 
@@ -604,13 +525,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
           print('--- SMPS Remarks Details ---');
           for (int i = 0; i < remarks.length; i++) {
             var remark = remarks[i];
-            print('  Remark $i:');
-            print('    - itemType: ${remark.itemType}');
-            print('    - itemTypeRemark: ${remark.itemTypeRemark}');
-            print('    - assetAuditSiteRespId: ${remark.assetAuditSiteRespId}');
-            print('    - recordType: ${remark.recordType}');
-
-            // Populate the CustomRemarksField with the first valid remark
             if (remark.itemTypeRemark != null &&
                 remark.itemTypeRemark!.isNotEmpty) {
               generalRemarksController.text = remark.itemTypeRemark!;
@@ -639,16 +553,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
             acdbItems.length +
             lspuItems.length;
 
-        print('=== SMPS Screen: Data Summary ===');
-        print('SMPS Screen: Total expected items: $totalRectifierItems');
-        print(
-          'SMPS Screen: Assets: ${smpsAssets.length}, Rectifiers: ${smpsRectifiersItems.length}, MPPT: ${smpsMpptItems.length}, Cabinet: ${smpsCabinetItems.length}, ACDB: ${acdbItems.length}, LSPU: ${lspuItems.length}',
-        );
-        print('SMPS Screen: Remarks: ${remarks.length}');
-        print('=== End SMPS Data Loading ===');
+
       });
     } else {
-      print('SMPS Screen: smpsData is NULL - This is the problem!');
+
       print('SMPS Screen: Backend is not returning SMPS data');
     }
   }
@@ -667,14 +575,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
       }
     }
     
-    // Add photo IDs from MPPT items
+
     for (var item in savedMPPTItems) {
       if (item['photoId'] != null) {
         photoIds.add(item['photoId']);
       }
     }
     
-    // Add photo IDs from ACDB items
+
     for (var item in savedACDBItems) {
       if (item['photoId'] != null) {
         photoIds.add(item['photoId']);
@@ -692,30 +600,18 @@ class _SMPSScreenState extends State<SMPSScreen> {
       print('SMPS Screen: No photo IDs found to load images');
       return;
     }
-    
-    print('SMPS Screen: Loading ${photoIds.length} images...');
-    
+
     try {
-      // Mark images as loading
-      setState(() {
-        _loadingImages.addAll(photoIds);
-      });
-      
       // Fetch images from API
       final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
       
-      // Update cache and remove loading state
+      // Update cache
       setState(() {
         _imageCache.addAll(imageMap);
-        _loadingImages.removeAll(photoIds);
       });
       
-      print('SMPS Screen: Successfully loaded ${imageMap.length} images');
     } catch (e) {
       print('SMPS Screen: Error loading images: $e');
-      setState(() {
-        _loadingImages.removeAll(photoIds);
-      });
     }
   }
 
@@ -728,18 +624,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
         Icons.photo_camera_outlined,
         color: AppColors.greyColor,
         size: 20,
-      );
-    }
-    
-    // Check if image is loading
-    if (_loadingImages.contains(photoId)) {
-      return Container(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          valueColor: AlwaysStoppedAnimation<Color>(AppColors.green7),
-        ),
       );
     }
     
@@ -768,10 +652,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
       );
     }
     
-    // Show camera icon if no image data
+    // Show camera icon while loading or if no image data
     return Icon(
       Icons.photo_camera,
-      color: AppColors.green7,
+      color: AppColors.greyColor,
       size: 20,
     );
   }
@@ -808,14 +692,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
     );
   }
 
-  /// Load saved items from API - only items with complete data (serial, photo, status)
+  /// Load saved items from API - items with serial numbers (photo and status can be missing)
   void _loadSavedItemsFromAPI() {
     if (widget.smpsData == null) {
       print('SMPS Screen: No SMPS data available');
       return;
     }
-
-    print('SMPS Screen: Loading saved items from API...');
 
     setState(() {
       // Clear existing saved items to avoid duplicates
@@ -827,19 +709,15 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       // Load SMPS assets (from assets array)
       final smpsAssets = widget.smpsData!.assets;
-      print('SMPS Screen: Found ${smpsAssets.length} SMPS assets');
 
       for (var item in smpsAssets) {
-        // Only add items that have complete data (serial, photo, status)
-        if (item.mfgSerialNo != null &&
-            item.photoId != null &&
-            item.assetStatus != null) {
+        if (item.mfgSerialNo != null || item.nexgenSerialNo != null) {
           Map<String, dynamic> savedItem = {
             'serialNumber':
                 item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
             'photo': null,
             'photoId': item.photoId,
-            'status': item.assetStatus ?? 'OK',
+            'status': item.assetStatus ?? 'Pending',
             'timestamp': DateTime.now(),
             'isQRCodeScanned': item.qrCodeScanned ?? false,
             'itemType': item.itemType ?? 'SMPS',
@@ -866,9 +744,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedRectifierItems.add(savedItem);
           currentScannedItems++;
-          print(
-            'SMPS Screen: Added SMPS asset item: ${savedItem['serialNumber']}',
-          );
+
+        } else {
+          print('SMPS Screen: Skipped SMPS asset item - no serial number: ${item.itemType}');
         }
       }
 
@@ -877,16 +755,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
       print('SMPS Screen: Found ${smpsRectifiersItems.length} SMPS Rectifiers');
 
       for (var item in smpsRectifiersItems) {
-        // Only add items that have complete data
-        if (item.mfgSerialNo != null &&
-            item.photoId != null &&
-            item.assetStatus != null) {
+        // Show items that have serial numbers (even if photo or status is missing)
+        if (item.mfgSerialNo != null || item.nexgenSerialNo != null) {
           Map<String, dynamic> savedItem = {
             'serialNumber':
                 item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
             'photo': null,
             'photoId': item.photoId,
-            'status': item.assetStatus ?? 'OK',
+            'status': item.assetStatus ?? 'Pending',
             'timestamp': DateTime.now(),
             'isQRCodeScanned': item.qrCodeScanned ?? false,
             'itemType': item.itemType ?? 'SMPS Rectifier',
@@ -913,27 +789,24 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedRectifierItems.add(savedItem);
           currentScannedItems++;
-          print(
-            'SMPS Screen: Added SMPS Rectifier item: ${savedItem['serialNumber']}',
-          );
+
+        } else {
+          print('SMPS Screen: Skipped SMPS Rectifier item - no serial number: ${item.itemType}');
         }
       }
 
       // Load SMPS MPPT (from subcategories)
       final smpsMpptItems = widget.smpsData!.smpsMppt ?? [];
-      print('SMPS Screen: Found ${smpsMpptItems.length} SMPS MPPT');
 
       for (var item in smpsMpptItems) {
-        // Only add items that have complete data
-        if (item.mfgSerialNo != null &&
-            item.photoId != null &&
-            item.assetStatus != null) {
+        // Show items that have serial numbers (even if photo or status is missing)
+        if (item.mfgSerialNo != null || item.nexgenSerialNo != null) {
           Map<String, dynamic> savedItem = {
             'serialNumber':
                 item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
             'photo': null,
             'photoId': item.photoId,
-            'status': item.assetStatus ?? 'OK',
+            'status': item.assetStatus ?? 'Pending',
             'timestamp': DateTime.now(),
             'isQRCodeScanned': item.qrCodeScanned ?? false,
             'itemType': item.itemType ?? 'SMPS MPPT',
@@ -960,27 +833,24 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedMPPTItems.add(savedItem);
           currentScannedItems++;
-          print(
-            'SMPS Screen: Added SMPS MPPT item: ${savedItem['serialNumber']}',
-          );
+
+        } else {
+          print('SMPS Screen: Skipped SMPS MPPT item - no serial number: ${item.itemType}');
         }
       }
 
       // Load ACDB (from subcategories)
       final acdbItems = widget.smpsData!.acdb ?? [];
-      print('SMPS Screen: Found ${acdbItems.length} ACDB');
 
       for (var item in acdbItems) {
-        // Only add items that have complete data
-        if (item.mfgSerialNo != null &&
-            item.photoId != null &&
-            item.assetStatus != null) {
+        // Show items that have serial numbers (even if photo or status is missing)
+        if (item.mfgSerialNo != null || item.nexgenSerialNo != null) {
           Map<String, dynamic> savedItem = {
             'serialNumber':
                 item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
             'photo': null,
             'photoId': item.photoId,
-            'status': item.assetStatus ?? 'OK',
+            'status': item.assetStatus ?? 'Pending',
             'timestamp': DateTime.now(),
             'isQRCodeScanned': item.qrCodeScanned ?? false,
             'itemType': item.itemType ?? 'ACDB',
@@ -1007,25 +877,24 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedACDBItems.add(savedItem);
           currentScannedItems++;
-          print('SMPS Screen: Added ACDB item: ${savedItem['serialNumber']}');
+
+        } else {
+          print('SMPS Screen: Skipped ACDB item - no serial number: ${item.itemType}');
         }
       }
 
       // Load LSPU (from subcategories)
       final lspuItems = widget.smpsData!.lspu ?? [];
-      print('SMPS Screen: Found ${lspuItems.length} LSPU');
 
       for (var item in lspuItems) {
-        // Only add items that have complete data
-        if (item.mfgSerialNo != null &&
-            item.photoId != null &&
-            item.assetStatus != null) {
+        // Show items that have serial numbers (even if photo or status is missing)
+        if (item.mfgSerialNo != null || item.nexgenSerialNo != null) {
           Map<String, dynamic> savedItem = {
             'serialNumber':
                 item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
             'photo': null,
             'photoId': item.photoId,
-            'status': item.assetStatus ?? 'OK',
+            'status': item.assetStatus ?? 'Pending',
             'timestamp': DateTime.now(),
             'isQRCodeScanned': item.qrCodeScanned ?? false,
             'itemType': item.itemType ?? 'LSPU',
@@ -1052,13 +921,11 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedLSPUItems.add(savedItem);
           currentScannedItems++;
-          print('SMPS Screen: Added LSPU item: ${savedItem['serialNumber']}');
+        } else {
+          print('SMPS Screen: Skipped LSPU item - no serial number: ${item.itemType}');
         }
       }
 
-      print(
-        'SMPS Screen: Loaded ${savedRectifierItems.length} Rectifier items, ${savedMPPTItems.length} MPPT items, ${savedACDBItems.length} ACDB items, ${savedLSPUItems.length} LSPU items',
-      );
       print('SMPS Screen: Current scanned items: $currentScannedItems');
     });
   }
@@ -1215,10 +1082,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
       print('Serial number validation passed');
     }
 
-    // Check if photo is added
-    // Check all photo variables to see which one has data
     String? photo = rectifierPhoto ?? mpptPhoto ?? acdbPhoto ?? lspuPhoto;
-    print('Photo: $photo');
+
     if (photo == null || photo.isEmpty) {
       print(' Photo validation failed');
       return false;
@@ -1229,9 +1094,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
     // Note: status is not required since it comes from API
     // and is set to true by default (backendStatus: true)
     String? status = rectifierStatus ?? mpptStatus ?? acdbStatus ?? lspuStatus;
-    print('Status: $status (not required)');
 
-    print(' All validations passed!');
     return true;
   }
 
@@ -1240,7 +1103,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
       showValidationErrors = true;
     });
 
-    print('=== Form Validation Debug (_validateForm) ===');
+
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
@@ -1251,7 +1114,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
         ? lspuSerialController.text
         : null;
 
-    print('Serial number: "$serialNumber"');
+
     if (serialNumber == null || serialNumber.isEmpty) {
       print(' Serial number validation failed');
       return false;
@@ -1260,7 +1123,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
     }
 
     String? photo = rectifierPhoto ?? mpptPhoto ?? acdbPhoto ?? lspuPhoto;
-    print('Photo: $photo');
+
     if (photo == null || photo.isEmpty) {
       print(' Photo validation failed');
       return false;
@@ -1268,12 +1131,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
       print(' Photo validation passed');
     }
 
-    // Note: status is not required since it comes from API
-    // and is set to true by default (backendStatus: true)
-    String? status = rectifierStatus ?? mpptStatus ?? acdbStatus ?? lspuStatus;
-    print('Status: $status (not required)');
 
-    print('Final validation result: true');
+    String? status = rectifierStatus ?? mpptStatus ?? acdbStatus ?? lspuStatus;
     return true;
   }
 
@@ -1306,21 +1165,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        print('Saving Rectifier item: $currentFormData');
-        print(
-          'Current savedRectifierItems count: ${savedRectifierItems.length}',
-        );
-
         // Add to saved rectifier items list
         savedRectifierItems.add(currentFormData);
         currentScannedItems++;
-
-        print(
-          'After saving - savedRectifierItems count: ${savedRectifierItems.length}',
-        );
-        print('currentScannedItems: $currentScannedItems');
-
-        // Clear AssetTypeCard form for next entry
         rectifierSerialNumber = null;
         rectifierPhoto = null;
         rectifierPhotoId = null;
@@ -1416,12 +1263,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   // Save current form data for ACDB
   void _saveACDBForm() {
-    print('=== SMPS Screen: Saving ACDB Form ===');
-    print('ACDB Serial Number: $acdbSerialNumber');
-    print('ACDB Photo: $acdbPhoto');
-    print('ACDB Photo ID: $acdbPhotoId');
-    print('ACDB Status: $acdbStatus');
-
     if (_isFormValid()) {
       setState(() {
         // Get the actual serial number from the controller
@@ -1444,17 +1285,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           'isQRCodeScanned': false,
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
-
-        print('Saving ACDB item: $currentFormData');
-        print('Current savedACDBItems count: ${savedACDBItems.length}');
-
         savedACDBItems.add(currentFormData);
         currentScannedItems++;
 
-        print('After saving - savedACDBItems count: ${savedACDBItems.length}');
-        print('currentScannedItems: $currentScannedItems');
-
-        // Clear form for next entry
         acdbSerialNumber = null;
         acdbPhoto = null;
         acdbPhotoId = null;
@@ -1466,24 +1299,17 @@ class _SMPSScreenState extends State<SMPSScreen> {
         showValidationErrors = false;
       });
 
-      showCustomToast(context, 'ACDB item saved successfully!');
+      // ACDB item saved successfully
     } else {
-      print('Form validation failed - cannot save ACDB item');
       showCustomToast(
         context,
-        '❌ Please fill all required fields before saving',
+        'Please fill all required fields before saving',
       );
     }
   }
 
   // Save current form data for LSPU
   void _saveLSPUForm() {
-    print('=== SMPS Screen: Saving LSPU Form ===');
-    print('LSPU Serial Number: $lspuSerialNumber');
-    print('LSPU Photo: $lspuPhoto');
-    print('LSPU Photo ID: $lspuPhotoId');
-    print('LSPU Status: $lspuStatus');
-
     if (_isFormValid()) {
       setState(() {
         // Get the actual serial number from the controller
@@ -1507,16 +1333,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        print('Saving LSPU item: $currentFormData');
-        print('Current savedLSPUItems count: ${savedLSPUItems.length}');
-
         savedLSPUItems.add(currentFormData);
         currentScannedItems++;
-
-        print('After saving - savedLSPUItems count: ${savedLSPUItems.length}');
-        print('currentScannedItems: $currentScannedItems');
-
-        // Clear form for next entry
         lspuSerialNumber = null;
         lspuPhoto = null;
         lspuPhotoId = null;
@@ -1528,12 +1346,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
         showValidationErrors = false;
       });
 
-      showCustomToast(context, 'LSPU item saved successfully!');
+      // LSPU item saved successfully
     } else {
       print('Form validation failed - cannot save LSPU item');
       showCustomToast(
         context,
-        '❌ Please fill all required fields before saving',
+        ' Please fill all required fields before saving',
       );
     }
   }
@@ -1544,8 +1362,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
         (savedMPPTItems.length >= totalMPPTItems);
   }
 
-  /// Validate serial number against API data
-  /// Returns true if valid, false if invalid
   bool _validateSerialNumber(String serialNumber, bool isQRCodeScanned) {
     if (widget.smpsData == null) return false;
 
@@ -1566,11 +1382,11 @@ class _SMPSScreenState extends State<SMPSScreen> {
       );
 
       if (isValid) {
-        showCustomToast(context, '✅ QR Code validated successfully!');
+        // QR Code validated successfully
       } else {
         showCustomToast(
           context,
-          '❌ Invalid QR Code! Serial number not found in system.',
+          'Invalid QR Code! Serial number not found in system.',
         );
       }
 
@@ -1591,11 +1407,11 @@ class _SMPSScreenState extends State<SMPSScreen> {
       );
 
       if (isValid) {
-        showCustomToast(context, '✅ Manual entry validated successfully!');
+        // Manual entry validated successfully
       } else {
         showCustomToast(
           context,
-          '❌ Invalid manual entry! Serial number not found in system.',
+          'Invalid manual entry! Serial number not found in system.',
         );
       }
 
@@ -1605,34 +1421,23 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Submit all data directly without extra popup
   void _submitAllData() async {
-    print('=== SMPS Screen: Submitting All Data ===');
-    print('SMPS Screen: Ticket ID: $_ticketId');
 
-    // Check if user has saved at least one item from current screen
     if (savedRectifierItems.isEmpty &&
         savedMPPTItems.isEmpty &&
         savedACDBItems.isEmpty &&
         savedLSPUItems.isEmpty) {
       showCustomToast(
         context,
-        '❌ Please add at least one item before final submission.',
+        'Please add at least one item before final submission.',
       );
       return;
     }
 
     // Check if there are any unsaved changes
     if (hasUnsavedChanges) {
-      print(
-        'SMPS Screen: Unsaved changes detected, posting current screen data first...',
-      );
-
-      // Post current screen data first
       final success = await _postCurrentScreenData();
       if (success) {
         print('SMPS Screen: Current screen data posted successfully');
-        showCustomToast(context, '✅ SMPS data saved successfully!');
-
-        // Reset the unsaved changes flag
         setState(() {
           hasUnsavedChanges = false;
         });
@@ -1642,31 +1447,25 @@ class _SMPSScreenState extends State<SMPSScreen> {
       } else {
         showCustomToast(
           context,
-          '❌ Failed to post current screen data. Please try again.',
+          ' Failed to post current screen data. Please try again.',
         );
         return;
       }
     } else {
-      print(
-        'SMPS Screen: No unsaved changes, proceeding directly to final submission...',
-      );
-      // No changes, proceed directly to final submission
+
       _performFinalSubmission();
     }
   }
 
   /// Perform final submission of all data
   Future<void> _performFinalSubmission() async {
-    print('=== SMPS Screen: Performing Final Submission ===');
-
-    // Check if user has saved at least one item from current screen
     if (savedRectifierItems.isEmpty &&
         savedMPPTItems.isEmpty &&
         savedACDBItems.isEmpty &&
         savedLSPUItems.isEmpty) {
       showCustomToast(
         context,
-        '❌ Please add at least one item before final submission.',
+        'Please add at least one item before final submission.',
       );
       return;
     }
@@ -1681,14 +1480,13 @@ class _SMPSScreenState extends State<SMPSScreen> {
     } else {
       showCustomToast(
         context,
-        '❌ Failed to post all flow data. Please try again.',
+        'Failed to post all flow data. Please try again.',
       );
     }
   }
 
   /// Post all data from the entire flow to API
   Future<bool> _postAllFlowData() async {
-    print('=== SMPS Screen: Posting All Flow Data ===');
 
     if (widget.assetAuditData == null) {
       print('SMPS Screen: No asset audit data available for posting');
@@ -1702,29 +1500,21 @@ class _SMPSScreenState extends State<SMPSScreen> {
       // Add data from previous screens
       if (widget.extinguisherItems != null &&
           widget.extinguisherItems!.isNotEmpty) {
-        print(
-          'SMPS Screen: Adding ${widget.extinguisherItems!.length} extinguisher items',
-        );
+
         allFlowItems.addAll(widget.extinguisherItems!);
       }
 
       if (widget.fencingItems != null && widget.fencingItems!.isNotEmpty) {
-        print(
-          'SMPS Screen: Adding ${widget.fencingItems!.length} fencing items',
-        );
         allFlowItems.addAll(widget.fencingItems!);
       }
 
       if (widget.dgItems != null && widget.dgItems!.isNotEmpty) {
-        print('SMPS Screen: Adding ${widget.dgItems!.length} DG items');
         allFlowItems.addAll(widget.dgItems!);
       }
 
       if (widget.solarPlatesItems != null &&
           widget.solarPlatesItems!.isNotEmpty) {
-        print(
-          'SMPS Screen: Adding ${widget.solarPlatesItems!.length} solar plates items',
-        );
+
         allFlowItems.addAll(widget.solarPlatesItems!);
       }
 
@@ -1733,38 +1523,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
       allFlowItems.addAll(savedMPPTItems);
       allFlowItems.addAll(savedACDBItems);
       allFlowItems.addAll(savedLSPUItems);
-
-      print('SMPS Screen: Total flow items to post: ${allFlowItems.length}');
-      print('SMPS Screen: Breakdown:');
-      print('  - Extinguisher: ${widget.extinguisherItems?.length ?? 0}');
-      print('  - Fencing: ${widget.fencingItems?.length ?? 0}');
-      print('  - DG: ${widget.dgItems?.length ?? 0}');
-      print('  - Solar Plates: ${widget.solarPlatesItems?.length ?? 0}');
-      print(
-        '  - SMPS: ${savedRectifierItems.length + savedMPPTItems.length + savedACDBItems.length + savedLSPUItems.length}',
-      );
-
       if (allFlowItems.isEmpty) {
-        print('SMPS Screen: No flow items to post');
         return false;
       }
 
       // Log all flow items before enhancement
-      print('=== SMPS Screen: ALL FLOW ITEMS BEFORE ENHANCEMENT ===');
       for (int i = 0; i < allFlowItems.length; i++) {
         var item = allFlowItems[i];
-        print('--- Flow Item $i Details ---');
-        print('  - serialNumber: ${item['serialNumber']}');
-        print('  - photo: ${item['photo']}');
-        print('  - photoId: ${item['photoId']}');
-        print('  - itemType: ${item['itemType']}');
-        print('  - remarks: ${item['remarks']}');
-        print('  - assetStatus: ${item['assetStatus']}');
-        print('  - assetAuditSiteRespId: ${item['assetAuditSiteRespId']}');
-        print('  - timestamp: ${item['timestamp']}');
-        print('  - isQRCodeScanned: ${item['isQRCodeScanned']}');
-        print('  - Full item object: $item');
-        print('--- End Flow Item $i ---');
+
       }
 
       // Enhance all flow items with additional data
@@ -1773,23 +1539,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
         screenName: 'Complete Flow',
       );
 
-      // Log the enhanced items data
-      print('=== SMPS Screen: ENHANCED FLOW ITEMS DATA ===');
-      print('SMPS Screen: Total enhanced flow items: ${enhancedItems.length}');
       for (int i = 0; i < enhancedItems.length; i++) {
         var item = enhancedItems[i];
-        print('--- Enhanced Flow Item $i Details ---');
-        print('  - serialNumber: ${item['serialNumber']}');
-        print('  - photo: ${item['photo']}');
-        print('  - photoId: ${item['photoId']}');
-        print('  - itemType: ${item['itemType']}');
-        print('  - remarks: ${item['remarks']}');
-        print('  - assetStatus: ${item['assetStatus']}');
-        print('  - assetAuditSiteRespId: ${item['assetAuditSiteRespId']}');
-        print('  - timestamp: ${item['timestamp']}');
-        print('  - isQRCodeScanned: ${item['isQRCodeScanned']}');
-        print('  - Full item object: $item');
-        print('--- End Enhanced Flow Item $i ---');
+
       }
 
       // Convert enhanced items to proper post request format
@@ -1805,69 +1557,51 @@ class _SMPSScreenState extends State<SMPSScreen> {
           );
 
       if (postRequests.isNotEmpty) {
-        print(
-          'SMPS Screen: Posting ${postRequests.length} flow items to API...',
-        );
 
-        // Use the cubit to post the data
         context.read<AssetAuditCubit>().postAssetAuditData(
           requests: postRequests,
         );
       } else {
-        print('SMPS Screen: No valid post requests created');
         return false;
       }
 
       return true;
     } catch (e) {
-      print('SMPS Screen: Error posting all flow data: $e');
       return false;
     }
   }
 
   int? _getRemarksAssetAuditSiteRespId() {
-    print('=== SMPS Screen: Getting Remarks AssetAuditSiteRespId ===');
 
     if (widget.smpsData == null) {
-      print('smpsData is null, cannot get remarks ID');
       return null;
     }
 
     // Check if there are remarks in the backend data
     final remarks = widget.smpsData!.remarks;
     if (remarks.isNotEmpty) {
-      print('Found ${remarks.length} remarks in backend data');
-
-      // First try to find a general remarks entry (SMPS category is usually the main one)
-      for (var remark in remarks) {
+        for (var remark in remarks) {
         if (remark.assetAuditSiteRespId != null &&
             remark.assetAuditSiteRespId > 0 &&
             remark.itemType == 'SMPS') {
-          print('Using SMPS remarks ID: ${remark.assetAuditSiteRespId}');
           return remark.assetAuditSiteRespId;
         }
       }
 
-      // Fallback: find any remarks entry with a valid ID
       for (var remark in remarks) {
         if (remark.assetAuditSiteRespId != null &&
             remark.assetAuditSiteRespId > 0) {
-          print(
-            'Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}',
-          );
           return remark.assetAuditSiteRespId;
         }
       }
     }
-
-    print('No valid remarks ID found in backend data');
     return null;
   }
 
   /// Post current screen data to API before submitting
   Future<bool> _postCurrentScreenData() async {
     if (widget.assetAuditData == null) {
-      print('SMPS Screen: No asset audit data available for posting');
+
       return false;
     }
 
@@ -1879,28 +1613,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
       allSavedItems.addAll(savedACDBItems);
       allSavedItems.addAll(savedLSPUItems);
 
-      print('SMPS Screen: Total items to post: ${allSavedItems.length}');
-      print('SMPS Screen: Rectifier items: ${savedRectifierItems.length}');
-      print('SMPS Screen: MPPT items: ${savedMPPTItems.length}');
-      print('SMPS Screen: ACDB items: ${savedACDBItems.length}');
-      print('SMPS Screen: LSPU items: ${savedLSPUItems.length}');
-
-      // Log the saved items data before enhancement
-      print('=== SMPS Screen: SAVED ITEMS DATA BEFORE ENHANCEMENT ===');
       for (int i = 0; i < allSavedItems.length; i++) {
         var item = allSavedItems[i];
-        print('--- Saved Item $i Details ---');
-        print('  - serialNumber: ${item['serialNumber']}');
-        print('  - photo: ${item['photo']}');
-        print('  - photoId: ${item['photoId']}');
-        print('  - itemType: ${item['itemType']}');
-        print('  - remarks: ${item['remarks']}');
-        print('  - assetStatus: ${item['assetStatus']}');
-        print('  - assetAuditSiteRespId: ${item['assetAuditSiteRespId']}');
-        print('  - timestamp: ${item['timestamp']}');
-        print('  - isQRCodeScanned: ${item['isQRCodeScanned']}');
-        print('  - Full item object: $item');
-        print('--- End Saved Item $i ---');
+
       }
 
       // Add user's general remarks if entered
@@ -1936,16 +1651,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
             // Local modification timestamp
           };
           allSavedItems.add(remarksData);
-          print(
-            'SMPS Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${generalRemarksController.text}"',
-          );
+
         } else {
           print('SMPS Screen: Could not find remarks ID from backend data');
         }
       }
 
       if (allSavedItems.isEmpty) {
-        print('SMPS Screen: No items to post');
+
         return false;
       }
 
@@ -1956,22 +1669,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
       );
 
       // Log the enhanced items data
-      print('=== SMPS Screen: ENHANCED ITEMS DATA ===');
-      print('SMPS Screen: Total enhanced items: ${enhancedItems.length}');
+
       for (int i = 0; i < enhancedItems.length; i++) {
         var item = enhancedItems[i];
-        print('--- Enhanced Item $i Details ---');
-        print('  - serialNumber: ${item['serialNumber']}');
-        print('  - photo: ${item['photo']}');
-        print('  - photoId: ${item['photoId']}');
-        print('  - itemType: ${item['itemType']}');
-        print('  - remarks: ${item['remarks']}');
-        print('  - assetStatus: ${item['assetStatus']}');
-        print('  - assetAuditSiteRespId: ${item['assetAuditSiteRespId']}');
-        print('  - timestamp: ${item['timestamp']}');
-        print('  - isQRCodeScanned: ${item['isQRCodeScanned']}');
-        print('  - Full enhanced item object: $item');
-        print('--- End Enhanced Item $i ---');
+
       }
 
       // Convert to POST request format
@@ -1986,56 +1687,24 @@ class _SMPSScreenState extends State<SMPSScreen> {
           );
 
       if (requests.isEmpty) {
-        print('SMPS Screen: Failed to create POST requests');
         return false;
       }
 
-      // Log the request data being sent to API
-      print('=== SMPS Screen: POST API REQUEST DATA ===');
-      print('SMPS Screen: Total requests to post: ${requests.length}');
 
       for (int i = 0; i < requests.length; i++) {
         var request = requests[i];
-        print('--- Request $i Details ---');
-        print('  - auditSchId: ${request.auditSchId}');
-        print('  - siteAuditSchId: ${request.siteAuditSchId}');
-        print('  - siteId: ${request.siteId}');
-        print('  - itemInstanceId: ${request.itemInstanceId}');
-        print('  - nexgenSerialNo: ${request.nexgenSerialNo}');
-        print('  - itemTypeId: ${request.itemTypeId}');
-        print('  - qrCodeScanned: ${request.qrCodeScanned}');
-        print('  - photoId: ${request.photoId}');
-        print('  - photoTakenTs: ${request.photoTakenTs}');
-        print('  - assetStatus: ${request.assetStatus}');
-        print('  - longitude: ${request.longitude}');
-        print('  - latitude: ${request.latitude}');
-        print('  - itemTypeRemark: ${request.itemTypeRemark}');
-        print('  - localAuditLogId: ${request.localAuditLogId}');
-        print('  - localQrCodeScannedTs: ${request.localQrCodeScannedTs}');
-        print('  - localCreatedDt: ${request.localCreatedDt}');
-        print('  - localModifiedDt: ${request.localModifiedDt}');
-        print('  - syncProcessId: ${request.syncProcessId}');
-        print('  - isActive: ${request.isActive}');
-        print('  - remarks: ${request.remarks}');
-        print('  - Full request object: $request');
-        print('--- End Request $i ---');
+
       }
 
       // Set flag BEFORE making the API call to ensure it's set when success state is received
       setState(() {
         _hasPostedSMPSData = true;
       });
-      print('SMPS Screen: Set _hasPostedSMPSData flag to true BEFORE API call');
-      print('SMPS Screen: Flag value after setting: $_hasPostedSMPSData');
-
-      // Use the existing cubit to post data
-      print('SMPS Screen: Posting ${requests.length} items to API...');
       context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
 
-      // Return true to indicate data is being posted
       return true;
     } catch (e) {
-      print('SMPS Screen: Error preparing data: $e');
+
       return false;
     }
   }
@@ -2070,11 +1739,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'Rectifier item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific MPPT item from the saved list
@@ -2099,11 +1763,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'MPPT item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific ACDB item from the saved list
@@ -2128,11 +1787,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'ACDB item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific LSPU item from the saved list
@@ -2157,56 +1811,26 @@ class _SMPSScreenState extends State<SMPSScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'LSPU item loaded for editing. Make changes and save again.',
-    );
   }
+
+
+
+
+
+
+
+
 
   @override
   Widget build(BuildContext context) {
     return BlocListener<AssetAuditCubit, AssetAuditState>(
       listener: (context, state) {
-        print('SMPS Screen: BlocListener received state: $state');
-        print('SMPS Screen: State type: ${state.runtimeType}');
 
         if (state is AssetAuditPostSuccess) {
-          print('=== SMPS Screen: POST API SUCCESS RESPONSE ===');
-          print('SMPS Screen: AssetAuditPostSuccess received!');
-          print('SMPS Screen: State details: $state');
-          print('SMPS Screen: _hasPostedSMPSData flag: $_hasPostedSMPSData');
-          print(
-            'SMPS Screen: Total responses received: ${state.responses.length}',
-          );
 
-          // Log each response in detail
           for (int i = 0; i < state.responses.length; i++) {
             var response = state.responses[i];
-            print('--- Response $i Details ---');
-            print('  - itemTypeRemark: ${response.itemTypeRemark}');
-            print('  - itemTypeId: ${response.itemTypeId}');
-            print('  - nexgenSerialNo: ${response.nexgenSerialNo}');
-            print('  - assetStatus: ${response.assetStatus}');
-            print('  - remarks: ${response.remarks}');
-            print('  - photoId: ${response.photoId}');
-            print('  - qrCodeScanned: ${response.qrCodeScanned}');
-            print('  - qrCodeScannedTs: ${response.qrCodeScannedTs}');
-            print('  - longitude: ${response.longitude}');
-            print('  - latitude: ${response.latitude}');
-            print('  - siteAuditSchId: ${response.siteAuditSchId}');
-            print('  - siteId: ${response.siteId}');
-            print('  - auditSchId: ${response.auditSchId}');
-            print('  - itemInstanceId: ${response.itemInstanceId}');
-            print('  - assetAuditSiteRespId: ${response.assetAuditSiteRespId}');
-            print('  - localAuditLogId: ${response.localAuditLogId}');
-            print('  - localQrCodeScannedTs: ${response.localQrCodeScannedTs}');
-            print('  - localCreatedDt: ${response.localCreatedDt}');
-            print('  - localModifiedDt: ${response.localModifiedDt}');
-            print('  - syncProcessId: ${response.syncProcessId}');
-            print('  - isActive: ${response.isActive}');
-            print('  - Full response object: $response');
-            print('--- End Response $i ---');
+
           }
 
           // Check if this success state contains SMPS-related items
@@ -2221,41 +1845,24 @@ class _SMPSScreenState extends State<SMPSScreen> {
                     response.itemTypeRemark!.contains('LSPU') ||
                     response.itemTypeRemark!.contains('Cabinet'))) {
               isSMPSData = true;
-              print(
-                'SMPS Screen: Found SMPS-related item by itemTypeRemark: ${response.itemTypeRemark}',
-              );
+
               break;
             }
 
             // Fallback check: Check if this is a response to SMPS screen data by looking at the flag
             if (_hasPostedSMPSData) {
               isSMPSData = true;
-              print(
-                'SMPS Screen: Found SMPS-related item by flag check (fallback)',
-              );
+
               break;
             }
 
-            print(
-              'SMPS Screen: itemTypeRemark "${response.itemTypeRemark}" does not match SMPS patterns',
-            );
           }
 
           // Only process this success state if it contains SMPS screen data
           if (isSMPSData) {
-            print(
-              'SMPS Screen: Confirmed this is SMPS screen data, proceeding with data refresh and final submission...',
-            );
 
-            // Show success message
-            showCustomToast(context, '✅ SMPS data saved successfully!');
-
-            // Refresh data from API before final submission
-            print(
-              'SMPS Screen: Refreshing data from API before final submission...',
-            );
             try {
-              // Trigger a refresh of the asset audit data
+
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: "telecom",
                 auditSchId:
@@ -2271,9 +1878,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
               // Wait for data to refresh, then show success dialog
               Future.delayed(const Duration(seconds: 2), () {
                 if (mounted) {
-                  print(
-                    'SMPS Screen: Data refreshed, showing final success dialog...',
-                  );
+
                   showDialog(
                     context: context,
                     barrierDismissible: false,
@@ -2282,10 +1887,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
                       message:
                           "Asset Audit completed successfully!\n\nTicket ID: ${widget.ticketId ?? _formattedTicketId}",
                       onDone: () {
-                        // Navigate back to HomeScreen after completion
                         Navigator.of(context).pop(); // Close success dialog
 
-                        // Navigate back to HomeScreen
+
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute(
                             builder: (context) => const HomeScreen(),
@@ -2300,14 +1904,11 @@ class _SMPSScreenState extends State<SMPSScreen> {
                   setState(() {
                     _hasPostedSMPSData = false;
                   });
-                  print(
-                    'SMPS Screen: Reset _hasPostedSMPSData flag to false after final submission',
-                  );
+
                 }
               });
             } catch (e) {
-              print('SMPS Screen: Error refreshing data: $e');
-              // Fallback: show success dialog anyway after delay
+
               Future.delayed(const Duration(seconds: 2), () {
                 if (mounted) {
                   showDialog(
@@ -2335,9 +1936,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
               });
             }
           } else {
-            print(
-              'SMPS Screen: Success state received but not for SMPS screen data, ignoring...',
-            );
             print('SMPS Screen: _hasPostedSMPSData flag: $_hasPostedSMPSData');
           }
         } else if (state is AssetAuditPostError) {
@@ -2350,7 +1948,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
               '❌ Failed to save SMPS data. Please try again.',
             );
 
-            // Reset the flag on error
             setState(() {
               _hasPostedSMPSData = false;
             });
@@ -4322,19 +3919,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
     );
   }
 
-  /// Edit a saved item based on its type
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
-    // Debug: Print the item data to see what's actually stored
-    print('=== EDITING $itemType ITEM ===');
-    print('Item data: $item');
-    print('Serial Number: ${item['serialNumber']}');
-    print('Status: ${item['assetStatus']}');
-    print('Photo: ${item['photo']}');
-    print('Photo ID: ${item['photoId']}');
-    print('=============================');
 
     setState(() {
-      // Populate the form fields with the item's data for editing
+
       switch (itemType) {
         case 'rectifier':
           // Populate rectifier form with item data

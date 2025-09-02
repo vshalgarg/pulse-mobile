@@ -11,6 +11,8 @@ import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 
 import '../../../bloc/asset_audit_state.dart';
+import '../../../repositories/image_repository.dart';
+import '../../../app_config.dart';
 import 'dart:io';
 
 import '../../../commonWidgets/asset_type_card.dart';
@@ -22,6 +24,7 @@ import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/qr_screen_form_field.dart';
+import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -80,6 +83,12 @@ class _BatteryScreenState extends State<BatteryScreen> {
   int mpptCardKey = 0;
   
   bool _hasPostedBatteryData = false;
+
+  // ===== IMAGE LOADING INFRASTRUCTURE =====
+  late ImageRepository _imageService;
+  Map<int, String> _imageCache = {};
+  Set<int> _loadingImages = {};
+  // ===== END IMAGE LOADING INFRASTRUCTURE =====
 
   String _getBatteryOEMName() {
     if (widget.batteryData != null) {
@@ -264,6 +273,238 @@ class _BatteryScreenState extends State<BatteryScreen> {
       print('Battery Screen: Total counts - Rectifier: $totalRectifierItems, MPPT: $totalMPPTItems');
       print('Battery Screen: Current scanned items: $currentScannedItems');
     });
+    
+    print('Battery Screen: About to call _loadImagesForSavedItems...');
+    // Load images for saved items
+    _loadImagesForSavedItems();
+    print('Battery Screen: _loadImagesForSavedItems called successfully');
+    
+    // Wait a bit for images to load and then check cache
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted) {
+        print('Battery Screen: After 500ms delay - checking image cache...');
+        print('Battery Screen: _imageCache keys: ${_imageCache.keys.toList()}');
+        print('Battery Screen: _loadingImages: $_loadingImages');
+        setState(() {}); // Force UI update
+      }
+    });
+  }
+
+  /// Load images for saved items using the image API
+  void _loadImagesForSavedItems() async {
+    print('=== Battery Screen: Loading Images for Saved Items ===');
+    print('Battery Screen: Method entered successfully');
+    
+    // Debug: Print all saved items to see their structure
+    print('Battery Screen: savedRectifierItems count: ${savedRectifierItems.length}');
+    for (int i = 0; i < savedRectifierItems.length; i++) {
+      final item = savedRectifierItems[i];
+      print('Battery Screen: Rectifier Item $i: photoId=${item['photoId']}, serial=${item['serialNumber']}');
+    }
+    
+    print('Battery Screen: savedMPPTItems count: ${savedMPPTItems.length}');
+    for (int i = 0; i < savedMPPTItems.length; i++) {
+      final item = savedMPPTItems[i];
+      print('Battery Screen: MPPT Item $i: photoId=${item['photoId']}, serial=${item['serialNumber']}');
+    }
+    
+    // Collect all photo IDs from saved items
+    Set<int> photoIds = {};
+    
+    // Add photo IDs from rectifier items
+    for (var item in savedRectifierItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+        print('Battery Screen: Added photoId ${item['photoId']} from rectifier item');
+      }
+    }
+    
+    // Add photo IDs from MPPT items
+    for (var item in savedMPPTItems) {
+      if (item['photoId'] != null) {
+        photoIds.add(item['photoId']);
+        print('Battery Screen: Added photoId ${item['photoId']} from MPPT item');
+      }
+    }
+    
+    if (photoIds.isEmpty) {
+      print('Battery Screen: No photo IDs found to load images');
+      return;
+    }
+    
+    print('Battery Screen: Total photo IDs to load: ${photoIds.length}');
+    print('Battery Screen: Photo IDs: $photoIds');
+    
+    try {
+      // Mark images as loading
+      setState(() {
+        _loadingImages.addAll(photoIds);
+      });
+      print('Battery Screen: Marked images as loading: $_loadingImages');
+      
+      // Fetch images from API
+      print('Battery Screen: Calling _imageService.fetchImagesByIds...');
+      print('Battery Screen: _imageService type: ${_imageService.runtimeType}');
+      
+      // Test if the service is working
+      final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
+      print('Battery Screen: Received imageMap with ${imageMap.length} images');
+      print('Battery Screen: ImageMap keys: ${imageMap.keys.toList()}');
+      
+      // Update cache and remove loading state
+      setState(() {
+        print('Battery Screen: Before adding to cache - _imageCache keys: ${_imageCache.keys.toList()}');
+        _imageCache.addAll(imageMap);
+        print('Battery Screen: After adding to cache - _imageCache keys: ${_imageCache.keys.toList()}');
+        _loadingImages.removeAll(photoIds);
+      });
+      
+      print('Battery Screen: Successfully loaded ${imageMap.length} images');
+      print('Battery Screen: Final _imageCache keys: ${_imageCache.keys.toList()}');
+      print('Battery Screen: Final _loadingImages: $_loadingImages');
+      
+      // Debug: Check the format of loaded image data
+      if (imageMap.isNotEmpty) {
+        final firstImageKey = imageMap.keys.first;
+        final firstImageData = imageMap[firstImageKey];
+        print('Battery Screen: First image data length: ${firstImageData?.length ?? 0}');
+        print('Battery Screen: First image data starts with: ${firstImageData?.substring(0, firstImageData.length > 50 ? 50 : firstImageData.length)}');
+        
+        // Verify the data is actually in the cache
+        final cachedData = _imageCache[firstImageKey];
+        print('Battery Screen: Verification - cached data for key $firstImageKey: ${cachedData != null ? 'EXISTS' : 'MISSING'}');
+        if (cachedData != null) {
+          print('Battery Screen: Cached data length: ${cachedData.length}');
+        }
+      }
+      
+      // Force a rebuild to ensure UI updates
+      if (mounted) {
+        setState(() {});
+        print('Battery Screen: Forced UI rebuild after image loading');
+      }
+    } catch (e) {
+      print('Battery Screen: Error loading images: $e');
+      print('Battery Screen: Error stack trace: ${StackTrace.current}');
+      setState(() {
+        _loadingImages.removeAll(photoIds);
+      });
+    }
+    
+    print('Battery Screen: _loadImagesForSavedItems method completed');
+  }
+
+  /// Build photo column for saved items list
+  Widget _buildPhotoColumn(Map<String, dynamic> item) {
+    final photoId = item['photoId'];
+    
+    print('Battery Screen: _buildPhotoColumn called for item: photoId=$photoId, serial=${item['serialNumber']}');
+    print('Battery Screen: Item keys: ${item.keys.toList()}');
+    print('Battery Screen: photoId type: ${photoId.runtimeType}');
+    print('Battery Screen: Current _imageCache keys: ${_imageCache.keys.toList()}');
+    print('Battery Screen: Current _loadingImages: $_loadingImages');
+    
+    if (photoId == null) {
+      print('Battery Screen: photoId is null, showing grey camera icon');
+      return Icon(
+        Icons.photo_camera_outlined,
+        color: AppColors.greyColor,
+        size: 20,
+      );
+    }
+    
+    // Check if image is cached
+    final imageData = _imageCache[photoId];
+    print('Battery Screen: Image $photoId cached: ${imageData != null ? 'YES' : 'NO'}');
+    if (imageData != null) {
+      print('Battery Screen: Showing image for photoId $photoId');
+      print('Battery Screen: Image data length: ${imageData.length}');
+      print('Battery Screen: Image data starts with: ${imageData.substring(0, imageData.length > 20 ? 20 : imageData.length)}');
+      
+      try {
+        print('Battery Screen: Creating Base64ImageWidget...');
+        final widget = GestureDetector(
+          onTap: () => _showImageDialog(imageData),
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: AppColors.green7, width: 1),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Base64ImageWidget(
+                base64Data: imageData,
+                width: 30,
+                height: 30,
+                boxFit: BoxFit.cover,
+              ),
+            ),
+          ),
+        );
+        print('Battery Screen: Base64ImageWidget created successfully');
+        return widget;
+      } catch (e) {
+        print('Battery Screen: Error creating Base64ImageWidget: $e');
+        print('Battery Screen: Error stack trace: ${StackTrace.current}');
+        // Fallback: show a colored container
+        return Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: AppColors.green7, width: 1),
+            color: AppColors.green7,
+          ),
+          child: Icon(
+            Icons.image,
+            color: Colors.white,
+            size: 16,
+          ),
+        );
+      }
+    }
+    
+    // Show camera icon if no image data
+    print('Battery Screen: No image data for photoId $photoId, showing green camera icon');
+    return Icon(
+      Icons.photo_camera,
+      color: AppColors.green7,
+      size: 20,
+    );
+  }
+
+  /// Show image in full screen dialog
+  void _showImageDialog(String imageData) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: Column(
+            children: [
+              AppBar(
+                title: Text('Image View'),
+                actions: [
+                  IconButton(
+                    icon: Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: Base64ImageWidget(
+                  base64Data: imageData,
+                  boxFit: BoxFit.contain,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -287,6 +528,15 @@ class _BatteryScreenState extends State<BatteryScreen> {
         _navigateToExtinguisherScreen();
       } else {
         print('Battery Screen: Data available, loading battery data');
+        
+        // Initialize image service
+        try {
+          _imageService = ImageRepository(AppConfig.of(context).apiProvider);
+          print('Battery Screen: Image service initialized successfully');
+        } catch (e) {
+          print('Battery Screen: Error initializing image service: $e');
+        }
+        
         batteryCapacityController.text = _getBatteryCapacity();
         _loadBatteryData();
         _hasPostedBatteryData = false;
@@ -534,7 +784,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
   void _saveRectifierForm() {
     // Check if we've reached the maximum limit from backend
     if (savedRectifierItems.length >= totalRectifierItems) {
-      showCustomToast(context, '❌ Maximum limit reached! You can only scan up to $totalRectifierItems Rectifier items (as per backend count).');
+      // Maximum limit reached! You can only scan up to $totalRectifierItems Rectifier items (as per backend count)
       return;
     }
 
@@ -603,7 +853,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
   void _saveMPPTForm() {
     // Check if we've reached the maximum limit from backend
     if (savedMPPTItems.length >= totalMPPTItems) {
-      showCustomToast(context, '❌ Maximum limit reached! You can only scan up to $totalMPPTItems MPPT items (as per backend count).');
+      // Maximum limit reached! You can only scan up to $totalMPPTItems MPPT items (as per backend count)
       return;
     }
 
@@ -761,9 +1011,9 @@ class _BatteryScreenState extends State<BatteryScreen> {
     if (cbmsValid) {
       print('✅ CBMS validation successful');
       if (isQRCodeScanned) {
-        showCustomToast(context, '✅ CBMS QR Code validated successfully!');
+        // CBMS QR Code validated successfully
       } else {
-        showCustomToast(context, '✅ CBMS manual entry validated successfully!');
+                  // CBMS manual entry validated successfully
       }
       return true;
     }
@@ -1933,17 +2183,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: item['photo'] != null || item['photoId'] != null
-                                ? const Icon(
-                                    Icons.photo_camera,
-                                    color: AppColors.green7,
-                                    size: 20,
-                                  )
-                                : Icon(
-                                    Icons.photo_camera_outlined,
-                                    color: AppColors.greyColor,
-                                    size: 20,
-                                  ),
+                            child: _buildPhotoColumn(item),
                           ),
                         ),
                         Expanded(
@@ -2187,17 +2427,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                               Expanded(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: item['photo'] != null || item['photoId'] != null
-                                      ? const Icon(
-                                          Icons.photo_camera,
-                                          color: AppColors.green7,
-                                          size: 20,
-                                        )
-                                      : Icon(
-                                          Icons.photo_camera_outlined,
-                                          color: AppColors.greyColor,
-                                          size: 20,
-                                        ),
+                                  child: _buildPhotoColumn(item),
                                 ),
                               ),
                               Expanded(

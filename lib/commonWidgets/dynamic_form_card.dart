@@ -1,7 +1,5 @@
 import 'package:app/commonWidgets/qr_screen_form_field.dart';
 import 'package:app/constants/app_colors.dart';
-import 'package:app/constants/constants_methods.dart';
-import 'package:app/utils.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
@@ -9,7 +7,6 @@ import 'dart:io';
 import '../models/form_fields_model.dart';
 import 'custom_file_upload.dart';
 import 'custom_form_dropdown.dart';
-import 'custom_form_field.dart';
 import 'custom_radio_options.dart';
 
 class DynamicFormCard extends StatelessWidget {

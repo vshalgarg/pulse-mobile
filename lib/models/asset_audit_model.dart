@@ -57,6 +57,7 @@ class PageHeader {
   final String op1Name;
   final String? op2Name;
   final int siteId;
+  final int? makerSelfieImageId;
 
   PageHeader({
     required this.siteAuditSchId,
@@ -72,6 +73,7 @@ class PageHeader {
     required this.op1Name,
     this.op2Name,
     required this.siteId,
+    this.makerSelfieImageId,
   });
 
   factory PageHeader.fromJson(Map<String, dynamic> json) {
@@ -89,6 +91,7 @@ class PageHeader {
       op1Name: json['op1_name'] ?? '',
       op2Name: json['op2_name'],
       siteId: json['site_id'] ?? 0,
+      makerSelfieImageId: json['maker_selfie_image_id'],
     );
   }
 
@@ -107,6 +110,7 @@ class PageHeader {
       'op1_name': op1Name,
       'op2_name': op2Name,
       'site_id': siteId,
+      'maker_selfie_image_id': makerSelfieImageId,
     };
   }
 }

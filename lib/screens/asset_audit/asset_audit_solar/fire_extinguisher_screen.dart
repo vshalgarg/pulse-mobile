@@ -1,8 +1,6 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/solar_plates.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
@@ -11,10 +9,8 @@ import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../commonWidgets/custom_remark.dart';
-import '../../../commonWidgets/qr_screen_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -165,47 +161,6 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
     return true;
   }
 
-  bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
-
-    print('=== Form Validation Debug (_validateForm) ===');
-    String? serialNumber = rectifierSerialController.text.isNotEmpty
-        ? rectifierSerialController.text
-        : mpptSerialController.text.isNotEmpty
-        ? mpptSerialController.text
-        : null;
-
-    print('Serial number: "$serialNumber"');
-    if (serialNumber == null || serialNumber.isEmpty) {
-      print(' Serial number validation failed');
-      return false;
-    } else {
-      print(' Serial number validation passed');
-    }
-
-    // Check if photo is added
-    // Check both photo variables to see which one has data
-    String? photo = rectifierPhoto ?? mpptPhoto;
-    print('Photo: $photo');
-    if (photo == null || photo.isEmpty) {
-      print(' Photo validation failed');
-      return false;
-    } else {
-      print(' Photo validation passed');
-    }
-
-    // Note: status is not required since it comes from API
-    // and is set to true by default (backendStatus: true)
-    String? status = rectifierStatus ?? mpptStatus;
-    print('Status: $status (not required)');
-
-    print('Final validation result: true');
-    return true;
-  }
-
-  // Save current form data for Rectifier
   void _saveRectifierForm() {
     // Check if we've reached the limit for rectifier items
     if (savedRectifierItems.length >= totalRectifierItems) {

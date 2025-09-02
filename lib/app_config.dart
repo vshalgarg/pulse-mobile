@@ -7,6 +7,7 @@ import 'package:app/repositories/energy_reading_repository.dart';
 import 'package:app/repositories/energy_reading_detail_repository.dart';
 import 'package:app/repositories/selfie_upload_repository.dart';
 import 'package:app/repositories/asset_audit_photo_upload_repository.dart';
+import 'package:app/repositories/image_repository.dart';
 
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
@@ -38,6 +39,7 @@ class AppConfig {
   late final EnergyReadingDetailRepository energyReadingDetailRepository;
   late final SelfieUploadRepository selfieUploadRepository;
   late final AssetAuditPhotoUploadRepository assetAuditPhotoUploadRepository;
+  late final ImageRepository imageRepository;
 
   // Cubits
   late final DemoBlocCubit demoBlocCubit;
@@ -67,6 +69,7 @@ class AppConfig {
     energyReadingDetailRepository = EnergyReadingDetailRepository(apiService);
     selfieUploadRepository = SelfieUploadRepository(apiService);
     assetAuditPhotoUploadRepository = AssetAuditPhotoUploadRepository(apiService);
+    imageRepository = ImageRepository(apiProvider);
 
     // Initialize cubits
     demoBlocCubit = DemoBlocCubit(askRepository);

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:app/commonWidgets/shimmer_widget.dart';
 import 'package:app/extensions/string_extension.dart';
 import 'package:hive_flutter/adapters.dart';
 
@@ -64,23 +63,6 @@ class CustomHomeScreenAppBar extends AppBar {
                             ],
                           ),
                           const Spacer(),
-                        ],
-                      );
-                      // shimmer effect
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const ShimmerWidget.circular(height: 40, width: 60),
-                          getWidth(4),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ShimmerWidget.rectangular(height: 11, width: 30),
-                              getHeight(5),
-                              ShimmerWidget.rectangular(height: 16, width: 60),
-                            ],
-                          ),
                         ],
                       );
                     }
