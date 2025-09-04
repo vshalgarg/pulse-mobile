@@ -6,9 +6,10 @@ import 'package:image_picker/image_picker.dart';
 
 import '../constants/app_colors.dart';
 
+
 class ImageUploadField extends StatefulWidget {
   final String label;
-  final String placeholder;
+  final String? placeholder;
   final bool isRequired;
   final Function(File?) onImageSelected;
   final String? externalImageUrl; // Add external image URL parameter
@@ -16,7 +17,7 @@ class ImageUploadField extends StatefulWidget {
   const ImageUploadField({
     super.key,
     required this.label,
-    required this.placeholder,
+    this.placeholder,
     this.isRequired = false,
     required this.onImageSelected,
     this.externalImageUrl, // Add external image URL parameter
@@ -49,7 +50,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           const Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.color555555),
           const SizedBox(width: 6),
           Text(
-            widget.placeholder,
+            widget.placeholder ?? '',
             style: const TextStyle(
               fontWeight: FontWeight.w400,
               color: AppColors.color555555,
@@ -62,11 +63,13 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   }
 
   Widget _buildImageFromUrl(String url) {
+    print('Building image from URL: $url');
     try {
       if (url.startsWith('data:image')) {
         // Handle base64 data URL
         final base64Data = url.split(',')[1];
         final bytes = base64Decode(base64Data);
+        print('Rendering base64 image, data length: ${bytes.length}');
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
@@ -76,8 +79,13 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
             return _buildPlaceholder();
           },
         );
+      } else if (url.contains('/data/user/') || url.contains('.jpg') || url.contains('.png')) {
+        // Handle local file path
+        print('Rendering local file image: $url');
+        return _buildLocalImage(url);
       } else {
         // Handle network URL
+        print('Rendering network image: $url');
         return Image.network(
           url,
           fit: BoxFit.cover,
@@ -94,8 +102,33 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     }
   }
 
+  Widget _buildLocalImage(String filePath) {
+    try {
+      final file = File(filePath);
+      if (file.existsSync()) {
+        print('Rendering local file image, exists: $filePath');
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
+            print('Error displaying local file: $error');
+            return _buildPlaceholder();
+          },
+        );
+      } else {
+        print('Local file does not exist: $filePath');
+        return _buildPlaceholder();
+      }
+    } catch (e) {
+      print('Error displaying local image: $e');
+      return _buildPlaceholder();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('ImageUploadField build, externalImageUrl: ${widget.externalImageUrl}, selectedImage: ${_selectedImage?.path}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -108,7 +141,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
                 fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: Colors.white,
-                fontFamily: fontFamilyMontserrat
+                fontFamily: fontFamilyMontserrat,
               ),
             ),
             if (widget.isRequired)
@@ -136,19 +169,19 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
             ),
             child: _selectedImage != null
                 ? ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: Image.file(
-                      _selectedImage!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                    ),
-                  )
+              borderRadius: BorderRadius.circular(5),
+              child: Image.file(
+                _selectedImage!,
+                fit: BoxFit.cover,
+                width: double.infinity,
+              ),
+            )
                 : widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(5),
-                        child: _buildImageFromUrl(widget.externalImageUrl!),
-                      )
-                    : _buildPlaceholder(),
+                ? ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: _buildImageFromUrl(widget.externalImageUrl!),
+            )
+                : _buildPlaceholder(),
           ),
         ),
       ],

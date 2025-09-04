@@ -121,7 +121,7 @@ class DisabledTextFormFieldWidget extends StatelessWidget {
         ),
         validator: validator,
         keyboardType: keyboardType,
-        textInputAction: TextInputAction.done ?? textInputAction,
+        textInputAction: TextInputAction.done,
         onSaved: onSaved,
         onChanged: onChanged,
         style: const TextStyle(

@@ -131,7 +131,7 @@ class CustomTextFormFieldWidgetFocusNode extends StatelessWidget {
       ),
       validator: validator,
       keyboardType: keyboardType,
-      textInputAction: TextInputAction.done ?? textInputAction,
+      textInputAction: TextInputAction.done,
       onSaved: onSaved,
       onChanged: onChanged,
       onTap: onTap,

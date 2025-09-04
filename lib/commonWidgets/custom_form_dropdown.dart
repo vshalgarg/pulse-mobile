@@ -9,15 +9,13 @@ class CustomDropdown extends StatefulWidget {
   final List<String> items;
   final String? initialValue;
   final ValueChanged<String?> onChanged;
-  // final bool isRequired;
 
   const CustomDropdown({
     super.key,
-     this.label,
+    this.label,
     required this.items,
     this.initialValue,
     required this.onChanged,
-    // this.isRequired,
   });
 
   @override
@@ -30,7 +28,12 @@ class _CustomDropdownState extends State<CustomDropdown> {
   @override
   void initState() {
     super.initState();
-    selectedValue = widget.initialValue;
+
+    // Only assign initialValue if it’s in the items list
+    if (widget.initialValue != null &&
+        widget.items.contains(widget.initialValue)) {
+      selectedValue = widget.initialValue;
+    }
   }
 
   @override
@@ -38,28 +41,22 @@ class _CustomDropdownState extends State<CustomDropdown> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              "${widget.label}",
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-                fontFamily: fontFamilyMontserrat,
-              ),
-            ),
-              const Text(
-                " *",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.errorColor,
-                  fontFamily: fontFamilyMontserrat,
+        if (widget.label != null)
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label!,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
                 ),
               ),
-          ],
-        ),
+            ],
+          ),
         const SizedBox(height: 5),
         DropdownButtonHideUnderline(
           child: DropdownButton2<String>(
@@ -67,11 +64,11 @@ class _CustomDropdownState extends State<CustomDropdown> {
             hint: const Text(
               'Select',
               style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.color555555,
-                  fontFamily: fontFamilyMontserrat,
-                 ),
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: AppColors.color555555,
+                fontFamily: fontFamilyMontserrat,
+              ),
             ),
             items: widget.items.map((item) {
               return DropdownMenuItem<String>(
@@ -82,7 +79,10 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 ),
               );
             }).toList(),
-            value: selectedValue,
+            value: (selectedValue != null &&
+                widget.items.contains(selectedValue))
+                ? selectedValue
+                : null,
             onChanged: (value) {
               setState(() {
                 selectedValue = value;
@@ -97,7 +97,6 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 color: Colors.white,
               ),
             ),
-
             buttonStyleData: ButtonStyleData(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
@@ -106,7 +105,6 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 color: Colors.white,
               ),
             ),
-
             iconStyleData: const IconStyleData(
               icon: Icon(Icons.keyboard_arrow_down),
               openMenuIcon: Icon(Icons.keyboard_arrow_up),
@@ -118,6 +116,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
     );
   }
 }
+
 // CustomDropdown(
 // label: "Type",
 // items: ["Battery", "DC"],

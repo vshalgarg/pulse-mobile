@@ -1,6 +1,8 @@
+import 'package:app/bloc/pm_bloc/pm_cubit.dart';
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
+import 'package:app/repositories/pm_repository.dart';
 import 'package:app/repositories/ticket_repository.dart';
 import 'package:app/repositories/asset_audit_repository.dart';
 import 'package:app/repositories/energy_reading_repository.dart';
@@ -40,6 +42,7 @@ class AppConfig {
   late final SelfieUploadRepository selfieUploadRepository;
   late final AssetAuditPhotoUploadRepository assetAuditPhotoUploadRepository;
   late final ImageRepository imageRepository;
+  late final PmRepository pmRepository;
 
   // Cubits
   late final DemoBlocCubit demoBlocCubit;
@@ -51,6 +54,7 @@ class AppConfig {
   late final EnergyReadingDetailCubit energyReadingDetailCubit;
   late final SelfieUploadCubit selfieUploadCubit;
   late final AssetAuditPhotoUploadCubit assetAuditPhotoUploadCubit;
+  late final PmCubit pmCubit;
 
   AppConfig({required String baseUrl}) {
     apiProvider = ApiProvider(baseUrl: baseUrl);
@@ -70,6 +74,7 @@ class AppConfig {
     selfieUploadRepository = SelfieUploadRepository(apiService);
     assetAuditPhotoUploadRepository = AssetAuditPhotoUploadRepository(apiService);
     imageRepository = ImageRepository(apiProvider);
+    pmRepository = PmRepository(apiService: apiService);
 
     // Initialize cubits
     demoBlocCubit = DemoBlocCubit(askRepository);
@@ -81,6 +86,7 @@ class AppConfig {
     energyReadingDetailCubit = EnergyReadingDetailCubit(energyReadingDetailRepository);
     selfieUploadCubit = SelfieUploadCubit(selfieUploadRepository);
     assetAuditPhotoUploadCubit = AssetAuditPhotoUploadCubit(assetAuditPhotoUploadRepository);
+    pmCubit = PmCubit(repository: pmRepository);
   }
 
   static AppConfig of(BuildContext context) {

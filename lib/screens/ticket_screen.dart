@@ -1,5 +1,7 @@
 
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/enum/pm_ticket_type_enum.dart';
+import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_1.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -129,7 +131,20 @@ class _TicketScreenState extends State<TicketScreen> {
     } else {
       switch (widget.auditName) {
         case "PM":
-          Navigator.pushNamed(context, preventiveMaintenanceScreen);
+          print("🔍 DEBUG: Navigating to PM with ticket data:");
+          print("🔍 siteDomainName: ${ticket?.siteDomainName}");
+          print("🔍 auditSchId: ${ticket?.auditSchId}");
+          print("🔍 siteAuditSchId: ${ticket?.ticketSchId}");
+          print("🔍 Parsed ticketType: ${PmTicketTypeEnum.fromString(ticket?.siteDomainName)}");
+          
+          Navigator.push(context, MaterialPageRoute(
+            builder: (context) => PmScreen1(
+              ticketType: PmTicketTypeEnum.fromString(ticket?.siteDomainName),
+              auditSchId: ticket?.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
+              siteId: ticket?.ticketSchId.toString() ?? "0",
+            ),
+          ));
           break;
         case "CM":
           Navigator.pushNamed(context, correctiveMaintenanceScreen);

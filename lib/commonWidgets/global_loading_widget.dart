@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
 
-import '../constants/app_colors.dart';
 
 class GlobalLoadingWidget extends StatelessWidget {
   final bool isLoading;

@@ -26,6 +26,11 @@ class CustomFormField extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextEditingController textController =
         controller ?? TextEditingController(text: initialValue ?? "");
+    
+    // Update controller text when initialValue changes
+    if (controller == null && initialValue != null) {
+      textController.text = initialValue!;
+    }
 
     return
       Column(

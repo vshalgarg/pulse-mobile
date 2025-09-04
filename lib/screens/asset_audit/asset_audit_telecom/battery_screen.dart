@@ -1937,7 +1937,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () async {
-                                  print('Battery Screen: Extinguisher button pressed');
 
                                   // If no data to show, just navigate to next screen
                                   if (!_hasDataToShow()) {
@@ -1960,18 +1959,15 @@ class _BatteryScreenState extends State<BatteryScreen> {
                                     return;
                                   }
 
-                                  print('Battery Screen: Can proceed to next screen, posting data...');
 
                                   // Post current screen data before navigating
                                   final success = await _postCurrentScreenData();
-                                  print('Battery Screen: _postCurrentScreenData returned: $success');
 
                                   if (success) {
                                     print('Battery Screen: Data posted successfully, waiting for API response...');
                                     // Navigation will be handled in the BlocListener after API success
                                   } else {
-                                    print('Battery Screen: Failed to post data');
-                                    showCustomToast(context, '❌ Failed to post data. Please try again.');
+                                    showCustomToast(context, 'Failed to post data. Please try again.');
                                   }
                                 },
                               ),

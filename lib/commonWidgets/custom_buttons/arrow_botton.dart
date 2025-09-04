@@ -7,7 +7,7 @@ class ArrowButton extends StatelessWidget {
   final bool isLeftArrow;
   final Color backgroundColor;
   final Color textColor;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   const ArrowButton({
     super.key,
@@ -15,7 +15,7 @@ class ArrowButton extends StatelessWidget {
     required this.isLeftArrow,
     required this.backgroundColor,
     required this.textColor,
-    required this.onPressed,
+     this.onPressed,
   });
 
   @override
@@ -23,31 +23,40 @@ class ArrowButton extends StatelessWidget {
     return ElevatedButton(
       style: ElevatedButton.styleFrom(
         backgroundColor: backgroundColor,
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(5),
         ),
+        minimumSize: const Size(0, 0), // Allow button to size based on content
+        fixedSize: const Size(0, 56), // Fixed height to prevent height increase
       ),
       onPressed: onPressed,
       child: Row(
+        mainAxisSize: MainAxisSize.min, // Take minimum space needed
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (isLeftArrow) ...[
-            Icon(Icons.arrow_back, color: textColor),
-            getWidth(15),
+            Icon(Icons.arrow_back, color: textColor, size: 20),
+            getWidth(8),
           ],
-          Text(
-            text,
-            style: TextStyle(
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
                 color: textColor,
-                fontSize: 16,
+                fontSize: 12, // Smaller font to fit in same height
                 fontFamily: fontFamilyMontserrat,
-                fontWeight: FontWeight.w600
+                fontWeight: FontWeight.w600,
+                height: 1.0, // Compact line height to fit in same space
+              ),
             ),
           ),
           if (!isLeftArrow) ...[
-            getWidth(15),
-            Icon(Icons.arrow_forward, color: textColor),
+            getWidth(8),
+            Icon(Icons.arrow_forward, color: textColor, size: 20),
           ],
         ],
       ),

@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'app_config.dart';
 import 'bloc/asset_audit_photo_upload_cubit.dart';
 import 'bloc/asset_audit_get_image_cubit.dart';
+import 'bloc/pm_bloc/pm_cubit.dart';
 import 'l10n/l10n.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -52,6 +53,7 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => SelfieUploadCubit(config.selfieUploadRepository)),
         BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(config.assetAuditPhotoUploadRepository)),
         BlocProvider(create: (context) => AssetAuditGetImageCubit(config.imageRepository)),
+        BlocProvider(create: (context) => PmCubit(repository: config.pmRepository)),
       ],
       child: MultiProvider(
         providers: [

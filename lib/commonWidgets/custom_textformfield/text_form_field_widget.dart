@@ -184,7 +184,7 @@ class CustomTextFormFieldWidget extends StatelessWidget {
       validator: validator,
       inputFormatters: inputFormatters,
       keyboardType: keyboardType,
-      textInputAction: TextInputAction.done ?? textInputAction,
+      textInputAction: TextInputAction.done,
       onSaved: onSaved,
       onChanged: onChanged,
       onTap: onTap,
