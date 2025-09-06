@@ -8,10 +8,8 @@ import '../commonWidgets/custom_form_dropdown.dart';
 import '../commonWidgets/custom_form_field.dart';
 import '../commonWidgets/custom_image_upload_field.dart';
 import '../commonWidgets/custom_radio_options.dart';
-import '../commonWidgets/qr_screen_form_field.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
-import '../commonWidgets/custom_file_upload.dart';
 import '../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../commonWidgets/custom_dialogs/success_dialog.dart';
 

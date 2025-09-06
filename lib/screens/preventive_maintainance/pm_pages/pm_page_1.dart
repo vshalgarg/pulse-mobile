@@ -1,12 +1,12 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/models/PmGetDataModel.dart';
-import 'package:app/models/solar_pm_data_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../../../bloc/pm_bloc/pm_cubit.dart';
 import '../../../bloc/pm_bloc/pm_state.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -15,6 +15,7 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../enum/pm_ticket_type_enum.dart';
+import '../../home_screen.dart';
 import 'pm_page_2.dart';
 import '../pm_solar_pages/pm_solar_pages.dart';
 
@@ -48,6 +49,31 @@ class _PmScreen1 extends State<PmScreen1> {
     });
   }
 
+  Future<void> _updateAuditScheduleStatus(String status) async {
+    try {
+      print('Updating audit schedule status to: $status');
+      await context.read<AuditScheduleStatusCubit>().updateStatus(
+        status: status,
+        siteAuditSchId: widget.siteAuditSchId,
+      );
+    } catch (e) {
+      print('Error updating audit schedule status: $e');
+    }
+  }
+
+  Future<void> _saveAndExit() async {
+    print('Save and Exit called');
+    await _updateAuditScheduleStatus("In Progress");
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
+        ),
+      );
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -59,21 +85,21 @@ class _PmScreen1 extends State<PmScreen1> {
       siteAuditSchId: widget.siteAuditSchId,
     );
   }
-  void _saveAndExit() {
-    Navigator.of(context).pop();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => SuccessDialog(
-        ticketId: "UVORKJR00045",
-        message: _getSuccessMessage(),
-        onDone: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
-        },
-      ),
-    );
-  }
+  // void _saveAndExit() {
+  //   Navigator.of(context).pop();
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder: (context) => SuccessDialog(
+  //       ticketId: "UVORKJR00045",
+  //       message: _getSuccessMessage(),
+  //       onDone: () {
+  //         Navigator.of(context).pop();
+  //         Navigator.of(context).pop();
+  //       },
+  //     ),
+  //   );
+  // }
 
   String _getPmTitle() {
     switch (widget.ticketType) {
@@ -435,19 +461,36 @@ class _PmScreen1 extends State<PmScreen1> {
             }
           },
         ),
-        body: BlocBuilder<PmCubit, PmState>(
-          builder: (context, state) {
-            if (state is PmGetLoading) {
-              return const Center(child: CircularProgressIndicator());
-            } else if (state is PmGetLoaded) {
-              final data = state.pmGetDataModel;
-              
-              return buildContent(data);
-            } else if (state is PmGetError) {
-              return Center(child: Text("Error: ${state.message}"));
-            }
-            return const SizedBox.shrink();
-          },
+        body: MultiBlocListener(
+          listeners: [
+            BlocListener<AuditScheduleStatusCubit, AuditScheduleStatusState>(
+              listener: (context, state) {
+                if (state is AuditScheduleStatusSuccess) {
+                  print('Status updated successfully to ${state.message}');
+                  // No snackbar shown - removed as requested
+                } else if (state is AuditScheduleStatusError) {
+                  print('Status update failed: ${state.error}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update status: ${state.error}')),
+                  );
+                }
+              },
+            ),
+          ],
+          child: BlocBuilder<PmCubit, PmState>(
+            builder: (context, state) {
+              if (state is PmGetLoading) {
+                return const Center(child: CircularProgressIndicator());
+              } else if (state is PmGetLoaded) {
+                final data = state.pmGetDataModel;
+                
+                return buildContent(data);
+              } else if (state is PmGetError) {
+                return Center(child: Text("Error: ${state.message}"));
+              }
+              return const SizedBox.shrink();
+            },
+          ),
         ),
       ),
     );

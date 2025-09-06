@@ -120,7 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                         pmAuditTicketStatus(state),
                                         const SizedBox(height: 15),
                                       ],
-                                      
+
+                                      // Corrective Maintenance Section - Always show
+                                      correctiveMaintenance(),
+                                      const SizedBox(height: 5),
+                                      correctiveMaintenanceTicketStatus(state),
+                                      const SizedBox(height: 15),
                                       // Energy Reading Section - Only show if data exists
                                       if (_hasEnergyReadingData(state)) ...[
                                         energyReading(),
@@ -129,13 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         const SizedBox(height: 15),
                                       ],
                                       
-                                      // Corrective Maintenance Section - Only show if data exists
-                                      if (_hasCorrectiveMaintenanceData(state)) ...[
-                                        correctiveMaintenance(),
-                                        const SizedBox(height: 5),
-                                        correctiveMaintenanceTicketStatus(state),
-                                        const SizedBox(height: 15),
-                                      ],
+
                                       
                                       const SizedBox(height: 20),
                                     ],

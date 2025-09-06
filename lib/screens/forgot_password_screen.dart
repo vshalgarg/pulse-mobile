@@ -1,14 +1,10 @@
 import 'package:app/bloc/forgot_password_cubit.dart';
 import 'package:app/commonWidgets/custom_buttons/custom_rounded_button.dart';
-import 'package:app/commonWidgets/custom_form_appbar.dart';
-import 'package:app/commonWidgets/custom_text_widget.dart';
 import 'package:app/commonWidgets/text_form_field_widget.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
-import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/routes/routes.dart';
 import 'package:app/screens/otp_verfication_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';

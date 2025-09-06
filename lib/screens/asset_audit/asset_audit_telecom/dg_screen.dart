@@ -2,16 +2,12 @@ import 'dart:io';
 
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/fencing_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/smps_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/survelliance_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../constants/constants_strings.dart';
 import '../../../models/asset_audit_model.dart';
-import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
@@ -169,7 +165,6 @@ class _DgScreenState extends State<DgScreen> {
       for (var asset in dgAssets) {
         print('DG Screen: Asset: ${asset.itemType} - ID: ${asset.assetAuditSiteRespId}');
         if (asset.assetAuditSiteRespId != null && asset.assetAuditSiteRespId! > 0) {
-          print('DG Screen: Found valid assetAuditSiteRespId: ${asset.assetAuditSiteRespId}');
           return asset.assetAuditSiteRespId!;
         }
       }
@@ -624,7 +619,6 @@ class _DgScreenState extends State<DgScreen> {
         showValidationErrors = false;
       });
 
-      int remainingCCTVs = totalCCTVItems - savedCCTVItems.length;
       // CCTV item saved successfully
     }
   }

@@ -1093,7 +1093,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
     // Note: status is not required since it comes from API
     // and is set to true by default (backendStatus: true)
-    String? status = rectifierStatus ?? mpptStatus ?? acdbStatus ?? lspuStatus;
 
     return true;
   }
@@ -1132,7 +1131,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
     }
 
 
-    String? status = rectifierStatus ?? mpptStatus ?? acdbStatus ?? lspuStatus;
     return true;
   }
 
@@ -1829,7 +1827,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
         if (state is AssetAuditPostSuccess) {
 
           for (int i = 0; i < state.responses.length; i++) {
-            var response = state.responses[i];
 
           }
 

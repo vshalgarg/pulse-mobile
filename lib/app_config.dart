@@ -10,6 +10,7 @@ import 'package:app/repositories/energy_reading_detail_repository.dart';
 import 'package:app/repositories/selfie_upload_repository.dart';
 import 'package:app/repositories/asset_audit_photo_upload_repository.dart';
 import 'package:app/repositories/image_repository.dart';
+import 'package:app/repositories/audit_schedule_repository.dart';
 
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
@@ -43,6 +44,7 @@ class AppConfig {
   late final AssetAuditPhotoUploadRepository assetAuditPhotoUploadRepository;
   late final ImageRepository imageRepository;
   late final PmRepository pmRepository;
+  final AuditScheduleRepository auditScheduleRepository;
 
   // Cubits
   late final DemoBlocCubit demoBlocCubit;
@@ -56,9 +58,10 @@ class AppConfig {
   late final AssetAuditPhotoUploadCubit assetAuditPhotoUploadCubit;
   late final PmCubit pmCubit;
 
-  AppConfig({required String baseUrl}) {
-    apiProvider = ApiProvider(baseUrl: baseUrl);
-    apiService = ApiService(apiProvider);
+  AppConfig({required String baseUrl}) 
+      : apiProvider = ApiProvider(baseUrl: baseUrl),
+        apiService = ApiService(ApiProvider(baseUrl: baseUrl)),
+        auditScheduleRepository = AuditScheduleRepository(ApiService(ApiProvider(baseUrl: baseUrl))) {
 
     // Initialize ticket service
     final ticketService = TicketService(apiService: apiService);

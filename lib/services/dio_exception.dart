@@ -1,9 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../app_root.dart';
-import '../constants/constants_methods.dart';
 import '../hive_local_database/hive_db.dart';
-import '../routes/routes.dart';
 
 class DioExceptions implements Exception {
   static String message = "";

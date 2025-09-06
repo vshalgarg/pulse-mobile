@@ -525,7 +525,6 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
       return false;
     }
 
-    String? status = rectifierStatus ?? mpptStatus;
 
     return true;
   }

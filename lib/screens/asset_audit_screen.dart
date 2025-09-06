@@ -14,7 +14,6 @@ import '../constants/app_images.dart';
 import '../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../constants/constants_strings.dart';
-import '../models/form_fields_model.dart';
 
 class AssetAuditScreen extends StatefulWidget {
   const AssetAuditScreen({super.key});

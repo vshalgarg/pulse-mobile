@@ -1,5 +1,4 @@
 import 'package:app/bloc/pm_bloc/pm_state.dart';
-import 'package:app/models/PmPostRequestModel.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/PmGetDataModel.dart';
 import '../../repositories/pm_repository.dart';

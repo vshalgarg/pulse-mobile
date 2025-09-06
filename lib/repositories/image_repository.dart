@@ -1,12 +1,10 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../services/api_provider.dart';
-import '../models/asset_audit_photo_upload_model.dart';
 
 
 class ImageRepository {

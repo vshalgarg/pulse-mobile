@@ -12,6 +12,7 @@ import '../../../bloc/pm_bloc/pm_cubit.dart';
 import '../../../bloc/pm_bloc/pm_state.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_dropdown.dart';
@@ -22,8 +23,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../constants/constants_strings.dart';
 import '../../../enum/pm_ticket_type_enum.dart';
-import '../../../utils/pm_form_helper.dart';
-import '../../../models/asset_audit_photo_upload_model.dart';
+import '../../home_screen.dart';
 
 class PmScreen2 extends StatefulWidget {
   final PmTicketTypeEnum ticketType;
@@ -80,6 +80,50 @@ class _PmScreen2 extends State<PmScreen2> {
       hasUnsavedChanges = formData.isNotEmpty;
       _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
+  }
+
+  Future<void> _updateAuditScheduleStatus(String status) async {
+    try {
+      print('=== _updateAuditScheduleStatus called ===');
+      print('Status: $status');
+      print('siteAuditSchId: ${widget.siteAuditSchId}');
+      
+      await context.read<AuditScheduleStatusCubit>().updateStatus(
+        status: status,
+        siteAuditSchId: widget.siteAuditSchId,
+      );
+      
+      print('Status update API call completed');
+    } catch (e) {
+      print('Error updating audit schedule status: $e');
+      rethrow; // Re-throw to let the caller handle the error
+    }
+  }
+
+  Future<void> _saveAndExit() async {
+    print('=== _saveAndExit called ===');
+    print('siteAuditSchId: ${widget.siteAuditSchId}');
+    print('formData: $formData');
+    print('hasUnsavedChanges: $hasUnsavedChanges');
+    
+    try {
+      await _updateAuditScheduleStatus("In Progress");
+      print('Status update completed');
+      
+      if (mounted) {
+        print('Navigating to HomeScreen');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => HomeScreen(),
+          ),
+        );
+      } else {
+        print('Widget not mounted, cannot navigate');
+      }
+    } catch (e) {
+      print('Error in _saveAndExit: $e');
+    }
   }
 
   void _saveFormData(String key, dynamic value) {
@@ -170,6 +214,7 @@ class _PmScreen2 extends State<PmScreen2> {
 
 
   void _loadExistingData(PmGetDataModel data) {
+    print('=== _loadExistingData called ===');
     print('Loading existing data for PM Page 2');
     setState(() {
       formData.clear();
@@ -222,10 +267,13 @@ class _PmScreen2 extends State<PmScreen2> {
             photoIds[key] = photoIdInt;
             _retryCounts[photoIdInt.toString()] = 0; // Initialize retry count
             print('Added to photoIds: $key = $photoIdInt');
+            print('Calling _loadImageForPhotoId for key: $key, photoId: $photoIdInt');
             _loadImageForPhotoId(photoIdInt.toString(), key); // Pass as String
           } else {
             print('Invalid photoId format: ${item.photoId}');
           }
+        } else {
+          print('No photoId for key: $key');
         }
 
         if (item.photoTakenTs != null) {
@@ -243,16 +291,23 @@ class _PmScreen2 extends State<PmScreen2> {
 
     // Fallback: Re-fetch images for any missing loadedImageUrls after a delay
     Future.delayed(const Duration(seconds: 5), () {
-      for (final key in photoIds.keys) {
-        if (!loadedImageUrls.containsKey(key) && photoIds[key] != null) {
-          print('Fallback: Re-fetching image for key: $key, photoId: ${photoIds[key]}');
-          _loadImageForPhotoId(photoIds[key]!.toString(), key);
+      if (mounted) {
+        print('=== Fallback image loading check ===');
+        print('photoIds: $photoIds');
+        print('loadedImageUrls: $loadedImageUrls');
+        for (final key in photoIds.keys) {
+          if (!loadedImageUrls.containsKey(key) && photoIds[key] != null) {
+            print('Fallback: Re-fetching image for key: $key, photoId: ${photoIds[key]}');
+            _loadImageForPhotoId(photoIds[key]!.toString(), key);
+          }
         }
       }
     });
   }
 
   void _loadImageForPhotoId(String photoId, String key) {
+    if (!mounted) return;
+    
     print('Loading image for photoId: $photoId, key: $key, retry count: ${_retryCounts[photoId] ?? 0}');
     _imageRequestKeys[photoId] = key; // Store the mapping between photoId and key
     _lastRequestedPhotoId = photoId; // Track the last requested photo ID
@@ -278,10 +333,43 @@ class _PmScreen2 extends State<PmScreen2> {
   }
 
   Future<void> _submitForm() async {
-    if (formData.isEmpty) return;
+    print('=== _submitForm called ===');
+    print('formData.isEmpty: ${formData.isEmpty}');
+    print('formData: $formData');
+    print('photoIds: $photoIds');
+    print('photoTimestamps: $photoTimestamps');
+    
+    if (formData.isEmpty) {
+      print('Form data is empty, returning early');
+      return;
+    }
+    
+    // Wait for any ongoing photo uploads to complete
+    if (_currentUploadKey != null) {
+      print('Waiting for photo upload to complete for key: $_currentUploadKey');
+      // Wait for the photo upload to complete (max 10 seconds)
+      int waitTime = 0;
+      while (_currentUploadKey != null && waitTime < 10000) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        waitTime += 100;
+      }
+      if (_currentUploadKey != null) {
+        print('Photo upload timeout, proceeding with form submission');
+      } else {
+        print('Photo upload completed');
+      }
+    }
+    
+    print('Submitting form data...');
     final cubit = context.read<PmCubit>();
     final state = cubit.state;
+    print('PmCubit state: ${state.runtimeType}');
+    
     if (state is PmGetLoaded) {
+      print('PmGetLoaded state confirmed, calling postPmData');
+      print('Final photoIds before submission: $photoIds');
+      print('Final photoTimestamps before submission: $photoTimestamps');
+      
       await cubit.postPmData(
         formData: formData,
         pmData: state.pmGetDataModel,
@@ -292,6 +380,9 @@ class _PmScreen2 extends State<PmScreen2> {
         photoTimestamps: photoTimestamps,
         remarksData: _getRemarksData(),
       );
+      print('postPmData completed');
+    } else {
+      print('PmCubit state is not PmGetLoaded, cannot submit');
     }
   }
 
@@ -494,8 +585,11 @@ class _PmScreen2 extends State<PmScreen2> {
               message: _getCancelMessage(),
               onSaveAndExit: () async {
                 Navigator.of(context).pop();
+                print('=== onSaveAndExit called ===');
+                print('formData before submit: $formData');
                 await _submitForm();
-                Navigator.of(context).pop();
+                print('_submitForm completed, calling _saveAndExit');
+                await _saveAndExit();
               },
               onDiscard: () {
                 Navigator.of(context).pop();
@@ -519,8 +613,11 @@ class _PmScreen2 extends State<PmScreen2> {
                   message: _getCancelMessage(),
                   onSaveAndExit: () async {
                     Navigator.of(context).pop();
+                    print('=== onSaveAndExit called (second dialog) ===');
+                    print('formData before submit: $formData');
                     await _submitForm();
-                    Navigator.of(context).pop();
+                    print('_submitForm completed, calling _saveAndExit');
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();
@@ -535,6 +632,26 @@ class _PmScreen2 extends State<PmScreen2> {
         ),
         body: MultiBlocListener(
           listeners: [
+            BlocListener<AuditScheduleStatusCubit, AuditScheduleStatusState>(
+              listener: (context, state) {
+                print('=== AuditScheduleStatusCubit state changed ===');
+                print('State type: ${state.runtimeType}');
+                
+                if (state is AuditScheduleStatusSuccess) {
+                  print('Status updated successfully to ${state.message}');
+                  // No snackbar shown - removed as requested
+                } else if (state is AuditScheduleStatusError) {
+                  print('Status update failed: ${state.error}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update status: ${state.error}')),
+                  );
+                } else if (state is AuditScheduleStatusLoading) {
+                  print('Status update loading...');
+                } else {
+                  print('Unknown state: $state');
+                }
+              },
+            ),
             BlocListener<PmCubit, PmState>(
               listener: (context, state) {
                 if (state is PmGetLoaded) {
@@ -565,35 +682,58 @@ class _PmScreen2 extends State<PmScreen2> {
             ),
             BlocListener<AssetAuditPhotoUploadCubit, AssetAuditPhotoUploadState>(
               listener: (context, state) {
+                print('=== AssetAuditPhotoUploadCubit state changed ===');
+                print('State type: ${state.runtimeType}');
+                print('_currentUploadKey: $_currentUploadKey');
+                
                 if (state is AssetAuditPhotoUploadSuccess) {
+                  print('Photo upload successful!');
+                  print('Response imgId: ${state.response.imgId}');
                   if (_currentUploadKey != null) {
                     final photoId = int.tryParse(state.response.imgId) ?? 0;
                     final timestamp = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+                    print('Setting photoIds[$_currentUploadKey] = $photoId');
+                    print('Setting photoTimestamps[$_currentUploadKey] = $timestamp');
+                    
                     setState(() {
                       photoIds[_currentUploadKey!] = photoId;
                       photoTimestamps[_currentUploadKey!] = timestamp;
                       _currentUploadKey = null;
                       _dummyState = DateTime.now().millisecondsSinceEpoch;
                     });
+                    
+                    print('Photo upload completed for key: $_currentUploadKey');
+                    print('Updated photoIds: $photoIds');
+                    print('Updated photoTimestamps: $photoTimestamps');
+                  } else {
+                    print('No _currentUploadKey found for successful upload');
                   }
                 } else if (state is AssetAuditPhotoUploadFailure) {
                   print('Photo upload failed: ${state.errorMessage}');
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Photo upload failed: ${state.errorMessage}')),
                   );
+                } else if (state is AssetAuditPhotoUploadLoading) {
+                  print('Photo upload in progress...');
                 }
               },
             ),
             BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
               listener: (context, state) async {
+                print('=== AssetAuditGetImageCubit state changed ===');
+                print('State type: ${state.runtimeType}');
+                print('_lastRequestedPhotoId: $_lastRequestedPhotoId');
+                
                 if (state is AssetAuditGetImageSuccess) {
                   final imageData = state.imageData;
                   print('Image loaded for photoId: $_lastRequestedPhotoId, data length: ${imageData.length}, data: ${imageData.substring(0, imageData.length > 50 ? 50 : imageData.length)}...');
                   if (_lastRequestedPhotoId != null) {
                     final key = _imageRequestKeys[_lastRequestedPhotoId];
+                    print('Key for photoId $_lastRequestedPhotoId: $key');
                     if (key != null) {
                       // Accept any non-empty imageData to allow for server-specific formats
                       if (imageData.isNotEmpty) {
+                        print('Setting loadedImageUrls[$key] with image data');
                         setState(() {
                           loadedImageUrls[key] = imageData;
                           _dummyState = DateTime.now().millisecondsSinceEpoch;

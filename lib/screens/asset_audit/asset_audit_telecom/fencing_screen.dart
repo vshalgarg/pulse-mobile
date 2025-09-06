@@ -840,7 +840,6 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
         showValidationErrors = false;
       });
 
-      int remainingBoundaries = totalBoundaryItems - savedBoundaryItems.length;
       // Fencing item saved successfully
     } else {
       print('Form validation failed - cannot save fencing item');

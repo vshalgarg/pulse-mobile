@@ -1,11 +1,9 @@
 import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:app/routes/routes.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/solar_plates.dart';
 import 'package:app/screens/asset_audit_screen.dart';
 import 'package:app/screens/corrective_maintenance_screen.dart';
 import 'package:app/screens/energy_reading/energy_reading_screen.dart';
@@ -13,13 +11,11 @@ import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
 import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_1.dart';
-import 'package:app/screens/preventive_maintainance_screen.dart';
 import 'package:app/screens/reset_password_screen.dart';
 import 'package:app/screens/splash_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:flutter/material.dart';
 
-import '../screens/asset_audit/asset_audit_solar/asset_audit_solar.dart';
 import '../screens/login_screen.dart';
 import '../screens/otp_verfication_screen.dart';
 import '../screens/welcome_screen.dart';

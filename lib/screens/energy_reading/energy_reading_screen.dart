@@ -6,7 +6,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../../bloc/energy_reading_cubit.dart';
-import '../../constants/constants_strings.dart';
 import '../../models/energy_reading_model.dart';
 import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_form_field.dart';
@@ -37,6 +36,7 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
   String? selectedStatus;
   String? selectedBatteryStatus;
   bool hasUnsavedChanges = false;
+  bool isSubmitting = false;
   EnergyReadingData? energyReadingData;
 
   @override
@@ -59,10 +59,47 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
     });
   }
 
+  Future<void> _saveAndExit() async {
+    if (_hasAnyDataToSave()) {
+      setState(() {
+        isSubmitting = true;
+      });
+
+      showCustomToast(context, 'Saving');
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      setState(() {
+        isSubmitting = false;
+      });
+    }
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black54,
+        builder: (context) => SuccessDialog(
+          ticketId: "ER-${DateTime.now().millisecondsSinceEpoch}",
+          message: "Energy Reading data has been saved!",
+          onDone: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).pushNamedAndRemoveUntil(
+              '/homeScreen',
+                  (route) => false,
+            );
+          },
+        ),
+      );
+    }
+  }
+
+  bool _hasAnyDataToSave() {
+    return selectedStatus != null || selectedBatteryStatus != null;
+  }
+
   Widget _buildView(EnergyReadingState state) {
     return Stack(
       children: [
-        // Background image
         Positioned.fill(
           child: SvgPicture.asset(
             AppImages.home,
@@ -72,8 +109,18 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
           ),
         ),
         SafeArea(
+          bottom: false, // Allow content to extend to bottom for button
           child: _buildContent(state),
         ),
+        if (isSubmitting)
+          Container(
+            color: Colors.black.withOpacity(0.3),
+            child: const Center(
+              child: CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -87,104 +134,105 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
       );
     }
 
-    // Handle success state
     if (state.runtimeType == EnergyReadingSuccess) {
       final successState = state as EnergyReadingSuccess;
-      final data = successState.energyReadingResponse.data.isNotEmpty 
-          ? successState.energyReadingResponse.data.first 
+      final data = successState.energyReadingResponse.data.isNotEmpty
+          ? successState.energyReadingResponse.data.first
           : null;
-      
+
       return Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Expanded(
             child: SingleChildScrollView(
-              child: Container(
-                padding: const EdgeInsets.only(
-                  top: 20,
-                  left: 16,
-                  right: 16,
-                  bottom: 20,
-                ),
-                child: IntrinsicHeight(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CustomFormField(
-                        label: "Circle",
-                        initialValue: data?.circle ?? '',
-                        isRequired: false,
-                        isEditable: false,
-                      ),
-                      getHeight(15),
-                      CustomFormField(
-                        label: "Cluster",
-                        initialValue: data?.cluster ?? '',
-                        isRequired: false,
-                        isEditable: false,
-                      ),
-                      getHeight(15),
-                      CustomFormField(
-                        label: "District",
-                        initialValue: data?.district ?? 'null',
-                        isRequired: false,
-                        isEditable: false,
-                      ),
-                      getHeight(15),
-                      CustomFormField(
-                        label: "Customer",
-                        initialValue: data?.clientName ?? '',
-                        isRequired: false,
-                        isEditable: false,
-                      ),
-                      getHeight(15),
-                      CustomFormField(
-                        label: "Site Id",
-                        initialValue: data?.siteCode ?? '',
-                        isRequired: false,
-                        isEditable: false,
-                      ),
-                      getHeight(15),
-                      CustomFormField(
-                        label: "Site Name",
-                        initialValue: data?.siteName ?? '',
-                        isRequired: false,
-                        isEditable: false,
-                      ),
-                      getHeight(15),
-                    ],
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              child: IntrinsicHeight(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CustomFormField(
+                      label: "Circle",
+                      initialValue: data?.circle ?? '',
+                      isRequired: false,
+                      isEditable: false,
+                    ),
+                    getHeight(15),
+                    CustomFormField(
+                      label: "Cluster",
+                      initialValue: data?.cluster ?? '',
+                      isRequired: false,
+                      isEditable: false,
+                    ),
+                    getHeight(15),
+                    CustomFormField(
+                      label: "District",
+                      initialValue: data?.district ?? 'N/A',
+                      isRequired: false,
+                      isEditable: false,
+                    ),
+                    getHeight(15),
+                    CustomFormField(
+                      label: "Customer",
+                      initialValue: data?.clientName ?? '',
+                      isRequired: false,
+                      isEditable: false,
+                    ),
+                    getHeight(15),
+                    CustomFormField(
+                      label: "Site Id",
+                      initialValue: data?.siteCode ?? '',
+                      isRequired: false,
+                      isEditable: false,
+                    ),
+                    getHeight(15),
+                    CustomFormField(
+                      label: "Site Name",
+                      initialValue: data?.siteName ?? '',
+                      isRequired: false,
+                      isEditable: false,
+                    ),
+                    getHeight(15),
+                  ],
                 ),
               ),
             ),
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            child: ArrowButton(
-              text: "Energy Reading",
-              isLeftArrow: false,
-              backgroundColor: AppColors.buttonColorBg,
-              textColor: AppColors.buttonColorSite,
-              onPressed: (){
-                pushPage(context, EnergyDetailScreen(
-                  auditSchId: widget.auditSchId,
-                  siteAuditSchId: widget.siteAuditSchId,
-                  siteId: widget.siteId,
-                ));
-              },
-              // onPressed: () => _showSuccessDialog(data?.siteCode),
+            child: Row(
+              children: [
+                Expanded(
+                  child: ArrowButton(
+                    text: "Energy Reading",
+                    isLeftArrow: false,
+                    backgroundColor: AppColors.buttonColorBg,
+                    textColor: AppColors.buttonColorSite,
+                    onPressed: isSubmitting
+                        ? null
+                        : () {
+                      pushPage(
+                        context,
+                        EnergyDetailScreen(
+                          auditSchId: widget.auditSchId,
+                          siteAuditSchId: widget.siteAuditSchId,
+                          siteId: widget.siteId,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       );
     }
 
-    // Handle error state
     if (state.runtimeType == EnergyReadingFailure) {
       final failureState = state as EnergyReadingFailure;
       return _buildErrorWidget(failureState.errorMessage);
     }
 
-    // Default empty state
     return const SizedBox.shrink();
   }
 
@@ -235,50 +283,6 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
     );
   }
 
-  void _saveAndExit() async {
-    Navigator.of(context).pop();
-    
-    // Check if there's any data to save
-    if (_hasAnyDataToSave()) {
-      showCustomToast(context,'Saving' );
-      
-      // Wait a moment to show the loading message
-      await Future.delayed(const Duration(milliseconds: 1000));
-      
-      // Show success dialog (data saved locally)
-      _showSuccessDialog();
-    } else {
-      // No data to save, just show success dialog
-      _showSuccessDialog();
-    }
-  }
-
-  // Check if there's any data filled in the form
-  bool _hasAnyDataToSave() {
-    return selectedStatus != null || selectedBatteryStatus != null;
-  }
-
-  // Show success dialog
-  void _showSuccessDialog() {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black54,
-      builder: (context) => SuccessDialog(
-        ticketId: "ER-${DateTime.now().millisecondsSinceEpoch}",
-        message: "Energy Reading data has been saved!",
-        onDone: () {
-          Navigator.of(context).pop(); // Close dialog
-          // Navigate to home screen
-          Navigator.of(context).pushNamedAndRemoveUntil(
-            '/homeScreen',
-            (route) => false,
-          );
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<EnergyReadingCubit, EnergyReadingState>(
@@ -298,20 +302,14 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
           canPop: !hasUnsavedChanges,
           onPopInvoked: (didPop) async {
             if (didPop) return;
-            
             if (hasUnsavedChanges) {
-              // Show unsaved changes dialog
               showDialog(
                 context: context,
                 barrierDismissible: false,
                 builder: (context) => UnsavedChangesDialog(
                   message: "Do you want to save the current data and exit, or discard all changes?",
-                  onSaveAndExit: () {
-                    // Save the data and exit
-                    _saveAndExit();
-                  },
+                  onSaveAndExit: _saveAndExit,
                   onDiscard: () {
-                    // Discard changes and exit
                     Navigator.of(context).pop();
                   },
                 ),
@@ -320,21 +318,18 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
           },
           child: Scaffold(
             extendBodyBehindAppBar: true,
+            resizeToAvoidBottomInset: true, // Allow resizing for keyboard
             appBar: CustomFormAppbar(
               title: "Energy Reading",
               onClose: () async {
                 if (hasUnsavedChanges) {
-                  // Show unsaved changes dialog
                   showDialog(
                     context: context,
                     barrierDismissible: false,
                     builder: (context) => UnsavedChangesDialog(
                       message: "Do you want to save the current data and exit, or discard all changes?",
-                      onSaveAndExit: () {
-                        _saveAndExit();
-                      },
+                      onSaveAndExit: _saveAndExit,
                       onDiscard: () {
-                        // Discard changes and exit
                         Navigator.of(context).pop();
                       },
                     ),

@@ -691,7 +691,6 @@ class _CCUScreenState extends State<CCUScreen> {
 
     // Note: status is not required since it comes from API
     // and is set to true by default (backendStatus: true)
-    String? status = rectifierStatus ?? mpptStatus;
 
     return true;
   }

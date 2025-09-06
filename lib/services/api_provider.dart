@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 
@@ -8,7 +7,6 @@ import '../constants/constants_methods.dart';
 import '../hive_local_database/hive_constant.dart';
 import '../hive_local_database/hive_db.dart';
 import '../routes/routes.dart';
-import '../utils.dart';
 
 class ApiProvider {
   final String baseUrl;

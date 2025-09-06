@@ -8,6 +8,7 @@ import 'package:flutter_svg/svg.dart';
 
 import '../../../bloc/pm_bloc/pm_cubit.dart';
 import '../../../bloc/pm_bloc/pm_state.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 
@@ -18,11 +19,9 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../constants/constants_strings.dart';
 import '../../../enum/pm_ticket_type_enum.dart';
-import '../../../utils/pm_form_helper.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
-import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
-import '../../../models/asset_audit_photo_upload_model.dart';
+import '../../home_screen.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
 
@@ -83,6 +82,31 @@ class _PmScreen10 extends State<PmScreen10> {
       hasUnsavedChanges = formData.isNotEmpty;
       _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
+  }
+
+  Future<void> _updateAuditScheduleStatus(String status) async {
+    try {
+      print('Updating audit schedule status to: $status');
+      await context.read<AuditScheduleStatusCubit>().updateStatus(
+        status: status,
+        siteAuditSchId: widget.siteAuditSchId,
+      );
+    } catch (e) {
+      print('Error updating audit schedule status: $e');
+    }
+  }
+
+  Future<void> _saveAndExit() async {
+    print('Save and Exit called');
+    await _updateAuditScheduleStatus("In Progress");
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
+        ),
+      );
+    }
   }
 
   void _saveFormData(String key, dynamic value) {
@@ -280,11 +304,13 @@ class _PmScreen10 extends State<PmScreen10> {
     _fetchNextImage();
 
     Future.delayed(const Duration(seconds: 5), () {
-      for (final key in photoIds.keys) {
-        if (!loadedImageUrls.containsKey(key) && photoIds[key] != null) {
-          print('Fallback: Re-fetching image for key: $key, photoId: ${photoIds[key]}');
-          _imageQueue.add({'photoId': photoIds[key]!.toString(), 'key': key});
-          _fetchNextImage();
+      if (mounted) {
+        for (final key in photoIds.keys) {
+          if (!loadedImageUrls.containsKey(key) && photoIds[key] != null) {
+            print('Fallback: Re-fetching image for key: $key, photoId: ${photoIds[key]}');
+            _imageQueue.add({'photoId': photoIds[key]!.toString(), 'key': key});
+            _fetchNextImage();
+          }
         }
       }
     });
@@ -559,7 +585,7 @@ class _PmScreen10 extends State<PmScreen10> {
               onSaveAndExit: () async {
                 Navigator.of(context).pop();
                 await _submitForm();
-                Navigator.of(context).pop();
+                await _saveAndExit();
               },
               onDiscard: () {
                 Navigator.of(context).pop();
@@ -583,7 +609,7 @@ class _PmScreen10 extends State<PmScreen10> {
                   onSaveAndExit: () async {
                     Navigator.of(context).pop();
                     await _submitForm();
-                    Navigator.of(context).pop();
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();
@@ -598,6 +624,19 @@ class _PmScreen10 extends State<PmScreen10> {
         body: widget.pmData != null
             ? MultiBlocListener(
           listeners: [
+            BlocListener<AuditScheduleStatusCubit, AuditScheduleStatusState>(
+              listener: (context, state) {
+                if (state is AuditScheduleStatusSuccess) {
+                  print('Status updated successfully to ${state.message}');
+                  // No snackbar shown - removed as requested
+                } else if (state is AuditScheduleStatusError) {
+                  print('Status update failed: ${state.error}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update status: ${state.error}')),
+                  );
+                }
+              },
+            ),
             BlocListener<PmCubit, PmState>(
               listener: (context, state) {
                 if (state is PmGetLoaded) {
@@ -715,6 +754,19 @@ class _PmScreen10 extends State<PmScreen10> {
         )
             : MultiBlocListener(
           listeners: [
+            BlocListener<AuditScheduleStatusCubit, AuditScheduleStatusState>(
+              listener: (context, state) {
+                if (state is AuditScheduleStatusSuccess) {
+                  print('Status updated successfully to ${state.message}');
+                  // No snackbar shown - removed as requested
+                } else if (state is AuditScheduleStatusError) {
+                  print('Status update failed: ${state.error}');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update status: ${state.error}')),
+                  );
+                }
+              },
+            ),
             BlocListener<PmCubit, PmState>(
               listener: (context, state) {
                 if (state is PmGetLoaded) {

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:app/constants/app_colors.dart';
-import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_strings.dart';
 
 class TextFormFieldWidget extends StatefulWidget {

@@ -6,6 +6,7 @@ class PmFormHelper {
   /// Safely parse and format date strings to ISO 8601 format
   static String? _parseAndFormatDate(String dateString) {
     try {
+      // Try to parse as ISO format first
       final parsedDate = DateTime.parse(dateString);
       return parsedDate.toIso8601String();
     } catch (e) {
@@ -88,10 +89,35 @@ class PmFormHelper {
               case 'HYGIENE':
                 sectionData = pmData.responseData!.hygiene;
                 break;
+              case 'CIVIL & STRUCTURES':
+                sectionData = pmData.responseData!.civilStructures;
+                break;
+              case 'BOS (BALANCE OF SYSTEM)':
+                sectionData = pmData.responseData!.bos;
+                break;
+              case 'TRANSFORMER':
+                sectionData = pmData.responseData!.transformer;
+                break;
+              case 'SAFETY SYSTEMS':
+                sectionData = pmData.responseData!.safetySystems;
+                break;
+              case 'SPV':
+                sectionData = pmData.responseData!.spv;
+                break;
+              case 'INVERTERS':
+                sectionData = pmData.responseData!.inverters;
+                break;
+              case 'PERFORMANCE MONITORING':
+                sectionData = pmData.responseData!.performanceMonitoring;
+                break;
+              case 'CABLES':
+                sectionData = pmData.responseData!.cables;
+                break;
               // case 'BOUNDARY':
               //   sectionData = pmData.responseData!.;
                 break;
               default:
+                print('Warning: Unknown pmItemType: $pmItemType');
                 sectionData = null;
             }
             
@@ -99,20 +125,35 @@ class PmFormHelper {
             String? respType;
             if (sectionData != null) {
               for (var item in sectionData) {
-                if (item.clOrder == clOrder) {
-                  pmCheckListSiteRespId = item.pmCheckListSiteRespId;
-                  checklistDesc = item.checklistDesc;
-                  respType = item.respType;
-                  break;
+                int itemClOrder;
+                if (item is Map<String, dynamic>) {
+                  // Handle dynamic data (Civil & Structures, BOS, etc.)
+                  itemClOrder = item['cl_order'] ?? 0;
+                  if (itemClOrder == clOrder) {
+                    pmCheckListSiteRespId = item['pm_check_list_site_resp_id'];
+                    checklistDesc = item['checklist_desc'] ?? '';
+                    respType = item['resp_type'] ?? '';
+                    break;
+                  }
+                } else {
+                  // Handle typed objects (Earthing, Solar, etc.)
+                  itemClOrder = item.clOrder ?? 0;
+                  if (itemClOrder == clOrder) {
+                    pmCheckListSiteRespId = item.pmCheckListSiteRespId;
+                    checklistDesc = item.checklistDesc ?? '';
+                    respType = item.respType ?? '';
+                    break;
+                  }
                 }
               }
             }
             
-            // Skip radio button fields - only send dropdown values
-            if (respType != null && respType.contains('RADIO')) {
-              return; // Skip this field, don't send to API
-            }
+            // Radio button fields are now included in the API submission
+            // No need to skip them anymore
           }
+
+          // Use the value directly as-is for API submission
+          String apiValue = value.toString();
 
           // Log when pmCheckListSiteRespId is null for debugging
           if (pmCheckListSiteRespId == null) {
@@ -127,7 +168,7 @@ class PmFormHelper {
             siteId: int.tryParse(siteId) ?? 0,
             pmItemType: pmItemType,
             checklistDesc: checklistDesc ?? '',
-            resp: value.toString(),
+            resp: apiValue,
             clOrder: clOrder,
             photoId: photoId > 0 ? photoId : null,
             photoTakenTs: photoTakenTs.isNotEmpty ? _parseAndFormatDate(photoTakenTs) : null,

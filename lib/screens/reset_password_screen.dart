@@ -1,6 +1,5 @@
 import 'package:app/bloc/reset_password_cubit.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/routes/routes.dart';
 import 'package:app/screens/password_updated_Screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
