@@ -9,9 +9,13 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../repositories/image_repository.dart';
 import '../../../app_config.dart';
+import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
@@ -24,6 +28,7 @@ import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../home_screen.dart';
 
 class SurveillianceScreen extends StatefulWidget {
   final CategoryData? cctvData;
@@ -177,6 +182,26 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           extinguisherItems: widget.extinguisherItems ?? [],
           solarPlatesItems: widget.solarPlatesItems ?? [],
           surveillanceItems: [],
+        ),
+      ),
+    );
+  }
+
+  /// Navigate to next screen with current saved data
+  void _navigateToNextScreen() {
+    print('Surveillance Screen: Navigating to next screen with saved data');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FencingScreen(
+          fencingData: widget.assetAuditData?.responseData.boundary,
+          assetAuditData: widget.assetAuditData,
+          showSuccessMessage: false,
+          extinguisherItems: widget.extinguisherItems ?? [],
+          solarPlatesItems: widget.solarPlatesItems ?? [],
+          surveillanceItems: [
+            ...savedCCTVItems,
+          ],
         ),
       ),
     );
@@ -343,11 +368,20 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         subCategories.forEach((key, items) {
           print('Surveillance Screen: Subcategory $key has ${items.length} items');
           if (items.isNotEmpty) {
-            var firstItem = items.first;
-            print('Surveillance Screen: First item in $key:');
-            print('  - mfgSerialNo: ${firstItem.mfgSerialNo}');
-            print('  - photoId: ${firstItem.photoId}');
-            print('  - assetStatus: ${firstItem.assetStatus}');
+            for (int i = 0; i < items.length; i++) {
+              var item = items[i];
+              print('Surveillance Screen: Subcategory $key, Item $i:');
+              print('  - itemType: ${item.itemType}');
+              print('  - recordType: ${item.recordType}');
+              print('  - mfgSerialNo: ${item.mfgSerialNo}');
+              print('  - nexgenSerialNo: ${item.nexgenSerialNo}');
+              print('  - photoId: ${item.photoId}');
+              print('  - assetStatus: ${item.assetStatus}');
+              print('  - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
+              bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
+                              (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
+              print('  - Has complete data: ${hasSerial && item.photoId != null && item.assetStatus != null}');
+            }
           }
         });
       }
@@ -356,16 +390,26 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       for (int i = 0; i < cctvAssets.length; i++) {
         var item = cctvAssets[i];
         print('Surveillance Screen: Item $i:');
+        print('  - itemType: ${item.itemType}');
+        print('  - recordType: ${item.recordType}');
         print('  - mfgSerialNo: ${item.mfgSerialNo}');
+        print('  - nexgenSerialNo: ${item.nexgenSerialNo}');
         print('  - photoId: ${item.photoId}');
         print('  - assetStatus: ${item.assetStatus}');
-        print('  - Has complete data: ${item.mfgSerialNo != null && item.photoId != null && item.assetStatus != null}');
+        print('  - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
+        bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
+                        (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
+        print('  - Has complete data: ${hasSerial && item.photoId != null && item.assetStatus != null}');
       }
       
       // Process items from main assets array
       for (var item in cctvAssets) {
         // Only add items that have complete data (serial, photo, status)
-        if (item.mfgSerialNo != null && 
+        // Check for either mfgSerialNo or nexgenSerialNo for serial number
+        bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
+                        (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
+        
+        if (hasSerial && 
             item.photoId != null && 
             item.assetStatus != null) {
           Map<String, dynamic> savedItem = {
@@ -411,7 +455,11 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           
           for (var item in items) {
             // Only add items that have complete data (serial, photo, status)
-            if (item.mfgSerialNo != null && 
+            // Check for either mfgSerialNo or nexgenSerialNo for serial number
+            bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
+                            (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
+            
+            if (hasSerial && 
                 item.photoId != null && 
                 item.assetStatus != null) {
               Map<String, dynamic> savedItem = {
@@ -507,7 +555,8 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   /// Build photo column for saved items list
   Widget _buildPhotoColumn(Map<String, dynamic> item) {
     final photoId = item['photoId'];
-    
+    final imageName = item['image_name'];
+
     if (photoId == null) {
       return Icon(
         Icons.photo_camera_outlined,
@@ -515,70 +564,128 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         size: 20,
       );
     }
-    
-    // Check if image is cached
-    final imageData = _imageCache[photoId];
-    if (imageData != null) {
-      return GestureDetector(
-        onTap: () => _showImageDialog(imageData),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.green7, width: 1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Base64ImageWidget(
-              base64Data: imageData,
-              width: 30,
-              height: 30,
-              boxFit: BoxFit.cover,
-            ),
-          ),
+
+    // Show camera icon that opens image viewer
+    return GestureDetector(
+      onTap: () {
+        // Check if image is cached first
+        final imageData = _imageCache[photoId.toString()];
+        if (imageData != null) {
+          _showImageDialog(imageData, imageName);
+        } else {
+          // Show image using photo ID
+          _showImageDialog(photoId.toString(), imageName);
+        }
+      },
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.green7, width: 1),
         ),
-      );
-    }
-    
-    // Show camera icon if no image data
-    return Icon(
-      Icons.photo_camera,
-      color: AppColors.green7,
-      size: 20,
+        child: const Icon(
+          Icons.camera_alt,
+          color: AppColors.green7,
+          size: 16,
+        ),
+      ),
     );
   }
 
   /// Show image in full screen dialog
-  void _showImageDialog(String imageData) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
+  Future<void> _showImageDialog(String? imagePath, String? imageName) async {
+    if (imagePath == null && imageName == null) {
+      showCustomToast(context, 'No photo available to view.');
+      return;
+    }
+
+    String? imageData;
+
+    // Case 1: Photo is a base64 data URL
+    if (imagePath!.startsWith('data:image/')) {
+      imageData = imagePath;
+    }
+    // Case 2: Photo is a local file path
+    else if (await File(imagePath).exists()) {
+      imageData = imagePath;
+    }
+    // Case 3: Photo is a photo ID (numeric) from the API
+    else if (_isNumeric(imagePath)) {
+      print('Fetching image for photo ID: $imagePath');
+      final completer = Completer<String?>();
+      late StreamSubscription subscription;
+
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
+          print('Image fetched successfully for photo ID: $imagePath');
+          final finalImageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          completer.complete(finalImageData);
+          subscription.cancel();
+        } else if (state is AssetAuditGetImageFailure) {
+          print('Failed to fetch image: ${state.errorMessage}');
+          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          completer.complete(null);
+          subscription.cancel();
+        }
+      });
+
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: imagePath,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      imageData = await completer.future;
+    }
+
+    if (imageData != null && imageData.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
             children: [
-              AppBar(
-                title: Text('Image View'),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: imageData!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(imageData.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(imageData),
+                        fit: BoxFit.contain,
+                      ),
               ),
-              Expanded(
-                child: Base64ImageWidget(
-                  base64Data: imageData,
-                  boxFit: BoxFit.contain,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.red,
+                    size: 30,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
+    } else {
+      showCustomToast(context, 'Unable to load photo.');
+    }
+  }
+
+  /// Check if string is numeric
+  bool _isNumeric(String str) {
+    return int.tryParse(str) != null;
   }
 
   @override
@@ -607,22 +714,29 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   }
 
   void _saveAndExit() async {
+    // First close the unsaved changes dialog
     Navigator.of(context).pop();
-    await Future.delayed(const Duration(milliseconds: 200));
 
+    try {
+      await _postCurrentScreenData();
+
+      // Update audit schedule status to "In Progress"
+      if (mounted) {
+        context.read<AuditScheduleStatusCubit>().updateStatus(
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          status: "In Progress",
+        );
+      }
+    } catch (e) {
+      print('Error posting Extinguisher data: $e');
+    }
+
+    // Then show success dialog with a clean barrier
     if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54,
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
         ),
       );
     }
@@ -639,6 +753,12 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
     String? photo = cctvPhoto;
     if (photo == null || photo.isEmpty) {
+      return false;
+    }
+
+    // Check if photo ID is present (required for all items)
+    int? photoId = cctvPhotoId;
+    if (photo != null && photoId == null) {
       return false;
     }
 
@@ -668,10 +788,23 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
   // Save current form data for CCTV
   void _saveCCTVForm() {
-    if (savedCCTVItems.length >= totalCCTVItems) {
+    // Check against items that already have both photo_id and asset_status
+    int completedCCTVCount = widget.cctvData?.assets?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int totalCCTVCount = widget.cctvData?.assets?.length ?? 0;
+    
+    // If there are completed items, use completed count; otherwise use total count
+    int maxAllowedCCTVCount = completedCCTVCount > 0 ? completedCCTVCount : totalCCTVCount;
+    
+    print('Surveillance Debug: completedCCTVCount = $completedCCTVCount');
+    print('Surveillance Debug: totalCCTVCount = $totalCCTVCount');
+    print('Surveillance Debug: maxAllowedCCTVCount = $maxAllowedCCTVCount');
+    print('Surveillance Debug: savedCCTVItems.length = ${savedCCTVItems.length}');
+    
+    if (savedCCTVItems.length >= maxAllowedCCTVCount) {
       showCustomToast(
         context,
-        'Maximum number of CCTV items ($totalCCTVItems) already added.',
+        'Maximum number of CCTV items ($maxAllowedCCTVCount) already added.',
       );
       return;
     }
@@ -694,7 +827,8 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           'photoTakenTs': DateTime.now().toString(),
           'itemType': 'CCTV', // Include item type
           'remarks': 'CCTV Item', // Include remarks
-          'assetStatus': cctvStatus ?? "OK", // Use assetStatus instead of status
+          'status': cctvStatus ?? "OK", // Set status field
+          'assetStatus': cctvStatus ?? "OK", // Also set assetStatus field
           'assetAuditSiteRespId': assetAuditSiteRespId, // Include asset audit site resp ID
           'timestamp': DateTime.now(),
           'isQRCodeScanned': false,
@@ -723,7 +857,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         showValidationErrors = false;
       });
 
-      int remainingCCTVs = totalCCTVItems - savedCCTVItems.length;
+      int remainingCCTVs = maxAllowedCCTVCount - savedCCTVItems.length;
       showCustomToast(
         context,
         'CCTV item saved successfully! ${remainingCCTVs > 0 ? '(${remainingCCTVs} remaining)' : '(All items added)'}',
@@ -732,8 +866,26 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   }
 
   // Check if all items are scanned (for display purposes only)
+  // Helper method to filter items that have both photo and status
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
+    return items.where((item) {
+      final hasPhoto = item['photo'] != null && item['photo'].toString().isNotEmpty;
+      final hasPhotoId = item['photoId'] != null;
+      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
+                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+      return hasPhotoId && hasStatus;
+    }).toList();
+  }
+
   bool _isAllItemsScanned() {
-    return savedCCTVItems.length >= totalCCTVItems;
+    // Check against items that already have both photo_id and asset_status
+    int completedCCTVCount = widget.cctvData?.assets?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int totalCCTVCount = widget.cctvData?.assets?.length ?? 0;
+    
+    int maxAllowedCCTVCount = completedCCTVCount > 0 ? completedCCTVCount : totalCCTVCount;
+    
+    return savedCCTVItems.length >= maxAllowedCCTVCount;
   }
 
   // Check if user can proceed to next screen (minimum 1 item required)
@@ -1129,9 +1281,9 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
             try {
               // Trigger a refresh of the asset audit data
               context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: "telecom",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
+                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
               );
               
               // Wait for data to refresh, then navigate
@@ -1191,10 +1343,10 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           // Only show error message if this error belongs to Surveillance screen data
           if (_hasPostedSurveillanceData) {
             print('Surveillance Screen: AssetAuditPostError received for Surveillance data');
-            // Show error message and block navigation
+            // Show error message but don't block navigation completely
             showCustomToast(
               context,
-              '❌ Failed to save Surveillance data. Please try again.',
+              '❌ Failed to save Surveillance data to server. You can continue with local data.',
             );
             
             // Reset the flag on error
@@ -1202,6 +1354,9 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
               _hasPostedSurveillanceData = false;
             });
             print('Surveillance Screen: Reset _hasPostedSurveillanceData flag to false after error');
+            
+            // Optionally, you could show a dialog asking if user wants to continue
+            // or retry, but for now we'll just show the toast and let them continue
           } else {
             print('Surveillance Screen: AssetAuditPostError received but not for Surveillance data, ignoring...');
           }
@@ -1502,22 +1657,33 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                                     return;
                                   }
                                   
-                                  // Navigate to next screen with accumulated data
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => FencingScreen(
-                                        fencingData: widget.assetAuditData?.responseData.boundary,
-                                        assetAuditData: widget.assetAuditData,
-                                        showSuccessMessage: false,
-                                        extinguisherItems: widget.extinguisherItems ?? [],
-                                        solarPlatesItems: widget.solarPlatesItems ?? [],
-                                        surveillanceItems: [
-                                          ...savedCCTVItems,
-                                        ],
-                                      ),
-                                    ),
-                                  );
+                                  // If there are saved items, try to post them first
+                                  if (savedCCTVItems.isNotEmpty) {
+                                    try {
+                                      print('Surveillance Screen: Attempting to post data before navigation...');
+                                      
+                                      // Set a timeout for the posting operation
+                                      await Future.any([
+                                        _postCurrentScreenData(),
+                                        Future.delayed(Duration(seconds: 10), () {
+                                          throw TimeoutException('Posting data timed out', Duration(seconds: 10));
+                                        }),
+                                      ]);
+                                      
+                                      // Navigation will be handled by the BlocListener on success
+                                    } catch (e) {
+                                      print('Surveillance Screen: Error posting data: $e');
+                                      // If posting fails or times out, still allow navigation with local data
+                                      showCustomToast(
+                                        context,
+                                        '⚠️ Data could not be saved to server, but you can continue with local data.',
+                                      );
+                                      _navigateToNextScreen();
+                                    }
+                                  } else {
+                                    // No saved items, navigate directly
+                                    _navigateToNextScreen();
+                                  }
                                 },
                               ),
                             ),
@@ -1688,7 +1854,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                 getWidth(8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedCCTVItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalCCTVItems',
+                    'Saved Items: ${savedCCTVItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${widget.cctvData?.assets?.length ?? 0}',
                     style: TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -1700,7 +1866,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
             ),
           ),
           if (savedCCTVItems.isNotEmpty)
-            ...savedCCTVItems
+            ..._getItemsWithPhotoAndStatus(savedCCTVItems)
                 .map(
                   (item) => Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),

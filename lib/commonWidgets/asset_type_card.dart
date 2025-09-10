@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/constants/app_colors.dart';
@@ -55,7 +56,7 @@ class CustomInfoCard extends StatefulWidget {
     this.remarksController, // Optional remarks controller
     this.onRemarksChanged, // Optional remarks callback
     this.showSaveButton = true, // Default to true for backward compatibility
-    this.isRemarksEditable = true, // Default to true for backward compatibility
+    this.isRemarksEditable = false, // Default to true for backward compatibility
   });
 
   @override
@@ -77,8 +78,22 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
     }
     
     if (widget.initialPhotoPath != null) {
-      _selectedImage = File(widget.initialPhotoPath!);
+      // Check if it's a file path or photo ID/base64 data
+      if (_isFilePath(widget.initialPhotoPath!)) {
+        _selectedImage = File(widget.initialPhotoPath!);
+      }
+      // For photo IDs or base64 data, we'll handle them in the build method
     }
+  }
+
+  // Helper method to check if the path is a valid file path
+  bool _isFilePath(String path) {
+    // Check if it's a numeric string (photo ID) or base64 data
+    if (int.tryParse(path) != null || path.startsWith('data:image')) {
+      return false;
+    }
+    // Check if it's a valid file path
+    return path.contains('/') || path.contains('\\') || path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.jpeg');
   }
 
   Future<void> _pickImage() async {
@@ -99,6 +114,103 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
       _selectedImage = null;
     });
     widget.onPhotoTap(null);
+  }
+
+  // Check if we should show an image
+  bool _shouldShowImage() {
+    return _selectedImage != null || 
+           (widget.initialPhotoPath != null && !_isFilePath(widget.initialPhotoPath!));
+  }
+
+  // Build the appropriate image widget based on the image type
+  Widget _buildImageWidget() {
+    if (_selectedImage != null) {
+      // File image
+      return Image.file(
+        _selectedImage!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+      );
+    } else if (widget.initialPhotoPath != null) {
+      if (widget.initialPhotoPath!.startsWith('data:image')) {
+        // Base64 image data - validate format first
+        try {
+          print('CustomInfoCard: Processing base64 image data');
+          print('Image data length: ${widget.initialPhotoPath!.length}');
+          print('Image data preview: ${widget.initialPhotoPath!.substring(0, widget.initialPhotoPath!.length > 100 ? 100 : widget.initialPhotoPath!.length)}...');
+          
+          if (!widget.initialPhotoPath!.contains(',')) {
+            print('Invalid base64 format: missing comma separator');
+            return _buildErrorWidget('Invalid image format');
+          }
+          
+          final parts = widget.initialPhotoPath!.split(',');
+          if (parts.length != 2 || parts[1].isEmpty) {
+            print('Invalid base64 format: missing or empty data part');
+            print('Parts length: ${parts.length}');
+            print('Data part length: ${parts.length > 1 ? parts[1].length : 0}');
+            return _buildErrorWidget('Invalid image data');
+          }
+          
+          final base64Data = parts[1];
+          print('Base64 data length: ${base64Data.length}');
+          print('Base64 data preview: ${base64Data.substring(0, base64Data.length > 50 ? 50 : base64Data.length)}...');
+          
+          final bytes = base64Decode(base64Data);
+          print('Decoded bytes length: ${bytes.length}');
+          
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            errorBuilder: (context, error, stackTrace) {
+              print('Error displaying base64 image: $error');
+              return _buildErrorWidget('Image display error');
+            },
+          );
+        } catch (e) {
+          print('Error decoding base64 image: $e');
+          print('Image data that failed: ${widget.initialPhotoPath!.substring(0, widget.initialPhotoPath!.length > 200 ? 200 : widget.initialPhotoPath!.length)}...');
+          return _buildErrorWidget('Image decode error: ${e.toString()}');
+        }
+      } else if (int.tryParse(widget.initialPhotoPath!) != null) {
+        // Photo ID - show placeholder or loading indicator
+        return Container(
+          color: Colors.grey.shade300,
+          child: const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+      }
+    }
+    
+    // Fallback
+    return _buildErrorWidget('Unsupported image type');
+  }
+
+  // Helper method to build error widget
+  Widget _buildErrorWidget(String message) {
+    return Container(
+      color: Colors.grey.shade300,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, color: Colors.red, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              message,
+              style: const TextStyle(
+                color: Colors.red,
+                fontSize: 12,
+                fontFamily: fontFamilyMontserrat,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -236,33 +348,12 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                 borderRadius: BorderRadius.circular(5),
                 border: Border.all(color: Colors.grey.shade400),
               ),
-              child: _selectedImage == null
-                  ? Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.color555555),
-                          const SizedBox(width: 6),
-                          Text(
-                            widget.photoLabel,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.color555555,
-                              fontFamily: fontFamilyMontserrat,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  : Stack(
+              child: _shouldShowImage()
+                  ? Stack(
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(5),
-                          child: Image.file(
-                            _selectedImage!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
+                          child: _buildImageWidget(),
                         ),
                         // Delete button
                         Positioned(
@@ -285,6 +376,23 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
                           ),
                         ),
                       ],
+                    )
+                  : Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.camera_alt_outlined, size: 20, color: AppColors.color555555),
+                          const SizedBox(width: 6),
+                          Text(
+                            widget.photoLabel,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w400,
+                              color: AppColors.color555555,
+                              fontFamily: fontFamilyMontserrat,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
             ),
           ),

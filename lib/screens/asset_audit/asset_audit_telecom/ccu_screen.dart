@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
+import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -9,9 +10,13 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../repositories/image_repository.dart';
 import '../../../app_config.dart';
+import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
@@ -62,6 +67,10 @@ class _CCUScreenState extends State<CCUScreen> {
   String? rectifierStatus;
 
   int? cabinetPhotoId;
+  String? cabinetPhoto;
+  String? cabinetStatus;
+  String? cabinetSerialNumber;
+  final cabinetSerialController = TextEditingController();
   final remarksController = TextEditingController();
   final capacityController = TextEditingController();
 
@@ -76,22 +85,23 @@ class _CCUScreenState extends State<CCUScreen> {
 
   int rectifierCardKey = 0;
   int mpptCardKey = 0;
+  int cabinetCardKey = 0;
 
   bool _hasPostedCCUData = false;
 
   // ===== CHANGE TRACKING SYSTEM =====
   // Track original values for existing items
   Map<String, dynamic> _originalFormData = {};
-  
+
   // Track new items that haven't been posted yet
   List<Map<String, dynamic>> _newItems = [];
-  
+
   // Track modified existing items
   Map<String, dynamic> _modifiedItems = {};
-  
+
   // Track deleted items
   List<String> _deletedItemIds = [];
-  
+
   // Overall change status
   bool get _hasChanges {
     // Check if there are any meaningful changes (not just default values)
@@ -101,21 +111,45 @@ class _CCUScreenState extends State<CCUScreen> {
       return _hasValueChanged(originalValue, entry.value);
     });
     final hasDeletedItems = _deletedItemIds.isNotEmpty;
-    
-    final result = hasNewItems || hasModifiedItems || hasDeletedItems;
+
+    // Check if there are any saved items (which means user has added items)
+    final hasSavedItems =
+        savedRectifierItems.isNotEmpty ||
+        savedMPPTItems.isNotEmpty ||
+        savedCabinetItems.isNotEmpty;
+
+    // Check if there are any form field changes
+    final hasFormChanges =
+        rectifierSerialNumber != null && rectifierSerialNumber!.isNotEmpty ||
+        mpptSerialNumber != null && mpptSerialNumber!.isNotEmpty ||
+        cabinetSerialNumber != null && cabinetSerialNumber!.isNotEmpty ||
+        remarksController.text.isNotEmpty;
+
+    final result =
+        hasNewItems ||
+        hasModifiedItems ||
+        hasDeletedItems ||
+        hasSavedItems ||
+        hasFormChanges;
 
     return result;
   }
-  
+
   // Track if forms are filled with new data
   bool _isRectifierFormFilled = false;
   bool _isMPPTFormFilled = false;
+
   // ===== END CHANGE TRACKING SYSTEM =====
 
   // ===== IMAGE LOADING INFRASTRUCTURE =====
   late ImageRepository _imageService;
-  Map<int, String> _imageCache = {};
-  Set<int> _loadingImages = {};
+  Map<String, String> _imageCache = {};
+  Set<String> _loadingImages = {};
+
+  // Image loading state management for editing
+  String? _currentRequestedImageId;
+  bool _isRequestingImage = false;
+
   // ===== END IMAGE LOADING INFRASTRUCTURE =====
 
   String _getCCUCapacity() {
@@ -140,12 +174,12 @@ class _CCUScreenState extends State<CCUScreen> {
       final ccuData = widget.assetAuditData!.responseData.ccu;
       if (ccuData != null) {
         final assets = ccuData.assets;
-      if (assets.isNotEmpty) {
-        final firstAsset = assets.first;
-        if (firstAsset.oemName != null && firstAsset.oemName!.isNotEmpty) {
-          return firstAsset.oemName!;
+        if (assets.isNotEmpty) {
+          final firstAsset = assets.first;
+          if (firstAsset.oemName != null && firstAsset.oemName!.isNotEmpty) {
+            return firstAsset.oemName!;
+          }
         }
-      }
       }
     }
     return '';
@@ -156,51 +190,49 @@ class _CCUScreenState extends State<CCUScreen> {
       return null;
     }
 
-
-
     final ccuData = widget.assetAuditData!.responseData.ccu;
     if (ccuData != null) {
       final assets = ccuData.assets;
-    if (assets.isNotEmpty) {
-      for (int i = 0; i < assets.length; i++) {
-        var asset = assets[i];
+      if (assets.isNotEmpty) {
+        for (int i = 0; i < assets.length; i++) {
+          var asset = assets[i];
 
-        if (asset.itemType == itemType ||
-            (itemType == 'CCU Cabinet' && asset.itemType == 'CCU') ||
-            (itemType == 'CCU Rectifiers' && asset.itemType == 'CCU') ||
-            (itemType == 'CCU MPPT' && asset.itemType == 'CCU')) {
-          return asset.assetAuditSiteRespId;
+          if (asset.itemType == itemType ||
+              (itemType == 'CCU Cabinet' && asset.itemType == 'CCU') ||
+              (itemType == 'CCU Rectifiers' && asset.itemType == 'CCU') ||
+              (itemType == 'CCU MPPT' && asset.itemType == 'CCU')) {
+            return asset.assetAuditSiteRespId;
+          }
         }
       }
-    }
 
-    switch (itemType) {
-      case 'CCU Cabinet':
+      switch (itemType) {
+        case 'CCU Cabinet':
           final ccuCabinetItems = ccuData.ccuCabinet ?? [];
 
-        if (ccuCabinetItems.isNotEmpty) {
-          final firstItem = ccuCabinetItems.first;
-          return firstItem.assetAuditSiteRespId;
-        }
-        break;
+          if (ccuCabinetItems.isNotEmpty) {
+            final firstItem = ccuCabinetItems.first;
+            return firstItem.assetAuditSiteRespId;
+          }
+          break;
 
-      case 'CCU Rectifiers':
+        case 'CCU Rectifiers':
           final ccuRectifierItems = ccuData.ccuRectifiers ?? [];
 
-        if (ccuRectifierItems.isNotEmpty) {
-          final firstItem = ccuRectifierItems.first;
-          return firstItem.assetAuditSiteRespId;
-        }
-        break;
+          if (ccuRectifierItems.isNotEmpty) {
+            final firstItem = ccuRectifierItems.first;
+            return firstItem.assetAuditSiteRespId;
+          }
+          break;
 
-      case 'CCU MPPT':
+        case 'CCU MPPT':
           final ccuMpptItems = ccuData.ccuMppt ?? [];
 
-        if (ccuMpptItems.isNotEmpty) {
-          final firstItem = ccuMpptItems.first;
-          return firstItem.assetAuditSiteRespId;
-        }
-        break;
+          if (ccuMpptItems.isNotEmpty) {
+            final firstItem = ccuMpptItems.first;
+            return firstItem.assetAuditSiteRespId;
+          }
+          break;
       }
     }
 
@@ -226,7 +258,7 @@ class _CCUScreenState extends State<CCUScreen> {
     _imageService = ImageRepository(AppConfig.of(context).apiProvider);
 
     _loadCCUData();
-    
+
     // Initialize change tracking system
     _initializeChangeTracking();
   }
@@ -238,7 +270,7 @@ class _CCUScreenState extends State<CCUScreen> {
 
     final ccuData = widget.assetAuditData!.responseData.ccu;
     if (ccuData == null) {
-        return false;
+      return false;
     }
 
     final hasRectifierItems = (ccuData.ccuRectifiers?.length ?? 0) > 0;
@@ -260,52 +292,52 @@ class _CCUScreenState extends State<CCUScreen> {
 
   /// Load images for saved items using the image API
   void _loadImagesForSavedItems() async {
-    Set<int> photoIds = {};
-    
+    Set<String> photoIds = {};
+
     // Add photo IDs from rectifier items
     for (var item in savedRectifierItems) {
       if (item['photoId'] != null) {
-        photoIds.add(item['photoId']);
+        photoIds.add(item['photoId'].toString());
       }
     }
-    
+
     // Add photo IDs from MPPT items
     for (var item in savedMPPTItems) {
       if (item['photoId'] != null) {
-        photoIds.add(item['photoId']);
+        photoIds.add(item['photoId'].toString());
       }
     }
-    
+
     // Add photo IDs from cabinet items
     for (var item in savedCabinetItems) {
       if (item['photoId'] != null) {
-        photoIds.add(item['photoId']);
+        photoIds.add(item['photoId'].toString());
       }
     }
-    
-    if (photoIds.isEmpty) {
 
+    if (photoIds.isEmpty) {
       return;
     }
-    
 
     try {
       // Mark images as loading
       setState(() {
         _loadingImages.addAll(photoIds);
       });
-      
+
       // Fetch images from API
-      final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
-      
+      final imageMap = await _imageService.fetchImagesByIds(
+        photoIds.map((id) => int.parse(id)).toList(),
+      );
+
       // Update cache and remove loading state
       setState(() {
-        _imageCache.addAll(imageMap);
+        _imageCache.addAll(
+          imageMap.map((key, value) => MapEntry(key.toString(), value)),
+        );
         _loadingImages.removeAll(photoIds);
       });
-
     } catch (e) {
-
       setState(() {
         _loadingImages.removeAll(photoIds);
       });
@@ -315,7 +347,7 @@ class _CCUScreenState extends State<CCUScreen> {
   /// Build photo column for saved items list
   Widget _buildPhotoColumn(Map<String, dynamic> item) {
     final photoId = item['photoId'];
-    
+
     if (photoId == null) {
       return Icon(
         Icons.photo_camera_outlined,
@@ -323,100 +355,127 @@ class _CCUScreenState extends State<CCUScreen> {
         size: 20,
       );
     }
-    
-    // Check if image is cached
-    final imageData = _imageCache[photoId];
-    if (imageData != null) {
-      return GestureDetector(
-        onTap: () => _showImageDialog(imageData),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.green7, width: 1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Base64ImageWidget(
-              base64Data: imageData,
-              width: 30,
-              height: 30,
-              boxFit: BoxFit.cover,
-            ),
-          ),
-        ),
-      );
-    }
-    
-    // Show camera icon if no image data
-    return Icon(
-      Icons.photo_camera,
-      color: AppColors.green7,
-      size: 20,
-    );
-  }
 
-  /// Show image in full screen dialog
-  void _showImageDialog(String imageData) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
-            children: [
-              AppBar(
-                title: Text('Image View'),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Base64ImageWidget(
-                  base64Data: imageData,
-                  boxFit: BoxFit.contain,
-                ),
-              ),
-            ],
-          ),
-        ),
+    // Show camera icon that opens image viewer
+    return GestureDetector(
+      onTap: () {
+        // Check if image is cached first
+        final imageData = _imageCache[photoId.toString()];
+        if (imageData != null) {
+          _showImageDialog(imageData, item['image_name']);
+        } else {
+          // Show image using photo ID
+          _showImageDialog(photoId.toString(), item['image_name']);
+        }
+      },
+      child: const Icon(
+        Icons.camera_alt,
+        color: AppColors.green7,
+        size: 20,
       ),
     );
   }
 
-  void _navigateToBatteryScreen() {
 
+  void _navigateToBatteryScreen() async {
     // Check if we're just editing existing items (which shouldn't block navigation)
     if (_isJustEditingExistingItems()) {
       _saveEditedItemsAndNavigate();
       return;
     }
-    
+
     if (!_hasChanges) {
-    pushPage(
-      context,
-      BatteryScreen(
-        batteryData: widget.assetAuditData?.responseData.battery,
-        assetAuditData: widget.assetAuditData,
-      ),
-    );
+      pushPage(
+        context,
+        BatteryScreen(
+          batteryData: widget.assetAuditData?.responseData.battery,
+          assetAuditData: widget.assetAuditData,
+        ),
+      );
       return;
     }
-    
+
     // Check if the changes are just form fields that don't need validation
     if (_areChangesJustFormFields()) {
-
       _saveFormFieldsAndNavigate();
       return;
     }
-    
+
+    // If there are saved items, post data and navigate
+    if (savedRectifierItems.isNotEmpty ||
+        savedMPPTItems.isNotEmpty ||
+        savedCabinetItems.isNotEmpty) {
+      await _postDataAndNavigate();
+      return;
+    }
 
     _showChangesConfirmationDialog();
+  }
+
+  /// Post data and navigate to next screen
+  Future<void> _postDataAndNavigate() async {
+    try {
+      // Set flag to track this is CCU data being posted
+      _hasPostedCCUData = true;
+
+      // Post data to API
+      await _postCurrentScreenData();
+
+      // Update audit schedule status to "In Progress"
+      if (mounted) {
+        context.read<AuditScheduleStatusCubit>().updateStatus(
+          siteAuditSchId:
+              widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                  .toString() ??
+              "",
+          status: "In Progress",
+        );
+      }
+
+      // Refresh data from API to show updated items
+      if (mounted) {
+        print('CCU Debug: Refreshing data after successful posting');
+        context.read<AssetAuditCubit>().getAssetAuditData(
+          siteType:
+              widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
+          auditSchId:
+              widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                  .toString() ??
+              "",
+          siteAuditSchId:
+              widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                  .toString() ??
+              "",
+        );
+      }
+
+      // Navigate to next screen
+      if (mounted) {
+        print('CCU Debug: Navigating to Battery screen');
+        print(
+          'CCU Debug: batteryData is null: ${widget.assetAuditData?.responseData.battery == null}',
+        );
+        if (widget.assetAuditData?.responseData.battery != null) {
+          print(
+            'CCU Debug: batteryData assets count: ${widget.assetAuditData!.responseData.battery!.assets.length}',
+          );
+          print(
+            'CCU Debug: batteryData subcategories: ${widget.assetAuditData!.responseData.battery!.subCategories?.keys.toList()}',
+          );
+        }
+        pushPage(
+          context,
+          BatteryScreen(
+            batteryData: widget.assetAuditData?.responseData.battery,
+            assetAuditData: widget.assetAuditData,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error posting CCU data: $e');
+      showCustomToast(context, '❌ Failed to save CCU data. Please try again.');
+      _hasPostedCCUData = false;
+    }
   }
 
   void _loadCCUData() {
@@ -435,78 +494,84 @@ class _CCUScreenState extends State<CCUScreen> {
           savedCabinetItems.clear();
           currentScannedItems = 0;
 
-          // Load CCU Rectifiers
+          // Load CCU Rectifiers - only add items that have both photo_id and asset_status
           final rectifierItems = ccuData.ccuRectifiers ?? [];
           for (var item in rectifierItems) {
-            Map<String, dynamic> savedItem = {
-              'serialNumber':
-                  item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-              'photo': null,
-              'photoId': item.photoId,
-              'status': item.assetStatus ?? 'Unknown',
-              'timestamp': DateTime.now(),
-              'isQRCodeScanned': item.qrCodeScanned ?? false,
-              'itemType': item.itemType ?? 'Unknown',
-              'remarks': item.itemTypeRemark ?? 'CCU Rectifier Item',
-              'assetStatus': item.assetStatus,
-              'assetAuditSiteRespId': item.assetAuditSiteRespId,
+            // Only add items that have both photo_id and asset_status
+            if (item.photoId != null && item.assetStatus != null) {
+              Map<String, dynamic> savedItem = {
+                'serialNumber':
+                    item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+                'photo': null,
+                'photoId': item.photoId,
+                'status': item.assetStatus ?? 'Unknown',
+                'timestamp': DateTime.now(),
+                'isQRCodeScanned': item.qrCodeScanned ?? false,
+                'itemType': item.itemType ?? 'Unknown',
+                'remarks': item.itemTypeRemark ?? 'CCU Rectifier Item',
+                'assetStatus': item.assetStatus,
+                'assetAuditSiteRespId': item.assetAuditSiteRespId,
 
-              // Full API response details
-              'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-              'site_audit_sch_id': item.siteAuditSchId,
-              'item_instance_id': item.itemInstanceId,
-              'oem_name': item.oemName,
-              'nexgen_serial_no': item.nexgenSerialNo,
-              'mfg_serial_no': item.mfgSerialNo,
-              'qr_code_scanned': item.qrCodeScanned ?? false,
-              'qr_code_scanned_ts': item.qrCodeScannedTs,
-              'image_name': item.imageName,
-              'longitude': item.longitude,
-              'latitude': item.latitude,
-              'capacity': item.capacity,
-              'item_type_group': item.itemTypeGroup,
-              'record_type': item.recordType,
-              'item_type_remark': item.itemTypeRemark,
-            };
-            savedRectifierItems.add(savedItem);
-            currentScannedItems++;
+                // Full API response details
+                'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+                'site_audit_sch_id': item.siteAuditSchId,
+                'item_instance_id': item.itemInstanceId,
+                'oem_name': item.oemName,
+                'nexgen_serial_no': item.nexgenSerialNo,
+                'mfg_serial_no': item.mfgSerialNo,
+                'qr_code_scanned': item.qrCodeScanned ?? false,
+                'qr_code_scanned_ts': item.qrCodeScannedTs,
+                'image_name': item.imageName,
+                'longitude': item.longitude,
+                'latitude': item.latitude,
+                'capacity': item.capacity,
+                'item_type_group': item.itemTypeGroup,
+                'record_type': item.recordType,
+                'item_type_remark': item.itemTypeRemark,
+              };
+              savedRectifierItems.add(savedItem);
+              currentScannedItems++;
+            }
           }
 
-          // Load CCU MPPT
+          // Load CCU MPPT - only add items that have both photo_id and asset_status
           final mpptItems = ccuData.ccuMppt ?? [];
           for (var item in mpptItems) {
-            Map<String, dynamic> savedItem = {
-              'serialNumber':
-                  item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-              'photo': null,
-              'photoId': item.photoId,
-              'status': item.assetStatus ?? 'Unknown',
-              'timestamp': DateTime.now(),
-              'isQRCodeScanned': item.qrCodeScanned ?? false,
-              'itemType': item.itemType ?? 'Unknown',
-              'remarks': item.itemTypeRemark ?? 'CCU MPPT Item',
-              'assetStatus': item.assetStatus,
-              'assetAuditSiteRespId': item.assetAuditSiteRespId,
+            // Only add items that have both photo_id and asset_status
+            if (item.photoId != null && item.assetStatus != null) {
+              Map<String, dynamic> savedItem = {
+                'serialNumber':
+                    item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+                'photo': null,
+                'photoId': item.photoId,
+                'status': item.assetStatus ?? 'Unknown',
+                'timestamp': DateTime.now(),
+                'isQRCodeScanned': item.qrCodeScanned ?? false,
+                'itemType': item.itemType ?? 'Unknown',
+                'remarks': item.itemTypeRemark ?? 'CCU MPPT Item',
+                'assetStatus': item.assetStatus,
+                'assetAuditSiteRespId': item.assetAuditSiteRespId,
 
-              // Full API response details
-              'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-              'site_audit_sch_id': item.siteAuditSchId,
-              'item_instance_id': item.itemInstanceId,
-              'oem_name': item.oemName,
-              'nexgen_serial_no': item.nexgenSerialNo,
-              'mfg_serial_no': item.mfgSerialNo,
-              'qr_code_scanned': item.qrCodeScanned ?? false,
-              'qr_code_scanned_ts': item.qrCodeScannedTs,
-              'image_name': item.imageName,
-              'longitude': item.longitude,
-              'latitude': item.latitude,
-              'capacity': item.capacity,
-              'item_type_group': item.itemTypeGroup,
-              'record_type': item.recordType,
-              'item_type_remark': item.itemTypeRemark,
-            };
-            savedMPPTItems.add(savedItem);
-            currentScannedItems++;
+                // Full API response details
+                'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+                'site_audit_sch_id': item.siteAuditSchId,
+                'item_instance_id': item.itemInstanceId,
+                'oem_name': item.oemName,
+                'nexgen_serial_no': item.nexgenSerialNo,
+                'mfg_serial_no': item.mfgSerialNo,
+                'qr_code_scanned': item.qrCodeScanned ?? false,
+                'qr_code_scanned_ts': item.qrCodeScannedTs,
+                'image_name': item.imageName,
+                'longitude': item.longitude,
+                'latitude': item.latitude,
+                'capacity': item.capacity,
+                'item_type_group': item.itemTypeGroup,
+                'record_type': item.recordType,
+                'item_type_remark': item.itemTypeRemark,
+              };
+              savedMPPTItems.add(savedItem);
+              currentScannedItems++;
+            }
           }
 
           // Load CCU Cabinet
@@ -593,14 +658,14 @@ class _CCUScreenState extends State<CCUScreen> {
             }
           }
 
-          // Update counts based on actual data
-          totalRectifierItems = savedRectifierItems.length;
-          totalMPPTItems = savedMPPTItems.length;
+          // Update counts based on actual data - use backend count, not filtered count
+          // totalRectifierItems and totalMPPTItems should remain as backend counts
+          // The filtering only affects display, not the total available items
 
           // Load remarks data
           final remarks = ccuData.remarks;
-        if (remarks.isNotEmpty) {
-          for (var remark in remarks) {
+          if (remarks.isNotEmpty) {
+            for (var remark in remarks) {
               if (remark.itemTypeRemark != null &&
                   remark.itemTypeRemark!.isNotEmpty) {
                 remarksController.text = remark.itemTypeRemark!;
@@ -608,9 +673,10 @@ class _CCUScreenState extends State<CCUScreen> {
               }
             }
           }
+
         }
       });
-      
+
       // Load images for saved items
       _loadImagesForSavedItems();
     }
@@ -641,19 +707,30 @@ class _CCUScreenState extends State<CCUScreen> {
       return;
     }
 
+    // Post data to API first
+    try {
+      await _postCurrentScreenData();
+
+      // Update audit schedule status to "In Progress"
+      if (mounted) {
+        context.read<AuditScheduleStatusCubit>().updateStatus(
+          siteAuditSchId:
+              widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                  .toString() ??
+              "",
+          status: "In Progress",
+        );
+      }
+    } catch (e) {
+      print('Error posting CCU data: $e');
+    }
+
     if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54,
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
+      // Navigate directly to home screen without showing success dialog
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
         ),
       );
     }
@@ -672,23 +749,32 @@ class _CCUScreenState extends State<CCUScreen> {
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
         ? mpptSerialController.text
+        : cabinetSerialController.text.isNotEmpty
+        ? cabinetSerialController.text
         : null;
 
+    print('CCU Debug: Form validation - serialNumber: $serialNumber');
     if (serialNumber == null || serialNumber.isEmpty) {
+      print('CCU Debug: Form validation FAILED - no serial number');
       return false;
     }
 
     // Check if photo is added
-    String? photo = rectifierPhoto ?? mpptPhoto;
+    String? photo = rectifierPhoto ?? mpptPhoto ?? cabinetPhoto;
+    print('CCU Debug: Form validation - photo: $photo');
     if (photo == null || photo.isEmpty) {
+      print('CCU Debug: Form validation FAILED - no photo');
       return false;
     }
 
-    int? photoId = rectifierPhotoId ?? mpptPhotoId;
+    int? photoId = rectifierPhotoId ?? mpptPhotoId ?? cabinetPhotoId;
+    print('CCU Debug: Form validation - photoId: $photoId');
     if (photo != null && photoId == null) {
+      print('CCU Debug: Form validation FAILED - no photoId');
       return false;
     }
 
+    print('CCU Debug: Form validation PASSED');
     // Note: status is not required since it comes from API
     // and is set to true by default (backendStatus: true)
 
@@ -704,6 +790,8 @@ class _CCUScreenState extends State<CCUScreen> {
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
         ? mpptSerialController.text
+        : cabinetSerialController.text.isNotEmpty
+        ? cabinetSerialController.text
         : null;
 
     if (serialNumber == null || serialNumber.isEmpty) {
@@ -729,13 +817,38 @@ class _CCUScreenState extends State<CCUScreen> {
       return;
     }
 
-    if (savedRectifierItems.length >= totalRectifierItems) {
+    // Check against items that already have both photo_id and asset_status
+    int completedRectifierCount =
+        widget.ccuData?.ccuRectifiers
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    int totalRectifierCount = widget.ccuData?.ccuRectifiers?.length ?? 0;
+
+    // If there are completed items, use completed count; otherwise use total count
+    int maxAllowedRectifierCount = completedRectifierCount > 0
+        ? completedRectifierCount
+        : totalRectifierCount;
+
+    print('CCU Debug: completedRectifierCount = $completedRectifierCount');
+    print('CCU Debug: totalRectifierCount = $totalRectifierCount');
+    print('CCU Debug: maxAllowedRectifierCount = $maxAllowedRectifierCount');
+    print(
+      'CCU Debug: savedRectifierItems.length = ${savedRectifierItems.length}',
+    );
+    print(
+      'CCU Debug: Validation check: ${savedRectifierItems.length} >= $maxAllowedRectifierCount = ${savedRectifierItems.length >= maxAllowedRectifierCount}',
+    );
+
+    if (savedRectifierItems.length > maxAllowedRectifierCount) {
+      print('CCU Debug: Validation FAILED - showing error toast');
       showCustomToast(
         context,
-        'Maximum number of Rectifier items ($totalRectifierItems) already added.',
+        'Maximum number of Rectifier items ($maxAllowedRectifierCount) already added.',
       );
       return;
     }
+    print('CCU Debug: Validation PASSED - continuing to form validation');
 
     if (_isFormValid()) {
       setState(() {
@@ -762,6 +875,14 @@ class _CCUScreenState extends State<CCUScreen> {
           // Get ID from GET API response
         };
 
+        print('CCU Debug: Rectifier form data being saved:');
+        print('  - serialNumber: ${currentFormData['serialNumber']}');
+        print('  - photo: ${currentFormData['photo']}');
+        print('  - photoId: ${currentFormData['photoId']}');
+        print('  - status: ${currentFormData['status']}');
+        print('  - rectifierPhotoId variable: $rectifierPhotoId');
+        print('  - rectifierPhoto variable: $rectifierPhoto');
+
         // Add to saved rectifier items list
         savedRectifierItems.add(currentFormData);
         currentScannedItems++;
@@ -784,7 +905,7 @@ class _CCUScreenState extends State<CCUScreen> {
 
       // Show success message
       int remainingRectifiers =
-          totalRectifierItems - savedRectifierItems.length;
+          completedRectifierCount - savedRectifierItems.length;
       showCustomToast(
         context,
         'Rectifier item saved successfully! ${remainingRectifiers > 0 ? '(${remainingRectifiers} remaining)' : '(All items added)'}',
@@ -800,13 +921,36 @@ class _CCUScreenState extends State<CCUScreen> {
       return;
     }
 
-    if (savedMPPTItems.length >= totalMPPTItems) {
+    // Check against items that already have both photo_id and asset_status
+    int completedMPPTCount =
+        widget.ccuData?.ccuMppt
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    int totalMPPTCount = widget.ccuData?.ccuMppt?.length ?? 0;
+
+    // If there are completed items, use completed count; otherwise use total count
+    int maxAllowedMPPTCount = completedMPPTCount > 0
+        ? completedMPPTCount
+        : totalMPPTCount;
+
+    print('CCU Debug: completedMPPTCount = $completedMPPTCount');
+    print('CCU Debug: totalMPPTCount = $totalMPPTCount');
+    print('CCU Debug: maxAllowedMPPTCount = $maxAllowedMPPTCount');
+    print('CCU Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
+    print(
+      'CCU Debug: MPPT Validation check: ${savedMPPTItems.length} >= $maxAllowedMPPTCount = ${savedMPPTItems.length >= maxAllowedMPPTCount}',
+    );
+
+    if (savedMPPTItems.length > maxAllowedMPPTCount) {
+      print('CCU Debug: MPPT Validation FAILED - showing error toast');
       showCustomToast(
         context,
-        'Maximum number of MPPT items ($totalMPPTItems) already added.',
+        'Maximum number of MPPT items ($maxAllowedMPPTCount) already added.',
       );
       return;
     }
+    print('CCU Debug: MPPT Validation PASSED - continuing to form validation');
 
     // Check if photo is selected but photoId is not yet available
     if (mpptPhoto != null && mpptPhotoId == null) {
@@ -835,6 +979,14 @@ class _CCUScreenState extends State<CCUScreen> {
           'assetAuditSiteRespId': _getAssetAuditSiteRespId('CCU MPPT'),
         };
 
+        print('CCU Debug: MPPT form data being saved:');
+        print('  - serialNumber: ${currentFormData['serialNumber']}');
+        print('  - photo: ${currentFormData['photo']}');
+        print('  - photoId: ${currentFormData['photoId']}');
+        print('  - status: ${currentFormData['status']}');
+        print('  - mpptPhotoId variable: $mpptPhotoId');
+        print('  - mpptPhoto variable: $mpptPhoto');
+
         // Add to saved MPPT items list
         savedMPPTItems.add(currentFormData);
         currentScannedItems++;
@@ -856,7 +1008,7 @@ class _CCUScreenState extends State<CCUScreen> {
       });
 
       // Show success message
-      int remainingMPPTs = totalMPPTItems - savedMPPTItems.length;
+      int remainingMPPTs = completedMPPTCount - savedMPPTItems.length;
       showCustomToast(
         context,
         'MPPT item saved successfully! ${remainingMPPTs > 0 ? '(${remainingMPPTs} remaining)' : '(All items added)'}',
@@ -866,14 +1018,38 @@ class _CCUScreenState extends State<CCUScreen> {
     }
   }
 
+  // Helper method to filter items that have both photo and status
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(
+    List<Map<String, dynamic>> items,
+  ) {
+    return items.where((item) {
+      final hasPhotoId = item['photoId'] != null;
+      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
+                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+
+      return hasPhotoId && hasStatus;
+    }).toList();
+  }
+
   bool _isAllItemsScanned() {
     // If there's no data to show, return true
     if (!_hasDataToShow()) {
       return true;
     }
 
-    return (savedRectifierItems.length >= totalRectifierItems) &&
-        (savedMPPTItems.length >= totalMPPTItems);
+    // Check against items that already have both photo_id and asset_status
+    int completedRectifierCount =
+        widget.ccuData?.ccuRectifiers
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    int completedMPPTCount =
+        widget.ccuData?.ccuMppt
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    return (savedRectifierItems.length >= completedRectifierCount) &&
+        (savedMPPTItems.length >= completedMPPTCount);
   }
 
   /// Automatically save cabinet item when photo is uploaded
@@ -923,6 +1099,89 @@ class _CCUScreenState extends State<CCUScreen> {
     showCustomToast(context, 'Cabinet item auto-saved successfully!');
   }
 
+  /// Save current form data for Cabinet
+  void _saveCabinetForm() {
+    // Check against items that already have both photo_id and asset_status
+    int completedCabinetCount =
+        widget.ccuData?.ccuCabinet
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    int totalCabinetCount = widget.ccuData?.ccuCabinet?.length ?? 0;
+
+    // Allow adding items up to the total count from backend
+    int maxAllowedCabinetCount = totalCabinetCount;
+
+    print('CCU Debug: completedCabinetCount = $completedCabinetCount');
+    print('CCU Debug: totalCabinetCount = $totalCabinetCount');
+    print('CCU Debug: maxAllowedCabinetCount = $maxAllowedCabinetCount');
+    print('CCU Debug: savedCabinetItems.length = ${savedCabinetItems.length}');
+    print(
+      'CCU Debug: Validation check: ${savedCabinetItems.length} >= $maxAllowedCabinetCount = ${savedCabinetItems.length >= maxAllowedCabinetCount}',
+    );
+
+    if (savedCabinetItems.length > maxAllowedCabinetCount) {
+      print('CCU Debug: Validation FAILED - showing error toast');
+      showCustomToast(
+        context,
+        'Maximum number of Cabinet items ($maxAllowedCabinetCount) already added.',
+      );
+      return;
+    }
+    print('CCU Debug: Validation PASSED - continuing to form validation');
+
+    if (_isFormValid()) {
+      if (cabinetPhotoId != null) {
+        // Only save if photoId is present
+        setState(() {
+          // Create a map of current form data
+          Map<String, dynamic> currentFormData = {
+            'serialNumber': cabinetSerialNumber ?? 'CCU Cabinet',
+            'photo': cabinetPhoto,
+            'photoId': cabinetPhotoId,
+            'status': cabinetStatus ?? "OK",
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': false,
+            'itemType': 'CCU Cabinet',
+            'remarks': remarksController.text.isNotEmpty
+                ? remarksController.text
+                : 'CCU Cabinet Item',
+            'assetStatus': cabinetStatus ?? "OK",
+            'assetAuditSiteRespId': _getAssetAuditSiteRespId('CCU Cabinet'),
+          };
+
+          print('CCU Debug: Cabinet form data being saved:');
+          print('  - serialNumber: ${currentFormData['serialNumber']}');
+          print('  - photo: ${currentFormData['photo']}');
+          print('  - photoId: ${currentFormData['photoId']}');
+          print('  - status: ${currentFormData['status']}');
+          print('  - cabinetPhotoId variable: $cabinetPhotoId');
+          print('  - cabinetPhoto variable: $cabinetPhoto');
+
+          // Add to saved cabinet items list
+          savedCabinetItems.add(currentFormData);
+          currentScannedItems++;
+
+          // Debug: Log what was saved
+          print('CCU Debug: Cabinet item saved successfully');
+          print('CCU Debug: Saved item data: $currentFormData');
+          print(
+            'CCU Debug: Total saved cabinet items: ${savedCabinetItems.length}',
+          );
+
+          // Clear the form for next entry
+          _clearCabinetForm();
+        });
+
+        showCustomToast(context, 'Cabinet item saved successfully!');
+      } else {
+        showCustomToast(context, 'Please upload a photo before saving.');
+      }
+    } else {
+      print('Form validation failed - cannot save cabinet item');
+    }
+  }
+
   /// Clear the cabinet form for next entry
   void _clearCabinetForm() {
     // If there's no data to show, don't clear form
@@ -931,10 +1190,11 @@ class _CCUScreenState extends State<CCUScreen> {
     }
 
     setState(() {
-      uploadedPhotoPath = null;
+      cabinetSerialController.clear();
+      cabinetSerialNumber = null;
+      cabinetStatus = 'OK';
       cabinetPhotoId = null;
-      serialController.clear();
-      capacityController.clear();
+      cabinetPhoto = null;
       hasUnsavedChanges = false;
     });
   }
@@ -1077,27 +1337,41 @@ class _CCUScreenState extends State<CCUScreen> {
 
       // Add saved rectifier items
       if (savedRectifierItems.isNotEmpty) {
+        print(
+          'CCU Debug: Rectifier items before enhancement: $savedRectifierItems',
+        );
         final enhancedRectifierItems = AssetAuditPostHelper.enhanceSavedItems(
           savedItems: savedRectifierItems,
           screenName: 'CCU Rectifier',
+        );
+        print(
+          'CCU Debug: Rectifier items after enhancement: $enhancedRectifierItems',
         );
         allItemsToPost.addAll(enhancedRectifierItems);
       }
 
       // Add saved MPPT items
       if (savedMPPTItems.isNotEmpty) {
+        print('CCU Debug: MPPT items before enhancement: $savedMPPTItems');
         final enhancedMPPTItems = AssetAuditPostHelper.enhanceSavedItems(
           savedItems: savedMPPTItems,
           screenName: 'CCU MPPT',
         );
+        print('CCU Debug: MPPT items after enhancement: $enhancedMPPTItems');
         allItemsToPost.addAll(enhancedMPPTItems);
       }
 
       // Add saved Cabinet items
       if (savedCabinetItems.isNotEmpty) {
+        print(
+          'CCU Debug: Cabinet items before enhancement: $savedCabinetItems',
+        );
         final enhancedCabinetItems = AssetAuditPostHelper.enhanceSavedItems(
           savedItems: savedCabinetItems,
           screenName: 'CCU Cabinet',
+        );
+        print(
+          'CCU Debug: Cabinet items after enhancement: $enhancedCabinetItems',
         );
         allItemsToPost.addAll(enhancedCabinetItems);
       }
@@ -1143,6 +1417,7 @@ class _CCUScreenState extends State<CCUScreen> {
       }
 
       // Convert to POST request format
+      print('CCU Debug: All items to post before conversion: $allItemsToPost');
       final requests =
           await AssetAuditPostHelper.convertSavedItemsToPostRequest(
             savedItems: allItemsToPost,
@@ -1154,6 +1429,7 @@ class _CCUScreenState extends State<CCUScreen> {
             auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
                 .toString(),
           );
+      print('CCU Debug: Final POST request data: $requests');
 
       if (requests.isEmpty) {
         return false;
@@ -1164,12 +1440,20 @@ class _CCUScreenState extends State<CCUScreen> {
         _hasPostedCCUData = true;
       });
 
+      print('CCU Debug: Posting data to API - ${requests.length} requests');
+      print(
+        'CCU Debug: Request data: ${requests.map((r) => r.toJson()).toList()}',
+      );
+
       // Use the existing cubit to post data
       context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
+
+      print('CCU Debug: API call initiated successfully');
 
       // Return true to indicate data is being posted
       return true;
     } catch (e) {
+      print('CCU Debug: Error posting data to API: $e');
       return false;
     }
   }
@@ -1186,21 +1470,21 @@ class _CCUScreenState extends State<CCUScreen> {
       return false;
     }
 
-    // Validate each saved item
+    // Validate each saved item - only check photoId, not photo (which is null for API items)
     for (var item in savedRectifierItems) {
-      if (item['photo'] == null || item['photoId'] == null) {
+      if (item['photoId'] == null) {
         return false;
       }
     }
 
     for (var item in savedMPPTItems) {
-      if (item['photo'] == null || item['photoId'] == null) {
+      if (item['photoId'] == null) {
         return false;
       }
     }
 
     for (var item in savedCabinetItems) {
-      if (item['photo'] == null || item['photoId'] == null) {
+      if (item['photoId'] == null) {
         return false;
       }
     }
@@ -1218,14 +1502,10 @@ class _CCUScreenState extends State<CCUScreen> {
       return '${serialNumber.substring(0, 8)}...${serialNumber.substring(serialNumber.length - 8)}';
     }
 
-      return serialNumber;
+    return serialNumber;
   }
 
   void _editMPPTItem(Map<String, dynamic> item) {
-    if (!_hasDataToShow()) {
-      return;
-    }
-
     setState(() {
       // Load the item data back into the form
       mpptSerialNumber = item["serialNumber"];
@@ -1248,15 +1528,11 @@ class _CCUScreenState extends State<CCUScreen> {
     // Show message to user
     showCustomToast(
       context,
-      'MPPT item loaded for editing. Make changes and save again.',
+      '✅ MPPT item loaded for editing. Update the fields and save.',
     );
   }
 
   void _editCabinetItem(Map<String, dynamic> item) {
-    if (!_hasDataToShow()) {
-      return;
-    }
-
     setState(() {
       // Load the item data back into the form
       uploadedPhotoPath = item["photo"];
@@ -1273,15 +1549,11 @@ class _CCUScreenState extends State<CCUScreen> {
     // Show message to user
     showCustomToast(
       context,
-      'Cabinet item loaded for editing. Make changes and save again.',
+      '✅ Cabinet item loaded for editing. Update the fields and save.',
     );
   }
 
   void _editRectifierItem(Map<String, dynamic> item) {
-    if (!_hasDataToShow()) {
-      return;
-    }
-
     setState(() {
       // Load the item data back into the form
       rectifierSerialNumber = item["serialNumber"];
@@ -1304,7 +1576,7 @@ class _CCUScreenState extends State<CCUScreen> {
     // Show message to user
     showCustomToast(
       context,
-      'Rectifier item loaded for editing. Make changes and save again.',
+      '✅ Rectifier item loaded for editing. Update the fields and save.',
     );
   }
 
@@ -1344,8 +1616,18 @@ class _CCUScreenState extends State<CCUScreen> {
         savedMPPTItems.isNotEmpty ||
         savedCabinetItems.isNotEmpty;
 
-    // Check if we have any items to scan
-    bool hasItemsToScan = totalRectifierItems > 0 || totalMPPTItems > 0;
+    // Check if we have any items to scan - use completed items count
+    int completedRectifierCount =
+        widget.ccuData?.ccuRectifiers
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    int completedMPPTCount =
+        widget.ccuData?.ccuMppt
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
+    bool hasItemsToScan = completedRectifierCount > 0 || completedMPPTCount > 0;
 
     // If no items to scan, allow navigation
     if (!hasItemsToScan) {
@@ -1388,76 +1670,84 @@ class _CCUScreenState extends State<CCUScreen> {
       savedCabinetItems.clear();
       currentScannedItems = 0;
 
-      // Load CCU Rectifiers
+      // Load CCU Rectifiers - only add items that have both photo_id and asset_status
       final rectifierItems = freshCCUData.ccuRectifiers ?? [];
       for (var item in rectifierItems) {
-        Map<String, dynamic> savedItem = {
-          'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-          'photo': null,
-          'photoId': item.photoId,
-          'status': item.assetStatus ?? 'Unknown',
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': item.qrCodeScanned ?? false,
-          'itemType': item.itemType ?? 'Unknown',
-          'remarks': item.itemTypeRemark ?? 'CCU Rectifier Item',
-          'assetStatus': item.assetStatus,
-          'assetAuditSiteRespId': item.assetAuditSiteRespId,
+        // Only add items that have both photo_id and asset_status
+        if (item.photoId != null && item.assetStatus != null) {
+          Map<String, dynamic> savedItem = {
+            'serialNumber':
+                item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+            'photo': null,
+            'photoId': item.photoId,
+            'status': item.assetStatus ?? 'Unknown',
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': item.qrCodeScanned ?? false,
+            'itemType': item.itemType ?? 'Unknown',
+            'remarks': item.itemTypeRemark ?? 'CCU Rectifier Item',
+            'assetStatus': item.assetStatus,
+            'assetAuditSiteRespId': item.assetAuditSiteRespId,
 
-          // Full API response details
-          'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-          'site_audit_sch_id': item.siteAuditSchId,
-          'item_instance_id': item.itemInstanceId,
-          'oem_name': item.oemName,
-          'nexgen_serial_no': item.nexgenSerialNo,
-          'mfg_serial_no': item.mfgSerialNo,
-          'qr_code_scanned': item.qrCodeScanned ?? false,
-          'qr_code_scanned_ts': item.qrCodeScannedTs,
-          'image_name': item.imageName,
-          'longitude': item.longitude,
-          'latitude': item.latitude,
-          'capacity': item.capacity,
-          'item_type_group': item.itemTypeGroup,
-          'record_type': item.recordType,
-          'item_type_remark': item.itemTypeRemark,
-        };
-        savedRectifierItems.add(savedItem);
-        currentScannedItems++;
+            // Full API response details
+            'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+            'site_audit_sch_id': item.siteAuditSchId,
+            'item_instance_id': item.itemInstanceId,
+            'oem_name': item.oemName,
+            'nexgen_serial_no': item.nexgenSerialNo,
+            'mfg_serial_no': item.mfgSerialNo,
+            'qr_code_scanned': item.qrCodeScanned ?? false,
+            'qr_code_scanned_ts': item.qrCodeScannedTs,
+            'image_name': item.imageName,
+            'longitude': item.longitude,
+            'latitude': item.latitude,
+            'capacity': item.capacity,
+            'item_type_group': item.itemTypeGroup,
+            'record_type': item.recordType,
+            'item_type_remark': item.itemTypeRemark,
+          };
+          savedRectifierItems.add(savedItem);
+          currentScannedItems++;
+        }
       }
 
-      // Load CCU MPPT
+      // Load CCU MPPT - only add items that have both photo_id and asset_status
       final mpptItems = freshCCUData.ccuMppt ?? [];
       for (var item in mpptItems) {
-        Map<String, dynamic> savedItem = {
-          'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-          'photo': null,
-          'photoId': item.photoId,
-          'status': item.assetStatus ?? 'Unknown',
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': item.qrCodeScanned ?? false,
-          'itemType': item.itemType ?? 'Unknown',
-          'remarks': item.itemTypeRemark ?? 'CCU MPPT Item',
-          'assetStatus': item.assetStatus,
-          'assetAuditSiteRespId': item.assetAuditSiteRespId,
+        // Only add items that have both photo_id and asset_status
+        if (item.photoId != null && item.assetStatus != null) {
+          Map<String, dynamic> savedItem = {
+            'serialNumber':
+                item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+            'photo': null,
+            'photoId': item.photoId,
+            'status': item.assetStatus ?? 'Unknown',
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': item.qrCodeScanned ?? false,
+            'itemType': item.itemType ?? 'Unknown',
+            'remarks': item.itemTypeRemark ?? 'CCU MPPT Item',
+            'assetStatus': item.assetStatus,
+            'assetAuditSiteRespId': item.assetAuditSiteRespId,
 
-          // Full API response details
-          'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-          'site_audit_sch_id': item.siteAuditSchId,
-          'item_instance_id': item.itemInstanceId,
-          'oem_name': item.oemName,
-          'nexgen_serial_no': item.nexgenSerialNo,
-          'mfg_serial_no': item.mfgSerialNo,
-          'qr_code_scanned': item.qrCodeScanned ?? false,
-          'qr_code_scanned_ts': item.qrCodeScannedTs,
-          'image_name': item.imageName,
-          'longitude': item.longitude,
-          'latitude': item.latitude,
-          'capacity': item.capacity,
-          'item_type_group': item.itemTypeGroup,
-          'record_type': item.recordType,
-          'item_type_remark': item.itemTypeRemark,
-        };
-        savedMPPTItems.add(savedItem);
-        currentScannedItems++;
+            // Full API response details
+            'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+            'site_audit_sch_id': item.siteAuditSchId,
+            'item_instance_id': item.itemInstanceId,
+            'oem_name': item.oemName,
+            'nexgen_serial_no': item.nexgenSerialNo,
+            'mfg_serial_no': item.mfgSerialNo,
+            'qr_code_scanned': item.qrCodeScanned ?? false,
+            'qr_code_scanned_ts': item.qrCodeScannedTs,
+            'image_name': item.imageName,
+            'longitude': item.longitude,
+            'latitude': item.latitude,
+            'capacity': item.capacity,
+            'item_type_group': item.itemTypeGroup,
+            'record_type': item.recordType,
+            'item_type_remark': item.itemTypeRemark,
+          };
+          savedMPPTItems.add(savedItem);
+          currentScannedItems++;
+        }
       }
 
       // Load CCU Cabinet
@@ -1542,9 +1832,9 @@ class _CCUScreenState extends State<CCUScreen> {
         }
       }
 
-      // Update counts based on fresh data
-      totalRectifierItems = savedRectifierItems.length;
-      totalMPPTItems = savedMPPTItems.length;
+      // Update counts based on fresh data - use backend count, not filtered count
+      // totalRectifierItems and totalMPPTItems should remain as backend counts
+      // The filtering only affects display, not the total available items
 
       // Process fresh remarks data
       final remarks = freshCCUData.remarks;
@@ -1666,35 +1956,8 @@ class _CCUScreenState extends State<CCUScreen> {
           ),
           getHeight(10),
 
-          // Debug information
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Saved Items: ${savedRectifierItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalRectifierItems',
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           if (savedRectifierItems.isNotEmpty)
-            ...savedRectifierItems
+            ..._getItemsWithPhotoAndStatus(savedRectifierItems)
                 .map(
                   (item) => Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
@@ -1776,6 +2039,7 @@ class _CCUScreenState extends State<CCUScreen> {
                 .toList(),
         ],
       ),
+
     );
   }
 
@@ -1877,40 +2141,12 @@ class _CCUScreenState extends State<CCUScreen> {
                   ),
                 ),
               ),
-
             ],
           ),
           getHeight(10),
 
-          // Debug information
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Saved Items: ${savedMPPTItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalMPPTItems',
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
           if (savedMPPTItems.isNotEmpty)
-            ...savedMPPTItems
+            ..._getItemsWithPhotoAndStatus(savedMPPTItems)
                 .map(
                   (item) => Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
@@ -1998,17 +2234,16 @@ class _CCUScreenState extends State<CCUScreen> {
   }
 
   Widget _buildCabinetSavedItemsList() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.green7,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Row(
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.green7,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: Column(
+        children: [
+          Row(
             children: [
               Expanded(
                 child: Container(
@@ -2065,7 +2300,7 @@ class _CCUScreenState extends State<CCUScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: const Text(
-                    "Capacity",
+                    "Status",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -2082,7 +2317,7 @@ class _CCUScreenState extends State<CCUScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: const Text(
-                    "Status",
+                    "Edit",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Colors.white,
@@ -2094,745 +2329,1112 @@ class _CCUScreenState extends State<CCUScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              ),
-              const SizedBox(width: 50), // Space for Edit button
+              ), // Space for Edit button
             ],
           ),
-        ),
-
-        // Debug information
-        Container(
-          padding: const EdgeInsets.all(8),
-          margin: const EdgeInsets.only(bottom: 10),
-          decoration: BoxDecoration(
-            color: Colors.blue.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(5),
-            border: Border.all(color: Colors.blue.withOpacity(0.3)),
-          ),
-          child: Row(
-            children: [
-              const Icon(Icons.info_outline, color: Colors.blue, size: 16),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Saved Items: ${savedCabinetItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalCabinetItems',
-                  style: const TextStyle(
-                    color: Colors.blue,
-                    fontSize: 12,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        if (savedCabinetItems.isNotEmpty)
-          ...savedCabinetItems
-              .map(
-                (item) => Container(
-                  margin: const EdgeInsets.symmetric(vertical: 5),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(5),
-                    border: Border.all(color: AppColors.greyColor),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            item['serialNumber'] ?? 'N/A',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
+          if (savedCabinetItems.isNotEmpty)
+            ..._getItemsWithPhotoAndStatus(savedCabinetItems)
+                .map(
+                  (item) => Container(
+                    margin: EdgeInsets.only(top: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(5),
+                      // border: Border.all(color: AppColors.greyColor),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item['serialNumber'] ?? 'N/A',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Icon(
-                            item['isQRCodeScanned'] == true
-                                ? Icons.check
-                                : Icons.close,
-                            color: item['isQRCodeScanned'] == true
-                                ? Colors.green
-                                : Colors.red,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: _buildPhotoColumn(item),
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            item['capacity'] ?? 'N/A',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              item['isQRCodeScanned'] == true
+                                  ? Icons.check
+                                  : Icons.close,
+                              color: item['isQRCodeScanned'] == true
+                                  ? Colors.green
+                                  : Colors.red,
+                              size: 20,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Text(
-                            item['status'] ?? 'N/A',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: Colors.black,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: _buildPhotoColumn(item),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item['status'] ?? 'N/A',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                      SizedBox(
-                        width: 50,
-                        child: IconButton(
-                          onPressed: () => _editSavedItem(item, 'cabinet'),
-                          icon: const Icon(
-                            Icons.edit,
-                            color: AppColors.blue,
-                            size: 20,
+                        SizedBox(
+                          width: 50,
+                          child: IconButton(
+                            onPressed: () => _editSavedItem(item, 'cabinet'),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: AppColors.blue,
+                              size: 20,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              )
-              .toList(),
-      ],
+                )
+                .toList(),
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<AssetAuditCubit, AssetAuditState>(
+    return BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
       listener: (context, state) {
-        if (state is AssetAuditLoaded) {
-          // Update the local data with fresh data from API
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _updateLocalDataWithFreshData(state);
-            }
-          });
-        } else if (state is AssetAuditPostSuccess) {
-          // Check if this success state contains CCU-related items
-          bool isCCUData = false;
-          for (var response in state.responses) {
-            // Primary check: itemTypeRemark contains CCU-related text
-            if (response.itemTypeRemark != null &&
-                (response.itemTypeRemark!.contains('CCU') ||
-                    response.itemTypeRemark!.contains('Cabinet') ||
-                    response.itemTypeRemark!.contains('Rectifier') ||
-                    response.itemTypeRemark!.contains('MPPT'))) {
-              isCCUData = true;
-              break;
+        if (state is AssetAuditGetImageSuccess &&
+            _isRequestingImage &&
+            _currentRequestedImageId != null) {
+          final imageData = state.imageData;
+          if (imageData.isNotEmpty) {
+            // Store in cache
+            _imageCache[_currentRequestedImageId!] = imageData;
+
+            // Set the image data for the appropriate form
+            if (_currentRequestedImageId == rectifierPhotoId?.toString()) {
+              setState(() {
+                rectifierPhoto = imageData;
+              });
+            } else if (_currentRequestedImageId == mpptPhotoId?.toString()) {
+              setState(() {
+                mpptPhoto = imageData;
+              });
+            } else if (_currentRequestedImageId == cabinetPhotoId?.toString()) {
+              setState(() {
+                cabinetPhoto = imageData;
+              });
             }
 
-            // Fallback check: Check if this is a response to CCU screen data by looking at the flag
-            if (_hasPostedCCUData) {
-              isCCUData = true;
-              break;
-            }
+            // Image loaded successfully - no need to show dialog automatically
           }
 
-          if (isCCUData) {
-            _navigateToBatteryScreen();
-            _hasPostedCCUData = false;
-          }
-        } else if (state is AssetAuditPostError) {
-          // Only show error message if this error belongs to CCU screen data
-          if (_hasPostedCCUData) {
-          // Show error message and block navigation
-          showCustomToast(
-            context,
-            '❌ Failed to save CCU data. Please try again.',
-          );
-
-            // Reset the flag on error
-            setState(() {
-              _hasPostedCCUData = false;
-            });
-          }
+          // Reset flags
+          _isRequestingImage = false;
+          _currentRequestedImageId = null;
+        } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
+          _isRequestingImage = false;
+          _currentRequestedImageId = null;
         }
       },
-      builder: (context, state) {
-        return PopScope(
-        canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          if (didPop) return;
+      child: BlocConsumer<AssetAuditCubit, AssetAuditState>(
+        listener: (context, state) {
+          if (state is AssetAuditLoaded) {
+            // Update the local data with fresh data from API
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _updateLocalDataWithFreshData(state);
+              }
+            });
+          } else if (state is AssetAuditPostSuccess) {
+            // Check if this success state contains CCU-related items
+            bool isCCUData = false;
+            for (var response in state.responses) {
+              // Primary check: itemTypeRemark contains CCU-related text
+              if (response.itemTypeRemark != null &&
+                  (response.itemTypeRemark!.contains('CCU') ||
+                      response.itemTypeRemark!.contains('Cabinet') ||
+                      response.itemTypeRemark!.contains('Rectifier') ||
+                      response.itemTypeRemark!.contains('MPPT'))) {
+                isCCUData = true;
+                break;
+              }
 
-          if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message:
-                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                onSaveAndExit: () {
-                  _saveAndExit();
-                },
-                onDiscard: () {
-                    Navigator.pop(context);
-                },
-              ),
-            );
+              // Fallback check: Check if this is a response to CCU screen data by looking at the flag
+              if (_hasPostedCCUData) {
+                isCCUData = true;
+                break;
+              }
+            }
+
+            if (isCCUData) {
+              // Don't navigate here if we're using _postDataAndNavigate
+              // The navigation is already handled in _postDataAndNavigate
+              _hasPostedCCUData = false;
+
+              // Refresh data from API to show updated items
+              if (mounted) {
+                print(
+                  'CCU Debug: Refreshing data after successful API posting',
+                );
+                context.read<AssetAuditCubit>().getAssetAuditData(
+                  siteType:
+                      widget.assetAuditData?.pageHeader.first.siteDomainName ??
+                      "",
+                  auditSchId:
+                      widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                          .toString() ??
+                      "",
+                  siteAuditSchId:
+                      widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                          .toString() ??
+                      "",
+                );
+              }
+            }
+          } else if (state is AssetAuditPostError) {
+            // Only show error message if this error belongs to CCU screen data
+            if (_hasPostedCCUData) {
+              // Show error message and block navigation
+              showCustomToast(
+                context,
+                '❌ Failed to save CCU data. Please try again.',
+              );
+
+              // Reset the flag on error
+              setState(() {
+                _hasPostedCCUData = false;
+              });
+            }
           }
         },
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          resizeToAvoidBottomInset: false,
-          appBar: CustomFormAppbar(
-            title: "Asset Audit",
-            onClose: () async {
-              if (hasUnsavedChanges) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message:
-                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
-                    },
-                    onDiscard: () {
-                        Navigator.pop(context);
-                    },
-                  ),
+        builder: (context, state) {
+          return BlocListener<AssetAuditCubit, AssetAuditState>(
+            listener: (context, state) {
+              if (state is AssetAuditPostSuccess) {
+                print('CCU Debug: Data refreshed successfully from API');
+                // Update the widget with new data
+                setState(() {
+                  // The widget will rebuild with updated data
+                });
+              } else if (state is AssetAuditError) {
+                print(
+                  'CCU Debug: Error refreshing data from API: ${state.message}',
                 );
-              } else {
-                Navigator.pop(context);
               }
             },
-          ),
-          body: Stack(
-            children: [
-              // Background image
-              Positioned.fill(
-                child: SvgPicture.asset(
-                  AppImages.home,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
-                ),
-              ),
-              SafeArea(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.only(
-                            bottom:
-                                  MediaQuery.of(context).viewInsets.bottom +
-                                  120,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              left: 16,
-                              right: 16,
-                              bottom: 20,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (!_hasDataToShow()) ...[
-                                  Container(
-                                    width: double.infinity,
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.3),
-                                        borderRadius: BorderRadius.circular(8),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.2),
-                                        ),
-                                      ),
-                                      child: const Column(
-                                      children: [
-                                        Icon(
-                                          Icons.info_outline,
-                                            color: Colors.white,
-                                            size: 48,
-                                        ),
-                                          SizedBox(height: 16),
-                                        Text(
-                                            'No CCU Data Available',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                          SizedBox(height: 8),
-                                        Text(
-                                            'This screen will be skipped as there is no CCU data to audit.',
-                                          textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ] else ...[
-                                  CustomFormField(
-                                    label: "Hybrid CCU Make ",
-                                    initialValue: _getCCUOEMName(),
-                                    isRequired: false,
-                                    isEditable: false,
-                                  ),
-                                  getHeight(15),
-                                  SerialNumberField(
-                                    label: "Cabinet Serial Number",
-                                    controller: serialController,
-                                  ),
-                                  getHeight(15),
-                                  ImageUploadField(
-                                    label: "Add a Selfie",
-                                    placeholder: "Selfie",
-                                    isRequired: true,
-                                    onImageSelected: (file) async {
-                                      if (file != null) {
-                                        setState(() {
-                                          uploadedPhotoPath = file.path;
-                                          hasUnsavedChanges = true;
-                                        });
+            child: PopScope(
+              canPop: !hasUnsavedChanges,
+              onPopInvoked: (didPop) async {
+                if (didPop) return;
 
-                                        // Upload photo immediately and get photoId for Cabinet
-                                        try {
-                                          final photoFile = File(file.path);
-                                          if (await photoFile.exists()) {
-                                            final photoId =
-                                                await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                                  photoFile: photoFile,
-                                                  schId:
-                                                      widget
-                                                          .assetAuditData
-                                                          ?.pageHeader
-                                                          .first
-                                                          .siteAuditSchId
-                                                          .toString() ??
-                                                      "0",
-                                                  imgId: null,
-                                                  context: context,
-                                                );
-
-                                            if (photoId != null) {
-                                              setState(() {
-                                                cabinetPhotoId =
-                                                    photoId; // Store the photoId for Cabinet
-                                              });
-
-                                              // Automatically save cabinet item when photo is uploaded
-                                              _autoSaveCabinetItem();
-                                            }
-                                          }
-                                        } catch (e) {
-                                            // Handle error silently
-                                        }
-                                      } else {
-                                        setState(() {
-                                          uploadedPhotoPath = null;
-                                          cabinetPhotoId = null;
-                                        });
-                                      }
-                                    },
-                                  ),
-                                  getHeight(15),
-                                  CustomFormField(
-                                    label: "Total Count of Rectifier ",
-                                    initialValue: totalRectifierItems
-                                        .toString(),
-                                    isRequired: true,
-                                    isEditable: true,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        totalRectifierItems =
-                                            int.tryParse(value) ?? 6;
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                  ),
-                                  getHeight(15),
-                                  Text(
-                                    "Rectifiers Details",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white,
-                                      fontFamily: fontFamilyMontserrat,
-                                    ),
-                                  ),
-                                  getHeight(3),
-                                  CustomInfoCard(
-                                    key: ValueKey(
-                                      'rectifier_$rectifierCardKey',
-                                    ),
-                                    serialLabel: "Rectifier - Serial Number",
-                                    serialHintText: "Rectifier Serial Number",
-                                    photoLabel: "Add a Photo",
-                                    statusLabel: "Status",
-                                      serialController:
-                                          rectifierSerialController,
-                                    onSave: _saveRectifierForm,
-                                    isStatusEditable: true,
-                                    backendStatus: false,
-                                    onPhotoTap: (photoPath) async {
-                                      setState(() {
-                                        rectifierPhoto = photoPath;
-                                        hasUnsavedChanges = true;
-                                      });
-
-                                      // Upload photo immediately and get photoId
-                                      if (photoPath != null &&
-                                          photoPath.isNotEmpty) {
-                                        try {
-                                          final photoFile = File(photoPath);
-                                          if (await photoFile.exists()) {
-                                            final photoId =
-                                                await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                                  photoFile: photoFile,
-                                                  schId:
-                                                      widget
-                                                          .assetAuditData
-                                                          ?.pageHeader
-                                                          .first
-                                                          .siteAuditSchId
-                                                          .toString() ??
-                                                      "0",
-                                                  imgId: null,
-                                                  context: context,
-                                                );
-
-                                            if (photoId != null) {
-                                              setState(() {
-                                                rectifierPhotoId = photoId;
-                                              });
-                                            }
-                                          }
-                                        } catch (e) {
-                                            // Handle error silently
-                                        }
-                                      }
-                                    },
-                                    onStatusChanged: (val) {
-                                      setState(() {
-                                          rectifierStatus = val
-                                              ? "OK"
-                                              : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                    onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        rectifierSerialNumber = serialNumber;
-                                        hasUnsavedChanges = true;
-                                      });
-
-                                      // Validate serial number if not empty
-                                      if (serialNumber.isNotEmpty) {
-                                        final isValid = _validateSerialNumber(
-                                          serialNumber,
-                                          false,
-                                        );
-                                        if (isValid) {
-                                          // Serial number is valid, keep it
-                                        } else {
-                                          // Serial number is invalid, clear it
-                                          setState(() {
-                                            rectifierSerialNumber = null;
-                                            hasUnsavedChanges = false;
-                                          });
-                                        }
-                                      }
-                                    },
-                                    initialStatus: rectifierStatus == "OK"
-                                        ? true
-                                        : (rectifierStatus == "Not OK"
-                                              ? false
-                                              : null),
-                                    initialPhotoPath: rectifierPhoto,
-                                    isEditable: true,
-                                  ),
-
-                                  getHeight(8),
-                                  // Rectifier saved items section
-                                  _buildRectifierSavedItemsList(),
-                                  getHeight(15),
-                                  CustomFormField(
-                                    label: "Total Count of MPPT",
-                                    initialValue: totalMPPTItems.toString(),
-                                    isRequired: true,
-                                    isEditable: true,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        totalMPPTItems =
-                                            int.tryParse(value) ?? 6;
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                  ),
-                                  getHeight(15),
-                                  Text(
-                                    "MPPT Details",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white,
-                                      fontFamily: fontFamilyMontserrat,
-                                    ),
-                                  ),
-                                  getHeight(3),
-                                  CustomInfoCard(
-                                    key: ValueKey('mppt_$mpptCardKey'),
-                                    serialLabel: "MPPT - Serial Number *",
-                                    serialHintText: "MPPT Serial Number",
-                                    photoLabel: "Add a Photo",
-                                    statusLabel: "Status",
-                                    serialController: mpptSerialController,
-                                    onSave: _saveMPPTForm,
-                                    isStatusEditable: true,
-                                    backendStatus: false,
-                                    remarksLabel: "Capacity",
-                                    remarksHintText: "Eg:200",
-                                    remarksController: capacityController,
-                                    isRemarksEditable: false,
-                                    onPhotoTap: (photoPath) async {
-                                      setState(() {
-                                        mpptPhoto = photoPath;
-                                        hasUnsavedChanges = true;
-                                      });
-
-                                      // Upload photo immediately and get photoId
-                                      if (photoPath != null &&
-                                          photoPath.isNotEmpty) {
-                                        try {
-                                          final photoFile = File(photoPath);
-                                          if (await photoFile.exists()) {
-                                            final photoId =
-                                                await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                                  photoFile: photoFile,
-                                                  schId:
-                                                      widget
-                                                          .assetAuditData
-                                                          ?.pageHeader
-                                                          .first
-                                                          .siteAuditSchId
-                                                          .toString() ??
-                                                      "0",
-                                                  imgId: null,
-                                                  context: context,
-                                                );
-
-                                            if (photoId != null) {
-                                              setState(() {
-                                                mpptPhotoId = photoId;
-                                              });
-                                            }
-                                          }
-                                        } catch (e) {
-                                            // Handle error silently
-                                        }
-                                      }
-                                    },
-                                    onStatusChanged: (val) {
-                                      setState(() {
-                                        mpptStatus = val ? "OK" : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                    onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        mpptSerialNumber = serialNumber;
-                                        hasUnsavedChanges = true;
-                                      });
-
-                                      if (serialNumber.isNotEmpty) {
-                                        final isValid = _validateSerialNumber(
-                                          serialNumber,
-                                          false,
-                                        );
-                                        if (isValid) {
-                                          // Serial number is valid, keep it
-                                        } else {
-                                          // Serial number is invalid, clear it
-                                          setState(() {
-                                            mpptSerialNumber = null;
-                                            hasUnsavedChanges = false;
-                                          });
-                                        }
-                                      }
-                                    },
-                                    initialStatus: mpptStatus == "OK"
-                                        ? true
-                                        : (mpptStatus == "Not OK"
-                                              ? false
-                                              : null),
-                                    initialPhotoPath: mpptPhoto,
-                                    isEditable: true,
-                                  ),
-
-                                  getHeight(8),
-                                  _buildMPPTSavedItemsList(),
-                                  getHeight(15),
-                                  CustomRemarksField(
-                                    label: "Add Remarks",
-                                    hintText: "Remarks",
-                                    controller: remarksController,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
+                if (hasUnsavedChanges) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => UnsavedChangesDialog(
+                      message:
+                          "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                      onSaveAndExit: () {
+                        _saveAndExit();
+                      },
+                      onDiscard: () {
+                        Navigator.pop(context);
+                      },
+                    ),
+                  );
+                }
+              },
+              child: Scaffold(
+                extendBodyBehindAppBar: true,
+                resizeToAvoidBottomInset: false,
+                appBar: CustomFormAppbar(
+                  title: "Asset Audit",
+                  onClose: () async {
+                    if (hasUnsavedChanges) {
+                      showDialog(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (context) => UnsavedChangesDialog(
+                          message:
+                              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                          onSaveAndExit: () {
+                            _saveAndExit();
+                          },
+                          onDiscard: () {
+                            Navigator.pop(context);
+                          },
                         ),
-                      ),
-
-                      Container(
-                        padding: const EdgeInsets.all(16),
+                      );
+                    } else {
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+                body: Stack(
+                  children: [
+                    // Background image
+                    Positioned.fill(
+                      child: SvgPicture.asset(
+                        AppImages.home,
+                        fit: BoxFit.cover,
                         width: double.infinity,
-                        child: Row(
+                        height: double.infinity,
+                      ),
+                    ),
+                    SafeArea(
+                      child: Form(
+                        key: _formKey,
+                        child: Column(
                           children: [
                             Expanded(
-                              child: ArrowButton(
-                                text: "Back",
-                                isLeftArrow: true,
-                                backgroundColor: AppColors.buttonColorBg,
-                                textColor: AppColors.buttonColorSite,
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
+                              child: SingleChildScrollView(
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      MediaQuery.of(context).viewInsets.bottom +
+                                      120,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.only(
+                                    top: 20,
+                                    left: 16,
+                                    right: 16,
+                                    bottom: 20,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (!_hasDataToShow()) ...[
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.all(20),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(
+                                              0.3,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(
+                                                0.2,
+                                              ),
+                                            ),
+                                          ),
+                                          child: const Column(
+                                            children: [
+                                              Icon(
+                                                Icons.info_outline,
+                                                color: Colors.white,
+                                                size: 48,
+                                              ),
+                                              SizedBox(height: 16),
+                                              Text(
+                                                'No CCU Data Available',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              SizedBox(height: 8),
+                                              Text(
+                                                'This screen will be skipped as there is no CCU data to audit.',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  color: Colors.white70,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        CustomFormField(
+                                          label: "Hybrid CCU Make ",
+                                          initialValue:
+                                              widget
+                                                  .assetAuditData!
+                                                  .responseData
+                                                  .ccu
+                                                  ?.ccuCabinet
+                                                  ?.first
+                                                  .oemName ??
+                                              'N/A',
+                                          isRequired: false,
+                                          isEditable: false,
+                                        ),
+                                        getHeight(15),
+                                        
+                                        CustomInfoCard(
+                                          key: ValueKey(
+                                            'cabinet_${cabinetCardKey}',
+                                          ),
+                                          serialLabel:
+                                              "Cabinet - Serial Number *",
+                                          serialHintText:
+                                              "Cabinet Serial Number",
+                                          photoLabel: "Add a Photo",
+                                          statusLabel: "Status",
+                                          serialController:
+                                              cabinetSerialController,
+                                          onSave: _saveCabinetForm,
+                                          isStatusEditable: true,
+                                          backendStatus: false,
+                                          // remarksLabel: "Capacity",
+                                          // remarksHintText: "Eg:200",
+                                          // remarksController: capacityController,
+                                          isRemarksEditable: false,
+                                          onPhotoTap: (photoPath) async {
+                                            setState(() {
+                                              cabinetPhoto = photoPath;
+                                              hasUnsavedChanges = true;
+                                            });
+
+                                            // Upload photo immediately and get photoId
+                                            if (photoPath != null &&
+                                                photoPath.isNotEmpty) {
+                                              try {
+                                                final photoFile = File(
+                                                  photoPath,
+                                                );
+                                                if (await photoFile.exists()) {
+                                                  final photoId =
+                                                      await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
+                                                        photoFile: photoFile,
+                                                        schId:
+                                                            widget
+                                                                .assetAuditData
+                                                                ?.pageHeader
+                                                                .first
+                                                                .siteAuditSchId
+                                                                .toString() ??
+                                                            "0",
+                                                        imgId: null,
+                                                        context: context,
+                                                      );
+
+                                                  if (photoId != null) {
+                                                    print(
+                                                      'CCU Debug: Photo uploaded successfully for cabinet, photoId: $photoId',
+                                                    );
+                                                    setState(() {
+                                                      cabinetPhotoId = photoId;
+                                                    });
+                                                    print(
+                                                      'CCU Debug: cabinetPhotoId set to: $cabinetPhotoId',
+                                                    );
+                                                  } else {
+                                                    print(
+                                                      'CCU Debug: Photo upload failed for cabinet - photoId is null',
+                                                    );
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                print(
+                                                  'CCU Debug: Error uploading cabinet photo: $e',
+                                                );
+                                                // Handle error silently
+                                              }
+                                            }
+                                          },
+                                          onStatusChanged: (val) {
+                                            setState(() {
+                                              cabinetStatus = val
+                                                  ? "OK"
+                                                  : "Not OK";
+                                              hasUnsavedChanges = true;
+                                            });
+                                          },
+                                          onSerialChanged: (serialNumber) {
+                                            setState(() {
+                                              cabinetSerialNumber =
+                                                  serialNumber;
+                                              hasUnsavedChanges = true;
+                                            });
+
+                                            if (serialNumber.isNotEmpty) {
+                                              final isValid =
+                                                  _validateSerialNumber(
+                                                    serialNumber,
+                                                    false,
+                                                  );
+                                              if (isValid) {
+                                                // Serial number is valid, keep it
+                                              } else {
+                                                // Serial number is invalid, clear it
+                                                setState(() {
+                                                  cabinetSerialNumber = null;
+                                                  hasUnsavedChanges = false;
+                                                });
+                                              }
+                                            }
+                                          },
+                                          initialStatus: cabinetStatus == "OK"
+                                              ? true
+                                              : (cabinetStatus == "Not OK"
+                                                    ? false
+                                                    : null),
+                                          initialPhotoPath: cabinetPhoto,
+                                          isEditable: true,
+                                        ),
+
+                                        getHeight(8),
+                                        _buildCabinetSavedItemsList(),
+                                        // SerialNumberField(
+                                        //   label: "Cabinet Serial Number",
+                                        //   controller: serialController,
+                                        // ),
+                                        // getHeight(15),
+                                        // ImageUploadField(
+                                        //   label: "Add a Selfie",
+                                        //   placeholder: "Selfie",
+                                        //   isRequired: true,
+                                        //   onImageSelected: (file) async {
+                                        //     if (file != null) {
+                                        //       setState(() {
+                                        //         uploadedPhotoPath = file.path;
+                                        //         hasUnsavedChanges = true;
+                                        //       });
+                                        //
+                                        //       // Upload photo immediately and get photoId for Cabinet
+                                        //       try {
+                                        //         final photoFile = File(file.path);
+                                        //         if (await photoFile.exists()) {
+                                        //           final photoId =
+                                        //               await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
+                                        //                 photoFile: photoFile,
+                                        //                 schId:
+                                        //                     widget
+                                        //                         .assetAuditData
+                                        //                         ?.pageHeader
+                                        //                         .first
+                                        //                         .siteAuditSchId
+                                        //                         .toString() ??
+                                        //                     "0",
+                                        //                 imgId: null,
+                                        //                 context: context,
+                                        //               );
+                                        //
+                                        //           if (photoId != null) {
+                                        //             setState(() {
+                                        //               cabinetPhotoId =
+                                        //                   photoId; // Store the photoId for Cabinet
+                                        //             });
+                                        //
+                                        //             // Automatically save cabinet item when photo is uploaded
+                                        //             _autoSaveCabinetItem();
+                                        //           }
+                                        //         }
+                                        //       } catch (e) {
+                                        //           // Handle error silently
+                                        //       }
+                                        //     } else {
+                                        //       setState(() {
+                                        //         uploadedPhotoPath = null;
+                                        //         cabinetPhotoId = null;
+                                        //       });
+                                        //     }
+                                        //   },
+                                        // ),
+                                        getHeight(15),
+                                        CustomFormField(
+                                          label: "Total Count of Rectifier ",
+                                          initialValue: totalRectifierItems
+                                              .toString(),
+                                          isRequired: true,
+                                          isEditable: true,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              totalRectifierItems =
+                                                  int.tryParse(value) ?? 6;
+                                              hasUnsavedChanges = true;
+                                            });
+                                          },
+                                        ),
+                                        getHeight(15),
+                                        Text(
+                                          "Rectifiers Details",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white,
+                                            fontFamily: fontFamilyMontserrat,
+                                          ),
+                                        ),
+                                        getHeight(3),
+                                        CustomInfoCard(
+                                          key: ValueKey(
+                                            'rectifier_$rectifierCardKey',
+                                          ),
+                                          serialLabel:
+                                              "Rectifier - Serial Number",
+                                          serialHintText:
+                                              "Rectifier Serial Number",
+                                          photoLabel: "Add a Photo",
+                                          statusLabel: "Status",
+                                          serialController:
+                                              rectifierSerialController,
+                                          onSave: _saveRectifierForm,
+                                          isStatusEditable: true,
+                                          backendStatus: false,
+                                          onPhotoTap: (photoPath) async {
+                                            setState(() {
+                                              rectifierPhoto = photoPath;
+                                              hasUnsavedChanges = true;
+                                            });
+
+                                            // Upload photo immediately and get photoId
+                                            if (photoPath != null &&
+                                                photoPath.isNotEmpty) {
+                                              try {
+                                                final photoFile = File(
+                                                  photoPath,
+                                                );
+                                                if (await photoFile.exists()) {
+                                                  final photoId =
+                                                      await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
+                                                        photoFile: photoFile,
+                                                        schId:
+                                                            widget
+                                                                .assetAuditData
+                                                                ?.pageHeader
+                                                                .first
+                                                                .siteAuditSchId
+                                                                .toString() ??
+                                                            "0",
+                                                        imgId: null,
+                                                        context: context,
+                                                      );
+
+                                                  if (photoId != null) {
+                                                    print(
+                                                      'CCU Debug: Photo uploaded successfully for rectifier, photoId: $photoId',
+                                                    );
+                                                    setState(() {
+                                                      rectifierPhotoId =
+                                                          photoId;
+                                                    });
+                                                    print(
+                                                      'CCU Debug: rectifierPhotoId set to: $rectifierPhotoId',
+                                                    );
+                                                  } else {
+                                                    print(
+                                                      'CCU Debug: Photo upload failed for rectifier - photoId is null',
+                                                    );
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                print(
+                                                  'CCU Debug: Error uploading rectifier photo: $e',
+                                                );
+                                                // Handle error silently
+                                              }
+                                            }
+                                          },
+                                          onStatusChanged: (val) {
+                                            setState(() {
+                                              rectifierStatus = val
+                                                  ? "OK"
+                                                  : "Not OK";
+                                              hasUnsavedChanges = true;
+                                            });
+                                          },
+                                          onSerialChanged: (serialNumber) {
+                                            setState(() {
+                                              rectifierSerialNumber =
+                                                  serialNumber;
+                                              hasUnsavedChanges = true;
+                                            });
+
+                                            // Validate serial number if not empty
+                                            if (serialNumber.isNotEmpty) {
+                                              final isValid =
+                                                  _validateSerialNumber(
+                                                    serialNumber,
+                                                    false,
+                                                  );
+                                              if (isValid) {
+                                                // Serial number is valid, keep it
+                                              } else {
+                                                // Serial number is invalid, clear it
+                                                setState(() {
+                                                  rectifierSerialNumber = null;
+                                                  hasUnsavedChanges = false;
+                                                });
+                                              }
+                                            }
+                                          },
+                                          initialStatus: rectifierStatus == "OK"
+                                              ? true
+                                              : (rectifierStatus == "Not OK"
+                                                    ? false
+                                                    : null),
+                                          initialPhotoPath: rectifierPhoto,
+                                          isEditable: true,
+                                        ),
+
+                                        getHeight(8),
+                                        // Rectifier saved items section
+                                        _buildRectifierSavedItemsList(),
+                                        getHeight(15),
+                                        CustomFormField(
+                                          label: "Total Count of MPPT",
+                                          initialValue: totalMPPTItems
+                                              .toString(),
+                                          isRequired: true,
+                                          isEditable: true,
+                                          onChanged: (value) {
+                                            setState(() {
+                                              totalMPPTItems =
+                                                  int.tryParse(value) ?? 6;
+                                              hasUnsavedChanges = true;
+                                            });
+                                          },
+                                        ),
+                                        getHeight(15),
+                                        Text(
+                                          "MPPT Details",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.white,
+                                            fontFamily: fontFamilyMontserrat,
+                                          ),
+                                        ),
+                                        getHeight(3),
+                                        CustomInfoCard(
+                                          key: ValueKey('mppt_$mpptCardKey'),
+                                          serialLabel: "MPPT - Serial Number *",
+                                          serialHintText: "MPPT Serial Number",
+                                          photoLabel: "Add a Photo",
+                                          statusLabel: "Status",
+                                          serialController:
+                                              mpptSerialController,
+                                          onSave: _saveMPPTForm,
+                                          isStatusEditable: true,
+                                          backendStatus: false,
+                                          remarksLabel: "Capacity",
+                                          remarksHintText: "Eg:200",
+                                          remarksController: capacityController,
+                                          isRemarksEditable: false,
+                                          onPhotoTap: (photoPath) async {
+                                            setState(() {
+                                              mpptPhoto = photoPath;
+                                              hasUnsavedChanges = true;
+                                            });
+
+                                            // Upload photo immediately and get photoId
+                                            if (photoPath != null &&
+                                                photoPath.isNotEmpty) {
+                                              try {
+                                                final photoFile = File(
+                                                  photoPath,
+                                                );
+                                                if (await photoFile.exists()) {
+                                                  final photoId =
+                                                      await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
+                                                        photoFile: photoFile,
+                                                        schId:
+                                                            widget
+                                                                .assetAuditData
+                                                                ?.pageHeader
+                                                                .first
+                                                                .siteAuditSchId
+                                                                .toString() ??
+                                                            "0",
+                                                        imgId: null,
+                                                        context: context,
+                                                      );
+
+                                                  if (photoId != null) {
+                                                    print(
+                                                      'CCU Debug: Photo uploaded successfully for MPPT, photoId: $photoId',
+                                                    );
+                                                    setState(() {
+                                                      mpptPhotoId = photoId;
+                                                    });
+                                                    print(
+                                                      'CCU Debug: mpptPhotoId set to: $mpptPhotoId',
+                                                    );
+                                                  } else {
+                                                    print(
+                                                      'CCU Debug: Photo upload failed for MPPT - photoId is null',
+                                                    );
+                                                  }
+                                                }
+                                              } catch (e) {
+                                                print(
+                                                  'CCU Debug: Error uploading MPPT photo: $e',
+                                                );
+                                                // Handle error silently
+                                              }
+                                            }
+                                          },
+                                          onStatusChanged: (val) {
+                                            setState(() {
+                                              mpptStatus = val
+                                                  ? "OK"
+                                                  : "Not OK";
+                                              hasUnsavedChanges = true;
+                                            });
+                                          },
+                                          onSerialChanged: (serialNumber) {
+                                            setState(() {
+                                              mpptSerialNumber = serialNumber;
+                                              hasUnsavedChanges = true;
+                                            });
+
+                                            if (serialNumber.isNotEmpty) {
+                                              final isValid =
+                                                  _validateSerialNumber(
+                                                    serialNumber,
+                                                    false,
+                                                  );
+                                              if (isValid) {
+                                                // Serial number is valid, keep it
+                                              } else {
+                                                // Serial number is invalid, clear it
+                                                setState(() {
+                                                  mpptSerialNumber = null;
+                                                  hasUnsavedChanges = false;
+                                                });
+                                              }
+                                            }
+                                          },
+                                          initialStatus: mpptStatus == "OK"
+                                              ? true
+                                              : (mpptStatus == "Not OK"
+                                                    ? false
+                                                    : null),
+                                          initialPhotoPath: mpptPhoto,
+                                          isEditable: true,
+                                        ),
+
+                                        getHeight(8),
+                                        _buildMPPTSavedItemsList(),
+                                        getHeight(15),
+
+                                        // Cabinet Form
+                                        Text(
+                                          "CCU Cabinet",
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.white,
+                                            fontFamily: fontFamilyMontserrat,
+                                          ),
+                                        ),
+                                        getHeight(3),
+
+                                        getHeight(15),
+                                        CustomRemarksField(
+                                          label: "Add Remarks",
+                                          hintText: "Remarks",
+                                          controller: remarksController,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                            getWidth(14),
-                            Expanded(
-                              child: ArrowButton(
-                                  text: _hasDataToShow()
-                                      ? "Battery"
-                                      : "Skip CCU",
-                                isLeftArrow: false,
-                                backgroundColor: AppColors.buttonColorBackBg,
-                                textColor: AppColors.buttonColorTextBg,
-                                  onPressed: () {
-                                    // Use our new smart navigation system
-                                    _navigateToBatteryScreen();
-                                },
+
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              width: double.infinity,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: ArrowButton(
+                                      text: "Back",
+                                      isLeftArrow: true,
+                                      backgroundColor: AppColors.buttonColorBg,
+                                      textColor: AppColors.buttonColorSite,
+                                      onPressed: () {
+                                        Navigator.pop(context);
+                                      },
+                                    ),
+                                  ),
+                                  getWidth(14),
+                                  Expanded(
+                                    child: ArrowButton(
+                                      text: _hasDataToShow()
+                                          ? "Battery"
+                                          : "Skip CCU",
+                                      isLeftArrow: false,
+                                      backgroundColor:
+                                          AppColors.buttonColorBackBg,
+                                      textColor: AppColors.buttonColorTextBg,
+                                      onPressed: () {
+                                        // Use our new smart navigation system
+                                        _navigateToBatteryScreen();
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+
+                    // Full-screen loading overlay when posting data
+                    BlocBuilder<AssetAuditCubit, AssetAuditState>(
+                      builder: (context, state) {
+                        if (state is AssetAuditPosting) {
+                          return Container(
+                            color: Colors.black.withOpacity(0.5),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.white,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
                 ),
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
-              // Full-screen loading overlay when posting data
-              BlocBuilder<AssetAuditCubit, AssetAuditState>(
-                builder: (context, state) {
-                  if (state is AssetAuditPosting) {
-                    return Container(
-                      color: Colors.black.withOpacity(0.5),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
+  /// Check if string is numeric
+  bool _isNumeric(String str) {
+    return int.tryParse(str) != null;
+  }
+
+  /// Show image viewer dialog
+  Future<void> _showImageDialog(String? imagePath, String? imageName) async {
+    if (imagePath == null && imageName == null) {
+      showCustomToast(context, 'No photo available to view.');
+      return;
+    }
+
+    String? imageData;
+
+    // Case 1: Photo is a base64 data URL
+    if (imagePath!.startsWith('data:image/')) {
+      imageData = imagePath;
+    }
+    // Case 2: Photo is a local file path
+    else if (await File(imagePath).exists()) {
+      imageData = imagePath;
+    }
+    // Case 3: Photo is a photo ID (numeric) from the API
+    else if (_isNumeric(imagePath)) {
+      print('Fetching image for photo ID: $imagePath');
+      final completer = Completer<String?>();
+      late StreamSubscription subscription;
+
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
+          print('Image fetched successfully for photo ID: $imagePath');
+          final finalImageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          completer.complete(finalImageData);
+          subscription.cancel();
+        } else if (state is AssetAuditGetImageFailure) {
+          print('Failed to fetch image: ${state.errorMessage}');
+          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          completer.complete(null);
+          subscription.cancel();
+        }
+      });
+
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: imagePath,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      imageData = await completer.future;
+    }
+
+    if (imageData != null && imageData.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: imageData!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(imageData.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(imageData),
+                        fit: BoxFit.contain,
                       ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.red,
+                    size: 30,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
               ),
             ],
-            ),
           ),
-        );
-      },
-    );
+        ),
+      );
+    } else {
+      showCustomToast(context, 'Unable to load photo.');
+    }
+  }
+
+  /// Load image for editing
+  void _loadImageForEdit(String photoId, String itemType) {
+    if (photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Set the current requested image ID for this screen
+      _currentRequestedImageId = photoId;
+      _isRequestingImage = true;
+
+      // Request the image
+      context.read<AssetAuditGetImageCubit>().getImage(imgId: photoId);
+
+      print(
+        'CCU Debug: Loading image for edit - photoId: $photoId, itemType: $itemType',
+      );
+    }
   }
 
   /// Edit a saved item based on its type
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
-
     setState(() {
       // Populate the form fields with the item's data for editing
       switch (itemType) {
         case 'rectifier':
-          // Populate rectifier form with item data
-          rectifierSerialController.text = item['serialNumber'] ?? '';
-          rectifierSerialNumber = item['serialNumber'] ?? ''; // Also set the variable
-          rectifierStatus = item['status'] ?? 'OK';
-          rectifierPhotoId = item['photoId'];
-          rectifierPhoto = item['photo'];
-          savedRectifierItems.remove(item);
-          currentScannedItems--;
-          break;
-          
-        case 'mppt':
-          // Populate MPPT form with item data
-          mpptSerialController.text = item['serialNumber'] ?? '';
-          mpptSerialNumber = item['serialNumber'] ?? ''; // Also set the variable
-          mpptStatus = item['status'] ?? 'OK';
-          mpptPhotoId = item['photoId'];
-          mpptPhoto = item['photo'];
+          // Only populate rectifier form if item has photoId and status
+          if (item['photoId'] != null &&
+              item['status'] != null) {
+            // Populate rectifier form with item data
+            rectifierSerialController.text = item['serialNumber'] ?? '';
+            rectifierSerialNumber =
+                item['serialNumber'] ?? ''; // Also set the variable
+            rectifierStatus = item['status'] ?? 'OK';
+            rectifierPhotoId = item['photoId'];
+            rectifierPhoto = item['photo'] ?? ''; // Handle null photo gracefully
 
-          // Remove the item from saved list since it's now in the form for editing
-          savedMPPTItems.remove(item);
-          currentScannedItems--;
+            // Load image if photoId exists
+            if (rectifierPhotoId != null &&
+                rectifierPhotoId.toString().isNotEmpty) {
+              _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
+            }
+
+            savedRectifierItems.remove(item);
+            currentScannedItems--;
+          } else {
+            print(
+              'CCU Debug: Rectifier item does not have complete data (photoId: ${item['photoId']}, status: ${item['status']}) - skipping edit',
+            );
+          }
           break;
-          
-        // case 'cabinet':
-        //   // Populate cabinet form with item data
-        //   cabinetSerialController.text = item['serialNumber'] ?? '';
-        //   cabinetSerialNumber = item['serialNumber'] ?? ''; // Also set the variable
-        //   cabinetStatus = item['status'] ?? 'OK';
-        //   cabinetPhotoId = item['photoId'];
-        //   cabinetPhoto = item['photo'];
-        //
-        //   // Remove the item from saved list since it's now in the form for editing
-        //   savedCabinetItems.remove(item);
-        //   currentScannedItems--;
-        //   break;
+
+        case 'mppt':
+          // Only populate MPPT form if item has photoId and status
+          if (item['photoId'] != null &&
+              item['status'] != null) {
+            // Populate MPPT form with item data
+            mpptSerialController.text = item['serialNumber'] ?? '';
+            mpptSerialNumber =
+                item['serialNumber'] ?? ''; // Also set the variable
+            mpptStatus = item['status'] ?? 'OK';
+            mpptPhotoId = item['photoId'];
+            mpptPhoto = item['photo'] ?? ''; // Handle null photo gracefully
+
+            // Load image if photoId exists
+            if (mpptPhotoId != null && mpptPhotoId.toString().isNotEmpty) {
+              _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
+            }
+
+            // Remove the item from saved list since it's now in the form for editing
+            savedMPPTItems.remove(item);
+            currentScannedItems--;
+          } else {
+            print(
+              'CCU Debug: MPPT item does not have complete data (photoId: ${item['photoId']}, status: ${item['status']}) - skipping edit',
+            );
+          }
+          break;
+
+        case 'cabinet':
+          // Only populate cabinet form if item has photoId and status
+          if (item['photoId'] != null &&
+              item['status'] != null) {
+            // Populate cabinet form with item data
+            cabinetSerialController.text = item['serialNumber'] ?? '';
+            cabinetSerialNumber =
+                item['serialNumber'] ?? ''; // Also set the variable
+            cabinetStatus = item['status'] ?? 'OK';
+            cabinetPhotoId = item['photoId'];
+            cabinetPhoto = item['photo'] ?? ''; // Handle null photo gracefully
+
+            // Load image if photoId exists
+            if (cabinetPhotoId != null &&
+                cabinetPhotoId.toString().isNotEmpty) {
+              _loadImageForEdit(cabinetPhotoId.toString(), 'cabinet');
+            }
+
+            // Remove the item from saved list since it's now in the form for editing
+            savedCabinetItems.remove(item);
+            currentScannedItems--;
+          } else {
+            print(
+              'CCU Debug: Cabinet item does not have complete data (photoId: ${item['photoId']}, status: ${item['status']}) - skipping edit',
+            );
+          }
+          break;
       }
-      
+
       // Mark that there are unsaved changes
       hasUnsavedChanges = true;
-      
+
       // Show a message to the user
       showCustomToast(
         context,
-        'Item loaded for editing. Make your changes and save.',
+        '✅ Item loaded for editing. Update the fields and save.',
       );
     });
   }
@@ -2844,35 +3446,36 @@ class _CCUScreenState extends State<CCUScreen> {
     rectifierStatus = 'OK';
     rectifierPhotoId = null;
     rectifierPhoto = null;
-    
+
     // Clear MPPT form
     mpptSerialController.clear();
     mpptStatus = 'OK';
     mpptPhotoId = null;
     mpptPhoto = null;
-    //
-    // // Clear cabinet form
-    // cabinetSerialController.clear();
-    // cabinetStatus = 'OK';
-    // cabinetPhotoId = null;
-    // cabinetPhoto = null;
+    // Clear cabinet form
+    cabinetSerialController.clear();
+    cabinetSerialNumber = null;
+    cabinetStatus = 'OK';
+    cabinetPhotoId = null;
+    cabinetPhoto = null;
   }
 
   // ===== CHANGE TRACKING SYSTEM METHODS =====
-  
+
   /// Initialize the change tracking system
   void _initializeChangeTracking() {
     // Reset change tracking to ensure clean state
     _clearChangeTracking();
-    
+
+    // Don't clear saved items here - they should be loaded from API data
+
     // Store original values when screen loads
     _storeOriginalValues();
-    
+
     // Add listeners to track changes
     _addFormListeners();
-
   }
-  
+
   /// Store original values for change detection
   void _storeOriginalValues() {
     _originalFormData = {
@@ -2884,49 +3487,54 @@ class _CCUScreenState extends State<CCUScreen> {
       'mpptStatus': mpptStatus ?? 'OK',
       'mpptPhoto': mpptPhoto,
       'mpptPhotoId': mpptPhotoId,
-      'savedRectifierItems': List<Map<String, dynamic>>.from(savedRectifierItems),
+      'savedRectifierItems': List<Map<String, dynamic>>.from(
+        savedRectifierItems,
+      ),
       'savedMPPTItems': List<Map<String, dynamic>>.from(savedMPPTItems),
       'savedCabinetItems': List<Map<String, dynamic>>.from(savedCabinetItems),
     };
-
   }
-  
+
   /// Add listeners to track form changes
   void _addFormListeners() {
     rectifierSerialController.addListener(() {
-      _trackFieldChange('rectifierSerialNumber', rectifierSerialController.text);
+      _trackFieldChange(
+        'rectifierSerialNumber',
+        rectifierSerialController.text,
+      );
     });
-    
+
     mpptSerialController.addListener(() {
       _trackFieldChange('mpptSerialNumber', mpptSerialController.text);
     });
-    
+
     // Track form filling status
     _trackFormFillingStatus();
   }
-  
+
   /// Track if forms are filled with new data
   void _trackFormFillingStatus() {
     // Only consider forms filled if they have meaningful data that's different from defaults
-    _isRectifierFormFilled = rectifierSerialNumber != null && 
-                             rectifierSerialNumber!.isNotEmpty &&
-                             rectifierSerialNumber!.trim() != '' &&
-                             (rectifierPhoto != null || (rectifierStatus != null && rectifierStatus != 'OK'));
-    
-    _isMPPTFormFilled = mpptSerialNumber != null && 
-                        mpptSerialNumber!.isNotEmpty &&
-                        mpptSerialNumber!.trim() != '' &&
-                        (mpptSerialNumber!.trim() != '' &&
-                         (mpptPhoto != null || (mpptStatus != null && mpptStatus != 'OK')));
+    _isRectifierFormFilled =
+        rectifierSerialNumber != null &&
+        rectifierSerialNumber!.isNotEmpty &&
+        rectifierSerialNumber!.trim() != '' &&
+        (rectifierPhoto != null ||
+            (rectifierStatus != null && rectifierStatus != 'OK'));
 
+    _isMPPTFormFilled =
+        mpptSerialNumber != null &&
+        mpptSerialNumber!.isNotEmpty &&
+        mpptSerialNumber!.trim() != '' &&
+        (mpptSerialNumber!.trim() != '' &&
+            (mpptPhoto != null || (mpptStatus != null && mpptStatus != 'OK')));
   }
-  
+
   /// Track field changes
   void _trackFieldChange(String fieldName, dynamic newValue) {
     final originalValue = _originalFormData[fieldName];
-    
-    if (_hasValueChanged(originalValue, newValue)) {
 
+    if (_hasValueChanged(originalValue, newValue)) {
       _modifiedItems[fieldName] = newValue;
       hasUnsavedChanges = true;
     } else {
@@ -2934,50 +3542,53 @@ class _CCUScreenState extends State<CCUScreen> {
       _modifiedItems.remove(fieldName);
       hasUnsavedChanges = _modifiedItems.isNotEmpty || _newItems.isNotEmpty;
     }
-    
+
     // Update form filling status
     _trackFormFillingStatus();
-    
+
     // Detect new items
     _detectNewItems();
-    
+
     setState(() {});
   }
-  
+
   /// Check if a value has actually changed
   bool _hasValueChanged(dynamic original, dynamic current) {
     if (original == null && current == null) return false;
-    if (original == null && (current == null || current == '' || current == 'OK')) return false;
-    if (current == null && (original == null || original == '' || original == 'OK')) return false;
-    
+    if (original == null &&
+        (current == null || current == '' || current == 'OK'))
+      return false;
+    if (current == null &&
+        (original == null || original == '' || original == 'OK'))
+      return false;
+
     if (original is String && current is String) {
       final originalTrimmed = original.trim();
       final currentTrimmed = current.trim();
-      
+
       // Don't consider empty strings or default values as changes
       if (originalTrimmed.isEmpty && currentTrimmed.isEmpty) return false;
       if (originalTrimmed.isEmpty && currentTrimmed == 'OK') return false;
       if (currentTrimmed.isEmpty && originalTrimmed == 'OK') return false;
-      
+
       return originalTrimmed != currentTrimmed;
     }
-    
+
     if (original is int && current is int) {
       return original != current;
     }
-    
+
     return original != current;
   }
-  
+
   /// Detect new items that haven't been posted yet
   void _detectNewItems() {
     _newItems.clear();
-    
+
     // Check rectifier form for new items - only if it's actually filled with meaningful data
-    if (_isRectifierFormFilled && 
-        rectifierSerialNumber != null && 
+    if (_isRectifierFormFilled &&
+        rectifierSerialNumber != null &&
         rectifierSerialNumber!.trim().isNotEmpty) {
-      
       // Check if this is a truly new item (not an edited existing one)
       if (!_isRectifierInOriginalData()) {
         _newItems.add({
@@ -2987,19 +3598,19 @@ class _CCUScreenState extends State<CCUScreen> {
             'status': rectifierStatus ?? 'OK',
             'photo': rectifierPhoto,
             'photoId': rectifierPhotoId,
-          }
+          },
         });
-
       } else {
-        print('CCU Screen: Rectifier item is existing (editing): ${rectifierSerialNumber}');
+        print(
+          'CCU Screen: Rectifier item is existing (editing): ${rectifierSerialNumber}',
+        );
       }
     }
-    
+
     // Check MPPT form for new items - only if it's actually filled with meaningful data
-    if (_isMPPTFormFilled && 
-        mpptSerialNumber != null && 
+    if (_isMPPTFormFilled &&
+        mpptSerialNumber != null &&
         mpptSerialNumber!.trim().isNotEmpty) {
-      
       // Check if this is a truly new item (not an edited existing one)
       if (!_isMPPTInOriginalData()) {
         _newItems.add({
@@ -3009,76 +3620,76 @@ class _CCUScreenState extends State<CCUScreen> {
             'status': mpptStatus ?? 'OK',
             'photo': mpptPhoto,
             'photoId': mpptPhotoId,
-          }
+          },
         });
-
       } else {
-        print('CCU Screen: MPPT item is existing (editing): ${mpptSerialNumber}');
+        print(
+          'CCU Screen: MPPT item is existing (editing): ${mpptSerialNumber}',
+        );
       }
     }
-    
-
   }
-  
+
   /// Check if rectifier form data exists in original data
   bool _isRectifierInOriginalData() {
-    final originalRectifierItems = _originalFormData['savedRectifierItems'] as List<Map<String, dynamic>>?;
+    final originalRectifierItems =
+        _originalFormData['savedRectifierItems'] as List<Map<String, dynamic>>?;
     if (originalRectifierItems == null) return false;
-    
+
     // Check if serial number exists in original data (this identifies existing items)
-    final hasExistingSerial = originalRectifierItems.any((item) => 
-      item['serialNumber'] == rectifierSerialNumber && 
-      rectifierSerialNumber != null && 
-      rectifierSerialNumber!.trim().isNotEmpty
+    final hasExistingSerial = originalRectifierItems.any(
+      (item) =>
+          item['serialNumber'] == rectifierSerialNumber &&
+          rectifierSerialNumber != null &&
+          rectifierSerialNumber!.trim().isNotEmpty,
     );
 
     return hasExistingSerial;
   }
-  
+
   /// Check if MPPT form data exists in original data
   bool _isMPPTInOriginalData() {
-    final originalMPPTItems = _originalFormData['savedMPPTItems'] as List<Map<String, dynamic>>?;
+    final originalMPPTItems =
+        _originalFormData['savedMPPTItems'] as List<Map<String, dynamic>>?;
     if (originalMPPTItems == null) return false;
-    
+
     // Check if serial number exists in original data (this identifies existing items)
-    final hasExistingSerial = originalMPPTItems.any((item) => 
-      item['serialNumber'] == mpptSerialNumber && 
-      mpptSerialNumber != null && 
-      mpptSerialNumber!.trim().isNotEmpty
+    final hasExistingSerial = originalMPPTItems.any(
+      (item) =>
+          item['serialNumber'] == mpptSerialNumber &&
+          mpptSerialNumber != null &&
+          mpptSerialNumber!.trim().isNotEmpty,
     );
 
-    
     return hasExistingSerial;
   }
-  
+
   /// Check if we're just editing existing items (not adding new ones)
   bool _isJustEditingExistingItems() {
     // If we have no new items but have modified items, we're just editing
     final hasNoNewItems = _newItems.isEmpty;
     final hasModifiedItems = _modifiedItems.isNotEmpty;
     final hasDeletedItems = _deletedItemIds.isNotEmpty;
-    
+
     // We're just editing if:
     // 1. No new items are being added
     // 2. Some fields are modified (editing existing items)
     // 3. No items are being deleted
     final isJustEditing = hasNoNewItems && hasModifiedItems && !hasDeletedItems;
 
-    
     return isJustEditing;
   }
-  
+
   /// Save edited items and navigate (for existing item edits)
   void _saveEditedItemsAndNavigate() {
-
     _updateSavedItemsWithEdits();
-    
+
     // Clear the forms
     _clearFormData();
-    
+
     // Clear change tracking
     _clearChangeTracking();
-    
+
     // Navigate to next screen
     pushPage(
       context,
@@ -3088,16 +3699,13 @@ class _CCUScreenState extends State<CCUScreen> {
       ),
     );
   }
-  
+
   /// Update saved items with edited values
   void _updateSavedItemsWithEdits() {
-
-    
     // Update rectifier items if modified
-    if (_modifiedItems.containsKey('rectifierSerialNumber') || 
+    if (_modifiedItems.containsKey('rectifierSerialNumber') ||
         _modifiedItems.containsKey('rectifierStatus') ||
         _modifiedItems.containsKey('rectifierPhoto')) {
-      
       // Find the item in saved list and update it
       for (int i = 0; i < savedRectifierItems.length; i++) {
         final item = savedRectifierItems[i];
@@ -3114,12 +3722,11 @@ class _CCUScreenState extends State<CCUScreen> {
         }
       }
     }
-    
+
     // Update MPPT items if modified
-    if (_modifiedItems.containsKey('mpptSerialNumber') || 
+    if (_modifiedItems.containsKey('mpptSerialNumber') ||
         _modifiedItems.containsKey('mpptStatus') ||
         _modifiedItems.containsKey('mpptPhoto')) {
-      
       // Find the item in saved list and update it
       for (int i = 0; i < savedMPPTItems.length; i++) {
         final item = savedMPPTItems[i];
@@ -3136,7 +3743,7 @@ class _CCUScreenState extends State<CCUScreen> {
       }
     }
   }
-  
+
   /// Check if changes are just form fields (not requiring validation)
   bool _areChangesJustFormFields() {
     // If we have no new items and no deleted items, but have modified fields,
@@ -3144,22 +3751,23 @@ class _CCUScreenState extends State<CCUScreen> {
     final hasNoNewItems = _newItems.isEmpty;
     final hasNoDeletedItems = _deletedItemIds.isEmpty;
     final hasModifiedFields = _modifiedItems.isNotEmpty;
-    final hasExistingItems = savedRectifierItems.isNotEmpty || 
-                            savedMPPTItems.isNotEmpty || 
-                            savedCabinetItems.isNotEmpty;
-    
-    final isJustFormFields = hasNoNewItems && 
-                            hasNoDeletedItems && 
-                            hasModifiedFields && 
-                            hasExistingItems;
+    final hasExistingItems =
+        savedRectifierItems.isNotEmpty ||
+        savedMPPTItems.isNotEmpty ||
+        savedCabinetItems.isNotEmpty;
 
-    
+    final isJustFormFields =
+        hasNoNewItems &&
+        hasNoDeletedItems &&
+        hasModifiedFields &&
+        hasExistingItems;
+
     return isJustFormFields;
   }
 
   /// Save form fields and navigate (for form field changes only)
   void _saveFormFieldsAndNavigate() {
-if (_modifiedItems.containsKey('rectifierSerialNumber')) {
+    if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       rectifierSerialNumber = _modifiedItems['rectifierSerialNumber'];
     }
     if (_modifiedItems.containsKey('rectifierStatus')) {
@@ -3171,7 +3779,7 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
     if (_modifiedItems.containsKey('rectifierPhotoId')) {
       rectifierPhotoId = _modifiedItems['rectifierPhotoId'];
     }
-    
+
     if (_modifiedItems.containsKey('mpptSerialNumber')) {
       mpptSerialNumber = _modifiedItems['mpptSerialNumber'];
     }
@@ -3184,13 +3792,13 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
     if (_modifiedItems.containsKey('mpptPhotoId')) {
       mpptPhotoId = _modifiedItems['mpptPhotoId'];
     }
-    
+
     // Clear the forms
     _clearFormData();
-    
+
     // Clear change tracking
     _clearChangeTracking();
-    
+
     // Navigate to next screen
     pushPage(
       context,
@@ -3200,48 +3808,52 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       ),
     );
   }
-  
+
   /// Check if current state is valid for navigation without strict validation
   bool _isCurrentStateValidForNavigation() {
     // Check if we have any saved items (which means the screen has data)
-    final hasSavedItems = savedRectifierItems.isNotEmpty || 
-                          savedMPPTItems.isNotEmpty || 
-                          savedCabinetItems.isNotEmpty;
-    
+    final hasSavedItems =
+        savedRectifierItems.isNotEmpty ||
+        savedMPPTItems.isNotEmpty ||
+        savedCabinetItems.isNotEmpty;
+
     // Check if forms are just partially filled (not requiring complete validation)
-    final hasPartialFormData = (rectifierSerialNumber != null && rectifierSerialNumber!.trim().isNotEmpty) ||
-                               (mpptSerialNumber != null && mpptSerialNumber!.trim().isNotEmpty);
-    
+    final hasPartialFormData =
+        (rectifierSerialNumber != null &&
+            rectifierSerialNumber!.trim().isNotEmpty) ||
+        (mpptSerialNumber != null && mpptSerialNumber!.trim().isNotEmpty);
+
     // Navigation is valid if:
     // 1. We have saved items (screen has data), OR
-    // 2. Forms are not filled (no partial data), OR  
+    // 2. Forms are not filled (no partial data), OR
     // 3. Forms are completely filled (ready to save)
-    final isValidForNavigation = hasSavedItems || 
-                                !hasPartialFormData ||
-                                _areFormsCompletelyFilled();
+    final isValidForNavigation =
+        hasSavedItems || !hasPartialFormData || _areFormsCompletelyFilled();
 
     return isValidForNavigation;
   }
-  
+
   /// Check if forms are completely filled (ready for validation)
   bool _areFormsCompletelyFilled() {
     // Rectifier form is completely filled
-    final rectifierComplete = rectifierSerialNumber != null && 
-                              rectifierSerialNumber!.trim().isNotEmpty &&
-                              rectifierPhoto != null &&
-                              rectifierStatus != null;
-    
+    final rectifierComplete =
+        rectifierSerialNumber != null &&
+        rectifierSerialNumber!.trim().isNotEmpty &&
+        rectifierPhoto != null &&
+        rectifierStatus != null;
+
     // MPPT form is completely filled
-    final mpptComplete = mpptSerialNumber != null && 
-                         mpptSerialNumber!.trim().isNotEmpty &&
-                         mpptPhoto != null &&
-                         mpptStatus != null;
-    
+    final mpptComplete =
+        mpptSerialNumber != null &&
+        mpptSerialNumber!.trim().isNotEmpty &&
+        mpptPhoto != null &&
+        mpptStatus != null;
+
     final isComplete = rectifierComplete || mpptComplete;
 
     return isComplete;
   }
-  
+
   /// Show confirmation dialog for unsaved changes
   void _showChangesConfirmationDialog() {
     showDialog(
@@ -3252,60 +3864,68 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
         content: _buildChangesSummary(),
         actions: [
           TextButton(
-                            onPressed: () {
+            onPressed: () {
               Navigator.of(context).pop();
               _discardAllChangesAndNavigate();
             },
             child: const Text('Discard All'),
           ),
           TextButton(
-                            onPressed: () {
+            onPressed: () {
               Navigator.of(context).pop();
               _saveAllChangesAndNavigate();
-                            },
+            },
             child: const Text('Save All'),
-                        ),
-                      ],
-                    ),
-                  );
+          ),
+        ],
+      ),
+    );
   }
-  
+
   /// Build summary of all changes
   Widget _buildChangesSummary() {
     final List<Widget> summaryItems = [];
-    
+
     if (_newItems.isNotEmpty) {
       summaryItems.add(
-        Text('📝 New Items (${_newItems.length}):', 
-             style: const TextStyle(fontWeight: FontWeight.bold))
+        Text(
+          '📝 New Items (${_newItems.length}):',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       );
       for (final item in _newItems) {
-        summaryItems.add(Text('  • ${item['type']}: ${item['data']['serialNumber']}'));
+        summaryItems.add(
+          Text('  • ${item['type']}: ${item['data']['serialNumber']}'),
+        );
       }
       summaryItems.add(const SizedBox(height: 8));
     }
-    
+
     if (_modifiedItems.isNotEmpty) {
       summaryItems.add(
-        Text('✏️ Modified Fields (${_modifiedItems.length}):', 
-             style: const TextStyle(fontWeight: FontWeight.bold))
+        Text(
+          '✏️ Modified Fields (${_modifiedItems.length}):',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       );
       for (final entry in _modifiedItems.entries) {
         summaryItems.add(Text('  • ${_getFieldDisplayName(entry.key)}'));
       }
       summaryItems.add(const SizedBox(height: 8));
     }
-    
+
     if (_deletedItemIds.isNotEmpty) {
       summaryItems.add(
-        Text('🗑️ Deleted Items (${_deletedItemIds.length}):', 
-             style: const TextStyle(fontWeight: FontWeight.bold))
+        Text(
+          '🗑️ Deleted Items (${_deletedItemIds.length}):',
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       );
       summaryItems.add(const SizedBox(height: 8));
     }
-    
+
     summaryItems.add(
-      const Text('Would you like to save these changes before proceeding?')
+      const Text('Would you like to save these changes before proceeding?'),
     );
 
     return Column(
@@ -3314,7 +3934,7 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       children: summaryItems,
     );
   }
-  
+
   /// Get user-friendly field display names
   String _getFieldDisplayName(String fieldName) {
     final displayNames = {
@@ -3327,26 +3947,25 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       'mpptPhoto': 'MPPT Photo',
       'mpptPhotoId': 'MPPT Photo ID',
     };
-    
+
     return displayNames[fieldName] ?? fieldName;
   }
-  
+
   /// Save all changes and navigate
   Future<void> _saveAllChangesAndNavigate() async {
     try {
-
       if (_newItems.isNotEmpty) {
         await _saveNewItems();
       }
-      
+
       // Save modified items
       if (_modifiedItems.isNotEmpty) {
         await _saveModifiedItems();
       }
-      
+
       // Clear all change tracking
       _clearChangeTracking();
-      
+
       showCustomToast(context, '✅ All changes saved successfully!');
       pushPage(
         context,
@@ -3355,19 +3974,16 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
           assetAuditData: widget.assetAuditData,
         ),
       );
-      
     } catch (e) {
-
       showCustomToast(context, '❌ Error saving changes: $e');
     }
   }
-  
+
   /// Save new items to saved lists
   Future<void> _saveNewItems() async {
-
     for (final newItem in _newItems) {
       final itemData = newItem['data'] as Map<String, dynamic>;
-      
+
       switch (newItem['type']) {
         case 'rectifier':
           savedRectifierItems.add({
@@ -3381,7 +3997,7 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
             'remarks': 'New CCU Rectifier Item',
           });
           break;
-          
+
         case 'mppt':
           savedMPPTItems.add({
             'serialNumber': itemData['serialNumber'],
@@ -3396,15 +4012,13 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
           break;
       }
     }
-    
+
     // Clear forms after saving
     _clearFormData();
-
   }
-  
+
   /// Save modified items
   Future<void> _saveModifiedItems() async {
-
     if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       rectifierSerialNumber = _modifiedItems['rectifierSerialNumber'];
     }
@@ -3417,7 +4031,7 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
     if (_modifiedItems.containsKey('rectifierPhotoId')) {
       rectifierPhotoId = _modifiedItems['rectifierPhotoId'];
     }
-    
+
     if (_modifiedItems.containsKey('mpptSerialNumber')) {
       mpptSerialNumber = _modifiedItems['mpptSerialNumber'];
     }
@@ -3430,18 +4044,15 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
     if (_modifiedItems.containsKey('mpptPhotoId')) {
       mpptPhotoId = _modifiedItems['mpptPhotoId'];
     }
-    
-
   }
-  
+
   /// Discard all changes and navigate
   void _discardAllChangesAndNavigate() {
-
     _resetToOriginalValues();
-    
+
     // Clear all change tracking
     _clearChangeTracking();
-    
+
     pushPage(
       context,
       BatteryScreen(
@@ -3450,7 +4061,7 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       ),
     );
   }
-  
+
   /// Reset to original values
   void _resetToOriginalValues() {
     setState(() {
@@ -3459,22 +4070,31 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
       rectifierPhoto = _originalFormData['rectifierPhoto'];
       rectifierPhotoId = _originalFormData['rectifierPhotoId'];
       rectifierSerialController.text = rectifierSerialNumber ?? '';
-      
+
       mpptSerialNumber = _originalFormData['mpptSerialNumber'];
       mpptStatus = _originalFormData['mpptStatus'];
       mpptPhoto = _originalFormData['mpptPhoto'];
       mpptPhotoId = _originalFormData['mpptPhotoId'];
       mpptSerialController.text = mpptSerialNumber ?? '';
-      
+
       // Reset saved items to original state
-      savedRectifierItems = List<Map<String, dynamic>>.from(_originalFormData['savedRectifierItems'] ?? []);
-      savedMPPTItems = List<Map<String, dynamic>>.from(_originalFormData['savedMPPTItems'] ?? []);
-      savedCabinetItems = List<Map<String, dynamic>>.from(_originalFormData['savedCabinetItems'] ?? []);
-      
-      currentScannedItems = savedRectifierItems.length + savedMPPTItems.length + savedCabinetItems.length;
+      savedRectifierItems = List<Map<String, dynamic>>.from(
+        _originalFormData['savedRectifierItems'] ?? [],
+      );
+      savedMPPTItems = List<Map<String, dynamic>>.from(
+        _originalFormData['savedMPPTItems'] ?? [],
+      );
+      savedCabinetItems = List<Map<String, dynamic>>.from(
+        _originalFormData['savedCabinetItems'] ?? [],
+      );
+
+      currentScannedItems =
+          savedRectifierItems.length +
+          savedMPPTItems.length +
+          savedCabinetItems.length;
     });
   }
-  
+
   /// Clear all change tracking
   void _clearChangeTracking() {
     _newItems.clear();
@@ -3483,6 +4103,5 @@ if (_modifiedItems.containsKey('rectifierSerialNumber')) {
     hasUnsavedChanges = false;
     _isRectifierFormFilled = false;
     _isMPPTFormFilled = false;
-
   }
 }

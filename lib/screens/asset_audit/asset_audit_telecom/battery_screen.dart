@@ -9,11 +9,15 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
+import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 
 import '../../../bloc/asset_audit_state.dart';
 import '../../../repositories/image_repository.dart';
 import '../../../app_config.dart';
+import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
@@ -28,6 +32,7 @@ import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../home_screen.dart';
 
 class BatteryScreen extends StatefulWidget {
   final CategoryData? batteryData;
@@ -75,13 +80,16 @@ class _BatteryScreenState extends State<BatteryScreen> {
   int? mpptPhotoId;
   String? mpptStatus;
 
+  // Track which item type is being edited for image loading
+  String? _editingItemType;
+
   final TextEditingController rectifierSerialController =
-      TextEditingController();
+  TextEditingController();
   final TextEditingController mpptSerialController = TextEditingController();
 
   int rectifierCardKey = 0;
   int mpptCardKey = 0;
-  
+
   bool _hasPostedBatteryData = false;
 
   // ===== IMAGE LOADING INFRASTRUCTURE =====
@@ -92,170 +100,157 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   String _getBatteryOEMName() {
     if (widget.batteryData != null) {
-      print('Battery Screen: Getting OEM name from battery data');
-      print('Battery Screen: batteryCabinet items: ${widget.batteryData!.batteryCabinet?.length ?? 0}');
-      print('Battery Screen: assets count: ${widget.batteryData!.assets.length}');
-      print('Battery Screen: cbms items: ${widget.batteryData!.cbms?.length ?? 0}');
-      
       final batteryCabinetItems = widget.batteryData!.batteryCabinet ?? [];
       if (batteryCabinetItems.isNotEmpty) {
-        print('Battery Screen: Using OEM from Battery Cabinet: ${batteryCabinetItems.first.oemName}');
         return batteryCabinetItems.first.oemName ?? 'Delta';
       }
-      
+
       final batteryAssets = widget.batteryData!.assets;
       if (batteryAssets.isNotEmpty) {
-        print('Battery Screen: Using OEM from Battery Assets: ${batteryAssets.first.oemName}');
         return batteryAssets.first.oemName ?? 'Delta';
       }
-      
+
       final cbmsItems = widget.batteryData!.cbms ?? [];
       if (cbmsItems.isNotEmpty) {
-        print('Battery Screen: Using OEM from CBMS: ${cbmsItems.first.oemName}');
         return cbmsItems.first.oemName ?? 'Delta';
       }
     }
-    
-    print('Battery Screen: No OEM found, using default: Delta');
+
     return 'Delta';
   }
-  
+
   /// Load Battery data from API response
   void _loadBatteryData() {
     if (widget.batteryData == null) {
-      print('Battery Screen: No battery data available');
+      print('Battery Debug: No battery data available');
       return;
     }
-    
-    print('Battery Screen: Loading battery data...');
-    print('Battery Screen: Assets count: ${widget.batteryData!.assets.length}');
-    print('Battery Screen: Remarks count: ${widget.batteryData!.remarks.length}');
-    print('Battery Screen: Subcategories: ${widget.batteryData!.subCategories?.keys.toList()}');
-    
+
+    print('Battery Debug: Loading battery data...');
     setState(() {
       // Clear existing saved items to avoid duplicates
       savedRectifierItems.clear();
       savedMPPTItems.clear();
       currentScannedItems = 0;
-      
+
       // Load Battery Cabinet items (from subcategories)
       final batteryCabinetItems = widget.batteryData!.batteryCabinet ?? [];
-      print('Battery Screen: Found ${batteryCabinetItems.length} Battery Cabinet items');
       for (var item in batteryCabinetItems) {
-        Map<String, dynamic> savedItem = {
-          'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-          'photo': null,
-          'photoId': item.photoId,
-          'status': item.assetStatus ?? 'OK',
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': item.qrCodeScanned ?? false,
-          'itemType': item.itemType ?? 'Battery Cabinet',
-          'remarks': item.itemTypeRemark ?? 'Battery Cabinet Item',
-          'assetStatus': item.assetStatus,
-          'assetAuditSiteRespId': item.assetAuditSiteRespId,
-          'capacity': item.capacity ?? 'N/A',
-          
-          // Full API response details
-          'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-          'site_audit_sch_id': item.siteAuditSchId,
-          'item_instance_id': item.itemInstanceId,
-          'oem_name': item.oemName,
-          'nexgen_serial_no': item.nexgenSerialNo,
-          'mfg_serial_no': item.mfgSerialNo,
-          'qr_code_scanned': item.qrCodeScanned ?? false,
-          'qr_code_scanned_ts': item.qrCodeScannedTs,
-          'image_name': item.imageName,
-          'longitude': item.longitude,
-          'latitude': item.latitude,
-          'item_type_group': item.itemTypeGroup,
-          'record_type': item.recordType,
-          'item_type_remark': item.itemTypeRemark,
-        };
-        savedRectifierItems.add(savedItem);
-        currentScannedItems++;
-        print('Battery Screen: Added Battery Cabinet item: ${savedItem['serialNumber']}');
+        if (item.photoId != null) { // Only include items with photoId
+          Map<String, dynamic> savedItem = {
+            'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+            'photo': null,
+            'photoId': item.photoId,
+            'status': item.assetStatus ?? 'OK',
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': item.qrCodeScanned ?? false,
+            'itemType': item.itemType ?? 'Battery Cabinet',
+            'remarks': item.itemTypeRemark ?? 'Battery Cabinet Item',
+            'assetStatus': item.assetStatus,
+            'assetAuditSiteRespId': item.assetAuditSiteRespId,
+            'capacity': item.capacity ?? 'N/A',
+
+            // Full API response details
+            'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+            'site_audit_sch_id': item.siteAuditSchId,
+            'item_instance_id': item.itemInstanceId,
+            'oem_name': item.oemName,
+            'nexgen_serial_no': item.nexgenSerialNo,
+            'mfg_serial_no': item.mfgSerialNo,
+            'qr_code_scanned': item.qrCodeScanned ?? false,
+            'qr_code_scanned_ts': item.qrCodeScannedTs,
+            'image_name': item.imageName,
+            'longitude': item.longitude,
+            'latitude': item.latitude,
+            'item_type_group': item.itemTypeGroup,
+            'record_type': item.recordType,
+            'item_type_remark': item.itemTypeRemark,
+          };
+          savedRectifierItems.add(savedItem);
+          currentScannedItems++;
+        }
       }
-      
+
       // Load Battery assets (general assets)
       final batteryAssets = widget.batteryData!.assets;
-      print('Battery Screen: Found ${batteryAssets.length} Battery assets');
       for (var item in batteryAssets) {
-        Map<String, dynamic> savedItem = {
-          'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-          'photo': null,
-          'photoId': item.photoId,
-          'status': item.assetStatus ?? 'OK',
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': item.qrCodeScanned ?? false,
-          'itemType': item.itemType ?? 'Battery',
-          'remarks': item.itemTypeRemark ?? 'Battery Item',
-          'assetStatus': item.assetStatus,
-          'assetAuditSiteRespId': item.assetAuditSiteRespId,
-          'capacity': item.capacity ?? 'N/A',
-          
-          // Full API response details
-          'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-          'site_audit_sch_id': item.siteAuditSchId,
-          'item_instance_id': item.itemInstanceId,
-          'oem_name': item.oemName,
-          'nexgen_serial_no': item.nexgenSerialNo,
-          'mfg_serial_no': item.mfgSerialNo,
-          'qr_code_scanned': item.qrCodeScanned ?? false,
-          'qr_code_scanned_ts': item.qrCodeScannedTs,
-          'image_name': item.imageName,
-          'longitude': item.longitude,
-          'latitude': item.latitude,
-          'item_type_group': item.itemTypeGroup,
-          'record_type': item.recordType,
-          'item_type_remark': item.itemTypeRemark,
-        };
-        savedMPPTItems.add(savedItem);
-        currentScannedItems++;
-        print('Battery Screen: Added Battery asset: ${savedItem['serialNumber']}');
+        if (item.photoId != null) { // Only include items with photoId
+          Map<String, dynamic> savedItem = {
+            'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+            'photo': null,
+            'photoId': item.photoId,
+            'status': item.assetStatus ?? 'OK',
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': item.qrCodeScanned ?? false,
+            'itemType': item.itemType ?? 'Battery',
+            'remarks': item.itemTypeRemark ?? 'Battery Item',
+            'assetStatus': item.assetStatus,
+            'assetAuditSiteRespId': item.assetAuditSiteRespId,
+            'capacity': item.capacity ?? 'N/A',
+
+            // Full API response details
+            'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+            'site_audit_sch_id': item.siteAuditSchId,
+            'item_instance_id': item.itemInstanceId,
+            'oem_name': item.oemName,
+            'nexgen_serial_no': item.nexgenSerialNo,
+            'mfg_serial_no': item.mfgSerialNo,
+            'qr_code_scanned': item.qrCodeScanned ?? false,
+            'qr_code_scanned_ts': item.qrCodeScannedTs,
+            'image_name': item.imageName,
+            'longitude': item.longitude,
+            'latitude': item.latitude,
+            'item_type_group': item.itemTypeGroup,
+            'record_type': item.recordType,
+            'item_type_remark': item.itemTypeRemark,
+          };
+          savedMPPTItems.add(savedItem);
+          currentScannedItems++;
+        }
       }
-      
+
       // Load CBMS items (from subcategories)
       final cbmsItems = widget.batteryData!.cbms ?? [];
-      print('Battery Screen: Found ${cbmsItems.length} CBMS items');
       for (var item in cbmsItems) {
-        Map<String, dynamic> savedItem = {
-          'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
-          'photo': null,
-          'photoId': item.photoId,
-          'status': item.assetStatus ?? 'OK',
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': item.qrCodeScanned ?? false,
-          'itemType': item.itemType ?? 'CBMS',
-          'remarks': item.itemTypeRemark ?? 'CBMS Item',
-          'assetStatus': item.assetStatus,
-          'assetAuditSiteRespId': item.assetAuditSiteRespId,
-          'capacity': item.capacity ?? 'N/A',
-          
-          // Full API response details
-          'asset_audit_site_resp_id': item.assetAuditSiteRespId,
-          'site_audit_sch_id': item.siteAuditSchId,
-          'item_instance_id': item.itemInstanceId,
-          'oem_name': item.oemName,
-          'nexgen_serial_no': item.nexgenSerialNo,
-          'mfg_serial_no': item.mfgSerialNo,
-          'qr_code_scanned': item.qrCodeScanned ?? false,
-          'qr_code_scanned_ts': item.qrCodeScannedTs,
-          'image_name': item.imageName,
-          'longitude': item.longitude,
-          'latitude': item.latitude,
-          'item_type_group': item.itemTypeGroup,
-          'record_type': item.recordType,
-          'item_type_remark': item.itemTypeRemark,
-        };
-        savedMPPTItems.add(savedItem);
-        currentScannedItems++;
-        print('Battery Screen: Added CBMS item: ${savedItem['serialNumber']}');
+        if (item.photoId != null) { // Only include items with photoId
+          Map<String, dynamic> savedItem = {
+            'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+            'photo': null,
+            'photoId': item.photoId,
+            'status': item.assetStatus ?? 'OK',
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': item.qrCodeScanned ?? false,
+            'itemType': item.itemType ?? 'CBMS',
+            'remarks': item.itemTypeRemark ?? 'CBMS Item',
+            'assetStatus': item.assetStatus,
+            'assetAuditSiteRespId': item.assetAuditSiteRespId,
+            'capacity': item.capacity ?? 'N/A',
+
+            // Full API response details
+            'asset_audit_site_resp_id': item.assetAuditSiteRespId,
+            'site_audit_sch_id': item.siteAuditSchId,
+            'item_instance_id': item.itemInstanceId,
+            'oem_name': item.oemName,
+            'nexgen_serial_no': item.nexgenSerialNo,
+            'mfg_serial_no': item.mfgSerialNo,
+            'qr_code_scanned': item.qrCodeScanned ?? false,
+            'qr_code_scanned_ts': item.qrCodeScannedTs,
+            'image_name': item.imageName,
+            'longitude': item.longitude,
+            'latitude': item.latitude,
+            'item_type_group': item.itemTypeGroup,
+            'record_type': item.recordType,
+            'item_type_remark': item.itemTypeRemark,
+          };
+          savedMPPTItems.add(savedItem);
+          currentScannedItems++;
+        }
       }
-      
+
       // Update total counts
       totalRectifierItems = batteryAssets.length;
       totalMPPTItems = batteryCabinetItems.length + cbmsItems.length;
-      
+
       // Load remarks data from API and populate the CustomRemarksField
       final remarks = widget.batteryData!.remarks;
       if (remarks.isNotEmpty) {
@@ -263,28 +258,23 @@ class _BatteryScreenState extends State<BatteryScreen> {
           if (remark.itemTypeRemark != null &&
               remark.itemTypeRemark!.isNotEmpty) {
             generalRemarksController.text = remark.itemTypeRemark!;
-            print('Battery Screen: Loaded remark from API: ${remark.itemTypeRemark}');
             break; // Use the first valid remark
           }
         }
       }
-      
-      print('Battery Screen: Loaded ${savedRectifierItems.length} cabinet items, ${savedMPPTItems.length} battery/CBMS items');
-      print('Battery Screen: Total counts - Rectifier: $totalRectifierItems, MPPT: $totalMPPTItems');
-      print('Battery Screen: Current scanned items: $currentScannedItems');
+
+      print('Battery Debug: Data loading complete');
+      print('Battery Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
+      print('Battery Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
+      print('Battery Debug: currentScannedItems = $currentScannedItems');
     });
-    
-    print('Battery Screen: About to call _loadImagesForSavedItems...');
+
     // Load images for saved items
     _loadImagesForSavedItems();
-    print('Battery Screen: _loadImagesForSavedItems called successfully');
-    
+
     // Wait a bit for images to load and then check cache
     Future.delayed(Duration(milliseconds: 500), () {
       if (mounted) {
-        print('Battery Screen: After 500ms delay - checking image cache...');
-        print('Battery Screen: _imageCache keys: ${_imageCache.keys.toList()}');
-        print('Battery Screen: _loadingImages: $_loadingImages');
         setState(() {}); // Force UI update
       }
     });
@@ -292,258 +282,208 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   /// Load images for saved items using the image API
   void _loadImagesForSavedItems() async {
-    print('=== Battery Screen: Loading Images for Saved Items ===');
-    print('Battery Screen: Method entered successfully');
-    
-    // Debug: Print all saved items to see their structure
-    print('Battery Screen: savedRectifierItems count: ${savedRectifierItems.length}');
-    for (int i = 0; i < savedRectifierItems.length; i++) {
-      final item = savedRectifierItems[i];
-      print('Battery Screen: Rectifier Item $i: photoId=${item['photoId']}, serial=${item['serialNumber']}');
-    }
-    
-    print('Battery Screen: savedMPPTItems count: ${savedMPPTItems.length}');
-    for (int i = 0; i < savedMPPTItems.length; i++) {
-      final item = savedMPPTItems[i];
-      print('Battery Screen: MPPT Item $i: photoId=${item['photoId']}, serial=${item['serialNumber']}');
-    }
-    
     // Collect all photo IDs from saved items
     Set<int> photoIds = {};
-    
+
     // Add photo IDs from rectifier items
     for (var item in savedRectifierItems) {
       if (item['photoId'] != null) {
         photoIds.add(item['photoId']);
-        print('Battery Screen: Added photoId ${item['photoId']} from rectifier item');
       }
     }
-    
+
     // Add photo IDs from MPPT items
     for (var item in savedMPPTItems) {
       if (item['photoId'] != null) {
         photoIds.add(item['photoId']);
-        print('Battery Screen: Added photoId ${item['photoId']} from MPPT item');
       }
     }
-    
+
     if (photoIds.isEmpty) {
-      print('Battery Screen: No photo IDs found to load images');
       return;
     }
-    
-    print('Battery Screen: Total photo IDs to load: ${photoIds.length}');
-    print('Battery Screen: Photo IDs: $photoIds');
-    
+
     try {
       // Mark images as loading
       setState(() {
         _loadingImages.addAll(photoIds);
       });
-      print('Battery Screen: Marked images as loading: $_loadingImages');
-      
+
       // Fetch images from API
-      print('Battery Screen: Calling _imageService.fetchImagesByIds...');
-      print('Battery Screen: _imageService type: ${_imageService.runtimeType}');
-      
-      // Test if the service is working
       final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
-      print('Battery Screen: Received imageMap with ${imageMap.length} images');
-      print('Battery Screen: ImageMap keys: ${imageMap.keys.toList()}');
-      
+
       // Update cache and remove loading state
       setState(() {
-        print('Battery Screen: Before adding to cache - _imageCache keys: ${_imageCache.keys.toList()}');
         _imageCache.addAll(imageMap);
-        print('Battery Screen: After adding to cache - _imageCache keys: ${_imageCache.keys.toList()}');
         _loadingImages.removeAll(photoIds);
       });
-      
-      print('Battery Screen: Successfully loaded ${imageMap.length} images');
-      print('Battery Screen: Final _imageCache keys: ${_imageCache.keys.toList()}');
-      print('Battery Screen: Final _loadingImages: $_loadingImages');
-      
-      // Debug: Check the format of loaded image data
-      if (imageMap.isNotEmpty) {
-        final firstImageKey = imageMap.keys.first;
-        final firstImageData = imageMap[firstImageKey];
-        print('Battery Screen: First image data length: ${firstImageData?.length ?? 0}');
-        print('Battery Screen: First image data starts with: ${firstImageData?.substring(0, firstImageData.length > 50 ? 50 : firstImageData.length)}');
-        
-        // Verify the data is actually in the cache
-        final cachedData = _imageCache[firstImageKey];
-        print('Battery Screen: Verification - cached data for key $firstImageKey: ${cachedData != null ? 'EXISTS' : 'MISSING'}');
-        if (cachedData != null) {
-          print('Battery Screen: Cached data length: ${cachedData.length}');
-        }
-      }
-      
+
       // Force a rebuild to ensure UI updates
       if (mounted) {
         setState(() {});
-        print('Battery Screen: Forced UI rebuild after image loading');
       }
     } catch (e) {
-      print('Battery Screen: Error loading images: $e');
-      print('Battery Screen: Error stack trace: ${StackTrace.current}');
       setState(() {
         _loadingImages.removeAll(photoIds);
       });
     }
-    
-    print('Battery Screen: _loadImagesForSavedItems method completed');
   }
 
   /// Build photo column for saved items list
   Widget _buildPhotoColumn(Map<String, dynamic> item) {
     final photoId = item['photoId'];
-    
-    print('Battery Screen: _buildPhotoColumn called for item: photoId=$photoId, serial=${item['serialNumber']}');
-    print('Battery Screen: Item keys: ${item.keys.toList()}');
-    print('Battery Screen: photoId type: ${photoId.runtimeType}');
-    print('Battery Screen: Current _imageCache keys: ${_imageCache.keys.toList()}');
-    print('Battery Screen: Current _loadingImages: $_loadingImages');
-    
+    final imageName = item['image_name'];
+
     if (photoId == null) {
-      print('Battery Screen: photoId is null, showing grey camera icon');
       return Icon(
         Icons.photo_camera_outlined,
         color: AppColors.greyColor,
         size: 20,
       );
     }
-    
-    // Check if image is cached
-    final imageData = _imageCache[photoId];
-    print('Battery Screen: Image $photoId cached: ${imageData != null ? 'YES' : 'NO'}');
-    if (imageData != null) {
-      print('Battery Screen: Showing image for photoId $photoId');
-      print('Battery Screen: Image data length: ${imageData.length}');
-      print('Battery Screen: Image data starts with: ${imageData.substring(0, imageData.length > 20 ? 20 : imageData.length)}');
-      
-      try {
-        print('Battery Screen: Creating Base64ImageWidget...');
-        final widget = GestureDetector(
-          onTap: () => _showImageDialog(imageData),
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: AppColors.green7, width: 1),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Base64ImageWidget(
-                base64Data: imageData,
-                width: 30,
-                height: 30,
-                boxFit: BoxFit.cover,
-              ),
-            ),
-          ),
-        );
-        print('Battery Screen: Base64ImageWidget created successfully');
-        return widget;
-      } catch (e) {
-        print('Battery Screen: Error creating Base64ImageWidget: $e');
-        print('Battery Screen: Error stack trace: ${StackTrace.current}');
-        // Fallback: show a colored container
-        return Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.green7, width: 1),
-            color: AppColors.green7,
-          ),
-          child: Icon(
-            Icons.image,
-            color: Colors.white,
-            size: 16,
-          ),
-        );
-      }
-    }
-    
-    // Show camera icon if no image data
-    print('Battery Screen: No image data for photoId $photoId, showing green camera icon');
-    return Icon(
-      Icons.photo_camera,
-      color: AppColors.green7,
-      size: 20,
+
+    // Show camera icon that opens image viewer
+    return GestureDetector(
+      onTap: () {
+        // Check if image is cached first
+        final imageData = _imageCache[photoId.toString()];
+        if (imageData != null) {
+          _showImageDialog(imageData, imageName);
+        } else {
+          // Show image using photo ID
+          _showImageDialog(photoId.toString(), imageName);
+        }
+      },
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.green7, width: 1),
+        ),
+        child: const Icon(
+          Icons.camera_alt,
+          color: AppColors.green7,
+          size: 16,
+        ),
+      ),
     );
   }
 
   /// Show image in full screen dialog
-  void _showImageDialog(String imageData) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
+  Future<void> _showImageDialog(String? imagePath, String? imageName) async {
+    if (imagePath == null && imageName == null) {
+      showCustomToast(context, 'No photo available to view.');
+      return;
+    }
+
+    String? imageData;
+
+    // Case 1: Photo is a base64 data URL
+    if (imagePath!.startsWith('data:image/')) {
+      imageData = imagePath;
+    }
+    // Case 2: Photo is a local file path
+    else if (await File(imagePath).exists()) {
+      imageData = imagePath;
+    }
+    // Case 3: Photo is a photo ID (numeric) from the API
+    else if (_isNumeric(imagePath)) {
+      print('Fetching image for photo ID: $imagePath');
+      final completer = Completer<String?>();
+      late StreamSubscription subscription;
+
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
+          print('Image fetched successfully for photo ID: $imagePath');
+          final finalImageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          completer.complete(finalImageData);
+          subscription.cancel();
+        } else if (state is AssetAuditGetImageFailure) {
+          print('Failed to fetch image: ${state.errorMessage}');
+          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          completer.complete(null);
+          subscription.cancel();
+        }
+      });
+
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: imagePath,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      imageData = await completer.future;
+    }
+
+    if (imageData != null && imageData.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
             children: [
-              AppBar(
-                title: Text('Image View'),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: imageData!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(imageData.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(imageData),
+                        fit: BoxFit.contain,
+                      ),
               ),
-              Expanded(
-                child: Base64ImageWidget(
-                  base64Data: imageData,
-                  boxFit: BoxFit.contain,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.red,
+                    size: 30,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
+    } else {
+      showCustomToast(context, 'Unable to load photo.');
+    }
+  }
+
+  /// Check if string is numeric
+  bool _isNumeric(String str) {
+    return int.tryParse(str) != null;
   }
 
   @override
   void initState() {
     super.initState();
     serialController.addListener(_onFormChanged);
-    
-    print('Battery Screen: initState called');
-    print('Battery Screen: batteryData is null: ${widget.batteryData == null}');
-    if (widget.batteryData != null) {
-      print('Battery Screen: batteryData available');
-      print('Battery Screen: Assets count: ${widget.batteryData!.assets.length}');
-      print('Battery Screen: Subcategories: ${widget.batteryData!.subCategories?.keys.toList()}');
-    }
-    
-    // Check if we have data to show, if not, skip this screen
+
+    // Always initialize the screen - don't auto-navigate away
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      print('Battery Screen: Post frame callback executed');
-      if (!_hasDataToShow()) {
-        print('Battery Screen: No data to show, skipping to Extinguisher screen');
-        _navigateToExtinguisherScreen();
-      } else {
-        print('Battery Screen: Data available, loading battery data');
-        
-        // Initialize image service
-        try {
-          _imageService = ImageRepository(AppConfig.of(context).apiProvider);
-          print('Battery Screen: Image service initialized successfully');
-        } catch (e) {
-          print('Battery Screen: Error initializing image service: $e');
-        }
-        
-        batteryCapacityController.text = _getBatteryCapacity();
-        _loadBatteryData();
-        _hasPostedBatteryData = false;
+      // Initialize image service
+      try {
+        _imageService = ImageRepository(AppConfig.of(context).apiProvider);
+      } catch (e) {
       }
+
+      batteryCapacityController.text = _getBatteryCapacity();
+      _loadBatteryData();
+      _hasPostedBatteryData = false;
     });
   }
-  
+
   @override
   void dispose() {
     serialController.removeListener(_onFormChanged);
@@ -554,47 +494,51 @@ class _BatteryScreenState extends State<BatteryScreen> {
     rectifierSerialController.dispose();
     mpptSerialController.dispose();
     serialController.dispose();
-    
+
     _hasPostedBatteryData = false;
-    
+
     super.dispose();
   }
 
-
-
   /// Check if there is data to show on the screen
   bool _hasDataToShow() {
+    print('Battery Debug: Checking if data is available to show');
+    print('Battery Debug: batteryData is null: ${widget.batteryData == null}');
+    
     if (widget.batteryData == null) {
-      print('Battery Screen: No battery data available');
+      print('Battery Debug: No battery data available - returning false');
       return false;
     }
 
     // Check if we have any assets
     final hasAssets = widget.batteryData!.assets.isNotEmpty;
+    print('Battery Debug: hasAssets: $hasAssets (count: ${widget.batteryData!.assets.length})');
 
     // Check if we have any subcategories with data
     final hasSubCategories = widget.batteryData!.subCategories != null &&
         widget.batteryData!.subCategories!.values.any((items) => items.isNotEmpty);
+    print('Battery Debug: hasSubCategories: $hasSubCategories');
+    if (widget.batteryData!.subCategories != null) {
+      print('Battery Debug: subcategories: ${widget.batteryData!.subCategories!.keys.toList()}');
+      for (var entry in widget.batteryData!.subCategories!.entries) {
+        print('Battery Debug: ${entry.key}: ${entry.value.length} items');
+      }
+    }
 
     final hasData = hasAssets || hasSubCategories;
-
-    print('Battery Screen: Data availability check:');
-    print('  - Assets: $hasAssets (${widget.batteryData!.assets.length})');
-    print('  - Subcategories: $hasSubCategories');
-    print('  - Has data to show: $hasData');
+    print('Battery Debug: Final hasData result: $hasData');
 
     return hasData;
   }
 
   void _navigateToExtinguisherScreen() {
-    print('Battery Screen: Navigating to Extinguisher screen');
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (context) => ExtinguisherScreen(
           extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
           assetAuditData: widget.assetAuditData,
-          showSuccessMessage: false, // Don't show success message when skipping battery screen
+          showSuccessMessage: false,
         ),
       ),
     );
@@ -649,16 +593,14 @@ class _BatteryScreenState extends State<BatteryScreen> {
     );
   }
 
-
-
   void _onFormChanged() {
     setState(() {
       hasUnsavedChanges =
           selectedFile != null ||
-          selectedStatus != null ||
-          selectedBatteryStatus != null ||
-          selectedType != null ||
-          serialController.text.isNotEmpty;
+              selectedStatus != null ||
+              selectedBatteryStatus != null ||
+              selectedType != null ||
+              serialController.text.isNotEmpty;
 
       // Hide validation errors when user starts filling the form
       if (showValidationErrors &&
@@ -678,20 +620,27 @@ class _BatteryScreenState extends State<BatteryScreen> {
     // Wait a bit for the dialog to fully close and overlay to clear
     await Future.delayed(const Duration(milliseconds: 200));
 
+    // Post data to API first
+    try {
+      await _postCurrentScreenData();
+      
+      // Update audit schedule status to "In Progress"
+      if (mounted) {
+        context.read<AuditScheduleStatusCubit>().updateStatus(
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          status: "In Progress",
+        );
+      }
+    } catch (e) {
+      print('Error posting Battery data: $e');
+    }
+
     // Then show success dialog with a clean barrier
     if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54, // Ensure clean barrier
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
         ),
       );
     }
@@ -699,8 +648,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   // Validate required fields for saved items only
   bool _isFormValid() {
-    print('=== Form Validation Debug ===');
-
     // Only check serial number and photo for saved items
     // Type, battery status, and file are not required for individual item saving
 
@@ -709,34 +656,23 @@ class _BatteryScreenState extends State<BatteryScreen> {
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
-            ? mpptSerialController.text
-            : null;
+        ? mpptSerialController.text
+        : null;
 
-    print('Serial number: "$serialNumber"');
     if (serialNumber == null || serialNumber.isEmpty) {
-      print(' Serial number validation failed');
       return false;
-    } else {
-      print('✅ Serial number validation passed');
     }
 
-    // Check if photo is added
-    // Check both photo variables to see which one has data
-    String? photo = rectifierPhoto ?? mpptPhoto;
-    print('Photo: $photo');
-    if (photo == null || photo.isEmpty) {
-      print(' Photo validation failed');
+    // Check if photoId is available (photo is mandatory)
+    int? photoId = rectifierPhotoId ?? mpptPhotoId;
+    if (photoId == null) {
       return false;
-    } else {
-      print('✅ Photo validation passed');
     }
 
     // Note: status is not required since it comes from API
     // and is set to true by default (backendStatus: true)
     String? status = rectifierStatus ?? mpptStatus;
-    print('Status: $status (not required)');
 
-    print(' All validations passed!');
     return true;
   }
 
@@ -745,184 +681,248 @@ class _BatteryScreenState extends State<BatteryScreen> {
       showValidationErrors = true;
     });
 
-    print('=== Form Validation Debug (_validateForm) ===');
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
-            ? mpptSerialController.text
-            : null;
+        ? mpptSerialController.text
+        : null;
 
-    print('Serial number: "$serialNumber"');
     if (serialNumber == null || serialNumber.isEmpty) {
-      print(' Serial number validation failed');
       return false;
-    } else {
-      print(' Serial number validation passed');
     }
 
-    // Check if photo is added
-    // Check both photo variables to see which one has data
-    String? photo = rectifierPhoto ?? mpptPhoto;
-    print('Photo: $photo');
-    if (photo == null || photo.isEmpty) {
-      print(' Photo validation failed');
+    // Check if photoId is available
+    int? photoId = rectifierPhotoId ?? mpptPhotoId;
+    if (photoId == null) {
       return false;
-    } else {
-      print(' Photo validation passed');
     }
 
     // Note: status is not required since it comes from API
     // and is set to true by default (backendStatus: true)
     String? status = rectifierStatus ?? mpptStatus;
-    print('Status: $status (not required)');
 
-    print('Final validation result: true');
     return true;
   }
 
   // Save current form data for Rectifier
   void _saveRectifierForm() {
-    // Check if we've reached the maximum limit from backend
-    if (savedRectifierItems.length >= totalRectifierItems) {
-      // Maximum limit reached! You can only scan up to $totalRectifierItems Rectifier items (as per backend count)
+    // Check against items that already have both photo_id and asset_status
+    int completedRectifierCount = widget.batteryData?.assets?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int totalRectifierCount = widget.batteryData?.assets?.length ?? 0;
+    
+    // Use total count as the maximum allowed (not completed count)
+    int maxAllowedRectifierCount = totalRectifierCount;
+    
+    print('Battery Debug: completedRectifierCount = $completedRectifierCount');
+    print('Battery Debug: totalRectifierCount = $totalRectifierCount');
+    print('Battery Debug: maxAllowedRectifierCount = $maxAllowedRectifierCount');
+    print('Battery Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
+    
+    if (savedRectifierItems.length > maxAllowedRectifierCount) {
+      showCustomToast(
+        context,
+        'Maximum number of Rectifier items ($maxAllowedRectifierCount) already added.',
+      );
       return;
     }
 
     if (_isFormValid()) {
-      setState(() {
-        // Create a map of current form data
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': rectifierSerialNumber,
-          'photo': rectifierPhoto,
-          'photoId': rectifierPhotoId, // Include the photoId from API
-          'photoTakenTs': DateTime.now().toString(), // Add photo taken timestamp
-          'status': rectifierStatus ?? "OK", // Default to "OK" if null (since it comes from API)
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false, // Track if this was QR scanned or manual entry (false for manual entry)
-          'itemType': 'CBMS', // Add item type for better tracking
-          'remarks': rectifierRemarksController.text.isNotEmpty ? rectifierRemarksController.text : 'CBMS Item', // Add remarks for API
-          'assetStatus': rectifierStatus ?? "OK", // Map to assetStatus field
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('CBMS'), // Get ID from GET API response
-        };
+      if (rectifierPhotoId != null) { // Only save if photoId is present
+        setState(() {
+          // Create a map of current form data
+          Map<String, dynamic> currentFormData = {
+            'serialNumber': rectifierSerialNumber,
+            'photo': rectifierPhoto,
+            'photoId': rectifierPhotoId,
+            'photoTakenTs': DateTime.now().toString(),
+            'status': rectifierStatus ?? "OK",
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': false,
+            'itemType': 'CBMS',
+            'remarks': rectifierRemarksController.text.isNotEmpty ? rectifierRemarksController.text : 'CBMS Item',
+            'assetStatus': rectifierStatus ?? "OK",
+            'assetAuditSiteRespId': _getAssetAuditSiteRespId('CBMS'),
+          };
 
-        print('Saving Rectifier item: $currentFormData');
-        print(
-          'Current savedRectifierItems count: ${savedRectifierItems.length}',
-        );
+          // Add to saved rectifier items list
+          savedRectifierItems.add(currentFormData);
+          currentScannedItems++;
 
-        // Add to saved rectifier items list
-        savedRectifierItems.add(currentFormData);
-        currentScannedItems++;
+          // Clear AssetTypeCard form for next entry
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierPhotoId = null;
+          rectifierStatus = null;
 
-        print(
-          'After saving - savedRectifierItems count: ${savedRectifierItems.length}',
-        );
-        print('currentScannedItems: $currentScannedItems');
+          // Clear the controller
+          rectifierSerialController.clear();
 
-        // Clear AssetTypeCard form for next entry
-        rectifierSerialNumber = null;
-        rectifierPhoto = null;
-        rectifierPhotoId = null;
-        rectifierStatus = null;
+          // Force rebuild of the CustomInfoCard widget
+          rectifierCardKey++;
 
-        // Clear the controller
-        rectifierSerialController.clear();
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        });
 
-        // Force rebuild of the CustomInfoCard widget
-        rectifierCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
-      });
-
-      // Show success message with scanning limits info
-      int remainingRectifiers = totalRectifierItems - savedRectifierItems.length;
-      String message = '✅ CBMS item saved successfully!';
-      if (remainingRectifiers > 0) {
-        message += ' (${remainingRectifiers} remaining out of $totalRectifierItems backend count)';
-      } else {
-        message += ' (Maximum limit reached - backend count: $totalRectifierItems)';
+        // Show success message with scanning limits info
+        int remainingRectifiers = maxAllowedRectifierCount - savedRectifierItems.length;
+        String message = '✅ CBMS item saved successfully!';
+        if (remainingRectifiers > 0) {
+          message += ' (${remainingRectifiers} remaining out of $maxAllowedRectifierCount backend count)';
+        } else {
+          message += ' (Maximum limit reached - backend count: $maxAllowedRectifierCount)';
+        }
+        showCustomToast(context, message);
       }
-      showCustomToast(context, message);
-    } else {
-      print('Form validation failed - cannot save rectifier item');
     }
   }
 
   // Save current form data for MPPT
   void _saveMPPTForm() {
-    // Check if we've reached the maximum limit from backend
-    if (savedMPPTItems.length >= totalMPPTItems) {
-      // Maximum limit reached! You can only scan up to $totalMPPTItems MPPT items (as per backend count)
+    // Check against items that already have both photo_id and asset_status
+    int completedMPPTCount = (widget.batteryData?.subCategories?['Battery Cabinet']?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0) + 
+        (widget.batteryData?.subCategories?['CBMS']?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0);
+    int totalMPPTCount = (widget.batteryData?.subCategories?['Battery Cabinet']?.length ?? 0) + 
+        (widget.batteryData?.subCategories?['CBMS']?.length ?? 0);
+    
+    // Use total count as the maximum allowed (not completed count)
+    int maxAllowedMPPTCount = totalMPPTCount;
+    
+    print('Battery Debug: completedMPPTCount = $completedMPPTCount');
+    print('Battery Debug: totalMPPTCount = $totalMPPTCount');
+    print('Battery Debug: maxAllowedMPPTCount = $maxAllowedMPPTCount');
+    print('Battery Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
+    
+    if (savedMPPTItems.length > maxAllowedMPPTCount) {
+      showCustomToast(
+        context,
+        'Maximum number of MPPT items ($maxAllowedMPPTCount) already added.',
+      );
       return;
     }
 
     if (_isFormValid()) {
-      setState(() {
-        // Create a map of current form data
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': mpptSerialNumber,
-          'photo': mpptPhoto,
-          'photoId': mpptPhotoId, // Include the photoId from API
-          'photoTakenTs': DateTime.now().toString(), // Add photo taken timestamp
-          'status': mpptStatus ?? "OK", // Default to "OK" if null (since it comes from API)
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false, // Track if this was QR scanned or manual entry (false for manual entry)
-          'itemType': 'Battery', // Add item type for better tracking
-          'remarks': batteryCapacityController.text.isNotEmpty ? batteryCapacityController.text : 'Battery Item', // Add remarks for API
-          'assetStatus': mpptStatus ?? "OK", // Map to assetStatus field
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('Battery'), // Get ID from GET API response
-        };
+      if (mpptPhotoId != null) { // Only save if photoId is present
+        setState(() {
+          // Create a map of current form data
+          Map<String, dynamic> currentFormData = {
+            'serialNumber': mpptSerialNumber,
+            'photo': mpptPhoto,
+            'photoId': mpptPhotoId,
+            'photoTakenTs': DateTime.now().toString(),
+            'status': mpptStatus ?? "OK",
+            'timestamp': DateTime.now(),
+            'isQRCodeScanned': false,
+            'itemType': 'Battery',
+            'remarks': batteryCapacityController.text.isNotEmpty ? batteryCapacityController.text : 'Battery Item',
+            'assetStatus': mpptStatus ?? "OK",
+            'assetAuditSiteRespId': _getAssetAuditSiteRespId('Battery'),
+          };
 
-        print('Saving MPPT item: $currentFormData');
-        print('Current savedMPPTItems count: ${savedMPPTItems.length}');
+          // Add to saved MPPT items list
+          savedMPPTItems.add(currentFormData);
+          currentScannedItems++;
 
-        // Add to saved MPPT items list
-        savedMPPTItems.add(currentFormData);
-        currentScannedItems++;
+          // Clear AssetTypeCard form for next entry
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptPhotoId = null;
+          mpptStatus = null;
 
-        print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          // Clear the controller
+          mpptSerialController.clear();
 
-        // Clear AssetTypeCard form for next entry
-        mpptSerialNumber = null;
-        mpptPhoto = null;
-        mpptPhotoId = null;
-        mpptStatus = null;
+          // Force rebuild of the CustomInfoCard widget
+          mpptCardKey++;
 
-        // Clear the controller
-        mpptSerialController.clear();
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        });
 
-        // Force rebuild of the CustomInfoCard widget
-        mpptCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
-      });
-
-      // Show success message with scanning limits info
-      int remainingMPPTs = totalMPPTItems - savedMPPTItems.length;
-      String message = '✅ Battery item saved successfully!';
-      if (remainingMPPTs > 0) {
-        message += ' (${remainingMPPTs} remaining out of $totalMPPTItems backend count)';
-      } else {
-        message += ' (Maximum limit reached - backend count: $totalMPPTItems)';
+        // Show success message with scanning limits info
+        int remainingMPPTs = maxAllowedMPPTCount - savedMPPTItems.length;
+        String message = '✅ Battery item saved successfully!';
+        if (remainingMPPTs > 0) {
+          message += ' (${remainingMPPTs} remaining out of $maxAllowedMPPTCount backend count)';
+        } else {
+          message += ' (Maximum limit reached - backend count: $maxAllowedMPPTCount)';
+        }
+        showCustomToast(context, message);
       }
-      showCustomToast(context, message);
-    } else {
-      print('Form validation failed - cannot save MPPT item');
     }
+  }
+
+  // Method to show image viewer dialog
+  // void _showImageDialog(String imageData) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => Dialog(
+  //       child: Container(
+  //         width: MediaQuery.of(context).size.width * 0.8,
+  //         height: MediaQuery.of(context).size.height * 0.6,
+  //         child: Column(
+  //           children: [
+  //             AppBar(
+  //               title: Text('Image View'),
+  //               actions: [
+  //                 IconButton(
+  //                   icon: Icon(Icons.close),
+  //                   onPressed: () => Navigator.of(context).pop(),
+  //                 ),
+  //               ],
+  //             ),
+  //             Expanded(
+  //               child: Base64ImageWidget(
+  //                 base64Data: imageData,
+  //                 boxFit: BoxFit.contain,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  // Helper method to filter items that have both photo and status
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
+    return items.where((item) {
+      final hasPhoto = item['photo'] != null && item['photo'].toString().isNotEmpty;
+      final hasPhotoId = item['photoId'] != null;
+      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
+                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+      return hasPhotoId && hasStatus;
+    }).toList();
   }
 
   // Check if all items are scanned (for display purposes only)
   bool _isAllItemsScanned() {
-    return (savedRectifierItems.length >= totalRectifierItems) &&
-        (savedMPPTItems.length >= totalMPPTItems);
+    // Check against unfiltered backend counts
+    int unfilteredRectifierCount = widget.batteryData?.assets?.length ?? 0;
+    int unfilteredMPPTCount = (widget.batteryData?.subCategories?['Battery Cabinet']?.length ?? 0) + (widget.batteryData?.subCategories?['CBMS']?.length ?? 0);
+    return (savedRectifierItems.length >= unfilteredRectifierCount) &&
+        (savedMPPTItems.length >= unfilteredMPPTCount);
   }
 
   // Check if user can proceed to next screen (minimum 1 item required)
   bool _canProceedToNextScreen() {
-    return (savedRectifierItems.length > 0) || (savedMPPTItems.length > 0);
+    print('Battery Debug: _canProceedToNextScreen check');
+    print('Battery Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
+    print('Battery Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
+    
+    // Allow navigation if there are saved items OR if there's data from API (user is passing through)
+    final hasSavedItems = (savedRectifierItems.length > 0) || (savedMPPTItems.length > 0);
+    final hasApiData = widget.batteryData != null && 
+        (widget.batteryData!.assets.isNotEmpty || 
+         (widget.batteryData!.subCategories != null && 
+          widget.batteryData!.subCategories!.values.any((items) => items.isNotEmpty)));
+    
+    final canProceed = hasSavedItems || hasApiData;
+    print('Battery Debug: hasSavedItems = $hasSavedItems, hasApiData = $hasApiData, canProceed = $canProceed');
+    return canProceed;
   }
 
   // Get total scanned items count
@@ -950,7 +950,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
         return batteryCabinetItems.first.capacity ?? '200 AH';
       }
     }
-    return '200 AH'; // Default fallback
+    return '200 AH';
   }
 
   /// Get asset audit site response ID from GET API response for a specific item type
@@ -971,78 +971,49 @@ class _BatteryScreenState extends State<BatteryScreen> {
           break;
       }
     }
-    return null; // Return null if no matching item found
+    return null;
   }
 
   bool _validateSerialNumber(String serialNumber, bool isQRCodeScanned) {
     if (widget.batteryData == null) return false;
 
-    print('=== Serial Number Validation Debug ===');
-    print('Validating serial number: "$serialNumber" (QR Scanned: $isQRCodeScanned)');
-
     // For CBMS validation, focus on CBMS items specifically
     final cbmsItems = widget.batteryData!.cbms ?? [];
-    print('CBMS items available: ${cbmsItems.length}');
-
-    if (cbmsItems.isNotEmpty) {
-      print('CBMS items details:');
-      for (var item in cbmsItems) {
-        print('  - Item: ${item.itemType} | nexgenSerialNo: "${item.nexgenSerialNo}" | mfgSerialNo: "${item.mfgSerialNo}"');
-      }
-    }
 
     // Check against CBMS items first (most relevant for rectifier validation)
     final cbmsValid = cbmsItems.any((item) {
-      print('Checking CBMS item: nexgenSerialNo="${item.nexgenSerialNo}", mfgSerialNo="${item.mfgSerialNo}"');
-
       // Check nexgenSerialNo first (most common)
       if (item.nexgenSerialNo?.toLowerCase() == serialNumber.toLowerCase()) {
-        print('✅ CBMS Match found in nexgenSerialNo: ${item.nexgenSerialNo}');
         return true;
       }
       // Check mfgSerialNo as fallback
       if (item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase()) {
-        print('✅ CBMS Match found in mfgSerialNo: ${item.mfgSerialNo}');
         return true;
       }
       return false;
     });
 
     if (cbmsValid) {
-      print('✅ CBMS validation successful');
-      if (isQRCodeScanned) {
-        // CBMS QR Code validated successfully
-      } else {
-                  // CBMS manual entry validated successfully
-      }
       return true;
     }
 
     // If CBMS validation fails, check other items as fallback
-    print('CBMS validation failed, checking other items...');
     final allItems = [
       ...(widget.batteryData!.batteryCabinet ?? []),
       ...(widget.batteryData!.assets ?? []),
     ];
 
-    print('Other items to check against: ${allItems.length}');
-
     final otherValid = allItems.any((item) {
-      print('Checking other item: nexgenSerialNo="${item.nexgenSerialNo}", mfgSerialNo="${item.mfgSerialNo}"');
-
       if (item.nexgenSerialNo?.toLowerCase() == serialNumber.toLowerCase()) {
-        print('✅ Other item match found in nexgenSerialNo: ${item.nexgenSerialNo}');
         return true;
       }
       if (item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase()) {
-        print('✅ Other item match found in mfgSerialNo: ${item.mfgSerialNo}');
         return true;
       }
       return false;
     });
 
     final finalResult = cbmsValid || otherValid;
-    print('Final validation result: $finalResult (CBMS: $cbmsValid, Other: $otherValid)');
 
     if (!finalResult) {
       if (isQRCodeScanned) {
@@ -1057,35 +1028,22 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   /// Check if the current success state is for Battery screen data
   bool _isBatteryScreenDataPosted() {
-    print('Battery Screen: Checking if Battery screen data was posted...');
-    print('Battery Screen: _hasPostedBatteryData flag: $_hasPostedBatteryData');
-    print('Battery Screen: Has saved rectifier items: ${savedRectifierItems.isNotEmpty}');
-    print('Battery Screen: Has saved MPPT items: ${savedMPPTItems.isNotEmpty}');
-    print('Battery Screen: Total saved items: ${savedRectifierItems.length + savedMPPTItems.length}');
-
-    // Use the flag to determine if this success state is for Battery screen data
     return _hasPostedBatteryData;
   }
 
   int? _getRemarksAssetAuditSiteRespId() {
-    print('=== Battery Screen: Getting Remarks AssetAuditSiteRespId ===');
-
     if (widget.batteryData == null) {
-      print('batteryData is null, cannot get remarks ID');
       return null;
     }
 
     // Check if there are remarks in the backend data
     final remarks = widget.batteryData!.remarks;
     if (remarks.isNotEmpty) {
-      print('Found ${remarks.length} remarks in backend data');
-
       // First try to find a general remarks entry (Battery category is usually the main one)
       for (var remark in remarks) {
         if (remark.assetAuditSiteRespId != null &&
             remark.assetAuditSiteRespId > 0 &&
             remark.itemType == 'Battery') {
-          print('Using Battery remarks ID: ${remark.assetAuditSiteRespId}');
           return remark.assetAuditSiteRespId;
         }
       }
@@ -1093,26 +1051,21 @@ class _BatteryScreenState extends State<BatteryScreen> {
       // Fallback: find any remarks entry with a valid ID
       for (var remark in remarks) {
         if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0) {
-          print('Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}');
           return remark.assetAuditSiteRespId;
         }
       }
     }
 
-    print('No valid remarks ID found in backend data');
     return null;
   }
 
   /// Post current screen data to API before navigating to next screen
   Future<bool> _postCurrentScreenData() async {
     if (widget.assetAuditData == null) {
-      print('Battery Screen: No asset audit data available for posting');
       return false;
     }
 
     try {
-
-
       // Create a list to hold all items to post
       List<Map<String, dynamic>> allItemsToPost = [];
 
@@ -1123,9 +1076,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
           screenName: 'CBMS',
         );
         allItemsToPost.addAll(enhancedCBMSItems);
-        print(
-          'Battery Screen: Added ${enhancedCBMSItems.length} CBMS items to post',
-        );
       }
 
       // Add saved Battery items
@@ -1135,9 +1085,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
           screenName: 'Battery',
         );
         allItemsToPost.addAll(enhancedBatteryItems);
-        print(
-          'Battery Screen: Added ${enhancedBatteryItems.length} Battery items to post',
-        );
       }
 
       // Add user's general remarks if entered
@@ -1147,40 +1094,26 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
         if (remarksAssetAuditSiteRespId != null) {
           Map<String, dynamic> remarksData = {
-            'itemType': 'Battery', // Use the main screen category
-            'remarks': generalRemarksController.text, // User's actual remarks text
+            'itemType': 'Battery',
+            'remarks': generalRemarksController.text,
             'recordType': 'Remarks',
             'timestamp': DateTime.now(),
-            'assetAuditSiteRespId': remarksAssetAuditSiteRespId, // Use backend remarks ID
-            'status': 'OK', // Default status for remarks
-            'serialNumber': 'REMARKS', // Default serial for remarks
-            'photo': null, // No photo file for remarks
-
-            'photoTakenTs': DateTime.now().toString(), // Current timestamp
-            'isQRCodeScanned': false, // Remarks are not QR scanned
-            'localQrCodeScannedTs': DateTime.now().toString(), // Local timestamp for QR scan
-            'localCreatedDt': DateTime.now().toString(), // Local creation timestamp
-            'localModifiedDt': DateTime.now().toString(), // Local modification timestamp
+            'assetAuditSiteRespId': remarksAssetAuditSiteRespId,
+            'status': 'OK',
+            'serialNumber': 'REMARKS',
+            'photo': null,
+            'photoTakenTs': DateTime.now().toString(),
+            'isQRCodeScanned': false,
+            'localQrCodeScannedTs': DateTime.now().toString(),
+            'localCreatedDt': DateTime.now().toString(),
+            'localModifiedDt': DateTime.now().toString(),
           };
           allItemsToPost.add(remarksData);
-          print('Battery Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${generalRemarksController.text}"');
-        } else {
-          print('Battery Screen: Could not find remarks ID from backend data');
         }
       }
 
       if (allItemsToPost.isEmpty) {
-        print('Battery Screen: No items to post');
         return false;
-      }
-
-      // Log the data being posted
-      print('Battery Screen: Data to be posted:');
-      for (int i = 0; i < allItemsToPost.length; i++) {
-        final item = allItemsToPost[i];
-        print(
-          '  Item ${i + 1}: ${item['itemType']} - Serial: ${item['serialNumber']} - PhotoId: ${item['photoId']} - AssetAuditSiteRespId: ${item['assetAuditSiteRespId']}',
-        );
       }
 
       // Convert to POST request format
@@ -1195,33 +1128,23 @@ class _BatteryScreenState extends State<BatteryScreen> {
       );
 
       if (requests.isEmpty) {
-        print('Battery Screen: Failed to create POST requests');
         return false;
       }
 
       // Use the existing cubit to post data
-      print('Battery Screen: Posting ${requests.length} items to API...');
-      print('Battery Screen: Current cubit state before posting: ${context.read<AssetAuditCubit>().state}');
-
       final cubit = context.read<AssetAuditCubit>();
-      print('Battery Screen: Got cubit: $cubit');
 
       // Set flag BEFORE making the API call to ensure it's set when success state is received
       setState(() {
         _hasPostedBatteryData = true;
       });
-      print('Battery Screen: Set _hasPostedBatteryData flag to true BEFORE API call');
-      print('Battery Screen: Flag value after setting: $_hasPostedBatteryData');
+      print('Battery Debug: Set _hasPostedBatteryData = true before posting data');
 
       cubit.postAssetAuditData(requests: requests);
-
-      print('Battery Screen: postAssetAuditData called, waiting for state change...');
-      print('Battery Screen: Cubit state after posting: ${cubit.state}');
 
       // Return true to indicate data is being posted
       return true;
     } catch (e) {
-      print('Battery Screen: Error preparing data: $e');
       return false;
     }
   }
@@ -1241,6 +1164,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
       rectifierSerialNumber = item["serialNumber"];
       rectifierPhoto = item["photo"];
       rectifierStatus = item["status"];
+      rectifierPhotoId = item["photoId"];
 
       // Set the serial controller text
       rectifierSerialController.text = item["serialNumber"] ?? "";
@@ -1269,6 +1193,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
       mpptSerialNumber = item["serialNumber"];
       mpptPhoto = item["photo"];
       mpptStatus = item["status"];
+      mpptPhotoId = item["photoId"];
 
       // Set the serial controller text
       mpptSerialController.text = item["serialNumber"] ?? "";
@@ -1292,64 +1217,51 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AssetAuditCubit, AssetAuditState>(
+    return BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
       listener: (context, state) {
-        print('Battery Screen: BlocListener received state: $state');
-        print('Battery Screen: State type: ${state.runtimeType}');
+        if (state is AssetAuditGetImageSuccess) {
+          // Handle successful image loading
+          setState(() {
+            // Update the appropriate photo variable based on editing item type
+            if (_editingItemType == 'rectifier') {
+              rectifierPhoto = state.imageData.startsWith('data:image/')
+                  ? state.imageData
+                  : 'data:image/jpeg;base64,${state.imageData}';
+              print('Battery Debug: Updated rectifierPhoto with image data');
+            } else if (_editingItemType == 'mppt') {
+              mpptPhoto = state.imageData.startsWith('data:image/')
+                  ? state.imageData
+                  : 'data:image/jpeg;base64,${state.imageData}';
+              print('Battery Debug: Updated mpptPhoto with image data');
+            }
+            // Clear the editing item type
+            _editingItemType = null;
+          });
+        } else if (state is AssetAuditGetImageFailure) {
+          print('Battery Debug: Failed to load image: ${state.errorMessage}');
+          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          // Clear the editing item type on failure
+          _editingItemType = null;
+        }
+      },
+      child: BlocListener<AssetAuditCubit, AssetAuditState>(
+      listener: (context, state) {
         if (state is AssetAuditPostSuccess) {
-          print('Battery Screen: AssetAuditPostSuccess received!');
-          print('Battery Screen: State details: $state');
-          print('Battery Screen: _hasPostedBatteryData flag: $_hasPostedBatteryData');
-
-          // Check if this success state contains Battery-related items
-          bool isBatteryData = false;
-          print('Battery Screen: Total responses received: ${state.responses.length}');
-          for (var response in state.responses) {
-            print('Battery Screen: Full response object: $response');
-            print('Battery Screen: Checking response itemTypeRemark: ${response.itemTypeRemark}');
-            print('Battery Screen: Checking response itemTypeId: ${response.itemTypeId}');
-            print('Battery Screen: Checking response nexgenSerialNo: ${response.nexgenSerialNo}');
-            print('Battery Screen: Checking response assetStatus: ${response.assetStatus}');
-            print('Battery Screen: Checking response remarks: ${response.remarks}');
-
-            // Primary check: itemTypeRemark contains Battery-related text
-            if (response.itemTypeRemark != null &&
-                (response.itemTypeRemark!.contains('Battery') ||
-                 response.itemTypeRemark!.contains('Rectifier') ||
-                 response.itemTypeRemark!.contains('MPPT'))) {
-              isBatteryData = true;
-              print('Battery Screen: Found Battery-related item by itemTypeRemark: ${response.itemTypeRemark}');
-              break;
-            }
-
-            // Fallback check: Check if this is a response to Battery screen data by looking at the flag
-            if (_hasPostedBatteryData) {
-              isBatteryData = true;
-              print('Battery Screen: Found Battery-related item by flag check (fallback)');
-              break;
-            }
-
-            print('Battery Screen: itemTypeRemark "${response.itemTypeRemark}" does not match Battery patterns');
-          }
-
-          // Only process this success state if it contains Battery screen data
-          if (isBatteryData) {
-            print('Battery Screen: Confirmed this is Battery screen data, proceeding with data refresh...');
-
+          print('Battery Debug: Received AssetAuditPostSuccess, _hasPostedBatteryData = $_hasPostedBatteryData');
+          // Only navigate if this Battery screen posted data (not from other screens)
+          if (_hasPostedBatteryData) {
+            print('Battery Debug: Navigating to ExtinguisherScreen because Battery data was posted');
             // Refresh data from API before navigating
-            print('Battery Screen: Refreshing data from API...');
             try {
               // Trigger a refresh of the asset audit data
               context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: "telecom",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
+                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
               );
 
               // Wait for data to refresh, then navigate
-              Future.delayed(const Duration(seconds: 2), () {
                 if (mounted) {
-                  print('Battery Screen: Data refreshed, navigating to next screen...');
                   try {
                     Navigator.push(
                       context,
@@ -1357,26 +1269,20 @@ class _BatteryScreenState extends State<BatteryScreen> {
                         builder: (context) => ExtinguisherScreen(
                           extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
                           assetAuditData: widget.assetAuditData,
-                          showSuccessMessage: false, // Don't show success message when skipping battery screen
+                          showSuccessMessage: false,
                         ),
                       ),
                     );
-                    print('Battery Screen: Navigation completed successfully');
-
                     // Reset the flag after successful navigation
                     setState(() {
                       _hasPostedBatteryData = false;
                     });
-                    print('Battery Screen: Reset _hasPostedBatteryData flag to false after navigation');
                   } catch (e) {
-                    print('Battery Screen: Navigation error: $e');
+                    print(e);
                   }
-                } else {
-                  print('Battery Screen: Widget not mounted, cannot navigate');
                 }
-              });
+
             } catch (e) {
-              print('Battery Screen: Error refreshing data: $e');
               // Fallback: navigate anyway after delay
               Future.delayed(const Duration(seconds: 2), () {
                 if (mounted) {
@@ -1395,79 +1301,24 @@ class _BatteryScreenState extends State<BatteryScreen> {
                       _hasPostedBatteryData = false;
                     });
                   } catch (e) {
-                    print('Battery Screen: Fallback navigation error: $e');
                   }
                 }
               });
             }
-          } else {
-            print('Battery Screen: Success state received but not for Battery screen data, ignoring...');
-            print('Battery Screen: _hasPostedBatteryData flag: $_hasPostedBatteryData');
           }
 
         } else if (state is AssetAuditPostError) {
           // Only show error message if this error belongs to Battery screen data
           if (_hasPostedBatteryData) {
-            print('Battery Screen: AssetAuditPostError received for Battery data');
-            // Show error message and block navigation
-            showCustomToast(context, '❌ Failed to save Battery data. Please try again.');
+            // Show error message but don't block navigation completely
+            showCustomToast(context, '❌ Failed to save Battery data to server. You can continue with local data.');
 
             // Reset the flag on error
             setState(() {
               _hasPostedBatteryData = false;
             });
-            print('Battery Screen: Reset _hasPostedBatteryData flag to false after error');
-          } else {
-            print('Battery Screen: AssetAuditPostError received but not for Battery data, ignoring...');
           }
         }
-        // if (state is AssetAuditPostSuccess) {
-        //   print('Battery Screen: AssetAuditPostSuccess received!');
-        //   print('Battery Screen: State details: $state');
-        //   pushPage(context, ExtinguisherScreen(
-        //     extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
-        //     assetAuditData: widget.assetAuditData,
-        //     showSuccessMessage: true,
-        //   ));
-        //   // Check if this success state is for Battery screen data
-        //   // We need to verify that the posted data is actually from this screen
-        //   // if (_isBatteryScreenDataPosted()) {
-        //   //   print('Battery Screen: Confirmed this is Battery screen data, proceeding with navigation...');
-        //   //
-        //   //   // Navigate to next screen immediately
-        //   //   if (mounted) {
-        //   //     print('Battery Screen: Widget is mounted, attempting navigation...');
-        //   //     try {
-        //   //       pushPage(context, ExtinguisherScreen(
-        //   //         extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
-        //   //         assetAuditData: widget.assetAuditData,
-        //   //         showSuccessMessage: true,
-        //   //       ));
-        //   //       print('Battery Screen: Navigation call completed successfully');
-        //   //
-        //   //       // Reset the flag after successful navigation
-        //   //       setState(() {
-        //   //         _hasPostedBatteryData = false;
-        //   //       });
-        //   //     } catch (e) {
-        //   //       print('Battery Screen: Navigation error: $e');
-        //   //     }
-        //   //   } else {
-        //   //     print('Battery Screen: Widget not mounted, cannot navigate');
-        //   //   }
-        //   // } else {
-        //   //   print('Battery Screen: Success state received but not for Battery screen data, ignoring...');
-        //   // }
-        // } else  (state is AssetAuditPostError) {
-        //   print('Battery Screen: AssetAuditPostError received:');
-        //   // Show error message and block navigation
-        //   showCustomToast(context, 'Failed to save Battery data. Please try again.');
-        //
-        //   // Reset the flag on error
-        //   setState(() {
-        //     _hasPostedBatteryData = false;
-        //   });
-        // };
       },
       child: PopScope(
         canPop: !hasUnsavedChanges,
@@ -1480,7 +1331,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
               barrierDismissible: false,
               builder: (context) => UnsavedChangesDialog(
                 message:
-                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
                 onSaveAndExit: () {
                   _saveAndExit();
                 },
@@ -1503,7 +1354,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                   barrierDismissible: false,
                   builder: (context) => UnsavedChangesDialog(
                     message:
-                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
                     onSaveAndExit: () {
                       _saveAndExit();
                     },
@@ -1537,7 +1388,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                         child: SingleChildScrollView(
                           padding: EdgeInsets.only(
                             bottom:
-                                MediaQuery.of(context).viewInsets.bottom + 120,
+                            MediaQuery.of(context).viewInsets.bottom + 120,
                           ),
                           child: Container(
                             padding: const EdgeInsets.only(
@@ -1554,354 +1405,283 @@ class _BatteryScreenState extends State<BatteryScreen> {
                                     label: "CBMS Availability",
                                     isRequired: true,
                                     options: [
-                                    OptionItem(
-                                      value: "yes",
-                                      label: "Yes",
-                                      selectedIcon: Icons.check_circle,
-                                      unselectedIcon: Icons.circle_outlined,
-                                    ),
-                                    OptionItem(
-                                      value: "no",
-                                      label: "No",
-                                      selectedIcon: Icons.cancel,
-                                      unselectedIcon: Icons.circle_outlined,
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    print("Selected: $value");
-                                    setState(() {
-                                      selectedBatteryStatus = value;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomInfoCard(
-                                  key: ValueKey('rectifier_$rectifierCardKey'),
-                                  serialLabel: "CBMS - Serial Number *",
-                                  serialHintText: "CBMS Serial Number",
-                                  photoLabel: "Add a Photo",
-                                  statusLabel: "Status",
-                                  serialController: rectifierSerialController,
-                                  onSave: _saveRectifierForm,
-                                  isStatusEditable: true,
-                                  showSaveButton: true,
-                                  backendStatus: false,
-                                  onPhotoTap: (photoPath) async {
-                                    print('Battery Screen: Photo tapped with path: $photoPath');
-                                    setState(() {
-                                      rectifierPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
-
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null && photoPath.isNotEmpty) {
-                                      print('Battery Screen: Starting photo upload for CBMS...');
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        print('Battery Screen: Photo file created: ${photoFile.path}');
-
-                                        if (await photoFile.exists()) {
-                                          print('Battery Screen: Photo file exists, calling upload API...');
-
-                                          // Get the cubit directly
-                                          final photoUploadCubit = context.read<AssetAuditPhotoUploadCubit>();
-                                          print('Battery Screen: Got photo upload cubit: $photoUploadCubit');
-
-                                          // Upload photo
-                                          await photoUploadCubit.uploadPhoto(
-                                            file: photoFile,
-                                            imgId: null,
-                                            schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                                          );
-
-                                          // Wait for state to update
-                                          await Future.delayed(const Duration(milliseconds: 500));
-
-                                          // Check the result
-                                          final state = photoUploadCubit.state;
-                                          print('Battery Screen: Upload state: $state');
-
-                                          if (state is AssetAuditPhotoUploadSuccess) {
-                                            final photoId = int.tryParse(state.response.imgId) ?? 0;
-                                            print('Battery Screen: Upload API response - photoId: $photoId');
-
-                                            if (photoId > 0) {
-                                              setState(() {
-                                                rectifierPhotoId = photoId;
-                                              });
-                                              print('Battery Screen: CBMS Photo uploaded successfully, photoId: $photoId');
-                                              print('Battery Screen: rectifierPhotoId set to: $rectifierPhotoId');
-                                            } else {
-                                              print('Battery Screen: ERROR - photoId is 0 or invalid');
-                                            }
-                                          } else if (state is AssetAuditPhotoUploadFailure) {
-                                            print('Battery Screen: ERROR - Photo upload failed: ${state.errorMessage}');
-                                          } else {
-                                            print('Battery Screen: ERROR - Upload still in progress or unknown state: $state');
-                                          }
-                                        } else {
-                                          print('Battery Screen: ERROR - Photo file does not exist at path: ${photoFile.path}');
-                                        }
-                                      } catch (e) {
-                                        print('Battery Screen: Error uploading CBMS photo: $e');
-                                        print('Battery Screen: Error stack trace: ${StackTrace.current}');
-                                      }
-                                    } else {
-                                      print('Battery Screen: ERROR - photoPath is null or empty');
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      rectifierStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    print('Battery Screen: onSerialChanged called with: "$serialNumber"');
-
-                                    setState(() {
-                                      rectifierSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
-
-                                    // Validate serial number if not empty
-                                    if (serialNumber.isNotEmpty) {
-                                      print('Battery Screen: Serial number not empty, starting validation...');
-                                      // For now, assume manual entry (we'll need to add QR code detection later)
-                                      final isValid = _validateSerialNumber(serialNumber, false);
-                                      print('Battery Screen: Validation result: $isValid');
-
-                                      // Update the saved item to track validation result
-                                      if (isValid) {
-                                        print('Battery Screen: Serial number is valid, keeping it');
-                                        // Serial number is valid, keep it
-                                      } else {
-                                        print('Battery Screen: Serial number is invalid, clearing it');
-                                        // Serial number is invalid, clear it
-                                        setState(() {
-                                          rectifierSerialNumber = null;
-                                          hasUnsavedChanges = false;
-                                        });
-                                      }
-                                    } else {
-                                      print('Battery Screen: Serial number is empty, skipping validation');
-                                    }
-                                  },
-                                  initialStatus: rectifierSerialNumber == "OK"
-                                      ? true
-                                      : (rectifierStatus == "Not OK"
-                                          ? false
-                                          : null),
-                                  initialPhotoPath: rectifierPhoto,
-                                  isEditable: true,
-                                ),
-                                _buildRectifierSavedItemsList(),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Battery Make",
-                                  initialValue: _getBatteryOEMName(),
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                SerialNumberField(
-                                  label: "Battery Cabinet Serial Number",
-                                  controller: serialController,
-                                ),
-                                getHeight(15),
-                                ImageUploadField(
-                                  label: "Add Photo of Battery Modules *",
-                                  placeholder: "Add Photo",
-                                  isRequired: true,
-                                  onImageSelected: (file) async {
-                                    if (file != null) {
-                                      debugPrint(
-                                        "Selected image path: ${file.path}",
-                                      );
+                                      OptionItem(
+                                        value: "yes",
+                                        label: "Yes",
+                                        selectedIcon: Icons.check_circle,
+                                        unselectedIcon: Icons.circle_outlined,
+                                      ),
+                                      OptionItem(
+                                        value: "no",
+                                        label: "No",
+                                        selectedIcon: Icons.cancel,
+                                        unselectedIcon: Icons.circle_outlined,
+                                      ),
+                                    ],
+                                    onChanged: (value) {
                                       setState(() {
-                                        uploadedPhotoPath = file.path;
+                                        selectedBatteryStatus = value;
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
+                                  CustomInfoCard(
+                                    key: ValueKey('rectifier_$rectifierCardKey'),
+                                    serialLabel: "CBMS - Serial Number *",
+                                    serialHintText: "CBMS Serial Number",
+                                    photoLabel: "Add a Photo",
+                                    statusLabel: "Status",
+                                    serialController: rectifierSerialController,
+                                    onSave: _saveRectifierForm,
+                                    isStatusEditable: true,
+                                    showSaveButton: true,
+                                    backendStatus: false,
+                                    onPhotoTap: (photoPath) async {
+                                      setState(() {
+                                        rectifierPhoto = photoPath;
                                         hasUnsavedChanges = true;
                                       });
 
-                                      // Upload photo immediately and get photoId for Battery Cabinet
-                                      try {
-                                        final photoFile = File(file.path);
-                                        if (await photoFile.exists()) {
-                                          final photoId = await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                            photoFile: photoFile,
-                                            schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                                            imgId: null,
-                                            context: context,
-                                          );
+                                      // Upload photo immediately and get photoId
+                                      if (photoPath != null && photoPath.isNotEmpty) {
+                                        try {
+                                          final photoFile = File(photoPath);
+                                          if (await photoFile.exists()) {
+                                            // Get the cubit directly
+                                            final photoUploadCubit = context.read<AssetAuditPhotoUploadCubit>();
 
-                                          if (photoId != null) {
-                                            setState(() {
-                                              cabinetPhotoId = photoId; // Store the photoId for Battery Cabinet
-                                            });
-                                            print('Battery Screen: Cabinet Photo uploaded successfully, photoId: $photoId');
-                                          }
-                                        }
-                                      } catch (e) {
-                                        print('Battery Screen: Error uploading Cabinet photo: $e');
-                                      }
-                                    } else {
-                                      setState(() {
-                                        uploadedPhotoPath = null;
-                                        cabinetPhotoId = null;
-                                      });
-                                    }
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Count of Battery Modules ",
-                                  // "Number of ${selectedType ?? 'Batteries'}",
-                                  initialValue: totalRectifierItems.toString(),
-                                  isRequired: true,
-                                  isEditable: true,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      totalRectifierItems =
-                                          int.tryParse(value) ?? 6;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                Text(
-                                  "Battery Module Details",
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                    fontFamily: fontFamilyMontserrat,
-                                  ),
-                                ),
-                                getHeight(3),
-                                CustomInfoCard(
-                                  key: ValueKey('mppt_$mpptCardKey'),
-                                  serialLabel: "Battery - Serial Number",
-                                  serialHintText: "Battery Serial Number",
-                                  photoLabel: "Add a Photo",
-                                  statusLabel: "Status",
-                                  serialController: mpptSerialController,
-                                  onSave: _saveMPPTForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  remarksLabel: "Capacity",
-                                  remarksHintText: "Eg:200 AH",
-                                  remarksController: batteryCapacityController,
-                                  isRemarksEditable: false, // Make capacity non-editable
-                                  onPhotoTap: (photoPath) async {
-                                    print('Battery Screen: Photo tapped with path: $photoPath');
-                                    setState(() {
-                                      mpptPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                                            // Upload photo
+                                            await photoUploadCubit.uploadPhoto(
+                                              file: photoFile,
+                                              imgId: null,
+                                              schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                                            );
 
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null && photoPath.isNotEmpty) {
-                                      print('Battery Screen: Starting photo upload for Battery...');
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        print('Battery Screen: Photo file created: ${photoFile.path}');
+                                            // Wait for state to update
+                                            await Future.delayed(const Duration(milliseconds: 500));
 
-                                        if (await photoFile.exists()) {
-                                          print('Battery Screen: Photo file exists, calling upload API...');
-
-                                          // Get the cubit directly
-                                          final photoUploadCubit = context.read<AssetAuditPhotoUploadCubit>();
-                                          print('Battery Screen: Got photo upload cubit: $photoUploadCubit');
-
-                                          // Upload photo
-                                          await photoUploadCubit.uploadPhoto(
-                                            file: photoFile,
-                                            imgId: null,
-                                            schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                                          );
-
-                                          // Wait for state to update
-                                          await Future.delayed(const Duration(milliseconds: 500));
-
-                                          // Check the result
-                                          final state = photoUploadCubit.state;
-                                          print('Battery Screen: Upload state: $state');
-
-                                          if (state is AssetAuditPhotoUploadSuccess) {
-                                            final photoId = int.tryParse(state.response.imgId) ?? 0;
-                                            print('Battery Screen: Upload API response - photoId: $photoId');
-
-                                            if (photoId > 0) {
-                                              setState(() {
-                                                mpptPhotoId = photoId;
-                                              });
-                                              print('Battery Screen: Battery Photo uploaded successfully, photoId: $photoId');
-                                              print('Battery Screen: mpptPhotoId set to: $mpptPhotoId');
-                                            } else {
-                                              print('Battery Screen: ERROR - photoId is 0 or invalid');
+                                            // Check the result
+                                            final state = photoUploadCubit.state;
+                                            if (state is AssetAuditPhotoUploadSuccess) {
+                                              final photoId = int.tryParse(state.response.imgId) ?? 0;
+                                              if (photoId > 0) {
+                                                setState(() {
+                                                  rectifierPhotoId = photoId;
+                                                });
+                                              }
+                                            } else if (state is AssetAuditPhotoUploadFailure) {
                                             }
-                                          } else if (state is AssetAuditPhotoUploadFailure) {
-                                            print('Battery Screen: ERROR - Photo upload failed: ${state.errorMessage}');
-                                          } else {
-                                            print('Battery Screen: ERROR - Upload still in progress or unknown state: $state');
                                           }
-                                        } else {
-                                          print('Battery Screen: ERROR - Photo file does not exist at path: ${photoFile.path}');
+                                        } catch (e) {
                                         }
-                                      } catch (e) {
-                                        print('Battery Screen: Error uploading Battery photo: $e');
-                                        print('Battery Screen: Error stack trace: ${StackTrace.current}');
                                       }
-                                    } else {
-                                      print('Battery Screen: ERROR - photoPath is null or empty');
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      mpptStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      mpptSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    },
+                                    onStatusChanged: (val) {
+                                      setState(() {
+                                        rectifierStatus = val ? "OK" : "Not OK";
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                    onSerialChanged: (serialNumber) {
+                                      setState(() {
+                                        rectifierSerialNumber = serialNumber;
+                                        hasUnsavedChanges = true;
+                                      });
 
-                                    // Validate serial number if not empty
-                                    if (serialNumber.isNotEmpty) {
-                                      // For now, assume manual entry (we'll need to add QR code detection later)
-                                      final isValid = _validateSerialNumber(serialNumber, false);
-                                      // Update the saved item to track validation result
-                                      if (isValid) {
-                                        // Serial number is valid, keep it
-                                      } else {
-                                        // Serial number is invalid, clear it
+                                      // Validate serial number if not empty
+                                      if (serialNumber.isNotEmpty) {
+                                        final isValid = _validateSerialNumber(serialNumber, false);
+                                        if (isValid) {
+                                          // Serial number is valid, keep it
+                                        } else {
+                                          setState(() {
+                                            rectifierSerialNumber = null;
+                                            hasUnsavedChanges = false;
+                                          });
+                                        }
+                                      }
+                                    },
+                                    initialStatus: rectifierSerialNumber == "OK"
+                                        ? true
+                                        : (rectifierStatus == "Not OK"
+                                        ? false
+                                        : null),
+                                    initialPhotoPath: rectifierPhoto,
+                                    isEditable: true,
+                                  ),
+                                  _buildRectifierSavedItemsList(),
+                                  getHeight(15),
+                                  CustomFormField(
+                                    label: "Battery Make",
+                                    initialValue: _getBatteryOEMName(),
+                                    isRequired: false,
+                                    isEditable: false,
+                                  ),
+                                  getHeight(15),
+                                  SerialNumberField(
+                                    label: "Battery Cabinet Serial Number",
+                                    controller: serialController,
+                                  ),
+                                  getHeight(15),
+                                  ImageUploadField(
+                                    label: "Add Photo of Battery Modules *",
+                                    placeholder: "Add Photo",
+                                    isRequired: true,
+                                    onImageSelected: (file) async {
+                                      if (file != null) {
                                         setState(() {
-                                          mpptSerialNumber = null;
-                                          hasUnsavedChanges = false;
+                                          uploadedPhotoPath = file.path;
+                                          hasUnsavedChanges = true;
+                                        });
+
+                                        // Upload photo immediately and get photoId for Battery Cabinet
+                                        try {
+                                          final photoFile = File(file.path);
+                                          if (await photoFile.exists()) {
+                                            final photoId = await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
+                                              photoFile: photoFile,
+                                              schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                                              imgId: null,
+                                              context: context,
+                                            );
+
+                                            if (photoId != null) {
+                                              setState(() {
+                                                cabinetPhotoId = photoId;
+                                              });
+                                            }
+                                          }
+                                        } catch (e) {
+                                        }
+                                      } else {
+                                        setState(() {
+                                          uploadedPhotoPath = null;
+                                          cabinetPhotoId = null;
                                         });
                                       }
-                                    }
-                                  },
-                                  initialStatus: mpptStatus == "OK"
-                                      ? true
-                                      : (mpptStatus == "Not OK" ? false : null),
-                                  initialPhotoPath: mpptPhoto,
-                                  isEditable: true,
-                                ),
+                                    },
+                                  ),
+                                  getHeight(15),
+                                  CustomFormField(
+                                    label: "Count of Battery Modules ",
+                                    initialValue: totalRectifierItems.toString(),
+                                    isRequired: true,
+                                    isEditable: true,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        totalRectifierItems =
+                                            int.tryParse(value) ?? 6;
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
+                                  Text(
+                                    "Battery Module Details",
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                      fontFamily: fontFamilyMontserrat,
+                                    ),
+                                  ),
+                                  getHeight(3),
+                                  CustomInfoCard(
+                                    key: ValueKey('mppt_$mpptCardKey'),
+                                    serialLabel: "Battery - Serial Number",
+                                    serialHintText: "Battery Serial Number",
+                                    photoLabel: "Add a Photo",
+                                    statusLabel: "Status",
+                                    serialController: mpptSerialController,
+                                    onSave: _saveMPPTForm,
+                                    isStatusEditable: true,
+                                    backendStatus: false,
+                                    // remarksLabel: "Capacity",
+                                    // remarksHintText: "Eg:200 AH",
+                                    // remarksController: batteryCapacityController,
+                                    isRemarksEditable: false,
+                                    onPhotoTap: (photoPath) async {
+                                      setState(() {
+                                        mpptPhoto = photoPath;
+                                        hasUnsavedChanges = true;
+                                      });
 
-                                getHeight(8),
+                                      // Upload photo immediately and get photoId
+                                      if (photoPath != null && photoPath.isNotEmpty) {
+                                        try {
+                                          final photoFile = File(photoPath);
+                                          if (await photoFile.exists()) {
+                                            // Get the cubit directly
+                                            final photoUploadCubit = context.read<AssetAuditPhotoUploadCubit>();
 
-                                _buildMPPTSavedItemsList(),
+                                            // Upload photo
+                                            await photoUploadCubit.uploadPhoto(
+                                              file: photoFile,
+                                              imgId: null,
+                                              schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                                            );
 
-                                getHeight(15),
-                                CustomRemarksField(
-                                  label: "Add Remarks",
-                                  hintText: "Remarks",
-                                  controller: generalRemarksController,
-                                ),
+                                            // Wait for state to update
+                                            await Future.delayed(const Duration(milliseconds: 500));
+
+                                            // Check the result
+                                            final state = photoUploadCubit.state;
+                                            if (state is AssetAuditPhotoUploadSuccess) {
+                                              final photoId = int.tryParse(state.response.imgId) ?? 0;
+                                              if (photoId > 0) {
+                                                setState(() {
+                                                  mpptPhotoId = photoId;
+                                                });
+                                              }
+                                            }
+                                          }
+                                        } catch (e) {
+                                        }
+                                      }
+                                    },
+                                    onStatusChanged: (val) {
+                                      setState(() {
+                                        mpptStatus = val ? "OK" : "Not OK";
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                    onSerialChanged: (serialNumber) {
+                                      setState(() {
+                                        mpptSerialNumber = serialNumber;
+                                        hasUnsavedChanges = true;
+                                      });
+
+                                      // Validate serial number if not empty
+                                      if (serialNumber.isNotEmpty) {
+                                        final isValid = _validateSerialNumber(serialNumber, false);
+                                        if (isValid) {
+                                          // Serial number is valid, keep it
+                                        } else {
+                                          setState(() {
+                                            mpptSerialNumber = null;
+                                            hasUnsavedChanges = false;
+                                          });
+                                        }
+                                      }
+                                    },
+                                    initialStatus: mpptStatus == "OK"
+                                        ? true
+                                        : (mpptStatus == "Not OK" ? false : null),
+                                    initialPhotoPath: mpptPhoto,
+                                    isEditable: true,
+                                  ),
+
+                                  getHeight(8),
+
+                                  _buildMPPTSavedItemsList(),
+
+                                  getHeight(15),
+                                  CustomRemarksField(
+                                    label: "Add Remarks",
+                                    hintText: "Remarks",
+                                    controller: generalRemarksController,
+                                  ),
                                 ] else ...[
                                   _buildNoDataMessage(),
                                 ],
@@ -1910,8 +1690,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
                           ),
                         ),
                       ),
-
-
 
                       Container(
                         padding: const EdgeInsets.all(16),
@@ -1932,12 +1710,11 @@ class _BatteryScreenState extends State<BatteryScreen> {
                             getWidth(14),
                             Expanded(
                               child: ArrowButton(
-                                text: _hasDataToShow() ? "Extinguisher" : "Skip",
+                                text: "Extinguisher",
                                 isLeftArrow: false,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () async {
-
                                   // If no data to show, just navigate to next screen
                                   if (!_hasDataToShow()) {
                                     Navigator.push(
@@ -1953,18 +1730,12 @@ class _BatteryScreenState extends State<BatteryScreen> {
                                     return;
                                   }
 
-                                  // Check if user has scanned at least one item
-                                  if (!_canProceedToNextScreen()) {
-                                    showCustomToast(context, '❌ Please scan at least 1 item before proceeding.');
-                                    return;
-                                  }
-
+                                  // Allow navigation - no validation blocking
 
                                   // Post current screen data before navigating
                                   final success = await _postCurrentScreenData();
 
                                   if (success) {
-                                    print('Battery Screen: Data posted successfully, waiting for API response...');
                                     // Navigation will be handled in the BlocListener after API success
                                   } else {
                                     showCustomToast(context, 'Failed to post data. Please try again.');
@@ -1999,6 +1770,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
           ),
         ),
       ),
+      )
     );
   }
 
@@ -2121,7 +1893,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedRectifierItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalRectifierItems',
+                    'Saved Items: ${savedRectifierItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${widget.batteryData?.assets?.length ?? 0}',
                     style: const TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -2133,90 +1905,89 @@ class _BatteryScreenState extends State<BatteryScreen> {
             ),
           ),
 
-          // Items - Only show if list is not empty
+          // Items - Only show items with photoId
           if (savedRectifierItems.isNotEmpty)
-            ...savedRectifierItems
+            ..._getItemsWithPhotoAndStatus(savedRectifierItems)
                 .map(
                   (item) => Container(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(5),
+                margin: const EdgeInsets.symmetric(vertical: 5),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          item['serialNumber'] ?? 'N/A',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: fontFamilyMontserrat,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(
-                              item['serialNumber'] ?? 'N/A',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontFamily: fontFamilyMontserrat,
-                                fontWeight: FontWeight.w400,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Icon(
+                          item['isQRCodeScanned'] == true
+                              ? Icons.check
+                              : Icons.close,
+                          color: item['isQRCodeScanned'] == true
+                              ? Colors.green
+                              : Colors.red,
+                          size: 20,
                         ),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Icon(
-                              item['isQRCodeScanned'] == true
-                                  ? Icons.check
-                                  : Icons.close,
-                              color: item['isQRCodeScanned'] == true
-                                  ? Colors.green
-                                  : Colors.red,
-                              size: 20,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: _buildPhotoColumn(item),
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(
-                              item['status'] ?? 'N/A',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontFamily: fontFamilyMontserrat,
-                                fontWeight: FontWeight.w400,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: IconButton(
-                              onPressed: () => _editSavedItem(item, 'rectifier'),
-                              icon: const Icon(
-                                Icons.edit,
-                                color: AppColors.blue,
-                                size: 20,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                )
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: _buildPhotoColumn(item),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          item['status'] ?? 'N/A',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 14,
+                            fontFamily: fontFamilyMontserrat,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: IconButton(
+                          onPressed: () => _editSavedItem(item, 'rectifier'),
+                          icon: const Icon(
+                            Icons.edit,
+                            color: AppColors.blue,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
                 .toList(),
         ],
       ),
@@ -2289,23 +2060,23 @@ class _BatteryScreenState extends State<BatteryScreen> {
                   ),
                 ),
               ),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: const Text(
-                    "Capacity",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontFamily: fontFamilyMontserrat,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
+              // Expanded(
+              //   child: Container(
+              //     padding: const EdgeInsets.symmetric(horizontal: 4),
+              //     child: const Text(
+              //       "Capacity",
+              //       textAlign: TextAlign.center,
+              //       style: TextStyle(
+              //         color: Colors.white,
+              //         fontSize: 14,
+              //         fontFamily: fontFamilyMontserrat,
+              //         fontWeight: FontWeight.w400,
+              //       ),
+              //       maxLines: 1,
+              //       overflow: TextOverflow.ellipsis,
+              //     ),
+              //   ),
+              // ),
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -2359,7 +2130,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedMPPTItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalMPPTItems',
+                    'Saved Items: ${savedMPPTItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${(widget.batteryData?.subCategories?['Battery Cabinet']?.length ?? 0) + (widget.batteryData?.subCategories?['CBMS']?.length ?? 0)}',
                     style: const TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -2371,151 +2142,188 @@ class _BatteryScreenState extends State<BatteryScreen> {
             ),
           ),
 
-          // Items - Only show if list is not empty
-              if (savedMPPTItems.isNotEmpty) ...[
-                ...savedMPPTItems
-                    .map(
-                      (item) {
-                        print('Building MPPT item row for: $item');
-                        return Container(
-                          margin: const EdgeInsets.only(top: 8),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
+          // Items - Only show items with photoId
+          if (savedMPPTItems.isNotEmpty) ...[
+            ..._getItemsWithPhotoAndStatus(savedMPPTItems)
+                .map(
+                  (item) {
+                return Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            item['serialNumber'] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          decoration: BoxDecoration(
-                            color: AppColors.white,
-                            borderRadius: BorderRadius.circular(5),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Icon(
+                            item['isQRCodeScanned'] == true
+                                ? Icons.check
+                                : Icons.close,
+                            color: item['isQRCodeScanned'] == true
+                                ? Colors.green
+                                : Colors.red,
+                            size: 20,
                           ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    item['serialNumber'] ?? 'N/A',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 14,
-                                      fontFamily: fontFamilyMontserrat,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Icon(
-                                    item['isQRCodeScanned'] == true
-                                        ? Icons.check
-                                        : Icons.close,
-                                    color: item['isQRCodeScanned'] == true
-                                        ? Colors.green
-                                        : Colors.red,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: _buildPhotoColumn(item),
-                                ),
-                              ),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    item['capacity'] ?? 'N/A',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 14,
-                                      fontFamily: fontFamilyMontserrat,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-                                                            Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: Text(
-                                    item['status'] ?? 'N/A',
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 14,
-                                      fontFamily: fontFamilyMontserrat,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                    maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                              ),
-
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: IconButton(
-                                    onPressed: () => _editSavedItem(item, 'mppt'),
-                                    icon: const Icon(
-                                      Icons.edit,
-                                      color: AppColors.blue,
-                                      size: 20,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: _buildPhotoColumn(item),
+                        ),
+                      ),
+                      // Expanded(
+                      //   child: Container(
+                      //     padding: const EdgeInsets.symmetric(horizontal: 4),
+                      //     child: Text(
+                      //       item['remarks'] ?? 'N/A', // Use remarks for capacity
+                      //       textAlign: TextAlign.center,
+                      //       style: const TextStyle(
+                      //         color: Colors.black,
+                      //         fontSize: 14,
+                      //         fontFamily: fontFamilyMontserrat,
+                      //         fontWeight: FontWeight.w400,
+                      //       ),
+                      //       maxLines: 1,
+                      //       overflow: TextOverflow.ellipsis,
+                      //     ),
+                      //   ),
+                      // ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Text(
+                            item['status'] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        );
-                      },
-                    )
-                    .toList(),
-              ],
-            ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: IconButton(
+                            onPressed: () => _editSavedItem(item, 'mppt'),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: AppColors.blue,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
+                .toList(),
+          ],
+        ],
       ),
     );
   }
 
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
-
     setState(() {
       // Populate the form fields with the item's data for editing
       switch (itemType) {
         case 'rectifier':
-          // Populate rectifier form with item data
+        // Populate rectifier form with item data
           rectifierSerialController.text = item['serialNumber'] ?? '';
-          rectifierSerialNumber = item['serialNumber'] ?? ''; // Also set the variable
+          rectifierSerialNumber = item['serialNumber'] ?? '';
           rectifierStatus = item['status'] ?? 'OK';
           rectifierPhotoId = item['photoId'];
-          rectifierPhoto = item['photo'];
+          
+          // Handle photo data - check if it's base64 data or photo ID
+          String? photoData = item['photo'];
+          if (photoData != null && photoData.isNotEmpty) {
+            if (photoData.startsWith('data:image/')) {
+              // It's already base64 image data
+              rectifierPhoto = photoData;
+            } else if (_isNumeric(photoData)) {
+              // It's a photo ID, load the image
+              _loadImageForEdit(photoData, 'rectifier');
+            } else {
+              // It's a file path or other format
+              rectifierPhoto = photoData;
+            }
+          }
+
+          // Also try to load image if photoId exists (fallback)
+          if (rectifierPhotoId != null && rectifierPhotoId.toString().isNotEmpty && rectifierPhoto == null) {
+            _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
+          }
+
           savedRectifierItems.remove(item);
           currentScannedItems--;
           break;
-          
+
         case 'mppt':
           mpptSerialController.text = item['serialNumber'] ?? '';
           mpptSerialNumber = item['serialNumber'] ?? '';
           mpptStatus = item['status'] ?? 'OK';
           mpptPhotoId = item['photoId'];
-          mpptPhoto = item['photo'];
+          
+          // Handle photo data - check if it's base64 data or photo ID
+          String? photoData = item['photo'];
+          if (photoData != null && photoData.isNotEmpty) {
+            if (photoData.startsWith('data:image/')) {
+              // It's already base64 image data
+              mpptPhoto = photoData;
+            } else if (_isNumeric(photoData)) {
+              // It's a photo ID, load the image
+              _loadImageForEdit(photoData, 'mppt');
+            } else {
+              // It's a file path or other format
+              mpptPhoto = photoData;
+            }
+          }
+
+          // Also try to load image if photoId exists (fallback)
+          if (mpptPhotoId != null && mpptPhotoId.toString().isNotEmpty && mpptPhoto == null) {
+            _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
+          }
+
           savedMPPTItems.remove(item);
           currentScannedItems--;
           break;
       }
-      
+
       // Mark that there are unsaved changes
       hasUnsavedChanges = true;
-      
+
       // Show a message to the user
       showCustomToast(
         context,
@@ -2523,4 +2331,24 @@ class _BatteryScreenState extends State<BatteryScreen> {
       );
     });
   }
+
+  /// Load image for editing
+  void _loadImageForEdit(String photoId, String itemType) {
+    if (photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Set the editing item type to track which photo to update
+      _editingItemType = itemType;
+      
+      // Request the image
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: photoId,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+      
+      print(
+        'Battery Debug: Loading image for edit - photoId: $photoId, itemType: $itemType',
+      );
+    }
+  }
+  
 }
+

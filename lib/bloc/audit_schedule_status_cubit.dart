@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/repositories/audit_schedule_repository.dart';
-import 'package:app/models/UpdateAuditScheduleStatusModel.dart';
 
 // States
 abstract class AuditScheduleStatusState {}

@@ -8,7 +8,7 @@ class AssetAuditPostRequest {
   final int itemTypeId;
   final bool qrCodeScanned;
   final String? qrCodeScannedTs;
-  final int photoId;
+  final int? photoId;
   final String photoTakenTs;
   final String assetStatus;
   final String? longitude;
@@ -33,7 +33,7 @@ class AssetAuditPostRequest {
     required this.itemTypeId,
     required this.qrCodeScanned,
     this.qrCodeScannedTs,
-    required this.photoId,
+    this.photoId,
     required this.photoTakenTs,
     required this.assetStatus,
     this.longitude,
@@ -60,7 +60,7 @@ class AssetAuditPostRequest {
       'qrCodeScanned': qrCodeScanned,
       if (qrCodeScannedTs != null) 'qrCodeScannedTs': qrCodeScannedTs,
       // Only include photoId if it's valid (not 0 or null)
-      if (photoId != null && photoId > 0) 'photoId': photoId,
+      if (photoId != null && photoId! > 0) 'photoId': photoId,
       // Only include photoTakenTs if it's not null
       if (photoTakenTs != null) 'photoTakenTs': photoTakenTs,
       'assetStatus': assetStatus,
@@ -88,7 +88,7 @@ class AssetAuditPostRequest {
       itemTypeId: json['itemTypeId'],
       qrCodeScanned: json['qrCodeScanned'],
       qrCodeScannedTs: json['qrCodeScannedTs'],
-      photoId: json['photoId'],
+      photoId: json['photoId'] as int?,
       photoTakenTs: json['photoTakenTs'],
       assetStatus: json['assetStatus'],
       longitude: json['longitude'],
@@ -165,7 +165,7 @@ class AssetAuditPostResponse {
       itemTypeId: json['itemTypeId'],
       qrCodeScanned: json['qrCodeScanned'],
       qrCodeScannedTs: json['qrCodeScannedTs'],
-      photoId: json['photoId'],
+      photoId: json['photoId'] as int?,
       photoTakenTs: json['photoTakenTs'],
       assetStatus: json['assetStatus'],
       longitude: json['longitude'],

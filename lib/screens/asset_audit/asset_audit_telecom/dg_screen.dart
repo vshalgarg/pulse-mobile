@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -12,6 +14,8 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../repositories/image_repository.dart';
 import '../../../app_config.dart';
 
@@ -26,6 +30,7 @@ import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
+import '../../home_screen.dart';
 
 
 class DgScreen extends StatefulWidget {
@@ -82,6 +87,10 @@ class _DgScreenState extends State<DgScreen> {
 
   // Keys to force rebuild of CustomInfoCard widgets
   int cctvCardKey = 0;
+
+  // Image loading variables
+  String? _currentRequestedImageId;
+  bool _isRequestingImage = false;
   
   // Flag to track if DG screen has posted data
   bool _hasPostedDGData = false;
@@ -144,6 +153,22 @@ class _DgScreenState extends State<DgScreen> {
       solarPlatesItems: widget.solarPlatesItems ?? [],
       fencingItems: widget.fencingItems ?? [],
       dgItems: [],
+    ));
+  }
+
+  /// Navigate to next screen with current saved data
+  void _navigateToNextScreen() {
+    print('DG Screen: Navigating to next screen with saved data');
+    pushPage(context, SMPSScreen(
+      smpsData: widget.assetAuditData?.responseData.smps,
+      assetAuditData: widget.assetAuditData,
+      showSuccessMessage: false,
+      extinguisherItems: widget.extinguisherItems ?? [],
+      solarPlatesItems: widget.solarPlatesItems ?? [],
+      fencingItems: widget.fencingItems ?? [],
+      dgItems: [
+        ...savedCCTVItems,
+      ],
     ));
   }
 
@@ -417,7 +442,8 @@ class _DgScreenState extends State<DgScreen> {
   /// Build photo column for saved items list
   Widget _buildPhotoColumn(Map<String, dynamic> item) {
     final photoId = item['photoId'];
-    
+    final imageName = item['image_name'];
+
     if (photoId == null) {
       return Icon(
         Icons.photo_camera_outlined,
@@ -425,73 +451,149 @@ class _DgScreenState extends State<DgScreen> {
         size: 20,
       );
     }
-    
-    // Check if image is cached
-    final imageData = _imageCache[photoId];
-    if (imageData != null) {
-      return GestureDetector(
-        onTap: () => _showImageDialog(imageData),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.green7, width: 1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Base64ImageWidget(
-              base64Data: imageData,
-              width: 30,
-              height: 30,
-              boxFit: BoxFit.cover,
-            ),
-          ),
-        ),
-      );
-    }
-    
-    // Show camera icon if no image data
-    return Icon(
-      Icons.photo_camera,
-      color: AppColors.green7,
-      size: 20,
-    );
-  }
 
-  /// Show image in full screen dialog
-  void _showImageDialog(String imageData) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
-            children: [
-              AppBar(
-                title: Text('Image View'),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
-              Expanded(
-                child: Base64ImageWidget(
-                  base64Data: imageData,
-                  boxFit: BoxFit.contain,
-                ),
-              ),
-            ],
-          ),
+    // Show camera icon that opens image viewer
+    return GestureDetector(
+      onTap: () {
+        // Check if image is cached first
+        final imageData = _imageCache[photoId.toString()];
+        if (imageData != null) {
+          _showImageDialog(imageData, imageName);
+        } else {
+          // Show image using photo ID
+          _showImageDialog(photoId.toString(), imageName);
+        }
+      },
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.green7, width: 1),
+        ),
+        child: const Icon(
+          Icons.camera_alt,
+          color: AppColors.green7,
+          size: 16,
         ),
       ),
     );
   }
 
+  /// Show image in full screen dialog
+  Future<void> _showImageDialog(String? imagePath, String? imageName) async {
+    if (imagePath == null && imageName == null) {
+      showCustomToast(context, 'No photo available to view.');
+      return;
+    }
 
+    String? imageData;
+
+    // Case 1: Photo is a base64 data URL
+    if (imagePath!.startsWith('data:image/')) {
+      imageData = imagePath;
+    }
+    // Case 2: Photo is a local file path
+    else if (await File(imagePath).exists()) {
+      imageData = imagePath;
+    }
+    // Case 3: Photo is a photo ID (numeric) from the API
+    else if (_isNumeric(imagePath)) {
+      print('Fetching image for photo ID: $imagePath');
+      final completer = Completer<String?>();
+      late StreamSubscription subscription;
+
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
+          print('Image fetched successfully for photo ID: $imagePath');
+          final finalImageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          completer.complete(finalImageData);
+          subscription.cancel();
+        } else if (state is AssetAuditGetImageFailure) {
+          print('Failed to fetch image: ${state.errorMessage}');
+          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          completer.complete(null);
+          subscription.cancel();
+        }
+      });
+
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: imagePath,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      imageData = await completer.future;
+    }
+
+    if (imageData != null && imageData.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: imageData!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(imageData.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(imageData),
+                        fit: BoxFit.contain,
+                      ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.red,
+                    size: 30,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      showCustomToast(context, 'Unable to load photo.');
+    }
+  }
+
+  /// Check if string is numeric
+  bool _isNumeric(String str) {
+    return int.tryParse(str) != null;
+  }
+
+  /// Load image for editing
+  void _loadImageForEdit(String photoId, String itemType) {
+    print('DG Debug: _loadImageForEdit called - photoId: $photoId, itemType: $itemType');
+    if (photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Set the current requested image ID for this screen
+      _currentRequestedImageId = photoId;
+      _isRequestingImage = true;
+
+      // Request the image
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: photoId,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      print('DG Debug: Loading image for edit - photoId: $photoId, itemType: $itemType');
+    } else {
+      print('DG Debug: PhotoId is empty or not numeric: $photoId');
+    }
+  }
 
   @override
   void dispose() {
@@ -521,19 +623,26 @@ class _DgScreenState extends State<DgScreen> {
     Navigator.of(context).pop();
     await Future.delayed(const Duration(milliseconds: 200));
 
+    // Post data to API first
+    try {
+      await _postCurrentScreenData();
+      
+      // Update audit schedule status to "In Progress"
+      if (mounted) {
+        context.read<AuditScheduleStatusCubit>().updateStatus(
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          status: "In Progress",
+        );
+      }
+    } catch (e) {
+      print('Error posting DG data: $e');
+    }
+
     if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54,
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(),
         ),
       );
     }
@@ -550,6 +659,12 @@ class _DgScreenState extends State<DgScreen> {
 
     String? photo = cctvPhoto;
     if (photo == null || photo.isEmpty) {
+      return false;
+    }
+
+    // Check if photo ID is present (required for all items)
+    int? photoId = cctvPhotoId;
+    if (photo != null && photoId == null) {
       return false;
     }
 
@@ -579,8 +694,21 @@ class _DgScreenState extends State<DgScreen> {
 
   // Save current form data for CCTV
   void _saveCCTVForm() {
-    if (savedCCTVItems.length >= totalCCTVItems) {
-      showCustomToast(context, 'Maximum number of CCTV items ($totalCCTVItems) already added.');
+    // Check against items that already have both photo_id and asset_status
+    int completedCCTVCount = widget.dgData?.assets?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int totalCCTVCount = widget.dgData?.assets?.length ?? 0;
+    
+    // If there are completed items, use completed count; otherwise use total count
+    int maxAllowedCCTVCount = completedCCTVCount > 0 ? completedCCTVCount : totalCCTVCount;
+    
+    print('DG Debug: completedCCTVCount = $completedCCTVCount');
+    print('DG Debug: totalCCTVCount = $totalCCTVCount');
+    print('DG Debug: maxAllowedCCTVCount = $maxAllowedCCTVCount');
+    print('DG Debug: savedCCTVItems.length = ${savedCCTVItems.length}');
+    
+    if (savedCCTVItems.length > maxAllowedCCTVCount) {
+      showCustomToast(context, 'Maximum number of CCTV items ($maxAllowedCCTVCount) already added.');
       return;
     }
 
@@ -597,7 +725,8 @@ class _DgScreenState extends State<DgScreen> {
           'photoTakenTs': DateTime.now().toString(),
           'itemType': 'DG',
           'remarks': 'DG Item',
-          'assetStatus': cctvStatus ?? "OK",
+          'status': cctvStatus ?? "OK", // Set status field for display
+          'assetStatus': cctvStatus ?? "OK", // Also set assetStatus field
           'assetAuditSiteRespId': assetAuditSiteRespId,
           'timestamp': DateTime.now(),
           'isQRCodeScanned': false, // Track if this was QR scanned or manual entry (false for manual entry)
@@ -623,9 +752,54 @@ class _DgScreenState extends State<DgScreen> {
     }
   }
 
+  // Method to show image viewer dialog
+  // void _showImageDialog(String imageData) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (context) => Dialog(
+  //       child: Container(
+  //         width: MediaQuery.of(context).size.width * 0.8,
+  //         height: MediaQuery.of(context).size.height * 0.6,
+  //         child: Column(
+  //           children: [
+  //             AppBar(
+  //               title: Text('Image View'),
+  //               actions: [
+  //                 IconButton(
+  //                   icon: Icon(Icons.close),
+  //                   onPressed: () => Navigator.of(context).pop(),
+  //                 ),
+  //               ],
+  //             ),
+  //             Expanded(
+  //               child: Base64ImageWidget(
+  //                 base64Data: imageData,
+  //                 boxFit: BoxFit.contain,
+  //               ),
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ),
+  //   );
+  // }
+
+  // Helper method to filter items that have both photo and status
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
+    return items.where((item) {
+      final hasPhoto = item['photo'] != null && item['photo'].toString().isNotEmpty;
+      final hasPhotoId = item['photoId'] != null;
+      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
+                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+      return hasPhotoId && hasStatus;
+    }).toList();
+  }
+
   // Check if all items are scanned
   bool _isAllItemsScanned() {
-    return savedCCTVItems.length >= totalCCTVItems;
+    // Check against unfiltered backend count
+    int unfilteredCCTVCount = widget.dgData?.assets?.length ?? 0;
+    return savedCCTVItems.length >= unfilteredCCTVCount;
   }
 
   /// Validate serial number against API data
@@ -808,9 +982,29 @@ class _DgScreenState extends State<DgScreen> {
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
     setState(() {
       cctvSerialNumber = item["serialNumber"];
-      cctvPhoto = item["photo"];
       cctvStatus = item["status"];
       cctvSerialController.text = item["serialNumber"] ?? "";
+      
+      // Handle photo data - check if it's base64 data or photo ID
+      String? photoData = item["photo"];
+      if (photoData != null && photoData.isNotEmpty) {
+        if (photoData.startsWith('data:image/')) {
+          // It's already base64 image data
+          cctvPhoto = photoData;
+        } else if (_isNumeric(photoData)) {
+          // It's a photo ID, load the image
+          _loadImageForEdit(photoData, 'cctv');
+        } else {
+          // It's a file path or other format
+          cctvPhoto = photoData;
+        }
+      }
+
+      // Also try to load image if photoId exists (fallback)
+      if (cctvPhotoId != null &&
+          cctvPhotoId.toString().isNotEmpty && cctvPhoto == null) {
+        _loadImageForEdit(cctvPhotoId.toString(), 'cctv');
+      }
       savedCCTVItems.remove(item);
       currentScannedItems--;
       cctvCardKey++;
@@ -875,9 +1069,9 @@ class _DgScreenState extends State<DgScreen> {
             try {
               // Trigger a refresh of the asset audit data
               context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: "telecom",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
+                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
               );
               
               // Wait for data to refresh, then navigate
@@ -933,8 +1127,8 @@ class _DgScreenState extends State<DgScreen> {
           // Only show error message if this error belongs to DG screen data
           if (_hasPostedDGData) {
             print('DG Screen: AssetAuditPostError received for DG data');
-            // Show error message and block navigation
-            showCustomToast(context, '❌ Failed to save DG data. Please try again.');
+            // Show error message but don't block navigation completely
+            showCustomToast(context, '❌ Failed to save DG data to server. You can continue with local data.');
             
             // Reset the flag on error
             setState(() {
@@ -1275,30 +1469,37 @@ class _DgScreenState extends State<DgScreen> {
                                                                 onPressed: () async {
                                   // If no data to show, just navigate to next screen
                                   if (!_hasDataToShow()) {
-                                    pushPage(context, SMPSScreen(
-                                      smpsData: widget.assetAuditData?.responseData.smps,
-                                      assetAuditData: widget.assetAuditData,
-                                      showSuccessMessage: false,
-                                      extinguisherItems: widget.extinguisherItems ?? [],
-                                      solarPlatesItems: widget.solarPlatesItems ?? [],
-                                      fencingItems: widget.fencingItems ?? [],
-                                      dgItems: [],
-                                    ));
+                                    _navigateToSMPSScreen();
                                     return;
                                   }
                                   
-                                  // Navigate to next screen with accumulated data
-                                  pushPage(context, SMPSScreen(
-                                    smpsData: widget.assetAuditData?.responseData.smps,
-                                    assetAuditData: widget.assetAuditData,
-                                    showSuccessMessage: false,
-                                                                          extinguisherItems: widget.extinguisherItems ?? [],
-                                      solarPlatesItems: widget.solarPlatesItems ?? [],
-                                      fencingItems: widget.fencingItems ?? [],
-                                      dgItems: [
-                                        ...savedCCTVItems,
-                                      ],
-                                  ));
+                                  // If there are saved items, try to post them first
+                                  if (savedCCTVItems.isNotEmpty) {
+                                    try {
+                                      print('DG Screen: Attempting to post data before navigation...');
+                                      
+                                      // Set a timeout for the posting operation
+                                      await Future.any([
+                                        _postCurrentScreenData(),
+                                        Future.delayed(Duration(seconds: 10), () {
+                                          throw TimeoutException('Posting data timed out', Duration(seconds: 10));
+                                        }),
+                                      ]);
+                                      
+                                      // Navigation will be handled by the BlocListener on success
+                                    } catch (e) {
+                                      print('DG Screen: Error posting data: $e');
+                                      // If posting fails or times out, still allow navigation with local data
+                                      showCustomToast(
+                                        context,
+                                        '⚠️ Data could not be saved to server, but you can continue with local data.',
+                                      );
+                                      _navigateToNextScreen();
+                                    }
+                                  } else {
+                                    // No saved items, navigate directly
+                                    _navigateToNextScreen();
+                                  }
                                 },
                             ),
                           ),
@@ -1465,7 +1666,7 @@ class _DgScreenState extends State<DgScreen> {
                 getWidth(8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedCCTVItems.length} | Current Scanned: $currentScannedItems | Total Expected: $totalCCTVItems',
+                    'Saved Items: ${savedCCTVItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${widget.dgData?.assets?.length ?? 0}',
                     style: TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -1477,7 +1678,7 @@ class _DgScreenState extends State<DgScreen> {
             ),
           ),
           if (savedCCTVItems.isNotEmpty)
-            ...savedCCTVItems
+            ..._getItemsWithPhotoAndStatus(savedCCTVItems)
                 .map(
                   (item) => Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),

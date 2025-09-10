@@ -7,12 +7,14 @@ class CustomRemarksField extends StatelessWidget {
   final String hintText;
   final TextEditingController controller;
   final int maxLines;
+  final String? initialValue;
 
   const CustomRemarksField({
     super.key,
     required this.label,
     required this.hintText,
     required this.controller,
+    this.initialValue,
     this.maxLines = 4,
   });
 

@@ -60,7 +60,7 @@ class AssetAuditFormPersistenceHelper {
     );
 
     if (savedData != null && savedData['formData'] != null) {
-      final formData = savedData['formData'] as Map<String, dynamic>;
+      final formData = Map<String, dynamic>.from(savedData['formData'] as Map);
       print('=== Form Persistence: Found saved data ===');
       print('Data keys: ${formData.keys.toList()}');
       print('Timestamp: ${savedData['timestamp']}');

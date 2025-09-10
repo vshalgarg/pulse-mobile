@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 class AssetAuditPostHelper {
+
   /// Convert saved items from a screen to AssetAuditPostRequest format
   /// This is called when navigating to the next screen to save the current screen's data
   static Future<List<AssetAuditPostRequest>> convertSavedItemsToPostRequest({
@@ -25,6 +26,7 @@ class AssetAuditPostHelper {
     
     // Get current location
     final location = await getCurrentLocation();
+    print('AssetAuditPostHelper: Current location - Lat: ${location['latitude']}, Lng: ${location['longitude']}');
     
     // Get site info from assetAuditData
     final siteInfo = assetAuditData.pageHeader.isNotEmpty 
@@ -35,45 +37,125 @@ class AssetAuditPostHelper {
       print('AssetAuditPostHelper: No site info available');
       return [];
     }
+    
+    print('AssetAuditPostHelper: Site info - siteId: ${siteInfo.siteId}, siteAuditSchId: ${siteInfo.siteAuditSchId}');
+
+    // Get the category data for this item type to find matching assetAuditSiteRespId
+    dynamic categoryData = assetAuditData.responseData.categories[itemType];
+    
+    // Debug: Print what we're looking for and what we found
+    print('AssetAuditPostHelper: Looking for itemType: "$itemType"');
+    print('AssetAuditPostHelper: Available categories: ${assetAuditData.responseData.categories.keys.toList()}');
+    print('AssetAuditPostHelper: categoryData found: ${categoryData != null}');
+    
+    // Special handling for ACDB - it's nested under SMPS subcategories
+    if (itemType == 'ACDB') {
+      final smpsData = assetAuditData.responseData.categories['SMPS'];
+      if (smpsData != null && smpsData.subCategories != null && smpsData.subCategories!['ACDB'] != null) {
+        // Create a temporary CategoryData object with ACDB assets from SMPS subcategories
+        final acdbAssets = smpsData.subCategories!['ACDB']!;
+        final acdbRemarks = smpsData.remarks.where((remark) => remark.itemType == 'ACDB').toList();
+        categoryData = CategoryData(
+          assets: acdbAssets,
+          remarks: acdbRemarks,
+        );
+        print('AssetAuditPostHelper: Processing $itemType items from SMPS subcategories, found ${acdbAssets.length} assets in API response');
+      } else {
+        print('AssetAuditPostHelper: No ACDB data found in SMPS subcategories');
+        categoryData = null;
+      }
+    } else {
+      print('AssetAuditPostHelper: Processing $itemType items, found ${categoryData?.assets.length ?? 0} assets in API response');
+    }
+    
+    // Debug: Print all available categories
+    print('AssetAuditPostHelper: Available categories: ${assetAuditData.responseData.categories.keys.toList()}');
+    
+    // Debug: Print raw API response structure for Boundary
+    if (itemType == 'Boundary') {
+      print('AssetAuditPostHelper: Raw API response structure:');
+      print('AssetAuditPostHelper: assetAuditData.responseData.categories: ${assetAuditData.responseData.categories}');
+    }
+    
+    // Debug: Print Boundary category details if it exists
+    if (itemType == 'Boundary' && categoryData != null) {
+      print('AssetAuditPostHelper: Boundary category found with ${categoryData.assets.length} assets');
+      print('AssetAuditPostHelper: Boundary category type: ${categoryData.runtimeType}');
+      print('AssetAuditPostHelper: Boundary category properties: ${categoryData.toString()}');
+      
+      // Check if there are any other properties in the category
+      try {
+        print('AssetAuditPostHelper: Boundary category has remarks: ${categoryData.remarks?.length ?? 0}');
+        if (categoryData.remarks != null && categoryData.remarks!.isNotEmpty) {
+          for (int i = 0; i < categoryData.remarks!.length; i++) {
+            final remark = categoryData.remarks![i];
+            print('AssetAuditPostHelper: Boundary remark $i: id=${remark.assetAuditSiteRespId}, type=${remark.itemType}');
+          }
+        }
+      } catch (e) {
+        print('AssetAuditPostHelper: Error accessing remarks: $e');
+      }
+      
+      for (int i = 0; i < categoryData.assets.length; i++) {
+        final asset = categoryData.assets[i];
+        print('AssetAuditPostHelper: Boundary asset $i: id=${asset.assetAuditSiteRespId}, nexgen=${asset.nexgenSerialNo}, mfg=${asset.mfgSerialNo}');
+      }
+    }
 
     for (int i = 0; i < savedItems.length; i++) {
       final item = savedItems[i];
       
       try {
+        // Find matching asset from API response to get assetAuditSiteRespId
+        int? assetAuditSiteRespId = _findMatchingAssetId(
+          savedItem: item,
+          categoryData: categoryData,
+          itemType: itemType,
+          assetAuditData: assetAuditData,
+        );
+        
         // Handle QR code fields properly
         final bool isQRScanned = item['isQRCodeScanned'] ?? false;
         final String? qrCodeScannedTs = isQRScanned ? timestamp : null;
         
-
+        // Get photo ID from the uploaded photo
+        final int? photoId = _getPhotoIdForRequest(item);
         
         final request = AssetAuditPostRequest(
-          assetAuditSiteRespId: item['assetAuditSiteRespId'], // Use ID from GET API response if available
+          assetAuditSiteRespId: assetAuditSiteRespId, // Use ID from GET API response
           auditSchId: auditSchId != null ? int.parse(auditSchId) : 0,
           siteAuditSchId: siteInfo.siteAuditSchId,
-          siteId: siteInfo.siteId,
+          siteId: siteInfo.siteId ?? 0,
           itemInstanceId: 0, // Will be assigned by backend
-          nexgenSerialNo: item['serialNumber'] ?? '',
+          nexgenSerialNo: item['serialNumber'] ?? item['nexgenSerialNo'] ?? '',
           itemTypeId: itemTypeId,
           qrCodeScanned: isQRScanned,
           qrCodeScannedTs: qrCodeScannedTs, // null for manual entry, timestamp for QR scan
-          photoId: _getPhotoIdForRequest(item), // Handle photoId properly for different record types
+          photoId: photoId, // Use uploaded photo ID
           photoTakenTs: item['photoTakenTs'] ?? timestamp,
           assetStatus: item['status'] ?? 'OK',
           longitude: location['longitude'] ?? item['longitude'], // Use current location if available
           latitude: location['latitude'] ?? item['latitude'], // Use current location if available
-          itemTypeRemark: item['remarks'],
+          itemTypeRemark: item['itemTypeRemark'] ?? item['remarks'],
           localAuditLogId: 0,
           localQrCodeScannedTs: timestamp,
           localCreatedDt: timestamp,
           localModifiedDt: timestamp,
           syncProcessId: 0,
           isActive: true,
-          remarks: item['remarks'],
+          remarks: item['itemTypeRemark'] ?? item['remarks'],
         );
         
         requests.add(request);
         print('AssetAuditPostHelper: Created request for $screenName item ${i + 1}');
-        print('AssetAuditPostHelper: Item ${i + 1} assetAuditSiteRespId: ${item['assetAuditSiteRespId']}');
+        print('AssetAuditPostHelper: Item ${i + 1} details:');
+        print('  - assetAuditSiteRespId: $assetAuditSiteRespId');
+        print('  - serialNumber: ${item['serialNumber'] ?? item['nexgenSerialNo']}');
+        print('  - photoId: $photoId');
+        print('  - isQRScanned: $isQRScanned');
+        print('  - status: ${item['status'] ?? item['assetStatus']}');
+        print('  - location: ${location['latitude']}, ${location['longitude']}');
+        print('  - Full item data: $item');
         
       } catch (e) {
         print('AssetAuditPostHelper: Error creating request for item ${i + 1}: $e');
@@ -109,6 +191,7 @@ class AssetAuditPostHelper {
     
     // Get current location
     final location = await getCurrentLocation();
+    print('AssetAuditPostHelper: Current location for single item - Lat: ${location['latitude']}, Lng: ${location['longitude']}');
     
     // Get site info from assetAuditData
     final siteInfo = assetAuditData.pageHeader.isNotEmpty 
@@ -119,22 +202,30 @@ class AssetAuditPostHelper {
       throw Exception('No site info available');
     }
 
+    // Find matching asset ID from API response
+    final itemType = _getItemTypeFromScreenName(screenName);
+    final categoryData = assetAuditData.responseData.categories[itemType];
+    final assetAuditSiteRespId = _findMatchingAssetId(
+      savedItem: savedItem,
+      categoryData: categoryData,
+      itemType: itemType,
+      assetAuditData: assetAuditData,
+    );
+
     // Handle QR code fields properly
     final bool isQRScanned = savedItem['isQRCodeScanned'] ?? false;
     final String? qrCodeScannedTs = isQRScanned ? timestamp : null;
 
-
-
     final request = AssetAuditPostRequest(
-      assetAuditSiteRespId: savedItem['assetAuditSiteRespId'], // Use ID from GET API response if available
+      assetAuditSiteRespId: assetAuditSiteRespId, // Use ID from GET API response
       auditSchId: auditSchId != null ? int.parse(auditSchId) : 0,
       siteAuditSchId: siteInfo.siteAuditSchId,
-      siteId: siteInfo.siteId,
+      siteId: siteInfo.siteId ?? 0,
       itemInstanceId: 0, // Will be assigned by backend
-      nexgenSerialNo: savedItem['serialNumber'] ?? '',
+      nexgenSerialNo: savedItem['serialNumber'] ?? savedItem['nexgenSerialNo'] ?? '',
       itemTypeId: itemTypeId,
       qrCodeScanned: isQRScanned,
-      qrCodeScannedTs: qrCodeScannedTs, // null for manual entry, timestamp for QR scan
+      qrCodeScannedTs: qrCodeScannedTs,
       photoId: _getPhotoIdForRequest(savedItem), // Handle photoId properly for different record types
       photoTakenTs: savedItem['photoTakenTs'] ?? timestamp,
       assetStatus: savedItem['status'] ?? 'OK',
@@ -166,48 +257,368 @@ class AssetAuditPostHelper {
     return request;
   }
 
+  /// Find matching asset ID from API response based on serial number
+  static int? _findMatchingAssetId({
+    required Map<String, dynamic> savedItem,
+    required dynamic categoryData,
+    required String itemType,
+    required AssetAuditModel assetAuditData,
+  }) {
+    // Check if this is a remarks entry
+    final recordType = savedItem['recordType']?.toString().toLowerCase();
+    if (recordType == 'remarks') {
+      print('AssetAuditPostHelper: This is a remarks entry, getting remarks ID');
+      return _getRemarksAssetAuditSiteRespId(
+        assetAuditData: assetAuditData,
+        itemType: itemType,
+      );
+    }
+
+    // If the item already has an assetAuditSiteRespId, use it
+    if (savedItem['assetAuditSiteRespId'] != null && savedItem['assetAuditSiteRespId'] > 0) {
+      print('AssetAuditPostHelper: Using existing assetAuditSiteRespId from saved item: ${savedItem['assetAuditSiteRespId']}');
+      return savedItem['assetAuditSiteRespId'];
+    }
+
+    // Check for serial number in multiple possible field names
+    final savedSerialNumber = (savedItem['serialNumber'] ?? savedItem['nexgenSerialNo'] ?? '').toString().toLowerCase();
+    
+    // For Boundary items, serial number is optional and doesn't need to match existing data
+    if (itemType == 'Boundary') {
+      print('AssetAuditPostHelper: Boundary item - serial number validation skipped');
+      print('AssetAuditPostHelper: categoryData is null: ${categoryData == null}');
+      if (categoryData != null) {
+        print('AssetAuditPostHelper: categoryData.assets is null: ${categoryData.assets == null}');
+        print('AssetAuditPostHelper: categoryData.assets.length: ${categoryData.assets?.length ?? 0}');
+      }
+      
+      // For Boundary, if there's an existing asset, use its ID regardless of serial number
+      if (categoryData != null && categoryData.assets != null && categoryData.assets.isNotEmpty) {
+        final asset = categoryData.assets.first;
+        print('AssetAuditPostHelper: Using existing Boundary asset ID: ${asset.assetAuditSiteRespId}');
+        return asset.assetAuditSiteRespId;
+      }
+      
+      // Fallback: Try to find Boundary assets in any category
+      print('AssetAuditPostHelper: No Boundary category found, searching all categories...');
+      for (String categoryName in assetAuditData.responseData.categories.keys) {
+        final category = assetAuditData.responseData.categories[categoryName];
+        if (category != null && category.assets.isNotEmpty) {
+          for (var asset in category.assets) {
+            if (asset.itemType == 'Boundary' || asset.itemTypeGroup == 'Boundary') {
+              print('AssetAuditPostHelper: Found Boundary asset in $categoryName category with ID: ${asset.assetAuditSiteRespId}');
+              return asset.assetAuditSiteRespId;
+            }
+          }
+        }
+      }
+      
+      print('AssetAuditPostHelper: No existing Boundary asset found anywhere, will create new one');
+      return null; // Let the backend assign a new ID
+    }
+    
+    if (savedSerialNumber.isEmpty) {
+      print('AssetAuditPostHelper: No serial number in saved item');
+      print('AssetAuditPostHelper: Available fields: ${savedItem.keys.toList()}');
+      return null;
+    }
+
+    // First, try to find in main category assets
+    if (categoryData != null && categoryData.assets != null) {
+      // Try to match by nexgen_serial_no first (for QR scanned items)
+      if (savedItem['isQRCodeScanned'] == true) {
+        for (var asset in categoryData.assets) {
+          final apiNexgenSerial = asset.nexgenSerialNo?.toString().toLowerCase();
+          if (apiNexgenSerial == savedSerialNumber) {
+            print('AssetAuditPostHelper: Found matching asset by nexgen_serial_no: ${asset.assetAuditSiteRespId}');
+            return asset.assetAuditSiteRespId;
+          }
+        }
+      }
+
+      // Try to match by mfg_serial_no (for manual entry items)
+      for (var asset in categoryData.assets) {
+        final apiMfgSerial = asset.mfgSerialNo?.toString().toLowerCase();
+        if (apiMfgSerial == savedSerialNumber) {
+          print('AssetAuditPostHelper: Found matching asset by mfg_serial_no: ${asset.assetAuditSiteRespId}');
+          return asset.assetAuditSiteRespId;
+        }
+      }
+      
+      // Special case for Boundary: If there's only one asset and it has null serial numbers,
+      // use that asset's ID (this means we're updating the existing empty Boundary item)
+      if (itemType == 'Boundary' && categoryData.assets.length == 1) {
+        final asset = categoryData.assets.first;
+        print('AssetAuditPostHelper: Checking Boundary asset - nexgen: ${asset.nexgenSerialNo}, mfg: ${asset.mfgSerialNo}');
+        if ((asset.nexgenSerialNo == null || asset.nexgenSerialNo!.isEmpty) && 
+            (asset.mfgSerialNo == null || asset.mfgSerialNo!.isEmpty)) {
+          print('AssetAuditPostHelper: Using existing Boundary asset ID for update: ${asset.assetAuditSiteRespId}');
+          return asset.assetAuditSiteRespId;
+        } else {
+          print('AssetAuditPostHelper: Boundary asset has serial numbers, not using for update');
+        }
+      }
+    }
+
+    // If not found in main category, try to find in subcategories
+    // For Fire Extinguisher screen, Flood Light and Sand Bucket are subcategories
+    if (itemType == 'Flood Light' || itemType == 'Sand Bucket') {
+      print('AssetAuditPostHelper: Looking for $itemType in subcategories');
+      
+      // Get the Fire Extinguisher category data
+      final fireExtinguisherCategory = assetAuditData.responseData.categories['Fire Extinguisher'];
+      if (fireExtinguisherCategory != null && fireExtinguisherCategory.subCategories != null) {
+        final subCategoryData = fireExtinguisherCategory.subCategories![itemType];
+        if (subCategoryData != null) {
+          print('AssetAuditPostHelper: Found subcategory data for $itemType with ${subCategoryData.length} items');
+          
+          // Try to match by nexgen_serial_no first (for QR scanned items)
+          if (savedItem['isQRCodeScanned'] == true) {
+            for (var asset in subCategoryData) {
+              final apiNexgenSerial = asset.nexgenSerialNo?.toString().toLowerCase();
+              if (apiNexgenSerial == savedSerialNumber) {
+                print('AssetAuditPostHelper: Found matching subcategory asset by nexgen_serial_no: ${asset.assetAuditSiteRespId}');
+                return asset.assetAuditSiteRespId;
+              }
+            }
+          }
+
+          // Try to match by mfg_serial_no (for manual entry items)
+          for (var asset in subCategoryData) {
+            final apiMfgSerial = asset.mfgSerialNo?.toString().toLowerCase();
+            if (apiMfgSerial == savedSerialNumber) {
+              print('AssetAuditPostHelper: Found matching subcategory asset by mfg_serial_no: ${asset.assetAuditSiteRespId}');
+              return asset.assetAuditSiteRespId;
+            }
+          }
+        } else {
+          print('AssetAuditPostHelper: No subcategory data found for $itemType');
+        }
+      } else {
+        print('AssetAuditPostHelper: No subcategories found in Fire Extinguisher category');
+      }
+    }
+
+    // If no exact match found, try to match by nexgen_serial_no as fallback (only if categoryData exists)
+    if (categoryData != null && categoryData.assets != null) {
+      for (var asset in categoryData.assets) {
+        final apiNexgenSerial = asset.nexgenSerialNo?.toString().toLowerCase();
+        if (apiNexgenSerial == savedSerialNumber) {
+          print('AssetAuditPostHelper: Found matching asset by nexgen_serial_no (fallback): ${asset.assetAuditSiteRespId}');
+          return asset.assetAuditSiteRespId;
+        }
+      }
+    }
+
+    print('AssetAuditPostHelper: No matching asset found for serial number: $savedSerialNumber');
+    if (categoryData != null && categoryData.assets != null) {
+      print('Available assets in API response:');
+      for (var asset in categoryData.assets) {
+        print('  - nexgen_serial_no: ${asset.nexgenSerialNo}, mfg_serial_no: ${asset.mfgSerialNo}, id: ${asset.assetAuditSiteRespId}');
+      }
+    }
+    
+    // For new items, return a temporary negative ID that backend will replace
+    print('AssetAuditPostHelper: No matching asset found, using temporary ID for new item');
+    print('AssetAuditPostHelper: itemType: $itemType, categoryData exists: ${categoryData != null}');
+    return -1; // Temporary ID for new items
+  }
+
   /// Get photoId for request, handling remarks vs assets differently
-  static int _getPhotoIdForRequest(Map<String, dynamic> item) {
+  static int? _getPhotoIdForRequest(Map<String, dynamic> item) {
     // For remarks entries, photoId is not required so return 0 (will be filtered out in toJson)
     final recordType = item['recordType']?.toString().toLowerCase();
     final itemType = item['itemType']?.toString().toLowerCase();
     
     if (recordType == 'remarks' || itemType?.contains('remarks') == true) {
-      print('AssetAuditPostHelper: Using photoId 0 for remarks entry (not required, will be filtered out)');
-      return 0; // PhotoId is not required for remarks, will be filtered out in toJson
+      print('AssetAuditPostHelper: Using photoId null for remarks entry (not required)');
+      return null; // PhotoId is not required for remarks
     }
     
-    // For asset entries, use the photoId if available, otherwise use 0 (backend will handle)
-    final photoId = item['photoId'];
+    // For asset entries, use the photoId if available, otherwise return null
+    // Check for photo ID in multiple possible field names
+    final photoId = item['photoId'] ?? item['photo'];
     if (photoId == null || photoId == 0) {
-      print('AssetAuditPostHelper: PhotoId is null/0, using 0 for asset entry');
-      return 0;
+      print('AssetAuditPostHelper: PhotoId is null/0, returning null for asset entry');
+      print('AssetAuditPostHelper: Available fields: ${item.keys.toList()}');
+      print('AssetAuditPostHelper: photoId field value: ${item['photoId']}');
+      print('AssetAuditPostHelper: photo field value: ${item['photo']}');
+      return null;
     }
     
-    return photoId is int ? photoId : int.tryParse(photoId.toString()) ?? 0;
+    // Convert photoId to int (it might be a string from the upload response)
+    print('AssetAuditPostHelper: Raw photoId value: $photoId (type: ${photoId.runtimeType})');
+    final intPhotoId = photoId is int ? photoId : int.tryParse(photoId.toString()) ?? 0;
+    print('AssetAuditPostHelper: Converted photoId: $intPhotoId for asset entry');
+    return intPhotoId;
+  }
+
+  /// Get item type string from screen name
+  static String _getItemTypeFromScreenName(String screenName) {
+    switch (screenName.toLowerCase()) {
+      case 'solar_spv':
+        return 'SPV';
+      case 'solar_mms':
+        return 'MMS';
+      case 'solar_dcba':
+        return 'DCBA';
+      case 'solar_pcu':
+        return 'PCU';
+      case 'solar_invertor':
+        return 'Invertor';
+      case 'solar_acdb':
+        return 'ACDB';
+      case 'solar_vcb':
+        return 'VCB';
+      case 'solar_wms':
+        return 'WMS';
+      case 'solar_scada':
+        return 'SCADA';
+      case 'solar_fire_extinguisher':
+        return 'Fire Extinguisher';
+      case 'solar_surveillance':
+        return 'Solar Surveillance';
+      case 'solar_boundary':
+        return 'Boundary';
+      case 'solar_ltdb':
+        return 'LTDB';
+      case 'solar_transformer':
+        return 'Transformer';
+      default:
+        return screenName.toUpperCase();
+    }
+  }
+
+  /// Get remarks assetAuditSiteRespId from existing backend data
+  static int? _getRemarksAssetAuditSiteRespId({
+    required AssetAuditModel assetAuditData,
+    required String itemType,
+  }) {
+    print('=== AssetAuditPostHelper: Getting Remarks AssetAuditSiteRespId for $itemType ===');
+
+    // Get the category data for this item type
+    dynamic categoryData = assetAuditData.responseData.categories[itemType];
+    
+    // Special handling for ACDB - it's nested under SMPS subcategories
+    if (itemType == 'ACDB') {
+      final smpsData = assetAuditData.responseData.categories['SMPS'];
+      if (smpsData != null) {
+        // Get ACDB remarks from SMPS category
+        final acdbRemarks = smpsData.remarks.where((remark) => remark.itemType == 'ACDB').toList();
+        categoryData = CategoryData(
+          assets: [],
+          remarks: acdbRemarks,
+        );
+        print('AssetAuditPostHelper: Found ${acdbRemarks.length} ACDB remarks in SMPS category');
+      } else {
+        print('AssetAuditPostHelper: No SMPS data found for ACDB remarks');
+        categoryData = null;
+      }
+    }
+    
+    if (categoryData == null) {
+      print('No category data found for $itemType');
+      return null;
+    }
+
+    // Check if there are remarks in the backend data
+    final remarks = categoryData.remarks;
+    if (remarks.isNotEmpty) {
+      print('Found ${remarks.length} remarks in backend data for $itemType');
+
+      // First try to find a general remarks entry for this item type
+      for (var remark in remarks) {
+        if (remark.assetAuditSiteRespId != null &&
+            remark.assetAuditSiteRespId > 0 &&
+            remark.itemType == itemType) {
+          print('Using $itemType remarks ID: ${remark.assetAuditSiteRespId}');
+          return remark.assetAuditSiteRespId;
+        }
+      }
+
+      // Fallback: find any remarks entry with a valid ID for this category
+      for (var remark in remarks) {
+        if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0) {
+          print('Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}');
+          return remark.assetAuditSiteRespId;
+        }
+      }
+    }
+
+    // For remarks, if no backend ID is found, allow posting with null ID
+    // The backend will assign a new ID for locally created remarks
+    print('No valid remarks ID found in backend data for $itemType, allowing null ID for new remark');
+    return null;
+
+    print('No valid remarks ID found in backend data for $itemType');
+    return null;
   }
 
   /// Get item type ID based on screen name
   static int getItemTypeId(String screenName) {
+    print('AssetAuditPostHelper: getItemTypeId called with: "$screenName"');
     switch (screenName.toLowerCase()) {
+      // Telecom asset types
       case 'ccu':
         return 1;
       case 'battery':
         return 2;
       case 'extinguisher':
         return 3;
-      case 'solar plates':
-        return 4;
-      case 'cctv':
-      case 'surveillance':
-        return 5;
       case 'fencing':
         return 6;
       case 'dg':
         return 7;
+      
+      // Solar asset types
+      case 'solar plates':
+      case 'spv':
+        return 4;
+      case 'cctv':
+      case 'surveillance':
+      case 'solar_survelliance':
+        return 5;
       case 'smps':
         return 8;
+      case 'dcdb':
+      case 'dcba':
+        return 9;
+      case 'fire_extinguisher':
+        print('AssetAuditPostHelper: Returning itemTypeId 10 for fire_extinguisher');
+        return 10;
+      case 'flood_light':
+        print('AssetAuditPostHelper: Returning itemTypeId 21 for flood_light');
+        return 21;
+      case 'sand_bucket':
+        print('AssetAuditPostHelper: Returning itemTypeId 22 for sand_bucket');
+        return 22;
+      case 'transformer':
+        return 11;
+      case 'vcb':
+        return 12;
+      case 'ltdb':
+        return 13;
+      case 'invertor':
+        return 14;
+      case 'wms':
+        return 15;
+      case 'boundary':
+        return 16;
+      case 'scada':
+        return 17;
+      case 'acdb':
+        return 18;
+      case 'pcu':
+        return 19;
+      case 'mms':
+        return 20;
+      
+      // Selfie
+      case 'selfie':
+        return 999;
+      
       default:
+        print('AssetAuditPostHelper: No match found for "$screenName", returning 0');
         return 0;
     }
   }

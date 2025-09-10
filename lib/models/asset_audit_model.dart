@@ -45,52 +45,76 @@ class AssetAuditModel {
 
 class PageHeader {
   final int siteAuditSchId;
-  final String circle;
-  final String cluster;
+  // Telecom fields
+  final String? circle;
+  final String? cluster;
+  final String? indoorOutdoor;
+  final String? ebNonEb;
+  final String? op1Name;
+  final String? op2Name;
+  final int? siteId;
+  // Solar fields
+  final String? solarState;
+  final String? solarDistrict;
+  final String? auditDueDt;
+  final String? siteDomainName;
+  final String? status;
+  // Common fields
   final String? district;
   final String clientName;
   final String siteCode;
   final String siteName;
   final String siteTypeName;
-  final String indoorOutdoor;
-  final String ebNonEb;
-  final String op1Name;
-  final String? op2Name;
-  final int siteId;
   final int? makerSelfieImageId;
 
   PageHeader({
     required this.siteAuditSchId,
-    required this.circle,
-    required this.cluster,
+    // Telecom fields
+    this.circle,
+    this.cluster,
+    this.indoorOutdoor,
+    this.ebNonEb,
+    this.op1Name,
+    this.op2Name,
+    this.siteId,
+    // Solar fields
+    this.solarState,
+    this.solarDistrict,
+    this.auditDueDt,
+    this.siteDomainName,
+    this.status,
+    // Common fields
     this.district,
     required this.clientName,
     required this.siteCode,
     required this.siteName,
     required this.siteTypeName,
-    required this.indoorOutdoor,
-    required this.ebNonEb,
-    required this.op1Name,
-    this.op2Name,
-    required this.siteId,
     this.makerSelfieImageId,
   });
 
   factory PageHeader.fromJson(Map<String, dynamic> json) {
     return PageHeader(
       siteAuditSchId: json['site_audit_sch_id'] ?? 0,
-      circle: json['circle'] ?? '',
-      cluster: json['cluster'] ?? '',
+      // Telecom fields
+      circle: json['circle'],
+      cluster: json['cluster'],
+      indoorOutdoor: json['indoor_outdoor'],
+      ebNonEb: json['eb_non_eb'],
+      op1Name: json['op1_name'],
+      op2Name: json['op2_name'],
+      siteId: json['site_id'],
+      // Solar fields
+      solarState: json['solar_state'],
+      solarDistrict: json['solar_district'],
+      auditDueDt: json['audit_due_dt'],
+      siteDomainName: json['site_domain_name'],
+      status: json['status'],
+      // Common fields
       district: json['district'],
       clientName: json['client_name'] ?? '',
       siteCode: json['site_code'] ?? '',
       siteName: json['site_name'] ?? '',
       siteTypeName: json['site_type_name'] ?? '',
-      indoorOutdoor: json['indoor_outdoor'] ?? '',
-      ebNonEb: json['eb_non_eb'] ?? '',
-      op1Name: json['op1_name'] ?? '',
-      op2Name: json['op2_name'],
-      siteId: json['site_id'] ?? 0,
       makerSelfieImageId: json['maker_selfie_image_id'],
     );
   }
@@ -98,18 +122,26 @@ class PageHeader {
   Map<String, dynamic> toJson() {
     return {
       'site_audit_sch_id': siteAuditSchId,
+      // Telecom fields
       'circle': circle,
       'cluster': cluster,
-      'district': district,
-      'client_name': clientName,
-      'site_code': siteCode,
-      'site_name': siteName,
-      'site_type_name': siteTypeName,
       'indoor_outdoor': indoorOutdoor,
       'eb_non_eb': ebNonEb,
       'op1_name': op1Name,
       'op2_name': op2Name,
       'site_id': siteId,
+      // Solar fields
+      'solar_state': solarState,
+      'solar_district': solarDistrict,
+      'audit_due_dt': auditDueDt,
+      'site_domain_name': siteDomainName,
+      'status': status,
+      // Common fields
+      'district': district,
+      'client_name': clientName,
+      'site_code': siteCode,
+      'site_name': siteName,
+      'site_type_name': siteTypeName,
       'maker_selfie_image_id': makerSelfieImageId,
     };
   }
@@ -156,16 +188,29 @@ class ResponseData {
   }
 
   // Helper methods to get specific categories
-  CategoryData? get solarPlates => categories['Solar Plates'];
-  CategoryData? get fireExtinguisher => categories['Fire Extinguisher'];
+  // Telecom categories
   CategoryData? get dg => categories['DG'];
   CategoryData? get ccu => categories['CCU'];
   CategoryData? get battery => categories['Battery'];
+  CategoryData? get fencing => categories['Fencing'];
+  
+  // Solar categories
+  CategoryData? get solarPlates => categories['Solar Plates'];
+  CategoryData? get fireExtinguisher => categories['Fire Extinguisher'];
   CategoryData? get smps => categories['SMPS'];
   CategoryData? get cctv => categories['CCTV'];
   CategoryData? get boundary => categories['Boundary'];
   CategoryData? get spv => categories['SPV'];
-  CategoryData? get fencing => categories['Fencing'];
+  CategoryData? get dcdb => categories['DCDB'];
+  CategoryData? get transformer => categories['Transformer'];
+  CategoryData? get vcb => categories['VCB'];
+  CategoryData? get ltdb => categories['LTDB'];
+  CategoryData? get invertor => categories['Invertor'];
+  CategoryData? get wms => categories['WMS'];
+  CategoryData? get scada => categories['SCADA'];
+  CategoryData? get acdb => categories['ACDB'];
+  CategoryData? get pcu => categories['PCU'];
+  CategoryData? get mms => categories['MMS'];
 
   // Helper methods to get specific items from categories
   List<AssetItem> get boundaryItems => getAllItemsFromCategory('Boundary');
@@ -262,16 +307,19 @@ class CategoryData {
   }
 
   // Helper methods to get subcategories
+  // Telecom subcategories
   List<AssetItem>? get ccuCabinet => subCategories?['CCU Cabinet'];
   List<AssetItem>? get ccuRectifiers => subCategories?['CCU Rectifiers'];
   List<AssetItem>? get ccuMppt => subCategories?['CCU MPPT'];
   List<AssetItem>? get batteryCabinet => subCategories?['Battery Cabinet'];
   List<AssetItem>? get cbms => subCategories?['CBMS'];
+  List<AssetItem>? get lspu => subCategories?['LSPU'];
+  
+  // Solar subcategories
   List<AssetItem>? get smpsRectifiers => subCategories?['SMPS Rectifiers'];
   List<AssetItem>? get smpsMppt => subCategories?['SMPS MPPT'];
   List<AssetItem>? get smpsCabinet => subCategories?['SMPS Cabinet'];
   List<AssetItem>? get acdb => subCategories?['ACDB'];
-  List<AssetItem>? get lspu => subCategories?['LSPU'];
   List<AssetItem>? get floodLight => subCategories?['Flood Light'];
   List<AssetItem>? get sandBucket => subCategories?['Sand Bucket'];
   List<AssetItem>? get spv => subCategories?['SPV'];

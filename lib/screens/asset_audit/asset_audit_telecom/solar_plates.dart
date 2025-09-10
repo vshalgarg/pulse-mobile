@@ -9,9 +9,13 @@ import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
+import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../repositories/image_repository.dart';
 import '../../../app_config.dart';
+import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
@@ -23,6 +27,7 @@ import '../../../commonWidgets/base64_image_widget.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../home_screen.dart';
 
 class SolarPlatesScreen extends StatefulWidget {
   final CategoryData? solarPlatesData;
@@ -144,6 +149,25 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           assetAuditData: widget.assetAuditData,
           showSuccessMessage: false, // Don't show success message when skipping solar plates screen
           solarPlatesItems: [],
+        ),
+      ),
+    );
+  }
+
+  /// Navigate to next screen with current saved data
+  void _navigateToNextScreen() {
+    print('Solar Plates Screen: Navigating to next screen with saved data');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SurveillianceScreen(
+          cctvData: widget.assetAuditData?.responseData.cctv,
+          assetAuditData: widget.assetAuditData,
+          showSuccessMessage: false,
+          solarPlatesItems: [
+            ...savedRectifierItems,
+            ...savedMPPTItems,
+          ],
         ),
       ),
     );
@@ -418,7 +442,8 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   /// Build photo column for saved items list
   Widget _buildPhotoColumn(Map<String, dynamic> item) {
     final photoId = item['photoId'];
-    
+    final imageName = item['image_name'];
+
     if (photoId == null) {
       return Icon(
         Icons.photo_camera_outlined,
@@ -426,70 +451,128 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         size: 20,
       );
     }
-    
-    // Check if image is cached
-    final imageData = _imageCache[photoId];
-    if (imageData != null) {
-      return GestureDetector(
-        onTap: () => _showImageDialog(imageData),
-        child: Container(
-          width: 30,
-          height: 30,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: AppColors.green7, width: 1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Base64ImageWidget(
-              base64Data: imageData,
-              width: 30,
-              height: 30,
-              boxFit: BoxFit.cover,
-            ),
-          ),
+
+    // Show camera icon that opens image viewer
+    return GestureDetector(
+      onTap: () {
+        // Check if image is cached first
+        final imageData = _imageCache[photoId.toString()];
+        if (imageData != null) {
+          _showImageDialog(imageData, imageName);
+        } else {
+          // Show image using photo ID
+          _showImageDialog(photoId.toString(), imageName);
+        }
+      },
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: AppColors.green7, width: 1),
         ),
-      );
-    }
-    
-    // Show camera icon if no image data
-    return Icon(
-      Icons.photo_camera,
-      color: AppColors.green7,
-      size: 20,
+        child: const Icon(
+          Icons.camera_alt,
+          color: AppColors.green7,
+          size: 16,
+        ),
+      ),
     );
   }
 
   /// Show image in full screen dialog
-  void _showImageDialog(String imageData) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: Column(
+  Future<void> _showImageDialog(String? imagePath, String? imageName) async {
+    if (imagePath == null && imageName == null) {
+      showCustomToast(context, 'No photo available to view.');
+      return;
+    }
+
+    String? imageData;
+
+    // Case 1: Photo is a base64 data URL
+    if (imagePath!.startsWith('data:image/')) {
+      imageData = imagePath;
+    }
+    // Case 2: Photo is a local file path
+    else if (await File(imagePath).exists()) {
+      imageData = imagePath;
+    }
+    // Case 3: Photo is a photo ID (numeric) from the API
+    else if (_isNumeric(imagePath)) {
+      print('Fetching image for photo ID: $imagePath');
+      final completer = Completer<String?>();
+      late StreamSubscription subscription;
+
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
+          print('Image fetched successfully for photo ID: $imagePath');
+          final finalImageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          completer.complete(finalImageData);
+          subscription.cancel();
+        } else if (state is AssetAuditGetImageFailure) {
+          print('Failed to fetch image: ${state.errorMessage}');
+          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          completer.complete(null);
+          subscription.cancel();
+        }
+      });
+
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: imagePath,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      imageData = await completer.future;
+    }
+
+    if (imageData != null && imageData.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
             children: [
-              AppBar(
-                title: Text('Image View'),
-                actions: [
-                  IconButton(
-                    icon: Icon(Icons.close),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
+              Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.7,
+                  maxWidth: MediaQuery.of(context).size.width * 0.9,
+                ),
+                child: imageData!.startsWith('data:image/')
+                    ? Image.memory(
+                        base64Decode(imageData.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(
+                        File(imageData),
+                        fit: BoxFit.contain,
+                      ),
               ),
-              Expanded(
-                child: Base64ImageWidget(
-                  base64Data: imageData,
-                  boxFit: BoxFit.contain,
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.red,
+                    size: 30,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
             ],
           ),
         ),
-      ),
-    );
+      );
+    } else {
+      showCustomToast(context, 'Unable to load photo.');
+    }
+  }
+
+  /// Check if string is numeric
+  bool _isNumeric(String str) {
+    return int.tryParse(str) != null;
   }
 
   @override
@@ -529,24 +612,31 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
 
-    // Then show success dialog with a clean barrier
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54, // Ensure clean barrier
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
-        ),
-      );
+    // Post data to API first
+    try {
+      await _postCurrentScreenData();
+
+      // Update audit schedule status to "In Progress"
+      if (mounted) {
+        context.read<AuditScheduleStatusCubit>().updateStatus(
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          status: "In Progress",
+        );
+      }
+    } catch (e) {
+      print('Error posting Solar Plates data: $e');
     }
+   if(mounted){
+     Navigator.pushReplacement(
+       context,
+       MaterialPageRoute(
+         builder: (context) => HomeScreen(),
+       ),
+     );
+   }
+
   }
+
 
   // Validate required fields for saved items only
   bool _isFormValid() {
@@ -580,6 +670,16 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       return false;
     } else {
       print('Photo validation passed');
+    }
+
+    // Check if photo ID is present (required for all items)
+    int? photoId = rectifierPhotoId ?? mpptPhotoId;
+    print('Photo ID: $photoId');
+    if (photo != null && photoId == null) {
+      print('Photo ID validation failed - photo exists but no photoId');
+      return false;
+    } else {
+      print('Photo ID validation passed');
     }
 
     // Note: status is not required since it comes from API
@@ -633,11 +733,23 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
 
   // Save current form data for Rectifier
   void _saveRectifierForm() {
-    // Check if we've reached the limit for rectifier items
-    if (savedRectifierItems.length >= totalRectifierItems) {
+    // Check against items that already have both photo_id and asset_status
+    int completedRectifierCount = widget.solarPlatesData?.assets?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int totalRectifierCount = widget.solarPlatesData?.assets?.length ?? 0;
+    
+    // If there are completed items, use completed count; otherwise use total count
+    int maxAllowedRectifierCount = completedRectifierCount > 0 ? completedRectifierCount : totalRectifierCount;
+    
+    print('Solar Plates Debug: completedRectifierCount = $completedRectifierCount');
+    print('Solar Plates Debug: totalRectifierCount = $totalRectifierCount');
+    print('Solar Plates Debug: maxAllowedRectifierCount = $maxAllowedRectifierCount');
+    print('Solar Plates Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
+    
+    if (savedRectifierItems.length >= maxAllowedRectifierCount) {
       showCustomToast(
         context,
-        'Maximum number of Rectifier items ($totalRectifierItems) already added.',
+        'Maximum number of Rectifier items ($maxAllowedRectifierCount) already added.',
       );
       return;
     }
@@ -652,14 +764,22 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           'photoTakenTs': DateTime.now().toString(),
           'itemType': 'Solar Panel',
           'remarks': rectifierRemarksController.text.isNotEmpty ? rectifierRemarksController.text : 'Solar Panel Item',
+          'status': rectifierStatus ?? "OK", // Add status field for filtering
           'assetStatus': rectifierStatus ?? "OK",
           'assetAuditSiteRespId': _getAssetAuditSiteRespId('Solar Panel'),
           'timestamp': DateTime.now(),
           'isQRCodeScanned': false,
+          'capacity': _getSolarPanelCapacity(), // Add capacity field
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
         print('Saving Rectifier item: $currentFormData');
+        print('Rectifier item details:');
+        print('  - serialNumber: ${currentFormData['serialNumber']}');
+        print('  - photo: ${currentFormData['photo']}');
+        print('  - photoId: ${currentFormData['photoId']}');
+        print('  - status: ${currentFormData['status']}');
+        print('  - assetStatus: ${currentFormData['assetStatus']}');
         print(
           'Current savedRectifierItems count: ${savedRectifierItems.length}',
         );
@@ -676,6 +796,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         // Clear AssetTypeCard form for next entry
         rectifierSerialNumber = null;
         rectifierPhoto = null;
+        rectifierPhotoId = null; // Also clear photoId
         rectifierStatus = null;
 
         // Clear the controller
@@ -690,7 +811,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
 
       // Show success message
       int remainingRectifiers =
-          totalRectifierItems - savedRectifierItems.length;
+          maxAllowedRectifierCount - savedRectifierItems.length;
       showCustomToast(
         context,
         'Rectifier item saved successfully! ${remainingRectifiers > 0 ? '(${remainingRectifiers} remaining)' : '(All items added)'}',
@@ -702,11 +823,23 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
 
   // Save current form data for MPPT
   void _saveMPPTForm() {
-    // Check if we've reached the limit for MPPT items
-    if (savedMPPTItems.length >= totalMPPTItems) {
+    // Check against items that already have both photo_id and asset_status
+    int completedMPPTCount = widget.solarPlatesData?.assets?.where((item) => 
+        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int totalMPPTCount = widget.solarPlatesData?.assets?.length ?? 0;
+    
+    // If there are completed items, use completed count; otherwise use total count
+    int maxAllowedMPPTCount = completedMPPTCount > 0 ? completedMPPTCount : totalMPPTCount;
+    
+    print('Solar Plates Debug: completedMPPTCount = $completedMPPTCount');
+    print('Solar Plates Debug: totalMPPTCount = $totalMPPTCount');
+    print('Solar Plates Debug: maxAllowedMPPTCount = $maxAllowedMPPTCount');
+    print('Solar Plates Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
+    
+    if (savedMPPTItems.length >= maxAllowedMPPTCount) {
       showCustomToast(
         context,
-        'Maximum number of MPPT items ($totalMPPTItems) already added.',
+        'Maximum number of MPPT items ($maxAllowedMPPTCount) already added.',
       );
       return;
     }
@@ -721,14 +854,22 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           'photoTakenTs': DateTime.now().toString(),
           'itemType': 'Solar Inverter',
           'remarks': mpptRemarksController.text.isNotEmpty ? mpptRemarksController.text : 'Solar Inverter Item',
+          'status': mpptStatus ?? "OK", // Add status field for filtering
           'assetStatus': mpptStatus ?? "OK",
           'assetAuditSiteRespId': _getAssetAuditSiteRespId('Solar Inverter'),
           'timestamp': DateTime.now(),
           'isQRCodeScanned': false,
+          'capacity': _getSolarPanelCapacity(), // Add capacity field
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
         print('Saving MPPT item: $currentFormData');
+        print('MPPT item details:');
+        print('  - serialNumber: ${currentFormData['serialNumber']}');
+        print('  - photo: ${currentFormData['photo']}');
+        print('  - photoId: ${currentFormData['photoId']}');
+        print('  - status: ${currentFormData['status']}');
+        print('  - assetStatus: ${currentFormData['assetStatus']}');
         print('Current savedMPPTItems count: ${savedMPPTItems.length}');
 
         // Add to saved MPPT items list
@@ -741,6 +882,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         // Clear AssetTypeCard form for next entry
         mpptSerialNumber = null;
         mpptPhoto = null;
+        mpptPhotoId = null; // Also clear photoId
         mpptStatus = null;
 
         // Clear the controller
@@ -754,7 +896,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       });
 
       // Show success message
-      int remainingMPPTs = totalMPPTItems - savedMPPTItems.length;
+      int remainingMPPTs = maxAllowedMPPTCount - savedMPPTItems.length;
       showCustomToast(
         context,
         'MPPT item saved successfully! ${remainingMPPTs > 0 ? '(${remainingMPPTs} remaining)' : '(All items added)'}',
@@ -765,9 +907,42 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   }
 
   // Check if all items are scanned (for display purposes only)
+  // Helper method to filter items that have both photo and status
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
+    print('=== Solar Plates: Filtering items for display ===');
+    print('Total items to filter: ${items.length}');
+    
+    final filteredItems = items.where((item) {
+      final hasPhotoId = item['photoId'] != null;
+      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
+                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+      
+      print('Item: ${item['serialNumber']} - hasPhotoId: $hasPhotoId, hasStatus: $hasStatus');
+      print('  - photoId: ${item['photoId']}');
+      print('  - status: ${item['status']}');
+      print('  - assetStatus: ${item['assetStatus']}');
+      print('  - asset_audit_site_resp_id: ${item['asset_audit_site_resp_id']}');
+      
+      // For newly added items, be more lenient - only require photoId OR status
+      // For items loaded from API, require both photoId AND status
+      final isFromAPI = item['asset_audit_site_resp_id'] != null;
+      final passesFilter = isFromAPI ? (hasPhotoId && hasStatus) : hasPhotoId;
+      
+      print('  - isFromAPI: $isFromAPI');
+      print('  - passes filter: $passesFilter');
+      
+      return passesFilter;
+    }).toList();
+    
+    print('Filtered items count: ${filteredItems.length}');
+    return filteredItems;
+  }
+
   bool _isAllItemsScanned() {
-    return (savedRectifierItems.length >= totalRectifierItems) &&
-        (savedMPPTItems.length >= totalMPPTItems);
+    // Check against unfiltered backend counts
+    int unfilteredSolarPlatesCount = widget.solarPlatesData?.assets?.length ?? 0;
+    return (savedRectifierItems.length >= unfilteredSolarPlatesCount) &&
+        (savedMPPTItems.length >= unfilteredSolarPlatesCount);
   }
 
   // Check if user can proceed to next screen (minimum 1 item required)
@@ -844,22 +1019,11 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     if (remarks.isNotEmpty) {
       print('Found ${remarks.length} remarks in backend data');
       
-      // First try to find a general remarks entry (Solar Plates category is usually the main one)
-      for (var remark in remarks) {
-        if (remark.assetAuditSiteRespId != null && 
-            remark.assetAuditSiteRespId > 0 && 
-            remark.itemType == 'Solar Plates') {
-          print('Using Solar Plates remarks ID: ${remark.assetAuditSiteRespId}');
-          return remark.assetAuditSiteRespId;
-        }
-      }
-      
-      // Fallback: find any remarks entry with a valid ID
-      for (var remark in remarks) {
-        if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0) {
-          print('Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}');
-          return remark.assetAuditSiteRespId;
-        }
+      // Always use the first remark (0th position) as per user requirement
+      final firstRemark = remarks.first;
+      if (firstRemark.assetAuditSiteRespId != null && firstRemark.assetAuditSiteRespId > 0) {
+        print('Using first remark ID: ${firstRemark.assetAuditSiteRespId} for itemType: ${firstRemark.itemType}');
+        return firstRemark.assetAuditSiteRespId;
       }
     }
     
@@ -1141,9 +1305,9 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
             try {
               // Trigger a refresh of the asset audit data
               context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: "telecom",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
+                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
               );
               
               // Navigate immediately after data refresh
@@ -1199,10 +1363,10 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           // Only show error message if this error belongs to Solar Plates screen data
           if (_hasPostedSolarPlatesData) {
             print('Solar Plates Screen: AssetAuditPostError received for Solar Plates data');
-            // Show error message and block navigation
+            // Show error message but don't block navigation completely
             showCustomToast(
               context,
-              '❌ Failed to save Solar Plates data. Please try again.',
+              '❌ Failed to save Solar Plates data to server. You can continue with local data.',
             );
             
             // Reset the flag on error
@@ -1210,6 +1374,9 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
               _hasPostedSolarPlatesData = false;
             });
             print('Solar Plates Screen: Reset _hasPostedSolarPlatesData flag to false after error');
+            
+            // Optionally, you could show a dialog asking if user wants to continue
+            // or retry, but for now we'll just show the toast and let them continue
           } else {
             print('Solar Plates Screen: AssetAuditPostError received but not for Solar Plates data, ignoring...');
           }
@@ -1468,21 +1635,33 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                                     return;
                                   }
                                   
-                                  // Navigate to next screen with accumulated data
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => SurveillianceScreen(
-                                        cctvData: widget.assetAuditData?.responseData.cctv,
-                                        assetAuditData: widget.assetAuditData,
-                                        showSuccessMessage: false,
-                                        solarPlatesItems: [
-                                          ...savedRectifierItems,
-                                          ...savedMPPTItems,
-                                        ],
-                                      ),
-                                    ),
-                                  );
+                                  // If there are saved items, try to post them first
+                                  if (savedRectifierItems.isNotEmpty || savedMPPTItems.isNotEmpty) {
+                                    try {
+                                      print('Solar Plates Screen: Attempting to post data before navigation...');
+                                      
+                                      // Set a timeout for the posting operation
+                                      await Future.any([
+                                        _postCurrentScreenData(),
+                                        Future.delayed(Duration(seconds: 10), () {
+                                          throw TimeoutException('Posting data timed out', Duration(seconds: 10));
+                                        }),
+                                      ]);
+                                      
+                                      // Navigation will be handled by the BlocListener on success
+                                    } catch (e) {
+                                      print('Solar Plates Screen: Error posting data: $e');
+                                      // If posting fails or times out, still allow navigation with local data
+                                      showCustomToast(
+                                        context,
+                                        '⚠️ Data could not be saved to server, but you can continue with local data.',
+                                      );
+                                      _navigateToNextScreen();
+                                    }
+                                  } else {
+                                    // No saved items, navigate directly
+                                    _navigateToNextScreen();
+                                  }
                                   // if (_validateForm()) {
                                   //   showDialog(
                                   //     context: context,
@@ -1672,7 +1851,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           ),
           getHeight(10),
           if (savedRectifierItems.isNotEmpty)
-            ...savedRectifierItems
+            ..._getItemsWithPhotoAndStatus(savedRectifierItems)
                 .map(
                   (item) => Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
@@ -1896,7 +2075,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           ),
           getHeight(10),
           if (savedMPPTItems.isNotEmpty)
-            ...savedMPPTItems
+            ..._getItemsWithPhotoAndStatus(savedMPPTItems)
                 .map(
                   (item) => Container(
                     margin: const EdgeInsets.symmetric(vertical: 5),
