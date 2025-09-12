@@ -692,9 +692,7 @@ class _FencingScreenState extends State<FencingScreen>
             setState(() {
               _hasPostedFencingData = false;
             });
-            print(
-              'Fencing Screen: Reset _hasPostedFencingData flag to false after error',
-            );
+
           }
         }
       },
@@ -970,11 +968,7 @@ class _FencingScreenState extends State<FencingScreen>
                                     print(
                                       'Fencing Screen: Error posting data: $e',
                                     );
-                                    // If posting fails or times out, still allow navigation with local data
-                                    showCustomToast(
-                                      context,
-                                      '⚠️ Data could not be saved to server, but you can continue with local data.',
-                                    );
+
                                     _navigateToNextScreen();
                                   }
                                 },

@@ -130,55 +130,47 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
         _selectedImage!,
         fit: BoxFit.cover,
         width: double.infinity,
+        errorBuilder: (context, error, stackTrace) {
+          return _buildErrorWidget('Failed to load image');
+        },
       );
     } else if (widget.initialPhotoPath != null) {
       if (widget.initialPhotoPath!.startsWith('data:image')) {
         // Base64 image data - validate format first
         try {
-          print('CustomInfoCard: Processing base64 image data');
-          print('Image data length: ${widget.initialPhotoPath!.length}');
-          print('Image data preview: ${widget.initialPhotoPath!.substring(0, widget.initialPhotoPath!.length > 100 ? 100 : widget.initialPhotoPath!.length)}...');
-          
           if (!widget.initialPhotoPath!.contains(',')) {
-            print('Invalid base64 format: missing comma separator');
             return _buildErrorWidget('Invalid image format');
           }
           
           final parts = widget.initialPhotoPath!.split(',');
           if (parts.length != 2 || parts[1].isEmpty) {
-            print('Invalid base64 format: missing or empty data part');
-            print('Parts length: ${parts.length}');
-            print('Data part length: ${parts.length > 1 ? parts[1].length : 0}');
             return _buildErrorWidget('Invalid image data');
           }
           
           final base64Data = parts[1];
-          print('Base64 data length: ${base64Data.length}');
-          print('Base64 data preview: ${base64Data.substring(0, base64Data.length > 50 ? 50 : base64Data.length)}...');
-          
           final bytes = base64Decode(base64Data);
-          print('Decoded bytes length: ${bytes.length}');
           
           return Image.memory(
             bytes,
             fit: BoxFit.cover,
             width: double.infinity,
             errorBuilder: (context, error, stackTrace) {
-              print('Error displaying base64 image: $error');
               return _buildErrorWidget('Image display error');
             },
           );
         } catch (e) {
-          print('Error decoding base64 image: $e');
-          print('Image data that failed: ${widget.initialPhotoPath!.substring(0, widget.initialPhotoPath!.length > 200 ? 200 : widget.initialPhotoPath!.length)}...');
-          return _buildErrorWidget('Image decode error: ${e.toString()}');
+          return _buildErrorWidget('Image decode error');
         }
       } else if (int.tryParse(widget.initialPhotoPath!) != null) {
-        // Photo ID - show placeholder or loading indicator
+        // Photo ID - show placeholder without loading indicator
         return Container(
           color: Colors.grey.shade300,
           child: const Center(
-            child: CircularProgressIndicator(),
+            child: Icon(
+              Icons.image,
+              color: Colors.grey,
+              size: 48,
+            ),
           ),
         );
       }

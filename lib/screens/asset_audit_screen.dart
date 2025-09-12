@@ -266,71 +266,8 @@ class _AssetAuditScreenState extends State<AssetAuditScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Force rebuild to update CustomInfoCard with new initial values
-    setState(() {});
 
-    // Show message to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Item loaded for editing. Make changes and save again.',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontFamily: fontFamilyMontserrat,
-          ),
-        ),
-        backgroundColor: AppColors.primaryGreen,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
-
-  // final List<FieldConfig> cardFields = [
-  //   // FieldConfig(
-  //   //   type: FieldType.textField,
-  //   //   label: "Circle",
-  //   //   initialValue: "Haryana",
-  //   //   isRequired: true,
-  //   //   isEditable: false,
-  //   // ),
-  //   // FieldConfig(
-  //   //   type: FieldType.textField,
-  //   //   label: "Cluster",
-  //   //   initialValue: "Haryana",
-  //   //   isRequired: false,
-  //   //   isEditable: true,
-  //   // ),
-  //   FieldConfig(
-  //     type: FieldType.serial,
-  //     label: "ACDB - Serial Number",
-  //     controller: TextEditingController(),
-  //   ),
-  //   FieldConfig(
-  //     type: FieldType.upload,
-  //     label: "Customer Photo",
-  //     isRequired: true,
-  //   ),
-  //   FieldConfig(
-  //     type: FieldType.optionSelector,
-  //     label: "Battery ODC Lock status",
-  //     isRequired: true,
-  //     options: [
-  //       OptionItem(
-  //         value: "yes",
-  //         label: "Yes",
-  //         selectedIcon: Icons.check_circle,
-  //         unselectedIcon: Icons.circle_outlined,
-  //       ),
-  //       OptionItem(
-  //         value: "no",
-  //         label: "No",
-  //         selectedIcon: Icons.cancel,
-  //         unselectedIcon: Icons.circle_outlined,
-  //       ),
-  //     ],
-  //   ),
-  // ];
 
   @override
   Widget build(BuildContext context) {

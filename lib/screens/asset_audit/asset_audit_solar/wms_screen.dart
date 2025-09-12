@@ -49,6 +49,7 @@ class _WMSScreenState extends State<WMSScreen> {
   final TextEditingController serialController = TextEditingController();
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false;
+
   // WMS field values
   String? wmsSerialNumber;
   String? wmsPhoto;
@@ -56,13 +57,14 @@ class _WMSScreenState extends State<WMSScreen> {
   final remarksController = TextEditingController();
   int wmsCardKey = 0;
   List<Map<String, dynamic>> savedWmsItems = [];
-  bool isQRCodeScanned = false; // Track if serial was scanned or manually entered
+  bool isQRCodeScanned =
+      false; // Track if serial was scanned or manually entered
 
   // API integration fields
   String? displayedImageBase64;
   bool isLoadingImage = false;
   StreamSubscription? _getImageSubscription;
-  
+
   // Image loading tracking to prevent repeated processing
   String? _currentRequestedImageId;
   bool _isRequestingImage = false;
@@ -73,7 +75,12 @@ class _WMSScreenState extends State<WMSScreen> {
   // Get WMS data from API
   int get totalWmsItems {
     if (widget.assetAuditData?.responseData.categories['WMS']?.assets != null) {
-      return widget.assetAuditData!.responseData.categories['WMS']!.assets.length;
+      return widget
+          .assetAuditData!
+          .responseData
+          .categories['WMS']!
+          .assets
+          .length;
     }
     return 0;
   }
@@ -116,27 +123,35 @@ class _WMSScreenState extends State<WMSScreen> {
 
             // Load items that have been successfully posted to API AND have user interaction
             // (either photo taken or serial number entered - regardless of QR scan or manual entry)
-            final postedItems = wmsData.assets.where((asset) => 
-              asset.assetAuditSiteRespId != null && 
-              asset.photoId != null
-            ).map((asset) {
-              return {
-                'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
-                'photo': asset.photoId?.toString(),
-                'status': asset.assetStatus ?? 'OK',
-                'isQRCodeScanned': asset.qrCodeScanned ?? false,
-                'timestamp': DateTime.now(),
-                'assetAuditSiteRespId': asset.assetAuditSiteRespId,
-              };
-            }).toList();
-            
+            final postedItems = wmsData.assets
+                .where(
+                  (asset) =>
+                      asset.assetAuditSiteRespId != null &&
+                      asset.photoId != null,
+                )
+                .map((asset) {
+                  return {
+                    'serialNumber':
+                        asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
+                    'photo': asset.photoId?.toString(),
+                    'status': asset.assetStatus ?? 'OK',
+                    'isQRCodeScanned': asset.qrCodeScanned ?? false,
+                    'timestamp': DateTime.now(),
+                    'assetAuditSiteRespId': asset.assetAuditSiteRespId,
+                  };
+                })
+                .toList();
+
             // Update savedWmsItems with posted items
             savedWmsItems = postedItems;
 
             // Only initialize remarks from API if user hasn't made changes
             if (wmsData.remarks.isNotEmpty && remarksController.text.isEmpty) {
-              remarksController.text = wmsData.remarks.first.itemTypeRemark ?? '';
-              print('Setting remarksController.text: ${wmsData.remarks.first.itemTypeRemark ?? ''}');
+              remarksController.text =
+                  wmsData.remarks.first.itemTypeRemark ?? '';
+              print(
+                'Setting remarksController.text: ${wmsData.remarks.first.itemTypeRemark ?? ''}',
+              );
             }
           } else {
             print('No WMS assets found in API data');
@@ -164,16 +179,20 @@ class _WMSScreenState extends State<WMSScreen> {
   void _onFormChanged() {
     setState(() {
       final hasLocalPhoto = wmsPhoto != null && wmsPhoto!.isNotEmpty;
-      final hasImageData = displayedImageBase64 != null && displayedImageBase64!.isNotEmpty;
+      final hasImageData =
+          displayedImageBase64 != null && displayedImageBase64!.isNotEmpty;
 
-      hasUnsavedChanges = serialController.text.isNotEmpty ||
+      hasUnsavedChanges =
+          serialController.text.isNotEmpty ||
           wmsSerialController.text.isNotEmpty ||
           hasLocalPhoto ||
           hasImageData ||
           savedWmsItems.isNotEmpty ||
           remarksController.text.isNotEmpty;
 
-      if (showValidationErrors && (serialController.text.isNotEmpty || wmsSerialController.text.isNotEmpty)) {
+      if (showValidationErrors &&
+          (serialController.text.isNotEmpty ||
+              wmsSerialController.text.isNotEmpty)) {
         showValidationErrors = false;
       }
     });
@@ -182,7 +201,6 @@ class _WMSScreenState extends State<WMSScreen> {
   void _saveFormDataToHive() {
     // No Hive storage - data is only stored in memory and posted to API
   }
-
 
   bool _validateSerialNumber(String serialNumber) {
     if (widget.assetAuditData == null) return false;
@@ -199,29 +217,35 @@ class _WMSScreenState extends State<WMSScreen> {
     if (allItems.isNotEmpty) {
       print('WMS items details:');
       for (var item in allItems) {
-        print('  - Item: ${item.itemType} | nexgenSerialNo: "${item.nexgenSerialNo}" | mfgSerialNo: "${item.mfgSerialNo}"');
+        print(
+          '  - Item: ${item.itemType} | nexgenSerialNo: "${item.nexgenSerialNo}" | mfgSerialNo: "${item.mfgSerialNo}"',
+        );
       }
     }
 
     bool isValid = allItems.any(
-          (item) => item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase() ||
+      (item) =>
+          item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase() ||
           item.nexgenSerialNo?.toLowerCase() == serialNumber.toLowerCase(),
     );
 
     if (!isValid) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        showCustomToast(context, '❌ Invalid serial number! Not found in system.');
+        showCustomToast(
+          context,
+          '❌ Invalid serial number! Not found in system.',
+        );
       });
     }
 
     return isValid;
   }
 
-
   Future<void> _postWMSData() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
-      if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+      if (assetAuditState is AssetAuditLoaded &&
+          assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
         List<Map<String, dynamic>> allItemsToPost = [];
 
         if (savedWmsItems.isNotEmpty) {
@@ -233,7 +257,8 @@ class _WMSScreenState extends State<WMSScreen> {
         }
 
         if (remarksController.text.isNotEmpty) {
-          String? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
+          String? remarksAssetAuditSiteRespId =
+              _getRemarksAssetAuditSiteRespId();
 
           if (remarksAssetAuditSiteRespId != null) {
             Map<String, dynamic> remarksData = {
@@ -252,7 +277,9 @@ class _WMSScreenState extends State<WMSScreen> {
               'localModifiedDt': DateTime.now().toString(),
             };
             allItemsToPost.add(remarksData);
-            print('WMS Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text}"');
+            print(
+              'WMS Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text}"',
+            );
           } else {
             print('WMS Screen: Could not find remarks ID from backend data');
           }
@@ -263,18 +290,22 @@ class _WMSScreenState extends State<WMSScreen> {
           return;
         }
 
-        final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
-          savedItems: allItemsToPost,
-          assetAuditData: assetAuditState.assetAuditData,
-          itemType: 'WMS',
-          itemTypeId: 5, // Assuming WMS has itemTypeId 5
-          screenName: 'wms',
-          context: context,
-          auditSchId: widget.auditSchId,
-        );
+        final requests =
+            await AssetAuditPostHelper.convertSavedItemsToPostRequest(
+              savedItems: allItemsToPost,
+              assetAuditData: assetAuditState.assetAuditData,
+              itemType: 'WMS',
+              itemTypeId: 5,
+              // Assuming WMS has itemTypeId 5
+              screenName: 'wms',
+              context: context,
+              auditSchId: widget.auditSchId,
+            );
 
         if (requests.isNotEmpty) {
-          context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
+          context.read<AssetAuditCubit>().postAssetAuditData(
+            requests: requests,
+          );
         }
       } else {
         print('No WMS items to post - user can navigate without saving items');
@@ -284,7 +315,11 @@ class _WMSScreenState extends State<WMSScreen> {
     }
   }
 
-  Future<void> _showPhotoViewer(BuildContext context, String? photo, String siteAuditSchId) async {
+  Future<void> _showPhotoViewer(
+    BuildContext context,
+    String? photo,
+    String siteAuditSchId,
+  ) async {
     if (photo == null || photo.isEmpty) {
       showCustomToast(context, 'No photo available to view.');
       return;
@@ -306,7 +341,9 @@ class _WMSScreenState extends State<WMSScreen> {
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
-      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((
+        state,
+      ) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
           print('Image fetched successfully for photo ID: $photo');
           final finalImageData = state.imageData.startsWith('data:image/')
@@ -316,7 +353,6 @@ class _WMSScreenState extends State<WMSScreen> {
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
           print('Failed to fetch image: ${state.errorMessage}');
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
           completer.complete(null);
           subscription.cancel();
         }
@@ -345,24 +381,17 @@ class _WMSScreenState extends State<WMSScreen> {
                 ),
                 child: imageData!.startsWith('data:image/')
                     ? Image.memory(
-                  base64Decode(imageData.split(',').last),
-                  fit: BoxFit.contain,
-                )
-                    : Image.file(
-                  File(imageData),
-                  fit: BoxFit.contain,
-                ),
+                        base64Decode(imageData.split(',').last),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.file(File(imageData), fit: BoxFit.contain),
               ),
               // Close icon at top-right
               Positioned(
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 30,
-                  ),
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -370,29 +399,44 @@ class _WMSScreenState extends State<WMSScreen> {
           ),
         ),
       );
-    } else {
-      showCustomToast(context, 'Unable to load photo.');
     }
   }
 
   void _saveAndExit() async {
     try {
-      showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
       await _postWmsData();
       await _updateAuditScheduleStatus("In Progress");
       Navigator.of(context).pop();
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
     } catch (e) {
       if (Navigator.canPop(context)) Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving data: $e'), backgroundColor: Colors.red));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error saving data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
   Future<void> _updateAuditScheduleStatus(String status) async {
     try {
-      await context.read<AuditScheduleStatusCubit>().updateStatus(status: status, siteAuditSchId: widget.siteAuditSchId);
+      await context.read<AuditScheduleStatusCubit>().updateStatus(
+        status: status,
+        siteAuditSchId: widget.siteAuditSchId,
+      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
     }
   }
 
@@ -454,18 +498,17 @@ class _WMSScreenState extends State<WMSScreen> {
     if (_isFormValid()) {
       String? photoImageId = wmsPhoto;
 
-      if (wmsPhoto != null && wmsPhoto!.isNotEmpty && !wmsPhoto!.startsWith('http')) {
+      if (wmsPhoto != null &&
+          wmsPhoto!.isNotEmpty &&
+          !wmsPhoto!.startsWith('http')) {
         try {
           final file = File(wmsPhoto!);
           if (file.existsSync()) {
-            print('📤 Uploading WMS photo: $wmsPhoto');
             photoImageId = await _uploadWmsPhoto(file);
-            print('✅ WMS photo uploaded successfully, image ID: $photoImageId');
           } else {
             print('❌ WMS photo file does not exist: $wmsPhoto');
           }
         } catch (e) {
-          print('❌ Error uploading WMS photo: $e');
           showCustomToast(context, 'Error uploading photo: $e');
           return;
         }
@@ -482,12 +525,14 @@ class _WMSScreenState extends State<WMSScreen> {
         };
 
         final existingItemIndex = savedWmsItems.indexWhere(
-              (item) => item['serialNumber'] == wmsSerialNumber,
+          (item) => item['serialNumber'] == wmsSerialNumber,
         );
 
         if (existingItemIndex >= 0) {
           savedWmsItems[existingItemIndex] = currentFormData;
-          print('Updated existing WMS item: ${currentFormData['serialNumber']}');
+          print(
+            'Updated existing WMS item: ${currentFormData['serialNumber']}',
+          );
         } else {
           savedWmsItems.add(currentFormData);
           print('Added new WMS item: ${currentFormData['serialNumber']}');
@@ -521,7 +566,8 @@ class _WMSScreenState extends State<WMSScreen> {
       wmsSerialNumber = item['serialNumber'];
       wmsPhoto = item['photo'];
       wmsStatus = item['status'];
-      isQRCodeScanned = item['isQRCodeScanned'] ?? false; // Restore QR scan status
+      isQRCodeScanned =
+          item['isQRCodeScanned'] ?? false; // Restore QR scan status
 
       wmsSerialController.text = item['serialNumber'] ?? '';
       displayedImageBase64 = null; // Clear Base64 to avoid showing old image
@@ -541,7 +587,7 @@ class _WMSScreenState extends State<WMSScreen> {
         _isRequestingImage = true;
         isLoadingImage = true;
       });
-      
+
       // Use Future.microtask to load image in next frame
       Future.microtask(() {
         context.read<AssetAuditGetImageCubit>().getImage(
@@ -550,12 +596,14 @@ class _WMSScreenState extends State<WMSScreen> {
         );
       });
     }
-
   }
 
   // Navigation helper methods
   String? _getNextAvailableScreen() {
-    return AssetAuditNavigationHelper.getNextAvailableScreen(widget.assetAuditData, 'WMS');
+    return AssetAuditNavigationHelper.getNextAvailableScreen(
+      widget.assetAuditData,
+      'WMS',
+    );
   }
 
   void _navigateToNextScreen(BuildContext context, String screenName) {
@@ -576,12 +624,16 @@ class _WMSScreenState extends State<WMSScreen> {
         BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
           listener: (context, state) {
             // Only handle images requested by this screen to prevent repeated processing
-            if (state is AssetAuditGetImageSuccess && 
-                _isRequestingImage && 
+            if (state is AssetAuditGetImageSuccess &&
+                _isRequestingImage &&
                 _currentRequestedImageId != null) {
-              print('=== WMS Screen: Image fetch success for requested image ===');
+              print(
+                '=== WMS Screen: Image fetch success for requested image ===',
+              );
               print('Image data length: ${state.imageData.length}');
-              print('Image data preview: ${state.imageData.substring(0, state.imageData.length > 100 ? 100 : state.imageData.length)}...');
+              print(
+                'Image data preview: ${state.imageData.substring(0, state.imageData.length > 100 ? 100 : state.imageData.length)}...',
+              );
 
               if (state.imageData.isNotEmpty) {
                 String finalImageData;
@@ -610,8 +662,11 @@ class _WMSScreenState extends State<WMSScreen> {
                   _currentRequestedImageId = null;
                 });
               }
-            } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
-              print('=== WMS Screen: Image fetch failed for requested image ===');
+            } else if (state is AssetAuditGetImageFailure &&
+                _isRequestingImage) {
+              print(
+                '=== WMS Screen: Image fetch failed for requested image ===',
+              );
               print('Error: ${state.errorMessage}');
               setState(() {
                 wmsPhoto = null;
@@ -626,42 +681,56 @@ class _WMSScreenState extends State<WMSScreen> {
           listener: (context, state) {
             if (state is AssetAuditLoaded) {
               print('=== WMS Screen: AssetAuditLoaded ===');
-              final wmsData = state.assetAuditData.responseData.categories['WMS'];
+              final wmsData =
+                  state.assetAuditData.responseData.categories['WMS'];
               if (wmsData != null) {
                 // Only update if we're not currently in the middle of a save operation
                 if (!hasUnsavedChanges) {
                   setState(() {
                     // Load items that have been successfully posted to API AND have user interaction
                     // (either photo taken or serial number entered - regardless of QR scan or manual entry)
-                    final postedItems = wmsData.assets.where((asset) => 
-                      asset.assetAuditSiteRespId != null && 
-                      asset.photoId != null
-                    ).map((asset) {
-                      return {
-                        'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
-                        'photo': asset.photoId?.toString(),
-                        'status': asset.assetStatus ?? 'OK',
-                        'isQRCodeScanned': asset.qrCodeScanned ?? false,
-                        'timestamp': DateTime.now(),
-                        'assetAuditSiteRespId': asset.assetAuditSiteRespId,
-                      };
-                    }).toList();
-                    
+                    final postedItems = wmsData.assets
+                        .where(
+                          (asset) =>
+                              asset.assetAuditSiteRespId != null &&
+                              asset.photoId != null,
+                        )
+                        .map((asset) {
+                          return {
+                            'serialNumber':
+                                asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
+                            'photo': asset.photoId?.toString(),
+                            'status': asset.assetStatus ?? 'OK',
+                            'isQRCodeScanned': asset.qrCodeScanned ?? false,
+                            'timestamp': DateTime.now(),
+                            'assetAuditSiteRespId': asset.assetAuditSiteRespId,
+                          };
+                        })
+                        .toList();
+
                     // Update savedWmsItems with posted items
                     savedWmsItems = postedItems;
-                    
+
                     // Only update remarks from API if user hasn't made changes
                     if (remarksController.text.isEmpty) {
                       remarksController.text = wmsData.remarks.isNotEmpty
                           ? wmsData.remarks.first.itemTypeRemark ?? ''
                           : '';
-                      print('Setting remarksController.text: ${wmsData.remarks.first.itemTypeRemark ?? ''}');
+                      print(
+                        'Setting remarksController.text: ${wmsData.remarks.first.itemTypeRemark ?? ''}',
+                      );
                     }
-                    print('WMS Screen: Loaded posted items: ${savedWmsItems.length} items');
+                    print(
+                      'WMS Screen: Loaded posted items: ${savedWmsItems.length} items',
+                    );
                   });
-                  print('WMS items updated from API: ${savedWmsItems.length} items');
+                  print(
+                    'WMS items updated from API: ${savedWmsItems.length} items',
+                  );
                 } else {
-                  print('WMS Screen: Skipping API update due to unsaved changes');
+                  print(
+                    'WMS Screen: Skipping API update due to unsaved changes',
+                  );
                 }
               } else {
                 print('WMS category not found in loaded data');
@@ -670,7 +739,8 @@ class _WMSScreenState extends State<WMSScreen> {
               showCustomToast(context, state.message);
             } else if (state is AssetAuditPostSuccess) {
               // // Only show toast if this screen initiated the post action
-              if (mounted && state.responses.any((response) => response.itemTypeId == 9)) {
+              if (mounted &&
+                  state.responses.any((response) => response.itemTypeId == 9)) {
                 print("wms saved");
               }
               // Removed automatic API refresh to prevent screen vanishing
@@ -681,10 +751,11 @@ class _WMSScreenState extends State<WMSScreen> {
               // );
             } else if (state is AssetAuditPostError) {
               print('Error posting WMS data: ${state.message}');
-              // Only show toast if this screen initiated the post action
-              if (mounted) {
-                showCustomToast(context, 'Error saving WMS data: ${state.message}');
-              }
+
+              showCustomToast(
+                context,
+                'Error saving WMS data: ${state.message}',
+              );
             }
           },
         ),
@@ -699,7 +770,8 @@ class _WMSScreenState extends State<WMSScreen> {
               context: context,
               barrierDismissible: false,
               builder: (context) => UnsavedChangesDialog(
-                message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
+                message:
+                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
                 onSaveAndExit: () {
                   _saveAndExit();
                 },
@@ -721,7 +793,8 @@ class _WMSScreenState extends State<WMSScreen> {
                   context: context,
                   barrierDismissible: false,
                   builder: (context) => UnsavedChangesDialog(
-                    message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
+                    message:
+                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
                     onSaveAndExit: () {
                       _saveAndExit();
                     },
@@ -753,7 +826,8 @@ class _WMSScreenState extends State<WMSScreen> {
                       Expanded(
                         child: SingleChildScrollView(
                           padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(context).viewInsets.bottom + 120,
+                            bottom:
+                                MediaQuery.of(context).viewInsets.bottom + 120,
                           ),
                           child: Container(
                             padding: const EdgeInsets.only(
@@ -769,7 +843,10 @@ class _WMSScreenState extends State<WMSScreen> {
                                   label: "WMS Make",
                                   hintText: "Text",
                                   isRequired: true,
-                                  initialValue: wmsCategoryData!.assets.first.oemName,
+                                  initialValue:
+                                      wmsCategoryData?.assets.isNotEmpty == true
+                                      ? wmsCategoryData!.assets.first.oemName ?? "WMS"
+                                      : "WMS",
                                   isEditable: false,
                                 ),
 
@@ -802,7 +879,8 @@ class _WMSScreenState extends State<WMSScreen> {
                                   isStatusEditable: true,
                                   backendStatus: false,
                                   remarksLabel: 'Capacity',
-                                  remarksHintText: wmsCategoryData?.assets.isNotEmpty == true
+                                  remarksHintText:
+                                      wmsCategoryData?.assets.isNotEmpty == true
                                       ? wmsCategoryData!.assets.first.capacity ?? "5 KW"
                                       : "5 KW",
                                   remarksController: null,
@@ -839,7 +917,6 @@ class _WMSScreenState extends State<WMSScreen> {
                                   hintText: "Remarks",
                                   controller: remarksController,
                                 ),
-
                               ],
                             ),
                           ),
@@ -852,14 +929,24 @@ class _WMSScreenState extends State<WMSScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getSolarPreviousScreenName('WMS'),
+                                text:
+                                    AssetAuditNavigationHelper.getSolarPreviousScreenName(
+                                      'WMS',
+                                    ),
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () {
-                                  final previousScreen = AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'WMS');
+                                  final previousScreen =
+                                      AssetAuditNavigationHelper.getPreviousAvailableScreen(
+                                        widget.assetAuditData,
+                                        'WMS',
+                                      );
                                   if (previousScreen != null) {
-                                    _navigateToNextScreen(context, previousScreen);
+                                    _navigateToNextScreen(
+                                      context,
+                                      previousScreen,
+                                    );
                                   } else {
                                     Navigator.pop(context);
                                   }
@@ -889,10 +976,17 @@ class _WMSScreenState extends State<WMSScreen> {
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
-                                        print('=== WMS Navigation to $nextScreen ===');
-                                        print('Passing asset audit data: ${widget.assetAuditData != null}');
+                                        print(
+                                          '=== WMS Navigation to $nextScreen ===',
+                                        );
+                                        print(
+                                          'Passing asset audit data: ${widget.assetAuditData != null}',
+                                        );
                                         await _postWMSData();
-                                        _navigateToNextScreen(context, nextScreen);
+                                        _navigateToNextScreen(
+                                          context,
+                                          nextScreen,
+                                        );
                                       },
                                     );
                                   }
@@ -915,25 +1009,28 @@ class _WMSScreenState extends State<WMSScreen> {
 
   /// Setup get image listener
   void _setupGetImageListener() {
-    _getImageSubscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
-      if (state is AssetAuditGetImageSuccess) {
-        setState(() {
-          displayedImageBase64 = state.imageData;
-          isLoadingImage = false;
+    _getImageSubscription = context
+        .read<AssetAuditGetImageCubit>()
+        .stream
+        .listen((state) {
+          if (state is AssetAuditGetImageSuccess) {
+            setState(() {
+              displayedImageBase64 = state.imageData;
+              isLoadingImage = false;
+            });
+            print('=== WMS Get Image Success ===');
+          } else if (state is AssetAuditGetImageFailure) {
+            setState(() {
+              isLoadingImage = false;
+            });
+            print('=== WMS Get Image Failed: ${state.errorMessage} ===');
+          } else if (state is AssetAuditGetImageLoading) {
+            setState(() {
+              isLoadingImage = true;
+            });
+            print('=== WMS Get Image Loading ===');
+          }
         });
-        print('=== WMS Get Image Success ===');
-      } else if (state is AssetAuditGetImageFailure) {
-        setState(() {
-          isLoadingImage = false;
-        });
-        print('=== WMS Get Image Failed: ${state.errorMessage} ===');
-      } else if (state is AssetAuditGetImageLoading) {
-        setState(() {
-          isLoadingImage = true;
-        });
-        print('=== WMS Get Image Loading ===');
-      }
-    });
   }
 
   /// Check if string is numeric
@@ -950,8 +1047,14 @@ class _WMSScreenState extends State<WMSScreen> {
       print('File size: ${await file.length()} bytes');
 
       final assetAuditState = context.read<AssetAuditCubit>().state;
-      if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
-        final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
+      if (assetAuditState is AssetAuditLoaded &&
+          assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+        final schId = assetAuditState
+            .assetAuditData
+            .pageHeader
+            .first
+            .siteAuditSchId
+            .toString();
         print('Site Audit Sch ID: $schId');
 
         final imgIdToUse = "0";
@@ -960,24 +1063,26 @@ class _WMSScreenState extends State<WMSScreen> {
         final completer = Completer<String?>();
 
         late StreamSubscription subscription;
-        subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
-          print('=== AssetAuditPhotoUploadCubit State Changed ===');
-          print('State type: ${state.runtimeType}');
+        subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen(
+          (state) {
+            print('=== AssetAuditPhotoUploadCubit State Changed ===');
+            print('State type: ${state.runtimeType}');
 
-          if (state is AssetAuditPhotoUploadSuccess) {
-            print('✅ WMS Photo upload SUCCESS!');
-            print('Response imgId: ${state.response.imgId}');
-            subscription.cancel();
-            completer.complete(state.response.imgId);
-          } else if (state is AssetAuditPhotoUploadFailure) {
-            print('❌ WMS Photo upload FAILED!');
-            print('Error message: ${state.errorMessage}');
-            subscription.cancel();
-            completer.completeError(state.errorMessage);
-          } else {
-            print('📤 WMS Photo upload in progress...');
-          }
-        });
+            if (state is AssetAuditPhotoUploadSuccess) {
+              print('✅ WMS Photo upload SUCCESS!');
+              print('Response imgId: ${state.response.imgId}');
+              subscription.cancel();
+              completer.complete(state.response.imgId);
+            } else if (state is AssetAuditPhotoUploadFailure) {
+              print('❌ WMS Photo upload FAILED!');
+              print('Error message: ${state.errorMessage}');
+              subscription.cancel();
+              completer.completeError(state.errorMessage);
+            } else {
+              print('📤 WMS Photo upload in progress...');
+            }
+          },
+        );
 
         print('Starting WMS photo upload...');
         context.read<AssetAuditPhotoUploadCubit>().uploadPhoto(
@@ -999,7 +1104,7 @@ class _WMSScreenState extends State<WMSScreen> {
   /// Post WMS data to API
   Future<void> _postWmsData() async {
     print('=== WMS Post Data Started ===');
-    
+
     if (savedWmsItems.isEmpty && remarksController.text.trim().isEmpty) {
       print('WMS Screen: No data to post');
       return;
@@ -1015,11 +1120,15 @@ class _WMSScreenState extends State<WMSScreen> {
           'serialNumber': item['serialNumber'],
           'photo': item['photo'],
           'status': item['status'],
-          'photoTakenTs': item['timestamp']?.toString() ?? DateTime.now().toString(),
+          'photoTakenTs':
+              item['timestamp']?.toString() ?? DateTime.now().toString(),
           'isQRCodeScanned': item['isQRCodeScanned'] ?? false,
-          'localQrCodeScannedTs': item['timestamp']?.toString() ?? DateTime.now().toString(),
-          'localCreatedDt': item['timestamp']?.toString() ?? DateTime.now().toString(),
-          'localModifiedDt': item['timestamp']?.toString() ?? DateTime.now().toString(),
+          'localQrCodeScannedTs':
+              item['timestamp']?.toString() ?? DateTime.now().toString(),
+          'localCreatedDt':
+              item['timestamp']?.toString() ?? DateTime.now().toString(),
+          'localModifiedDt':
+              item['timestamp']?.toString() ?? DateTime.now().toString(),
         };
         allItemsToPost.add(formattedItem);
       }
@@ -1040,7 +1149,9 @@ class _WMSScreenState extends State<WMSScreen> {
           'localModifiedDt': DateTime.now().toString(),
         };
         allItemsToPost.add(remarksData);
-        print('WMS Screen: Added user remarks to post, text: "${remarksController.text.trim()}"');
+        print(
+          'WMS Screen: Added user remarks to post, text: "${remarksController.text.trim()}"',
+        );
       }
 
       if (allItemsToPost.isEmpty) {
@@ -1049,26 +1160,30 @@ class _WMSScreenState extends State<WMSScreen> {
       }
 
       // Convert to POST request format
-      final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
-        savedItems: allItemsToPost,
-        assetAuditData: widget.assetAuditData!,
-        itemType: 'WMS',
-        itemTypeId: 8, // WMS item type ID
-        screenName: 'solar_wms',
-        context: context,
-        auditSchId: widget.auditSchId,
-      );
+      final requests =
+          await AssetAuditPostHelper.convertSavedItemsToPostRequest(
+            savedItems: allItemsToPost,
+            assetAuditData: widget.assetAuditData!,
+            itemType: 'WMS',
+            itemTypeId: 8,
+            // WMS item type ID
+            screenName: 'solar_wms',
+            context: context,
+            auditSchId: widget.auditSchId,
+          );
 
       // Post data
       if (requests.isNotEmpty) {
         print('WMS Screen: Posting ${requests.length} requests');
-        
+
         // Store the current remarks text before posting
         final currentRemarksText = remarksController.text;
-        print('WMS Screen: Storing current remarks text: "$currentRemarksText"');
-        
+        print(
+          'WMS Screen: Storing current remarks text: "$currentRemarksText"',
+        );
+
         context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
-        
+
         // Refresh the data immediately after posting
         print('Refreshing WMS data after posting...');
         context.read<AssetAuditCubit>().getAssetAuditData(
@@ -1076,10 +1191,12 @@ class _WMSScreenState extends State<WMSScreen> {
           auditSchId: widget.auditSchId,
           siteAuditSchId: widget.siteAuditSchId,
         );
-        
+
         // Restore the remarks text after refresh to ensure it's not overwritten
         if (currentRemarksText.isNotEmpty) {
-          print('WMS Screen: Restoring remarks text after refresh: "$currentRemarksText"');
+          print(
+            'WMS Screen: Restoring remarks text after refresh: "$currentRemarksText"',
+          );
           remarksController.text = currentRemarksText;
         }
       }
@@ -1250,21 +1367,31 @@ class _WMSScreenState extends State<WMSScreen> {
                             item['isQRCodeScanned'] == true
                                 ? Icons.qr_code_scanner
                                 : Icons.close,
-                            color: item['isQRCodeScanned'] == true ? Colors.blue : Colors.red,
+                            color: item['isQRCodeScanned'] == true
+                                ? Colors.blue
+                                : Colors.red,
                           ),
                         ),
                         Expanded(
                           child: IconButton(
                             icon: Icon(
                               Icons.camera_alt,
-                              color: item['photo'] != null && item['photo'].isNotEmpty
+                              color:
+                                  item['photo'] != null &&
+                                      item['photo'].isNotEmpty
                                   ? AppColors.color555555
                                   : Colors.grey,
                             ),
-                            onPressed: item['photo'] != null && item['photo'].isNotEmpty
+                            onPressed:
+                                item['photo'] != null &&
+                                    item['photo'].isNotEmpty
                                 ? () {
-                              _showPhotoViewer(context, item['photo'], widget.siteAuditSchId);
-                            }
+                                    _showPhotoViewer(
+                                      context,
+                                      item['photo'],
+                                      widget.siteAuditSchId,
+                                    );
+                                  }
                                 : null,
                           ),
                         ),

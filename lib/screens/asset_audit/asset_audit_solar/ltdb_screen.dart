@@ -496,8 +496,6 @@ class _LTDBScreenState extends State<LTDBScreen> {
           ),
         ),
       );
-    } else {
-      showCustomToast(context, 'Unable to load photo.');
     }
   }
 
@@ -737,13 +735,11 @@ class _LTDBScreenState extends State<LTDBScreen> {
           if (await file.exists()) {
             print('📤 Uploading LTDB photo: ${ltdbPhoto}');
             photoImageId = await _uploadLtdbPhoto(file);
-            print('✅ LTDB photo uploaded successfully, image ID: $photoImageId');
           } else {
             print('❌ LTDB photo file does not exist: ${ltdbPhoto}');
           }
         } catch (e) {
           print('❌ Error uploading LTDB photo: $e');
-          showCustomToast(context, 'Error uploading photo: $e');
           return;
         }
       } else {
@@ -977,22 +973,13 @@ class _LTDBScreenState extends State<LTDBScreen> {
                       remarksController.text = ltdbData.remarks.first.itemTypeRemark ?? '';
                     }
                   });
-                print('LTDB items updated from API: ${savedLtdbItems.length} items');
-                print('LTDB savedLtdbItems: $savedLtdbItems');
-                print('LTDB total assets: ${ltdbData.assets.length}');
-                print('LTDB assets with photoId: ${ltdbData.assets.where((asset) => asset.photoId != null).length}');
-                print('LTDB assets with assetAuditSiteRespId: ${ltdbData.assets.where((asset) => asset.assetAuditSiteRespId != null).length}');
-              } else {
+                     } else {
                 print('LTDB category not found in loaded data');
               }
             } else if (state is AssetAuditError) {
               showCustomToast(context, state.message);
             } else if (state is AssetAuditPostSuccess) {
               print('LTDB data posted successfully: ${state.responses.length} responses');
-              // Only show toast if this screen initiated the post action
-              if (mounted && state.responses.any((response) => response.itemTypeId == 5)) {
-                showCustomToast(context, 'LTDB data saved successfully!');
-              }
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: widget.siteType,
                 auditSchId: widget.auditSchId,
@@ -1000,10 +987,9 @@ class _LTDBScreenState extends State<LTDBScreen> {
               );
             } else if (state is AssetAuditPostError) {
               print('Error posting LTDB data: ${state.message}');
-              // Only show toast if this screen initiated the post action
-              if (mounted) {
+
                 showCustomToast(context, 'Error saving LTDB data: ${state.message}');
-              }
+
             }
           },
         ),

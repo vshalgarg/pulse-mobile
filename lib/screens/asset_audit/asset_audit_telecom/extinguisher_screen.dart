@@ -630,26 +630,24 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
   }
 
   void _onFormChanged() {
-    setState(() {
-      hasUnsavedChanges =
-          selectedFile != null ||
-          selectedStatus != null ||
-          selectedBatteryStatus != null ||
-          selectedType != null ||
-          serialController.text.isNotEmpty ||
-          rectifierSerialController.text.isNotEmpty ||
-          mpptSerialController.text.isNotEmpty ||
-          floodLightSerialController.text.isNotEmpty;
+    hasUnsavedChanges =
+        selectedFile != null ||
+        selectedStatus != null ||
+        selectedBatteryStatus != null ||
+        selectedType != null ||
+        serialController.text.isNotEmpty ||
+        rectifierSerialController.text.isNotEmpty ||
+        mpptSerialController.text.isNotEmpty ||
+        floodLightSerialController.text.isNotEmpty;
 
-      // Hide validation errors when user starts filling the form
-      if (showValidationErrors &&
-          selectedFile != null &&
-          selectedBatteryStatus != null &&
-          selectedType != null &&
-          serialController.text.isNotEmpty) {
-        showValidationErrors = false;
-      }
-    });
+    // Hide validation errors when user starts filling the form
+    if (showValidationErrors &&
+        selectedFile != null &&
+        selectedBatteryStatus != null &&
+        selectedType != null &&
+        serialController.text.isNotEmpty) {
+      showValidationErrors = false;
+    }
   }
 
   void _saveAndExit() async {
@@ -833,9 +831,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
   }
 
   bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
+    showValidationErrors = true;
 
     print('=== Form Validation Debug (_validateForm) ===');
     String? serialNumber = rectifierSerialController.text.isNotEmpty
@@ -903,80 +899,78 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     }
 
     if (_isFormValid()) {
-      setState(() {
-        // Get the actual serial number from the controller
-        String actualSerialNumber = rectifierSerialController.text.isNotEmpty
-            ? rectifierSerialController.text
-            : 'Unknown';
+      // Get the actual serial number from the controller
+      String actualSerialNumber = rectifierSerialController.text.isNotEmpty
+          ? rectifierSerialController.text
+          : 'Unknown';
 
-        // Create a map of current form data
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': actualSerialNumber, // Use the actual serial number from controller
-          'photo': rectifierPhoto,
-          'photoId': rectifierPhotoId,
-          'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'Rectifier',
-          'remarks': rectifierRemarksController.text.isNotEmpty ? rectifierRemarksController.text : 'Rectifier Item',
-          'assetStatus': rectifierStatus ?? "OK",
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('Rectifier', serialNumber: actualSerialNumber),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false,
-          // Track if this was QR scanned or manual entry (false for manual entry)
-        };
+      // Create a map of current form data
+      Map<String, dynamic> currentFormData = {
+        'serialNumber': actualSerialNumber, // Use the actual serial number from controller
+        'photo': rectifierPhoto,
+        'photoId': rectifierPhotoId,
+        'photoTakenTs': DateTime.now().toString(),
+        'itemType': 'Rectifier',
+        'remarks': rectifierRemarksController.text.isNotEmpty ? rectifierRemarksController.text : 'Rectifier Item',
+        'assetStatus': rectifierStatus ?? "OK",
+        'assetAuditSiteRespId': _getAssetAuditSiteRespId('Rectifier', serialNumber: actualSerialNumber),
+        'timestamp': DateTime.now(),
+        'isQRCodeScanned': false,
+        // Track if this was QR scanned or manual entry (false for manual entry)
+      };
 
-        print('Saving Rectifier item: $currentFormData');
-        print('Current savedRectifierItems count: ${savedRectifierItems.length}');
+      print('Saving Rectifier item: $currentFormData');
+      print('Current savedRectifierItems count: ${savedRectifierItems.length}');
 
-        // Check if we're in edit mode
-        if (isEditingItem) {
-          // We're editing an existing item - update it in the list
-          print('Rectifier Debug: Updating existing item in edit mode');
-          
-          // Find and update the existing item (it should already be removed from the list)
-          // So we just add it back with the updated data
-          savedRectifierItems.add(currentFormData);
-          currentScannedItems++;
-          
-          print('After updating - savedRectifierItems count: ${savedRectifierItems.length}');
-          print('currentScannedItems: $currentScannedItems');
-          
-          // Clear the form after editing and reset flags
-          rectifierSerialNumber = null;
-          rectifierPhoto = null;
-          rectifierStatus = null;
-          rectifierSerialController.clear();
-          rectifierRemarksController.clear();
-          rectifierCardKey++;
-          
-          isEditingItem = false;
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        } else {
-          // We're adding a new item - add to list and clear form
-          print('Rectifier Debug: Adding new item');
-          
-          savedRectifierItems.add(currentFormData);
-          currentScannedItems++;
+      // Check if we're in edit mode
+      if (isEditingItem) {
+        // We're editing an existing item - update it in the list
+        print('Rectifier Debug: Updating existing item in edit mode');
+        
+        // Find and update the existing item (it should already be removed from the list)
+        // So we just add it back with the updated data
+        savedRectifierItems.add(currentFormData);
+        currentScannedItems++;
+        
+        print('After updating - savedRectifierItems count: ${savedRectifierItems.length}');
+        print('currentScannedItems: $currentScannedItems');
+        
+        // Clear the form after editing and reset flags
+        rectifierSerialNumber = null;
+        rectifierPhoto = null;
+        rectifierStatus = null;
+        rectifierSerialController.clear();
+        rectifierRemarksController.clear();
+        rectifierCardKey++;
+        
+        isEditingItem = false;
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      } else {
+        // We're adding a new item - add to list and clear form
+        print('Rectifier Debug: Adding new item');
+        
+        savedRectifierItems.add(currentFormData);
+        currentScannedItems++;
 
-          print('After saving - savedRectifierItems count: ${savedRectifierItems.length}');
-          print('currentScannedItems: $currentScannedItems');
+        print('After saving - savedRectifierItems count: ${savedRectifierItems.length}');
+        print('currentScannedItems: $currentScannedItems');
 
-          // Clear AssetTypeCard form for next entry
-          rectifierSerialNumber = null;
-          rectifierPhoto = null;
-          rectifierStatus = null;
+        // Clear AssetTypeCard form for next entry
+        rectifierSerialNumber = null;
+        rectifierPhoto = null;
+        rectifierStatus = null;
 
-          // Clear the controller
-          rectifierSerialController.clear();
-          rectifierRemarksController.clear();
+        // Clear the controller
+        rectifierSerialController.clear();
+        rectifierRemarksController.clear();
 
-          // Force rebuild of the CustomInfoCard widget
-          rectifierCardKey++;
+        // Force rebuild of the CustomInfoCard widget
+        rectifierCardKey++;
 
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        }
-      });
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      }
 
     } else {
       // Form validation failed
@@ -994,80 +988,78 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     }
 
     if (_isFormValid()) {
-      setState(() {
-        // Get the actual serial number from the controller
-        String actualSerialNumber = mpptSerialController.text.isNotEmpty
-            ? mpptSerialController.text
-            : 'Unknown';
+      // Get the actual serial number from the controller
+      String actualSerialNumber = mpptSerialController.text.isNotEmpty
+          ? mpptSerialController.text
+          : 'Unknown';
 
-        // Create a map of current form data
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': actualSerialNumber, // Use the actual serial number from controller
-          'photo': mpptPhoto,
-          'photoId': mpptPhotoId,
-          'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'Sand Bucket',
-          'remarks': sandBucketCapacityController.text.isNotEmpty ? sandBucketCapacityController.text : 'Sand Bucket Item',
-          'assetStatus': mpptStatus ?? "OK",
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('Sand Bucket', serialNumber: mpptSerialNumber),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false,
-          // Track if this was QR scanned or manual entry (false for manual entry)
-        };
+      // Create a map of current form data
+      Map<String, dynamic> currentFormData = {
+        'serialNumber': actualSerialNumber, // Use the actual serial number from controller
+        'photo': mpptPhoto,
+        'photoId': mpptPhotoId,
+        'photoTakenTs': DateTime.now().toString(),
+        'itemType': 'Sand Bucket',
+        'remarks': sandBucketCapacityController.text.isNotEmpty ? sandBucketCapacityController.text : 'Sand Bucket Item',
+        'assetStatus': mpptStatus ?? "OK",
+        'assetAuditSiteRespId': _getAssetAuditSiteRespId('Sand Bucket', serialNumber: mpptSerialNumber),
+        'timestamp': DateTime.now(),
+        'isQRCodeScanned': false,
+        // Track if this was QR scanned or manual entry (false for manual entry)
+      };
 
-        print('Saving Sand Bucket item: $currentFormData');
-        print('Current savedMPPTItems count: ${savedMPPTItems.length}');
+      print('Saving Sand Bucket item: $currentFormData');
+      print('Current savedMPPTItems count: ${savedMPPTItems.length}');
 
-        // Check if we're in edit mode
-        if (isEditingItem) {
-          // We're editing an existing item - update it in the list
-          print('Sand Bucket Debug: Updating existing item in edit mode');
-          
-          // Find and update the existing item (it should already be removed from the list)
-          // So we just add it back with the updated data
-          savedMPPTItems.add(currentFormData);
-          currentScannedItems++;
-          
-          print('After updating - savedMPPTItems count: ${savedMPPTItems.length}');
-          print('currentScannedItems: $currentScannedItems');
-          
-          // Clear the form after editing and reset flags
-          mpptSerialNumber = null;
-          mpptPhoto = null;
-          mpptStatus = null;
-          mpptSerialController.clear();
-          sandBucketCapacityController.clear();
-          mpptCardKey++;
-          
-          isEditingItem = false;
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        } else {
-          // We're adding a new item - add to list and clear form
-          print('Sand Bucket Debug: Adding new item');
-          
-          savedMPPTItems.add(currentFormData);
-          currentScannedItems++;
+      // Check if we're in edit mode
+      if (isEditingItem) {
+        // We're editing an existing item - update it in the list
+        print('Sand Bucket Debug: Updating existing item in edit mode');
+        
+        // Find and update the existing item (it should already be removed from the list)
+        // So we just add it back with the updated data
+        savedMPPTItems.add(currentFormData);
+        currentScannedItems++;
+        
+        print('After updating - savedMPPTItems count: ${savedMPPTItems.length}');
+        print('currentScannedItems: $currentScannedItems');
+        
+        // Clear the form after editing and reset flags
+        mpptSerialNumber = null;
+        mpptPhoto = null;
+        mpptStatus = null;
+        mpptSerialController.clear();
+        sandBucketCapacityController.clear();
+        mpptCardKey++;
+        
+        isEditingItem = false;
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      } else {
+        // We're adding a new item - add to list and clear form
+        print('Sand Bucket Debug: Adding new item');
+        
+        savedMPPTItems.add(currentFormData);
+        currentScannedItems++;
 
-          print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
-          print('currentScannedItems: $currentScannedItems');
+        print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
+        print('currentScannedItems: $currentScannedItems');
 
-          // Clear AssetTypeCard form for next entry
-          mpptSerialNumber = null;
-          mpptPhoto = null;
-          mpptStatus = null;
+        // Clear AssetTypeCard form for next entry
+        mpptSerialNumber = null;
+        mpptPhoto = null;
+        mpptStatus = null;
 
-          // Clear the controller
-          mpptSerialController.clear();
-          sandBucketCapacityController.clear();
+        // Clear the controller
+        mpptSerialController.clear();
+        sandBucketCapacityController.clear();
 
-          // Force rebuild of the CustomInfoCard widget
-          mpptCardKey++;
+        // Force rebuild of the CustomInfoCard widget
+        mpptCardKey++;
 
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        }
-      });
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      }
 
     } else {
       // Form validation failed
@@ -2175,10 +2167,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     ],
                                     onChanged: (value) {
                                       print("Selected: $value");
-                                      setState(() {
-                                        selectedBatteryStatus = value;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      selectedBatteryStatus = value;
+                                      hasUnsavedChanges = true;
                                     },
                                   ),
                                 getHeight(15),
@@ -2189,10 +2179,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     isRequired: true,
                                     isEditable: true,
                                     onChanged: (value) {
-                                      setState(() {
-                                        totalMPPTItems = int.tryParse(value) ?? 6;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      totalMPPTItems = int.tryParse(value) ?? 6;
+                                      hasUnsavedChanges = true;
                                     },
                                   ),
                                 getHeight(15),
@@ -2226,10 +2214,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   remarksHintText: "Eg:200 kg",
                                   remarksController: extinguisherCapacityController,
                                   onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      fireExtinguisherPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    fireExtinguisherPhoto = photoPath;
+                                    hasUnsavedChanges = true;
 
                                     // Upload photo immediately and get photoId
                                     if (photoPath != null &&
@@ -2273,16 +2259,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     }
                                   },
                                   onStatusChanged: (val) {
-                                    setState(() {
-                                      fireExtinguisherStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
+                                    fireExtinguisherStatus = val ? "OK" : "Not OK";
+                                    hasUnsavedChanges = true;
                                   },
                                   onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      fireExtinguisherSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    fireExtinguisherSerialNumber = serialNumber;
+                                    hasUnsavedChanges = true;
 
                                     // Validate serial number if not empty
                                     if (serialNumber.isNotEmpty) {
@@ -2373,10 +2355,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   remarksController: floodLightCapacityController,
                                   isRemarksEditable: true,
                                   onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      floodLightPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    floodLightPhoto = photoPath;
+                                    hasUnsavedChanges = true;
 
                                     // Upload photo immediately and get photoId
                                     if (photoPath != null &&
@@ -2419,16 +2399,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     }
                                   },
                                   onStatusChanged: (val) {
-                                    setState(() {
-                                      floodLightStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
+                                    floodLightStatus = val ? "OK" : "Not OK";
+                                    hasUnsavedChanges = true;
                                   },
                                   onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      floodLightSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    floodLightSerialNumber = serialNumber;
+                                    hasUnsavedChanges = true;
                                   },
                                   initialStatus: floodLightStatus == "OK"
                                       ? true
@@ -2500,10 +2476,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   isStatusEditable: true,
                                   backendStatus: false,
                                   onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      rectifierPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    rectifierPhoto = photoPath;
+                                    hasUnsavedChanges = true;
 
                                     // Upload photo immediately and get photoId
                                     if (photoPath != null &&
@@ -2543,16 +2517,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     }
                                   },
                                   onStatusChanged: (val) {
-                                    setState(() {
-                                      rectifierStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
+                                    rectifierStatus = val ? "OK" : "Not OK";
+                                    hasUnsavedChanges = true;
                                   },
                                   onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      rectifierSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    rectifierSerialNumber = serialNumber;
+                                    hasUnsavedChanges = true;
                                   },
                                   initialStatus: rectifierStatus == "OK"
                                       ? true
@@ -2813,40 +2783,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                       '❌ Failed to post data. Please try again.',
                                     );
                                   }
-                                  // if (_validateForm()) {
-                                  //   showDialog(
-                                  //     context: context,
-                                  //     barrierDismissible: false,
-                                  //     builder: (context) => SuccessDialog(
-                                  //       ticketId: "UVORKJR00044",
-                                  //       message:
-                                  //       "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-                                  //       onDone: () {
-                                  //         Navigator.of(context).pop();
-                                  //         Navigator.of(context).pop();
-                                  //       },
-                                  //     ),
-                                  //   );
-                                  // } else {
-                                  //
-                                  //   ScaffoldMessenger.of(context).showSnackBar(
-                                  //     SnackBar(
-                                  //       content: Text(
-                                  //         uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty
-                                  //             ? 'Please upload a selfie photo to continue'
-                                  //             : 'Please fill in all required fields',
-                                  //         style: const TextStyle(
-                                  //           color: Colors.white,
-                                  //           fontSize: 14,
-                                  //           fontFamily: fontFamilyMontserrat,
-                                  //         ),
-                                  //       ),
-                                  //       backgroundColor: AppColors.errorColor,
-                                  //       duration: const Duration(seconds: 3),
-                                  //     ),
-                                  //   );
-                                  // }
-                                },
+                                      },
                               ),
                             ),
                           ],

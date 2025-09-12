@@ -779,21 +779,6 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Rectifier item loaded for editing. Make changes and save again.',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 14,
-            fontFamily: fontFamilyMontserrat,
-          ),
-        ),
-        backgroundColor: AppColors.primaryGreen,
-        duration: Duration(seconds: 2),
-      ),
-    );
   }
 
 

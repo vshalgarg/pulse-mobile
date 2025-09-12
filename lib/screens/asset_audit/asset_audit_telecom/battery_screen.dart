@@ -124,9 +124,8 @@ class _BatteryScreenState extends State<BatteryScreen> {
     }
 
     print('Battery Debug: Loading battery data...');
-    setState(() {
-      // Clear existing saved items to avoid duplicates
-      savedRectifierItems.clear();
+    // Clear existing saved items to avoid duplicates
+    savedRectifierItems.clear();
       savedMPPTItems.clear();
       currentScannedItems = 0;
 
@@ -263,15 +262,10 @@ class _BatteryScreenState extends State<BatteryScreen> {
         }
       }
 
-    });
-
-    // Load images for saved items
     _loadImagesForSavedItems();
   }
 
-  /// Load images for saved items using the image API
   void _loadImagesForSavedItems() async {
-    // Collect all photo IDs from saved items
     Set<int> photoIds = {};
 
     // Add photo IDs from rectifier items
@@ -573,23 +567,21 @@ class _BatteryScreenState extends State<BatteryScreen> {
   }
 
   void _onFormChanged() {
-    setState(() {
-      hasUnsavedChanges =
-          selectedFile != null ||
-              selectedStatus != null ||
-              selectedBatteryStatus != null ||
-              selectedType != null ||
-              serialController.text.isNotEmpty;
+    hasUnsavedChanges =
+        selectedFile != null ||
+            selectedStatus != null ||
+            selectedBatteryStatus != null ||
+            selectedType != null ||
+            serialController.text.isNotEmpty;
 
-      // Hide validation errors when user starts filling the form
-      if (showValidationErrors &&
-          selectedFile != null &&
-          selectedBatteryStatus != null &&
-          selectedType != null &&
-          serialController.text.isNotEmpty) {
-        showValidationErrors = false;
-      }
-    });
+    // Hide validation errors when user starts filling the form
+    if (showValidationErrors &&
+        selectedFile != null &&
+        selectedBatteryStatus != null &&
+        selectedType != null &&
+        serialController.text.isNotEmpty) {
+      showValidationErrors = false;
+    }
   }
 
   void _saveAndExit() async {
@@ -734,9 +726,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
   }
 
   bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
+    showValidationErrors = true;
 
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
@@ -844,13 +834,13 @@ class _BatteryScreenState extends State<BatteryScreen> {
     int savedBatteryCabinetItems = savedMPPTItems.where((item) => item['itemType'] == 'Battery').length;
 
 
-    if (savedBatteryCabinetItems > maxAllowedBatteryCabinetCount) {
-      showCustomToast(
-        context,
-        'Maximum number of Battery Cabinet items ($maxAllowedBatteryCabinetCount) already added.',
-      );
-      return;
-    }
+    // if (savedBatteryCabinetItems > maxAllowedBatteryCabinetCount) {
+    //   showCustomToast(
+    //     context,
+    //     'Maximum number of Battery Cabinet items ($maxAllowedBatteryCabinetCount) already added.',
+    //   );
+    //   return;
+    // }
 
     if (_isFormValid()) {
       if (mpptPhotoId != null) { // Only save if photoId is present
@@ -900,7 +890,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
         }
 
         
-        showCustomToast(context, message);
       }
     }
   }
@@ -1180,25 +1169,18 @@ class _BatteryScreenState extends State<BatteryScreen> {
         if (state is AssetAuditGetImageSuccess) {
           // Handle successful image loading
           setState(() {
-            // Update the appropriate photo variable based on editing item type
-            print('Battery Debug: Image loaded successfully, editingItemType: $_editingItemType');
             if (_editingItemType == 'rectifier') {
               rectifierPhoto = state.imageData.startsWith('data:image/')
                   ? state.imageData
                   : 'data:image/jpeg;base64,${state.imageData}';
-              print('Battery Debug: Updated rectifierPhoto with image data for CBMS item');
             } else if (_editingItemType == 'mppt') {
               mpptPhoto = state.imageData.startsWith('data:image/')
                   ? state.imageData
                   : 'data:image/jpeg;base64,${state.imageData}';
-              print('Battery Debug: Updated mpptPhoto with image data');
             }
-            // Clear the editing item type
             _editingItemType = null;
           });
         } else if (state is AssetAuditGetImageFailure) {
-          print('Battery Debug: Failed to load image: ${state.errorMessage}');
-          // Clear the editing item type on failure
           _editingItemType = null;
         }
       },
@@ -1207,7 +1189,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
         if (state is AssetAuditPostSuccess) {
           // Only navigate if this Battery screen posted data (not from other screens)
           if (_hasPostedBatteryData) {
-            print('Battery Debug: Navigating to ExtinguisherScreen because Battery data was posted');
             // Refresh data from API before navigating
             try {
               // Trigger a refresh of the asset audit data
@@ -2159,7 +2140,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
             }
           } else if (rectifierPhotoId != null && rectifierPhotoId.toString().isNotEmpty) {
             // If no photo data but photoId exists, load the image
-            print('Battery Debug: Loading image for CBMS edit - photoId: ${rectifierPhotoId}');
             _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
           }
 
@@ -2188,7 +2168,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
             }
           } else if (mpptPhotoId != null && mpptPhotoId.toString().isNotEmpty) {
             // If no photo data but photoId exists, load the image
-            print('Battery Debug: Loading image for Battery edit - photoId: ${mpptPhotoId}');
             _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
           }
 
@@ -2200,11 +2179,6 @@ class _BatteryScreenState extends State<BatteryScreen> {
       // Mark that there are unsaved changes
       hasUnsavedChanges = true;
 
-      // Show a message to the user
-      showCustomToast(
-        context,
-        'Item loaded for editing. Make your changes and save.',
-      );
     });
   }
 
@@ -2219,10 +2193,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
         imgId: photoId,
         schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
       );
-      
-      print(
-        'Battery Debug: Loading image for edit - photoId: $photoId, itemType: $itemType',
-      );
+
     }
   }
   

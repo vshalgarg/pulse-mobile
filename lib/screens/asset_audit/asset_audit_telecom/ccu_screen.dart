@@ -537,15 +537,32 @@ class _CCUScreenState extends State<CCUScreen> {
       return;
     }
 
-    // If there are saved items, post data and navigate
+    // If there are saved items, post data in background and navigate immediately
     if (savedRectifierItems.isNotEmpty ||
         savedMPPTItems.isNotEmpty ||
         savedCabinetItems.isNotEmpty) {
-      await _postDataAndNavigate();
+      _postDataInBackground();
+      _navigateImmediately();
       return;
     }
 
     _showChangesConfirmationDialog();
+  }
+
+  /// Post data in background without waiting
+  void _postDataInBackground() {
+    _postCurrentScreenData();
+  }
+
+  /// Navigate immediately to next screen
+  void _navigateImmediately() {
+    pushPage(
+      context,
+      BatteryScreen(
+        batteryData: widget.assetAuditData?.responseData.battery,
+        assetAuditData: widget.assetAuditData,
+      ),
+    );
   }
 
   /// Post data and navigate to next screen
@@ -825,9 +842,8 @@ class _CCUScreenState extends State<CCUScreen> {
   }
 
   void _onFormChanged() {
-    setState(() {
-      // Trigger rebuild when form changes
-    });
+    // Trigger rebuild when form changes
+    // Note: setState removed to prevent build phase errors
   }
 
   void _saveAndExit() async {
@@ -874,9 +890,7 @@ class _CCUScreenState extends State<CCUScreen> {
       return true;
     }
 
-    setState(() {
-      showValidationErrors = true;
-    });
+    showValidationErrors = true;
 
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
@@ -1297,8 +1311,6 @@ class _CCUScreenState extends State<CCUScreen> {
           _clearCabinetForm();
         });
 
-      } else {
-        showCustomToast(context, 'Please upload a photo before saving.');
       }
     } else {
       print('Form validation failed - cannot save cabinet item');
@@ -1811,19 +1823,17 @@ class _CCUScreenState extends State<CCUScreen> {
         print('  - MPPT: ${freshCCUData.ccuMppt?.length ?? 0}');
         print('  - Cabinet: ${freshCCUData.ccuCabinet?.length ?? 0}');
         
-        setState(() {
-          // Clear existing saved items to show fresh data
-          savedRectifierItems.clear();
-          savedMPPTItems.clear();
-          savedCabinetItems.clear();
-          currentScannedItems = 0;
-          
-          // Clear posted items tracking since we're getting fresh data
-          _postedItemIds.clear();
+        // Clear existing saved items to show fresh data
+        savedRectifierItems.clear();
+        savedMPPTItems.clear();
+        savedCabinetItems.clear();
+        currentScannedItems = 0;
+        
+        // Clear posted items tracking since we're getting fresh data
+        _postedItemIds.clear();
 
-          // Load fresh data into the UI
-          _loadCCUDataFromFreshData(freshCCUData);
-        });
+        // Load fresh data into the UI
+        _loadCCUDataFromFreshData(freshCCUData);
         
         print('CCU Debug: After loading fresh data:');
         print('  - savedRectifierItems: ${savedRectifierItems.length}');
@@ -3467,8 +3477,6 @@ class _CCUScreenState extends State<CCUScreen> {
           ),
         ),
       );
-    } else {
-      showCustomToast(context, 'Unable to load photo.');
     }
   }
 

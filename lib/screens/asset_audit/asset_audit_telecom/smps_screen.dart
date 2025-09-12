@@ -1093,27 +1093,25 @@ class _SMPSScreenState extends State<SMPSScreen> {
   }
 
   void _onFormChanged() {
-    setState(() {
-      hasUnsavedChanges =
-          selectedFile != null ||
-              selectedStatus != null ||
-              selectedBatteryStatus != null ||
-              selectedType != null ||
-              serialController.text.isNotEmpty ||
-              rectifierSerialController.text.isNotEmpty ||
-              mpptSerialController.text.isNotEmpty ||
-              acdbSerialController.text.isNotEmpty ||
-              lspuSerialController.text.isNotEmpty;
+    hasUnsavedChanges =
+        selectedFile != null ||
+            selectedStatus != null ||
+            selectedBatteryStatus != null ||
+            selectedType != null ||
+            serialController.text.isNotEmpty ||
+            rectifierSerialController.text.isNotEmpty ||
+            mpptSerialController.text.isNotEmpty ||
+            acdbSerialController.text.isNotEmpty ||
+            lspuSerialController.text.isNotEmpty;
 
-      // Hide validation errors when user starts filling the form
-      if (showValidationErrors &&
-          selectedFile != null &&
-          selectedBatteryStatus != null &&
-          selectedType != null &&
-          serialController.text.isNotEmpty) {
-        showValidationErrors = false;
-      }
-    });
+    // Hide validation errors when user starts filling the form
+    if (showValidationErrors &&
+        selectedFile != null &&
+        selectedBatteryStatus != null &&
+        selectedType != null &&
+        serialController.text.isNotEmpty) {
+      showValidationErrors = false;
+    }
   }
 
   void _saveAndExit() async {
@@ -1233,9 +1231,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
   }
 
   bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
+    showValidationErrors = true;
 
 
     String? serialNumber = rectifierSerialController.text.isNotEmpty
@@ -1309,54 +1305,52 @@ class _SMPSScreenState extends State<SMPSScreen> {
     }
 
     if (_isFormValid()) {
-      setState(() {
-        // Create a map of current form data
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': rectifierSerialNumber,
-          'photo': rectifierPhoto,
-          'photoId': rectifierPhotoId,
-          // Include the photoId from API
-          'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'SMPS Rectifier',
-          'remarks': 'SMPS Rectifier Item',
-          'assetStatus': rectifierStatus ?? "OK",
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('SMPS Rectifiers'),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false,
-          // Track if this was QR scanned or manual entry (false for manual entry)
-        };
+      // Create a map of current form data
+      Map<String, dynamic> currentFormData = {
+        'serialNumber': rectifierSerialNumber,
+        'photo': rectifierPhoto,
+        'photoId': rectifierPhotoId,
+        // Include the photoId from API
+        'photoTakenTs': DateTime.now().toString(),
+        'itemType': 'SMPS Rectifier',
+        'remarks': 'SMPS Rectifier Item',
+        'assetStatus': rectifierStatus ?? "OK",
+        'assetAuditSiteRespId': _getAssetAuditSiteRespId('SMPS Rectifiers'),
+        'timestamp': DateTime.now(),
+        'isQRCodeScanned': false,
+        // Track if this was QR scanned or manual entry (false for manual entry)
+      };
 
-        if (isEditingItem) {
-          // We're editing an existing item - add it back to the list
-          savedRectifierItems.add(currentFormData);
+      if (isEditingItem) {
+        // We're editing an existing item - add it back to the list
+        savedRectifierItems.add(currentFormData);
 
-          // Clear all form fields after editing
-          rectifierSerialNumber = null;
-          rectifierPhoto = null;
-          rectifierPhotoId = null;
-          rectifierStatus = null;
-          rectifierSerialController.clear();
-          rectifierCardKey++;
+        // Clear all form fields after editing
+        rectifierSerialNumber = null;
+        rectifierPhoto = null;
+        rectifierPhotoId = null;
+        rectifierStatus = null;
+        rectifierSerialController.clear();
+        rectifierCardKey++;
 
-          isEditingItem = false;
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        } else {
-          // We're adding a new item - add to list and clear form
-          savedRectifierItems.add(currentFormData);
-          currentScannedItems++;
+        isEditingItem = false;
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      } else {
+        // We're adding a new item - add to list and clear form
+        savedRectifierItems.add(currentFormData);
+        currentScannedItems++;
 
-          rectifierSerialNumber = null;
-          rectifierPhoto = null;
-          rectifierPhotoId = null;
-          rectifierStatus = null;
-          rectifierSerialController.clear();
-          rectifierCardKey++;
+        rectifierSerialNumber = null;
+        rectifierPhoto = null;
+        rectifierPhotoId = null;
+        rectifierStatus = null;
+        rectifierSerialController.clear();
+        rectifierCardKey++;
 
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        }
-      });
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      }
 
       // Show success message
       int remainingRectifiers =
@@ -1403,62 +1397,60 @@ class _SMPSScreenState extends State<SMPSScreen> {
     }
 
     if (_isFormValid()) {
-      setState(() {
-        // Create a map of current form data
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': mpptSerialNumber,
-          'photo': mpptPhoto,
-          'photoId': mpptPhotoId,
-          // Include the photoId from API
-          'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'SMPS MPPT',
-          'remarks': 'SMPS MPPT Item',
-          'assetStatus': mpptStatus ?? "OK",
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('SMPS MPPT'),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false,
-          // Track if this was QR scanned or manual entry (false for manual entry)
-        };
+      // Create a map of current form data
+      Map<String, dynamic> currentFormData = {
+        'serialNumber': mpptSerialNumber,
+        'photo': mpptPhoto,
+        'photoId': mpptPhotoId,
+        // Include the photoId from API
+        'photoTakenTs': DateTime.now().toString(),
+        'itemType': 'SMPS MPPT',
+        'remarks': 'SMPS MPPT Item',
+        'assetStatus': mpptStatus ?? "OK",
+        'assetAuditSiteRespId': _getAssetAuditSiteRespId('SMPS MPPT'),
+        'timestamp': DateTime.now(),
+        'isQRCodeScanned': false,
+        // Track if this was QR scanned or manual entry (false for manual entry)
+      };
 
-        print('Saving MPPT item: $currentFormData');
-        print('Current savedMPPTItems count: ${savedMPPTItems.length}');
+      print('Saving MPPT item: $currentFormData');
+      print('Current savedMPPTItems count: ${savedMPPTItems.length}');
 
-        if (isEditingItem) {
-          // We're editing an existing item - add it back to the list
-          savedMPPTItems.add(currentFormData);
+      if (isEditingItem) {
+        // We're editing an existing item - add it back to the list
+        savedMPPTItems.add(currentFormData);
 
-          // Clear all form fields after editing
-          mpptSerialNumber = null;
-          mpptPhoto = null;
-          mpptPhotoId = null;
-          mpptStatus = null;
-          mpptSerialController.clear();
-          mpptCardKey++;
+        // Clear all form fields after editing
+        mpptSerialNumber = null;
+        mpptPhoto = null;
+        mpptPhotoId = null;
+        mpptStatus = null;
+        mpptSerialController.clear();
+        mpptCardKey++;
 
-          isEditingItem = false;
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        } else {
-          // We're adding a new item - add to list and clear form
-          savedMPPTItems.add(currentFormData);
-          currentScannedItems++;
+        isEditingItem = false;
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      } else {
+        // We're adding a new item - add to list and clear form
+        savedMPPTItems.add(currentFormData);
+        currentScannedItems++;
 
-          print(
-              'After saving - savedMPPTItems count: ${savedMPPTItems.length}');
-          print('currentScannedItems: $currentScannedItems');
+        print(
+            'After saving - savedMPPTItems count: ${savedMPPTItems.length}');
+        print('currentScannedItems: $currentScannedItems');
 
-          // Clear AssetTypeCard form for next entry
-          mpptSerialNumber = null;
-          mpptPhoto = null;
-          mpptPhotoId = null;
-          mpptStatus = null;
-          mpptSerialController.clear();
-          mpptCardKey++;
+        // Clear AssetTypeCard form for next entry
+        mpptSerialNumber = null;
+        mpptPhoto = null;
+        mpptPhotoId = null;
+        mpptStatus = null;
+        mpptSerialController.clear();
+        mpptCardKey++;
 
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        }
-      });
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      }
 
       // Show success message
       int remainingMPPTs = maxAllowedMPPTCount - savedMPPTItems.length;
@@ -1508,58 +1500,56 @@ class _SMPSScreenState extends State<SMPSScreen> {
   // Save current form data for ACDB
   void _saveACDBForm() {
     if (_isFormValid()) {
-      setState(() {
-        // Get the actual serial number from the controller
-        String actualSerialNumber = acdbSerialController.text.isNotEmpty
-            ? acdbSerialController.text
-            : 'Unknown';
+      // Get the actual serial number from the controller
+      String actualSerialNumber = acdbSerialController.text.isNotEmpty
+          ? acdbSerialController.text
+          : 'Unknown';
 
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': actualSerialNumber,
-          // Use the actual serial number from controller
-          'photo': acdbPhoto,
-          'photoId': acdbPhotoId,
-          // Include the photoId from API
-          'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'ACDB',
-          'remarks': 'ACDB Item',
-          'assetStatus': acdbStatus ?? "OK",
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('ACDB'),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false,
-          // Track if this was QR scanned or manual entry (false for manual entry)
-        };
-        if (isEditingItem) {
-          // We're editing an existing item - add it back to the list
-          savedACDBItems.add(currentFormData);
+      Map<String, dynamic> currentFormData = {
+        'serialNumber': actualSerialNumber,
+        // Use the actual serial number from controller
+        'photo': acdbPhoto,
+        'photoId': acdbPhotoId,
+        // Include the photoId from API
+        'photoTakenTs': DateTime.now().toString(),
+        'itemType': 'ACDB',
+        'remarks': 'ACDB Item',
+        'assetStatus': acdbStatus ?? "OK",
+        'assetAuditSiteRespId': _getAssetAuditSiteRespId('ACDB'),
+        'timestamp': DateTime.now(),
+        'isQRCodeScanned': false,
+        // Track if this was QR scanned or manual entry (false for manual entry)
+      };
+      if (isEditingItem) {
+        // We're editing an existing item - add it back to the list
+        savedACDBItems.add(currentFormData);
 
-          // Clear all form fields after editing
-          acdbSerialNumber = null;
-          acdbPhoto = null;
-          acdbPhotoId = null;
-          acdbStatus = null;
-          acdbSerialController.clear();
-          acdbCardKey++;
+        // Clear all form fields after editing
+        acdbSerialNumber = null;
+        acdbPhoto = null;
+        acdbPhotoId = null;
+        acdbStatus = null;
+        acdbSerialController.clear();
+        acdbCardKey++;
 
-          isEditingItem = false;
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        } else {
-          // We're adding a new item - add to list and clear form
-          savedACDBItems.add(currentFormData);
-          currentScannedItems++;
+        isEditingItem = false;
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      } else {
+        // We're adding a new item - add to list and clear form
+        savedACDBItems.add(currentFormData);
+        currentScannedItems++;
 
-          acdbSerialNumber = null;
-          acdbPhoto = null;
-          acdbPhotoId = null;
-          acdbStatus = null;
-          acdbSerialController.clear();
-          acdbCardKey++;
+        acdbSerialNumber = null;
+        acdbPhoto = null;
+        acdbPhotoId = null;
+        acdbStatus = null;
+        acdbSerialController.clear();
+        acdbCardKey++;
 
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        }
-      });
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      }
 
       // ACDB item saved successfully
     } else {
@@ -1573,59 +1563,57 @@ class _SMPSScreenState extends State<SMPSScreen> {
   // Save current form data for LSPU
   void _saveLSPUForm() {
     if (_isFormValid()) {
-      setState(() {
-        // Get the actual serial number from the controller
-        String actualSerialNumber = lspuSerialController.text.isNotEmpty
-            ? lspuSerialController.text
-            : 'Unknown';
+      // Get the actual serial number from the controller
+      String actualSerialNumber = lspuSerialController.text.isNotEmpty
+          ? lspuSerialController.text
+          : 'Unknown';
 
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': actualSerialNumber,
-          // Use the actual serial number from controller
-          'photo': lspuPhoto,
-          'photoId': lspuPhotoId,
-          // Include the photoId from API
-          'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'LSPU',
-          'remarks': 'LSPU Item',
-          'assetStatus': lspuStatus ?? "OK",
-          'assetAuditSiteRespId': _getAssetAuditSiteRespId('LSPU'),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false,
-          // Track if this was QR scanned or manual entry (false for manual entry)
-        };
+      Map<String, dynamic> currentFormData = {
+        'serialNumber': actualSerialNumber,
+        // Use the actual serial number from controller
+        'photo': lspuPhoto,
+        'photoId': lspuPhotoId,
+        // Include the photoId from API
+        'photoTakenTs': DateTime.now().toString(),
+        'itemType': 'LSPU',
+        'remarks': 'LSPU Item',
+        'assetStatus': lspuStatus ?? "OK",
+        'assetAuditSiteRespId': _getAssetAuditSiteRespId('LSPU'),
+        'timestamp': DateTime.now(),
+        'isQRCodeScanned': false,
+        // Track if this was QR scanned or manual entry (false for manual entry)
+      };
 
-        if (isEditingItem) {
-          // We're editing an existing item - add it back to the list
-          savedLSPUItems.add(currentFormData);
+      if (isEditingItem) {
+        // We're editing an existing item - add it back to the list
+        savedLSPUItems.add(currentFormData);
 
-          // Clear all form fields after editing
-          lspuSerialNumber = null;
-          lspuPhoto = null;
-          lspuPhotoId = null;
-          lspuStatus = null;
-          lspuSerialController.clear();
-          lspuCardKey++;
+        // Clear all form fields after editing
+        lspuSerialNumber = null;
+        lspuPhoto = null;
+        lspuPhotoId = null;
+        lspuStatus = null;
+        lspuSerialController.clear();
+        lspuCardKey++;
 
-          isEditingItem = false;
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        } else {
-          // We're adding a new item - add to list and clear form
-          savedLSPUItems.add(currentFormData);
-          currentScannedItems++;
+        isEditingItem = false;
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      } else {
+        // We're adding a new item - add to list and clear form
+        savedLSPUItems.add(currentFormData);
+        currentScannedItems++;
 
-          lspuSerialNumber = null;
-          lspuPhoto = null;
-          lspuPhotoId = null;
-          lspuStatus = null;
-          lspuSerialController.clear();
-          lspuCardKey++;
+        lspuSerialNumber = null;
+        lspuPhoto = null;
+        lspuPhotoId = null;
+        lspuStatus = null;
+        lspuSerialController.clear();
+        lspuCardKey++;
 
-          hasUnsavedChanges = false;
-          showValidationErrors = false;
-        }
-      });
+        hasUnsavedChanges = false;
+        showValidationErrors = false;
+      }
 
       // LSPU item saved successfully
     } else {
@@ -1759,27 +1747,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
       return;
     }
 
-    // Check if there are any unsaved changes
-    if (hasUnsavedChanges) {
-      final success = await _postCurrentScreenData();
-      if (success) {
-        print('SMPS Screen: Current screen data posted successfully');
-        setState(() {
-          hasUnsavedChanges = false;
-        });
-
-        // Now proceed with final submission
-        _performFinalSubmission();
-      } else {
-        showCustomToast(
-          context,
-          ' Failed to post current screen data. Please try again.',
-        );
-        return;
-      }
-    } else {
-      _performFinalSubmission();
-    }
+    // Always use final submission to avoid duplicate API calls
+    _performFinalSubmission();
   }
 
   /// Submit with Complete status and navigate to home
@@ -1795,27 +1764,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
       return;
     }
 
-    // Check if there are any unsaved changes
-    if (hasUnsavedChanges) {
-      final success = await _postCurrentScreenData();
-      if (success) {
-        print('SMPS Screen: Current screen data posted successfully');
-        setState(() {
-          hasUnsavedChanges = false;
-        });
-
-        // Now proceed with final submission with Complete status
-        _performFinalSubmissionWithCompleteStatus();
-      } else {
-        showCustomToast(
-          context,
-          ' Failed to post current screen data. Please try again.',
-        );
-        return;
-      }
-    } else {
-      _performFinalSubmissionWithCompleteStatus();
-    }
+    // Always use final submission to avoid duplicate API calls
+    _performFinalSubmissionWithCompleteStatus();
   }
 
   /// Perform final submission of all data
@@ -1875,28 +1825,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
         );
       }
 
-      // Show success dialog and navigate to home
-      if (mounted) {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) =>
-              SuccessDialog(
-                ticketId: widget.ticketId ?? _formattedTicketId,
-                message: "Asset Audit completed successfully!\n\nTicket ID: ${widget
-                    .ticketId ?? _formattedTicketId}",
-                onDone: () {
-                  Navigator.of(context).pop(); // Close success dialog
-                  // Navigate to home screen
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => const HomeScreen()),
-                        (route) => false,
-                  );
-                },
-              ),
-        );
-      }
+      // Success dialog will be shown in the BlocListener after API success
+      print('SMPS Screen: Status updated to Complete, waiting for API response...');
     } else {
       showCustomToast(
         context,
@@ -2393,6 +2323,13 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
             // Only process this success state if it contains SMPS screen data
             if (isSMPSData) {
+              // Reset the flag immediately to prevent multiple processing
+              if (mounted) {
+                setState(() {
+                  _hasPostedSMPSData = false;
+                });
+              }
+              
               try {
                 context.read<AssetAuditCubit>().getAssetAuditData(
                   siteType: widget.assetAuditData?.pageHeader.first
@@ -2431,10 +2368,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
                           ),
                     );
 
-                    // Reset the flag after successful submission
-                    setState(() {
-                      _hasPostedSMPSData = false;
-                    });
+                    // Flag already reset at the beginning
                   }
                 });
               } catch (e) {
@@ -2460,9 +2394,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
                             },
                           ),
                     );
-                    setState(() {
-                      _hasPostedSMPSData = false;
-                    });
+                    // Flag already reset at the beginning
                   }
                 });
               }
@@ -2480,9 +2412,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
                 '❌ Failed to save SMPS data to server. You can continue with local data.',
               );
 
-              setState(() {
-                _hasPostedSMPSData = false;
-              });
+              _hasPostedSMPSData = false;
               print(
                 'SMPS Screen: Reset _hasPostedSMPSData flag to false after error',
               );
@@ -2593,11 +2523,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                     isRequired: false,
                                     isEditable: false,
                                     onChanged: (value) {
-                                      setState(() {
-                                        totalRectifierItems =
-                                            int.tryParse(value) ?? 6;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      totalRectifierItems =
+                                          int.tryParse(value) ?? 6;
+                                      hasUnsavedChanges = true;
                                     },
                                   ),
                                   getHeight(15),
@@ -2614,10 +2542,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                     backendStatus: false,
                                     showSaveButton: true,
                                     onPhotoTap: (photoPath) async {
-                                      setState(() {
-                                        rectifierPhoto = photoPath;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      rectifierPhoto = photoPath;
+                                      hasUnsavedChanges = true;
 
                                       // Upload photo immediately and get photoId
                                       if (photoPath != null &&
@@ -2658,16 +2584,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                       }
                                     },
                                     onStatusChanged: (val) {
-                                      setState(() {
-                                        rectifierStatus = val ? "OK" : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
+                                      rectifierStatus = val ? "OK" : "Not OK";
+                                      hasUnsavedChanges = true;
                                     },
                                     onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        rectifierSerialNumber = serialNumber;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      rectifierSerialNumber = serialNumber;
+                                      hasUnsavedChanges = true;
 
                                       // Validate serial number (assume manual entry)
                                       if (serialNumber.isNotEmpty) {
@@ -2704,11 +2626,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                     isRequired: false,
                                     isEditable: false,
                                     onChanged: (value) {
-                                      setState(() {
-                                        totalMPPTItems =
-                                            int.tryParse(value) ?? 6;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      totalMPPTItems =
+                                          int.tryParse(value) ?? 6;
+                                      hasUnsavedChanges = true;
                                     },
                                   ),
                                   getHeight(15),
@@ -2724,10 +2644,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                     backendStatus: false,
                                     remarksController: mpptRemarksController,
                                     onPhotoTap: (photoPath) async {
-                                      setState(() {
-                                        mpptPhoto = photoPath;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      mpptPhoto = photoPath;
+                                      hasUnsavedChanges = true;
 
                                       // Upload photo immediately and get photoId
                                       if (photoPath != null &&
@@ -2768,16 +2686,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                       }
                                     },
                                     onStatusChanged: (val) {
-                                      setState(() {
-                                        mpptStatus = val ? "OK" : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
+                                      mpptStatus = val ? "OK" : "Not OK";
+                                      hasUnsavedChanges = true;
                                     },
                                     onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        mpptSerialNumber = serialNumber;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      mpptSerialNumber = serialNumber;
+                                      hasUnsavedChanges = true;
 
                                       // Validate serial number (assume manual entry)
                                       if (serialNumber.isNotEmpty) {
@@ -2818,10 +2732,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                     backendStatus: false,
                                     showSaveButton: true,
                                     onPhotoTap: (photoPath) async {
-                                      setState(() {
-                                        acdbPhoto = photoPath;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      acdbPhoto = photoPath;
+                                      hasUnsavedChanges = true;
 
                                       // Upload photo immediately and get photoId
                                       if (photoPath != null &&
@@ -2862,16 +2774,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                       }
                                     },
                                     onStatusChanged: (val) {
-                                      setState(() {
-                                        acdbStatus = val ? "OK" : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
+                                      acdbStatus = val ? "OK" : "Not OK";
+                                      hasUnsavedChanges = true;
                                     },
                                     onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        acdbSerialNumber = serialNumber;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      acdbSerialNumber = serialNumber;
+                                      hasUnsavedChanges = true;
 
                                       // Validate serial number (assume manual entry)
                                       if (serialNumber.isNotEmpty) {
@@ -2914,10 +2822,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                     backendStatus: false,
                                     showSaveButton: true,
                                     onPhotoTap: (photoPath) async {
-                                      setState(() {
-                                        lspuPhoto = photoPath;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      lspuPhoto = photoPath;
+                                      hasUnsavedChanges = true;
 
                                       // Upload photo immediately and get photoId
                                       if (photoPath != null &&
@@ -2958,16 +2864,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
                                       }
                                     },
                                     onStatusChanged: (val) {
-                                      setState(() {
-                                        lspuStatus = val ? "OK" : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
+                                      lspuStatus = val ? "OK" : "Not OK";
+                                      hasUnsavedChanges = true;
                                     },
                                     onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        lspuSerialNumber = serialNumber;
-                                        hasUnsavedChanges = true;
-                                      });
+                                      lspuSerialNumber = serialNumber;
+                                      hasUnsavedChanges = true;
 
                                       // Validate serial number (assume manual entry)
                                       if (serialNumber.isNotEmpty) {
@@ -4514,8 +4416,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
               lspuPhoto = photoData;
             }
           } else if (lspuPhotoId != null && lspuPhotoId.toString().isNotEmpty) {
-            // If no photo data but photoId exists, load the image
-            print('SMPS Debug: Loading image for lspu edit - photoId: ${lspuPhotoId}');
             _loadImageForEdit(lspuPhotoId.toString(), 'lspu');
           }
 
@@ -4528,11 +4428,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       // Mark that there are unsaved changes
       hasUnsavedChanges = true;
 
-      // Show a message to the user
-      showCustomToast(
-        context,
-        'Item loaded for editing. Make your changes and save.',
-      );
     });
   }
 

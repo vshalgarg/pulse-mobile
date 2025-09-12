@@ -257,8 +257,6 @@ class _InvertorScreenState extends State<InvertorScreen> {
         imgId: imgIdToUse,
         schId: schId,
       );
-    } else {
-      showCustomToast(context, 'Please wait for site data to load before uploading image');
     }
   }
 
@@ -440,7 +438,6 @@ class _InvertorScreenState extends State<InvertorScreen> {
       });
 
       int remainingInvertor = totalInvertorItems - savedInvertorItems.length;
-      showCustomToast(context, 'Invertor item saved successfully! ${remainingInvertor > 0 ? '(${remainingInvertor} remaining)' : '(All items added)'}');
     }
   }
 
@@ -498,7 +495,6 @@ class _InvertorScreenState extends State<InvertorScreen> {
       hasUnsavedChanges = true;
     });
 
-    showCustomToast(context, 'Invertor item deleted successfully!');
   }
 
   @override
@@ -509,18 +505,10 @@ class _InvertorScreenState extends State<InvertorScreen> {
           listener: (context, state) {
             if (state is AssetAuditError) {
               showCustomToast(context, state.message);
-            } else if (state is AssetAuditPostSuccess) {
-              print('Invertor data posted successfully: ${state.responses.length} responses');
-              // Only show toast if this screen initiated the post action
-              if (mounted && state.responses.any((response) => response.itemTypeId == 2)) {
-                showCustomToast(context, 'Invertor data saved successfully!');
-              }
             } else if (state is AssetAuditPostError) {
-              print('Error posting Invertor data: ${state.message}');
-              // Only show toast if this screen initiated the post action
-              if (mounted) {
+
                 showCustomToast(context, 'Error saving Invertor data: ${state.message}');
-              }
+
             }
           },
         ),
@@ -531,7 +519,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
                 uploadedImgId = state.response.imgId;
                 _hasFormDataChanges = true;
               });
-              showCustomToast(context, 'Image uploaded successfully!');
+
             } else if (state is SelfieUploadFailure) {
               showCustomToast(context, state.errorMessage);
             }
@@ -540,8 +528,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
         BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
           listener: (context, state) async {
             if (state is AssetAuditGetImageSuccess) {
-              print('Invertor Image loaded for photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}');
-              
+
               // Handle edit case
               if (_isRequestingImage && _currentRequestedImageId != null) {
                 final finalImageData = state.imageData.startsWith('data:image/')
@@ -591,7 +578,6 @@ class _InvertorScreenState extends State<InvertorScreen> {
                   _isRequestingImage = false;
                   _currentRequestedImageId = null;
                 });
-                showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
                 return;
               }
               

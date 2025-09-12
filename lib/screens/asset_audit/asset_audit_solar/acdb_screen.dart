@@ -48,6 +48,7 @@ class _ACDBScreenState extends State<ACDBScreen> {
   final TextEditingController serialController = TextEditingController();
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false;
+
   // ACDB field values
   String? acdbSerialNumber;
   String? acdbPhoto;
@@ -56,7 +57,8 @@ class _ACDBScreenState extends State<ACDBScreen> {
   final ratingController = TextEditingController();
   int acdbCardKey = 0;
   List<Map<String, dynamic>> savedAcdbItems = [];
-  bool isQRCodeScanned = false; // Track if serial was scanned or manually entered
+  bool isQRCodeScanned =
+      false; // Track if serial was scanned or manually entered
 
   // Image loading variables
   String? _currentRequestedImageId;
@@ -79,30 +81,30 @@ class _ACDBScreenState extends State<ACDBScreen> {
 
   // Controllers for CustomInfoCard
   final TextEditingController acdbSerialController = TextEditingController();
-  
+
   // Get ACDB data from API (ACDB data is nested under SMPS)
   int get totalAcdbItems {
     final smpsData = widget.assetAuditData?.responseData.categories['SMPS'];
-    if (smpsData?.subCategories != null && smpsData!.subCategories!['ACDB'] != null) {
+    if (smpsData?.subCategories != null &&
+        smpsData!.subCategories!['ACDB'] != null) {
       // Get ACDB items from SMPS subcategories
       final acdbAssets = smpsData.subCategories!['ACDB']!;
       return acdbAssets.length;
     }
     return 0;
   }
-  
+
   // Get ACDB category data (from SMPS category)
   CategoryData? get acdbCategoryData {
     final smpsData = widget.assetAuditData?.responseData.categories['SMPS'];
     if (smpsData != null) {
       // Get ACDB items from SMPS subcategories
       final acdbAssets = smpsData.subCategories?['ACDB'] ?? [];
-      final acdbRemarks = smpsData.remarks.where((remark) => remark.itemType == 'ACDB').toList();
-      
-      return CategoryData(
-        assets: acdbAssets,
-        remarks: acdbRemarks,
-      );
+      final acdbRemarks = smpsData.remarks
+          .where((remark) => remark.itemType == 'ACDB')
+          .toList();
+
+      return CategoryData(assets: acdbAssets, remarks: acdbRemarks);
     }
     return null;
   }
@@ -139,35 +141,50 @@ class _ACDBScreenState extends State<ACDBScreen> {
     print('ACDB screen: Loading existing data from API');
 
     final assetAuditState = context.read<AssetAuditCubit>().state;
-    if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.responseData.categories.isNotEmpty) {
-      final smpsData = assetAuditState.assetAuditData.responseData.categories['SMPS'];
-      
-      if (smpsData != null && smpsData.subCategories != null && smpsData.subCategories!['ACDB'] != null) {
+    if (assetAuditState is AssetAuditLoaded &&
+        assetAuditState.assetAuditData.responseData.categories.isNotEmpty) {
+      final smpsData =
+          assetAuditState.assetAuditData.responseData.categories['SMPS'];
+
+      if (smpsData != null &&
+          smpsData.subCategories != null &&
+          smpsData.subCategories!['ACDB'] != null) {
         // Get ACDB items from SMPS subcategories
         final acdbAssets = smpsData.subCategories!['ACDB']!;
-        print('ACDB screen: Found ${acdbAssets.length} ACDB assets in SMPS subcategories');
+        print(
+          'ACDB screen: Found ${acdbAssets.length} ACDB assets in SMPS subcategories',
+        );
 
         setState(() {
           // Only show items that have been interacted with by the user (have photo_id and qr_code_scanned is not null)
           savedAcdbItems = acdbAssets
-              .where((asset) => asset.photoId != null && asset.qrCodeScanned != null)
+              .where(
+                (asset) => asset.photoId != null && asset.qrCodeScanned != null,
+              )
               .map((asset) {
-              return {
-                'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
-                'photo': asset.photoId?.toString(),
-                'status': asset.assetStatus ?? 'OK',
-                'isQRCodeScanned': asset.qrCodeScanned ?? false,
-              'timestamp': DateTime.now(),
-                'assetAuditSiteRespId': asset.assetAuditSiteRespId,
-              };
-            }).toList();
+                return {
+                  'serialNumber':
+                      asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
+                  'photo': asset.photoId?.toString(),
+                  'status': asset.assetStatus ?? 'OK',
+                  'isQRCodeScanned': asset.qrCodeScanned ?? false,
+                  'timestamp': DateTime.now(),
+                  'assetAuditSiteRespId': asset.assetAuditSiteRespId,
+                };
+              })
+              .toList();
         });
 
         // Load photos for ACDB assets that have them
         for (var asset in acdbAssets) {
           if (asset.photoId != null && asset.photoId! > 0) {
-            print('ACDB screen: Loading image for asset ${asset.assetAuditSiteRespId} with photoId ${asset.photoId}');
-            _imageQueue.add({'photoId': asset.photoId.toString(), 'key': 'acdb_${asset.assetAuditSiteRespId}'});
+            print(
+              'ACDB screen: Loading image for asset ${asset.assetAuditSiteRespId} with photoId ${asset.photoId}',
+            );
+            _imageQueue.add({
+              'photoId': asset.photoId.toString(),
+              'key': 'acdb_${asset.assetAuditSiteRespId}',
+            });
           }
         }
 
@@ -179,10 +196,14 @@ class _ACDBScreenState extends State<ACDBScreen> {
 
         // Initialize remarks from API only if user hasn't made changes
         if (smpsData.remarks.isNotEmpty && remarksController.text.isEmpty) {
-          final acdbRemarks = smpsData.remarks.where((remark) => remark.itemType == 'ACDB').toList();
+          final acdbRemarks = smpsData.remarks
+              .where((remark) => remark.itemType == 'ACDB')
+              .toList();
           if (acdbRemarks.isNotEmpty) {
             remarksController.text = acdbRemarks.first.itemTypeRemark ?? '';
-            print('ACDB screen: Loaded remarks from API: "${remarksController.text}"');
+            print(
+              'ACDB screen: Loaded remarks from API: "${remarksController.text}"',
+            );
           }
         }
       } else {
@@ -191,12 +212,14 @@ class _ACDBScreenState extends State<ACDBScreen> {
     }
   }
 
-
   void _onFormChanged() {
     setState(() {
-      hasUnsavedChanges = serialController.text.isNotEmpty || ratingController.text.isNotEmpty;
+      hasUnsavedChanges =
+          serialController.text.isNotEmpty || ratingController.text.isNotEmpty;
 
-      if (showValidationErrors && (serialController.text.isNotEmpty || ratingController.text.isNotEmpty)) {
+      if (showValidationErrors &&
+          (serialController.text.isNotEmpty ||
+              ratingController.text.isNotEmpty)) {
         showValidationErrors = false;
       }
     });
@@ -213,7 +236,7 @@ class _ACDBScreenState extends State<ACDBScreen> {
 
       // Post ACDB data to API first
       await _postAcdbData();
-      
+
       // Update audit schedule status
       await _updateAuditScheduleStatus("In Progress");
 
@@ -223,16 +246,14 @@ class _ACDBScreenState extends State<ACDBScreen> {
       // Navigate to home screen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
+        MaterialPageRoute(builder: (context) => HomeScreen()),
       );
     } catch (e) {
       // Close loading dialog if it's open
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop();
       }
-      
+
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -254,9 +275,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
       print('Status update call completed'); // Added for debugging
     } catch (e) {
       print('Error updating audit schedule status: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
     }
   }
 
@@ -338,13 +359,17 @@ class _ACDBScreenState extends State<ACDBScreen> {
       String? photoImageId = acdbPhoto;
 
       // If photo is a file path, upload it and get image ID
-      if (acdbPhoto != null && acdbPhoto!.isNotEmpty && !acdbPhoto!.startsWith('http')) {
+      if (acdbPhoto != null &&
+          acdbPhoto!.isNotEmpty &&
+          !acdbPhoto!.startsWith('http')) {
         try {
           final file = File(acdbPhoto!);
           if (await file.exists()) {
             print('📤 Uploading ACDB photo: ${acdbPhoto}');
             photoImageId = await _uploadAcdbPhoto(file);
-            print('✅ ACDB photo uploaded successfully, image ID: $photoImageId');
+            print(
+              '✅ ACDB photo uploaded successfully, image ID: $photoImageId',
+            );
           } else {
             print('❌ ACDB photo file does not exist: ${acdbPhoto}');
           }
@@ -365,11 +390,14 @@ class _ACDBScreenState extends State<ACDBScreen> {
       setState(() {
         Map<String, dynamic> currentFormData = {
           'serialNumber': acdbSerialNumber,
-          'photo': photoImageId, // Use image ID instead of file path
+          'photo': photoImageId,
+          // Use image ID instead of file path
           'status': acdbStatus ?? "OK",
-          'rating': ratingController.text.trim(), // Add rating value
+          'rating': ratingController.text.trim(),
+          // Add rating value
           'timestamp': DateTime.now(),
-          'isQRCodeScanned': isQRCodeScanned, // Store whether it was scanned or manual
+          'isQRCodeScanned': isQRCodeScanned,
+          // Store whether it was scanned or manual
         };
 
         savedAcdbItems.add(currentFormData);
@@ -397,7 +425,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
       print('=== ACDB SAVE: Form validation failed ===');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Please fill in all required fields (Serial Number, Photo, and Rating)'),
+          content: Text(
+            'Please fill in all required fields (Serial Number, Photo, and Rating)',
+          ),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),
@@ -423,7 +453,8 @@ class _ACDBScreenState extends State<ACDBScreen> {
     setState(() {
       acdbSerialNumber = item["serialNumber"];
       acdbStatus = item["status"];
-      isQRCodeScanned = item["isQRCodeScanned"] ?? false; // Restore QR scan status
+      isQRCodeScanned =
+          item["isQRCodeScanned"] ?? false; // Restore QR scan status
 
       acdbSerialController.text = item["serialNumber"] ?? "";
       isLoadingImage = false; // Reset loading state
@@ -490,16 +521,18 @@ class _ACDBScreenState extends State<ACDBScreen> {
         print('=== ACDB Edit: Image already loaded, using cached data ===');
       }
     }
-
   }
-
 
   /// Setup get image listener
   void _setupGetImageListener() {
-    _getImageSubscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) async {
+    _getImageSubscription = context.read<AssetAuditGetImageCubit>().stream.listen((
+      state,
+    ) async {
       if (state is AssetAuditGetImageSuccess) {
-        print('Image loaded for ACDB photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}');
-        
+        print(
+          'Image loaded for ACDB photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}',
+        );
+
         if (state.imageData.isNotEmpty) {
           setState(() {
             fetchedImageData = state.imageData;
@@ -509,11 +542,15 @@ class _ACDBScreenState extends State<ACDBScreen> {
           _fetchingImage = false;
           _fetchNextImage();
         } else {
-          print('Empty image data received for ACDB photoId: $_lastRequestedPhotoId');
+          print(
+            'Empty image data received for ACDB photoId: $_lastRequestedPhotoId',
+          );
           await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'acdb');
         }
       } else if (state is AssetAuditGetImageFailure) {
-        print('Failed to load ACDB image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}');
+        print(
+          'Failed to load ACDB image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}',
+        );
         await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'acdb');
       } else if (state is AssetAuditGetImageLoading) {
         setState(() {
@@ -538,8 +575,14 @@ class _ACDBScreenState extends State<ACDBScreen> {
       print('File size: ${await file.length()} bytes');
 
       final assetAuditState = context.read<AssetAuditCubit>().state;
-      if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
-        final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
+      if (assetAuditState is AssetAuditLoaded &&
+          assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+        final schId = assetAuditState
+            .assetAuditData
+            .pageHeader
+            .first
+            .siteAuditSchId
+            .toString();
         print('Site Audit Sch ID: $schId');
 
         final imgIdToUse = "0";
@@ -548,24 +591,26 @@ class _ACDBScreenState extends State<ACDBScreen> {
         final completer = Completer<String?>();
 
         late StreamSubscription subscription;
-        subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
-          print('=== AssetAuditPhotoUploadCubit State Changed ===');
-          print('State type: ${state.runtimeType}');
+        subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen(
+          (state) {
+            print('=== AssetAuditPhotoUploadCubit State Changed ===');
+            print('State type: ${state.runtimeType}');
 
-          if (state is AssetAuditPhotoUploadSuccess) {
-            print('✅ ACDB Photo upload SUCCESS!');
-            print('Response imgId: ${state.response.imgId}');
-            subscription.cancel();
-            completer.complete(state.response.imgId);
-          } else if (state is AssetAuditPhotoUploadFailure) {
-            print('❌ ACDB Photo upload FAILED!');
-            print('Error message: ${state.errorMessage}');
-            subscription.cancel();
-            completer.completeError(state.errorMessage);
-          } else {
-            print('📤 ACDB Photo upload in progress...');
-          }
-        });
+            if (state is AssetAuditPhotoUploadSuccess) {
+              print('✅ ACDB Photo upload SUCCESS!');
+              print('Response imgId: ${state.response.imgId}');
+              subscription.cancel();
+              completer.complete(state.response.imgId);
+            } else if (state is AssetAuditPhotoUploadFailure) {
+              print('❌ ACDB Photo upload FAILED!');
+              print('Error message: ${state.errorMessage}');
+              subscription.cancel();
+              completer.completeError(state.errorMessage);
+            } else {
+              print('📤 ACDB Photo upload in progress...');
+            }
+          },
+        );
 
         print('Starting ACDB photo upload...');
         context.read<AssetAuditPhotoUploadCubit>().uploadPhoto(
@@ -669,15 +714,20 @@ class _ACDBScreenState extends State<ACDBScreen> {
   //   }
   // }
 
-
   // Helper method to get the next available screen based on data availability
   String? _getNextAvailableScreen() {
-    return AssetAuditNavigationHelper.getNextAvailableScreen(widget.assetAuditData, 'ACDB');
+    return AssetAuditNavigationHelper.getNextAvailableScreen(
+      widget.assetAuditData,
+      'ACDB',
+    );
   }
 
   // Helper method to get the previous available screen based on data availability
   String? _getPreviousAvailableScreen() {
-    return AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'ACDB');
+    return AssetAuditNavigationHelper.getPreviousAvailableScreen(
+      widget.assetAuditData,
+      'ACDB',
+    );
   }
 
   // Helper method to navigate to the next screen based on screen name
@@ -692,7 +742,6 @@ class _ACDBScreenState extends State<ACDBScreen> {
     );
   }
 
-
   void _fetchNextImage() {
     if (_fetchingImage || _imageQueue.isEmpty) return;
 
@@ -702,7 +751,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
     final photoId = image['photoId']!;
     final key = image['key']!;
 
-    print('Loading ACDB image for photoId: $photoId, key: $key, retry count: ${_retryCounts[photoId] ?? 0}');
+    print(
+      'Loading ACDB image for photoId: $photoId, key: $key, retry count: ${_retryCounts[photoId] ?? 0}',
+    );
     _lastRequestedPhotoId = photoId;
     _retryCounts[photoId] = _retryCounts[photoId] ?? 0;
     context.read<AssetAuditGetImageCubit>().getImage(
@@ -718,7 +769,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
     final currentRetryCount = _retryCounts[photoId] ?? 0;
     if (currentRetryCount < maxRetries) {
       _retryCounts[photoId] = currentRetryCount + 1;
-      print('Retrying ACDB image load for photoId: $photoId, key: $key, attempt: ${_retryCounts[photoId]} of $maxRetries');
+      print(
+        'Retrying ACDB image load for photoId: $photoId, key: $key, attempt: ${_retryCounts[photoId]} of $maxRetries',
+      );
       await Future.delayed(retryDelay);
       _imageQueue.insert(0, {'photoId': photoId, 'key': key});
       _fetchNextImage();
@@ -740,11 +793,14 @@ class _ACDBScreenState extends State<ACDBScreen> {
   Future<void> _postAcdbData() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
-      if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+      if (assetAuditState is AssetAuditLoaded &&
+          assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
         List<Map<String, dynamic>> allItemsToPost = [];
 
         if (savedAcdbItems.isNotEmpty) {
-          print('=== ACDB POST: Processing ${savedAcdbItems.length} saved items ===');
+          print(
+            '=== ACDB POST: Processing ${savedAcdbItems.length} saved items ===',
+          );
           for (int i = 0; i < savedAcdbItems.length; i++) {
             print('Item $i: ${savedAcdbItems[i]}');
           }
@@ -753,8 +809,10 @@ class _ACDBScreenState extends State<ACDBScreen> {
           final enhancedItems = savedAcdbItems.map((item) {
             final enhancedItem = {
               ...item,
-              'itemTypeRemark': item['rating'] ?? '', // Add rating to itemTypeRemark field
-              'remarks': item['rating'] ?? '', // Also add to remarks field for compatibility
+              'itemTypeRemark': item['rating'] ?? '',
+              // Add rating to itemTypeRemark field
+              'remarks': item['rating'] ?? '',
+              // Also add to remarks field for compatibility
             };
             print('=== ACDB POST: Enhanced item with rating ===');
             print('Original rating: ${item['rating']}');
@@ -772,8 +830,10 @@ class _ACDBScreenState extends State<ACDBScreen> {
         }
 
         if (remarksController.text.trim().isNotEmpty) {
-          String? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
-          if (remarksAssetAuditSiteRespId != null && remarksAssetAuditSiteRespId.isNotEmpty) {
+          String? remarksAssetAuditSiteRespId =
+              _getRemarksAssetAuditSiteRespId();
+          if (remarksAssetAuditSiteRespId != null &&
+              remarksAssetAuditSiteRespId.isNotEmpty) {
             try {
               Map<String, dynamic> remarksData = {
                 'itemType': 'ACDB',
@@ -791,7 +851,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
                 'localModifiedDt': _formatDateForApi(DateTime.now()),
               };
               allItemsToPost.add(remarksData);
-              print('ACDB Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text.trim()}"');
+              print(
+                'ACDB Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text.trim()}"',
+              );
             } catch (e) {
               print('ACDB Screen: Error parsing remarks ID: $e');
             }
@@ -809,7 +871,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
         print('auditSchId: "${widget.auditSchId}"');
         print('auditSchId type: ${widget.auditSchId.runtimeType}');
         print('allItemsToPost count: ${allItemsToPost.length}');
-        print('First item in allItemsToPost: ${allItemsToPost.isNotEmpty ? allItemsToPost.first : "No items"}');
+        print(
+          'First item in allItemsToPost: ${allItemsToPost.isNotEmpty ? allItemsToPost.first : "No items"}',
+        );
 
         List<AssetAuditPostRequest> requests = [];
         try {
@@ -822,7 +886,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
             context: context,
             auditSchId: widget.auditSchId,
           );
-          print('=== ACDB POST: Helper call successful, got ${requests.length} requests ===');
+          print(
+            '=== ACDB POST: Helper call successful, got ${requests.length} requests ===',
+          );
         } catch (e, stackTrace) {
           print('=== ACDB POST: Helper call failed ===');
           print('Error: $e');
@@ -832,15 +898,21 @@ class _ACDBScreenState extends State<ACDBScreen> {
         }
 
         if (requests.isNotEmpty) {
-          print('=== ACDB POST: Posting ${requests.length} requests to API ===');
-          
+          print(
+            '=== ACDB POST: Posting ${requests.length} requests to API ===',
+          );
+
           // Store the current remarks text before posting
           final currentRemarksText = remarksController.text;
-          print('ACDB Screen: Storing current remarks text: "$currentRemarksText"');
-          
-          await context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
+          print(
+            'ACDB Screen: Storing current remarks text: "$currentRemarksText"',
+          );
+
+          await context.read<AssetAuditCubit>().postAssetAuditData(
+            requests: requests,
+          );
           print('=== ACDB POST: API call completed ===');
-          
+
           // Refresh the data immediately after posting
           print('Refreshing ACDB data after posting...');
           context.read<AssetAuditCubit>().getAssetAuditData(
@@ -848,10 +920,12 @@ class _ACDBScreenState extends State<ACDBScreen> {
             auditSchId: widget.auditSchId,
             siteAuditSchId: widget.siteAuditSchId,
           );
-          
+
           // Restore the remarks text after refresh to ensure it's not overwritten
           if (currentRemarksText.isNotEmpty) {
-            print('ACDB Screen: Restoring remarks text after refresh: "$currentRemarksText"');
+            print(
+              'ACDB Screen: Restoring remarks text after refresh: "$currentRemarksText"',
+            );
             remarksController.text = currentRemarksText;
           }
         } else {
@@ -875,7 +949,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
     final smpsData = widget.assetAuditData?.responseData.categories['SMPS'];
     if (smpsData != null && smpsData.remarks.isNotEmpty) {
       // Filter only ACDB remarks from SMPS category
-      final acdbRemarks = smpsData.remarks.where((remark) => remark.itemType == 'ACDB').toList();
+      final acdbRemarks = smpsData.remarks
+          .where((remark) => remark.itemType == 'ACDB')
+          .toList();
       if (acdbRemarks.isNotEmpty) {
         return acdbRemarks.first.assetAuditSiteRespId.toString();
       }
@@ -893,21 +969,9 @@ class _ACDBScreenState extends State<ACDBScreen> {
             if (state is AssetAuditError) {
               showCustomToast(context, state.message);
             } else if (state is AssetAuditLoaded) {
-              // Refresh UI when new data is loaded
-              print('ACDB screen: New data loaded, refreshing UI');
               _loadExistingData();
-            } else if (state is AssetAuditPostSuccess) {
-              print('ACDB data posted successfully: ${state.responses.length} responses');
-              // Only show toast if this screen initiated the post action
-              if (mounted && state.responses.any((response) => response.itemTypeId == 6)) {
-                showCustomToast(context, 'Data saved successfully!');
-              }
             } else if (state is AssetAuditPostError) {
-              print('Error posting ACDB data: ${state.message}');
-              // Only show toast if this screen initiated the post action
-              if (mounted) {
-                showCustomToast(context, 'Error saving data: ${state.message}');
-              }
+              showCustomToast(context, 'Error saving data: ${state.message}');
             }
           },
         ),
@@ -918,7 +982,6 @@ class _ACDBScreenState extends State<ACDBScreen> {
                 uploadedImgId = state.response.imgId;
                 _hasFormDataChanges = true;
               });
-              showCustomToast(context, 'Photo uploaded successfully!');
             } else if (state is AssetAuditPhotoUploadFailure) {
               showCustomToast(context, state.errorMessage);
             }
@@ -927,8 +990,10 @@ class _ACDBScreenState extends State<ACDBScreen> {
         BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
           listener: (context, state) async {
             if (state is AssetAuditGetImageSuccess) {
-              print('Image loaded for ACDB photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}');
-              
+              print(
+                'Image loaded for ACDB photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}',
+              );
+
               // Handle edit case
               if (_isRequestingImage && _currentRequestedImageId != null) {
                 final finalImageData = state.imageData.startsWith('data:image/')
@@ -941,7 +1006,7 @@ class _ACDBScreenState extends State<ACDBScreen> {
                 });
                 return;
               }
-              
+
               if (state.imageData.isNotEmpty) {
                 setState(() {
                   fetchedImageData = state.imageData;
@@ -951,314 +1016,392 @@ class _ACDBScreenState extends State<ACDBScreen> {
                 _fetchingImage = false;
                 _fetchNextImage();
               } else {
-                await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'acdb');
+                await _handleImageLoadRetry(
+                  _lastRequestedPhotoId ?? '',
+                  'acdb',
+                );
               }
             } else if (state is AssetAuditGetImageFailure) {
-              print('Failed to load ACDB image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}');
-              
+              print(
+                'Failed to load ACDB image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}',
+              );
+
               // Handle edit case failure
               if (_isRequestingImage && _currentRequestedImageId != null) {
                 setState(() {
                   _isRequestingImage = false;
                   _currentRequestedImageId = null;
                 });
-                showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
                 return;
               }
-              
+
               await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'acdb');
             }
           },
         ),
       ],
       child: BlocBuilder<AssetAuditCubit, AssetAuditState>(
-      builder: (context, state) {
-    return PopScope(
-      canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
+        builder: (context, state) {
+          return PopScope(
+            canPop: !hasUnsavedChanges,
+            onPopInvoked: (didPop) async {
+              if (didPop) return;
 
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => UnsavedChangesDialog(
-              message:
-              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () async {
-                Navigator.of(context).pop(); // Close the dialog first
-                _saveAndExit();
-              },
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        resizeToAvoidBottomInset: false,
-        appBar: CustomFormAppbar(
-          title: "Asset Audit",
-          onClose: () async {
-            if (hasUnsavedChanges) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message:
-                  "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () async {
-                    Navigator.of(context).pop(); // Close the dialog first
-                    _saveAndExit();
-                  },
-                  onDiscard: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              );
-            } else {
-              Navigator.pop(context);
-            }
-          },
-        ),
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: SvgPicture.asset(
-                AppImages.home,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-              ),
-            ),
-            SafeArea(
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: EdgeInsets.only(
-                          bottom:
-                          MediaQuery.of(context).viewInsets.bottom + 120,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.only(
-                            top: 20,
-                            left: 16,
-                            right: 16,
-                            bottom: 20,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                                      CustomFormField(
-                                        label: "ACDB Type",
-                                        hintText: "Text",
-                                        isRequired: false,
-                                        isEditable: false,
-                                        initialValue: acdbCategoryData?.assets.isNotEmpty == true 
-                                            ? acdbCategoryData?.assets.first.itemType 
-                                            : 'N/A',
-                                      ),
-                                      getHeight(15),
-                                      CustomFormField(
-                                        label: "ACDB Make",
-                                        hintText: "Text",
-                                        isRequired: true,
-                                        isEditable: false,
-                                        initialValue: acdbCategoryData?.assets.isNotEmpty == true 
-                                            ? acdbCategoryData?.assets.first.oemName 
-                                            : 'N/A',
-                                      ),
-                                      getHeight(15),
-
-                                      CustomFormField(
-                                        label: "Count of ACDB",
-                                        initialValue: totalAcdbItems.toString(),
-                                        isRequired: false,
-                                        isEditable: false,
-                                      ),
-                              getHeight(15),
-                              Text(
-                                "ACDB Details",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                  color: Colors.white,
-                                  fontFamily: fontFamilyMontserrat,
-                                ),
-                              ),
-                              getHeight(3),
-                                      CustomInfoCard(
-                                        key: ValueKey('acdb_$acdbCardKey'),
-                                        serialLabel: acdbCategoryData?.assets.isNotEmpty == true
-                                            ? "ACDB (${acdbCategoryData?.assets.first.oemName ?? 'N/A'}) - Serial Number"
-                                            : "ACDB - Serial Number",
-                                        serialHintText: "ACDB Serial Number *",
-                                        photoLabel: "Add a Photo",
-                                        statusLabel: "Status",
-                                        serialController: acdbSerialController,
-                                        onSave: _saveAcdbForm,
-                                        isStatusEditable: true,
-                                        backendStatus: false,
-                                        isRemarksEditable: true,
-                                        showSaveButton: true,
-                                        remarksLabel: "Rating",
-                                        remarksController: ratingController,
-                                        remarksHintText: "Rating",
-                                        onRemarksChanged: (rating) {
-                                          setState(() {
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        onPhotoTap: (photoPath) {
-                                          setState(() {
-                                            acdbPhoto = photoPath;
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        onStatusChanged: (val) {
-                                          setState(() {
-                                            acdbStatus = val ? "OK" : "Not OK";
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        onSerialChanged: (serialNumber) {
-                                          setState(() {
-                                            acdbSerialNumber = serialNumber;
-                                            isQRCodeScanned = false; // Manual entry
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        initialStatus: acdbStatus == "OK"
-                                            ? true
-                                            : (acdbStatus == "Not OK" ? false : null),
-                                        initialPhotoPath: displayedImageBase64 != null ? displayedImageBase64 : acdbPhoto,
-                                        isEditable: true,
-                                      ),
-                              getHeight(8),
-                                      _buildAcdbSavedItemsList(),
-                              getHeight(15),
-                              CustomRemarksField(
-                                label: "Add Remarks",
-                                hintText: "Remarks",
-                                controller: remarksController,
-                                ),
-                            ],
-                          ),
-                        ),
+              if (hasUnsavedChanges) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => UnsavedChangesDialog(
+                    message:
+                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                    onSaveAndExit: () async {
+                      Navigator.of(context).pop(); // Close the dialog first
+                      _saveAndExit();
+                    },
+                    onDiscard: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                );
+              }
+            },
+            child: Scaffold(
+              extendBodyBehindAppBar: true,
+              resizeToAvoidBottomInset: false,
+              appBar: CustomFormAppbar(
+                title: "Asset Audit",
+                onClose: () async {
+                  if (hasUnsavedChanges) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) => UnsavedChangesDialog(
+                        message:
+                            "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                        onSaveAndExit: () async {
+                          Navigator.of(context).pop(); // Close the dialog first
+                          _saveAndExit();
+                        },
+                        onDiscard: () {
+                          Navigator.of(context).pop();
+                        },
                       ),
-                    ),
-
-                    Container(
-                      padding: const EdgeInsets.all(16),
+                    );
+                  } else {
+                    Navigator.pop(context);
+                  }
+                },
+              ),
+              body: Stack(
+                children: [
+                  Positioned.fill(
+                    child: SvgPicture.asset(
+                      AppImages.home,
+                      fit: BoxFit.cover,
                       width: double.infinity,
-                      child: Row(
+                      height: double.infinity,
+                    ),
+                  ),
+                  SafeArea(
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
                         children: [
                           Expanded(
-                                    child: ArrowButton(
-                                      text: AssetAuditNavigationHelper.getSolarPreviousScreenName('ACDB'),
-                                      isLeftArrow: true,
-                                      backgroundColor: AppColors.buttonColorBackBg,
-                                      textColor: AppColors.buttonColorTextBg,
-                                      onPressed: () {
-                                        final previousScreen = AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'ACDB');
-                                        if (previousScreen != null) {
-                                          _navigateToNextScreen(context, previousScreen);
-                                        } else {
-                                          Navigator.pop(context);
-                                        }
-                                      },
+                            child: SingleChildScrollView(
+                              padding: EdgeInsets.only(
+                                bottom:
+                                    MediaQuery.of(context).viewInsets.bottom +
+                                    120,
+                              ),
+                              child: Container(
+                                padding: const EdgeInsets.only(
+                                  top: 20,
+                                  left: 16,
+                                  right: 16,
+                                  bottom: 20,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CustomFormField(
+                                      label: "ACDB Type",
+                                      hintText: "Text",
+                                      isRequired: false,
+                                      isEditable: false,
+                                      initialValue:
+                                          acdbCategoryData?.assets.isNotEmpty ==
+                                              true
+                                          ? acdbCategoryData
+                                                ?.assets
+                                                .first
+                                                .itemType
+                                          : 'N/A',
                                     ),
-                          ),
-                          getWidth(14),
-                          Expanded(
-                                    child: Builder(
-                                      builder: (context) {
-                                        final nextScreen = _getNextAvailableScreen();
-                                        if (nextScreen == null) {
-                                          return ArrowButton(
-                                            text: "Submit",
-                              isLeftArrow: false,
-                              backgroundColor: AppColors.buttonColorBg,
-                              textColor: AppColors.buttonColorSite,
-                                            onPressed: () async {
-                                              print('=== ACDB Submit Button Pressed ===');
-                                              print('Serial text: "${acdbSerialController.text}"');
-                                              print('Photo: $acdbPhoto');
-                                              print('Rating text: "${ratingController.text}"');
-                                              print('Saved items count: ${savedAcdbItems.length}');
-                                              print('Validation result: ${_validateForm()}');
+                                    getHeight(15),
+                                    CustomFormField(
+                                      label: "ACDB Make",
+                                      hintText: "Text",
+                                      isRequired: true,
+                                      isEditable: false,
+                                      initialValue:
+                                          acdbCategoryData?.assets.isNotEmpty ==
+                                              true
+                                          ? acdbCategoryData
+                                                ?.assets
+                                                .first
+                                                .oemName
+                                          : 'N/A',
+                                    ),
+                                    getHeight(15),
 
-                                              // Allow submit if there are saved items OR if current form is valid
-                                              if (savedAcdbItems.isNotEmpty || _validateForm()) {
-                                                await _postAcdbData();
-                                                Navigator.pop(context);
-                                              } else {
-                                                print('=== ACDB Submit Validation Failed ===');
-                                                _setValidationErrors();
-                                                // Show error message to user
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text('Please fill in all required fields (Serial Number, Photo, and Rating)'),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                          );
-                                        } else {
-                                          return ArrowButton(
-                                            text: nextScreen,
-                                            isLeftArrow: false,
-                                            backgroundColor: AppColors.buttonColorBg,
-                                            textColor: AppColors.buttonColorSite,
-                                            onPressed: () async {
-                                              print('=== ACDB Button Pressed ===');
-                                              print('Serial text: "${acdbSerialController.text}"');
-                                              print('Photo: $acdbPhoto');
-                                              print('Rating text: "${ratingController.text}"');
-                                              print('Saved items count: ${savedAcdbItems.length}');
-                                              print('Validation result: ${_validateForm()}');
-
-                                              // Allow navigation if there are saved items OR if current form is valid
-                                              if (savedAcdbItems.isNotEmpty || _validateForm()) {
-                                                print('=== ACDB Navigation to $nextScreen ===');
-                                                print('Passing asset audit data: ${widget.assetAuditData != null}');
-                                                await _postAcdbData();
-                                                _navigateToNextScreen(context, nextScreen);
-                                              } else {
-                                                print('=== ACDB Validation Failed ===');
-                                                _setValidationErrors();
-                                                // Show error message to user
-                                                ScaffoldMessenger.of(context).showSnackBar(
-                                                  SnackBar(
-                                                    content: Text('Please fill in all required fields (Serial Number, Photo, and Rating)'),
-                                                    backgroundColor: Colors.red,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                          );
-                                        }
+                                    CustomFormField(
+                                      label: "Count of ACDB",
+                                      initialValue: totalAcdbItems.toString(),
+                                      isRequired: false,
+                                      isEditable: false,
+                                    ),
+                                    getHeight(15),
+                                    Text(
+                                      "ACDB Details",
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.white,
+                                        fontFamily: fontFamilyMontserrat,
+                                      ),
+                                    ),
+                                    getHeight(3),
+                                    CustomInfoCard(
+                                      key: ValueKey('acdb_$acdbCardKey'),
+                                      serialLabel:
+                                          acdbCategoryData?.assets.isNotEmpty ==
+                                              true
+                                          ? "ACDB (${acdbCategoryData?.assets.first.oemName ?? 'N/A'}) - Serial Number"
+                                          : "ACDB - Serial Number",
+                                      serialHintText: "ACDB Serial Number *",
+                                      photoLabel: "Add a Photo",
+                                      statusLabel: "Status",
+                                      serialController: acdbSerialController,
+                                      onSave: _saveAcdbForm,
+                                      isStatusEditable: true,
+                                      backendStatus: false,
+                                      isRemarksEditable: true,
+                                      showSaveButton: true,
+                                      remarksLabel: "Rating",
+                                      remarksController: ratingController,
+                                      remarksHintText: "Rating",
+                                      onRemarksChanged: (rating) {
+                                        setState(() {
+                                          hasUnsavedChanges = true;
+                                        });
                                       },
+                                      onPhotoTap: (photoPath) {
+                                        setState(() {
+                                          acdbPhoto = photoPath;
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
+                                      onStatusChanged: (val) {
+                                        setState(() {
+                                          acdbStatus = val ? "OK" : "Not OK";
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
+                                      onSerialChanged: (serialNumber) {
+                                        setState(() {
+                                          acdbSerialNumber = serialNumber;
+                                          isQRCodeScanned =
+                                              false; // Manual entry
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
+                                      initialStatus: acdbStatus == "OK"
+                                          ? true
+                                          : (acdbStatus == "Not OK"
+                                                ? false
+                                                : null),
+                                      initialPhotoPath:
+                                          displayedImageBase64 != null
+                                          ? displayedImageBase64
+                                          : acdbPhoto,
+                                      isEditable: true,
+                                    ),
+                                    getHeight(8),
+                                    _buildAcdbSavedItemsList(),
+                                    getHeight(15),
+                                    CustomRemarksField(
+                                      label: "Add Remarks",
+                                      hintText: "Remarks",
+                                      controller: remarksController,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            width: double.infinity,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: ArrowButton(
+                                    text:
+                                        AssetAuditNavigationHelper.getSolarPreviousScreenName(
+                                          'ACDB',
+                                        ),
+                                    isLeftArrow: true,
+                                    backgroundColor:
+                                        AppColors.buttonColorBackBg,
+                                    textColor: AppColors.buttonColorTextBg,
+                                    onPressed: () {
+                                      final previousScreen =
+                                          AssetAuditNavigationHelper.getPreviousAvailableScreen(
+                                            widget.assetAuditData,
+                                            'ACDB',
+                                          );
+                                      if (previousScreen != null) {
+                                        _navigateToNextScreen(
+                                          context,
+                                          previousScreen,
+                                        );
+                                      } else {
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                getWidth(14),
+                                Expanded(
+                                  child: Builder(
+                                    builder: (context) {
+                                      final nextScreen =
+                                          _getNextAvailableScreen();
+                                      if (nextScreen == null) {
+                                        return ArrowButton(
+                                          text: "Submit",
+                                          isLeftArrow: false,
+                                          backgroundColor:
+                                              AppColors.buttonColorBg,
+                                          textColor: AppColors.buttonColorSite,
+                                          onPressed: () async {
+                                            print(
+                                              '=== ACDB Submit Button Pressed ===',
+                                            );
+                                            print(
+                                              'Serial text: "${acdbSerialController.text}"',
+                                            );
+                                            print('Photo: $acdbPhoto');
+                                            print(
+                                              'Rating text: "${ratingController.text}"',
+                                            );
+                                            print(
+                                              'Saved items count: ${savedAcdbItems.length}',
+                                            );
+                                            print(
+                                              'Validation result: ${_validateForm()}',
+                                            );
+
+                                            // Allow submit if there are saved items OR if current form is valid
+                                            if (savedAcdbItems.isNotEmpty ||
+                                                _validateForm()) {
+                                              await _postAcdbData();
+                                              Navigator.pop(context);
+                                            } else {
+                                              print(
+                                                '=== ACDB Submit Validation Failed ===',
+                                              );
+                                              _setValidationErrors();
+                                              // Show error message to user
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Please fill in all required fields (Serial Number, Photo, and Rating)',
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      } else {
+                                        return ArrowButton(
+                                          text: nextScreen,
+                                          isLeftArrow: false,
+                                          backgroundColor:
+                                              AppColors.buttonColorBg,
+                                          textColor: AppColors.buttonColorSite,
+                                          onPressed: () async {
+                                            print(
+                                              '=== ACDB Button Pressed ===',
+                                            );
+                                            print(
+                                              'Serial text: "${acdbSerialController.text}"',
+                                            );
+                                            print('Photo: $acdbPhoto');
+                                            print(
+                                              'Rating text: "${ratingController.text}"',
+                                            );
+                                            print(
+                                              'Saved items count: ${savedAcdbItems.length}',
+                                            );
+                                            print(
+                                              'Validation result: ${_validateForm()}',
+                                            );
+
+                                            // Allow navigation if there are saved items OR if current form is valid
+                                            if (savedAcdbItems.isNotEmpty ||
+                                                _validateForm()) {
+                                              print(
+                                                '=== ACDB Navigation to $nextScreen ===',
+                                              );
+                                              print(
+                                                'Passing asset audit data: ${widget.assetAuditData != null}',
+                                              );
+                                              await _postAcdbData();
+                                              _navigateToNextScreen(
+                                                context,
+                                                nextScreen,
+                                              );
+                                            } else {
+                                              print(
+                                                '=== ACDB Validation Failed ===',
+                                              );
+                                              _setValidationErrors();
+                                              // Show error message to user
+                                              ScaffoldMessenger.of(
+                                                context,
+                                              ).showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                    'Please fill in all required fields (Serial Number, Photo, and Rating)',
+                                                  ),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    );  }
-
+          );
+        },
       ),
     );
   }
@@ -1422,11 +1565,11 @@ class _ACDBScreenState extends State<ACDBScreen> {
                         ),
                         Expanded(
                           child: Icon(
-                            item['isQRCodeScanned'] == true 
-                                ? Icons.qr_code_scanner 
+                            item['isQRCodeScanned'] == true
+                                ? Icons.qr_code_scanner
                                 : Icons.close,
-                            color: item['isQRCodeScanned'] == true 
-                                ? Colors.blue 
+                            color: item['isQRCodeScanned'] == true
+                                ? Colors.blue
                                 : Colors.red,
                           ),
                         ),

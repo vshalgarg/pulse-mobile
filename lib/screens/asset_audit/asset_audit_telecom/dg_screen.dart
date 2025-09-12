@@ -911,7 +911,7 @@ class _DgScreenState extends State<DgScreen> {
       );
 
       if (isValid) {
-        showCustomToast(context, '✅ Manual entry validated successfully!');
+        print("Manual entry validated successfully!");
       } else {
         showCustomToast(
           context,
@@ -1075,10 +1075,6 @@ class _DgScreenState extends State<DgScreen> {
       hasUnsavedChanges = true;
     });
 
-    showCustomToast(
-      context,
-      'CCTV item loaded for editing. Make changes and save again.',
-    );
   }
 
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
@@ -1118,10 +1114,6 @@ class _DgScreenState extends State<DgScreen> {
       hasUnsavedChanges = true;
     });
 
-    showCustomToast(
-      context,
-      'CCTV item loaded for editing. Make changes and save again.',
-    );
   }
 
   @override

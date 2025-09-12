@@ -280,8 +280,6 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         imgId: imgIdToUse,
         schId: schId,
       );
-    } else {
-      showCustomToast(context, 'Please wait for site data to load before uploading selfie');
     }
   }
 
@@ -366,10 +364,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                 }
 
                 final isUpdate = uploadedImgId != null && uploadedImgId!.isNotEmpty && uploadedImgId != "0";
-                showCustomToast(context, isUpdate ? 'Selfie updated successfully!' : 'Selfie uploaded successfully!');
               }
-            } else if (state is SelfieUploadFailure) {
-              showCustomToast(context, '${state.errorMessage}');
             }
           },
         ),
@@ -404,7 +399,6 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
               _lastRequestedPhotoId = null;
             } else if (state is AssetAuditGetImageFailure) {
               print('Image load failed for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}');
-              showCustomToast(context, 'Failed to fetch image: ${state.errorMessage}');
               if (_lastRequestedPhotoId != null) {
                 await _handleImageLoadRetry(_lastRequestedPhotoId!, 'selfie');
               }
@@ -649,13 +643,6 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                         ),
                                       );
                                     }
-                                  } else {
-                                    showCustomToast(
-                                      context,
-                                      uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty
-                                          ? 'Please upload a selfie photo to continue'
-                                          : 'Please fill in all required fields',
-                                    );
                                   }
                                 },
                               ),

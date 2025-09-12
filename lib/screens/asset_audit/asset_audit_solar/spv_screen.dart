@@ -411,7 +411,6 @@ class _SPVScreenState extends State<SPVScreen> {
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
           print('Failed to fetch image: ${state.errorMessage}');
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
           completer.complete(null);
           subscription.cancel();
         }
@@ -464,8 +463,6 @@ class _SPVScreenState extends State<SPVScreen> {
           ),
         ),
       );
-    } else {
-      showCustomToast(context, 'Unable to load photo.');
     }
   }
 
@@ -567,6 +564,11 @@ class _SPVScreenState extends State<SPVScreen> {
     return null;
   }
 
+  // Post data in background without waiting for refresh
+  void _postSPVDataInBackground() {
+    _postSPVData();
+  }
+
   Future<void> _postSPVData() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
@@ -625,27 +627,12 @@ class _SPVScreenState extends State<SPVScreen> {
         );
 
         if (requests.isNotEmpty) {
-          print('Posting remaining SPV data: ${requests.length} requests');
-          
-          // Store the current remarks text before posting
+
           final currentRemarksText = remarksController.text;
           print('SPV Screen: Storing current remarks text: "$currentRemarksText"');
-          
+
           context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
-          
-          // Refresh the data immediately after posting
-          print('Refreshing SPV data after posting...');
-          context.read<AssetAuditCubit>().getAssetAuditData(
-            siteType: widget.siteType,
-            auditSchId: widget.auditSchId,
-            siteAuditSchId: widget.siteAuditSchId,
-          );
-          
-          // Restore the remarks text after refresh to ensure it's not overwritten
-          if (currentRemarksText.isNotEmpty) {
-            print('SPV Screen: Restoring remarks text after refresh: "$currentRemarksText"');
-            remarksController.text = currentRemarksText;
-          }
+
         }
       } else {
         print('No SPV items to post - user can navigate without saving items');
@@ -692,12 +679,6 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   void _saveSpvForm() async {
-    print('=== SPV Save Form Started ===');
-    print('Form valid: ${_isFormValid()}');
-    print('SPV Photo: $spvPhoto');
-    print('SPV Serial: $spvSerialNumber');
-    print('SPV Status: $spvStatus');
-
     if (_isFormValid()) {
       String? photoImageId = spvPhoto;
 
@@ -713,7 +694,6 @@ class _SPVScreenState extends State<SPVScreen> {
           }
         } catch (e) {
           print('❌ Error uploading SPV photo: $e');
-          showCustomToast(context, 'Error uploading photo: $e');
           return;
         }
       } else {
@@ -1185,7 +1165,7 @@ class _SPVScreenState extends State<SPVScreen> {
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
                                         await _postSPVData();
-                                        Navigator.pop(context);
+
                                       },
                                     );
                                   } else {
@@ -1195,7 +1175,7 @@ class _SPVScreenState extends State<SPVScreen> {
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
-                                      await _postSPVData();
+                                        _postSPVDataInBackground();
                                         _navigateToNextScreen(context, nextScreen);
                                       },
                                     );
@@ -1218,12 +1198,9 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   Widget _buildSpvSavedItemsList() {
-    print('=== _buildSpvSavedItemsList called ===');
-    print('Building SPV saved items list with ${savedSpvItems.length} items');
-    savedSpvItems.forEach((item) => print('Item: $item'));
+      savedSpvItems.forEach((item) => print('Item: $item'));
     
     if (savedSpvItems.isEmpty) {
-      print('SPV savedSpvItems is EMPTY - returning empty container');
       return Container(); // Return empty container if no items
     }
 

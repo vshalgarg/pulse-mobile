@@ -605,7 +605,6 @@ class _PCUScreenState extends State<PCUScreen> {
           completer.complete(finalImageData);
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
           completer.complete(null);
           subscription.cancel();
         }
@@ -650,8 +649,6 @@ class _PCUScreenState extends State<PCUScreen> {
           ),
         ),
       );
-    } else {
-      showCustomToast(context, 'Unable to load photo.');
     }
   }
 
