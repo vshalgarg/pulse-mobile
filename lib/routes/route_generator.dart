@@ -5,7 +5,6 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
 import 'package:app/screens/asset_audit_screen.dart';
-import 'package:app/screens/corrective_maintenance_screen.dart';
 import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
@@ -47,8 +46,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return _push(const EnterVerificationCodeScreen());
     case assetAuditScreen:
       return _push(const AssetAuditScreen());
-    case correctiveMaintenanceScreen:
-      return _push(const CorrectiveMaintenanceScreen());
+    // case correctiveMaintenanceScreen:
+    //   return _push(const CorrectiveMaintenanceScreen());
     case pmScreen1:
       final args = settings.arguments as Map<String, dynamic>?;
       return _push(PmScreen1(

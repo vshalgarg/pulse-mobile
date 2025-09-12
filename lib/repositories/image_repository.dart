@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../services/api_provider.dart';
+import '../utils/connectivity_helper.dart';
 
 
 class ImageRepository {
@@ -15,6 +16,12 @@ class ImageRepository {
     if (imageIds.isEmpty) return {};
 
     try {
+      // Check connectivity before making API call
+      final isOnline = await ConnectivityHelper.isConnected();
+      if (!isOnline) {
+        debugPrint('No internet connection - cannot fetch images');
+        return {};
+      }
 
       final imageIdsParam = imageIds.join(',');
       final result = await _apiService.get(
@@ -80,6 +87,12 @@ class ImageRepository {
     String? schId, // Keep for compatibility but not used
   }) async {
     try {
+      // Check connectivity before making API call
+      final isOnline = await ConnectivityHelper.isConnected();
+      if (!isOnline) {
+        return ResponseResult.error(errorMessage: 'No internet connection - cannot fetch image');
+      }
+      
       final result = await _apiService.get(
         path: '/api/v1/mobile/allImageList',
         queryParameters: {

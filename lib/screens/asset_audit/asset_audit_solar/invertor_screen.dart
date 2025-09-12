@@ -1,15 +1,5 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/mms_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/dcba_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/pcu_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/vcb_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/acdb_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/wms_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/scada_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/fire_extinguisher_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -22,13 +12,8 @@ import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/selfie_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
-import '../../../commonWidgets/asset_type_card.dart';
-import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import '../../../commonWidgets/custom_dialogs/custom_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
-import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_remark.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -37,7 +22,6 @@ import '../../../utils/asset_audit_form_persistence_helper.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../home_screen.dart';
-import '../../../models/asset_audit_post_model.dart';
 
 class InvertorScreen extends StatefulWidget {
   final String siteType;

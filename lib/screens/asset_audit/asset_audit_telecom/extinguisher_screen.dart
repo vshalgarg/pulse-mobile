@@ -54,7 +54,10 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
   String? selectedBatteryStatus;
   String? selectedType;
   bool hasUnsavedChanges = false;
-  bool showValidationErrors = false; // Control when to show validation errors
+  bool showValidationErrors = false;
+  bool isEditingItem = false; // Track if we're currently editing an item
+  Map<String, dynamic> _pendingImageItems = {}; // Track items waiting for image loading
+  String? _currentLoadingPhotoId; // Track which photoId is currently being loaded
   int totalRectifierItems = 6; // Total rectifier items to scan
   int totalMPPTItems = 6; // Total MPPT items to scan
   int currentScannedItems = 0; // Number of items already scanned
@@ -146,11 +149,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           _refreshCapacityFields();
         }
 
-        if (widget.showSuccessMessage) {
-          showCustomToast(context, '✅ Battery data saved successfully!');
-        }
-
-        // Debug: Print the structure of extinguisherData
         _debugExtinguisherData();
       }
     });
@@ -285,6 +283,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           savedFireExtinguisherItems.add(savedItem);
           currentScannedItems++;
           print('Extinguisher Screen: Added Fire Extinguisher item: ${savedItem['serialNumber']}');
+          
+          // Load image if photoId exists
+          if (item.photoId != null) {
+            print('Extinguisher Screen: Loading image for Fire Extinguisher item: ${item.photoId}');
+            _loadImageForItem(item.photoId.toString(), 'fire_extinguisher', savedItem);
+          }
         }
       }
 
@@ -329,6 +333,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           savedFloodLightItems.add(savedItem);
           currentScannedItems++;
           print('Extinguisher Screen: Added Flood Light item: ${savedItem['serialNumber']}');
+          
+          // Load image if photoId exists
+          if (item.photoId != null) {
+            print('Extinguisher Screen: Loading image for Flood Light item: ${item.photoId}');
+            _loadImageForItem(item.photoId.toString(), 'flood_light', savedItem);
+          }
         }
       }
 
@@ -373,6 +383,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           savedMPPTItems.add(savedItem); // Using MPPT list for Sand Bucket items
           currentScannedItems++;
           print('Extinguisher Screen: Added Sand Bucket item: ${savedItem['serialNumber']}');
+          
+          // Load image if photoId exists
+          if (item.photoId != null) {
+            print('Extinguisher Screen: Loading image for Sand Bucket item: ${item.photoId}');
+            _loadImageForItem(item.photoId.toString(), 'sand_bucket', savedItem);
+          }
         }
       }
 
@@ -504,13 +520,11 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     }
     // Case 3: Photo is a photo ID (numeric) from the API
     else if (_isNumeric(imagePath)) {
-      print('Fetching image for photo ID: $imagePath');
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
       subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-          print('Image fetched successfully for photo ID: $imagePath');
           final finalImageData = state.imageData.startsWith('data:image/')
               ? state.imageData
               : 'data:image/jpeg;base64,${state.imageData}';
@@ -582,19 +596,9 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
 
   /// Debug method to print the complete structure of extinguisherData
   void _debugExtinguisherData() {
-    print('=== Extinguisher Screen: Debug Data Structure ===');
     if (widget.extinguisherData != null) {
-      print('extinguisherData is not null');
-      print('extinguisherData type: ${widget.extinguisherData.runtimeType}');
-
-      // Access CategoryData properties correctly
-      print('assets: ${widget.extinguisherData!.assets}');
-      print('assets length: ${widget.extinguisherData!.assets.length}');
-      print('remarks: ${widget.extinguisherData!.remarks}');
-      print('remarks length: ${widget.extinguisherData!.remarks.length}');
 
       if (widget.extinguisherData!.subCategories != null) {
-        print('subCategories: ${widget.extinguisherData!.subCategories}');
         widget.extinguisherData!.subCategories!.forEach((key, items) {
           print('Subcategory $key: ${items.length} items');
         });
@@ -602,17 +606,10 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
         print('No subcategories found');
       }
 
-      // Try to access specific subcategories using helper methods
-      try {
-        print('floodLight: ${widget.extinguisherData!.floodLight?.length ?? 0} items');
-        print('sandBucket: ${widget.extinguisherData!.sandBucket?.length ?? 0} items');
-      } catch (e) {
-        print('Error accessing helper methods: $e');
-      }
+
     } else {
       print('extinguisherData is null');
     }
-    print('================================================');
   }
 
   @override
@@ -684,15 +681,71 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     }
   }
 
-  // Validate required fields for saved items only
-  bool _isFormValid() {
-    print('=== Form Validation Debug ===');
+  /// Validate if serial number exists in backend data
+  bool _isValidSerialNumber(String serialNumber, String itemType) {
+    if (widget.assetAuditData == null) {
+      return false;
+    }
 
-    // Only check serial number and photo for saved items
-    // Type, battery status, and file are not required for individual item saving
+    final extinguisherData = widget.assetAuditData!.responseData.fireExtinguisher;
+    if (extinguisherData == null) {
+      return false;
+    }
 
-    // Check if serial number is entered in the CustomInfoCard
-    // Check all controllers to see which one has data
+    // Check in Fire Extinguisher items
+    if (itemType == 'Fire Extinguisher') {
+      final fireExtinguisherItems = extinguisherData.assets ?? [];
+      for (var item in fireExtinguisherItems) {
+        if (item.mfgSerialNo == serialNumber || item.nexgenSerialNo == serialNumber) {
+          return true;
+        }
+      }
+    }
+    
+    // Check in Sand Bucket items
+    if (itemType == 'Sand Bucket') {
+      final sandBucketItems = extinguisherData.subCategories?['Sand Bucket'] ?? [];
+      for (var item in sandBucketItems) {
+        if (item.mfgSerialNo == serialNumber || item.nexgenSerialNo == serialNumber) {
+          return true;
+        }
+      }
+    }
+
+    // Check in Flood Light items
+    if (itemType == 'Flood Light') {
+      final floodLightItems = extinguisherData.subCategories?['Flood Light'] ?? [];
+      for (var item in floodLightItems) {
+        if (item.mfgSerialNo == serialNumber || item.nexgenSerialNo == serialNumber) {
+          return true;
+        }
+      }
+    }
+
+    // Check in Rectifier items
+    if (itemType == 'Rectifier') {
+      final rectifierItems = extinguisherData.assets ?? [];
+      for (var item in rectifierItems) {
+        if (item.mfgSerialNo == serialNumber || item.nexgenSerialNo == serialNumber) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  /// Check if the current form is valid for saving
+  bool _isFormValidForSaving() {
+    return _isFormValid();
+  }
+
+  /// Get validation error message for current form
+  String? _getValidationErrorMessage() {
+    if (widget.extinguisherData == null) {
+      return null;
+    }
+
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
@@ -703,41 +756,79 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
         ? fireExtinguisherSerialController.text
         : null;
 
-    print('Serial number: "$serialNumber"');
     if (serialNumber == null || serialNumber.isEmpty) {
-      print(' Serial number validation failed');
+      return "Please enter a serial number";
+    }
+
+    // Check serial number validation
+    String itemType = '';
+    if (rectifierSerialController.text.isNotEmpty) {
+      itemType = 'Rectifier';
+    } else if (mpptSerialController.text.isNotEmpty) {
+      itemType = 'Sand Bucket';
+    } else if (floodLightSerialController.text.isNotEmpty) {
+      itemType = 'Flood Light';
+    } else if (fireExtinguisherSerialController.text.isNotEmpty) {
+      itemType = 'Fire Extinguisher';
+    }
+
+    if (itemType.isNotEmpty && !_isValidSerialNumber(serialNumber, itemType)) {
+      return "Invalid serial number. Please enter a valid ${itemType} serial number.";
+    }
+
+    // Check photo validation
+    int? photoId = rectifierPhotoId ?? mpptPhotoId ?? floodLightPhotoId ?? fireExtinguisherPhotoId;
+    if (photoId == null) {
+      return "Please add a photo";
+    }
+
+    return null; // No validation errors
+  }
+
+  // Validate required fields for saved items only
+  bool _isFormValid() {
+
+    String? serialNumber = rectifierSerialController.text.isNotEmpty
+        ? rectifierSerialController.text
+        : mpptSerialController.text.isNotEmpty
+        ? mpptSerialController.text
+        : floodLightSerialController.text.isNotEmpty
+        ? floodLightSerialController.text
+        : fireExtinguisherSerialController.text.isNotEmpty
+        ? fireExtinguisherSerialController.text
+        : null;
+
+    if (serialNumber == null || serialNumber.isEmpty) {
       return false;
-    } else {
-      print('Serial number validation passed');
+    }
+
+    // Validate serial number against backend data
+    String itemType = '';
+    if (rectifierSerialController.text.isNotEmpty) {
+      itemType = 'Rectifier';
+    } else if (mpptSerialController.text.isNotEmpty) {
+      itemType = 'Sand Bucket';
+    } else if (floodLightSerialController.text.isNotEmpty) {
+      itemType = 'Flood Light';
+    } else if (fireExtinguisherSerialController.text.isNotEmpty) {
+      itemType = 'Fire Extinguisher';
+    }
+
+    if (itemType.isNotEmpty && !_isValidSerialNumber(serialNumber, itemType)) {
+      return false; // Invalid serial number
     }
 
     // Check if photo is added
     // Check all photo variables to see which one has data
     String? photo = rectifierPhoto ?? mpptPhoto ?? floodLightPhoto ?? fireExtinguisherPhoto;
-    print('Photo: $photo');
-    if (photo == null || photo.isEmpty) {
-      print(' Photo validation failed');
-      return false;
-    } else {
-      print('Photo validation passed');
-    }
-
-    // Check if photo ID is present (required for all items)
     int? photoId = rectifierPhotoId ?? mpptPhotoId ?? floodLightPhotoId ?? fireExtinguisherPhotoId;
-    print('Photo ID: $photoId');
-    if (photo != null && photoId == null) {
-      print('Photo ID validation failed - photo exists but no photoId');
+    
+    // Photo is valid if either photo (base64) or photoId (numeric) exists
+    // In edit mode, we should allow saving even if photo is null but photoId exists
+    if ((photo == null || photo.isEmpty) && (photoId == null || photoId == 0)) {
       return false;
-    } else {
-      print('Photo ID validation passed');
     }
 
-    // Note: status is not required since it comes from API
-    // and is set to true by default (backendStatus: true)
-    String? status = rectifierStatus ?? mpptStatus ?? floodLightStatus ?? fireExtinguisherStatus;
-    print('Status: $status (not required)');
-
-    print(' All validations passed!');
     return true;
   }
 
@@ -803,24 +894,11 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
 
   // Save current form data for Rectifier
   void _saveRectifierForm() {
-    // Check against items that already have both photo_id and asset_status
-    int completedRectifierCount = widget.extinguisherData?.assets?.where((item) =>
-        item.photoId != null && item.assetStatus != null).length ?? 0;
-    int totalRectifierCount = widget.extinguisherData?.assets?.length ?? 0;
+    int totalRectifierCount = 0; // No Rectifier items in the current data structure
+    int maxAllowedRectifierCount = totalRectifierCount;
 
-    // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedRectifierCount = completedRectifierCount > 0 ? completedRectifierCount : totalRectifierCount;
-
-    print('Extinguisher Debug: completedRectifierCount = $completedRectifierCount');
-    print('Extinguisher Debug: totalRectifierCount = $totalRectifierCount');
-    print('Extinguisher Debug: maxAllowedRectifierCount = $maxAllowedRectifierCount');
-    print('Extinguisher Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
 
     if (savedRectifierItems.length > maxAllowedRectifierCount) {
-      showCustomToast(
-        context,
-        'Maximum number of Rectifier items ($maxAllowedRectifierCount) already added.',
-      );
       return;
     }
 
@@ -849,61 +927,69 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
         print('Saving Rectifier item: $currentFormData');
         print('Current savedRectifierItems count: ${savedRectifierItems.length}');
 
-        // Add to saved rectifier items list
-        savedRectifierItems.add(currentFormData);
-        currentScannedItems++;
+        // Check if we're in edit mode
+        if (isEditingItem) {
+          // We're editing an existing item - update it in the list
+          print('Rectifier Debug: Updating existing item in edit mode');
+          
+          // Find and update the existing item (it should already be removed from the list)
+          // So we just add it back with the updated data
+          savedRectifierItems.add(currentFormData);
+          currentScannedItems++;
+          
+          print('After updating - savedRectifierItems count: ${savedRectifierItems.length}');
+          print('currentScannedItems: $currentScannedItems');
+          
+          // Clear the form after editing and reset flags
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierStatus = null;
+          rectifierSerialController.clear();
+          rectifierRemarksController.clear();
+          rectifierCardKey++;
+          
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          print('Rectifier Debug: Adding new item');
+          
+          savedRectifierItems.add(currentFormData);
+          currentScannedItems++;
 
-        print('After saving - savedRectifierItems count: ${savedRectifierItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          print('After saving - savedRectifierItems count: ${savedRectifierItems.length}');
+          print('currentScannedItems: $currentScannedItems');
 
-        // Clear AssetTypeCard form for next entry
-        rectifierSerialNumber = null;
-        rectifierPhoto = null;
-        rectifierStatus = null;
+          // Clear AssetTypeCard form for next entry
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierStatus = null;
 
-        // Clear the controller
-        rectifierSerialController.clear();
+          // Clear the controller
+          rectifierSerialController.clear();
+          rectifierRemarksController.clear();
 
-        // Force rebuild of the CustomInfoCard widget
-        rectifierCardKey++;
+          // Force rebuild of the CustomInfoCard widget
+          rectifierCardKey++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
-      // Show success message
-      int remainingRectifiers =
-          maxAllowedRectifierCount - savedRectifierItems.length;
-      showCustomToast(
-        context,
-        'Rectifier item saved successfully! ${remainingRectifiers > 0 ? '(${remainingRectifiers} remaining)' : '(All items added)'}',
-      );
     } else {
-      print('Form validation failed - cannot save rectifier item');
+      // Form validation failed
     }
   }
 
   // Save current form data for MPPT (Sand Bucket)
   void _saveMPPTForm() {
-    // Check against Sand Bucket items in subcategories
-    final sandBucketItems = widget.extinguisherData?.subCategories?['Sand Bucket'] ?? [];
-    int completedSandBucketCount = sandBucketItems.where((item) =>
-        item.photoId != null && item.assetStatus != null).length;
-    int totalSandBucketCount = sandBucketItems.length;
-
-    // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedSandBucketCount = completedSandBucketCount > 0 ? completedSandBucketCount : totalSandBucketCount;
-
-    print('Extinguisher Debug: completedSandBucketCount = $completedSandBucketCount');
-    print('Extinguisher Debug: totalSandBucketCount = $totalSandBucketCount');
-    print('Extinguisher Debug: maxAllowedSandBucketCount = $maxAllowedSandBucketCount');
-    print('Extinguisher Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
+    // Check against Sand Bucket items - use direct sandBucket property
+    int totalSandBucketCount = widget.extinguisherData?.sandBucket?.length ?? 0;
+    int maxAllowedSandBucketCount = totalSandBucketCount;
 
     if (savedMPPTItems.length > maxAllowedSandBucketCount) {
-      showCustomToast(
-        context,
-        'Maximum number of Sand Bucket items ($maxAllowedSandBucketCount) already added.',
-      );
       return;
     }
 
@@ -932,56 +1018,70 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
         print('Saving Sand Bucket item: $currentFormData');
         print('Current savedMPPTItems count: ${savedMPPTItems.length}');
 
-        // Add to saved Sand Bucket items list
-        savedMPPTItems.add(currentFormData);
-        currentScannedItems++;
+        // Check if we're in edit mode
+        if (isEditingItem) {
+          // We're editing an existing item - update it in the list
+          print('Sand Bucket Debug: Updating existing item in edit mode');
+          
+          // Find and update the existing item (it should already be removed from the list)
+          // So we just add it back with the updated data
+          savedMPPTItems.add(currentFormData);
+          currentScannedItems++;
+          
+          print('After updating - savedMPPTItems count: ${savedMPPTItems.length}');
+          print('currentScannedItems: $currentScannedItems');
+          
+          // Clear the form after editing and reset flags
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptStatus = null;
+          mpptSerialController.clear();
+          sandBucketCapacityController.clear();
+          mpptCardKey++;
+          
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          print('Sand Bucket Debug: Adding new item');
+          
+          savedMPPTItems.add(currentFormData);
+          currentScannedItems++;
 
-        print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
+          print('currentScannedItems: $currentScannedItems');
 
-        // Clear AssetTypeCard form for next entry
-        mpptSerialNumber = null;
-        mpptPhoto = null;
-        mpptStatus = null;
+          // Clear AssetTypeCard form for next entry
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptStatus = null;
 
-        // Clear the controller
-        mpptSerialController.clear();
+          // Clear the controller
+          mpptSerialController.clear();
+          sandBucketCapacityController.clear();
 
-        // Force rebuild of the CustomInfoCard widget
-        mpptCardKey++;
+          // Force rebuild of the CustomInfoCard widget
+          mpptCardKey++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
-      // Show success message
-      int remainingSandBuckets = maxAllowedSandBucketCount - savedMPPTItems.length;
-      showCustomToast(
-        context,
-        'Sand Bucket item saved successfully! ${remainingSandBuckets > 0 ? '(${remainingSandBuckets} remaining)' : '(All items added)'}',
-      );
     } else {
-      print('Form validation failed - cannot save MPPT item');
+      // Form validation failed
     }
   }
 
   // Save current form data for Fire Extinguisher
   void _saveFireExtinguisherForm() {
     // Check against items that already have both photo_id and asset_status
-    int completedFireExtinguisherCount = widget.extinguisherData?.assets?.where((item) =>
-        item.photoId != null && item.assetStatus != null).length ?? 0;
+    // Fire Extinguisher count should be based on assets array
     int totalFireExtinguisherCount = widget.extinguisherData?.assets?.length ?? 0;
-
-    // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedFireExtinguisherCount = completedFireExtinguisherCount > 0 ? completedFireExtinguisherCount : totalFireExtinguisherCount;
-
-    print('Extinguisher Debug: completedFireExtinguisherCount = $completedFireExtinguisherCount');
-    print('Extinguisher Debug: totalFireExtinguisherCount = $totalFireExtinguisherCount');
-    print('Extinguisher Debug: maxAllowedFireExtinguisherCount = $maxAllowedFireExtinguisherCount');
-    print('Extinguisher Debug: savedFireExtinguisherItems.length = ${savedFireExtinguisherItems.length}');
+    int maxAllowedFireExtinguisherCount = totalFireExtinguisherCount;
 
     if (savedFireExtinguisherItems.length > maxAllowedFireExtinguisherCount) {
-      showCustomToast(context, 'Maximum number of Fire Extinguisher items ($maxAllowedFireExtinguisherCount) already added.');
       return;
     }
 
@@ -989,10 +1089,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     final String enteredFireExtinguisherSerial =
         fireExtinguisherSerialController.text.trim();
     if (!_validateSerialNumber(enteredFireExtinguisherSerial)) {
-      showCustomToast(
-        context,
-        '❌ Serial number already exists or is invalid. Please enter a unique serial.',
-      );
       return;
     }
 
@@ -1012,61 +1108,62 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           'assetAuditSiteRespId': _getAssetAuditSiteRespId('Fire Extinguisher', serialNumber: fireExtinguisherSerialNumber),
         };
 
-        print('Saving Fire Extinguisher item: $currentFormData');
-        print('Fire Extinguisher assetAuditSiteRespId: ${currentFormData['assetAuditSiteRespId']}');
-        print('Current savedFireExtinguisherItems count: ${savedFireExtinguisherItems.length}');
+        // Check if we're in edit mode
+        if (isEditingItem) {
+          // We're editing an existing item - update it in the list
+          // Find and update the existing item (it should already be removed from the list)
+          // So we just add it back with the updated data
+          savedFireExtinguisherItems.add(currentFormData);
+          currentScannedItems++;
+          
+          // Clear the form after editing and reset flags
+          fireExtinguisherSerialNumber = null;
+          fireExtinguisherPhoto = null;
+          fireExtinguisherPhotoId = null;
+          fireExtinguisherStatus = null;
+          fireExtinguisherSerialController.clear();
+          extinguisherCapacityController.clear();
+          fireExtinguisherCardKey++;
+          
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedFireExtinguisherItems.add(currentFormData);
+          currentScannedItems++;
 
-        // Add to saved fire extinguisher items list
-        savedFireExtinguisherItems.add(currentFormData);
-        currentScannedItems++;
+          // Clear AssetTypeCard form for next entry
+          fireExtinguisherSerialNumber = null;
+          fireExtinguisherPhoto = null;
+          fireExtinguisherPhotoId = null;
+          fireExtinguisherStatus = null;
 
-        print('After saving - savedFireExtinguisherItems count: ${savedFireExtinguisherItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          // Clear the controller
+          fireExtinguisherSerialController.clear();
+          extinguisherCapacityController.clear();
 
-        // Clear AssetTypeCard form for next entry
-        fireExtinguisherSerialNumber = null;
-        fireExtinguisherPhoto = null;
-        fireExtinguisherPhotoId = null;
-        fireExtinguisherStatus = null;
+          // Force rebuild of the CustomInfoCard widget
+          fireExtinguisherCardKey++;
 
-        // Clear the controller
-        fireExtinguisherSerialController.clear();
-
-        // Force rebuild of the CustomInfoCard widget
-        fireExtinguisherCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
-      // Show success message
-      int remainingFireExtinguishers = maxAllowedFireExtinguisherCount - savedFireExtinguisherItems.length;
-      showCustomToast(
-        context,
-        'Fire Extinguisher item saved successfully! ${remainingFireExtinguishers > 0 ? '(${remainingFireExtinguishers} remaining)' : '(All items added)'}',
-      );
     } else {
-      print('Form validation failed - cannot save fire extinguisher item');
+      // Form validation failed
     }
   }
 
   // Save current form data for Flood Light
   void _saveFloodLightForm() {
     // Check against items that already have both photo_id and asset_status
-    int completedFloodLightCount = widget.extinguisherData?.assets?.where((item) =>
-        item.photoId != null && item.assetStatus != null).length ?? 0;
-    int totalFloodLightCount = widget.extinguisherData?.assets?.length ?? 0;
-
-    // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedFloodLightCount = completedFloodLightCount > 0 ? completedFloodLightCount : totalFloodLightCount;
-
-    print('Extinguisher Debug: completedFloodLightCount = $completedFloodLightCount');
-    print('Extinguisher Debug: totalFloodLightCount = $totalFloodLightCount');
-    print('Extinguisher Debug: maxAllowedFloodLightCount = $maxAllowedFloodLightCount');
-    print('Extinguisher Debug: savedFloodLightItems.length = ${savedFloodLightItems.length}');
+    // Flood Light count should be based on subCategories array
+    int totalFloodLightCount = widget.extinguisherData?.floodLight?.length ?? 0;
+    int maxAllowedFloodLightCount = totalFloodLightCount;
 
     if (savedFloodLightItems.length > maxAllowedFloodLightCount) {
-      showCustomToast(context, 'Maximum number of Flood Light items ($maxAllowedFloodLightCount) already added.');
       return;
     }
 
@@ -1090,60 +1187,76 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
         print('Flood Light assetAuditSiteRespId: ${currentFormData['assetAuditSiteRespId']}');
         print('Current savedFloodLightItems count: ${savedFloodLightItems.length}');
 
-        // Add to saved flood light items list
-        savedFloodLightItems.add(currentFormData);
-        currentScannedItems++;
+        // Check if we're in edit mode
+        if (isEditingItem) {
+          // We're editing an existing item - update it in the list
+          print('Flood Light Debug: Updating existing item in edit mode');
+          
+          // Find and update the existing item (it should already be removed from the list)
+          // So we just add it back with the updated data
+          savedFloodLightItems.add(currentFormData);
+          currentScannedItems++;
+          
+          print('After updating - savedFloodLightItems count: ${savedFloodLightItems.length}');
+          print('currentScannedItems: $currentScannedItems');
+          
+          // Clear the form after editing and reset flags
+          floodLightSerialNumber = null;
+          floodLightPhoto = null;
+          floodLightPhotoId = null;
+          floodLightStatus = null;
+          floodLightSerialController.clear();
+          floodLightCapacityController.clear();
+          floodLightCardKey++;
+          
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          print('Flood Light Debug: Adding new item');
+          
+          savedFloodLightItems.add(currentFormData);
+          currentScannedItems++;
 
-        print('After saving - savedFloodLightItems count: ${savedFloodLightItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          print('After saving - savedFloodLightItems count: ${savedFloodLightItems.length}');
+          print('currentScannedItems: $currentScannedItems');
 
-        // Clear AssetTypeCard form for next entry
-        floodLightSerialNumber = null;
-        floodLightPhoto = null;
-        floodLightPhotoId = null;
-        floodLightStatus = null;
+          // Clear AssetTypeCard form for next entry
+          floodLightSerialNumber = null;
+          floodLightPhoto = null;
+          floodLightPhotoId = null;
+          floodLightStatus = null;
 
-        // Clear the controller
-        floodLightSerialController.clear();
+          // Clear the controller
+          floodLightSerialController.clear();
+          floodLightCapacityController.clear();
 
-        // Force rebuild of the CustomInfoCard widget
-        floodLightCardKey++;
+          // Force rebuild of the CustomInfoCard widget
+          floodLightCardKey++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
-      // Show success message
-      int remainingFloodLights = maxAllowedFloodLightCount - savedFloodLightItems.length;
-      showCustomToast(
-        context,
-        'Flood Light item saved successfully! ${remainingFloodLights> 0 ? '(${remainingFloodLights} remaining)' : '(All items added)'}',
-      );
     } else {
-      print('Form validation failed - cannot save Flood Light item');
+      // Form validation failed
     }
   }
 
   // Helper method to filter items that have both photo and status
   List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
-    print('=== Filtering items for display ===');
-    print('Total items to filter: ${items.length}');
-
     final filteredItems = items.where((item) {
       final hasPhotoId = item['photoId'] != null;
+      final hasPhoto = item['photo'] != null && item['photo'].toString().isNotEmpty;
       final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
                        (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
 
-      print('Item: ${item['serialNumber']} - hasPhotoId: $hasPhotoId, hasStatus: $hasStatus');
-      print('  - photoId: ${item['photoId']}');
-      print('  - status: ${item['status']}');
-      print('  - assetStatus: ${item['assetStatus']}');
-      print('  - passes filter: ${hasPhotoId && hasStatus}');
-
-      return hasPhotoId && hasStatus;
+      // Item is valid if it has either photoId OR photo data, AND has status
+      return (hasPhotoId || hasPhoto) && hasStatus;
     }).toList();
 
-    print('Filtered items count: ${filteredItems.length}');
     return filteredItems;
   }
 
@@ -1539,18 +1652,19 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
 
 
   bool _validateSerialNumber(String serialNumber) {
-    print('=== Extinguisher Screen: Validating Serial Number (session-only) ===');
     final String sn = serialNumber.trim();
-    print('Serial number to validate: "$sn"');
 
     if (sn.isEmpty) {
-      print('Serial number is empty, validation failed');
       return false;
+    }
+
+    // If we're editing an item, we should allow the same serial number since we're updating it
+    if (isEditingItem) {
+      return true;
     }
 
     for (var savedItem in savedFireExtinguisherItems) {
       if ((savedItem['serialNumber'] as String?)?.trim() == sn) {
-        print('Serial number "$sn" already exists in saved Fire Extinguisher items');
         return false;
       }
     }
@@ -1558,24 +1672,20 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     // Optionally, prevent cross-category duplicates within this screen session
     for (var savedItem in savedRectifierItems) {
       if ((savedItem['serialNumber'] as String?)?.trim() == sn) {
-        print('Serial number "$sn" already exists in saved Rectifier items (session)');
         return false;
       }
     }
     for (var savedItem in savedMPPTItems) {
       if ((savedItem['serialNumber'] as String?)?.trim() == sn) {
-        print('Serial number "$sn" already exists in saved MPPT items (session)');
         return false;
       }
     }
     for (var savedItem in savedFloodLightItems) {
       if ((savedItem['serialNumber'] as String?)?.trim() == sn) {
-        print('Serial number "$sn" already exists in saved Flood Light items (session)');
         return false;
       }
     }
 
-    print('Serial number "$sn" is unique within session, validation passed');
     return true;
   }
 
@@ -1650,7 +1760,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           );
 
       if (requests.isEmpty) {
-        print('Extinguisher Screen: Failed to create POST requests');
         return false;
       }
 
@@ -1702,11 +1811,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'Rectifier item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific MPPT item from the saved list
@@ -1730,11 +1834,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'MPPT item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific Flood Light item from the saved list
@@ -1758,11 +1857,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'Flood Light item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific Fire Extinguisher item from the saved list
@@ -1786,11 +1880,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
       hasUnsavedChanges = true;
     });
 
-    // Show message to user
-    showCustomToast(
-      context,
-      'Fire Extinguisher item loaded for editing. Make changes and save again.',
-    );
   }
 
   @override
@@ -1800,46 +1889,86 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
         if (state is AssetAuditGetImageSuccess) {
           // Handle successful image loading
           print('Extinguisher Debug: Image loaded successfully, _editingItemType: $_editingItemType');
+          
+          // Get the image data
+          final imageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          
           setState(() {
-            // Update the appropriate photo variable based on editing item type
-            if (_editingItemType == 'rectifier') {
-              rectifierPhoto = state.imageData.startsWith('data:image/')
-                  ? state.imageData
-                  : 'data:image/jpeg;base64,${state.imageData}';
-              print('Extinguisher Debug: Updated rectifierPhoto with image data');
-            } else if (_editingItemType == 'mppt') {
-              mpptPhoto = state.imageData.startsWith('data:image/')
-                  ? state.imageData
-                  : 'data:image/jpeg;base64,${state.imageData}';
-              print('Extinguisher Debug: Updated mpptPhoto with image data');
-            } else if (_editingItemType == 'fire_extinguisher') {
-              fireExtinguisherPhoto = state.imageData.startsWith('data:image/')
-                  ? state.imageData
-                  : 'data:image/jpeg;base64,${state.imageData}';
-              print('Extinguisher Debug: Updated fireExtinguisherPhoto with image data');
-            } else if (_editingItemType == 'flood_light') {
-              floodLightPhoto = state.imageData.startsWith('data:image/')
-                  ? state.imageData
-                  : 'data:image/jpeg;base64,${state.imageData}';
-              print('Extinguisher Debug: Updated floodLightPhoto with image data');
+            // Check if we're in edit mode
+            if (_editingItemType != null) {
+              // Update the appropriate photo variable based on editing item type
+              if (_editingItemType == 'rectifier') {
+                rectifierPhoto = imageData;
+                print('Extinguisher Debug: Updated rectifierPhoto with image data');
+              } else if (_editingItemType == 'mppt') {
+                mpptPhoto = imageData;
+                print('Extinguisher Debug: Updated mpptPhoto with image data');
+              } else if (_editingItemType == 'fire_extinguisher') {
+                fireExtinguisherPhoto = imageData;
+                print('Extinguisher Debug: Updated fireExtinguisherPhoto with image data');
+              } else if (_editingItemType == 'flood_light') {
+                floodLightPhoto = imageData;
+                print('Extinguisher Debug: Updated floodLightPhoto with image data');
+              } else {
+                print('Extinguisher Debug: No matching item type found for _editingItemType: $_editingItemType');
+              }
+              // Clear the editing item type after setState
+              _editingItemType = null;
+              print('Extinguisher Debug: Cleared _editingItemType');
             } else {
-              print('Extinguisher Debug: No matching item type found for _editingItemType: $_editingItemType');
+              // We're loading images for saved items
+              print('Extinguisher Debug: Loading image for saved items, currentLoadingPhotoId: $_currentLoadingPhotoId');
+              
+              if (_currentLoadingPhotoId != null && _pendingImageItems.containsKey(_currentLoadingPhotoId)) {
+                final itemData = _pendingImageItems[_currentLoadingPhotoId!];
+                final itemType = itemData['itemType'];
+                final savedItem = itemData['savedItem'];
+                
+                // Update the saved item with the image data
+                savedItem['photo'] = imageData;
+                
+                // Update the appropriate list
+                if (itemType == 'fire_extinguisher') {
+                  // Find and update the item in savedFireExtinguisherItems
+                  int index = savedFireExtinguisherItems.indexWhere((item) => 
+                      item['photoId'] == int.tryParse(_currentLoadingPhotoId!));
+                  if (index != -1) {
+                    savedFireExtinguisherItems[index]['photo'] = imageData;
+                    print('Extinguisher Debug: Updated Fire Extinguisher item with image data');
+                  }
+                } else if (itemType == 'flood_light') {
+                  // Find and update the item in savedFloodLightItems
+                  int index = savedFloodLightItems.indexWhere((item) => 
+                      item['photoId'] == int.tryParse(_currentLoadingPhotoId!));
+                  if (index != -1) {
+                    savedFloodLightItems[index]['photo'] = imageData;
+                    print('Extinguisher Debug: Updated Flood Light item with image data');
+                  }
+                } else if (itemType == 'sand_bucket') {
+                  // Find and update the item in savedMPPTItems
+                  int index = savedMPPTItems.indexWhere((item) => 
+                      item['photoId'] == int.tryParse(_currentLoadingPhotoId!));
+                  if (index != -1) {
+                    savedMPPTItems[index]['photo'] = imageData;
+                    print('Extinguisher Debug: Updated Sand Bucket item with image data');
+                  }
+                }
+                
+                // Remove from pending items and clear current loading photoId
+                _pendingImageItems.remove(_currentLoadingPhotoId);
+                _currentLoadingPhotoId = null;
+              }
             }
           });
-          // Clear the editing item type after setState
-          _editingItemType = null;
-          print('Extinguisher Debug: Cleared _editingItemType');
         } else if (state is AssetAuditGetImageFailure) {
-          print('Extinguisher Debug: Failed to load image: ${state.errorMessage}');
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
           // Clear the editing item type on failure
           _editingItemType = null;
         }
       },
       child: BlocListener<AssetAuditCubit, AssetAuditState>(
       listener: (context, state) {
-        print('Extinguisher Screen: BlocListener received state: $state');
-        print('Extinguisher Screen: State type: ${state.runtimeType}');
 
         if (state is AssetAuditPostSuccess) {
 
@@ -1864,60 +1993,65 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
           if (isExtinguisherData) {
             try {
               context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+                siteType: widget.assetAuditData?.pageHeader.first
+                    .siteDomainName ?? "",
+                auditSchId: widget.assetAuditData?.pageHeader.first
+                    .siteAuditSchId.toString() ?? "",
+                siteAuditSchId: widget.assetAuditData?.pageHeader.first
+                    .siteAuditSchId.toString() ?? "",
               );
 
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  pushPage(
-                    context,
-                    SolarPlatesScreen(
-                      solarPlatesData:
-                          widget.assetAuditData?.responseData.solarPlates,
-                      assetAuditData: widget.assetAuditData,
-                      showSuccessMessage: false,
-                      extinguisherItems: [
-                        ...savedFireExtinguisherItems,
-                        ...savedFloodLightItems,
-                        ...savedRectifierItems,
-                        ...savedMPPTItems,
-                      ],
-                    ),
-                  );
+              if (mounted) {
+                pushPage(
+                  context,
+                  SolarPlatesScreen(
+                    solarPlatesData:
+                    widget.assetAuditData?.responseData.solarPlates,
+                    assetAuditData: widget.assetAuditData,
+                    showSuccessMessage: false,
+                    extinguisherItems: [
+                      ...savedFireExtinguisherItems,
+                      ...savedFloodLightItems,
+                      ...savedRectifierItems,
+                      ...savedMPPTItems,
+                    ],
+                  ),
+                );
 
-                  // Reset the flag after successful navigation
-                  setState(() {
-                    _hasPostedExtinguisherData = false;
-                  });
-                  print('Extinguisher Screen: Reset _hasPostedExtinguisherData flag to false after navigation');
-                }
-              });
-            } catch (e) {
-                if (mounted) {
-                  pushPage(
-                    context,
-                    SolarPlatesScreen(
-                      solarPlatesData:
-                          widget.assetAuditData?.responseData.solarPlates,
-                      assetAuditData: widget.assetAuditData,
-                      showSuccessMessage: false,
-                      extinguisherItems: [
-                        ...savedFireExtinguisherItems,
-                        ...savedFloodLightItems,
-                        ...savedRectifierItems,
-                        ...savedMPPTItems,
-                      ],
-                    ),
-                  );
-                  setState(() {
-                    _hasPostedExtinguisherData = false;
-                  });
-                }
+                // Reset the flag after successful navigation
+                setState(() {
+                  _hasPostedExtinguisherData = false;
+                });
+                print(
+                    'Extinguisher Screen: Reset _hasPostedExtinguisherData flag to false after navigation');
+              }
+              if (mounted) {
+                pushPage(
+                  context,
+                  SolarPlatesScreen(
+                    solarPlatesData:
+                    widget.assetAuditData?.responseData.solarPlates,
+                    assetAuditData: widget.assetAuditData,
+                    showSuccessMessage: false,
+                    extinguisherItems: [
+                      ...savedFireExtinguisherItems,
+                      ...savedFloodLightItems,
+                      ...savedRectifierItems,
+                      ...savedMPPTItems,
+                    ],
+                  ),
+                );
+                setState(() {
+                  _hasPostedExtinguisherData = false;
+                });
 
             }
-          } else {
+          }
+          catch(e){
+              print(e);
+          }
+          }
+          else {
             print('Extinguisher Screen: Success state received but not for Extinguisher screen data, ignoring...');
             print('Extinguisher Screen: _hasPostedExtinguisherData flag: $_hasPostedExtinguisherData');
           }
@@ -2048,19 +2182,19 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     },
                                   ),
                                 getHeight(15),
-                                CustomFormField(
-                                  label: "Count of Fire Extinguisher",
-                                  // "Number of ${selectedType ?? 'Batteries'}",
-                                  initialValue: totalMPPTItems.toString(),
-                                  isRequired: true,
-                                  isEditable: true,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      totalMPPTItems = int.tryParse(value) ?? 6;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
+                                  CustomFormField(
+                                    label: "Count of Fire Extinguisher",
+                                    // "Number of ${selectedType ?? 'Batteries'}",
+                                    initialValue:  widget.extinguisherData?.assets?.length.toString() ?? '0',
+                                    isRequired: true,
+                                    isEditable: true,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        totalMPPTItems = int.tryParse(value) ?? 6;
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                  ),
                                 getHeight(15),
                                 Text(
                                   "Fire Extinguisher Details",
@@ -2086,7 +2220,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   onSave: _saveFireExtinguisherForm,
                                   isStatusEditable: true,
                                   backendStatus: false,
-                                  isRemarksEditable: false,
+                                  isRemarksEditable: true,
                                   remarksLabel:
                                       "Capacity of Fire Extinguisher (In Kg)",
                                   remarksHintText: "Eg:200 kg",
@@ -2100,9 +2234,11 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                     // Upload photo immediately and get photoId
                                     if (photoPath != null &&
                                         photoPath.isNotEmpty) {
+                                      print('Fire Extinguisher Debug: Starting photo upload for path: $photoPath');
                                       try {
                                         final photoFile = File(photoPath);
                                         if (await photoFile.exists()) {
+                                          print('Fire Extinguisher Debug: Photo file exists, uploading...');
                                           final photoId =
                                               await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
                                                 photoFile: photoFile,
@@ -2118,10 +2254,12 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                                 context: context,
                                               );
 
+                                          print('Fire Extinguisher Debug: Photo upload result - photoId: $photoId');
                                           if (photoId != null) {
                                             setState(() {
                                               fireExtinguisherPhotoId = photoId;
                                             });
+                                            print('Fire Extinguisher Debug: Set fireExtinguisherPhotoId to: $photoId');
                                             print(
                                               'Extinguisher Screen: Fire Extinguisher Photo uploaded successfully, photoId: $photoId',
                                             );
@@ -2233,7 +2371,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                       "Capacity of Flood Light (In Watts)",
                                   remarksHintText: "Eg:200W",
                                   remarksController: floodLightCapacityController,
-                                  isRemarksEditable: false,
+                                  isRemarksEditable: true,
                                   onPhotoTap: (photoPath) async {
                                     setState(() {
                                       floodLightPhoto = photoPath;
@@ -2300,23 +2438,44 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   initialPhotoPath: floodLightPhoto,
                                   isEditable: true,
                                 ),
+
+                                // Validation message for Flood Light
+                                if (floodLightSerialController.text.isNotEmpty && !_isFormValidForSaving())
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade50,
+                                      border: Border.all(color: Colors.red.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.red.shade600,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _getValidationErrorMessage() ?? "Please fix the form errors",
+                                            style: TextStyle(
+                                              color: Colors.red.shade600,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
                                 getHeight(8),
                                 _buildFloodLightSavedItemsList(),
                                 getHeight(15),
 
-                                CustomFormField(
-                                  label: "Count of Fire Extinguisher",
-                                  // "Number of ${selectedType ?? 'Batteries'}",
-                                  initialValue: totalMPPTItems.toString(),
-                                  isRequired: true,
-                                  isEditable: true,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      totalMPPTItems = int.tryParse(value) ?? 6;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
+
                                 getHeight(15),
                                 Text(
                                   "Rectifer Details",
@@ -2402,7 +2561,44 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                             : null),
                                   initialPhotoPath: rectifierPhoto,
                                   isEditable: true,
+                                  remarksLabel: "Capacity",
+                                  remarksHintText: "Eg:200",
+                                  remarksController: rectifierRemarksController,
+                                  isRemarksEditable: true,
                                 ),
+
+                                // Validation message for Rectifier
+                                if (rectifierSerialController.text.isNotEmpty && !_isFormValidForSaving())
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade50,
+                                      border: Border.all(color: Colors.red.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.red.shade600,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _getValidationErrorMessage() ?? "Please fix the form errors",
+                                            style: TextStyle(
+                                              color: Colors.red.shade600,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
                                 getHeight(8),
                                 _buildRectifierSavedItemsList(),
                                 getHeight(15),
@@ -2410,7 +2606,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                 CustomFormField(
                                   label: "Count of Sand Buckets ",
                                   // "Number of ${selectedType ?? 'Batteries'}",
-                                  initialValue: totalMPPTItems.toString(),
+                                  initialValue: widget.extinguisherData?.sandBucket?.length.toString() ?? '0',
                                   isRequired: true,
                                   isEditable: true,
                                   onChanged: (value) {
@@ -2444,7 +2640,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   remarksLabel: "Capacity",
                                   remarksHintText: "Eg:200",
                                   remarksController: sandBucketCapacityController,
-                                  isRemarksEditable: false,
+                                  isRemarksEditable: true,
                                   onPhotoTap: (photoPath) async {
                                     setState(() {
                                       mpptPhoto = photoPath;
@@ -2506,14 +2702,47 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                                   initialPhotoPath: mpptPhoto,
                                   isEditable: true,
                                 ),
+
+                                // Validation message for Sand Bucket
+                                if (mpptSerialController.text.isNotEmpty && !_isFormValidForSaving())
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 8),
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade50,
+                                      border: Border.all(color: Colors.red.shade300),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.error_outline,
+                                          color: Colors.red.shade600,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _getValidationErrorMessage() ?? "Please fix the form errors",
+                                            style: TextStyle(
+                                              color: Colors.red.shade600,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
                                 getHeight(8),
                                 _buildMPPTSavedItemsList(),
                                 getHeight(15),
-                                CustomRemarksField(
-                                  label: "Add Remarks",
-                                  hintText: "Remarks",
-                                  controller: generalRemarksController,
-                                ),
+                                // CustomRemarksField(
+                                //   label: "Add Remarks",
+                                //   hintText: "Remarks",
+                                //   controller: generalRemarksController,
+                                // ),
                                 ] else ...[
                                   _buildNoDataMessage(),
                                 ],
@@ -3461,6 +3690,31 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     }
   }
 
+  /// Load image for saved items from API
+  void _loadImageForItem(String photoId, String itemType, Map<String, dynamic> savedItem) {
+    print('Extinguisher Debug: _loadImageForItem called - photoId: $photoId, itemType: $itemType');
+    if (photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Store the item reference for updating when image loads
+      _pendingImageItems[photoId] = {
+        'itemType': itemType,
+        'savedItem': savedItem,
+      };
+      
+      // Set the current loading photoId
+      _currentLoadingPhotoId = photoId;
+      
+      // Request the image
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: photoId,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+
+      print('Extinguisher Debug: Loading image for saved item - photoId: $photoId, itemType: $itemType');
+    } else {
+      print('Extinguisher Debug: PhotoId is empty or not numeric: $photoId');
+    }
+  }
+
   /// Edit a saved item based on its type
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
     // Debug: Print the item data to see what's actually stored
@@ -3473,6 +3727,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     print('=============================');
 
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
       // Populate the form fields with the item's data for editing
       switch (itemType) {
         case 'rectifier':
@@ -3498,12 +3754,13 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
             }
           }
 
-          // Also try to load image if photoId exists (fallback)
-          if (rectifierPhotoId != null && rectifierPhotoId
-              .toString()
-              .isNotEmpty && rectifierPhoto == null) {
-            _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
-          }
+            // Also try to load image if photoId exists (fallback)
+            if (rectifierPhotoId != null && rectifierPhotoId
+                .toString()
+                .isNotEmpty && rectifierPhoto == null) {
+              print('Rectifier Debug: Loading image by photoId: ${rectifierPhotoId}');
+              _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
+            }
 
           // Debug: Print what we're setting
           print('Setting rectifier form:');
@@ -3541,12 +3798,13 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
             }
           }
 
-          // Also try to load image if photoId exists (fallback)
-          if (mpptPhotoId != null && mpptPhotoId
-              .toString()
-              .isNotEmpty && mpptPhoto == null) {
-            _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
-          }
+            // Also try to load image if photoId exists (fallback)
+            if (mpptPhotoId != null && mpptPhotoId
+                .toString()
+                .isNotEmpty && mpptPhoto == null) {
+              print('Sand Bucket Debug: Loading image by photoId: ${mpptPhotoId}');
+              _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
+            }
 
           // Debug: Print what we're setting
           print('Setting MPPT form:');
@@ -3563,28 +3821,102 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
 
         case 'fireExtinguisher':
         // Populate fire extinguisher form with item data
-        // Note: You'll need to add the appropriate controller and variables
-        // fireExtinguisherSerialController.text = item['serialNumber'] ?? '';
-        // fireExtinguisherSerialNumber = item['serialNumber'] ?? '';
-        // fireExtinguisherStatus = item['status'] ?? 'OK';
-        // fireExtinguisherPhotoId = item['photoId'];
-        // fireExtinguisherPhoto = item['photo'];
+          print('Fire Extinguisher Debug: Starting edit process');
+          print('Fire Extinguisher Debug: Original item photoId: ${item['photoId']}');
+          print('Fire Extinguisher Debug: Original item photo: ${item['photo']}');
+          
+          fireExtinguisherSerialController.text = item['serialNumber'] ?? '';
+          fireExtinguisherSerialNumber = item['serialNumber'] ?? '';
+          fireExtinguisherStatus = item['status'] ?? 'OK';
+          fireExtinguisherPhotoId = item['photoId'];
+          
+          print('Fire Extinguisher Debug: Set fireExtinguisherPhotoId to: $fireExtinguisherPhotoId');
 
-        // Remove the item from saved list since it's now in the form for editing
+          // Handle photo data - check if it's base64 data or photo ID
+          String? photoData = item['photo'];
+          if (photoData != null && photoData.isNotEmpty) {
+            print('Fire Extinguisher Debug: Found photo data: $photoData');
+            if (photoData.startsWith('data:image/')) {
+              // It's already base64 image data
+              fireExtinguisherPhoto = photoData;
+              print('Fire Extinguisher Debug: Set fireExtinguisherPhoto to base64 data');
+            } else if (_isNumeric(photoData)) {
+              // It's a photo ID, load the image
+              print('Fire Extinguisher Debug: Photo data is numeric, loading image');
+              _loadImageForEdit(photoData, 'fire_extinguisher');
+            } else {
+              // It's a file path or other format
+              fireExtinguisherPhoto = photoData;
+              print('Fire Extinguisher Debug: Set fireExtinguisherPhoto to file path');
+            }
+          } else {
+            print('Fire Extinguisher Debug: No photo data found in item');
+          }
+
+            // Also try to load image if photoId exists (fallback)
+            if (fireExtinguisherPhotoId != null && fireExtinguisherPhotoId
+                .toString()
+                .isNotEmpty && fireExtinguisherPhoto == null) {
+              print('Fire Extinguisher Debug: Loading image by photoId: ${fireExtinguisherPhotoId}');
+              _loadImageForEdit(fireExtinguisherPhotoId.toString(), 'fire_extinguisher');
+            } else {
+              print('Fire Extinguisher Debug: Not loading image - photoId: $fireExtinguisherPhotoId, photo: $fireExtinguisherPhoto');
+            }
+
+          // Debug: Print what we're setting
+          print('Setting Fire Extinguisher form:');
+          print('  - Controller text: ${fireExtinguisherSerialController.text}');
+          print('  - Serial Number: $fireExtinguisherSerialNumber');
+          print('  - Status: $fireExtinguisherStatus');
+          print('  - Photo: $fireExtinguisherPhoto');
+          print('  - Photo ID: $fireExtinguisherPhotoId');
+          print('  - Original item photoId: ${item['photoId']}');
+          print('  - Original item photo: ${item['photo']}');
+
+          // Remove the item from saved list since it's now in the form for editing
           savedFireExtinguisherItems.remove(item);
           currentScannedItems--;
           break;
 
         case 'floodLight':
         // Populate flood light form with item data
-        // Note: You'll need to add the appropriate controller and variables
-        // floodLightSerialController.text = item['serialNumber'] ?? '';
-        // floodLightSerialNumber = item['serialNumber'] ?? '';
-        // floodLightStatus = item['status'] ?? 'OK';
-        // floodLightPhotoId = item['photoId'];
-        // floodLightPhoto = item['photo'];
+          floodLightSerialController.text = item['serialNumber'] ?? '';
+          floodLightSerialNumber = item['serialNumber'] ?? '';
+          floodLightStatus = item['status'] ?? 'OK';
+          floodLightPhotoId = item['photoId'];
 
-        // Remove the item from saved list since it's now in the form for editing
+          // Handle photo data - check if it's base64 data or photo ID
+          String? photoData = item['photo'];
+          if (photoData != null && photoData.isNotEmpty) {
+            if (photoData.startsWith('data:image/')) {
+              // It's already base64 image data
+              floodLightPhoto = photoData;
+            } else if (_isNumeric(photoData)) {
+              // It's a photo ID, load the image
+              _loadImageForEdit(photoData, 'flood_light');
+            } else {
+              // It's a file path or other format
+              floodLightPhoto = photoData;
+            }
+          }
+
+            // Also try to load image if photoId exists (fallback)
+            if (floodLightPhotoId != null && floodLightPhotoId
+                .toString()
+                .isNotEmpty && floodLightPhoto == null) {
+              print('Flood Light Debug: Loading image by photoId: ${floodLightPhotoId}');
+              _loadImageForEdit(floodLightPhotoId.toString(), 'flood_light');
+            }
+
+          // Debug: Print what we're setting
+          print('Setting Flood Light form:');
+          print('  - Controller text: ${floodLightSerialController.text}');
+          print('  - Serial Number: $floodLightSerialNumber');
+          print('  - Status: $floodLightStatus');
+          print('  - Photo: $floodLightPhoto');
+          print('  - Photo ID: $floodLightPhotoId');
+
+          // Remove the item from saved list since it's now in the form for editing
           savedFloodLightItems.remove(item);
           currentScannedItems--;
           break;
@@ -3593,11 +3925,6 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
       // Mark that there are unsaved changes
       hasUnsavedChanges = true;
 
-      // Show a message to the user
-      showCustomToast(
-        context,
-        'Item loaded for editing. Make your changes and save.',
-      );
     });
   }
 }

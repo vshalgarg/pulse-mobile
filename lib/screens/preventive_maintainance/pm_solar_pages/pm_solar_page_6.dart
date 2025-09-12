@@ -86,7 +86,8 @@ class _PmSolarPage6State extends State<PmSolarPage6> {
     print('Saving form data: $key = $value');
     setState(() {
       formData[key] = value;
-      _onFormChanged();
+      hasUnsavedChanges = formData.isNotEmpty;
+      _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
     print('Updated formData: $formData');
   }

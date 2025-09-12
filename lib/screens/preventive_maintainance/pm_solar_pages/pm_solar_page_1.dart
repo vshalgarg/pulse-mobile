@@ -12,7 +12,6 @@ import 'package:app/commonWidgets/custom_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/models/PmGetDataModel.dart';
@@ -25,8 +24,7 @@ import 'package:intl/intl.dart';
 
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../constants/constants_strings.dart';
-import '../../../repositories/audit_schedule_repository.dart';
-import '../../ticket_screen.dart';
+import '../pm_pages/pm_page_1.dart';
 
 class PmSolarPage1 extends StatefulWidget {
   final PmTicketTypeEnum ticketType;
@@ -71,8 +69,10 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.pmData != null) {
+        print('=== Loading data from widget.pmData for PM Solar Page 1 ===');
         _loadExistingData(widget.pmData!);
       } else {
+        print('=== Fetching fresh data from API for PM Solar Page 1 ===');
         context.read<PmCubit>().getPmData(
           siteType: widget.ticketType.name,
           auditSchId: widget.auditSchId,
@@ -104,10 +104,12 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
     print('Saving form data: $key = $value');
     setState(() {
       formData[key] = value;
-      _onFormChanged();
+      hasUnsavedChanges = formData.isNotEmpty;
+      _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
     print('Updated formData: $formData');
   }
+
 
   TextEditingController _getTextController(String key, String initialValue) {
     if (!textControllers.containsKey(key)) {
@@ -178,6 +180,10 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
 
   void _loadExistingData(PmGetDataModel data) {
     print('=== Loading Existing Data for PM Solar Page 1 (Earthing) ===');
+    print('Data received: ${data.toString()}');
+    print('Response data: ${data.responseData}');
+    print('Earthing data: ${data.responseData?.earthing}');
+    
     setState(() {
       formData.clear();
       photoIds.clear();
@@ -189,20 +195,12 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
       // Load Earthing section data
       final earthingData = data.responseData?.earthing ?? [];
       print('Earthing data count: ${earthingData.length}');
-      print('Raw Earthing data: $earthingData');
-
       for (final item in earthingData) {
         final key = '${item.pmItemType}_${item.clOrder}';
-        print('Processing item with key: $key');
-        print('Raw pmItemType: "${item.pmItemType}"');
-        print('Raw clOrder: "${item.clOrder}"');
-        print('Processing item: $key, resp: ${item.resp} (type: ${item.resp.runtimeType}), photoId: ${item.photoId} (type: ${item.photoId.runtimeType}), respType: ${item.respType}');
 
-        // resp contains dropdown values, add directly to formData
         if (item.resp != null) {
           String mappedValue;
           if (item.resp is int) {
-            print('Warning: resp is int (${item.resp}), converting to String');
             final respValue = item.resp.toString();
             if (item.respType?.contains('DROPDOWN') ?? false) {
               const dropdownOptions = [
@@ -436,7 +434,17 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                   setState(() {
                     hasUnsavedChanges = false;
                   });
-                  Navigator.pop(context); // Pop page (now canPop=true)
+                  // Go back to previous screen or home
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => HomeScreen(),
+                      ),
+                    );
+                  }
                 },
               ),
             );
@@ -465,17 +473,39 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                       setState(() {
                         hasUnsavedChanges = false;
                       });
-                      Navigator.pop(context); // Pop page
+                      // Go back to previous screen or home
+                      if (Navigator.canPop(context)) {
+                        Navigator.pop(context);
+                      } else {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => HomeScreen(),
+                          ),
+                        );
+                      }
                     },
                   ),
                 );
               } else {
                 await _updateAuditScheduleStatus("in-progress");
-                Navigator.pop(context);
+                // Go back to previous screen or home
+                if (Navigator.canPop(context)) {
+                  Navigator.pop(context);
+                } else {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => HomeScreen(),
+                    ),
+                  );
+                }
               }
             },
           ),
-          body: _buildContent(widget.pmData!),
+          body: widget.pmData != null 
+              ? _buildContent(widget.pmData!)
+              : const Center(child: CircularProgressIndicator()),
         ),
     );
   }
@@ -485,6 +515,7 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
       listeners: [
         BlocListener<PmCubit, PmState>(
           listener: (context, state) {
+            print('=== BlocListener triggered with state: ${state.runtimeType} ===');
             if (state is PmGetLoaded) {
               print('PmGetLoaded triggered with Earthing data: ${state.pmGetDataModel.responseData?.earthing}');
               _loadExistingData(state.pmGetDataModel);
@@ -647,7 +678,18 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                             backgroundColor: AppColors.buttonColorBackBg,
                             textColor: AppColors.buttonColorTextBg,
                             onPressed: (){
-                              Navigator.pop(context);
+                              // Go back to the previous screen
+                              if (Navigator.canPop(context)) {
+                                Navigator.pop(context);
+                              } else {
+                                // If no previous screen, go to home
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => HomeScreen(),
+                                  ),
+                                );
+                              }
                             }
                           // isSubmitting
                           //     ? null
@@ -669,46 +711,21 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                           onPressed: isSubmitting
                               ? null
                               : () async {
-                            print('=== Next button pressed ===');
-                            print('formData before submit: $formData');
                             if (formData.isNotEmpty) {
                               await _submitForm();
-                              final state = context.read<PmCubit>().state;
-                              if (state is PmPostSuccess) {
-                                print('Submission successful, navigating to PmSolarPage2');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => PmSolarPage2(
-                                      ticketType: widget.ticketType,
-                                      auditSchId: widget.auditSchId,
-                                      siteAuditSchId: widget.siteAuditSchId,
-                                      siteId: widget.siteId,
-                                      pmData: widget.pmData, // Let PmSolarPage2 fetch its own data
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                print('Submission failed, staying on page');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Please complete the form submission before proceeding')),
-                                );
-                              }
-                            } else {
-                              print('No data to submit, navigating to PmSolarPage2');
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PmSolarPage2(
-                                    ticketType: widget.ticketType,
-                                    auditSchId: widget.auditSchId,
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    siteId: widget.siteId,
-                                    pmData: widget.pmData, // Let PmSolarPage2 fetch its own data
-                                  ),
-                                ),
-                              );
                             }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PmSolarPage2(
+                                  ticketType: widget.ticketType,
+                                  auditSchId: widget.auditSchId,
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  siteId: widget.siteId,
+                                  pmData: widget.pmData, // Let PmSolarPage2 fetch its own data
+                                ),
+                              ),
+                            );
                           },
                         ),
                       ),

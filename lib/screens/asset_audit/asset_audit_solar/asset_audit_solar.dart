@@ -13,17 +13,13 @@ import '../../../bloc/selfie_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import '../../../commonWidgets/custom_dialogs/custom_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
-import '../../../constants/constants_strings.dart';
 import '../../../hive_local_database/hive_db.dart';
 import '../../../utils/asset_audit_form_persistence_helper.dart';
-import '../../../utils/asset_audit_post_helper.dart';
 import '../../../models/asset_audit_model.dart';
-import '../../../models/asset_audit_post_model.dart';
 
 class AssetAuditSolarScreen extends StatefulWidget {
   final String siteType;
@@ -275,13 +271,12 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
   Future<void> _handleImageLoadRetry(String photoId, String key) async {
     const maxRetries = 5;
-    const retryDelay = Duration(seconds: 3);
 
     final currentRetryCount = _retryCounts[photoId] ?? 0;
     if (currentRetryCount < maxRetries) {
       _retryCounts[photoId] = currentRetryCount + 1;
       print('Retrying image load for photoId: $photoId, key: $key, attempt: ${_retryCounts[photoId]} of $maxRetries');
-      await Future.delayed(retryDelay);
+      // await Future.delayed(retryDelay);
       _imageQueue.insert(0, {'photoId': photoId, 'key': key});
       _fetchNextImage();
     } else {
@@ -516,67 +511,89 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                       builder: (context, state) {
                                         if (state is AssetAuditLoaded && state.assetAuditData.pageHeader.isNotEmpty) {
                                           final pageHeader = state.assetAuditData.pageHeader.first;
+                                          
+                                          // Debug logging for solar fields
+                                          print('Solar Debug: PageHeader data:');
+                                          print('  - solarState: ${pageHeader.solarState}');
+                                          print('  - solarDistrict: ${pageHeader.solarDistrict}');
+                                          print('  - district: ${pageHeader.district}');
+                                          print('  - auditDueDt: ${pageHeader.auditDueDt}');
+                                          print('  - status: ${pageHeader.status}');
+                                          
+                                          // Format audit due date
+                                          String formattedAuditDueDate = "N/A";
+                                          if (pageHeader.auditDueDt != null && pageHeader.auditDueDt!.isNotEmpty) {
+                                            try {
+                                              // Parse the date and format it
+                                              final dateTime = DateTime.parse(pageHeader.auditDueDt!);
+                                              formattedAuditDueDate = "${dateTime.day.toString().padLeft(2, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.year}";
+                                            } catch (e) {
+                                              print('Solar Debug: Error parsing audit due date: $e');
+                                              formattedAuditDueDate = pageHeader.auditDueDt!;
+                                            }
+                                          }
+                                          
                                           return Column(
                                             children: [
                                               CustomFormField(
                                                 label: "State (Solar)",
-                                                initialValue: pageHeader.solarState ?? "N/A",
+                                                initialValue: pageHeader.solarState?.isNotEmpty == true ? pageHeader.solarState! : (pageHeader.district?.isNotEmpty == true ? pageHeader.district! : "N/A"),
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "District (Solar)",
-                                                initialValue: pageHeader.solarDistrict ?? "N/A",
+                                                initialValue: pageHeader.solarDistrict?.isNotEmpty == true ? pageHeader.solarDistrict! : (pageHeader.district?.isNotEmpty == true ? pageHeader.district! : "N/A"),
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "District",
-                                                initialValue: pageHeader.district ?? "N/A",
+                                                initialValue: pageHeader.district?.isNotEmpty == true ? pageHeader.district! : "N/A",
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "Customer",
-                                                initialValue: pageHeader.clientName,
+                                                initialValue: pageHeader.clientName.isNotEmpty ? pageHeader.clientName : "N/A",
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "Site Code",
-                                                initialValue: pageHeader.siteCode,
+                                                initialValue: pageHeader.siteCode.isNotEmpty ? pageHeader.siteCode : "N/A",
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "Site Name",
-                                                initialValue: pageHeader.siteName,
+                                                initialValue: pageHeader.siteName.isNotEmpty ? pageHeader.siteName : "N/A",
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "Site Type",
-                                                initialValue: pageHeader.siteTypeName,
+                                                initialValue: pageHeader.siteTypeName.isNotEmpty ? pageHeader.siteTypeName : "N/A",
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "Audit Due Date",
-                                                initialValue: pageHeader.auditDueDt ?? "N/A",
+                                                initialValue: formattedAuditDueDate,
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),
                                               getHeight(15),
                                               CustomFormField(
                                                 label: "Status",
-                                                initialValue: pageHeader.status ?? "N/A",
+                                                initialValue: pageHeader.status?.isNotEmpty == true ? pageHeader.status! : "N/A",
                                                 isRequired: false,
                                                 isEditable: false,
                                               ),

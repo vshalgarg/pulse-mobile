@@ -58,7 +58,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   String? selectedType;
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false; // Control when to show validation errors
-  int totalRectifierItems = 6; // Total rectifier items to scan
+  int totalRectifierItems = 0; // Total rectifier items to scan
   int totalMPPTItems = 6; // Total MPPT items to scan
   int currentScannedItems = 0; // Number of items already scanned
   List<Map<String, dynamic>> savedRectifierItems =
@@ -96,6 +96,10 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   
   // Flag to track if Solar Plates screen has posted data
   bool _hasPostedSolarPlatesData = false;
+  
+  // Image loading and edit tracking
+  String? _editingItemType; // Track which item type is being edited for image loading
+  bool isEditingItem = false; // Track if we're currently editing an item
 
   // ===== IMAGE LOADING INFRASTRUCTURE =====
   late ImageRepository _imageService;
@@ -225,9 +229,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   /// Get asset audit site response ID from GET API response for a specific item type
   int? _getAssetAuditSiteRespId(String itemType) {
     if (widget.solarPlatesData != null) {
-      // Debug: Print available data
-      print('=== Solar Plates: Getting AssetAuditSiteRespId for $itemType ===');
-      print('Available assets: ${widget.solarPlatesData!.assets.length}');
       widget.solarPlatesData!.assets.forEach((asset) {
         print('  Asset: ${asset.itemType} - ID: ${asset.assetAuditSiteRespId} - Serial: ${asset.nexgenSerialNo}');
       });
@@ -235,8 +236,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       // Look for Solar Plates assets (the actual item_type from API is "Solar Plates")
       final solarPlatesAssets = widget.solarPlatesData!.assets;
       if (solarPlatesAssets.isNotEmpty) {
-        // For both Solar Panel and Solar Inverter, use the same Solar Plates assets
-        // since the API provides "Solar Plates" as the item_type
+
         return solarPlatesAssets.first.assetAuditSiteRespId;
       }
     }
@@ -252,21 +252,13 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     // Check if we have data to show, if not, skip this screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasDataToShow()) {
-        print('Solar Plates Screen: No data to show, skipping to Surveillance screen');
         _navigateToSurveillanceScreen();
       } else {
-        // Show success message if coming from Extinguisher Screen
-        if (widget.showSuccessMessage) {
-          showCustomToast(context, '✅ Extinguisher data saved successfully!');
-        }
 
-        // Pre-fill capacity field with data from API
         solarPanelCapacityController.text = _getSolarPanelCapacity();
 
-        // Initialize image service
         _imageService = ImageRepository(AppConfig.of(context).apiProvider);
 
-        // Load Solar Plates data if available
         _loadSolarPlatesData();
       }
     });
@@ -327,8 +319,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       return;
     }
 
-    print('Solar Plates Screen: Loading saved items from API...');
-    
+
     setState(() {
       // Clear existing saved items to avoid duplicates
       savedRectifierItems.clear();
@@ -379,8 +370,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         }
       }
 
-      print('Solar Plates Screen: Loaded ${savedRectifierItems.length} Solar Plates items');
-      print('Solar Plates Screen: Current scanned items: $currentScannedItems');
     });
     
     // Load images for saved items
@@ -430,7 +419,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         _loadingImages.removeAll(photoIds);
       });
       
-      print('Solar Plates Screen: Successfully loaded ${imageMap.length} images');
     } catch (e) {
       print('Solar Plates Screen: Error loading images: $e');
       setState(() {
@@ -499,21 +487,17 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     }
     // Case 3: Photo is a photo ID (numeric) from the API
     else if (_isNumeric(imagePath)) {
-      print('Fetching image for photo ID: $imagePath');
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
       subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-          print('Image fetched successfully for photo ID: $imagePath');
           final finalImageData = state.imageData.startsWith('data:image/')
               ? state.imageData
               : 'data:image/jpeg;base64,${state.imageData}';
           completer.complete(finalImageData);
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
-          print('Failed to fetch image: ${state.errorMessage}');
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
           completer.complete(null);
           subscription.cancel();
         }
@@ -640,13 +624,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
 
   // Validate required fields for saved items only
   bool _isFormValid() {
-    print('=== Form Validation Debug ===');
 
-    // Only check serial number and photo for saved items
-    // Type, battery status, and file are not required for individual item saving
-
-    // Check if serial number is entered in the CustomInfoCard
-    // Check both controllers to see which one has data
     String? serialNumber = rectifierSerialController.text.isNotEmpty
         ? rectifierSerialController.text
         : mpptSerialController.text.isNotEmpty
@@ -661,8 +639,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       print('Serial number validation passed');
     }
 
-    // Check if photo is added
-    // Check both photo variables to see which one has data
     String? photo = rectifierPhoto ?? mpptPhoto;
     print('Photo: $photo');
     if (photo == null || photo.isEmpty) {
@@ -740,12 +716,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     
     // If there are completed items, use completed count; otherwise use total count
     int maxAllowedRectifierCount = completedRectifierCount > 0 ? completedRectifierCount : totalRectifierCount;
-    
-    print('Solar Plates Debug: completedRectifierCount = $completedRectifierCount');
-    print('Solar Plates Debug: totalRectifierCount = $totalRectifierCount');
-    print('Solar Plates Debug: maxAllowedRectifierCount = $maxAllowedRectifierCount');
-    print('Solar Plates Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
-    
+
     if (savedRectifierItems.length >= maxAllowedRectifierCount) {
       showCustomToast(
         context,
@@ -773,49 +744,47 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        print('Saving Rectifier item: $currentFormData');
-        print('Rectifier item details:');
-        print('  - serialNumber: ${currentFormData['serialNumber']}');
-        print('  - photo: ${currentFormData['photo']}');
-        print('  - photoId: ${currentFormData['photoId']}');
-        print('  - status: ${currentFormData['status']}');
-        print('  - assetStatus: ${currentFormData['assetStatus']}');
-        print(
-          'Current savedRectifierItems count: ${savedRectifierItems.length}',
-        );
+        if (isEditingItem) {
 
-        // Add to saved rectifier items list
-        savedRectifierItems.add(currentFormData);
-        currentScannedItems++;
+          savedRectifierItems.add(currentFormData);
+          currentScannedItems++;
+          
+          // Clear the form after editing and reset flags
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierPhotoId = null;
+          rectifierStatus = null;
+          rectifierSerialController.clear();
+          rectifierCardKey++;
+          
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedRectifierItems.add(currentFormData);
+          currentScannedItems++;
 
-        print(
-          'After saving - savedRectifierItems count: ${savedRectifierItems.length}',
-        );
-        print('currentScannedItems: $currentScannedItems');
+          // Clear AssetTypeCard form for next entry
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierPhotoId = null; // Also clear photoId
+          rectifierStatus = null;
 
-        // Clear AssetTypeCard form for next entry
-        rectifierSerialNumber = null;
-        rectifierPhoto = null;
-        rectifierPhotoId = null; // Also clear photoId
-        rectifierStatus = null;
+          // Clear the controller
+          rectifierSerialController.clear();
 
-        // Clear the controller
-        rectifierSerialController.clear();
+          // Force rebuild of the CustomInfoCard widget
+          rectifierCardKey++;
 
-        // Force rebuild of the CustomInfoCard widget
-        rectifierCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       // Show success message
       int remainingRectifiers =
           maxAllowedRectifierCount - savedRectifierItems.length;
-      showCustomToast(
-        context,
-        'Rectifier item saved successfully! ${remainingRectifiers > 0 ? '(${remainingRectifiers} remaining)' : '(All items added)'}',
-      );
     } else {
       print('Form validation failed - cannot save rectifier item');
     }
@@ -830,12 +799,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     
     // If there are completed items, use completed count; otherwise use total count
     int maxAllowedMPPTCount = completedMPPTCount > 0 ? completedMPPTCount : totalMPPTCount;
-    
-    print('Solar Plates Debug: completedMPPTCount = $completedMPPTCount');
-    print('Solar Plates Debug: totalMPPTCount = $totalMPPTCount');
-    print('Solar Plates Debug: maxAllowedMPPTCount = $maxAllowedMPPTCount');
-    print('Solar Plates Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
-    
+
     if (savedMPPTItems.length >= maxAllowedMPPTCount) {
       showCustomToast(
         context,
@@ -863,36 +827,41 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        print('Saving MPPT item: $currentFormData');
-        print('MPPT item details:');
-        print('  - serialNumber: ${currentFormData['serialNumber']}');
-        print('  - photo: ${currentFormData['photo']}');
-        print('  - photoId: ${currentFormData['photoId']}');
-        print('  - status: ${currentFormData['status']}');
-        print('  - assetStatus: ${currentFormData['assetStatus']}');
-        print('Current savedMPPTItems count: ${savedMPPTItems.length}');
+        if (isEditingItem) {
+          savedMPPTItems.add(currentFormData);
+          currentScannedItems++;
+          
+          // Clear the form after editing and reset flags
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptPhotoId = null;
+          mpptStatus = null;
+          mpptSerialController.clear();
+          mpptCardKey++;
+          
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedMPPTItems.add(currentFormData);
+          currentScannedItems++;
 
-        // Add to saved MPPT items list
-        savedMPPTItems.add(currentFormData);
-        currentScannedItems++;
+          // Clear AssetTypeCard form for next entry
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptPhotoId = null; // Also clear photoId
+          mpptStatus = null;
 
-        print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          // Clear the controller
+          mpptSerialController.clear();
 
-        // Clear AssetTypeCard form for next entry
-        mpptSerialNumber = null;
-        mpptPhoto = null;
-        mpptPhotoId = null; // Also clear photoId
-        mpptStatus = null;
+          // Force rebuild of the CustomInfoCard widget
+          mpptCardKey++;
 
-        // Clear the controller
-        mpptSerialController.clear();
-
-        // Force rebuild of the CustomInfoCard widget
-        mpptCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       // Show success message
@@ -1031,7 +1000,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
     return null;
   }
 
-  /// Post current screen data to API before navigating to next screen
   Future<bool> _postCurrentScreenData() async {
     if (widget.assetAuditData == null) {
       print('Solar Plates Screen: No asset audit data available for posting');
@@ -1184,16 +1152,10 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
 
   /// Edit a saved item based on its type
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
-    // Debug: Print the item data to see what's actually stored
-    print('=== EDITING $itemType ITEM ===');
-    print('Item data: $item');
-    print('Serial Number: ${item['serialNumber']}');
-    print('Status: ${item['status']}');
-    print('Photo: ${item['photo']}');
-    print('Photo ID: ${item['photoId']}');
-    print('=============================');
-    
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
+      
       // Populate the form fields with the item's data for editing
       switch (itemType) {
         case 'rectifier':
@@ -1202,15 +1164,26 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           rectifierSerialNumber = item['serialNumber'] ?? ''; // Also set the variable
           rectifierStatus = item['status'] ?? 'OK';
           rectifierPhotoId = item['photoId'];
-          rectifierPhoto = item['photo'];
-          
-          // Debug: Print what we're setting
-          print('Setting rectifier form:');
-          print('  - Controller text: ${rectifierSerialController.text}');
-          print('  - Serial Number: $rectifierSerialNumber');
-          print('  - Status: $rectifierStatus');
-          print('  - Photo: $rectifierPhoto');
-          print('  - Photo ID: $rectifierPhotoId');
+
+          // Handle photo data - check if it's base64 data or photo ID
+          String? photoData = item['photo'];
+          if (photoData != null && photoData.isNotEmpty) {
+            if (photoData.startsWith('data:image/')) {
+              // It's already base64 image data
+              rectifierPhoto = photoData;
+            } else if (_isNumeric(photoData)) {
+              // It's a photo ID, load the image
+              _loadImageForEdit(photoData, 'rectifier');
+            } else {
+              // It's a file path or other format
+              rectifierPhoto = photoData;
+            }
+          }
+
+          // Also try to load image if photoId exists (fallback)
+          if (rectifierPhotoId != null && rectifierPhotoId.toString().isNotEmpty && rectifierPhoto == null) {
+            _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
+          }
           
           // Remove the item from saved list since it's now in the form for editing
           savedRectifierItems.remove(item);
@@ -1223,15 +1196,26 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           mpptSerialNumber = item['serialNumber'] ?? ''; // Also set the variable
           mpptStatus = item['status'] ?? 'OK';
           mpptPhotoId = item['photoId'];
-          mpptPhoto = item['photo'];
-          
-          // Debug: Print what we're setting
-          print('Setting MPPT form:');
-          print('  - Controller text: ${mpptSerialController.text}');
-          print('  - Serial Number: $mpptSerialNumber');
-          print('  - Status: $mpptStatus');
-          print('  - Photo: $mpptPhoto');
-          print('  - Photo ID: $mpptPhotoId');
+
+          // Handle photo data - check if it's base64 data or photo ID
+          String? photoData = item['photo'];
+          if (photoData != null && photoData.isNotEmpty) {
+            if (photoData.startsWith('data:image/')) {
+              // It's already base64 image data
+              mpptPhoto = photoData;
+            } else if (_isNumeric(photoData)) {
+              // It's a photo ID, load the image
+              _loadImageForEdit(photoData, 'mppt');
+            } else {
+              // It's a file path or other format
+              mpptPhoto = photoData;
+            }
+          }
+
+          // Also try to load image if photoId exists (fallback)
+          if (mpptPhotoId != null && mpptPhotoId.toString().isNotEmpty && mpptPhoto == null) {
+            _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
+          }
           
           // Remove the item from saved list since it's now in the form for editing
           savedMPPTItems.remove(item);
@@ -1241,18 +1225,54 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       
       // Mark that there are unsaved changes
       hasUnsavedChanges = true;
-      
-      // Show a message to the user
-      showCustomToast(
-        context,
-        'Item loaded for editing. Make your changes and save.',
-      );
     });
   }
 
+  /// Load image for editing
+  void _loadImageForEdit(String photoId, String itemType) {
+    if (photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Set the editing item type to track which photo to update
+      _editingItemType = itemType;
+
+      // Request the image
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: photoId,
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+      );
+    }
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AssetAuditCubit, AssetAuditState>(
+    return BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
+      listener: (context, state) {
+        if (state is AssetAuditGetImageSuccess) {
+          // Handle successful image loading
+          final imageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
+          
+          setState(() {
+            // Check if we're in edit mode
+            if (_editingItemType != null) {
+              // Update the appropriate photo variable based on editing item type
+              if (_editingItemType == 'rectifier') {
+                rectifierPhoto = imageData;
+              } else if (_editingItemType == 'mppt') {
+                mpptPhoto = imageData;
+              }
+              // Clear the editing item type after setState
+              _editingItemType = null;
+            }
+          });
+        } else if (state is AssetAuditGetImageFailure) {
+          // Clear the editing item type on failure
+          _editingItemType = null;
+        }
+      },
+      child: BlocListener<AssetAuditCubit, AssetAuditState>(
       listener: (context, state) {
         print('Solar Plates Screen: BlocListener received state: $state');
         print('Solar Plates Screen: State type: ${state.runtimeType}');
@@ -1474,7 +1494,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                                   label: "Count of Solar Panel",
                                   initialValue: totalRectifierItems.toString(),
                                   isRequired: true,
-                                  isEditable: true,
+                                  isEditable: false,
                                   onChanged: (value) {
                                     setState(() {
                                       totalRectifierItems =
@@ -1537,9 +1557,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                                             setState(() {
                                               rectifierPhotoId = photoId;
                                             });
-                                            print(
-                                              'Solar Plates Screen: Photo uploaded successfully, photoId: $photoId',
-                                            );
+
                                           }
                                         }
                                       } catch (e) {
@@ -1605,7 +1623,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
-
                                 onPressed: () {
                                   Navigator.pop(context);
                                 },
@@ -1650,16 +1667,9 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                                       
                                       // Navigation will be handled by the BlocListener on success
                                     } catch (e) {
-                                      print('Solar Plates Screen: Error posting data: $e');
-                                      // If posting fails or times out, still allow navigation with local data
-                                      showCustomToast(
-                                        context,
-                                        '⚠️ Data could not be saved to server, but you can continue with local data.',
-                                      );
                                       _navigateToNextScreen();
                                     }
                                   } else {
-                                    // No saved items, navigate directly
                                     _navigateToNextScreen();
                                   }
                                   // if (_validateForm()) {
@@ -1728,6 +1738,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
           ),
         ),
       ),
+      )
     );
   }
 
@@ -1938,7 +1949,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                             child: IconButton(
                               onPressed: () => _editSavedItem(item, 'rectifier'),
                               icon: const Icon(
-                                Icons.edit,
+                                Icons.edit_calendar_outlined,
                                 color: AppColors.blue,
                                 size: 20,
                               ),
@@ -2161,7 +2172,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
                           child: IconButton(
                             onPressed: () => _editSavedItem(item, 'mppt'),
                             icon: const Icon(
-                              Icons.edit,
+                              Icons.edit_calendar_outlined,
                               color: AppColors.blue,
                               size: 20,
                             ),
@@ -2175,5 +2186,6 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
         ],
       ),
     );
+
   }
 }

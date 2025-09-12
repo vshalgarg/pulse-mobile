@@ -3,6 +3,7 @@ import 'package:app/models/PmGetDataModel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 
 import '../../../bloc/pm_bloc/pm_cubit.dart';
 import '../../../bloc/pm_bloc/pm_state.dart';
@@ -371,6 +372,51 @@ class _PmScreen1 extends State<PmScreen1> {
     }
   }
 
+  String _formatDate(String? dateString) {
+    if (dateString == null || dateString.isEmpty) {
+      return "N/A";
+    }
+    
+    try {
+      // Try to parse the date string - handle different possible formats
+      DateTime? date;
+      
+      // Try parsing as ISO 8601 format first
+      try {
+        date = DateTime.parse(dateString);
+      } catch (e) {
+        // Try parsing as timestamp (milliseconds since epoch)
+        try {
+          final timestamp = int.tryParse(dateString);
+          if (timestamp != null) {
+            date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+          }
+        } catch (e2) {
+          // Try parsing as seconds since epoch
+          try {
+            final timestamp = int.tryParse(dateString);
+            if (timestamp != null) {
+              date = DateTime.fromMillisecondsSinceEpoch(timestamp * 1000);
+            }
+          } catch (e3) {
+            // If all parsing fails, return the original string
+            return dateString;
+          }
+        }
+      }
+      
+      if (date != null) {
+        // Format the date as "dd MMM yyyy" (e.g., "15 Jan 2024")
+        return DateFormat('dd MMM yyyy').format(date);
+      }
+      
+      return dateString;
+    } catch (e) {
+      // If any error occurs, return the original string
+      return dateString;
+    }
+  }
+
   String _getButtonText() {
     switch (widget.ticketType) {
       case PmTicketTypeEnum.telecom:
@@ -581,9 +627,9 @@ class _PmScreen1 extends State<PmScreen1> {
                         ),
                         getHeight(15),
                         CustomFormField(
-                          label: "PM Name",
+                          label: "Audit Due Date",
                           initialValue: data.pageHeader!.isNotEmpty
-                              ? data.pageHeader!.first.auditDueDt
+                              ? _formatDate(data.pageHeader!.first.auditDueDt)
                               : "N/A",
                           isRequired: false,
                           isEditable: false,
@@ -626,16 +672,6 @@ class _PmScreen1 extends State<PmScreen1> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: ArrowButton(
-                        text: 'Back',
-                        isLeftArrow: true,
-                        backgroundColor: AppColors.buttonColorBg,
-                        textColor: AppColors.buttonColorSite,
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ),
-                    getWidth(10),
                     Expanded(
                       child: ArrowButton(
                         text: _getButtonText(),

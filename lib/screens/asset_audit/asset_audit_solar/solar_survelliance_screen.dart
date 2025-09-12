@@ -1,12 +1,10 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_post_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'dart:async';
 import 'dart:convert';
@@ -17,11 +15,9 @@ import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/asset_type_card.dart';
-import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../constants/app_colors.dart';
@@ -29,7 +25,6 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../home_screen.dart';
-import '../../../models/asset_audit_post_model.dart';
 
 class SolarSurveillanceScreen extends StatefulWidget {
   final String siteType;

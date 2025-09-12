@@ -396,14 +396,6 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                     _hasFormDataChanges = true;
                   });
 
-                  showCustomToast(
-                    context,
-                    isFromPageHeader
-                        ? 'Existing selfie image loaded from server! You can replace it by uploading a new photo.'
-                        : isUpdate
-                        ? 'Image updated and saved successfully!'
-                        : 'Image fetched and saved successfully!',
-                  );
                 } else {
                   print('Empty imageData for photoId: $_lastRequestedPhotoId');
                   await _handleImageLoadRetry(_lastRequestedPhotoId!, 'selfie');

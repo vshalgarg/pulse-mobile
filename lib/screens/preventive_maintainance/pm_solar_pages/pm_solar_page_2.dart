@@ -11,7 +11,6 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/models/PmGetDataModel.dart';
@@ -69,8 +68,10 @@ class _PmSolarPage2State extends State<PmSolarPage2> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (widget.pmData != null) {
+        print('=== Loading data from widget.pmData for PM Solar Page 2 ===');
         _loadExistingData(widget.pmData!);
       } else {
+        print('=== Fetching fresh data from API for PM Solar Page 2 ===');
         context.read<PmCubit>().getPmData(
           siteType: widget.ticketType.name,
           auditSchId: widget.auditSchId,
@@ -94,11 +95,13 @@ class _PmSolarPage2State extends State<PmSolarPage2> {
     print('Current formData before: $formData');
     setState(() {
       formData[key] = value;
-      _onFormChanged();
+      hasUnsavedChanges = formData.isNotEmpty;
+      _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
     print('Updated formData after: $formData');
     print('formData.isEmpty after: ${formData.isEmpty}');
   }
+
 
   TextEditingController _getTextController(String key, String initialValue) {
     if (!textControllers.containsKey(key)) {
@@ -277,6 +280,11 @@ class _PmSolarPage2State extends State<PmSolarPage2> {
       return;
     }
 
+    if (!mounted) {
+      print('Widget is not mounted, skipping image fetch');
+      return;
+    }
+
     _fetchingImage = true;
     final image = _imageQueue.removeAt(0);
     final photoId = image['photoId']!;
@@ -293,11 +301,22 @@ class _PmSolarPage2State extends State<PmSolarPage2> {
     const maxRetries = 5;
     const retryDelay = Duration(seconds: 3);
 
+    if (!mounted) {
+      print('Widget is not mounted, skipping image retry');
+      return;
+    }
+
     final currentRetryCount = _retryCounts[photoId] ?? 0;
     if (currentRetryCount < maxRetries) {
       _retryCounts[photoId] = currentRetryCount + 1;
       print('Retrying image load for photoId: $photoId, key: $key, attempt: ${_retryCounts[photoId]} of $maxRetries');
       await Future.delayed(retryDelay);
+      
+      if (!mounted) {
+        print('Widget is not mounted after retry delay, skipping image fetch');
+        return;
+      }
+      
       _imageQueue.insert(0, {'photoId': photoId, 'key': key});
       _fetchNextImage();
     } else {
@@ -699,42 +718,23 @@ class _PmSolarPage2State extends State<PmSolarPage2> {
                             
                             if (formData.isNotEmpty) {
                               await _submitForm();
-                              final state = context.read<PmCubit>().state;
-                              if (state is PmPostSuccess) {
-                                print('Submission successful, navigating to PmSolarPage3');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => PmSolarPage3(
-                                      ticketType: widget.ticketType,
-                                      auditSchId: widget.auditSchId,
-                                      siteAuditSchId: widget.siteAuditSchId,
-                                      siteId: widget.siteId,
-                                      pmData: widget.pmData,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                print('Submission failed, staying on page');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Please complete the form submission before proceeding')),
-                                );
-                              }
-                            } else {
-                              print('No data to submit, navigating to PmSolarPage3');
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PmSolarPage3(
-                                    ticketType: widget.ticketType,
-                                    auditSchId: widget.auditSchId,
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    siteId: widget.siteId,
-                                    pmData: widget.pmData,
-                                  ),
-                                ),
-                              );
                             }
+                            
+                            // Navigate to next page regardless of submission status
+                            // The BlocListener will handle the submission result
+                            print('Navigating to PmSolarPage3');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PmSolarPage3(
+                                  ticketType: widget.ticketType,
+                                  auditSchId: widget.auditSchId,
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  siteId: widget.siteId,
+                                  pmData: widget.pmData,
+                                ),
+                              ),
+                            );
                           },
                         ),
                       ),

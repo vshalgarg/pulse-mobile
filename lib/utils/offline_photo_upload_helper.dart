@@ -1,0 +1,245 @@
+// import 'dart:io';
+// import 'dart:convert';
+// import 'package:flutter/material.dart';
+// import 'package:flutter_bloc/flutter_bloc.dart';
+// import '../bloc/asset_audit_photo_upload_cubit.dart';
+// import '../services/connectivity_service.dart';
+// import '../hive_local_database/hive_db.dart';
+// import 'photo_id_adapter.dart';
+//
+// class OfflinePhotoUploadHelper {
+//   static final ConnectivityService _connectivityService = ConnectivityService();
+//
+//   /// Convert photo ID to String (handles both int and String inputs)
+//   static String? photoIdToString(dynamic photoId) {
+//     if (photoId == null) return null;
+//     if (photoId is String) return photoId;
+//     if (photoId is int) return photoId.toString();
+//     return photoId.toString();
+//   }
+//
+//   /// Convert photo ID to int (for API compatibility)
+//   static int? photoIdToInt(dynamic photoId) {
+//     if (photoId == null) return null;
+//     if (photoId is int) return photoId;
+//     if (photoId is String) return int.tryParse(photoId);
+//     return null;
+//   }
+//
+//   /// Upload photo with offline-first approach
+//   /// Returns photoId as String (converts int from server to String)
+//   static Future<String?> uploadPhotoOfflineFirst({
+//     required File photoFile,
+//     String? schId,
+//     String? imgId,
+//     required BuildContext context,
+//   }) async {
+//     try {
+//       // Check if we're online
+//       if (_connectivityService.isOnline) {
+//         // Online: Try to upload to server
+//         try {
+//           final photoId = await _uploadToServer(
+//             photoFile: photoFile,
+//             schId: schId,
+//             imgId: imgId,
+//             context: context,
+//           );
+//
+//           if (photoId != null) {
+//             print('OfflinePhotoUploadHelper: Photo uploaded successfully to server, photoId: $photoId');
+//             return photoId;
+//           }
+//         } catch (e) {
+//           print('OfflinePhotoUploadHelper: Server upload failed, falling back to offline: $e');
+//         }
+//       }
+//
+//       // Offline or server upload failed: Save locally
+//       return await _savePhotoOffline(photoFile, schId);
+//
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Error in offline-first photo upload: $e');
+//       return null;
+//     }
+//   }
+//
+//   /// Upload photo with offline-first approach - API Compatible Version
+//   /// Returns photoId as int (for existing API-compatible code)
+//   static Future<int?> uploadPhotoOfflineFirstApiCompatible({
+//     required File photoFile,
+//     String? schId,
+//     String? imgId,
+//     required BuildContext context,
+//   }) async {
+//     try {
+//       // Get the String photo ID from the main method
+//       final stringPhotoId = await uploadPhotoOfflineFirst(
+//         photoFile: photoFile,
+//         schId: schId,
+//         imgId: imgId,
+//         context: context,
+//       );
+//
+//       // Convert to int for API compatibility
+//       return PhotoIdAdapter.toApiInt(stringPhotoId);
+//
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Error in API-compatible photo upload: $e');
+//       return null;
+//     }
+//   }
+//
+//   /// Upload photo to server (online mode)
+//   static Future<String?> _uploadToServer({
+//     required File photoFile,
+//     String? schId,
+//     String? imgId,
+//     required BuildContext context,
+//   }) async {
+//     try {
+//       final photoUploadCubit = context.read<AssetAuditPhotoUploadCubit>();
+//
+//       await photoUploadCubit.uploadPhoto(
+//         file: photoFile,
+//         imgId: imgId,
+//         schId: schId,
+//       );
+//
+//       // Wait for the state to update
+//       await Future.delayed(const Duration(milliseconds: 500));
+//
+//       // Get the current state to check if upload was successful
+//       final state = photoUploadCubit.state;
+//       if (state is AssetAuditPhotoUploadSuccess) {
+//         // Convert server photo ID (int) to String for consistency
+//         final photoId = state.response.imgId;
+//         print('OfflinePhotoUploadHelper: Server photo ID: $photoId (type: ${photoId.runtimeType})');
+//         return photoId; // imgId is already a String from the response
+//       } else if (state is AssetAuditPhotoUploadFailure) {
+//         print('OfflinePhotoUploadHelper: Server upload failed: ${state.errorMessage}');
+//         return null;
+//       } else {
+//         print('OfflinePhotoUploadHelper: Server upload still in progress or unknown state');
+//         return null;
+//       }
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Exception during server upload: $e');
+//       return null;
+//     }
+//   }
+//
+//   /// Save photo offline (offline mode)
+//   static Future<String?> _savePhotoOffline(File photoFile, String? schId) async {
+//     try {
+//       // Generate a unique local photo ID
+//       final timestamp = DateTime.now().millisecondsSinceEpoch;
+//       final localPhotoId = 'local_${timestamp}_${photoFile.path.split('/').last}';
+//
+//       // Convert file to base64 for storage
+//       final bytes = await photoFile.readAsBytes();
+//       final base64String = base64Encode(bytes);
+//
+//       // Save to Hive with local photo ID
+//       await HiveDB.saveOfflinePhoto(
+//         photoId: localPhotoId,
+//         filePath: photoFile.path,
+//         base64Data: base64String,
+//         schId: schId ?? 'unknown',
+//       );
+//
+//       print('OfflinePhotoUploadHelper: Photo saved offline with ID: $localPhotoId');
+//       return localPhotoId;
+//
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Error saving photo offline: $e');
+//       return null;
+//     }
+//   }
+//
+//   /// Get photo from offline storage or server
+//   static Future<File?> getPhoto({
+//     required String photoId,
+//     String? schId,
+//     required BuildContext context,
+//   }) async {
+//     try {
+//       // Check if it's a local photo ID
+//       if (photoId.startsWith('local_')) {
+//         return await _getOfflinePhoto(photoId);
+//       } else {
+//         // It's a server photo ID, try to get from server
+//         if (_connectivityService.isOnline) {
+//           return await _getServerPhoto(photoId, context);
+//         } else {
+//           // Offline and server photo ID - return null
+//           print('OfflinePhotoUploadHelper: Cannot load server photo while offline: $photoId');
+//           return null;
+//         }
+//       }
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Error getting photo: $e');
+//       return null;
+//     }
+//   }
+//
+//   /// Get photo from offline storage
+//   static Future<File?> _getOfflinePhoto(String localPhotoId) async {
+//     try {
+//       final photoData = await HiveDB.getOfflinePhoto(localPhotoId);
+//       if (photoData != null && photoData['filePath'] != null) {
+//         final file = File(photoData['filePath']);
+//         if (await file.exists()) {
+//           return file;
+//         }
+//       }
+//       return null;
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Error getting offline photo: $e');
+//       return null;
+//     }
+//   }
+//
+//   /// Get photo from server (placeholder - would need to implement)
+//   static Future<File?> _getServerPhoto(String photoId, BuildContext context) async {
+//     // This would need to be implemented based on your server API
+//     // For now, return null
+//     print('OfflinePhotoUploadHelper: Server photo loading not implemented yet: $photoId');
+//     return null;
+//   }
+//
+//   /// Sync offline photos to server when online
+//   static Future<void> syncOfflinePhotos() async {
+//     try {
+//       if (!_connectivityService.isOnline) {
+//         print('OfflinePhotoUploadHelper: Cannot sync photos while offline');
+//         return;
+//       }
+//
+//       // Get all offline photos
+//       final offlinePhotos = await HiveDB.getAllOfflinePhotos();
+//
+//       for (final photoData in offlinePhotos) {
+//         try {
+//           final localPhotoId = photoData['photoId'] as String;
+//           final filePath = photoData['filePath'] as String;
+//           final schId = photoData['schId'] as String;
+//
+//           final file = File(filePath);
+//           if (await file.exists()) {
+//             // Try to upload to server
+//             // This would need to be implemented based on your upload logic
+//             print('OfflinePhotoUploadHelper: Syncing photo $localPhotoId to server');
+//
+//             // After successful upload, remove from offline storage
+//             // await HiveDB.deleteOfflinePhoto(localPhotoId);
+//           }
+//         } catch (e) {
+//           print('OfflinePhotoUploadHelper: Error syncing photo ${photoData['photoId']}: $e');
+//         }
+//       }
+//     } catch (e) {
+//       print('OfflinePhotoUploadHelper: Error syncing offline photos: $e');
+//     }
+//   }
+// }

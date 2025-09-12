@@ -10,9 +10,7 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/constants/app_colors.dart';
-import 'package:app/constants/constants_methods.dart';
 import 'package:app/models/PmGetDataModel.dart';
 import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -23,12 +21,9 @@ import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
-import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../constants/constants_strings.dart';
-import '../../../repositories/audit_schedule_repository.dart';
 import '../../home_screen.dart';
-import '../../ticket_screen.dart';
 
 class PmSolarPage10 extends StatefulWidget {
   final PmTicketTypeEnum ticketType;
@@ -97,7 +92,8 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
     print('Saving form data: $key = $value');
     setState(() {
       formData[key] = value;
-      _onFormChanged();
+      hasUnsavedChanges = formData.isNotEmpty;
+      _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
     print('Updated formData: $formData');
   }
@@ -321,6 +317,12 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
       return true;
     }
 
+    // For dropdown fields, they should be editable initially
+    if (respType.contains('DROPDOWN')) {
+      return true;
+    }
+
+    // For other fields (like remarks), check dependencies
     final cablesData = widget.pmData?.responseData?.cables ?? [];
     final key = '${item['pm_item_type']}_${item['cl_order']}';
     return _checkCablesDependencies(key, cablesData);
@@ -328,6 +330,13 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
 
   bool _checkCablesDependencies(String key, List<dynamic> sectionData) {
     final dropdownValue = formData[key];
+    
+    // If no dropdown value is set yet, allow editing (for initial load)
+    if (dropdownValue == null) {
+      return true;
+    }
+    
+    // For remarks fields, only allow editing if dropdown is 'Corrected' or 'Not OK - To be corrected'
     if (dropdownValue == 'Corrected' || dropdownValue == 'Not OK - To be corrected') {
       return true;
     }
@@ -433,6 +442,12 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
   Future<void> _updateAuditScheduleStatus(String status, {required String siteAuditSchId, String? siteId}) async {
     try {
       print('Updating audit schedule status to: $status, siteAuditSchId: $siteAuditSchId, siteId: $siteId');
+      
+      if (!mounted) {
+        print('Widget is not mounted, skipping audit status update');
+        return;
+      }
+      
       await context.read<AuditScheduleStatusCubit>().updateStatus(
         status: status,
         siteAuditSchId: siteAuditSchId,
@@ -441,9 +456,12 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
       print('Audit schedule status updated successfully to: $status');
     } catch (e) {
       print('Error updating audit schedule status: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update audit status: $e')),
-      );
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update audit status: $e')),
+        );
+      }
     }
   }
 
@@ -921,22 +939,6 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                       }
                     },
                     isRequired: item['is_required'] == true,
-                  ),
-                if (_checkCablesDependencies(key, widget.pmData?.responseData?.cables ?? []))
-                  Column(
-                    children: [
-                      SizedBox(height: 15),
-                      CustomFormField(
-                        label: 'Remarks',
-                        hintText: 'Enter remarks',
-                        controller: _getRemarksController(key, currentValue),
-                        onChanged: (value) {
-                          print('Remarks changed: $key = $value');
-                          _saveFormData(key, value);
-                        },
-                        isRequired: item['is_required'] == true,
-                      ),
-                    ],
                   ),
               ],
             ),

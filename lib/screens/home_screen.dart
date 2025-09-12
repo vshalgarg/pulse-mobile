@@ -4,7 +4,6 @@ import 'package:app/commonWidgets/dashBoard_appBar.dart';
 import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/screens/corrective_maintenance_screen.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:flutter/material.dart';
@@ -126,13 +125,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const SizedBox(height: 5),
                                       correctiveMaintenanceTicketStatus(state),
                                       const SizedBox(height: 15),
-                                      // Energy Reading Section - Only show if data exists
-                                      if (_hasEnergyReadingData(state)) ...[
-                                        energyReading(),
-                                        const SizedBox(height: 5),
-                                        energyReadingTicketStatus(state),
-                                        const SizedBox(height: 15),
-                                      ],
+                                      // Energy Reading Section - Always show
+                                      energyReading(),
+                                      const SizedBox(height: 5),
+                                      energyReadingTicketStatus(state),
+                                      const SizedBox(height: 15),
                                       
 
                                       
@@ -522,7 +519,7 @@ class _HomeScreenState extends State<HomeScreen> {
     String missedDeadlineCount = "0";
 
     if (state is DashboardSuccess) {
-      final erData = state.dashboardModel.data?["Energy Readiing"];
+      final erData = state.dashboardModel.data?["Energy Reading"];
       if (erData != null) {
         for (var ticket in erData) {
           switch (ticket.ticketCode) {
@@ -567,13 +564,13 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: StatusCard(
                 count: dueCount,
-                title: "In Progress",
+                title: "Due",
                 onTap: () {
                   pushPage(context, TicketScreen(
                     auditName: "ER",
-                    status: "In Progress",
+                    status: "Due",
                   ));
-                  print("Energy Reading In Progress clicked");
+                  print("Energy Reading Due clicked");
                 },
               ),
             ),
@@ -803,7 +800,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: IconButton(
             onPressed: () {
-              pushPage(context, CorrectiveMaintenanceScreen());
+              // pushPage(context, CorrectiveMaintenanceScreen());
             },
             icon: Icon(
               Icons.add,
@@ -837,7 +834,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool _hasEnergyReadingData(DashboardState state) {
     if (state is DashboardSuccess) {
-      final erData = state.dashboardModel.data?["Energy Readiing"];
+      final erData = state.dashboardModel.data?["Energy Reading"];
       return erData != null && erData.isNotEmpty;
     }
     return false;

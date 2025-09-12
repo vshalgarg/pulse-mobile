@@ -113,6 +113,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
   String? _currentRequestedImageId;
   bool _isRequestingImage = false;
 
+  // Image loading infrastructure for edit mode
+  String? _editingItemType;
+  bool isEditingItem = false;
+
   // Controllers for CustomInfoCard
   final TextEditingController rectifierSerialController =
   TextEditingController();
@@ -139,7 +143,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
   Map<int, String> _imageCache = {};
 
   void _navigateToHomeScreen() {
-
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => const HomeScreen()),
           (route) => false, // Remove all previous routes
@@ -148,20 +151,15 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Get asset audit site response ID from GET API response for a specific item type
   int _getAssetAuditSiteRespId(String itemType) {
-
     if (widget.smpsData == null) {
-
       return 0; // Default ID
     }
 
     final smpsAssets = widget.smpsData!.assets ?? [];
     if (smpsAssets.isNotEmpty) {
-
       for (var asset in smpsAssets) {
-
         if (asset.assetAuditSiteRespId != null &&
             asset.assetAuditSiteRespId! > 0) {
-
           return asset.assetAuditSiteRespId!;
         }
       }
@@ -177,7 +175,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -188,7 +185,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -198,7 +194,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
         final firstItem = smpsCabinetItems.first;
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -209,7 +204,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -220,7 +214,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
         if (firstItem.assetAuditSiteRespId != null &&
             firstItem.assetAuditSiteRespId! > 0) {
-
           return firstItem.assetAuditSiteRespId!;
         }
       }
@@ -228,12 +221,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
     final remarks = widget.smpsData!.remarks;
     if (remarks.isNotEmpty) {
-
       for (var remark in remarks) {
-
         if (remark.assetAuditSiteRespId != null &&
             remark.assetAuditSiteRespId! > 0) {
-
           return remark.assetAuditSiteRespId!;
         }
       }
@@ -246,7 +236,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Load ticket ID from backend data for final submission
   void _loadTicketIdFromBackend() {
-
     if (widget.ticketId != null && widget.ticketId!.isNotEmpty) {
       _ticketId = widget.ticketId;
 
@@ -285,11 +274,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
         if (ticketId.isNotEmpty) {
           _ticketId = ticketId;
-
         } else {
           // Fallback to site audit schedule ID
           _ticketId = 'SITE-${pageHeader.siteAuditSchId}';
-
         }
       }
 
@@ -304,10 +291,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
     if (_ticketId == null || _ticketId!.isEmpty) {
       final now = DateTime.now();
       _ticketId =
-      'AUDIT-${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}-${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-
+      'AUDIT-${now.year}${now.month.toString().padLeft(2, '0')}${now.day
+          .toString().padLeft(2, '0')}-${now.hour.toString().padLeft(
+          2, '0')}${now.minute.toString().padLeft(2, '0')}';
     }
-
   }
 
   /// Get formatted ticket ID for display
@@ -322,7 +309,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
     // If it's a long ID, add some formatting
     if (formatted.length > 30) {
       formatted =
-      '${formatted.substring(0, 15)}...${formatted.substring(formatted.length - 15)}';
+      '${formatted.substring(0, 15)}...${formatted.substring(
+          formatted.length - 15)}';
     }
 
     return formatted;
@@ -360,7 +348,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // Initialize image service
-      _imageService = ImageRepository(AppConfig.of(context).apiProvider);
+      _imageService = ImageRepository(AppConfig
+          .of(context)
+          .apiProvider);
 
       // Load SMPS data if available
       _loadSMPSData();
@@ -402,7 +392,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             print('    - capacity: ${item.capacity}');
             print('    - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
             print(
-              '    - isFilled: ${item.assetStatus != null || item.photoId != null}',
+              '    - isFilled: ${item.assetStatus != null ||
+                  item.photoId != null}',
             );
           }
         } else {
@@ -427,7 +418,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             print('    - capacity: ${item.capacity}');
             print('    - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
             print(
-              '    - isFilled: ${item.assetStatus != null || item.photoId != null}',
+              '    - isFilled: ${item.assetStatus != null ||
+                  item.photoId != null}',
             );
           }
         } else {
@@ -450,7 +442,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             print('    - capacity: ${item.capacity}');
             print('    - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
             print(
-              '    - isFilled: ${item.assetStatus != null || item.photoId != null}',
+              '    - isFilled: ${item.assetStatus != null ||
+                  item.photoId != null}',
             );
           }
         } else {
@@ -473,7 +466,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             print('    - capacity: ${item.capacity}');
             print('    - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
             print(
-              '    - isFilled: ${item.assetStatus != null || item.photoId != null}',
+              '    - isFilled: ${item.assetStatus != null ||
+                  item.photoId != null}',
             );
           }
         } else {
@@ -496,7 +490,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             print('    - capacity: ${item.capacity}');
             print('    - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
             print(
-              '    - isFilled: ${item.assetStatus != null || item.photoId != null}',
+              '    - isFilled: ${item.assetStatus != null ||
+                  item.photoId != null}',
             );
           }
         } else {
@@ -519,7 +514,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             print('    - capacity: ${item.capacity}');
             print('    - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
             print(
-              '    - isFilled: ${item.assetStatus != null || item.photoId != null}',
+              '    - isFilled: ${item.assetStatus != null ||
+                  item.photoId != null}',
             );
           }
         } else {
@@ -560,11 +556,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                 smpsCabinetItems.length +
                 acdbItems.length +
                 lspuItems.length;
-
-
       });
     } else {
-
       print('SMPS Screen: Backend is not returning SMPS data');
     }
   }
@@ -617,7 +610,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       setState(() {
         _imageCache.addAll(imageMap);
       });
-
     } catch (e) {
       print('SMPS Screen: Error loading images: $e');
     }
@@ -687,7 +679,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
-      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+      subscription = context
+          .read<AssetAuditGetImageCubit>()
+          .stream
+          .listen((state) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
           print('Image fetched successfully for photo ID: $imagePath');
           final finalImageData = state.imageData.startsWith('data:image/')
@@ -697,7 +692,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
           print('Failed to fetch image: ${state.errorMessage}');
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          showCustomToast(
+              context, 'Failed to load image: ${state.errorMessage}');
           completer.complete(null);
           subscription.cancel();
         }
@@ -705,7 +701,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       context.read<AssetAuditGetImageCubit>().getImage(
         imgId: imagePath,
-        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
+            ?.toString() ?? '',
       );
 
       imageData = await completer.future;
@@ -714,40 +711,49 @@ class _SMPSScreenState extends State<SMPSScreen> {
     if (imageData != null && imageData.isNotEmpty) {
       showDialog(
         context: context,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.7,
-                  maxWidth: MediaQuery.of(context).size.width * 0.9,
-                ),
-                child: imageData!.startsWith('data:image/')
-                    ? Image.memory(
-                        base64Decode(imageData.split(',').last),
-                        fit: BoxFit.contain,
-                      )
-                    : Image.file(
-                        File(imageData),
-                        fit: BoxFit.contain,
-                      ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.red,
-                    size: 30,
+        builder: (context) =>
+            Dialog(
+              backgroundColor: Colors.black,
+              child: Stack(
+                children: [
+                  Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery
+                          .of(context)
+                          .size
+                          .height * 0.7,
+                      maxWidth: MediaQuery
+                          .of(context)
+                          .size
+                          .width * 0.9,
+                    ),
+                    child: imageData!.startsWith('data:image/')
+                        ? Image.memory(
+                      base64Decode(imageData
+                          .split(',')
+                          .last),
+                      fit: BoxFit.contain,
+                    )
+                        : Image.file(
+                      File(imageData),
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.red,
+                        size: 30,
+                      ),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
       );
     } else {
       showCustomToast(context, 'Unable to load photo.');
@@ -761,19 +767,23 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Load image for editing
   void _loadImageForEdit(String photoId, String itemType) {
-    print('SMPS Debug: _loadImageForEdit called - photoId: $photoId, itemType: $itemType');
+    print(
+        'SMPS Debug: _loadImageForEdit called - photoId: $photoId, itemType: $itemType');
     if (photoId.isNotEmpty && _isNumeric(photoId)) {
       // Set the current requested image ID for this screen
       _currentRequestedImageId = photoId;
       _isRequestingImage = true;
+      _editingItemType = itemType;
 
       // Request the image
       context.read<AssetAuditGetImageCubit>().getImage(
         imgId: photoId,
-        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
+            ?.toString() ?? '',
       );
 
-      print('SMPS Debug: Loading image for edit - photoId: $photoId, itemType: $itemType');
+      print(
+          'SMPS Debug: Loading image for edit - photoId: $photoId, itemType: $itemType');
     } else {
       print('SMPS Debug: PhotoId is empty or not numeric: $photoId');
     }
@@ -831,9 +841,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedRectifierItems.add(savedItem);
           currentScannedItems++;
-
         } else {
-          print('SMPS Screen: Skipped SMPS asset item - no serial number: ${item.itemType}');
+          print('SMPS Screen: Skipped SMPS asset item - no serial number: ${item
+              .itemType}');
         }
       }
 
@@ -876,9 +886,10 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedRectifierItems.add(savedItem);
           currentScannedItems++;
-
         } else {
-          print('SMPS Screen: Skipped SMPS Rectifier item - no serial number: ${item.itemType}');
+          print(
+              'SMPS Screen: Skipped SMPS Rectifier item - no serial number: ${item
+                  .itemType}');
         }
       }
 
@@ -920,9 +931,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedMPPTItems.add(savedItem);
           currentScannedItems++;
-
         } else {
-          print('SMPS Screen: Skipped SMPS MPPT item - no serial number: ${item.itemType}');
+          print('SMPS Screen: Skipped SMPS MPPT item - no serial number: ${item
+              .itemType}');
         }
       }
 
@@ -964,9 +975,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           };
           savedACDBItems.add(savedItem);
           currentScannedItems++;
-
         } else {
-          print('SMPS Screen: Skipped ACDB item - no serial number: ${item.itemType}');
+          print('SMPS Screen: Skipped ACDB item - no serial number: ${item
+              .itemType}');
         }
       }
 
@@ -1009,7 +1020,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
           savedLSPUItems.add(savedItem);
           currentScannedItems++;
         } else {
-          print('SMPS Screen: Skipped LSPU item - no serial number: ${item.itemType}');
+          print('SMPS Screen: Skipped LSPU item - no serial number: ${item
+              .itemType}');
         }
       }
 
@@ -1114,7 +1126,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
       // Update audit schedule status to "In Progress"
       if (mounted) {
         context.read<AuditScheduleStatusCubit>().updateStatus(
-          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
+              .toString() ?? "",
           status: "In Progress",
         );
       }
@@ -1138,11 +1151,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
     // Post data to API first
     try {
       await _postCurrentScreenData();
-      
+
       // Update audit schedule status to "In Progress"
       if (mounted) {
         context.read<AuditScheduleStatusCubit>().updateStatus(
-          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
+              .toString() ?? "",
           status: "In Progress",
         );
       }
@@ -1203,7 +1217,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
     }
 
     // Check if photo ID is present (required for all items)
-    int? photoId = rectifierPhotoId ?? mpptPhotoId ?? acdbPhotoId ?? lspuPhotoId;
+    int? photoId = rectifierPhotoId ?? mpptPhotoId ?? acdbPhotoId ??
+        lspuPhotoId;
     if (photo != null && photoId == null) {
       print('Photo ID validation failed - photo exists but no photoId');
       return false;
@@ -1257,30 +1272,34 @@ class _SMPSScreenState extends State<SMPSScreen> {
   // Save current form data for Rectifier
   void _saveRectifierForm() {
     // Check against SMPS Cabinet items that already have both photo_id and asset_status
-    int completedRectifierCount = (widget.smpsData?.smpsCabinet?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0);
+    int completedRectifierCount = (widget.smpsData?.smpsCabinet?.where((item) =>
+    item.photoId != null && item.assetStatus != null).length ?? 0);
     int totalRectifierCount = (widget.smpsData?.smpsCabinet?.length ?? 0);
-    
+
     // If no items from API, allow adding at least 5 items
     if (totalRectifierCount == 0) {
       totalRectifierCount = 5;
     }
-    
+
     // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedRectifierCount = completedRectifierCount > 0 ? completedRectifierCount : totalRectifierCount;
-    
+    int maxAllowedRectifierCount = completedRectifierCount > 0
+        ? completedRectifierCount
+        : totalRectifierCount;
+
     // Temporary fix: Clear the list if it has more items than expected
     if (savedRectifierItems.length > maxAllowedRectifierCount) {
-      print('SMPS Debug: Clearing savedRectifierItems as it has more items than expected');
+      print(
+          'SMPS Debug: Clearing savedRectifierItems as it has more items than expected');
       savedRectifierItems.clear();
     }
-    
+
     print('SMPS Debug: completedRectifierCount = $completedRectifierCount');
     print('SMPS Debug: totalRectifierCount = $totalRectifierCount');
     print('SMPS Debug: maxAllowedRectifierCount = $maxAllowedRectifierCount');
-    print('SMPS Debug: savedRectifierItems.length = ${savedRectifierItems.length}');
+    print('SMPS Debug: savedRectifierItems.length = ${savedRectifierItems
+        .length}');
     print('SMPS Debug: savedRectifierItems content: $savedRectifierItems');
-    
+
     if (savedRectifierItems.length > maxAllowedRectifierCount) {
       showCustomToast(
         context,
@@ -1307,22 +1326,36 @@ class _SMPSScreenState extends State<SMPSScreen> {
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        // Add to saved rectifier items list
-        savedRectifierItems.add(currentFormData);
-        currentScannedItems++;
-        rectifierSerialNumber = null;
-        rectifierPhoto = null;
-        rectifierPhotoId = null;
-        rectifierStatus = null;
+        if (isEditingItem) {
+          // We're editing an existing item - add it back to the list
+          savedRectifierItems.add(currentFormData);
 
-        // Clear the controller
-        rectifierSerialController.clear();
+          // Clear all form fields after editing
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierPhotoId = null;
+          rectifierStatus = null;
+          rectifierSerialController.clear();
+          rectifierCardKey++;
 
-        // Force rebuild of the CustomInfoCard widget
-        rectifierCardKey++;
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedRectifierItems.add(currentFormData);
+          currentScannedItems++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          rectifierSerialNumber = null;
+          rectifierPhoto = null;
+          rectifierPhotoId = null;
+          rectifierStatus = null;
+          rectifierSerialController.clear();
+          rectifierCardKey++;
+
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       // Show success message
@@ -1330,7 +1363,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
           maxAllowedRectifierCount - savedRectifierItems.length;
       showCustomToast(
         context,
-        'Rectifier item saved successfully! ${remainingRectifiers > 0 ? '(${remainingRectifiers} remaining)' : '(All items added)'}',
+        'Rectifier item saved successfully! ${remainingRectifiers > 0
+            ? '(${remainingRectifiers} remaining)'
+            : '(All items added)'}',
       );
     } else {
       print('Form validation failed - cannot save rectifier item');
@@ -1340,21 +1375,25 @@ class _SMPSScreenState extends State<SMPSScreen> {
   // Save current form data for MPPT
   void _saveMPPTForm() {
     // Check against items that already have both photo_id and asset_status
-    int completedMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0) + 
-        (widget.smpsData?.subCategories?['SMPS LSPU']?.where((item) => 
+    int completedMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']
+        ?.where((item) =>
+    item.photoId != null && item.assetStatus != null).length ?? 0) +
+        (widget.smpsData?.subCategories?['SMPS LSPU']?.where((item) =>
         item.photoId != null && item.assetStatus != null).length ?? 0);
-    int totalMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']?.length ?? 0) + 
+    int totalMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']
+        ?.length ?? 0) +
         (widget.smpsData?.subCategories?['SMPS LSPU']?.length ?? 0);
-    
+
     // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedMPPTCount = completedMPPTCount > 0 ? completedMPPTCount : totalMPPTCount;
-    
+    int maxAllowedMPPTCount = completedMPPTCount > 0
+        ? completedMPPTCount
+        : totalMPPTCount;
+
     print('SMPS Debug: completedMPPTCount = $completedMPPTCount');
     print('SMPS Debug: totalMPPTCount = $totalMPPTCount');
     print('SMPS Debug: maxAllowedMPPTCount = $maxAllowedMPPTCount');
     print('SMPS Debug: savedMPPTItems.length = ${savedMPPTItems.length}');
-    
+
     if (savedMPPTItems.length > maxAllowedMPPTCount) {
       showCustomToast(
         context,
@@ -1384,34 +1423,50 @@ class _SMPSScreenState extends State<SMPSScreen> {
         print('Saving MPPT item: $currentFormData');
         print('Current savedMPPTItems count: ${savedMPPTItems.length}');
 
-        // Add to saved MPPT items list
-        savedMPPTItems.add(currentFormData);
-        currentScannedItems++;
+        if (isEditingItem) {
+          // We're editing an existing item - add it back to the list
+          savedMPPTItems.add(currentFormData);
 
-        print('After saving - savedMPPTItems count: ${savedMPPTItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          // Clear all form fields after editing
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptPhotoId = null;
+          mpptStatus = null;
+          mpptSerialController.clear();
+          mpptCardKey++;
 
-        // Clear AssetTypeCard form for next entry
-        mpptSerialNumber = null;
-        mpptPhoto = null;
-        mpptPhotoId = null;
-        mpptStatus = null;
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedMPPTItems.add(currentFormData);
+          currentScannedItems++;
 
-        // Clear the controller
-        mpptSerialController.clear();
+          print(
+              'After saving - savedMPPTItems count: ${savedMPPTItems.length}');
+          print('currentScannedItems: $currentScannedItems');
 
-        // Force rebuild of the CustomInfoCard widget
-        mpptCardKey++;
+          // Clear AssetTypeCard form for next entry
+          mpptSerialNumber = null;
+          mpptPhoto = null;
+          mpptPhotoId = null;
+          mpptStatus = null;
+          mpptSerialController.clear();
+          mpptCardKey++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       // Show success message
       int remainingMPPTs = maxAllowedMPPTCount - savedMPPTItems.length;
       showCustomToast(
         context,
-        'MPPT item saved successfully! ${remainingMPPTs > 0 ? '(${remainingMPPTs} remaining)' : '(All items added)'}',
+        'MPPT item saved successfully! ${remainingMPPTs > 0
+            ? '(${remainingMPPTs} remaining)'
+            : '(All items added)'}',
       );
     } else {
       print('Form validation failed - cannot save MPPT item');
@@ -1474,18 +1529,36 @@ class _SMPSScreenState extends State<SMPSScreen> {
           'isQRCodeScanned': false,
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
-        savedACDBItems.add(currentFormData);
-        currentScannedItems++;
+        if (isEditingItem) {
+          // We're editing an existing item - add it back to the list
+          savedACDBItems.add(currentFormData);
 
-        acdbSerialNumber = null;
-        acdbPhoto = null;
-        acdbPhotoId = null;
-        acdbStatus = null;
-        acdbSerialController.clear();
-        acdbCardKey++;
+          // Clear all form fields after editing
+          acdbSerialNumber = null;
+          acdbPhoto = null;
+          acdbPhotoId = null;
+          acdbStatus = null;
+          acdbSerialController.clear();
+          acdbCardKey++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedACDBItems.add(currentFormData);
+          currentScannedItems++;
+
+          acdbSerialNumber = null;
+          acdbPhoto = null;
+          acdbPhotoId = null;
+          acdbStatus = null;
+          acdbSerialController.clear();
+          acdbCardKey++;
+
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       // ACDB item saved successfully
@@ -1522,17 +1595,36 @@ class _SMPSScreenState extends State<SMPSScreen> {
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        savedLSPUItems.add(currentFormData);
-        currentScannedItems++;
-        lspuSerialNumber = null;
-        lspuPhoto = null;
-        lspuPhotoId = null;
-        lspuStatus = null;
-        lspuSerialController.clear();
-        lspuCardKey++;
+        if (isEditingItem) {
+          // We're editing an existing item - add it back to the list
+          savedLSPUItems.add(currentFormData);
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          // Clear all form fields after editing
+          lspuSerialNumber = null;
+          lspuPhoto = null;
+          lspuPhotoId = null;
+          lspuStatus = null;
+          lspuSerialController.clear();
+          lspuCardKey++;
+
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedLSPUItems.add(currentFormData);
+          currentScannedItems++;
+
+          lspuSerialNumber = null;
+          lspuPhoto = null;
+          lspuPhotoId = null;
+          lspuStatus = null;
+          lspuSerialController.clear();
+          lspuCardKey++;
+
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       // LSPU item saved successfully
@@ -1547,38 +1639,51 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   // Check if all items are scanned
   // Helper method to filter items that have both photo and status
-  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(
+      List<Map<String, dynamic>> items) {
     return items.where((item) {
-      final hasPhoto = item['photo'] != null && item['photo'].toString().isNotEmpty;
+      final hasPhoto = item['photo'] != null && item['photo']
+          .toString()
+          .isNotEmpty;
       final hasPhotoId = item['photoId'] != null;
-      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
-                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+      final hasStatus = (item['status'] != null && item['status']
+          .toString()
+          .isNotEmpty) ||
+          (item['assetStatus'] != null && item['assetStatus']
+              .toString()
+              .isNotEmpty);
       return hasPhotoId && hasStatus;
     }).toList();
   }
 
   bool _isAllItemsScanned() {
     // Check against items that already have both photo_id and asset_status
-    int completedRectifierCount = (widget.smpsData?.assets?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0) + 
-        (widget.smpsData?.subCategories?['SMPS Rectifiers']?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0) + 
-        (widget.smpsData?.subCategories?['SMPS MPPT']?.where((item) => 
+    int completedRectifierCount = (widget.smpsData?.assets?.where((item) =>
+    item.photoId != null && item.assetStatus != null).length ?? 0) +
+        (widget.smpsData?.subCategories?['SMPS Rectifiers']?.where((item) =>
+        item.photoId != null && item.assetStatus != null).length ?? 0) +
+        (widget.smpsData?.subCategories?['SMPS MPPT']?.where((item) =>
         item.photoId != null && item.assetStatus != null).length ?? 0);
-    int completedMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0) + 
-        (widget.smpsData?.subCategories?['SMPS LSPU']?.where((item) => 
+    int completedMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']
+        ?.where((item) =>
+    item.photoId != null && item.assetStatus != null).length ?? 0) +
+        (widget.smpsData?.subCategories?['SMPS LSPU']?.where((item) =>
         item.photoId != null && item.assetStatus != null).length ?? 0);
-    
-    int totalRectifierCount = (widget.smpsData?.assets?.length ?? 0) + 
-        (widget.smpsData?.subCategories?['SMPS Rectifiers']?.length ?? 0) + 
+
+    int totalRectifierCount = (widget.smpsData?.assets?.length ?? 0) +
+        (widget.smpsData?.subCategories?['SMPS Rectifiers']?.length ?? 0) +
         (widget.smpsData?.subCategories?['SMPS MPPT']?.length ?? 0);
-    int totalMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']?.length ?? 0) + 
+    int totalMPPTCount = (widget.smpsData?.subCategories?['SMPS ACDB']
+        ?.length ?? 0) +
         (widget.smpsData?.subCategories?['SMPS LSPU']?.length ?? 0);
-    
-    int maxAllowedRectifierCount = completedRectifierCount > 0 ? completedRectifierCount : totalRectifierCount;
-    int maxAllowedMPPTCount = completedMPPTCount > 0 ? completedMPPTCount : totalMPPTCount;
-    
+
+    int maxAllowedRectifierCount = completedRectifierCount > 0
+        ? completedRectifierCount
+        : totalRectifierCount;
+    int maxAllowedMPPTCount = completedMPPTCount > 0
+        ? completedMPPTCount
+        : totalMPPTCount;
+
     return (savedRectifierItems.length >= maxAllowedRectifierCount) &&
         (savedMPPTItems.length >= maxAllowedMPPTCount);
   }
@@ -1624,7 +1729,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
       ];
 
       final isValid = allItems.any(
-            (item) => item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase(),
+            (item) =>
+        item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase(),
       );
 
       if (isValid) {
@@ -1642,7 +1748,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Submit all data directly without extra popup
   void _submitAllData() async {
-
     if (savedRectifierItems.isEmpty &&
         savedMPPTItems.isEmpty &&
         savedACDBItems.isEmpty &&
@@ -1673,7 +1778,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
         return;
       }
     } else {
-
       _performFinalSubmission();
     }
   }
@@ -1761,11 +1865,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
       print(
         'SMPS Screen: All flow data posted successfully, updating status to Complete...',
       );
-      
+
       // Update audit schedule status to "Complete"
       if (mounted) {
         context.read<AuditScheduleStatusCubit>().updateStatus(
-          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
+              .toString() ?? "",
           status: "Complete",
         );
       }
@@ -1775,19 +1880,21 @@ class _SMPSScreenState extends State<SMPSScreen> {
         showDialog(
           context: context,
           barrierDismissible: false,
-          builder: (context) => SuccessDialog(
-            ticketId: widget.ticketId ?? _formattedTicketId,
-            message: "Asset Audit completed successfully!\n\nTicket ID: ${widget.ticketId ?? _formattedTicketId}",
-            onDone: () {
-              Navigator.of(context).pop(); // Close success dialog
-              // Navigate to home screen
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const HomeScreen()),
-                (route) => false,
-              );
-            },
-          ),
+          builder: (context) =>
+              SuccessDialog(
+                ticketId: widget.ticketId ?? _formattedTicketId,
+                message: "Asset Audit completed successfully!\n\nTicket ID: ${widget
+                    .ticketId ?? _formattedTicketId}",
+                onDone: () {
+                  Navigator.of(context).pop(); // Close success dialog
+                  // Navigate to home screen
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                        (route) => false,
+                  );
+                },
+              ),
         );
       }
     } else {
@@ -1800,7 +1907,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
   /// Post all data from the entire flow to API
   Future<bool> _postAllFlowData() async {
-
     if (widget.assetAuditData == null) {
       print('SMPS Screen: No asset audit data available for posting');
       return false;
@@ -1813,7 +1919,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       // Add data from previous screens
       if (widget.extinguisherItems != null &&
           widget.extinguisherItems!.isNotEmpty) {
-
         allFlowItems.addAll(widget.extinguisherItems!);
       }
 
@@ -1827,7 +1932,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       if (widget.solarPlatesItems != null &&
           widget.solarPlatesItems!.isNotEmpty) {
-
         allFlowItems.addAll(widget.solarPlatesItems!);
       }
 
@@ -1843,7 +1947,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       // Log all flow items before enhancement
       for (int i = 0; i < allFlowItems.length; i++) {
         var item = allFlowItems[i];
-
       }
 
       // Enhance all flow items with additional data
@@ -1854,7 +1957,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       for (int i = 0; i < enhancedItems.length; i++) {
         var item = enhancedItems[i];
-
       }
 
       // Convert enhanced items to proper post request format
@@ -1870,7 +1972,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       );
 
       if (postRequests.isNotEmpty) {
-
         context.read<AssetAuditCubit>().postAssetAuditData(
           requests: postRequests,
         );
@@ -1885,7 +1986,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
   }
 
   int? _getRemarksAssetAuditSiteRespId() {
-
     if (widget.smpsData == null) {
       return null;
     }
@@ -1914,7 +2014,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
   /// Post current screen data to API before submitting
   Future<bool> _postCurrentScreenData() async {
     if (widget.assetAuditData == null) {
-
       return false;
     }
 
@@ -1928,7 +2027,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       for (int i = 0; i < allSavedItems.length; i++) {
         var item = allSavedItems[i];
-
       }
 
       // Add user's general remarks if entered
@@ -1964,14 +2062,12 @@ class _SMPSScreenState extends State<SMPSScreen> {
             // Local modification timestamp
           };
           allSavedItems.add(remarksData);
-
         } else {
           print('SMPS Screen: Could not find remarks ID from backend data');
         }
       }
 
       if (allSavedItems.isEmpty) {
-
         return false;
       }
 
@@ -1985,7 +2081,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       for (int i = 0; i < enhancedItems.length; i++) {
         var item = enhancedItems[i];
-
       }
 
       // Convert to POST request format
@@ -2006,7 +2101,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       for (int i = 0; i < requests.length; i++) {
         var request = requests[i];
-
       }
 
       // Set flag BEFORE making the API call to ensure it's set when success state is received
@@ -2017,7 +2111,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       return true;
     } catch (e) {
-
       return false;
     }
   }
@@ -2033,6 +2126,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
   // Edit a specific Rectifier item from the saved list
   void _editItem(Map<String, dynamic> item) {
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
+
       // Load the item data back into the form
       rectifierSerialNumber = item["serialNumber"];
       rectifierPhoto = item["photo"];
@@ -2041,6 +2137,29 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       // Set the serial controller text
       rectifierSerialController.text = item["serialNumber"] ?? "";
+
+      // Handle photo data - check if it's base64 data or photo ID
+      String? photoData = item["photo"];
+      if (photoData != null && photoData.isNotEmpty) {
+        if (photoData.startsWith('data:image/')) {
+          // It's already base64 image data
+          rectifierPhoto = photoData;
+        } else if (_isNumeric(photoData)) {
+          // It's a photo ID, load the image
+          _loadImageForEdit(photoData, 'rectifier');
+        } else {
+          // It's a file path or other format
+          rectifierPhoto = photoData;
+        }
+      }
+
+      // Also try to load image if photoId exists (fallback)
+      if (rectifierPhotoId != null &&
+          rectifierPhotoId
+              .toString()
+              .isNotEmpty && rectifierPhoto == null) {
+        _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
+      }
 
       // Remove the item from saved rectifier items
       savedRectifierItems.remove(item);
@@ -2051,12 +2170,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       hasUnsavedChanges = true;
     });
-
   }
 
   // Edit a specific MPPT item from the saved list
   void _editMPPTItem(Map<String, dynamic> item) {
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
+
       // Load the item data back into the form
       mpptSerialNumber = item["serialNumber"];
       mpptPhoto = item["photo"];
@@ -2065,6 +2186,29 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       // Set the serial controller text
       mpptSerialController.text = item["serialNumber"] ?? "";
+
+      // Handle photo data - check if it's base64 data or photo ID
+      String? photoData = item["photo"];
+      if (photoData != null && photoData.isNotEmpty) {
+        if (photoData.startsWith('data:image/')) {
+          // It's already base64 image data
+          mpptPhoto = photoData;
+        } else if (_isNumeric(photoData)) {
+          // It's a photo ID, load the image
+          _loadImageForEdit(photoData, 'mppt');
+        } else {
+          // It's a file path or other format
+          mpptPhoto = photoData;
+        }
+      }
+
+      // Also try to load image if photoId exists (fallback)
+      if (mpptPhotoId != null &&
+          mpptPhotoId
+              .toString()
+              .isNotEmpty && mpptPhoto == null) {
+        _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
+      }
 
       // Remove the item from saved MPPT items
       savedMPPTItems.remove(item);
@@ -2075,12 +2219,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       hasUnsavedChanges = true;
     });
-
   }
 
   // Edit a specific ACDB item from the saved list
   void _editACDBItem(Map<String, dynamic> item) {
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
+
       // Load the item data back into the form
       acdbSerialNumber = item["serialNumber"];
       acdbPhoto = item["photo"];
@@ -2089,6 +2235,29 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       // Set the serial controller text
       acdbSerialController.text = item["serialNumber"] ?? "";
+
+      // Handle photo data - check if it's base64 data or photo ID
+      String? photoData = item["photo"];
+      if (photoData != null && photoData.isNotEmpty) {
+        if (photoData.startsWith('data:image/')) {
+          // It's already base64 image data
+          acdbPhoto = photoData;
+        } else if (_isNumeric(photoData)) {
+          // It's a photo ID, load the image
+          _loadImageForEdit(photoData, 'acdb');
+        } else {
+          // It's a file path or other format
+          acdbPhoto = photoData;
+        }
+      }
+
+      // Also try to load image if photoId exists (fallback)
+      if (acdbPhotoId != null &&
+          acdbPhotoId
+              .toString()
+              .isNotEmpty && acdbPhoto == null) {
+        _loadImageForEdit(acdbPhotoId.toString(), 'acdb');
+      }
 
       // Remove the item from saved ACDB items
       savedACDBItems.remove(item);
@@ -2099,12 +2268,14 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       hasUnsavedChanges = true;
     });
-
   }
 
   // Edit a specific LSPU item from the saved list
   void _editLSPUItem(Map<String, dynamic> item) {
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
+
       // Load the item data back into the form
       lspuSerialNumber = item["serialNumber"];
       lspuPhoto = item["photo"];
@@ -2113,6 +2284,29 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       // Set the serial controller text
       lspuSerialController.text = item["serialNumber"] ?? "";
+
+      // Handle photo data - check if it's base64 data or photo ID
+      String? photoData = item["photo"];
+      if (photoData != null && photoData.isNotEmpty) {
+        if (photoData.startsWith('data:image/')) {
+          // It's already base64 image data
+          lspuPhoto = photoData;
+        } else if (_isNumeric(photoData)) {
+          // It's a photo ID, load the image
+          _loadImageForEdit(photoData, 'lspu');
+        } else {
+          // It's a file path or other format
+          lspuPhoto = photoData;
+        }
+      }
+
+      // Also try to load image if photoId exists (fallback)
+      if (lspuPhotoId != null &&
+          lspuPhotoId
+              .toString()
+              .isNotEmpty && lspuPhoto == null) {
+        _loadImageForEdit(lspuPhotoId.toString(), 'lspu');
+      }
 
       // Remove the item from saved LSPU items
       savedLSPUItems.remove(item);
@@ -2123,691 +2317,741 @@ class _SMPSScreenState extends State<SMPSScreen> {
 
       hasUnsavedChanges = true;
     });
-
   }
-
-
-
-
-
-
-
 
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AssetAuditCubit, AssetAuditState>(
+    return BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
       listener: (context, state) {
+        if (state is AssetAuditGetImageSuccess) {
+          print(
+              'SMPS Screen: Image loaded successfully for ${_editingItemType}');
+          setState(() {
+            // Format image data with proper data URL prefix
+            String formattedImageData = state.imageData.startsWith(
+                'data:image/')
+                ? state.imageData
+                : 'data:image/jpeg;base64,${state.imageData}';
 
-        if (state is AssetAuditPostSuccess) {
-
-          for (int i = 0; i < state.responses.length; i++) {
-
-          }
-
-          // Check if this success state contains SMPS-related items
-          bool isSMPSData = false;
-          for (var response in state.responses) {
-            // Primary check: itemTypeRemark contains SMPS-related text
-            if (response.itemTypeRemark != null &&
-                (response.itemTypeRemark!.contains('SMPS') ||
-                    response.itemTypeRemark!.contains('Rectifier') ||
-                    response.itemTypeRemark!.contains('MPPT') ||
-                    response.itemTypeRemark!.contains('ACDB') ||
-                    response.itemTypeRemark!.contains('LSPU') ||
-                    response.itemTypeRemark!.contains('Cabinet'))) {
-              isSMPSData = true;
-
-              break;
+            if (_editingItemType == 'rectifier') {
+              rectifierPhoto = formattedImageData;
+              print('SMPS Debug: Updated rectifierPhoto with image data');
+            } else if (_editingItemType == 'mppt') {
+              mpptPhoto = formattedImageData;
+              print('SMPS Debug: Updated mpptPhoto with image data');
+            } else if (_editingItemType == 'acdb') {
+              acdbPhoto = formattedImageData;
+              print('SMPS Debug: Updated acdbPhoto with image data');
+            } else if (_editingItemType == 'lspu') {
+              lspuPhoto = formattedImageData;
+              print('SMPS Debug: Updated lspuPhoto with image data');
             }
-
-            // Fallback check: Check if this is a response to SMPS screen data by looking at the flag
-            if (_hasPostedSMPSData) {
-              isSMPSData = true;
-
-              break;
-            }
-
-          }
-
-          // Only process this success state if it contains SMPS screen data
-          if (isSMPSData) {
-
-            try {
-
-              context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
-              );
-
-              // Wait for data to refresh, then show success dialog
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => SuccessDialog(
-                      ticketId: widget.ticketId ?? _formattedTicketId,
-                      message:
-                      "Asset Audit completed successfully!\n\nTicket ID: ${widget.ticketId ?? _formattedTicketId}",
-                      onDone: () {
-                        Navigator.of(context).pop(); // Close success dialog
-
-
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => const HomeScreen(),
-                          ),
-                              (route) => false, // Remove all previous routes
-                        );
-                      }, // Required parameter
-                    ),
-                  );
-
-                  // Reset the flag after successful submission
-                  setState(() {
-                    _hasPostedSMPSData = false;
-                  });
-
-                }
-              });
-            } catch (e) {
-
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => SuccessDialog(
-                      ticketId: widget.ticketId ?? _formattedTicketId,
-                      message:
-                      "Asset Audit completed successfully!\n\nTicket ID: ${widget.ticketId ?? _formattedTicketId}",
-                      onDone: () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                            builder: (context) => const HomeScreen(),
-                          ),
-                              (route) => false,
-                        );
-                      },
-                    ),
-                  );
-                  setState(() {
-                    _hasPostedSMPSData = false;
-                  });
-                }
-              });
-            }
-          } else {
-            print('SMPS Screen: _hasPostedSMPSData flag: $_hasPostedSMPSData');
-          }
-        } else if (state is AssetAuditPostError) {
-          // Only show error message if this error belongs to SMPS screen data
-          if (_hasPostedSMPSData) {
-            print('SMPS Screen: AssetAuditPostError received for SMPS data');
-            // Show error message but don't block navigation completely
-            showCustomToast(
-              context,
-              '❌ Failed to save SMPS data to server. You can continue with local data.',
-            );
-
-            setState(() {
-              _hasPostedSMPSData = false;
-            });
-            print(
-              'SMPS Screen: Reset _hasPostedSMPSData flag to false after error',
-            );
-          } else {
-            print(
-              'SMPS Screen: AssetAuditPostError received but not for SMPS data, ignoring...',
-            );
-          }
+            _isRequestingImage = false;
+            _currentRequestedImageId = null;
+            _editingItemType = null;
+          });
+        } else if (state is AssetAuditGetImageFailure) {
+          print('SMPS Screen: Failed to load image: ${state.errorMessage}');
+          setState(() {
+            _isRequestingImage = false;
+            _currentRequestedImageId = null;
+            _editingItemType = null;
+          });
         }
       },
-      child: PopScope(
-        canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          if (didPop) return;
+      child: BlocListener<AssetAuditCubit, AssetAuditState>(
+        listener: (context, state) {
+          if (state is AssetAuditPostSuccess) {
+            for (int i = 0; i < state.responses.length; i++) {
 
-          if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message:
-                "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                onSaveAndExit: () {
-                  _saveAndExit();
-                },
-                onDiscard: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            );
+            }
+
+            // Check if this success state contains SMPS-related items
+            bool isSMPSData = false;
+            for (var response in state.responses) {
+              // Primary check: itemTypeRemark contains SMPS-related text
+              if (response.itemTypeRemark != null &&
+                  (response.itemTypeRemark!.contains('SMPS') ||
+                      response.itemTypeRemark!.contains('Rectifier') ||
+                      response.itemTypeRemark!.contains('MPPT') ||
+                      response.itemTypeRemark!.contains('ACDB') ||
+                      response.itemTypeRemark!.contains('LSPU') ||
+                      response.itemTypeRemark!.contains('Cabinet'))) {
+                isSMPSData = true;
+
+                break;
+              }
+
+              // Fallback check: Check if this is a response to SMPS screen data by looking at the flag
+              if (_hasPostedSMPSData) {
+                isSMPSData = true;
+
+                break;
+              }
+            }
+
+            // Only process this success state if it contains SMPS screen data
+            if (isSMPSData) {
+              try {
+                context.read<AssetAuditCubit>().getAssetAuditData(
+                  siteType: widget.assetAuditData?.pageHeader.first
+                      .siteDomainName ?? "",
+                  auditSchId: widget.assetAuditData?.pageHeader.first
+                      .siteAuditSchId.toString() ?? "",
+                  siteAuditSchId: widget.assetAuditData?.pageHeader.first
+                      .siteAuditSchId.toString() ?? "",
+                );
+
+                // Wait for data to refresh, then show success dialog
+                Future.delayed(const Duration(seconds: 2), () {
+                  if (mounted) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) =>
+                          SuccessDialog(
+                            ticketId: widget.ticketId ?? _formattedTicketId,
+                            message:
+                            "Asset Audit completed successfully!\n\nTicket ID: ${widget
+                                .ticketId ?? _formattedTicketId}",
+                            onDone: () {
+                              Navigator.of(context)
+                                  .pop(); // Close success dialog
+
+
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (context) => const HomeScreen(),
+                                ),
+                                    (
+                                    route) => false, // Remove all previous routes
+                              );
+                            }, // Required parameter
+                          ),
+                    );
+
+                    // Reset the flag after successful submission
+                    setState(() {
+                      _hasPostedSMPSData = false;
+                    });
+                  }
+                });
+              } catch (e) {
+                Future.delayed(const Duration(seconds: 2), () {
+                  if (mounted) {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) =>
+                          SuccessDialog(
+                            ticketId: widget.ticketId ?? _formattedTicketId,
+                            message:
+                            "Asset Audit completed successfully!\n\nTicket ID: ${widget
+                                .ticketId ?? _formattedTicketId}",
+                            onDone: () {
+                              Navigator.of(context).pop();
+                              Navigator.of(context).pushAndRemoveUntil(
+                                MaterialPageRoute(
+                                  builder: (context) => const HomeScreen(),
+                                ),
+                                    (route) => false,
+                              );
+                            },
+                          ),
+                    );
+                    setState(() {
+                      _hasPostedSMPSData = false;
+                    });
+                  }
+                });
+              }
+            } else {
+              print(
+                  'SMPS Screen: _hasPostedSMPSData flag: $_hasPostedSMPSData');
+            }
+          } else if (state is AssetAuditPostError) {
+            // Only show error message if this error belongs to SMPS screen data
+            if (_hasPostedSMPSData) {
+              print('SMPS Screen: AssetAuditPostError received for SMPS data');
+              // Show error message but don't block navigation completely
+              showCustomToast(
+                context,
+                '❌ Failed to save SMPS data to server. You can continue with local data.',
+              );
+
+              setState(() {
+                _hasPostedSMPSData = false;
+              });
+              print(
+                'SMPS Screen: Reset _hasPostedSMPSData flag to false after error',
+              );
+            } else {
+              print(
+                'SMPS Screen: AssetAuditPostError received but not for SMPS data, ignoring...',
+              );
+            }
           }
         },
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          resizeToAvoidBottomInset: false,
-          appBar: CustomFormAppbar(
-            title: "Asset Audit",
-            onClose: () async {
-              if (hasUnsavedChanges) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message:
-                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
-                    },
-                    onDiscard: () {
-                      Navigator.of(context).pop();
-                    },
+        child: PopScope(
+          canPop: !hasUnsavedChanges,
+          onPopInvoked: (didPop) async {
+            if (didPop) return;
+
+            if (hasUnsavedChanges) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) =>
+                    UnsavedChangesDialog(
+                      message:
+                      "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                      onSaveAndExit: () {
+                        _saveAndExit();
+                      },
+                      onDiscard: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+              );
+            }
+          },
+          child: Scaffold(
+            extendBodyBehindAppBar: true,
+            resizeToAvoidBottomInset: false,
+            appBar: CustomFormAppbar(
+              title: "Asset Audit",
+              onClose: () async {
+                if (hasUnsavedChanges) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) =>
+                        UnsavedChangesDialog(
+                          message:
+                          "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                          onSaveAndExit: () {
+                            _saveAndExit();
+                          },
+                          onDiscard: () {
+                            Navigator.of(context).pop();
+                          },
+                        ),
+                  );
+                } else {
+                  _closeWithInProgressStatus();
+                }
+              },
+            ),
+            body: Stack(
+              children: [
+                // Background image
+                Positioned.fill(
+                  child: SvgPicture.asset(
+                    AppImages.home,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
                   ),
-                );
-              } else {
-                _closeWithInProgressStatus();
-              }
-            },
-          ),
-          body: Stack(
-            children: [
-              // Background image
-              Positioned.fill(
-                child: SvgPicture.asset(
-                  AppImages.home,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
                 ),
-              ),
-              SafeArea(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.only(
-                            bottom:
-                            MediaQuery.of(context).viewInsets.bottom + 120,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              left: 16,
-                              right: 16,
-                              bottom: 20,
+                SafeArea(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.only(
+                              bottom:
+                              MediaQuery
+                                  .of(context)
+                                  .viewInsets
+                                  .bottom + 120,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CustomFormField(
-                                  label: "SMPS Make",
-                                  initialValue: _getSMPSOEMName(),
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Count of SMPS",
-                                  // "Number of ${selectedType ?? 'Batteries'}",
-                                  initialValue: totalRectifierItems.toString(),
-                                  isRequired: false,
-                                  isEditable: false,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      totalRectifierItems =
-                                          int.tryParse(value) ?? 6;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomInfoCard(
-                                  key: ValueKey('cabinet_$rectifierCardKey'),
-                                  serialLabel: "Cabinet Serial Number",
-                                  serialHintText: "Cabinet Serial Number",
-                                  photoLabel:
-                                  "Add Photo of Cabinet Serial Number",
-                                  statusLabel: "Status",
-                                  serialController: rectifierSerialController,
-                                  onSave: _saveRectifierForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  showSaveButton: true,
-                                  onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      rectifierPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                            child: Container(
+                              padding: const EdgeInsets.only(
+                                top: 20,
+                                left: 16,
+                                right: 16,
+                                bottom: 20,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  CustomFormField(
+                                    label: "SMPS Make",
+                                    initialValue: _getSMPSOEMName(),
+                                    isRequired: false,
+                                    isEditable: false,
+                                  ),
+                                  getHeight(15),
+                                  CustomFormField(
+                                    label: "Count of SMPS",
+                                    // "Number of ${selectedType ?? 'Batteries'}",
+                                    initialValue: totalRectifierItems
+                                        .toString(),
+                                    isRequired: false,
+                                    isEditable: false,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        totalRectifierItems =
+                                            int.tryParse(value) ?? 6;
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
+                                  CustomInfoCard(
+                                    key: ValueKey('cabinet_$rectifierCardKey'),
+                                    serialLabel: "Cabinet Serial Number",
+                                    serialHintText: "Cabinet Serial Number",
+                                    photoLabel:
+                                    "Add Photo of Cabinet Serial Number",
+                                    statusLabel: "Status",
+                                    serialController: rectifierSerialController,
+                                    onSave: _saveRectifierForm,
+                                    isStatusEditable: true,
+                                    backendStatus: false,
+                                    showSaveButton: true,
+                                    onPhotoTap: (photoPath) async {
+                                      setState(() {
+                                        rectifierPhoto = photoPath;
+                                        hasUnsavedChanges = true;
+                                      });
 
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null &&
-                                        photoPath.isNotEmpty) {
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        if (await photoFile.exists()) {
-                                          final photoId =
-                                          await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                            photoFile: photoFile,
-                                            schId:
-                                            widget
-                                                .assetAuditData
-                                                ?.pageHeader
-                                                .first
-                                                .siteAuditSchId
-                                                .toString() ??
-                                                "0",
-                                            imgId: null,
-                                            context: context,
-                                          );
-
-                                          if (photoId != null) {
-                                            setState(() {
-                                              rectifierPhotoId = photoId;
-                                            });
-                                            print(
-                                              'SMPS Screen: Cabinet Photo uploaded successfully, photoId: $photoId',
+                                      // Upload photo immediately and get photoId
+                                      if (photoPath != null &&
+                                          photoPath.isNotEmpty) {
+                                        try {
+                                          final photoFile = File(photoPath);
+                                          if (await photoFile.exists()) {
+                                            final photoId =
+                                            await AssetAuditPhotoUploadHelper
+                                                .uploadPhotoAndGetId(
+                                              photoFile: photoFile,
+                                              schId:
+                                              widget
+                                                  .assetAuditData
+                                                  ?.pageHeader
+                                                  .first
+                                                  .siteAuditSchId
+                                                  .toString() ??
+                                                  "0",
+                                              imgId: null,
+                                              context: context,
                                             );
+
+                                            if (photoId != null) {
+                                              setState(() {
+                                                rectifierPhotoId = photoId;
+                                              });
+                                              print(
+                                                'SMPS Screen: Cabinet Photo uploaded successfully, photoId: $photoId',
+                                              );
+                                            }
                                           }
-                                        }
-                                      } catch (e) {
-                                        print(
-                                          'SMPS Screen: Error uploading Cabinet photo: $e',
-                                        );
-                                      }
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      rectifierStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      rectifierSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
-
-                                    // Validate serial number (assume manual entry)
-                                    if (serialNumber.isNotEmpty) {
-                                      bool isValid = _validateSerialNumber(
-                                        serialNumber,
-                                        false,
-                                      );
-                                      if (!isValid) {
-                                        // Clear the field if validation fails
-                                        rectifierSerialController.clear();
-                                        setState(() {
-                                          rectifierSerialNumber = null;
-                                          hasUnsavedChanges = false;
-                                        });
-                                      }
-                                    }
-                                  },
-                                  initialStatus: rectifierStatus == "OK"
-                                      ? true
-                                      : (rectifierStatus == "Not OK"
-                                      ? false
-                                      : null),
-                                  initialPhotoPath: null, // Always start with no photo to allow camera access
-                                  isEditable: true,
-                                ),
-                                _buildRectifierSavedItemsList(),
-
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Count of Rectifiers",
-                                  // "Number of ${selectedType ?? 'Batteries'}",
-                                  initialValue: totalMPPTItems.toString(),
-                                  isRequired: false,
-                                  isEditable: false,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      totalMPPTItems =
-                                          int.tryParse(value) ?? 6;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomInfoCard(
-                                  key: ValueKey('mppt_$mpptCardKey'),
-                                  serialLabel: "Rectifier - Serial Number",
-                                  serialHintText: "Rectifier Serial Number",
-                                  photoLabel: "Add a Photo",
-                                  statusLabel: "Status",
-                                  serialController: mpptSerialController,
-                                  onSave: _saveMPPTForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  remarksController: mpptRemarksController,
-                                  onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      mpptPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
-
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null &&
-                                        photoPath.isNotEmpty) {
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        if (await photoFile.exists()) {
-                                          final photoId =
-                                          await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                            photoFile: photoFile,
-                                            schId:
-                                            widget
-                                                .assetAuditData
-                                                ?.pageHeader
-                                                .first
-                                                .siteAuditSchId
-                                                .toString() ??
-                                                "0",
-                                            imgId: null,
-                                            context: context,
+                                        } catch (e) {
+                                          print(
+                                            'SMPS Screen: Error uploading Cabinet photo: $e',
                                           );
-
-                                          if (photoId != null) {
-                                            setState(() {
-                                              mpptPhotoId = photoId;
-                                            });
-                                            print(
-                                              'SMPS Screen: Rectifier Photo uploaded successfully, photoId: $photoId',
-                                            );
-                                          }
                                         }
-                                      } catch (e) {
-                                        print(
-                                          'SMPS Screen: Error uploading Rectifier photo: $e',
+                                      }
+                                    },
+                                    onStatusChanged: (val) {
+                                      setState(() {
+                                        rectifierStatus = val ? "OK" : "Not OK";
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                    onSerialChanged: (serialNumber) {
+                                      setState(() {
+                                        rectifierSerialNumber = serialNumber;
+                                        hasUnsavedChanges = true;
+                                      });
+
+                                      // Validate serial number (assume manual entry)
+                                      if (serialNumber.isNotEmpty) {
+                                        bool isValid = _validateSerialNumber(
+                                          serialNumber,
+                                          false,
                                         );
+                                        if (!isValid) {
+                                          // Clear the field if validation fails
+                                          rectifierSerialController.clear();
+                                          setState(() {
+                                            rectifierSerialNumber = null;
+                                            hasUnsavedChanges = false;
+                                          });
+                                        }
                                       }
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      mpptStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      mpptSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    },
+                                    initialStatus: rectifierStatus == "OK"
+                                        ? true
+                                        : (rectifierStatus == "Not OK"
+                                        ? false
+                                        : null),
+                                    initialPhotoPath: null,
+                                    // Always start with no photo to allow camera access
+                                    isEditable: true,
+                                  ),
+                                  _buildRectifierSavedItemsList(),
 
-                                    // Validate serial number (assume manual entry)
-                                    if (serialNumber.isNotEmpty) {
-                                      bool isValid = _validateSerialNumber(
-                                        serialNumber,
-                                        false,
-                                      );
-                                      if (!isValid) {
-                                        // Clear the field if validation fails
-                                        mpptSerialController.clear();
-                                        setState(() {
-                                          mpptSerialNumber = null;
-                                          hasUnsavedChanges = false;
-                                        });
-                                      }
-                                    }
-                                  },
-                                  initialStatus: mpptStatus == "OK"
-                                      ? true
-                                      : (mpptStatus == "Not OK"
-                                      ? false
-                                      : null),
-                                  initialPhotoPath: mpptPhoto,
-                                  isEditable: true,
-                                ),
-                                getHeight(8),
-                                _buildMPPTSavedItemsList(),
-                                getHeight(15),
-                                CustomInfoCard(
-                                  key: ValueKey('acdb_$acdbCardKey'),
-                                  serialLabel: "ACDB",
-                                  serialHintText: "ACDB",
-                                  photoLabel: "Add Photo",
-                                  statusLabel: "Status",
-                                  serialController: acdbSerialController,
-                                  onSave: _saveACDBForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  showSaveButton: true,
-                                  onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      acdbPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                                  getHeight(15),
+                                  CustomFormField(
+                                    label: "Count of Rectifiers",
+                                    // "Number of ${selectedType ?? 'Batteries'}",
+                                    initialValue: totalMPPTItems.toString(),
+                                    isRequired: false,
+                                    isEditable: false,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        totalMPPTItems =
+                                            int.tryParse(value) ?? 6;
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
+                                  CustomInfoCard(
+                                    key: ValueKey('mppt_$mpptCardKey'),
+                                    serialLabel: "Rectifier - Serial Number",
+                                    serialHintText: "Rectifier Serial Number",
+                                    photoLabel: "Add a Photo",
+                                    statusLabel: "Status",
+                                    serialController: mpptSerialController,
+                                    onSave: _saveMPPTForm,
+                                    isStatusEditable: true,
+                                    backendStatus: false,
+                                    remarksController: mpptRemarksController,
+                                    onPhotoTap: (photoPath) async {
+                                      setState(() {
+                                        mpptPhoto = photoPath;
+                                        hasUnsavedChanges = true;
+                                      });
 
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null &&
-                                        photoPath.isNotEmpty) {
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        if (await photoFile.exists()) {
-                                          final photoId =
-                                          await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                            photoFile: photoFile,
-                                            schId:
-                                            widget
-                                                .assetAuditData
-                                                ?.pageHeader
-                                                .first
-                                                .siteAuditSchId
-                                                .toString() ??
-                                                "0",
-                                            imgId: null,
-                                            context: context,
+                                      // Upload photo immediately and get photoId
+                                      if (photoPath != null &&
+                                          photoPath.isNotEmpty) {
+                                        try {
+                                          final photoFile = File(photoPath);
+                                          if (await photoFile.exists()) {
+                                            final photoId =
+                                            await AssetAuditPhotoUploadHelper
+                                                .uploadPhotoAndGetId(
+                                              photoFile: photoFile,
+                                              schId:
+                                              widget
+                                                  .assetAuditData
+                                                  ?.pageHeader
+                                                  .first
+                                                  .siteAuditSchId
+                                                  .toString() ??
+                                                  "0",
+                                              imgId: null,
+                                              context: context,
+                                            );
+
+                                            if (photoId != null) {
+                                              setState(() {
+                                                mpptPhotoId = photoId;
+                                              });
+                                              print(
+                                                'SMPS Screen: Rectifier Photo uploaded successfully, photoId: $photoId',
+                                              );
+                                            }
+                                          }
+                                        } catch (e) {
+                                          print(
+                                            'SMPS Screen: Error uploading Rectifier photo: $e',
                                           );
-
-                                          if (photoId != null) {
-                                            setState(() {
-                                              acdbPhotoId = photoId;
-                                            });
-                                            print(
-                                              'SMPS Screen: ACDB Photo uploaded successfully, photoId: $photoId',
-                                            );
-                                          }
                                         }
-                                      } catch (e) {
-                                        print(
-                                          'SMPS Screen: Error uploading ACDB photo: $e',
+                                      }
+                                    },
+                                    onStatusChanged: (val) {
+                                      setState(() {
+                                        mpptStatus = val ? "OK" : "Not OK";
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                    onSerialChanged: (serialNumber) {
+                                      setState(() {
+                                        mpptSerialNumber = serialNumber;
+                                        hasUnsavedChanges = true;
+                                      });
+
+                                      // Validate serial number (assume manual entry)
+                                      if (serialNumber.isNotEmpty) {
+                                        bool isValid = _validateSerialNumber(
+                                          serialNumber,
+                                          false,
                                         );
+                                        if (!isValid) {
+                                          // Clear the field if validation fails
+                                          mpptSerialController.clear();
+                                          setState(() {
+                                            mpptSerialNumber = null;
+                                            hasUnsavedChanges = false;
+                                          });
+                                        }
                                       }
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      acdbStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      acdbSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    },
+                                    initialStatus: mpptStatus == "OK"
+                                        ? true
+                                        : (mpptStatus == "Not OK"
+                                        ? false
+                                        : null),
+                                    initialPhotoPath: mpptPhoto,
+                                    isEditable: true,
+                                  ),
+                                  getHeight(8),
+                                  _buildMPPTSavedItemsList(),
+                                  getHeight(15),
+                                  CustomInfoCard(
+                                    key: ValueKey('acdb_$acdbCardKey'),
+                                    serialLabel: "ACDB",
+                                    serialHintText: "ACDB",
+                                    photoLabel: "Add Photo",
+                                    statusLabel: "Status",
+                                    serialController: acdbSerialController,
+                                    onSave: _saveACDBForm,
+                                    isStatusEditable: true,
+                                    backendStatus: false,
+                                    showSaveButton: true,
+                                    onPhotoTap: (photoPath) async {
+                                      setState(() {
+                                        acdbPhoto = photoPath;
+                                        hasUnsavedChanges = true;
+                                      });
 
-                                    // Validate serial number (assume manual entry)
-                                    if (serialNumber.isNotEmpty) {
-                                      bool isValid = _validateSerialNumber(
-                                        serialNumber,
-                                        false,
-                                      );
-                                      if (!isValid) {
-                                        // Clear the field if validation fails
-                                        acdbSerialController.clear();
-                                        setState(() {
-                                          acdbSerialNumber = null;
-                                          hasUnsavedChanges = false;
-                                        });
-                                      }
-                                    }
-                                  },
-                                  initialStatus: acdbStatus == "OK"
-                                      ? true
-                                      : (acdbStatus == "Not OK" ? false : null),
-                                  initialPhotoPath: null, // Always start with no photo to allow camera access
-                                  isEditable: true,
-                                ),
-                                getHeight(15),
+                                      // Upload photo immediately and get photoId
+                                      if (photoPath != null &&
+                                          photoPath.isNotEmpty) {
+                                        try {
+                                          final photoFile = File(photoPath);
+                                          if (await photoFile.exists()) {
+                                            final photoId =
+                                            await AssetAuditPhotoUploadHelper
+                                                .uploadPhotoAndGetId(
+                                              photoFile: photoFile,
+                                              schId:
+                                              widget
+                                                  .assetAuditData
+                                                  ?.pageHeader
+                                                  .first
+                                                  .siteAuditSchId
+                                                  .toString() ??
+                                                  "0",
+                                              imgId: null,
+                                              context: context,
+                                            );
 
-                                _buildACDBSavedItemsList(),
-                                getHeight(15),
-                                CustomInfoCard(
-                                  key: ValueKey('lspu_$lspuCardKey'),
-                                  serialLabel: "LSPU",
-                                  serialHintText: "LSPU",
-                                  photoLabel: "Add Photo of LSPU",
-                                  statusLabel: "Status",
-                                  serialController: lspuSerialController,
-                                  onSave: _saveLSPUForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  showSaveButton: true,
-                                  onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      lspuPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
-
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null &&
-                                        photoPath.isNotEmpty) {
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        if (await photoFile.exists()) {
-                                          final photoId =
-                                          await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                            photoFile: photoFile,
-                                            schId:
-                                            widget
-                                                .assetAuditData
-                                                ?.pageHeader
-                                                .first
-                                                .siteAuditSchId
-                                                .toString() ??
-                                                "0",
-                                            imgId: null,
-                                            context: context,
+                                            if (photoId != null) {
+                                              setState(() {
+                                                acdbPhotoId = photoId;
+                                              });
+                                              print(
+                                                'SMPS Screen: ACDB Photo uploaded successfully, photoId: $photoId',
+                                              );
+                                            }
+                                          }
+                                        } catch (e) {
+                                          print(
+                                            'SMPS Screen: Error uploading ACDB photo: $e',
                                           );
-
-                                          if (photoId != null) {
-                                            setState(() {
-                                              lspuPhotoId = photoId;
-                                            });
-                                            print(
-                                              'SMPS Screen: LSPU Photo uploaded successfully, photoId: $photoId',
-                                            );
-                                          }
                                         }
-                                      } catch (e) {
-                                        print(
-                                          'SMPS Screen: Error uploading LSPU photo: $e',
+                                      }
+                                    },
+                                    onStatusChanged: (val) {
+                                      setState(() {
+                                        acdbStatus = val ? "OK" : "Not OK";
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                    onSerialChanged: (serialNumber) {
+                                      setState(() {
+                                        acdbSerialNumber = serialNumber;
+                                        hasUnsavedChanges = true;
+                                      });
+
+                                      // Validate serial number (assume manual entry)
+                                      if (serialNumber.isNotEmpty) {
+                                        bool isValid = _validateSerialNumber(
+                                          serialNumber,
+                                          false,
                                         );
+                                        if (!isValid) {
+                                          // Clear the field if validation fails
+                                          acdbSerialController.clear();
+                                          setState(() {
+                                            acdbSerialNumber = null;
+                                            hasUnsavedChanges = false;
+                                          });
+                                        }
                                       }
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      lspuStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      lspuSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    },
+                                    initialStatus: acdbStatus == "OK"
+                                        ? true
+                                        : (acdbStatus == "Not OK"
+                                        ? false
+                                        : null),
+                                    initialPhotoPath: null,
+                                    // Always start with no photo to allow camera access
+                                    isEditable: true,
+                                  ),
+                                  getHeight(15),
 
-                                    // Validate serial number (assume manual entry)
-                                    if (serialNumber.isNotEmpty) {
-                                      bool isValid = _validateSerialNumber(
-                                        serialNumber,
-                                        false,
-                                      );
-                                      if (!isValid) {
-                                        // Clear the field if validation fails
-                                        lspuSerialController.clear();
-                                        setState(() {
-                                          lspuSerialNumber = null;
-                                          hasUnsavedChanges = false;
-                                        });
+                                  _buildACDBSavedItemsList(),
+                                  getHeight(15),
+                                  CustomInfoCard(
+                                    key: ValueKey('lspu_$lspuCardKey'),
+                                    serialLabel: "LSPU",
+                                    serialHintText: "LSPU",
+                                    photoLabel: "Add Photo of LSPU",
+                                    statusLabel: "Status",
+                                    serialController: lspuSerialController,
+                                    onSave: _saveLSPUForm,
+                                    isStatusEditable: true,
+                                    backendStatus: false,
+                                    showSaveButton: true,
+                                    onPhotoTap: (photoPath) async {
+                                      setState(() {
+                                        lspuPhoto = photoPath;
+                                        hasUnsavedChanges = true;
+                                      });
+
+                                      // Upload photo immediately and get photoId
+                                      if (photoPath != null &&
+                                          photoPath.isNotEmpty) {
+                                        try {
+                                          final photoFile = File(photoPath);
+                                          if (await photoFile.exists()) {
+                                            final photoId =
+                                            await AssetAuditPhotoUploadHelper
+                                                .uploadPhotoAndGetId(
+                                              photoFile: photoFile,
+                                              schId:
+                                              widget
+                                                  .assetAuditData
+                                                  ?.pageHeader
+                                                  .first
+                                                  .siteAuditSchId
+                                                  .toString() ??
+                                                  "0",
+                                              imgId: null,
+                                              context: context,
+                                            );
+
+                                            if (photoId != null) {
+                                              setState(() {
+                                                lspuPhotoId = photoId;
+                                              });
+                                              print(
+                                                'SMPS Screen: LSPU Photo uploaded successfully, photoId: $photoId',
+                                              );
+                                            }
+                                          }
+                                        } catch (e) {
+                                          print(
+                                            'SMPS Screen: Error uploading LSPU photo: $e',
+                                          );
+                                        }
                                       }
-                                    }
-                                  },
-                                  initialStatus: lspuStatus == "OK"
-                                      ? true
-                                      : (lspuStatus == "Not OK" ? false : null),
-                                  initialPhotoPath: null, // Always start with no photo to allow camera access
-                                  isEditable: true,
-                                ),
-                                getHeight(8),
-                                _buildLSPUSavedItemsList(),
+                                    },
+                                    onStatusChanged: (val) {
+                                      setState(() {
+                                        lspuStatus = val ? "OK" : "Not OK";
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                    onSerialChanged: (serialNumber) {
+                                      setState(() {
+                                        lspuSerialNumber = serialNumber;
+                                        hasUnsavedChanges = true;
+                                      });
 
-                                getHeight(15),
-                                CustomRemarksField(
-                                  label: "Add Remarks",
-                                  hintText: "Remarks",
-                                  controller: generalRemarksController,
-                                  // onChanged: (value) {
-                                  //   setState(() {
-                                  //     hasUnsavedChanges = true;
-                                  //   });
-                                  // },
-                                ),
-                              ],
+                                      // Validate serial number (assume manual entry)
+                                      if (serialNumber.isNotEmpty) {
+                                        bool isValid = _validateSerialNumber(
+                                          serialNumber,
+                                          false,
+                                        );
+                                        if (!isValid) {
+                                          // Clear the field if validation fails
+                                          lspuSerialController.clear();
+                                          setState(() {
+                                            lspuSerialNumber = null;
+                                            hasUnsavedChanges = false;
+                                          });
+                                        }
+                                      }
+                                    },
+                                    initialStatus: lspuStatus == "OK"
+                                        ? true
+                                        : (lspuStatus == "Not OK"
+                                        ? false
+                                        : null),
+                                    initialPhotoPath: null,
+                                    // Always start with no photo to allow camera access
+                                    isEditable: true,
+                                  ),
+                                  getHeight(8),
+                                  _buildLSPUSavedItemsList(),
+
+                                  getHeight(15),
+                                  CustomRemarksField(
+                                    label: "Add Remarks",
+                                    hintText: "Remarks",
+                                    controller: generalRemarksController,
+                                    // onChanged: (value) {
+                                    //   setState(() {
+                                    //     hasUnsavedChanges = true;
+                                    //   });
+                                    // },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        width: double.infinity,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ArrowButton(
-                                text: "DG",
-                                isLeftArrow: true,
-                                backgroundColor: AppColors.buttonColorBg,
-                                textColor: AppColors.buttonColorSite,
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          width: double.infinity,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: ArrowButton(
+                                  text: "DG",
+                                  isLeftArrow: true,
+                                  backgroundColor: AppColors.buttonColorBg,
+                                  textColor: AppColors.buttonColorSite,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
                               ),
-                            ),
-                            getWidth(8),
-                            Expanded(
-                              child: ArrowButton(
-                                text: "Submit",
-                                isLeftArrow: false,
-                                backgroundColor: AppColors.buttonColorBackBg,
-                                textColor: AppColors.buttonColorTextBg,
-                                onPressed: () async {
-                                  // Submit all data with Complete status and navigate to home
-                                  _submitWithCompleteStatus();
-                                },
+                              getWidth(8),
+                              Expanded(
+                                child: ArrowButton(
+                                  text: "Submit",
+                                  isLeftArrow: false,
+                                  backgroundColor: AppColors.buttonColorBackBg,
+                                  textColor: AppColors.buttonColorTextBg,
+                                  onPressed: () async {
+                                    // Submit all data with Complete status and navigate to home
+                                    _submitWithCompleteStatus();
+                                  },
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2933,159 +3177,109 @@ class _SMPSScreenState extends State<SMPSScreen> {
             ],
           ),
           getHeight(10),
-          // Debug information
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                getWidth(8),
-                Expanded(
-                  child: Text(
-                    'Saved Items: ${savedRectifierItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${(widget.smpsData?.assets?.length ?? 0) + (widget.smpsData?.subCategories?['SMPS Rectifiers']?.length ?? 0) + (widget.smpsData?.subCategories?['SMPS MPPT']?.length ?? 0)}',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+
           if (savedRectifierItems.isNotEmpty)
             ..._getItemsWithPhotoAndStatus(savedRectifierItems)
                 .map(
-                  (item) => Container(
-                margin: const EdgeInsets.symmetric(vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item['serialNumber'] ?? 'N/A',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: fontFamilyMontserrat,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                  (item) =>
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(5),
                     ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Icon(
-                          item['isQRCodeScanned'] == true
-                              ? Icons.check
-                              : Icons.close,
-                          color: item['isQRCodeScanned'] == true
-                              ? Colors.green
-                              : Colors.red,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: _buildPhotoColumn(item),
-                      ),
-                    ),
-                    // Expanded(
-                    //   child: Container(
-                    //     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    //     child: Text(
-                    //       item['capacity'] ?? 'N/A',
-                    //       textAlign: TextAlign.center,
-                    //       style: const TextStyle(
-                    //         color: Colors.black,
-                    //         fontSize: 14,
-                    //         fontFamily: fontFamilyMontserrat,
-                    //         fontWeight: FontWeight.w400,
-                    //       ),
-                    //       maxLines: 1,
-                    //       overflow: TextOverflow.ellipsis,
-                    //     ),
-                    //   ),
-                    // ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item['assetStatus'] ?? 'N/A',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: fontFamilyMontserrat,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: IconButton(
-                          onPressed: () =>
-                              _editSavedItem(item, 'rectifier'),
-                          icon: const Icon(
-                            Icons.edit,
-                            color: AppColors.blue,
-                            size: 20,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item['serialNumber'] ?? 'N/A',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )
-                .toList()
-          else
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.grey, size: 16),
-                  getWidth(8),
-                  Expanded(
-                    child: Text(
-                      'No saved items found. Items will appear here after they are saved with complete data (serial, photo, status).',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              item['isQRCodeScanned'] == true
+                                  ? Icons.check
+                                  : Icons.close,
+                              color: item['isQRCodeScanned'] == true
+                                  ? Colors.green
+                                  : Colors.red,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: _buildPhotoColumn(item),
+                          ),
+                        ),
+                        // Expanded(
+                        //   child: Container(
+                        //     padding: const EdgeInsets.symmetric(horizontal: 4),
+                        //     child: Text(
+                        //       item['capacity'] ?? 'N/A',
+                        //       textAlign: TextAlign.center,
+                        //       style: const TextStyle(
+                        //         color: Colors.black,
+                        //         fontSize: 14,
+                        //         fontFamily: fontFamilyMontserrat,
+                        //         fontWeight: FontWeight.w400,
+                        //       ),
+                        //       maxLines: 1,
+                        //       overflow: TextOverflow.ellipsis,
+                        //     ),
+                        //   ),
+                        // ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item['assetStatus'] ?? 'N/A',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: IconButton(
+                              onPressed: () =>
+                                  _editSavedItem(item, 'rectifier'),
+                              icon: const Icon(
+                                Icons.edit,
+                                color: AppColors.blue,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
+            )
+                .toList()
         ],
       ),
     );
@@ -3486,7 +3680,11 @@ class _SMPSScreenState extends State<SMPSScreen> {
                 getWidth(8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedMPPTItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${(widget.smpsData?.subCategories?['SMPS ACDB']?.length ?? 0) + (widget.smpsData?.subCategories?['SMPS LSPU']?.length ?? 0)}',
+                    'Saved Items: ${savedMPPTItems
+                        .length} | Current Scanned: $currentScannedItems | Total Expected: ${(widget
+                        .smpsData?.subCategories?['SMPS ACDB']?.length ?? 0) +
+                        (widget.smpsData?.subCategories?['SMPS LSPU']?.length ??
+                            0)}',
                     style: const TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -3500,113 +3698,114 @@ class _SMPSScreenState extends State<SMPSScreen> {
           ...(savedMPPTItems.isNotEmpty
               ? _getItemsWithPhotoAndStatus(savedMPPTItems)
               .map(
-                (item) => Container(
-              margin: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: Text(
-                        item['serialNumber'] ?? 'N/A',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                (item) =>
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(5),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: Icon(
-                        item['isQRCodeScanned'] == true
-                            ? Icons.check
-                            : Icons.close,
-                        color: item['isQRCodeScanned'] == true
-                            ? Colors.green
-                            : Colors.red,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: _buildPhotoColumn(item),
-                    ),
-                  ),
-                  // Expanded(
-                  //   child: Container(
-                  //     padding: const EdgeInsets.symmetric(
-                  //       horizontal: 4,
-                  //     ),
-                  //     child: Text(
-                  //       item['capacity'] ?? 'N/A',
-                  //       textAlign: TextAlign.center,
-                  //       style: const TextStyle(
-                  //         color: Colors.black,
-                  //         fontSize: 14,
-                  //         fontFamily: fontFamilyMontserrat,
-                  //         fontWeight: FontWeight.w400,
-                  //       ),
-                  //       maxLines: 1,
-                  //       overflow: TextOverflow.ellipsis,
-                  //     ),
-                  //   ),
-                  // ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: Text(
-                        item['assetStatus'] ?? 'N/A',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: IconButton(
-                        onPressed: () => _editSavedItem(item, 'mppt'),
-                        icon: const Icon(
-                          Icons.edit,
-                          color: AppColors.blue,
-                          size: 20,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: Text(
+                            item['serialNumber'] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
-                    ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: Icon(
+                            item['isQRCodeScanned'] == true
+                                ? Icons.check
+                                : Icons.close,
+                            color: item['isQRCodeScanned'] == true
+                                ? Colors.green
+                                : Colors.red,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: _buildPhotoColumn(item),
+                        ),
+                      ),
+                      // Expanded(
+                      //   child: Container(
+                      //     padding: const EdgeInsets.symmetric(
+                      //       horizontal: 4,
+                      //     ),
+                      //     child: Text(
+                      //       item['capacity'] ?? 'N/A',
+                      //       textAlign: TextAlign.center,
+                      //       style: const TextStyle(
+                      //         color: Colors.black,
+                      //         fontSize: 14,
+                      //         fontFamily: fontFamilyMontserrat,
+                      //         fontWeight: FontWeight.w400,
+                      //       ),
+                      //       maxLines: 1,
+                      //       overflow: TextOverflow.ellipsis,
+                      //     ),
+                      //   ),
+                      // ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: Text(
+                            item['assetStatus'] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: IconButton(
+                            onPressed: () => _editSavedItem(item, 'mppt'),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: AppColors.blue,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
           )
               .toList()
               : []),
@@ -3749,7 +3948,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
                 getWidth(8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedACDBItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${widget.smpsData?.subCategories?['SMPS ACDB']?.length ?? 0}',
+                    'Saved Items: ${savedACDBItems
+                        .length} | Current Scanned: $currentScannedItems | Total Expected: ${widget
+                        .smpsData?.subCategories?['SMPS ACDB']?.length ?? 0}',
                     style: TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -3763,101 +3964,102 @@ class _SMPSScreenState extends State<SMPSScreen> {
           if (savedACDBItems.isNotEmpty)
             ..._getItemsWithPhotoAndStatus(savedACDBItems)
                 .map(
-                  (item) => Container(
-                margin: const EdgeInsets.symmetric(vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item['serialNumber'] ?? 'N/A',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: fontFamilyMontserrat,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
+                  (item) =>
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 5),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(5),
                     ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Icon(
-                          item['isQRCodeScanned'] == true
-                              ? Icons.check
-                              : Icons.close,
-                          color: item['isQRCodeScanned'] == true
-                              ? Colors.green
-                              : Colors.red,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: _buildPhotoColumn(item),
-                      ),
-                    ),
-                    // Expanded(
-                    //   child: Container(
-                    //     padding: const EdgeInsets.symmetric(horizontal: 4),
-                    //     child: Text(
-                    //       item['capacity'] ?? 'N/A',
-                    //       textAlign: TextAlign.center,
-                    //       style: const TextStyle(
-                    //         color: Colors.black,
-                    //         fontSize: 14,
-                    //         fontFamily: fontFamilyMontserrat,
-                    //         fontWeight: FontWeight.w400,
-                    //       ),
-                    //       maxLines: 1,
-                    //       overflow: TextOverflow.ellipsis,
-                    //     ),
-                    //   ),
-                    // ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: Text(
-                          item['assetStatus'] ?? 'N/A',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontSize: 14,
-                            fontFamily: fontFamilyMontserrat,
-                            fontWeight: FontWeight.w400,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: IconButton(
-                          onPressed: () => _editSavedItem(item, 'acdb'),
-                          icon: const Icon(
-                            Icons.edit,
-                            color: AppColors.blue,
-                            size: 20,
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item['serialNumber'] ?? 'N/A',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                         ),
-                      ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              item['isQRCodeScanned'] == true
+                                  ? Icons.check
+                                  : Icons.close,
+                              color: item['isQRCodeScanned'] == true
+                                  ? Colors.green
+                                  : Colors.red,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: _buildPhotoColumn(item),
+                          ),
+                        ),
+                        // Expanded(
+                        //   child: Container(
+                        //     padding: const EdgeInsets.symmetric(horizontal: 4),
+                        //     child: Text(
+                        //       item['capacity'] ?? 'N/A',
+                        //       textAlign: TextAlign.center,
+                        //       style: const TextStyle(
+                        //         color: Colors.black,
+                        //         fontSize: 14,
+                        //         fontFamily: fontFamilyMontserrat,
+                        //         fontWeight: FontWeight.w400,
+                        //       ),
+                        //       maxLines: 1,
+                        //       overflow: TextOverflow.ellipsis,
+                        //     ),
+                        //   ),
+                        // ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              item['assetStatus'] ?? 'N/A',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.black,
+                                fontSize: 14,
+                                fontFamily: fontFamilyMontserrat,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: IconButton(
+                              onPressed: () => _editSavedItem(item, 'acdb'),
+                              icon: const Icon(
+                                Icons.edit,
+                                color: AppColors.blue,
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
             )
                 .toList()
           else
@@ -4028,7 +4230,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
                 getWidth(8),
                 Expanded(
                   child: Text(
-                    'Saved Items: ${savedLSPUItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${widget.smpsData?.subCategories?['SMPS LSPU']?.length ?? 0}',
+                    'Saved Items: ${savedLSPUItems
+                        .length} | Current Scanned: $currentScannedItems | Total Expected: ${widget
+                        .smpsData?.subCategories?['SMPS LSPU']?.length ?? 0}',
                     style: const TextStyle(
                       color: Colors.blue,
                       fontSize: 12,
@@ -4044,113 +4248,114 @@ class _SMPSScreenState extends State<SMPSScreen> {
           ...(savedLSPUItems.isNotEmpty
               ? _getItemsWithPhotoAndStatus(savedLSPUItems)
               .map(
-                (item) => Container(
-              margin: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: Text(
-                        item['serialNumber'] ?? 'N/A',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                (item) =>
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(5),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: Icon(
-                        item['isQRCodeScanned'] == true
-                            ? Icons.check
-                            : Icons.close,
-                        color: item['isQRCodeScanned'] == true
-                            ? Colors.green
-                            : Colors.red,
-                        size: 20,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: _buildPhotoColumn(item),
-                    ),
-                  ),
-                  // Expanded(
-                  //   child: Container(
-                  //     padding: const EdgeInsets.symmetric(
-                  //       horizontal: 4,
-                  //     ),
-                  //     child: Text(
-                  //       item['capacity'] ?? 'N/A',
-                  //       textAlign: TextAlign.center,
-                  //       style: const TextStyle(
-                  //         color: Colors.black,
-                  //         fontSize: 14,
-                  //         fontFamily: fontFamilyMontserrat,
-                  //         fontWeight: FontWeight.w400,
-                  //       ),
-                  //       maxLines: 1,
-                  //       overflow: TextOverflow.ellipsis,
-                  //     ),
-                  //   ),
-                  // ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: Text(
-                        item['assetStatus'] ?? 'N/A',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                      ),
-                      child: IconButton(
-                        onPressed: () => _editSavedItem(item, 'lspu'),
-                        icon: const Icon(
-                          Icons.edit,
-                          color: AppColors.blue,
-                          size: 20,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: Text(
+                            item['serialNumber'] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ),
-                    ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: Icon(
+                            item['isQRCodeScanned'] == true
+                                ? Icons.check
+                                : Icons.close,
+                            color: item['isQRCodeScanned'] == true
+                                ? Colors.green
+                                : Colors.red,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: _buildPhotoColumn(item),
+                        ),
+                      ),
+                      // Expanded(
+                      //   child: Container(
+                      //     padding: const EdgeInsets.symmetric(
+                      //       horizontal: 4,
+                      //     ),
+                      //     child: Text(
+                      //       item['capacity'] ?? 'N/A',
+                      //       textAlign: TextAlign.center,
+                      //       style: const TextStyle(
+                      //         color: Colors.black,
+                      //         fontSize: 14,
+                      //         fontFamily: fontFamilyMontserrat,
+                      //         fontWeight: FontWeight.w400,
+                      //       ),
+                      //       maxLines: 1,
+                      //       overflow: TextOverflow.ellipsis,
+                      //     ),
+                      //   ),
+                      // ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: Text(
+                            item['assetStatus'] ?? 'N/A',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.black,
+                              fontSize: 14,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                          ),
+                          child: IconButton(
+                            onPressed: () => _editSavedItem(item, 'lspu'),
+                            icon: const Icon(
+                              Icons.edit,
+                              color: AppColors.blue,
+                              size: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
+                ),
           )
               .toList()
               : [
@@ -4186,8 +4391,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
             ),
           ]),
         ],
-      ),
-    );
+        ),
+      );
   }
 
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
@@ -4215,11 +4420,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
               // It's a file path or other format
               rectifierPhoto = photoData;
             }
-          }
-
-          // Also try to load image if photoId exists (fallback)
-          if (rectifierPhotoId != null &&
-              rectifierPhotoId.toString().isNotEmpty && rectifierPhoto == null) {
+          } else if (rectifierPhotoId != null && rectifierPhotoId.toString().isNotEmpty) {
+            // If no photo data but photoId exists, load the image
+            print('SMPS Debug: Loading image for rectifier edit - photoId: ${rectifierPhotoId}');
             _loadImageForEdit(rectifierPhotoId.toString(), 'rectifier');
           }
 
@@ -4248,11 +4451,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
               // It's a file path or other format
               mpptPhoto = photoData;
             }
-          }
-
-          // Also try to load image if photoId exists (fallback)
-          if (mpptPhotoId != null &&
-              mpptPhotoId.toString().isNotEmpty && mpptPhoto == null) {
+          } else if (mpptPhotoId != null && mpptPhotoId.toString().isNotEmpty) {
+            // If no photo data but photoId exists, load the image
+            print('SMPS Debug: Loading image for mppt edit - photoId: ${mpptPhotoId}');
             _loadImageForEdit(mpptPhotoId.toString(), 'mppt');
           }
 
@@ -4281,11 +4482,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
               // It's a file path or other format
               acdbPhoto = photoData;
             }
-          }
-
-          // Also try to load image if photoId exists (fallback)
-          if (acdbPhotoId != null &&
-              acdbPhotoId.toString().isNotEmpty && acdbPhoto == null) {
+          } else if (acdbPhotoId != null && acdbPhotoId.toString().isNotEmpty) {
+            // If no photo data but photoId exists, load the image
+            print('SMPS Debug: Loading image for acdb edit - photoId: ${acdbPhotoId}');
             _loadImageForEdit(acdbPhotoId.toString(), 'acdb');
           }
 
@@ -4314,11 +4513,9 @@ class _SMPSScreenState extends State<SMPSScreen> {
               // It's a file path or other format
               lspuPhoto = photoData;
             }
-          }
-
-          // Also try to load image if photoId exists (fallback)
-          if (lspuPhotoId != null &&
-              lspuPhotoId.toString().isNotEmpty && lspuPhoto == null) {
+          } else if (lspuPhotoId != null && lspuPhotoId.toString().isNotEmpty) {
+            // If no photo data but photoId exists, load the image
+            print('SMPS Debug: Loading image for lspu edit - photoId: ${lspuPhotoId}');
             _loadImageForEdit(lspuPhotoId.toString(), 'lspu');
           }
 
@@ -4338,4 +4535,6 @@ class _SMPSScreenState extends State<SMPSScreen> {
       );
     });
   }
+
 }
+

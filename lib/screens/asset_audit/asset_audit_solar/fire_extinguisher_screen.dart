@@ -1,7 +1,5 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_post_helper.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +8,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'dart:async';
-import 'dart:convert';
 
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
@@ -18,7 +15,6 @@ import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/asset_type_card.dart';
-import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
@@ -1517,16 +1513,6 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
                                 },
                               ),
                               getHeight(15),
-                              // Text(
-                              //   "MPPT Details",
-                              //   style: TextStyle(
-                              //     fontSize: 16,
-                              //     fontWeight: FontWeight.w500,
-                              //     color: Colors.white,
-                              //     fontFamily: fontFamilyMontserrat,
-                              //   ),
-                              // ),
-                              // getHeight(3),
                               CustomInfoCard(
                                 key: ValueKey('mppt_$mpptCardKey'),
                                 serialLabel: "Sand Buckets - Serial Number",
@@ -1673,39 +1659,7 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
                                   );
                                 }
                               },
-                                // if (_validateForm()) {
-                                //   showDialog(
-                                //     context: context,
-                                //     barrierDismissible: false,
-                                //     builder: (context) => SuccessDialog(
-                                //       ticketId: "UVORKJR00044",
-                                //       message:
-                                //       "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-                                //       onDone: () {
-                                //         Navigator.of(context).pop();
-                                //         Navigator.of(context).pop();
-                                //       },
-                                //     ),
-                                //   );
-                                // } else {
-                                //
-                                //   ScaffoldMessenger.of(context).showSnackBar(
-                                //     SnackBar(
-                                //       content: Text(
-                                //         uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty
-                                //             ? 'Please upload a selfie photo to continue'
-                                //             : 'Please fill in all required fields',
-                                //         style: const TextStyle(
-                                //           color: Colors.white,
-                                //           fontSize: 14,
-                                //           fontFamily: fontFamilyMontserrat,
-                                //         ),
-                                //       ),
-                                //       backgroundColor: AppColors.errorColor,
-                                //       duration: const Duration(seconds: 3),
-                                //     ),
-                                //   );
-                                // }
+
                             ),
                           ),
                         ],
@@ -2142,13 +2096,6 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
       );
       return;
     }
-
-    // Check if either photo is provided OR item is QR scanned
-    bool hasPhoto = floodLightPhoto != null && floodLightPhoto!.isNotEmpty;
-    bool isQRScanned = isFloodLightQRCodeScanned; // true for QR scanned, false for manual entry
-    
-    // Allow saving if serial number is provided (photo and QR scan are optional)
-    // The photo/QR validation is only for displaying items in the saved list
 
     _isSavingItem = true; // Set flag to prevent listener conflicts
     

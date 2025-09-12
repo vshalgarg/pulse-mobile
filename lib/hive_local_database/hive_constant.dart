@@ -42,4 +42,8 @@ class HiveConstant {
   // Asset Audit Form Data Persistence
   static const String assetAuditFormData = "assetAuditFormData";
   static const String assetAuditFormDataKey = "assetAuditFormData_";
+  
+  // Offline Ticket Management
+  static const String offlineTickets = "offlineTickets";
+  static const String offlineTicketKey = "offlineTicket_";
 }

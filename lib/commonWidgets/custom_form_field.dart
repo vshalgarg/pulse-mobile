@@ -1,6 +1,7 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class CustomFormField extends StatelessWidget {
   final String label;
@@ -10,6 +11,9 @@ class CustomFormField extends StatelessWidget {
   final bool isEditable;
   final TextEditingController? controller;
   final Function(String)? onChanged;
+  final String? Function(String?)? validator;
+  final List<TextInputFormatter>? inputFormatters;
+  final TextInputType? keyboardType;
 
   const CustomFormField({
     super.key,
@@ -20,6 +24,9 @@ class CustomFormField extends StatelessWidget {
     this.isEditable = true,
     this.controller,
     this.onChanged,
+    this.validator,
+    this.inputFormatters,
+    this.keyboardType,
   });
 
   @override
@@ -66,6 +73,8 @@ class CustomFormField extends StatelessWidget {
         TextFormField(
           controller: textController,
           readOnly: !isEditable,
+          keyboardType: keyboardType ?? TextInputType.text,
+          inputFormatters: inputFormatters,
           decoration: InputDecoration(
             filled: true,
             fillColor: isEditable ? Colors.white : AppColors.borderColorE0E0E0, // Grey when not editable
@@ -91,7 +100,7 @@ class CustomFormField extends StatelessWidget {
               fontSize: 16,
               color: AppColors.color555555
           ),
-          validator: (value) {
+          validator: validator ?? (value) {
             if (isRequired && (value == null || value.isEmpty)) {
               return "$label is required";
             }

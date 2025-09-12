@@ -10,7 +10,6 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/models/PmGetDataModel.dart';
@@ -89,7 +88,8 @@ class _PmSolarPage5State extends State<PmSolarPage5> {
     print('Saving form data: $key = $value');
     setState(() {
       formData[key] = value;
-      _onFormChanged();
+      hasUnsavedChanges = formData.isNotEmpty;
+      _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
     print('Updated formData: $formData');
   }
@@ -694,42 +694,23 @@ class _PmSolarPage5State extends State<PmSolarPage5> {
                             print('formData before submit: $formData');
                             if (formData.isNotEmpty) {
                               await _submitForm();
-                              final state = context.read<PmCubit>().state;
-                              if (state is PmPostSuccess) {
-                                print('Submission successful, navigating to PmSolarPage6');
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => PmSolarPage6(
-                                      ticketType: widget.ticketType,
-                                      auditSchId: widget.auditSchId,
-                                      siteAuditSchId: widget.siteAuditSchId,
-                                      siteId: widget.siteId,
-                                      pmData: widget.pmData,
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                print('Submission failed, staying on page');
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Please complete the form submission before proceeding')),
-                                );
-                              }
-                            } else {
-                              print('No data to submit, navigating to PmSolarPage6');
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => PmSolarPage6(
-                                    ticketType: widget.ticketType,
-                                    auditSchId: widget.auditSchId,
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    siteId: widget.siteId,
-                                    pmData: widget.pmData,
-                                  ),
-                                ),
-                              );
                             }
+                            
+                            // Navigate to next page regardless of submission status
+                            // The BlocListener will handle the submission result
+                            print('Navigating to PmSolarPage6');
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PmSolarPage6(
+                                  ticketType: widget.ticketType,
+                                  auditSchId: widget.auditSchId,
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  siteId: widget.siteId,
+                                  pmData: widget.pmData,
+                                ),
+                              ),
+                            );
                           },
                         ),
                       ),

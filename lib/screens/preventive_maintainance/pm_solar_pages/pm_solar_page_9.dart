@@ -23,7 +23,6 @@ import 'package:intl/intl.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
-import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_radio_options.dart';
 import '../../../constants/constants_strings.dart';
@@ -93,8 +92,8 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
     print('Saving form data - Key: $key, Value: $value');
     setState(() {
       formData[key] = value;
-      hasUnsavedChanges = true;
-      _dummyState++;
+      hasUnsavedChanges = formData.isNotEmpty;
+      _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
   }
 
@@ -208,14 +207,6 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
     }
 
     try {
-      print('=== Submitting to API ===');
-      print('auditSchId: ${widget.auditSchId}');
-      print('siteAuditSchId: ${widget.siteAuditSchId}');
-      print('siteId: ${widget.siteId}');
-      print('formData: $formData');
-      print('photoIds: $photoIds');
-      print('photoTimestamps: $photoTimestamps');
-      print('remarksData: ${_getRemarksData()}');
 
       await cubit.postPmData(
         formData: formData,
@@ -363,10 +354,6 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
         }
       }
 
-      print('Final formData: $formData');
-      print('Final photoIds: $photoIds');
-      print('Final photoTimestamps: $photoTimestamps');
-      print('Final loadedImageUrls: $loadedImageUrls');
       _dummyState = DateTime.now().millisecondsSinceEpoch;
     });
 
@@ -532,6 +519,8 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
         },
         child: Scaffold(
           extendBodyBehindAppBar: true,
+          resizeToAvoidBottomInset: false,
+
           appBar: CustomFormAppbar(
             title: _getPmTitle(),
             onClose: () async {
@@ -723,7 +712,7 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
       children: (data.responseData?.performanceMonitoring ?? []).map((item) {
         return Column(
           children: [
-            _buildFormField(item['checklist_desc'] ?? '', 'DROPDOWN,IMG', item),
+            _buildFormField(item['checklist_desc'] ?? '', item['resp_type'] ?? 'TEXT', item),
             getHeight(15),
           ],
         );
@@ -777,7 +766,6 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
                   initialValue: currentValue.isNotEmpty ? currentValue : null,
                   onChanged: (value) {
                     _saveFormData(key, value);
-                    _onFormChanged();
                   },
                   isRequired: true,
                 ),
@@ -791,18 +779,6 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
                     }
                   },
                 ),
-                getHeight(15),
-                // Remarks field - only show if dropdown value requires it
-                if (_checkPerformanceMonitoringDependencies(
-                  item,
-                  widget.pmData?.responseData?.performanceMonitoring ?? [],
-                ))
-                  CustomFormField(
-                    label: 'Remarks',
-                    hintText: 'Enter remarks',
-                    controller: _getRemarksController(key, currentValue),
-                    onChanged: (value) => _onFormChanged(),
-                  ),
               ],
             ),
           ),
@@ -822,7 +798,6 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
         initialValue: currentValue.isNotEmpty ? currentValue : null,
         onChanged: (value) {
           _saveFormData(key, value);
-          _onFormChanged();
         },
         isRequired: true,
       );
@@ -840,8 +815,10 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
       return CustomFormField(
         label: label,
         hintText: 'Enter remarks',
-        controller: _getTextController(key, currentValue),
-        onChanged: (value) => _onFormChanged(),
+        controller: _getRemarksController(key, currentValue),
+        onChanged: (value) {
+          _saveFormData(key, value);
+        },
       );
     } else if (respType.contains('RADIO')) {
       return CustomOptionSelector(
@@ -863,7 +840,6 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
         initialValue: currentValue,
         onChanged: (value) {
           _saveFormData(key, value);
-          _onFormChanged();
         },
         isRequired: true,
       );
@@ -906,42 +882,23 @@ class _PmSolarPage9State extends State<PmSolarPage9> {
                   
                   if (formData.isNotEmpty) {
                     await _submitForm();
-                    final state = context.read<PmCubit>().state;
-                    if (state is PmPostSuccess) {
-                      print('Submission successful, navigating to PmSolarPage10');
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => PmSolarPage10(
-                            ticketType: widget.ticketType,
-                            auditSchId: widget.auditSchId,
-                            siteAuditSchId: widget.siteAuditSchId,
-                            siteId: widget.siteId,
-                            pmData: widget.pmData,
-                          ),
-                        ),
-                      );
-                    } else {
-                      print('Submission failed, staying on page');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Please complete the form submission before proceeding')),
-                      );
-                    }
-                  } else {
-                    print('No data to submit, navigating to PmSolarPage10');
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => PmSolarPage10(
-                          ticketType: widget.ticketType,
-                          auditSchId: widget.auditSchId,
-                          siteAuditSchId: widget.siteAuditSchId,
-                          siteId: widget.siteId,
-                          pmData: widget.pmData,
-                        ),
-                      ),
-                    );
                   }
+                  
+                  // Navigate to next page regardless of submission status
+                  // The BlocListener will handle the submission result
+                  print('Navigating to PmSolarPage10');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PmSolarPage10(
+                        ticketType: widget.ticketType,
+                        auditSchId: widget.auditSchId,
+                        siteAuditSchId: widget.siteAuditSchId,
+                        siteId: widget.siteId,
+                        pmData: widget.pmData,
+                      ),
+                    ),
+                  );
                 },
           ),
         ),

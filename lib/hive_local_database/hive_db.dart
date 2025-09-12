@@ -12,6 +12,7 @@ class HiveDB {
     await HiveDB.openHiveDB(HiveConstant.getContent);
     await HiveDB.openHiveDB(HiveConstant.assetAuditImages);
     await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
+    await HiveDB.openHiveDB(HiveConstant.offlineTickets);
   }
 
   static registerHiveAdapter() {
@@ -401,6 +402,104 @@ class HiveDB {
       await box.delete(key);
     }
     print('HiveDB: Cleared all form data for site $siteAuditSchId');
+  }
+
+  // Offline Ticket Management Methods
+  static Future<void> saveOfflineTicket({
+    required String siteAuditSchId,
+    required Map<String, dynamic> completeTicketData,
+  }) async {
+    try {
+      await HiveDB.openHiveDB(HiveConstant.offlineTickets);
+      final box = HiveDB.getHiveBox(HiveConstant.offlineTickets);
+      final key = '${HiveConstant.offlineTicketKey}$siteAuditSchId';
+      await box.put(key, {
+        'completeTicketData': completeTicketData,
+        'downloadedAt': DateTime.now().millisecondsSinceEpoch,
+        'siteAuditSchId': siteAuditSchId,
+      });
+      print('HiveDB: Saved offline ticket for site $siteAuditSchId');
+    } catch (e) {
+      print('HiveDB: Error saving offline ticket: $e');
+    }
+  }
+
+  static Map<String, dynamic>? getOfflineTicket(String siteAuditSchId) {
+    try {
+      final box = HiveDB.getHiveBox(HiveConstant.offlineTickets);
+      final key = '${HiveConstant.offlineTicketKey}$siteAuditSchId';
+      final data = box.get(key);
+      if (data != null) {
+        print('HiveDB: Retrieved offline ticket for site $siteAuditSchId');
+        return Map<String, dynamic>.from(data);
+      }
+      return null;
+    } catch (e) {
+      print('HiveDB: Error retrieving offline ticket: $e');
+      return null;
+    }
+  }
+
+  static Future<void> updateOfflineTicket({
+    required String siteAuditSchId,
+    required Map<String, dynamic> updatedTicketData,
+  }) async {
+    try {
+      await HiveDB.openHiveDB(HiveConstant.offlineTickets);
+      final box = HiveDB.getHiveBox(HiveConstant.offlineTickets);
+      final key = '${HiveConstant.offlineTicketKey}$siteAuditSchId';
+      await box.put(key, {
+        'completeTicketData': updatedTicketData,
+        'downloadedAt': DateTime.now().millisecondsSinceEpoch,
+        'siteAuditSchId': siteAuditSchId,
+        'lastUpdated': DateTime.now().millisecondsSinceEpoch,
+      });
+      print('HiveDB: Updated offline ticket for site $siteAuditSchId');
+    } catch (e) {
+      print('HiveDB: Error updating offline ticket: $e');
+    }
+  }
+
+  static Future<void> deleteOfflineTicket(String siteAuditSchId) async {
+    try {
+      final box = HiveDB.getHiveBox(HiveConstant.offlineTickets);
+      final key = '${HiveConstant.offlineTicketKey}$siteAuditSchId';
+      await box.delete(key);
+      print('HiveDB: Deleted offline ticket for site $siteAuditSchId');
+    } catch (e) {
+      print('HiveDB: Error deleting offline ticket: $e');
+    }
+  }
+
+  static List<Map<String, dynamic>> getAllOfflineTickets() {
+    try {
+      final box = HiveDB.getHiveBox(HiveConstant.offlineTickets);
+      final List<Map<String, dynamic>> tickets = [];
+      for (final key in box.keys) {
+        if (key.toString().startsWith(HiveConstant.offlineTicketKey)) {
+          final data = box.get(key);
+          if (data != null) {
+            tickets.add(Map<String, dynamic>.from(data));
+          }
+        }
+      }
+      print('HiveDB: Retrieved ${tickets.length} offline tickets');
+      return tickets;
+    } catch (e) {
+      print('HiveDB: Error retrieving all offline tickets: $e');
+      return [];
+    }
+  }
+
+  static bool isTicketDownloaded(String siteAuditSchId) {
+    try {
+      final box = HiveDB.getHiveBox(HiveConstant.offlineTickets);
+      final key = '${HiveConstant.offlineTicketKey}$siteAuditSchId';
+      return box.containsKey(key);
+    } catch (e) {
+      print('HiveDB: Error checking if ticket is downloaded: $e');
+      return false;
+    }
   }
 //
 }

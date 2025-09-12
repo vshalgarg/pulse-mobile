@@ -3,6 +3,7 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/models/PmGetDataModel.dart';
 import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_3.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'dart:io';
@@ -203,6 +204,58 @@ class _PmScreen2 extends State<PmScreen2> {
       print("PM Screen - Error getting site ID from PM data: $e");
     }
     return widget.siteId ?? 'Unknown';
+  }
+
+  /// Check if a field is a mobile number field
+  bool _isMobileNumberField(String checklistDesc) {
+    final mobileKeywords = [
+      'mobile',
+      'phone',
+      'contact',
+      'number',
+      'telephone',
+      'cell',
+      'whatsapp'
+    ];
+    
+    final desc = checklistDesc.toLowerCase();
+    return mobileKeywords.any((keyword) => desc.contains(keyword));
+  }
+
+  /// Validate mobile number format
+  String? _validateMobileNumber(String? value) {
+    if (value == null || value.isEmpty) {
+      return null; // Allow empty values, let required validation handle it
+    }
+    
+    // Remove any non-digit characters
+    final cleanValue = value.replaceAll(RegExp(r'[^\d]'), '');
+    
+    // Check if it's a valid Indian mobile number (10 digits starting with 6-9)
+    if (cleanValue.length == 10) {
+      final firstDigit = int.tryParse(cleanValue[0]);
+      if (firstDigit != null && firstDigit >= 6 && firstDigit <= 9) {
+        return null; // Valid mobile number
+      }
+    }
+    
+    // Check if it's a valid mobile number with country code (11 digits starting with 91)
+    if (cleanValue.length == 11 && cleanValue.startsWith('91')) {
+      final thirdDigit = int.tryParse(cleanValue[2]);
+      if (thirdDigit != null && thirdDigit >= 6 && thirdDigit <= 9) {
+        return null; // Valid mobile number with country code
+      }
+    }
+    
+    return 'Please enter a valid 10-digit mobile number';
+  }
+
+  /// Get input formatters for mobile number fields
+  List<TextInputFormatter> _getMobileNumberFormatters() {
+    return [
+      FilteringTextInputFormatter.digitsOnly,
+      LengthLimitingTextInputFormatter(10), // Limit to 10 digits
+    ];
   }
 
   Future<void> _uploadPhoto(File? file, String key) async {
@@ -526,14 +579,20 @@ class _PmScreen2 extends State<PmScreen2> {
       );
     }
 
+    // Check if this is a mobile number field
+    final isMobileField = _isMobileNumberField(checklistDesc);
+    
     return CustomFormField(
       label: checklistDesc,
-      hintText: checklistDesc,
+      hintText: isMobileField ? "Enter 10-digit mobile number" : checklistDesc,
       initialValue: formData[key] ?? '',
       isRequired: false,
       isEditable: isEditable,
       controller: _getTextController(key, formData[key] ?? ''),
       onChanged: (value) => _saveFormData(key, value),
+      validator: isMobileField ? _validateMobileNumber : null,
+      inputFormatters: isMobileField ? _getMobileNumberFormatters() : null,
+      keyboardType: isMobileField ? TextInputType.phone : TextInputType.text,
     );
   }
 

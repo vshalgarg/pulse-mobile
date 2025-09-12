@@ -34,14 +34,14 @@ class SurveillianceScreen extends StatefulWidget {
   final CategoryData? cctvData;
   final AssetAuditModel? assetAuditData;
   final bool showSuccessMessage; // Flag to show success message
-  
+
   // Data from previous screens in the flow
   final List<Map<String, dynamic>>? extinguisherItems;
   final List<Map<String, dynamic>>? solarPlatesItems;
 
   const SurveillianceScreen({
-    super.key, 
-    this.cctvData, 
+    super.key,
+    this.cctvData,
     this.assetAuditData,
     this.showSuccessMessage = false, // Default to false
     this.extinguisherItems,
@@ -61,11 +61,13 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   int totalCCTVItems = 6;
   int currentScannedItems = 0;
   List<Map<String, dynamic>> savedCCTVItems = [];
+
   // Separate controllers for each section to avoid conflicts
   final rectifierRemarksController = TextEditingController();
   final mpptRemarksController = TextEditingController();
   final generalRemarksController = TextEditingController();
-  final cctvCapacityController = TextEditingController(); // Read-only controller for capacity
+  final cctvCapacityController =
+      TextEditingController(); // Read-only controller for capacity
 
   // AssetTypeCard field values for CCTV
   String? cctvSerialNumber;
@@ -78,14 +80,20 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
   // Keys to force rebuild of CustomInfoCard widgets
   int cctvCardKey = 0;
-  
+
   // Flag to track if Surveillance screen has posted data
   bool _hasPostedSurveillanceData = false;
+
+  // Image loading and edit tracking
+  String?
+  _editingItemType; // Track which item type is being edited for image loading
+  bool isEditingItem = false; // Track if we're currently editing an item
 
   // ===== IMAGE LOADING INFRASTRUCTURE =====
   late ImageRepository _imageService;
   Map<int, String> _imageCache = {};
   Set<int> _loadingImages = {};
+
   // ===== END IMAGE LOADING INFRASTRUCTURE =====
 
   @override
@@ -96,7 +104,9 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     // Check if we have data to show, if not, skip this screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasDataToShow()) {
-        print('Surveillance Screen: No data to show, skipping to Fencing screen');
+        print(
+          'Surveillance Screen: No data to show, skipping to Fencing screen',
+        );
         _navigateToFencingScreen();
       } else {
         // Pre-fill capacity field with data from API
@@ -107,12 +117,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
         // Load CCTV data if available
         _loadCCTVData();
-        
-        // Show success message if coming from Solar Plates Screen
-        if (widget.showSuccessMessage) {
-          showCustomToast(context, '✅ Solar Plates data saved successfully!');
-        }
-        
+
         // Debug: Print the structure of cctvData
         _debugCCTVData();
       }
@@ -125,13 +130,13 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     if (widget.cctvData != null) {
       print('cctvData is not null');
       print('cctvData type: ${widget.cctvData.runtimeType}');
-      
+
       // Access CategoryData properties correctly
       print('assets: ${widget.cctvData!.assets}');
       print('assets length: ${widget.cctvData!.assets.length}');
       print('remarks: ${widget.cctvData!.remarks}');
       print('remarks length: ${widget.cctvData!.remarks.length}');
-      
+
       if (widget.cctvData!.subCategories != null) {
         print('subCategories: ${widget.cctvData!.subCategories}');
         widget.cctvData!.subCategories!.forEach((key, items) {
@@ -152,21 +157,22 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       print('Surveillance Screen: No CCTV data available');
       return false;
     }
-    
+
     // Check if we have any assets
     final hasAssets = widget.cctvData!.assets.isNotEmpty;
-    
+
     // Check if we have any subcategories with data
-    final hasSubCategories = widget.cctvData!.subCategories != null && 
+    final hasSubCategories =
+        widget.cctvData!.subCategories != null &&
         widget.cctvData!.subCategories!.values.any((items) => items.isNotEmpty);
-    
+
     final hasData = hasAssets || hasSubCategories;
-    
+
     print('Surveillance Screen: Data availability check:');
     print('  - Assets: $hasAssets (${widget.cctvData!.assets.length})');
     print('  - Subcategories: $hasSubCategories');
     print('  - Has data to show: $hasData');
-    
+
     return hasData;
   }
 
@@ -176,9 +182,11 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => FencingScreen(
-          fencingData: widget.assetAuditData?.responseData.boundary,
+          fencingData:
+              widget.assetAuditData?.responseData.categories['Boundary'],
           assetAuditData: widget.assetAuditData,
-          showSuccessMessage: false, // Don't show success message when skipping surveillance screen
+          showSuccessMessage: false,
+          // Don't show success message when skipping surveillance screen
           extinguisherItems: widget.extinguisherItems ?? [],
           solarPlatesItems: widget.solarPlatesItems ?? [],
           surveillanceItems: [],
@@ -194,14 +202,13 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       context,
       MaterialPageRoute(
         builder: (context) => FencingScreen(
-          fencingData: widget.assetAuditData?.responseData.boundary,
+          fencingData:
+              widget.assetAuditData?.responseData.categories['Boundary'],
           assetAuditData: widget.assetAuditData,
           showSuccessMessage: false,
           extinguisherItems: widget.extinguisherItems ?? [],
           solarPlatesItems: widget.solarPlatesItems ?? [],
-          surveillanceItems: [
-            ...savedCCTVItems,
-          ],
+          surveillanceItems: [...savedCCTVItems],
         ),
       ),
     );
@@ -261,24 +268,14 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       setState(() {
         print('=== Surveillance Screen: Loading CCTV Data ===');
         print('cctvData type: ${widget.cctvData.runtimeType}');
-        
+
         // Load CCTV assets data
         final cctvAssets = widget.cctvData!.assets;
-        print('cctvAssets: $cctvAssets');
-        print('cctvAssets length: ${cctvAssets.length}');
-        
+
         if (cctvAssets.isNotEmpty) {
           // Process CCTV assets for count only
           for (int i = 0; i < cctvAssets.length; i++) {
             var item = cctvAssets[i];
-            print('CCTV Asset Item $i:');
-            print('  - itemType: ${item.itemType}');
-            print('  - itemTypeRemark: ${item.itemTypeRemark}');
-            print('  - nexgenSerialNo: ${item.nexgenSerialNo}');
-            print('  - mfgSerialNo: ${item.mfgSerialNo}');
-            print('  - capacity: ${item.capacity}');
-            print('  - itemTypeGroup: ${item.itemTypeGroup}');
-            print('  - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
           }
         } else {
           print('No CCTV assets found in CategoryData.assets');
@@ -286,46 +283,32 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
         // Check if there are subcategories
         if (widget.cctvData!.subCategories != null) {
-          print('Checking subcategories...');
-          widget.cctvData!.subCategories!.forEach((key, items) {
-            print('Subcategory $key: ${items.length} items');
-            if (items.isNotEmpty) {
-              var firstItem = items.first;
-              print('First item in $key:');
-              print('  - itemType: ${firstItem.itemType}');
-              print('  - assetAuditSiteRespId: ${firstItem.assetAuditSiteRespId}');
-            }
-          });
+          widget.cctvData!.subCategories!.forEach((key, items) {});
         } else {
           print('No subcategories found');
         }
 
         // Load remarks and populate the CustomRemarksField
         final remarks = widget.cctvData!.remarks;
-        print('cctvRemarks: $remarks');
-        print('cctvRemarks length: ${remarks.length}');
-        
         if (remarks.isNotEmpty) {
           // Process remarks and populate the CustomRemarksField
           for (int i = 0; i < remarks.length; i++) {
             var remark = remarks[i];
-            print('CCTV Remark $i:');
-            print('  - itemType: ${remark.itemType}');
-            print('  - recordType: ${remark.recordType}');
-            print('  - assetAuditSiteRespId: ${remark.assetAuditSiteRespId}');
-            
+
             // Populate the CustomRemarksField with the first valid remark
             if (remark.itemTypeRemark != null &&
                 remark.itemTypeRemark!.isNotEmpty) {
               generalRemarksController.text = remark.itemTypeRemark!;
-              print('Surveillance Screen: Loaded remark from API: ${remark.itemTypeRemark}');
+              print(
+                'Surveillance Screen: Loaded remark from API: ${remark.itemTypeRemark}',
+              );
               break; // Use the first valid remark
             }
           }
         } else {
           print('No CCTV remarks found');
         }
-        
+
         // Load saved items from API - only items with complete data
         _loadSavedItemsFromAPI();
 
@@ -350,7 +333,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     }
 
     print('Surveillance Screen: Loading saved items from API...');
-    
+
     setState(() {
       // Clear existing saved items to avoid duplicates
       savedCCTVItems.clear();
@@ -359,61 +342,27 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       // Load CCTV assets from both assets array and subcategories
       final cctvAssets = widget.cctvData!.assets;
       final subCategories = widget.cctvData!.subCategories;
-      
-      print('Surveillance Screen: Found ${cctvAssets.length} CCTV assets in main array');
-      
+
+      print(
+        'Surveillance Screen: Found ${cctvAssets.length} CCTV assets in main array',
+      );
+
       // Also check subcategories for CCTV items
       if (subCategories != null) {
         print('Surveillance Screen: Checking subcategories for CCTV items...');
-        subCategories.forEach((key, items) {
-          print('Surveillance Screen: Subcategory $key has ${items.length} items');
-          if (items.isNotEmpty) {
-            for (int i = 0; i < items.length; i++) {
-              var item = items[i];
-              print('Surveillance Screen: Subcategory $key, Item $i:');
-              print('  - itemType: ${item.itemType}');
-              print('  - recordType: ${item.recordType}');
-              print('  - mfgSerialNo: ${item.mfgSerialNo}');
-              print('  - nexgenSerialNo: ${item.nexgenSerialNo}');
-              print('  - photoId: ${item.photoId}');
-              print('  - assetStatus: ${item.assetStatus}');
-              print('  - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
-              bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
-                              (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
-              print('  - Has complete data: ${hasSerial && item.photoId != null && item.assetStatus != null}');
-            }
-          }
-        });
+        subCategories.forEach((key, items) {});
       }
-      
-      // Debug: Print each item's data to see what's available
-      for (int i = 0; i < cctvAssets.length; i++) {
-        var item = cctvAssets[i];
-        print('Surveillance Screen: Item $i:');
-        print('  - itemType: ${item.itemType}');
-        print('  - recordType: ${item.recordType}');
-        print('  - mfgSerialNo: ${item.mfgSerialNo}');
-        print('  - nexgenSerialNo: ${item.nexgenSerialNo}');
-        print('  - photoId: ${item.photoId}');
-        print('  - assetStatus: ${item.assetStatus}');
-        print('  - assetAuditSiteRespId: ${item.assetAuditSiteRespId}');
-        bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
-                        (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
-        print('  - Has complete data: ${hasSerial && item.photoId != null && item.assetStatus != null}');
-      }
-      
+
       // Process items from main assets array
       for (var item in cctvAssets) {
-        // Only add items that have complete data (serial, photo, status)
-        // Check for either mfgSerialNo or nexgenSerialNo for serial number
-        bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
-                        (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
-        
-        if (hasSerial && 
-            item.photoId != null && 
-            item.assetStatus != null) {
+        bool hasSerial =
+            (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) ||
+            (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
+
+        if (hasSerial && item.photoId != null && item.assetStatus != null) {
           Map<String, dynamic> savedItem = {
-            'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+            'serialNumber':
+                item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
             'photo': null,
             'photoId': item.photoId,
             'status': item.assetStatus ?? 'OK',
@@ -424,7 +373,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
             'assetStatus': item.assetStatus,
             'assetAuditSiteRespId': item.assetAuditSiteRespId,
             'capacity': item.capacity ?? 'N/A',
-            
+
             // Full API response details
             'asset_audit_site_resp_id': item.assetAuditSiteRespId,
             'site_audit_sch_id': item.siteAuditSchId,
@@ -443,27 +392,25 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           };
           savedCCTVItems.add(savedItem);
           currentScannedItems++;
-          print('Surveillance Screen: Added CCTV item: ${savedItem['serialNumber']}');
+          print(
+            'Surveillance Screen: Added CCTV item: ${savedItem['serialNumber']}',
+          );
         }
       }
 
       // Process items from subcategories
       if (subCategories != null) {
-        print('Surveillance Screen: Processing subcategory items...');
         subCategories.forEach((key, items) {
-          print('Surveillance Screen: Processing subcategory $key with ${items.length} items');
-          
           for (var item in items) {
-            // Only add items that have complete data (serial, photo, status)
-            // Check for either mfgSerialNo or nexgenSerialNo for serial number
-            bool hasSerial = (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) || 
-                            (item.nexgenSerialNo != null && item.nexgenSerialNo!.isNotEmpty);
-            
-            if (hasSerial && 
-                item.photoId != null && 
-                item.assetStatus != null) {
+            bool hasSerial =
+                (item.mfgSerialNo != null && item.mfgSerialNo!.isNotEmpty) ||
+                (item.nexgenSerialNo != null &&
+                    item.nexgenSerialNo!.isNotEmpty);
+
+            if (hasSerial && item.photoId != null && item.assetStatus != null) {
               Map<String, dynamic> savedItem = {
-                'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
+                'serialNumber':
+                    item.mfgSerialNo ?? item.nexgenSerialNo ?? 'Unknown',
                 'photo': null,
                 'photoId': item.photoId,
                 'status': item.assetStatus ?? 'OK',
@@ -474,7 +421,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                 'assetStatus': item.assetStatus,
                 'assetAuditSiteRespId': item.assetAuditSiteRespId,
                 'capacity': item.capacity ?? 'N/A',
-                
+
                 // Full API response details
                 'asset_audit_site_resp_id': item.assetAuditSiteRespId,
                 'site_audit_sch_id': item.siteAuditSchId,
@@ -493,66 +440,54 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
               };
               savedCCTVItems.add(savedItem);
               currentScannedItems++;
-              print('Surveillance Screen: Added CCTV item from subcategory $key: ${savedItem['serialNumber']}');
+              print(
+                'Surveillance Screen: Added CCTV item from subcategory $key: ${savedItem['serialNumber']}',
+              );
             }
           }
         });
       }
-
-      print('Surveillance Screen: Loaded ${savedCCTVItems.length} CCTV items total');
-      print('Surveillance Screen: Current scanned items: $currentScannedItems');
     });
-    
+
     // Load images for saved items
     _loadImagesForSavedItems();
   }
 
-  /// Load images for saved items using the image API
   void _loadImagesForSavedItems() async {
-    print('=== Surveillance Screen: Loading Images for Saved Items ===');
-    
-    // Collect all photo IDs from saved items
     Set<int> photoIds = {};
-    
+
     // Add photo IDs from CCTV items
     for (var item in savedCCTVItems) {
       if (item['photoId'] != null) {
         photoIds.add(item['photoId']);
       }
     }
-    
+
     if (photoIds.isEmpty) {
-      print('Surveillance Screen: No photo IDs found to load images');
       return;
     }
-    
-    print('Surveillance Screen: Loading ${photoIds.length} images...');
-    
+
     try {
       // Mark images as loading
       setState(() {
         _loadingImages.addAll(photoIds);
       });
-      
+
       // Fetch images from API
       final imageMap = await _imageService.fetchImagesByIds(photoIds.toList());
-      
+
       // Update cache and remove loading state
       setState(() {
         _imageCache.addAll(imageMap);
         _loadingImages.removeAll(photoIds);
       });
-      
-      print('Surveillance Screen: Successfully loaded ${imageMap.length} images');
     } catch (e) {
-      print('Surveillance Screen: Error loading images: $e');
       setState(() {
         _loadingImages.removeAll(photoIds);
       });
     }
   }
 
-  /// Build photo column for saved items list
   Widget _buildPhotoColumn(Map<String, dynamic> item) {
     final photoId = item['photoId'];
     final imageName = item['image_name'];
@@ -565,7 +500,6 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       );
     }
 
-    // Show camera icon that opens image viewer
     return GestureDetector(
       onTap: () {
         // Check if image is cached first
@@ -584,11 +518,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: AppColors.green7, width: 1),
         ),
-        child: const Icon(
-          Icons.camera_alt,
-          color: AppColors.green7,
-          size: 16,
-        ),
+        child: const Icon(Icons.camera_alt, color: AppColors.green7, size: 16),
       ),
     );
   }
@@ -616,9 +546,10 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
-      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((
+        state,
+      ) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-          print('Image fetched successfully for photo ID: $imagePath');
           final finalImageData = state.imageData.startsWith('data:image/')
               ? state.imageData
               : 'data:image/jpeg;base64,${state.imageData}';
@@ -626,7 +557,10 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
           print('Failed to fetch image: ${state.errorMessage}');
-          showCustomToast(context, 'Failed to load image: ${state.errorMessage}');
+          showCustomToast(
+            context,
+            'Failed to load image: ${state.errorMessage}',
+          );
           completer.complete(null);
           subscription.cancel();
         }
@@ -634,7 +568,10 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
       context.read<AssetAuditGetImageCubit>().getImage(
         imgId: imagePath,
-        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+        schId:
+            widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                ?.toString() ??
+            '',
       );
 
       imageData = await completer.future;
@@ -657,20 +594,13 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                         base64Decode(imageData.split(',').last),
                         fit: BoxFit.contain,
                       )
-                    : Image.file(
-                        File(imageData),
-                        fit: BoxFit.contain,
-                      ),
+                    : Image.file(File(imageData), fit: BoxFit.contain),
               ),
               Positioned(
                 top: 8,
                 right: 8,
                 child: IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.red,
-                    size: 30,
-                  ),
+                  icon: const Icon(Icons.close, color: Colors.red, size: 30),
                   onPressed: () => Navigator.of(context).pop(),
                 ),
               ),
@@ -723,7 +653,10 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       // Update audit schedule status to "In Progress"
       if (mounted) {
         context.read<AuditScheduleStatusCubit>().updateStatus(
-          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          siteAuditSchId:
+              widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                  .toString() ??
+              "",
           status: "In Progress",
         );
       }
@@ -735,9 +668,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => HomeScreen()),
       );
     }
   }
@@ -789,18 +720,18 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   // Save current form data for CCTV
   void _saveCCTVForm() {
     // Check against items that already have both photo_id and asset_status
-    int completedCCTVCount = widget.cctvData?.assets?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int completedCCTVCount =
+        widget.cctvData?.assets
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
     int totalCCTVCount = widget.cctvData?.assets?.length ?? 0;
-    
+
     // If there are completed items, use completed count; otherwise use total count
-    int maxAllowedCCTVCount = completedCCTVCount > 0 ? completedCCTVCount : totalCCTVCount;
-    
-    print('Surveillance Debug: completedCCTVCount = $completedCCTVCount');
-    print('Surveillance Debug: totalCCTVCount = $totalCCTVCount');
-    print('Surveillance Debug: maxAllowedCCTVCount = $maxAllowedCCTVCount');
-    print('Surveillance Debug: savedCCTVItems.length = ${savedCCTVItems.length}');
-    
+    int maxAllowedCCTVCount = completedCCTVCount > 0
+        ? completedCCTVCount
+        : totalCCTVCount;
+
     if (savedCCTVItems.length >= maxAllowedCCTVCount) {
       showCustomToast(
         context,
@@ -812,79 +743,102 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     if (_isFormValid()) {
       setState(() {
         // Get the actual serial number from the controller
-        String actualSerialNumber = cctvSerialController.text.isNotEmpty 
-            ? cctvSerialController.text 
+        String actualSerialNumber = cctvSerialController.text.isNotEmpty
+            ? cctvSerialController.text
             : 'Unknown';
-            
+
         // Get the assetAuditSiteRespId for CCTV
         int assetAuditSiteRespId = _getAssetAuditSiteRespId('CCTV');
-        print('Surveillance Screen: Retrieved assetAuditSiteRespId: $assetAuditSiteRespId for CCTV');
-            
         Map<String, dynamic> currentFormData = {
-          'serialNumber': actualSerialNumber, // Use the actual serial number from controller
+          'serialNumber': actualSerialNumber,
+          // Use the actual serial number from controller
           'photo': cctvPhoto,
-          'photoId': cctvPhotoId, // Include the photoId from API
+          'photoId': cctvPhotoId,
+          // Include the photoId from API
           'photoTakenTs': DateTime.now().toString(),
-          'itemType': 'CCTV', // Include item type
-          'remarks': 'CCTV Item', // Include remarks
-          'status': cctvStatus ?? "OK", // Set status field
-          'assetStatus': cctvStatus ?? "OK", // Also set assetStatus field
-          'assetAuditSiteRespId': assetAuditSiteRespId, // Include asset audit site resp ID
+          'itemType': 'CCTV',
+          // Include item type
+          'remarks': 'CCTV Item',
+          // Include remarks
+          'status': cctvStatus ?? "OK",
+          // Set status field
+          'assetStatus': cctvStatus ?? "OK",
+          // Also set assetStatus field
+          'assetAuditSiteRespId': assetAuditSiteRespId,
+          // Include asset audit site resp ID
           'timestamp': DateTime.now(),
           'isQRCodeScanned': false,
           // Track if this was QR scanned or manual entry (false for manual entry)
         };
 
-        print('Saving CCTV item: $currentFormData');
-        print('Current savedCCTVItems count: ${savedCCTVItems.length}');
+        if (isEditingItem) {
+          savedCCTVItems.add(currentFormData);
+          currentScannedItems++;
 
-        savedCCTVItems.add(currentFormData);
-        currentScannedItems++;
+          // Clear the form after editing and reset flags
+          cctvSerialNumber = null;
+          cctvPhoto = null;
+          cctvStatus = null;
+          cctvPhotoId = null;
+          cctvSerialController.clear();
+          cctvCardKey++;
 
-        print('After saving - savedCCTVItems count: ${savedCCTVItems.length}');
-        print('currentScannedItems: $currentScannedItems');
+          isEditingItem = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        } else {
+          // We're adding a new item - add to list and clear form
+          savedCCTVItems.add(currentFormData);
+          currentScannedItems++;
 
-        // Clear form for next entry
-        cctvSerialNumber = null;
-        cctvPhoto = null;
-        cctvStatus = null;
-        cctvPhotoId = null; // Clear photoId as well
+          // Clear form for next entry
+          cctvSerialNumber = null;
+          cctvPhoto = null;
+          cctvStatus = null;
+          cctvPhotoId = null; // Clear photoId as well
 
-        cctvSerialController.clear();
-        cctvCardKey++;
+          cctvSerialController.clear();
+          cctvCardKey++;
 
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
+          hasUnsavedChanges = false;
+          showValidationErrors = false;
+        }
       });
 
       int remainingCCTVs = maxAllowedCCTVCount - savedCCTVItems.length;
-      showCustomToast(
-        context,
-        'CCTV item saved successfully! ${remainingCCTVs > 0 ? '(${remainingCCTVs} remaining)' : '(All items added)'}',
-      );
     }
   }
 
   // Check if all items are scanned (for display purposes only)
   // Helper method to filter items that have both photo and status
-  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(List<Map<String, dynamic>> items) {
+  List<Map<String, dynamic>> _getItemsWithPhotoAndStatus(
+    List<Map<String, dynamic>> items,
+  ) {
     return items.where((item) {
-      final hasPhoto = item['photo'] != null && item['photo'].toString().isNotEmpty;
+      final hasPhoto =
+          item['photo'] != null && item['photo'].toString().isNotEmpty;
       final hasPhotoId = item['photoId'] != null;
-      final hasStatus = (item['status'] != null && item['status'].toString().isNotEmpty) ||
-                       (item['assetStatus'] != null && item['assetStatus'].toString().isNotEmpty);
+      final hasStatus =
+          (item['status'] != null && item['status'].toString().isNotEmpty) ||
+          (item['assetStatus'] != null &&
+              item['assetStatus'].toString().isNotEmpty);
       return hasPhotoId && hasStatus;
     }).toList();
   }
 
   bool _isAllItemsScanned() {
     // Check against items that already have both photo_id and asset_status
-    int completedCCTVCount = widget.cctvData?.assets?.where((item) => 
-        item.photoId != null && item.assetStatus != null).length ?? 0;
+    int completedCCTVCount =
+        widget.cctvData?.assets
+            ?.where((item) => item.photoId != null && item.assetStatus != null)
+            .length ??
+        0;
     int totalCCTVCount = widget.cctvData?.assets?.length ?? 0;
-    
-    int maxAllowedCCTVCount = completedCCTVCount > 0 ? completedCCTVCount : totalCCTVCount;
-    
+
+    int maxAllowedCCTVCount = completedCCTVCount > 0
+        ? completedCCTVCount
+        : totalCCTVCount;
+
     return savedCCTVItems.length >= maxAllowedCCTVCount;
   }
 
@@ -896,14 +850,14 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
   // Method to get CCTV capacity from API data
   String _getCCTVCapacity() {
     print('=== Surveillance Screen: Getting CCTV Capacity ===');
-    
+
     if (widget.cctvData == null) {
       print('cctvData is null, returning default capacity');
       return '1080p'; // Default fallback
     }
-    
+
     print('cctvData is not null, checking for capacity...');
-    
+
     // Get capacity from CCTV assets
     final cctvAssets = widget.cctvData!.assets ?? [];
     if (cctvAssets.isNotEmpty) {
@@ -917,22 +871,24 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     } else {
       print('No CCTV assets found in CategoryData.assets');
     }
-    
+
     print('No capacity found in CCTV assets, returning default');
     return '1080p'; // Default fallback
   }
 
   /// Get asset audit site response ID from GET API response for a specific item type
   int _getAssetAuditSiteRespId(String itemType) {
-    print('=== Surveillance Screen: Getting AssetAuditSiteRespId for $itemType ===');
-    
+    print(
+      '=== Surveillance Screen: Getting AssetAuditSiteRespId for $itemType ===',
+    );
+
     if (widget.cctvData == null) {
       print('cctvData is null, returning default ID');
       return 0; // Default ID
     }
-    
+
     print('cctvData is not null, searching for $itemType...');
-    
+
     // First check in assets
     final cctvAssets = widget.cctvData!.assets ?? [];
     if (cctvAssets.isNotEmpty) {
@@ -940,14 +896,16 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       for (var asset in cctvAssets) {
         print('Asset: ${asset.itemType} - ID: ${asset.assetAuditSiteRespId}');
         if (asset.itemType == itemType) {
-          print('Found $itemType in assets with ID: ${asset.assetAuditSiteRespId}');
+          print(
+            'Found $itemType in assets with ID: ${asset.assetAuditSiteRespId}',
+          );
           return asset.assetAuditSiteRespId ?? 0;
         }
       }
     } else {
       print('No assets found in CategoryData.assets');
     }
-    
+
     // If not found in assets, check subcategories
     if (widget.cctvData!.subCategories != null) {
       print('Checking subcategories for $itemType...');
@@ -956,9 +914,13 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         List<AssetItem> items = entry.value;
         print('Subcategory $key: ${items.length} items');
         for (var item in items) {
-          print('Item in $key: ${item.itemType} - ID: ${item.assetAuditSiteRespId}');
+          print(
+            'Item in $key: ${item.itemType} - ID: ${item.assetAuditSiteRespId}',
+          );
           if (item.itemType == itemType) {
-            print('Found $itemType in subcategory $key with ID: ${item.assetAuditSiteRespId}');
+            print(
+              'Found $itemType in subcategory $key with ID: ${item.assetAuditSiteRespId}',
+            );
             return item.assetAuditSiteRespId ?? 0;
           }
         }
@@ -966,7 +928,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     } else {
       print('No subcategories found');
     }
-    
+
     // Try specific subcategory helper methods if they exist
     try {
       // Check if there are specific helper methods for CCTV
@@ -975,14 +937,16 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         final allAssets = widget.cctvData!.assets ?? [];
         if (allAssets.isNotEmpty) {
           final firstAsset = allAssets.first;
-          print('Using first available asset ID: ${firstAsset.assetAuditSiteRespId}');
+          print(
+            'Using first available asset ID: ${firstAsset.assetAuditSiteRespId}',
+          );
           return firstAsset.assetAuditSiteRespId ?? 0;
         }
       }
     } catch (e) {
       print('Error accessing helper methods: $e');
     }
-    
+
     print('No $itemType found in any structure, returning default ID');
     return 0; // Default ID
   }
@@ -1002,7 +966,6 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       );
 
       if (isValid) {
-        showCustomToast(context, '✅ QR Code validated successfully!');
       } else {
         showCustomToast(
           context,
@@ -1020,7 +983,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       );
 
       if (isValid) {
-        showCustomToast(context, '✅ Manual entry validated successfully!');
+        print('✅ Manual entry validated successfully!');
       } else {
         showCustomToast(
           context,
@@ -1034,36 +997,39 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
 
   int? _getRemarksAssetAuditSiteRespId() {
     print('=== Surveillance Screen: Getting Remarks AssetAuditSiteRespId ===');
-    
+
     if (widget.cctvData == null) {
       print('cctvData is null, cannot get remarks ID');
       return null;
     }
-    
+
     // Check if there are remarks in the backend data
     final remarks = widget.cctvData!.remarks;
     if (remarks.isNotEmpty) {
       print('Found ${remarks.length} remarks in backend data');
-      
+
       // First try to find a general remarks entry (CCTV category is usually the main one)
       for (var remark in remarks) {
-        if (remark.assetAuditSiteRespId != null && 
-            remark.assetAuditSiteRespId > 0 && 
+        if (remark.assetAuditSiteRespId != null &&
+            remark.assetAuditSiteRespId > 0 &&
             remark.itemType == 'CCTV') {
           print('Using CCTV remarks ID: ${remark.assetAuditSiteRespId}');
           return remark.assetAuditSiteRespId;
         }
       }
-      
+
       // Fallback: find any remarks entry with a valid ID
       for (var remark in remarks) {
-        if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0) {
-          print('Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}');
+        if (remark.assetAuditSiteRespId != null &&
+            remark.assetAuditSiteRespId > 0) {
+          print(
+            'Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}',
+          );
           return remark.assetAuditSiteRespId;
         }
       }
     }
-    
+
     print('No valid remarks ID found in backend data');
     return null;
   }
@@ -1086,32 +1052,85 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       );
       allItemsToPost.addAll(enhancedItems);
 
-      // Add user's general remarks if entered
       if (generalRemarksController.text.isNotEmpty) {
         // Find the appropriate remarks entry from backend data
         int? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
-        
+
         if (remarksAssetAuditSiteRespId != null) {
           Map<String, dynamic> remarksData = {
-            'itemType': 'CCTV', // Use the main screen category
-            'remarks': generalRemarksController.text, // User's actual remarks text
+            'itemType': 'CCTV',
+            // Use the main screen category
+            'remarks': generalRemarksController.text,
+            // User's actual remarks text
             'recordType': 'Remarks',
             'timestamp': DateTime.now(),
-            'assetAuditSiteRespId': remarksAssetAuditSiteRespId, // Use backend remarks ID
-            'status': 'OK', // Default status for remarks
-            'serialNumber': 'REMARKS', // Default serial for remarks
-            'photo': null, // No photo file for remarks
+            'assetAuditSiteRespId': remarksAssetAuditSiteRespId,
+            // Use backend remarks ID
+            'status': 'OK',
+            // Default status for remarks
+            'serialNumber': 'REMARKS',
+            // Default serial for remarks
+            'photo': null,
+            // No photo file for remarks
+            'photoId': null,
+            // No photo ID for remarks
+            'photoTakenTs': DateTime.now().toString(),
+            // Current timestamp
+            'isQRCodeScanned': false,
+            // Remarks are not QR scanned
+            'localQrCodeScannedTs': DateTime.now().toString(),
+            // Local timestamp for QR scan
+            'localCreatedDt': DateTime.now().toString(),
+            // Local creation timestamp
+            'localModifiedDt': DateTime.now().toString(),
+            // Local modification timestamp
 
-            'photoTakenTs': DateTime.now().toString(), // Current timestamp
-            'isQRCodeScanned': false, // Remarks are not QR scanned
-            'localQrCodeScannedTs': DateTime.now().toString(), // Local timestamp for QR scan
-            'localCreatedDt': DateTime.now().toString(), // Local creation timestamp
-            'localModifiedDt': DateTime.now().toString(), // Local modification timestamp
+            // Additional required fields for API - using correct field names
+            'localCreatedBy': 1,
+            // Default user ID - correct field name
+            'localModifiedBy': 1,
+            // Default user ID - correct field name
+            'isActive': true,
+            // Default active status
+            'itemInstanceId': null,
+            // Remarks don't have item instance ID
+            'itemTypeId': AssetAuditPostHelper.getItemTypeId('CCTV'),
+            // Get proper item type ID
+            'itemTypeRemark': 'CCTV Item',
+            // Item type remark
+            'latitude': '-122.084',
+            // Default latitude
+            'longitude': '37.4219983',
+            // Default longitude
+            'localAuditLogId': DateTime.now().millisecondsSinceEpoch,
+            // Local audit log ID
+            'syncProcessId': DateTime.now().millisecondsSinceEpoch,
+            // Sync process ID
+            'nexgenSerialNo': null,
+            // No serial number for remarks
+            'mfgSerialNo': null,
+            // No manufacturer serial for remarks
+            'qrCodeScannedTs': null,
+            // No QR scan timestamp for remarks
+            'assetStatus': 'OK',
+            // Asset status
+            'capacity': null,
+            // No capacity for remarks
+            'itemTypeGroup': 'CCTV',
+            // Item type group
+            'oemName': null,
+            // No OEM name for remarks
+            'imageName': null,
+            // No image name for remarks
           };
           allItemsToPost.add(remarksData);
-          print('Surveillance Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${generalRemarksController.text}"');
+          print(
+            'Surveillance Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${generalRemarksController.text}"',
+          );
         } else {
-          print('Surveillance Screen: Could not find remarks ID from backend data');
+          print(
+            'Surveillance Screen: Could not find remarks ID from backend data',
+          );
         }
       }
 
@@ -1120,16 +1139,9 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         return false;
       }
 
-      print('Surveillance Screen: Enhanced items before conversion: $enhancedItems');
-      
-      // Debug: Check if assetAuditSiteRespId is preserved in enhanced items
-      for (int i = 0; i < enhancedItems.length; i++) {
-        var item = enhancedItems[i];
-        print('Surveillance Screen: Enhanced item $i:');
-        print('  - assetAuditSiteRespId: ${item['assetAuditSiteRespId']}');
-        print('  - serialNumber: ${item['serialNumber']}');
-        print('  - itemType: ${item['itemType']}');
-      }
+      print(
+        'Surveillance Screen: Enhanced items before conversion: $enhancedItems',
+      );
 
       // Convert to POST request format
       final requests =
@@ -1147,25 +1159,17 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
         return false;
       }
 
-      print('Surveillance Screen: Final POST requests: $requests');
-      
-      // Debug: Check if assetAuditSiteRespId is preserved in final requests
-      for (int i = 0; i < requests.length; i++) {
-        var request = requests[i];
-        print('Surveillance Screen: Final request $i:');
-        print('  - assetAuditSiteRespId: ${request.assetAuditSiteRespId}');
-        print('  - nexgenSerialNo: ${request.nexgenSerialNo}');
-        print('  - itemTypeId: ${request.itemTypeId}');
-        print('  - itemTypeRemark: ${request.itemTypeRemark}');
-      }
-
       // Set flag BEFORE making the API call to ensure it's set when success state is received
       setState(() {
         _hasPostedSurveillanceData = true;
       });
-      print('Surveillance Screen: Set _hasPostedSurveillanceData flag to true BEFORE API call');
-      print('Surveillance Screen: Flag value after setting: $_hasPostedSurveillanceData');
-      
+      print(
+        'Surveillance Screen: Set _hasPostedSurveillanceData flag to true BEFORE API call',
+      );
+      print(
+        'Surveillance Screen: Flag value after setting: $_hasPostedSurveillanceData',
+      );
+
       // Use the existing cubit to post data
       print('Surveillance Screen: Posting ${requests.length} items to API...');
       context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
@@ -1199,521 +1203,618 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
       cctvCardKey++;
       hasUnsavedChanges = true;
     });
-
-    showCustomToast(
-      context,
-      'CCTV item loaded for editing. Make changes and save again.',
-    );
   }
 
   // Edit a specific saved item from the list
   void _editSavedItem(Map<String, dynamic> item, String itemType) {
     setState(() {
+      // Set editing flag
+      isEditingItem = true;
+
       cctvSerialNumber = item["serialNumber"];
-      cctvPhoto = item["photo"];
       cctvStatus = item["assetStatus"]; // Use assetStatus instead of status
       cctvPhotoId = item["photoId"]; // Include photoId
       cctvSerialController.text = item["serialNumber"] ?? "";
+
+      // Handle photo data - check if it's base64 data or photo ID
+      String? photoData = item["photo"];
+      if (photoData != null && photoData.isNotEmpty) {
+        if (photoData.startsWith('data:image/')) {
+          // It's already base64 image data
+          cctvPhoto = photoData;
+        } else if (_isNumeric(photoData)) {
+          // It's a photo ID, load the image
+          _loadImageForEdit(photoData, 'cctv');
+        } else {
+          // It's a file path or other format
+          cctvPhoto = photoData;
+        }
+      }
+
+      // Also try to load image if photoId exists (fallback)
+      if (cctvPhotoId != null &&
+          cctvPhotoId.toString().isNotEmpty &&
+          cctvPhoto == null) {
+        _loadImageForEdit(cctvPhotoId.toString(), 'cctv');
+      }
+
       savedCCTVItems.remove(item);
       currentScannedItems--;
       cctvCardKey++;
       hasUnsavedChanges = true;
     });
+  }
 
-    showCustomToast(
-      context,
-      'CCTV item loaded for editing. Make changes and save again.',
-    );
+  /// Load image for editing
+  void _loadImageForEdit(String photoId, String itemType) {
+    if (photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Set the editing item type to track which photo to update
+      _editingItemType = itemType;
+
+      // Request the image
+      context.read<AssetAuditGetImageCubit>().getImage(
+        imgId: photoId,
+        schId:
+            widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                ?.toString() ??
+            '',
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<AssetAuditCubit, AssetAuditState>(
+    return BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
       listener: (context, state) {
-        print('Surveillance Screen: BlocListener received state: $state');
-        print('Surveillance Screen: State type: ${state.runtimeType}');
-        
-        if (state is AssetAuditPostSuccess) {
-          print('Surveillance Screen: AssetAuditPostSuccess received!');
-          print('Surveillance Screen: State details: $state');
-          print('Surveillance Screen: _hasPostedSurveillanceData flag: $_hasPostedSurveillanceData');
-          
-          // Check if this success state contains Surveillance-related items
-          bool isSurveillanceData = false;
-          print('Surveillance Screen: Total responses received: ${state.responses.length}');
-          for (var response in state.responses) {
-            print('Surveillance Screen: Full response object: $response');
-            print('Surveillance Screen: Checking response itemTypeRemark: ${response.itemTypeRemark}');
-            print('Surveillance Screen: Checking response itemTypeId: ${response.itemTypeId}');
-            print('Surveillance Screen: Checking response nexgenSerialNo: ${response.nexgenSerialNo}');
-            print('Surveillance Screen: Checking response assetStatus: ${response.assetStatus}');
-            print('Surveillance Screen: Checking response remarks: ${response.remarks}');
-            
-            // Primary check: itemTypeRemark contains Surveillance-related text
-            if (response.itemTypeRemark != null && 
-                (response.itemTypeRemark!.contains('CCTV') || 
-                 response.itemTypeRemark!.contains('Surveillance') ||
-                 response.itemTypeRemark!.contains('Camera'))) {
-              isSurveillanceData = true;
-              print('Surveillance Screen: Found Surveillance-related item by itemTypeRemark: ${response.itemTypeRemark}');
-              break;
-            }
-            
-            // Fallback check: Check if this is a response to Surveillance screen data by looking at the flag
-            if (_hasPostedSurveillanceData) {
-              isSurveillanceData = true;
-              print('Surveillance Screen: Found Surveillance-related item by flag check (fallback)');
-              break;
-            }
-            
-            print('Surveillance Screen: itemTypeRemark "${response.itemTypeRemark}" does not match Surveillance patterns');
-          }
-          
-          // Only process this success state if it contains Surveillance screen data
-          if (isSurveillanceData) {
-            print('Surveillance Screen: Confirmed this is Surveillance screen data, proceeding with data refresh...');
-            
-            // Show success message
-            showCustomToast(context, '✅ Surveillance data saved successfully!');
+        if (state is AssetAuditGetImageSuccess) {
+          // Handle successful image loading
+          final imageData = state.imageData.startsWith('data:image/')
+              ? state.imageData
+              : 'data:image/jpeg;base64,${state.imageData}';
 
-            // Refresh data from API before navigating
-            print('Surveillance Screen: Refreshing data from API...');
-            try {
-              // Trigger a refresh of the asset audit data
-              context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: widget.assetAuditData?.pageHeader.first.siteDomainName ?? "",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
-              );
-              
-              // Wait for data to refresh, then navigate
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  print('Surveillance Screen: Data refreshed, navigating to next screen...');
-                  pushPage(
-                    context,
-                    FencingScreen(
-                      fencingData: widget.assetAuditData?.responseData.boundary, // Use boundary instead of fencing
-                      assetAuditData: widget.assetAuditData,
-                      showSuccessMessage: false, // Don't show success message when skipping surveillance screen
-                      extinguisherItems: widget.extinguisherItems ?? [],
-                      solarPlatesItems: widget.solarPlatesItems ?? [],
-                      surveillanceItems: [
-                        ...savedCCTVItems,
-                      ],
-                    ),
-                  );
-                  
-                  // Reset the flag after successful navigation
-                  setState(() {
-                    _hasPostedSurveillanceData = false;
-                  });
-                  print('Surveillance Screen: Reset _hasPostedSurveillanceData flag to false after navigation');
-                }
-              });
-            } catch (e) {
-              print('Surveillance Screen: Error refreshing data: $e');
-              // Fallback: navigate anyway after delay
-              Future.delayed(const Duration(seconds: 2), () {
-                if (mounted) {
-                  pushPage(
-                    context,
-                    FencingScreen(
-                      fencingData: widget.assetAuditData?.responseData.boundary,
-                      assetAuditData: widget.assetAuditData,
-                      showSuccessMessage: false,
-                      extinguisherItems: widget.extinguisherItems ?? [],
-                      solarPlatesItems: widget.solarPlatesItems ?? [],
-                      surveillanceItems: [
-                        ...savedCCTVItems,
-                      ],
-                    ),
-                  );
-                  setState(() {
-                    _hasPostedSurveillanceData = false;
-                  });
-                }
-              });
+          setState(() {
+            // Check if we're in edit mode
+            if (_editingItemType != null) {
+              // Update the appropriate photo variable based on editing item type
+              if (_editingItemType == 'cctv') {
+                cctvPhoto = imageData;
+              }
+              // Clear the editing item type after setState
+              _editingItemType = null;
             }
-          } else {
-            print('Surveillance Screen: Success state received but not for Surveillance screen data, ignoring...');
-            print('Surveillance Screen: _hasPostedSurveillanceData flag: $_hasPostedSurveillanceData');
-          }
-        } else if (state is AssetAuditPostError) {
-          // Only show error message if this error belongs to Surveillance screen data
-          if (_hasPostedSurveillanceData) {
-            print('Surveillance Screen: AssetAuditPostError received for Surveillance data');
-            // Show error message but don't block navigation completely
-            showCustomToast(
-              context,
-              '❌ Failed to save Surveillance data to server. You can continue with local data.',
-            );
-            
-            // Reset the flag on error
-            setState(() {
-              _hasPostedSurveillanceData = false;
-            });
-            print('Surveillance Screen: Reset _hasPostedSurveillanceData flag to false after error');
-            
-            // Optionally, you could show a dialog asking if user wants to continue
-            // or retry, but for now we'll just show the toast and let them continue
-          } else {
-            print('Surveillance Screen: AssetAuditPostError received but not for Surveillance data, ignoring...');
-          }
+          });
+        } else if (state is AssetAuditGetImageFailure) {
+          // Clear the editing item type on failure
+          _editingItemType = null;
         }
       },
-      child: PopScope(
-        canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          if (didPop) return;
+      child: BlocListener<AssetAuditCubit, AssetAuditState>(
+        listener: (context, state) {
+          print('Surveillance Screen: BlocListener received state: $state');
+          print('Surveillance Screen: State type: ${state.runtimeType}');
 
-          if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message:
-                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                onSaveAndExit: () {
-                  _saveAndExit();
-                },
-                onDiscard: () {
-                  Navigator.of(context).pop();
-                },
-              ),
+          if (state is AssetAuditPostSuccess) {
+            print('Surveillance Screen: AssetAuditPostSuccess received!');
+            print('Surveillance Screen: State details: $state');
+            print(
+              'Surveillance Screen: _hasPostedSurveillanceData flag: $_hasPostedSurveillanceData',
             );
-          }
-        },
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          resizeToAvoidBottomInset: false,
-          appBar: CustomFormAppbar(
-            title: "Asset Audit",
-            onClose: () async {
-              if (hasUnsavedChanges) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message:
-                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
-                    },
-                    onDiscard: () {
-                      Navigator.of(context).pop();
-                    },
+
+            // Check if this success state contains Surveillance-related items
+            bool isSurveillanceData = false;
+            print(
+              'Surveillance Screen: Total responses received: ${state.responses.length}',
+            );
+            for (var response in state.responses) {
+              print('Surveillance Screen: Full response object: $response');
+              print(
+                'Surveillance Screen: Checking response itemTypeRemark: ${response.itemTypeRemark}',
+              );
+              print(
+                'Surveillance Screen: Checking response itemTypeId: ${response.itemTypeId}',
+              );
+              print(
+                'Surveillance Screen: Checking response nexgenSerialNo: ${response.nexgenSerialNo}',
+              );
+              print(
+                'Surveillance Screen: Checking response assetStatus: ${response.assetStatus}',
+              );
+              print(
+                'Surveillance Screen: Checking response remarks: ${response.remarks}',
+              );
+
+              // Primary check: itemTypeRemark contains Surveillance-related text
+              if (response.itemTypeRemark != null &&
+                  (response.itemTypeRemark!.contains('CCTV') ||
+                      response.itemTypeRemark!.contains('Surveillance') ||
+                      response.itemTypeRemark!.contains('Camera'))) {
+                isSurveillanceData = true;
+                print(
+                  'Surveillance Screen: Found Surveillance-related item by itemTypeRemark: ${response.itemTypeRemark}',
+                );
+                break;
+              }
+
+              // Fallback check: Check if this is a response to Surveillance screen data by looking at the flag
+              if (_hasPostedSurveillanceData) {
+                isSurveillanceData = true;
+                print(
+                  'Surveillance Screen: Found Surveillance-related item by flag check (fallback)',
+                );
+                break;
+              }
+
+              print(
+                'Surveillance Screen: itemTypeRemark "${response.itemTypeRemark}" does not match Surveillance patterns',
+              );
+            }
+
+            // Only process this success state if it contains Surveillance screen data
+            if (isSurveillanceData) {
+              print('Surveillance Screen: Refreshing data from API...');
+              try {
+                // Trigger a refresh of the asset audit data
+                context.read<AssetAuditCubit>().getAssetAuditData(
+                  siteType:
+                      widget.assetAuditData?.pageHeader.first.siteDomainName ??
+                      "",
+                  auditSchId:
+                      widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                          .toString() ??
+                      "",
+                  siteAuditSchId:
+                      widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                          .toString() ??
+                      "",
+                );
+
+                // Navigate immediately after data refresh
+                print(
+                  'Surveillance Screen: Data refreshed, navigating to next screen...',
+                );
+                pushPage(
+                  context,
+                  FencingScreen(
+                    fencingData: widget
+                        .assetAuditData
+                        ?.responseData
+                        .categories['Boundary'],
+                    // Use categories['Boundary'] for fencing data
+                    assetAuditData: widget.assetAuditData,
+                    showSuccessMessage: false,
+                    // Don't show success message when skipping surveillance screen
+                    extinguisherItems: widget.extinguisherItems ?? [],
+                    solarPlatesItems: widget.solarPlatesItems ?? [],
+                    surveillanceItems: [...savedCCTVItems],
                   ),
                 );
-              } else {
-                Navigator.pop(context);
+
+                // Reset the flag after successful navigation
+                setState(() {
+                  _hasPostedSurveillanceData = false;
+                });
+                print(
+                  'Surveillance Screen: Reset _hasPostedSurveillanceData flag to false after navigation',
+                );
+              } catch (e) {
+                print('Surveillance Screen: Error refreshing data: $e');
+                // Fallback: navigate anyway after delay
+                Future.delayed(const Duration(seconds: 2), () {
+                  if (mounted) {
+                    pushPage(
+                      context,
+                      FencingScreen(
+                        fencingData: widget
+                            .assetAuditData
+                            ?.responseData
+                            .categories['Boundary'],
+                        assetAuditData: widget.assetAuditData,
+                        showSuccessMessage: false,
+                        extinguisherItems: widget.extinguisherItems ?? [],
+                        solarPlatesItems: widget.solarPlatesItems ?? [],
+                        surveillanceItems: [...savedCCTVItems],
+                      ),
+                    );
+                    setState(() {
+                      _hasPostedSurveillanceData = false;
+                    });
+                  }
+                });
               }
-            },
-          ),
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: SvgPicture.asset(
-                  AppImages.home,
-                  fit: BoxFit.cover,
-                  width: double.infinity,
-                  height: double.infinity,
+            } else {
+              print(
+                'Surveillance Screen: Success state received but not for Surveillance screen data, ignoring...',
+              );
+              print(
+                'Surveillance Screen: _hasPostedSurveillanceData flag: $_hasPostedSurveillanceData',
+              );
+            }
+          } else if (state is AssetAuditPostError) {
+            // Only show error message if this error belongs to Surveillance screen data
+            if (_hasPostedSurveillanceData) {
+              print(
+                'Surveillance Screen: AssetAuditPostError received for Surveillance data',
+              );
+
+              // Reset the flag on error
+              setState(() {
+                _hasPostedSurveillanceData = false;
+              });
+              print(
+                'Surveillance Screen: Reset _hasPostedSurveillanceData flag to false after error',
+              );
+            } else {
+              print(
+                'Surveillance Screen: AssetAuditPostError received but not for Surveillance data, ignoring...',
+              );
+            }
+          }
+        },
+        child: PopScope(
+          canPop: !hasUnsavedChanges,
+          onPopInvoked: (didPop) async {
+            if (didPop) return;
+
+            if (hasUnsavedChanges) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => UnsavedChangesDialog(
+                  message:
+                      "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                  onSaveAndExit: () {
+                    _saveAndExit();
+                  },
+                  onDiscard: () {
+                    Navigator.of(context).pop();
+                  },
                 ),
-              ),
-              SafeArea(
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.only(
-                            bottom:
-                                MediaQuery.of(context).viewInsets.bottom + 120,
-                          ),
-                          child: Container(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              left: 16,
-                              right: 16,
-                              bottom: 20,
+              );
+            }
+          },
+          child: Scaffold(
+            extendBodyBehindAppBar: true,
+            resizeToAvoidBottomInset: false,
+            appBar: CustomFormAppbar(
+              title: "Asset Audit",
+              onClose: () async {
+                if (hasUnsavedChanges) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => UnsavedChangesDialog(
+                      message:
+                          "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                      onSaveAndExit: () {
+                        _saveAndExit();
+                      },
+                      onDiscard: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  );
+                } else {
+                  Navigator.pop(context);
+                }
+              },
+            ),
+            body: Stack(
+              children: [
+                Positioned.fill(
+                  child: SvgPicture.asset(
+                    AppImages.home,
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                  ),
+                ),
+                SafeArea(
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.only(
+                              bottom:
+                                  MediaQuery.of(context).viewInsets.bottom +
+                                  120,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (_hasDataToShow()) ...[
-                                  CustomOptionSelector(
-                                    label: "Hooter Available (Yes/No)",
-                                    isRequired: true,
-                                    options: [
-                                    OptionItem(
-                                      value: "yes",
-                                      label: "Yes",
-                                      selectedIcon: Icons.check_circle,
-                                      unselectedIcon: Icons.circle_outlined,
+                            child: Container(
+                              padding: const EdgeInsets.only(
+                                top: 20,
+                                left: 16,
+                                right: 16,
+                                bottom: 20,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_hasDataToShow()) ...[
+                                    CustomOptionSelector(
+                                      label: "Hooter Available (Yes/No)",
+                                      isRequired: true,
+                                      options: [
+                                        OptionItem(
+                                          value: "yes",
+                                          label: "Yes",
+                                          selectedIcon: Icons.check_circle,
+                                          unselectedIcon: Icons.circle_outlined,
+                                        ),
+                                        OptionItem(
+                                          value: "no",
+                                          label: "No",
+                                          selectedIcon: Icons.cancel,
+                                          unselectedIcon: Icons.circle_outlined,
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedCCTVAvailability = value;
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
                                     ),
-                                    OptionItem(
-                                      value: "no",
-                                      label: "No",
-                                      selectedIcon: Icons.cancel,
-                                      unselectedIcon: Icons.circle_outlined,
+                                    getHeight(15),
+                                    CustomOptionSelector(
+                                      label: "CCTV Available (Yes/No)",
+                                      isRequired: true,
+                                      options: [
+                                        OptionItem(
+                                          value: "yes",
+                                          label: "Yes",
+                                          selectedIcon: Icons.check_circle,
+                                          unselectedIcon: Icons.circle_outlined,
+                                        ),
+                                        OptionItem(
+                                          value: "no",
+                                          label: "No",
+                                          selectedIcon: Icons.cancel,
+                                          unselectedIcon: Icons.circle_outlined,
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        setState(() {
+                                          selectedCCTVAvailability = value;
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
                                     ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedCCTVAvailability = value;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomOptionSelector(
-                                  label: "CCTV Available (Yes/No)",
-                                  isRequired: true,
-                                  options: [
-                                    OptionItem(
-                                      value: "yes",
-                                      label: "Yes",
-                                      selectedIcon: Icons.check_circle,
-                                      unselectedIcon: Icons.circle_outlined,
+                                    getHeight(15),
+                                    CustomFormField(
+                                      label: "Count of CCTV",
+                                      initialValue: totalCCTVItems.toString(),
+                                      isRequired: false,
+                                      isEditable: false,
+                                      onChanged: (value) {
+                                        setState(() {
+                                          totalCCTVItems =
+                                              int.tryParse(value) ?? 6;
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
                                     ),
-                                    OptionItem(
-                                      value: "no",
-                                      label: "No",
-                                      selectedIcon: Icons.cancel,
-                                      unselectedIcon: Icons.circle_outlined,
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    setState(() {
-                                      selectedCCTVAvailability = value;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomFormField(
-                                  label: "Count of CCTV",
-                                  initialValue: totalCCTVItems.toString(),
-                                  isRequired: false,
-                                  isEditable: false,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      totalCCTVItems = int.tryParse(value) ?? 6;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                ),
-                                getHeight(15),
-                                CustomInfoCard(
-                                  key: ValueKey('cctv_$cctvCardKey'),
-                                  serialLabel: "CCTV - Serial Number *",
-                                  serialHintText: "CCTV Serial Number",
-                                  photoLabel: "Add a Photo",
-                                  statusLabel: "Status",
-                                  serialController: cctvSerialController,
-                                  onSave: _saveCCTVForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  remarksLabel: "Camera Capacity",
-                                  remarksHintText: "Eg: 1080p, 4K",
-                                  remarksController: cctvCapacityController,
-                                  isRemarksEditable: false, // Make capacity non-editable
-                                  onPhotoTap: (photoPath) async {
-                                    setState(() {
-                                      cctvPhoto = photoPath;
-                                      hasUnsavedChanges = true;
-                                    });
+                                    getHeight(15),
+                                    CustomInfoCard(
+                                      key: ValueKey('cctv_$cctvCardKey'),
+                                      serialLabel: "CCTV - Serial Number *",
+                                      serialHintText: "CCTV Serial Number",
+                                      photoLabel: "Add a Photo",
+                                      statusLabel: "Status",
+                                      serialController: cctvSerialController,
+                                      onSave: _saveCCTVForm,
+                                      isStatusEditable: true,
+                                      backendStatus: false,
+                                      onPhotoTap: (photoPath) async {
+                                        setState(() {
+                                          cctvPhoto = photoPath;
+                                          hasUnsavedChanges = true;
+                                        });
 
-                                    // Upload photo immediately and get photoId
-                                    if (photoPath != null &&
-                                        photoPath.isNotEmpty) {
-                                      try {
-                                        final photoFile = File(photoPath);
-                                        if (await photoFile.exists()) {
-                                          final photoId =
-                                              await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
-                                                photoFile: photoFile,
-                                                schId:
-                                                    widget
-                                                        .assetAuditData
-                                                        ?.pageHeader
-                                                        .first
-                                                        .siteAuditSchId
-                                                        .toString() ??
-                                                    "0",
-                                                imgId: null,
-                                                context: context,
-                                              );
+                                        // Upload photo immediately and get photoId
+                                        if (photoPath != null &&
+                                            photoPath.isNotEmpty) {
+                                          try {
+                                            final photoFile = File(photoPath);
+                                            if (await photoFile.exists()) {
+                                              final photoId =
+                                                  await AssetAuditPhotoUploadHelper.uploadPhotoAndGetId(
+                                                    photoFile: photoFile,
+                                                    schId:
+                                                        widget
+                                                            .assetAuditData
+                                                            ?.pageHeader
+                                                            .first
+                                                            .siteAuditSchId
+                                                            .toString() ??
+                                                        "0",
+                                                    imgId: null,
+                                                    context: context,
+                                                  );
 
-                                          if (photoId != null) {
-                                            setState(() {
-                                              cctvPhotoId = photoId;
-                                            });
+                                              if (photoId != null) {
+                                                setState(() {
+                                                  cctvPhotoId = photoId;
+                                                });
+                                                print(
+                                                  'Surveillance Screen: Photo uploaded successfully, photoId: $photoId',
+                                                );
+                                              }
+                                            }
+                                          } catch (e) {
                                             print(
-                                              'Surveillance Screen: Photo uploaded successfully, photoId: $photoId',
+                                              'Surveillance Screen: Error uploading photo: $e',
                                             );
                                           }
                                         }
+                                      },
+                                      onStatusChanged: (val) {
+                                        setState(() {
+                                          cctvStatus = val ? "OK" : "Not OK";
+                                          hasUnsavedChanges = true;
+                                        });
+                                      },
+                                      onSerialChanged: (serialNumber) {
+                                        setState(() {
+                                          cctvSerialNumber = serialNumber;
+                                          hasUnsavedChanges = true;
+                                        });
+
+                                        // Validate serial number if not empty
+                                        if (serialNumber.isNotEmpty) {
+                                          // For now, assume manual entry (we'll need to add QR code detection later)
+                                          final isValid = _validateSerialNumber(
+                                            serialNumber,
+                                            false,
+                                          );
+                                          // Update the saved item to track validation result
+                                          if (isValid) {
+                                            // Serial number is valid, keep it
+                                          } else {
+                                            // Serial number is invalid, clear it
+                                            setState(() {
+                                              cctvSerialNumber = null;
+                                              hasUnsavedChanges = false;
+                                            });
+                                          }
+                                        }
+                                      },
+                                      initialStatus: cctvStatus == "OK"
+                                          ? true
+                                          : (cctvStatus == "Not OK"
+                                                ? false
+                                                : null),
+                                      initialPhotoPath: cctvPhoto,
+                                      isEditable: true,
+                                    ),
+                                    getHeight(8),
+                                    _buildCCTVSavedItemsList(),
+                                    getHeight(15),
+                                    // CustomRemarksField(
+                                    //   label: "Add Remarks",
+                                    //   hintText: "Remarks",
+                                    //   controller: generalRemarksController,
+                                    // ),
+                                  ] else ...[
+                                    _buildNoDataMessage(),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          width: double.infinity,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: ArrowButton(
+                                  text: "Solar Panel",
+                                  isLeftArrow: true,
+                                  backgroundColor: AppColors.buttonColorBackBg,
+                                  textColor: AppColors.buttonColorTextBg,
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                  },
+                                ),
+                              ),
+                              getWidth(14),
+                              Expanded(
+                                child: ArrowButton(
+                                  text: _hasDataToShow() ? "Fencing" : "Skip",
+                                  isLeftArrow: false,
+                                  backgroundColor: AppColors.buttonColorBg,
+                                  textColor: AppColors.buttonColorSite,
+                                  onPressed: () async {
+                                    // If no data to show, just navigate to next screen
+                                    if (!_hasDataToShow()) {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => FencingScreen(
+                                            fencingData: widget
+                                                .assetAuditData
+                                                ?.responseData
+                                                .categories['Boundary'],
+                                            assetAuditData:
+                                                widget.assetAuditData,
+                                            showSuccessMessage: false,
+                                            extinguisherItems:
+                                                widget.extinguisherItems ?? [],
+                                            solarPlatesItems:
+                                                widget.solarPlatesItems ?? [],
+                                            surveillanceItems: [],
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // If there are saved items, try to post them first
+                                    if (savedCCTVItems.isNotEmpty) {
+                                      try {
+                                        print(
+                                          'Surveillance Screen: Attempting to post data before navigation...',
+                                        );
+
+                                        // Set a timeout for the posting operation
+                                        await Future.any([
+                                          _postCurrentScreenData(),
+                                          Future.delayed(
+                                            Duration(seconds: 10),
+                                            () {
+                                              throw TimeoutException(
+                                                'Posting data timed out',
+                                                Duration(seconds: 10),
+                                              );
+                                            },
+                                          ),
+                                        ]);
+
+                                        // Navigation will be handled by the BlocListener on success
                                       } catch (e) {
                                         print(
-                                          'Surveillance Screen: Error uploading photo: $e',
+                                          'Surveillance Screen: Error posting data: $e',
                                         );
-                                      }
-                                    }
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      cctvStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      cctvSerialNumber = serialNumber;
-                                      hasUnsavedChanges = true;
-                                    });
 
-                                    // Validate serial number if not empty
-                                    if (serialNumber.isNotEmpty) {
-                                      // For now, assume manual entry (we'll need to add QR code detection later)
-                                      final isValid = _validateSerialNumber(
-                                        serialNumber,
-                                        false,
-                                      );
-                                      // Update the saved item to track validation result
-                                      if (isValid) {
-                                        // Serial number is valid, keep it
-                                      } else {
-                                        // Serial number is invalid, clear it
-                                        setState(() {
-                                          cctvSerialNumber = null;
-                                          hasUnsavedChanges = false;
-                                        });
+                                        _navigateToNextScreen();
                                       }
-                                    }
-                                  },
-                                  initialStatus: cctvStatus == "OK"
-                                      ? true
-                                      : (cctvStatus == "Not OK" ? false : null),
-                                  initialPhotoPath: cctvPhoto,
-                                  isEditable: true,
-                                ),
-                                getHeight(8),
-                                _buildCCTVSavedItemsList(),
-                                getHeight(15),
-                                CustomRemarksField(
-                                  label: "Add Remarks",
-                                  hintText: "Remarks",
-                                  controller: generalRemarksController,
-                                ),
-                                ] else ...[
-                                  _buildNoDataMessage(),
-                                ],
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        width: double.infinity,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: ArrowButton(
-                                text: "Solar Panel",
-                                isLeftArrow: true,
-                                backgroundColor: AppColors.buttonColorBackBg,
-                                textColor: AppColors.buttonColorTextBg,
-                                onPressed: () {
-                                  Navigator.pop(context);
-                                },
-                              ),
-                            ),
-                            getWidth(14),
-                            Expanded(
-                              child: ArrowButton(
-                                text: _hasDataToShow() ? "Fencing" : "Skip",
-                                isLeftArrow: false,
-                                backgroundColor: AppColors.buttonColorBg,
-                                textColor: AppColors.buttonColorSite,
-                                onPressed: () async {
-                                  // If no data to show, just navigate to next screen
-                                  if (!_hasDataToShow()) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => FencingScreen(
-                                          fencingData: widget.assetAuditData?.responseData.boundary,
-                                          assetAuditData: widget.assetAuditData,
-                                          showSuccessMessage: false,
-                                          extinguisherItems: widget.extinguisherItems ?? [],
-                                          solarPlatesItems: widget.solarPlatesItems ?? [],
-                                          surveillanceItems: [],
-                                        ),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  
-                                  // If there are saved items, try to post them first
-                                  if (savedCCTVItems.isNotEmpty) {
-                                    try {
-                                      print('Surveillance Screen: Attempting to post data before navigation...');
-                                      
-                                      // Set a timeout for the posting operation
-                                      await Future.any([
-                                        _postCurrentScreenData(),
-                                        Future.delayed(Duration(seconds: 10), () {
-                                          throw TimeoutException('Posting data timed out', Duration(seconds: 10));
-                                        }),
-                                      ]);
-                                      
-                                      // Navigation will be handled by the BlocListener on success
-                                    } catch (e) {
-                                      print('Surveillance Screen: Error posting data: $e');
-                                      // If posting fails or times out, still allow navigation with local data
-                                      showCustomToast(
-                                        context,
-                                        '⚠️ Data could not be saved to server, but you can continue with local data.',
-                                      );
+                                    } else {
+                                      // No saved items, navigate directly
                                       _navigateToNextScreen();
                                     }
-                                  } else {
-                                    // No saved items, navigate directly
-                                    _navigateToNextScreen();
-                                  }
-                                },
+                                  },
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Full-screen loading overlay when posting data
-              BlocBuilder<AssetAuditCubit, AssetAuditState>(
-                builder: (context, state) {
-                  if (state is AssetAuditPosting) {
-                    return Container(
-                      color: Colors.black.withOpacity(0.5),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
+                            ],
                           ),
                         ),
-                      ),
-                    );
-                  }
-                  return const SizedBox.shrink();
-                },
-              ),
-            ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Full-screen loading overlay when posting data
+                BlocBuilder<AssetAuditCubit, AssetAuditState>(
+                  builder: (context, state) {
+                    if (state is AssetAuditPosting) {
+                      return Container(
+                        color: Colors.black.withOpacity(0.5),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1785,23 +1886,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                   ),
                 ),
               ),
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: const Text(
-                    "Capacity",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontFamily: fontFamilyMontserrat,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
+
               Expanded(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1839,32 +1924,6 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
             ],
           ),
           getHeight(10),
-          // Debug information
-          Container(
-            padding: const EdgeInsets.all(8),
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.blue.withOpacity(0.3)),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.blue, size: 16),
-                getWidth(8),
-                Expanded(
-                  child: Text(
-                    'Saved Items: ${savedCCTVItems.length} | Current Scanned: $currentScannedItems | Total Expected: ${widget.cctvData?.assets?.length ?? 0}',
-                    style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
           if (savedCCTVItems.isNotEmpty)
             ..._getItemsWithPhotoAndStatus(savedCCTVItems)
                 .map(
@@ -1913,23 +1972,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                             child: _buildPhotoColumn(item),
                           ),
                         ),
-                        Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4),
-                            child: Text(
-                              item['capacity'] ?? 'N/A',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.black,
-                                fontSize: 14,
-                                fontFamily: fontFamilyMontserrat,
-                                fontWeight: FontWeight.w400,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
+
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1953,7 +1996,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                             child: IconButton(
                               onPressed: () => _editSavedItem(item, 'cctv'),
                               icon: const Icon(
-                                Icons.edit,
+                                Icons.edit_calendar_outlined,
                                 color: AppColors.blue,
                                 size: 20,
                               ),
@@ -1964,33 +2007,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                     ),
                   ),
                 )
-                .toList()
-          else
-            Container(
-              padding: const EdgeInsets.all(16),
-              margin: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.grey.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(5),
-                border: Border.all(color: Colors.grey.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.grey, size: 16),
-                  getWidth(8),
-                  Expanded(
-                    child: Text(
-                      'No saved items found. Items will appear here after they are saved with complete data (serial, photo, status).',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+                .toList(),
         ],
       ),
     );

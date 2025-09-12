@@ -30,9 +30,8 @@ import '../../home_screen.dart';
 class FencingScreen extends StatefulWidget {
   final CategoryData? fencingData;
   final AssetAuditModel? assetAuditData;
-  final bool showSuccessMessage; // Flag to show success message
+  final bool showSuccessMessage;
 
-  // Data from previous screens in the flow
   final List<Map<String, dynamic>>? extinguisherItems;
   final List<Map<String, dynamic>>? solarPlatesItems;
   final List<Map<String, dynamic>>? surveillanceItems;
@@ -41,7 +40,7 @@ class FencingScreen extends StatefulWidget {
     super.key,
     this.fencingData,
     this.assetAuditData,
-    this.showSuccessMessage = false, // Default to false
+    this.showSuccessMessage = false,
     this.extinguisherItems,
     this.solarPlatesItems,
     this.surveillanceItems,
@@ -51,7 +50,8 @@ class FencingScreen extends StatefulWidget {
   State<FencingScreen> createState() => _FencingScreenState();
 }
 
-class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserver {
+class _FencingScreenState extends State<FencingScreen>
+    with WidgetsBindingObserver {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController serialController = TextEditingController();
   String? selectedBoundaryAvailability;
@@ -72,19 +72,20 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
   bool isBoundaryQRCodeScanned = false;
 
   // Controllers for CustomInfoCard
-  final TextEditingController boundarySerialController = TextEditingController();
-  final TextEditingController generalRemarksController = TextEditingController();
+  final TextEditingController boundarySerialController =
+      TextEditingController();
+  final TextEditingController generalRemarksController =
+      TextEditingController();
 
   // Keys to force rebuild of CustomInfoCard widgets
   int boundaryCardKey = 0;
-  
+
   // Flag to track if Fencing screen has posted data
   bool _hasPostedFencingData = false;
-  
+
   // Image loading infrastructure
   Map<int, String> _imageCache = {};
   Set<int> _loadingImages = {};
-  
 
   @override
   void initState() {
@@ -92,13 +93,12 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
     serialController.addListener(_onFormChanged);
     boundarySerialController.addListener(_onFormChanged);
     generalRemarksController.addListener(_onFormChanged);
-    
+
     // Check if we have data to show, if not, skip this screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_hasDataToShow()) {
         _navigateToDgScreen();
       } else {
-
         _loadFencingData();
         _hasPostedFencingData = false;
       }
@@ -122,24 +122,39 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
   /// Check if there is data to show on the screen
   bool _hasDataToShow() {
     if (widget.fencingData == null) {
+      print('Fencing Screen: fencingData is null');
       return false;
     }
-    
-    // Check if we have any assets
-    final hasAssets = widget.fencingData!.assets.isNotEmpty;
-    
-    // Check if we have any subcategories with data
-    final hasSubCategories = widget.fencingData!.subCategories != null && 
-        widget.fencingData!.subCategories!.values.any((items) => items.isNotEmpty);
-    
-    final hasData = hasAssets || hasSubCategories;
 
     print('Fencing Screen: _hasDataToShow() called');
-    print('  - fencingData: ${widget.fencingData != null}');
+    print('  - fencingData type: ${widget.fencingData.runtimeType}');
+    print('  - fencingData: ${widget.fencingData}');
+
+    // Check if we have any assets
+    final hasAssets = widget.fencingData!.assets.isNotEmpty;
+    print('  - assets count: ${widget.fencingData!.assets.length}');
     print('  - hasAssets: $hasAssets');
+
+    // Check if we have any subcategories with data
+    final hasSubCategories =
+        widget.fencingData!.subCategories != null &&
+        widget.fencingData!.subCategories!.values.any(
+          (items) => items.isNotEmpty,
+        );
+    print('  - subCategories: ${widget.fencingData!.subCategories}');
     print('  - hasSubCategories: $hasSubCategories');
+
+    // Specifically check for Boundary data in subCategories
+    final hasBoundaryData =
+        widget.fencingData!.subCategories?['Boundary']?.isNotEmpty ?? false;
+    print('  - hasBoundaryData: $hasBoundaryData');
+    print(
+      '  - boundary count: ${widget.fencingData!.subCategories?['Boundary']?.length ?? 0}',
+    );
+
+    final hasData = hasAssets || hasSubCategories || hasBoundaryData;
     print('  - Has data to show: $hasData');
-    
+
     return hasData;
   }
 
@@ -149,13 +164,13 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
       context,
       MaterialPageRoute(
         builder: (context) => DgScreen(
-      dgData: widget.assetAuditData?.responseData.dg,
-      assetAuditData: widget.assetAuditData,
-      showSuccessMessage: false,
-      extinguisherItems: widget.extinguisherItems ?? [],
-      solarPlatesItems: widget.solarPlatesItems ?? [],
-      surveillanceItems: widget.surveillanceItems ?? [],
-      fencingItems: [],
+          dgData: widget.assetAuditData?.responseData.dg,
+          assetAuditData: widget.assetAuditData,
+          showSuccessMessage: false,
+          extinguisherItems: widget.extinguisherItems ?? [],
+          solarPlatesItems: widget.solarPlatesItems ?? [],
+          surveillanceItems: widget.surveillanceItems ?? [],
+          fencingItems: [],
         ),
       ),
     );
@@ -174,9 +189,7 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
           extinguisherItems: widget.extinguisherItems ?? [],
           solarPlatesItems: widget.solarPlatesItems ?? [],
           surveillanceItems: widget.surveillanceItems ?? [],
-          fencingItems: [
-            ...savedBoundaryItems,
-          ],
+          fencingItems: [...savedBoundaryItems],
         ),
       ),
     );
@@ -184,18 +197,23 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
 
   void _loadFencingData() {
     if (widget.fencingData != null) {
-              setState(() {
-          print('=== Fencing Screen: Loading Boundary Data ===');
-          print('fencingData type: ${widget.fencingData.runtimeType}');
-          print('Before loading - savedBoundaryItems count: ${savedBoundaryItems.length}');
-        
-      // Clear existing saved items to avoid duplicates
-      savedBoundaryItems.clear();
-      currentScannedItems = 0;
+      setState(() {
+        print('=== Fencing Screen: Loading Boundary Data ===');
+        print('fencingData type: ${widget.fencingData.runtimeType}');
+        print('fencingData: ${widget.fencingData}');
+        print(
+          'Before loading - savedBoundaryItems count: ${savedBoundaryItems.length}',
+        );
 
-        // Load Boundary assets (general assets)
-        final boundaryAssets = widget.fencingData!.assets;
-        
+        // Clear existing saved items to avoid duplicates
+        savedBoundaryItems.clear();
+        currentScannedItems = 0;
+
+        // Load Boundary assets from subCategories
+        final boundaryAssets =
+            widget.fencingData!.subCategories?['Boundary'] ??
+            widget.fencingData!.assets;
+
         print('Fencing Screen: Found ${boundaryAssets.length} boundary assets');
         for (int i = 0; i < boundaryAssets.length; i++) {
           var item = boundaryAssets[i];
@@ -206,7 +224,7 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
           print('  - itemTypeRemark: ${item.itemTypeRemark}');
           print('  - recordType: ${item.recordType}');
         }
-        
+
         // Find the first item with complete data to pre-populate the form
         AssetItem? completeItem;
         for (var item in boundaryAssets) {
@@ -215,44 +233,48 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
             break; // Use the first complete item
           }
         }
-        
+
         // Pre-populate form fields with the complete item data
         if (completeItem != null) {
           print('Fencing Screen: Pre-populating form with complete item data');
           print('  - photoId: ${completeItem.photoId}');
           print('  - assetStatus: ${completeItem.assetStatus}');
           print('  - itemTypeRemark: ${completeItem.itemTypeRemark}');
-          
+
           // Set form field values
           boundaryPhotoId = completeItem.photoId;
           boundaryStatus = completeItem.assetStatus;
-          boundarySerialNumber = completeItem.mfgSerialNo ?? completeItem.nexgenSerialNo ?? 'FENCING-${DateTime.now().millisecondsSinceEpoch}';
-          
+          boundarySerialNumber =
+              completeItem.mfgSerialNo ??
+              completeItem.nexgenSerialNo ??
+              'FENCING-${DateTime.now().millisecondsSinceEpoch}';
+
           // Set the serial controller text
           boundarySerialController.text = boundarySerialNumber ?? '';
-          
+
           // Set the remarks controller text
-          if (completeItem.itemTypeRemark != null && completeItem.itemTypeRemark!.isNotEmpty) {
+          if (completeItem.itemTypeRemark != null &&
+              completeItem.itemTypeRemark!.isNotEmpty) {
             generalRemarksController.text = completeItem.itemTypeRemark!;
           }
-          
+
           // Set the status for the form
           if (completeItem.assetStatus == "OK") {
             boundaryStatus = "OK";
           } else if (completeItem.assetStatus == "Not OK") {
             boundaryStatus = "Not OK";
           }
-          
+
           // Set photo path to show existing photo (use photoId as placeholder)
           if (completeItem.photoId != null) {
             boundaryPhoto = 'photo_id_${completeItem.photoId}';
             // Load the actual photo from API
             _loadExistingPhoto(completeItem.photoId!);
           }
-          
+
           // Force UI update by incrementing the card key
           boundaryCardKey++;
-          
+
           print('Fencing Screen: Form pre-populated with:');
           print('  - boundaryPhotoId: $boundaryPhotoId');
           print('  - boundaryStatus: $boundaryStatus');
@@ -260,12 +282,16 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
           print('  - remarks: ${generalRemarksController.text}');
           print('  - boundaryCardKey updated to: $boundaryCardKey');
         }
-        
+
         // Also store all items in savedBoundaryItems for reference
         for (var item in boundaryAssets) {
-          if (item.photoId != null) { // Only include items with photoId
+          if (item.photoId != null) {
+            // Only include items with photoId
             Map<String, dynamic> savedItem = {
-              'serialNumber': item.mfgSerialNo ?? item.nexgenSerialNo ?? 'FENCING-${DateTime.now().millisecondsSinceEpoch}',
+              'serialNumber':
+                  item.mfgSerialNo ??
+                  item.nexgenSerialNo ??
+                  'FENCING-${DateTime.now().millisecondsSinceEpoch}',
               'photo': null,
               'photoId': item.photoId,
               'status': item.assetStatus ?? 'OK',
@@ -275,7 +301,7 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
               'remarks': item.itemTypeRemark ?? 'Boundary Item',
               'assetStatus': item.assetStatus,
               'assetAuditSiteRespId': item.assetAuditSiteRespId,
-              
+
               // Full API response details
               'asset_audit_site_resp_id': item.assetAuditSiteRespId,
               'site_audit_sch_id': item.siteAuditSchId,
@@ -312,20 +338,19 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
           }
         }
 
-        print('After loading - savedBoundaryItems count: ${savedBoundaryItems.length}');
+        print(
+          'After loading - savedBoundaryItems count: ${savedBoundaryItems.length}',
+        );
         print('Total boundary items from API: $totalBoundaryItems');
       });
-
     }
   }
 
-
-
-
   void _onFormChanged() {
     setState(() {
-      hasUnsavedChanges = selectedBoundaryAvailability != null || 
-                          boundarySerialController.text.isNotEmpty ||
+      hasUnsavedChanges =
+          selectedBoundaryAvailability != null ||
+          boundarySerialController.text.isNotEmpty ||
           generalRemarksController.text.isNotEmpty ||
           boundaryPhoto != null;
 
@@ -345,7 +370,10 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
       // Update audit schedule status to "In Progress"
       if (mounted) {
         context.read<AuditScheduleStatusCubit>().updateStatus(
-          siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
+          siteAuditSchId:
+              widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                  .toString() ??
+              "",
           status: "In Progress",
         );
       }
@@ -357,9 +385,7 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (context) => HomeScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => HomeScreen()),
       );
     }
   }
@@ -389,7 +415,6 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
     return true;
   }
 
-
   // Check if user can proceed to next screen (no items required for fencing)
   bool _canProceedToNextScreen() {
     return true; // Always allow navigation for fencing
@@ -398,23 +423,21 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
   /// Get asset audit site response ID from GET API response for a specific item type
   int? _getAssetAuditSiteRespId(String itemType) {
     if (widget.assetAuditData != null) {
-      print('Fencing Screen: Looking for itemType: $itemType');
-      print('Fencing Screen: Available categories: ${widget.assetAuditData!.responseData.categories.keys.toList()}');
-      
-      final boundaryData = widget.assetAuditData!.responseData.categories['Boundary'];
-      print('Fencing Screen: boundaryData found: ${boundaryData != null}');
-      
+      final boundaryData =
+          widget.assetAuditData!.responseData.categories['Boundary'];
+
       if (boundaryData != null) {
-        print('Fencing Screen: boundaryData.assets.length: ${boundaryData.assets.length}');
         if (boundaryData.assets.isNotEmpty) {
           // Use the first available Boundary asset ID
           final asset = boundaryData.assets.first;
-          print('Fencing Screen: Found Boundary asset ID: ${asset.assetAuditSiteRespId}');
+          print(
+            'Fencing Screen: Found Boundary asset ID: ${asset.assetAuditSiteRespId}',
+          );
           return asset.assetAuditSiteRespId;
         }
       }
     }
-    
+
     // Fallback: Use known asset IDs from API response
     print('Fencing Screen: Using fallback asset ID 1697');
     return 1697; // Use the first known asset ID from your API response
@@ -429,32 +452,38 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
     if (widget.assetAuditData == null) {
       return null;
     }
-    
-    final boundaryData = widget.assetAuditData!.responseData.categories['Boundary'];
+
+    final boundaryData =
+        widget.assetAuditData!.responseData.categories['Boundary'];
     if (boundaryData != null) {
-    // Check if there are remarks in the backend data
+      // Check if there are remarks in the backend data
       final remarks = boundaryData.remarks;
-    if (remarks.isNotEmpty) {
-      // First try to find a general remarks entry (Boundary category is usually the main one)
-      for (var remark in remarks) {
-        if (remark.assetAuditSiteRespId != null && 
-            remark.assetAuditSiteRespId > 0 && 
-            remark.itemType == 'Boundary') {
-            print('Fencing Screen: Found Boundary remarks ID: ${remark.assetAuditSiteRespId}');
-          return remark.assetAuditSiteRespId;
+      if (remarks.isNotEmpty) {
+        // First try to find a general remarks entry (Boundary category is usually the main one)
+        for (var remark in remarks) {
+          if (remark.assetAuditSiteRespId != null &&
+              remark.assetAuditSiteRespId > 0 &&
+              remark.itemType == 'Boundary') {
+            print(
+              'Fencing Screen: Found Boundary remarks ID: ${remark.assetAuditSiteRespId}',
+            );
+            return remark.assetAuditSiteRespId;
+          }
         }
-      }
-      
-      // Fallback: find any remarks entry with a valid ID
-      for (var remark in remarks) {
-        if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0) {
-            print('Fencing Screen: Found remarks ID: ${remark.assetAuditSiteRespId}');
-          return remark.assetAuditSiteRespId;
+
+        // Fallback: find any remarks entry with a valid ID
+        for (var remark in remarks) {
+          if (remark.assetAuditSiteRespId != null &&
+              remark.assetAuditSiteRespId > 0) {
+            print(
+              'Fencing Screen: Found remarks ID: ${remark.assetAuditSiteRespId}',
+            );
+            return remark.assetAuditSiteRespId;
           }
         }
       }
     }
-    
+
     print('Fencing Screen: No remarks ID found');
     return null;
   }
@@ -475,9 +504,11 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
         // Get the asset ID directly from the API response
         int? assetId = _getAssetAuditSiteRespId('Boundary');
         print('Fencing Screen: Direct asset ID lookup: $assetId');
-        
+
         Map<String, dynamic> fencingData = {
-          'serialNumber': boundarySerialNumber ?? 'FENCING-${DateTime.now().millisecondsSinceEpoch}',
+          'serialNumber':
+              boundarySerialNumber ??
+              'FENCING-${DateTime.now().millisecondsSinceEpoch}',
           'photo': boundaryPhoto,
           'photoId': boundaryPhotoId,
           'photoTakenTs': DateTime.now().toString(),
@@ -485,7 +516,9 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
           'timestamp': DateTime.now(),
           'isQRCodeScanned': false,
           'itemType': 'Boundary',
-          'remarks': generalRemarksController.text.isNotEmpty ? generalRemarksController.text : 'Boundary Item',
+          'remarks': generalRemarksController.text.isNotEmpty
+              ? generalRemarksController.text
+              : 'Boundary Item',
           'assetStatus': boundaryStatus ?? 'OK',
           'recordType': 'Boundary',
           'assetAuditSiteRespId': assetId, // Pass the asset ID directly
@@ -494,10 +527,10 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
         // Enhance the fencing data
         final enhancedFencingItems = AssetAuditPostHelper.enhanceSavedItems(
           savedItems: [fencingData],
-        screenName: 'Boundary',
-      );
+          screenName: 'Boundary',
+        );
         allItemsToPost.addAll(enhancedFencingItems);
-        
+
         print('Fencing Screen: Created fencing data to post: $fencingData');
       }
 
@@ -505,7 +538,7 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
       if (generalRemarksController.text.isNotEmpty) {
         // Find the appropriate remarks entry from backend data
         int? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
-        
+
         if (remarksAssetAuditSiteRespId != null) {
           Map<String, dynamic> remarksData = {
             'itemType': 'Boundary',
@@ -535,15 +568,17 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
       print('Fencing Screen: Posting ${allItemsToPost.length} items to API');
 
       // Convert to POST request format
-      final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
-        savedItems: allItemsToPost,
-        assetAuditData: widget.assetAuditData!,
-        itemType: 'Boundary',
-        itemTypeId: AssetAuditPostHelper.getItemTypeId('Boundary'),
-        screenName: 'Boundary',
-        context: context,
-        auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString(),
-      );
+      final requests =
+          await AssetAuditPostHelper.convertSavedItemsToPostRequest(
+            savedItems: allItemsToPost,
+            assetAuditData: widget.assetAuditData!,
+            itemType: 'Boundary',
+            itemTypeId: AssetAuditPostHelper.getItemTypeId('Boundary'),
+            screenName: 'Boundary',
+            context: context,
+            auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                .toString(),
+          );
 
       if (requests.isEmpty) {
         print('Fencing Screen: No requests created');
@@ -559,11 +594,13 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
       setState(() {
         _hasPostedFencingData = true;
       });
-      print('Fencing Screen: Set _hasPostedFencingData = true before posting data');
+      print(
+        'Fencing Screen: Set _hasPostedFencingData = true before posting data',
+      );
 
       cubit.postAssetAuditData(requests: requests);
       print('Fencing Screen: Posted data to API');
-      
+
       // Return true to indicate data is being posted
       return true;
     } catch (e) {
@@ -580,324 +617,359 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
     return "${serialNumber.substring(0, 5)}...";
   }
 
-
   @override
   Widget build(BuildContext context) {
     return BlocListener<AssetAuditCubit, AssetAuditState>(
-            listener: (context, state) {
-              if (state is AssetAuditPostSuccess) {
-                // Check if this success state contains Fencing-related items
+      listener: (context, state) {
+        if (state is AssetAuditPostSuccess) {
           bool isFencingData = false;
-                for (var response in state.responses) {
-                  // Primary check: itemTypeRemark contains Fencing-related text
-                  if (response.itemTypeRemark != null && 
-                      (response.itemTypeRemark!.contains('Boundary') || 
-                 response.itemTypeRemark!.contains('Fencing'))) {
+          for (var response in state.responses) {
+            // Primary check: itemTypeRemark contains Fencing-related text
+            if (response.itemTypeRemark != null &&
+                (response.itemTypeRemark!.contains('Boundary') ||
+                    response.itemTypeRemark!.contains('Fencing'))) {
               isFencingData = true;
-                    break;
-                  }
-                  
-                  // Fallback check: Check if this is a response to Fencing screen data by looking at the flag
-                  if (_hasPostedFencingData) {
+              break;
+            }
+            if (_hasPostedFencingData) {
               isFencingData = true;
-                    break;
-                  }
-                }
-                
-                // Only process this success state if it contains Fencing screen data
-          if (isFencingData) {
-                  // Refresh data from API before navigating
-                  try {
-                    // Trigger a refresh of the asset audit data
-                    context.read<AssetAuditCubit>().getAssetAuditData(
-                siteType: "telecom",
-                auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
-                    );
-                     
-                    // Wait for data to refresh, then navigate
-                    Future.delayed(const Duration(seconds: 2), () {
-                      if (mounted) {
-                  try {
-                    _navigateToNextScreen();
-                        // Reset the flag after successful navigation
-                        setState(() {
-                          _hasPostedFencingData = false;
-                        });
-                  } catch (e) {
-                    print('Fencing Screen: Error navigating after success: $e');
-                  }
-                      }
-                    });
-                  } catch (e) {
-                    // Fallback: navigate anyway after delay
-                    Future.delayed(const Duration(seconds: 2), () {
-                      if (mounted) {
-                  try {
-                    _navigateToNextScreen();
-                        setState(() {
-                          _hasPostedFencingData = false;
-                        });
-                  } catch (e) {
-                    print('Fencing Screen: Error navigating after success fallback: $e');
-                  }
-                      }
-                    });
-                  }
-                }
+              break;
+            }
+          }
 
-              } else if (state is AssetAuditPostError) {
-                // Only show error message if this error belongs to Fencing screen data
-                if (_hasPostedFencingData) {
+          if (isFencingData) {
+            // Refresh data from API before navigating
+            try {
+              context.read<AssetAuditCubit>().getAssetAuditData(
+                siteType: widget.assetAuditData!.pageHeader.first.siteDomainName
+                    .toString(),
+                auditSchId:
+                    widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                        .toString() ??
+                    "0",
+                siteAuditSchId:
+                    widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                        .toString() ??
+                    "0",
+              );
+
+              if (mounted) {
+                try {
+                  _navigateToNextScreen();
+                  // Reset the flag after successful navigation
+                  setState(() {
+                    _hasPostedFencingData = false;
+                  });
+                } catch (e) {
+                  print('Fencing Screen: Error navigating after success: $e');
+                }
+              }
+            } catch (e) {
+              if (mounted) {
+                try {
+                  _navigateToNextScreen();
+                  setState(() {
+                    _hasPostedFencingData = false;
+                  });
+                } catch (e) {
+                  print(
+                    'Fencing Screen: Error navigating after success fallback: $e',
+                  );
+                }
+              }
+            }
+          }
+        } else if (state is AssetAuditPostError) {
+          // Only show error message if this error belongs to Fencing screen data
+          if (_hasPostedFencingData) {
             // Show error message but don't block navigation completely
             showCustomToast(
               context,
               '❌ Failed to save Fencing data to server. You can continue with local data.',
             );
-                  
-                  // Reset the flag on error
-                  setState(() {
-                    _hasPostedFencingData = false;
-                  });
-                  print('Fencing Screen: Reset _hasPostedFencingData flag to false after error');
+
+            // Reset the flag on error
+            setState(() {
+              _hasPostedFencingData = false;
+            });
+            print(
+              'Fencing Screen: Reset _hasPostedFencingData flag to false after error',
+            );
           }
         }
       },
-        child: PopScope(
-          canPop: !hasUnsavedChanges,
-          onPopInvoked: (didPop) async {
-            if (didPop) return;
+      child: PopScope(
+        canPop: !hasUnsavedChanges,
+        onPopInvoked: (didPop) async {
+          if (didPop) return;
 
-            if (hasUnsavedChanges) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () {
-                    _saveAndExit();
-                  },
-                  onDiscard: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              );
-            }
-          },
-          child: Scaffold(
-            extendBodyBehindAppBar: true,
-            resizeToAvoidBottomInset: false,
-            appBar: CustomFormAppbar(
-              title: "Asset Audit",
-              onClose: () async {
-                if (hasUnsavedChanges) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => UnsavedChangesDialog(
-                      message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                      onSaveAndExit: () {
-                        _saveAndExit();
-                      },
-                      onDiscard: () {
+          if (hasUnsavedChanges) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => UnsavedChangesDialog(
+                message:
+                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                onSaveAndExit: () {
+                  _saveAndExit();
+                },
+                onDiscard: () {
+                  Navigator.of(context).pop();
+                },
+              ),
+            );
+          }
+        },
+        child: Scaffold(
+          extendBodyBehindAppBar: true,
+          resizeToAvoidBottomInset: false,
+          appBar: CustomFormAppbar(
+            title: "Asset Audit",
+            onClose: () async {
+              if (hasUnsavedChanges) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => UnsavedChangesDialog(
+                    message:
+                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                    onSaveAndExit: () {
+                      _saveAndExit();
+                    },
+                    onDiscard: () {
                       Navigator.of(context).pop();
-                      },
-                    ),
-                  );
-                } else {
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            body: Stack(
-              children: [
-              // Background image
-                Positioned.fill(
-                  child: SvgPicture.asset(
-                    AppImages.home,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
+                    },
                   ),
+                );
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+          body: Stack(
+            children: [
+              // Background image
+              Positioned.fill(
+                child: SvgPicture.asset(
+                  AppImages.home,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
                 ),
-                SafeArea(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            padding: EdgeInsets.only(
-                              bottom: MediaQuery.of(context).viewInsets.bottom + 120,
+              ),
+              SafeArea(
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                MediaQuery.of(context).viewInsets.bottom + 120,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.only(
+                              top: 20,
+                              left: 16,
+                              right: 16,
+                              bottom: 20,
                             ),
-                            child: Container(
-                              padding: const EdgeInsets.only(
-                                top: 20,
-                                left: 16,
-                                right: 16,
-                                bottom: 20,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (_hasDataToShow()) ...[
-                                    CustomOptionSelector(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (_hasDataToShow()) ...[
+                                  CustomOptionSelector(
                                     label: "Fencing/Boundary Available",
-                                      isRequired: true,
-                                      options: [
-                                        OptionItem(
-                                          value: "yes",
-                                          label: "Yes",
-                                          selectedIcon: Icons.check_circle,
-                                          unselectedIcon: Icons.circle_outlined,
-                                        ),
-                                        OptionItem(
-                                          value: "no",
-                                          label: "No",
-                                          selectedIcon: Icons.cancel,
-                                          unselectedIcon: Icons.circle_outlined,
-                                        ),
-                                      ],
-                                      onChanged: (value) {
-                                        setState(() {
-                                          selectedBoundaryAvailability = value;
-                                          hasUnsavedChanges = true;
-                                        });
-                                      },
-                                    ),
-                                    getHeight(15),
-                                    CustomInfoCard(
+                                    isRequired: true,
+                                    options: [
+                                      OptionItem(
+                                        value: "yes",
+                                        label: "Yes",
+                                        selectedIcon: Icons.check_circle,
+                                        unselectedIcon: Icons.circle_outlined,
+                                      ),
+                                      OptionItem(
+                                        value: "no",
+                                        label: "No",
+                                        selectedIcon: Icons.cancel,
+                                        unselectedIcon: Icons.circle_outlined,
+                                      ),
+                                    ],
+                                    onChanged: (value) {
+                                      setState(() {
+                                        selectedBoundaryAvailability = value;
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
+                                  CustomInfoCard(
                                     key: ValueKey('boundary_$boundaryCardKey'),
                                     serialLabel: "Fencing / Boundary",
-                                    serialHintText: "Fencing Serial Number (Optional)",
-                                      photoLabel: "Add a Photo",
-                                      statusLabel: "Status",
-                                      serialController: boundarySerialController,
+                                    serialHintText:
+                                        "Fencing Serial Number (Optional)",
+                                    photoLabel: "Add a Photo",
+                                    statusLabel: "Status",
+                                    serialController: boundarySerialController,
                                     isStatusEditable: true,
                                     showSaveButton: false,
                                     backendStatus: false,
                                     onPhotoTap: (photoPath) async {
-                                        setState(() {
-                                          boundaryPhoto = photoPath;
-                                          hasUnsavedChanges = true;
-                                        });
+                                      setState(() {
+                                        boundaryPhoto = photoPath;
+                                        hasUnsavedChanges = true;
+                                      });
 
                                       // Upload photo immediately and get photoId
-                                      if (photoPath != null && photoPath.isNotEmpty) {
+                                      if (photoPath != null &&
+                                          photoPath.isNotEmpty) {
                                         try {
                                           final photoFile = File(photoPath);
                                           if (await photoFile.exists()) {
                                             // Get the cubit directly
-                                            final photoUploadCubit = context.read<AssetAuditPhotoUploadCubit>();
+                                            final photoUploadCubit = context
+                                                .read<
+                                                  AssetAuditPhotoUploadCubit
+                                                >();
 
                                             // Upload photo
                                             await photoUploadCubit.uploadPhoto(
                                               file: photoFile,
                                               imgId: null,
-                                              schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "0",
+                                              schId:
+                                                  widget
+                                                      .assetAuditData
+                                                      ?.pageHeader
+                                                      .first
+                                                      .siteAuditSchId
+                                                      .toString() ??
+                                                  "0",
                                             );
 
                                             // Wait for state to update
-                                            await Future.delayed(const Duration(milliseconds: 500));
+                                            await Future.delayed(
+                                              const Duration(milliseconds: 500),
+                                            );
 
                                             // Check the result
-                                            final state = photoUploadCubit.state;
-                                            if (state is AssetAuditPhotoUploadSuccess) {
-                                              final photoId = int.tryParse(state.response.imgId) ?? 0;
+                                            final state =
+                                                photoUploadCubit.state;
+                                            if (state
+                                                is AssetAuditPhotoUploadSuccess) {
+                                              final photoId =
+                                                  int.tryParse(
+                                                    state.response.imgId,
+                                                  ) ??
+                                                  0;
                                               if (photoId > 0) {
                                                 setState(() {
                                                   boundaryPhotoId = photoId;
                                                 });
                                               }
-                                            } else if (state is AssetAuditPhotoUploadFailure) {
-                                              print('Fencing Screen: Photo upload failed: ${state.errorMessage}');
+                                            } else if (state
+                                                is AssetAuditPhotoUploadFailure) {
+                                              print(
+                                                'Fencing Screen: Photo upload failed: ${state.errorMessage}',
+                                              );
                                             }
                                           }
                                         } catch (e) {
-                                          print('Fencing Screen: Error uploading photo: $e');
+                                          print(
+                                            'Fencing Screen: Error uploading photo: $e',
+                                          );
                                         }
                                       }
                                     },
                                     onStatusChanged: (val) {
-                                        setState(() {
+                                      setState(() {
                                         boundaryStatus = val ? "OK" : "Not OK";
-                                          hasUnsavedChanges = true;
-                                        });
-                                      },
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
                                     onSerialChanged: (serialNumber) {
-                                        setState(() {
+                                      setState(() {
                                         boundarySerialNumber = serialNumber;
-                                          hasUnsavedChanges = true;
-                                        });
-                                      },
+                                        hasUnsavedChanges = true;
+                                      });
+                                    },
                                     initialStatus: boundaryStatus == "OK"
                                         ? true
-                                        : (boundaryStatus == "Not OK" ? false : null),
-                                      initialPhotoPath: boundaryPhoto,
-                                      isEditable: true,
-                                    ),
-                                    getHeight(15),
-                                    CustomRemarksField(
-                                      label: "Add Remarks",
-                                      hintText: "Remarks",
-                                      controller: generalRemarksController,
-                                    ),
+                                        : (boundaryStatus == "Not OK"
+                                              ? false
+                                              : null),
+                                    initialPhotoPath: boundaryPhoto,
+                                    isEditable: true,
+                                  ),
+                                  getHeight(15),
+                                  CustomRemarksField(
+                                    label: "Add Remarks",
+                                    hintText: "Remarks",
+                                    controller: generalRemarksController,
+                                  ),
                                 ] else ...[
                                   _buildNoDataMessage(),
-                                  ],
                                 ],
-                              ),
+                              ],
                             ),
                           ),
-                                                 ),
+                        ),
+                      ),
 
-                         Container(
-                           padding: const EdgeInsets.all(16),
-                           width: double.infinity,
-                           child: Row(
-                             children: [
-                               Expanded(
-                                 child: ArrowButton(
-                                   text: "Surveillance",
-                                   isLeftArrow: true,
-                                   backgroundColor: AppColors.buttonColorBackBg,
-                                   textColor: AppColors.buttonColorTextBg,
-                                   onPressed: () {
-                                     Navigator.pop(context);
-                                   },
-                                 ),
-                               ),
-                               getWidth(14),
-                               Expanded(
-                                 child: ArrowButton(
-                                   text: _hasDataToShow() ? "DG" : "Skip Fencing",
-                                   isLeftArrow: false,
-                                   backgroundColor: AppColors.buttonColorBg,
-                                   textColor: AppColors.buttonColorSite,
-                                   onPressed: () async {
-                                     // If no data to show, just navigate to next screen
-                                     if (!_hasDataToShow()) {
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: ArrowButton(
+                                text: "Surveillance",
+                                isLeftArrow: true,
+                                backgroundColor: AppColors.buttonColorBackBg,
+                                textColor: AppColors.buttonColorTextBg,
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                },
+                              ),
+                            ),
+                            getWidth(14),
+                            Expanded(
+                              child: ArrowButton(
+                                text: _hasDataToShow() ? "DG" : "Skip Fencing",
+                                isLeftArrow: false,
+                                backgroundColor: AppColors.buttonColorBg,
+                                textColor: AppColors.buttonColorSite,
+                                onPressed: () async {
+                                  // If no data to show, just navigate to next screen
+                                  if (!_hasDataToShow()) {
                                     _navigateToDgScreen();
-                                       return;
-                                     }
-                                      
+                                    return;
+                                  }
+
                                   // No validation needed for fencing - always allow navigation
-                                  
+
                                   // Always try to post data before navigation
                                   try {
-                                    print('Fencing Screen: Attempting to post data before navigation...');
-                                    
+                                    print(
+                                      'Fencing Screen: Attempting to post data before navigation...',
+                                    );
+
                                     // Set a timeout for the posting operation
                                     await Future.any([
                                       _postCurrentScreenData(),
                                       Future.delayed(Duration(seconds: 10), () {
-                                        throw TimeoutException('Posting data timed out', Duration(seconds: 10));
+                                        throw TimeoutException(
+                                          'Posting data timed out',
+                                          Duration(seconds: 10),
+                                        );
                                       }),
                                     ]);
-                                    
+
                                     // Navigation will be handled by the BlocListener on success
                                   } catch (e) {
-                                    print('Fencing Screen: Error posting data: $e');
+                                    print(
+                                      'Fencing Screen: Error posting data: $e',
+                                    );
                                     // If posting fails or times out, still allow navigation with local data
                                     showCustomToast(
                                       context,
@@ -905,50 +977,53 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
                                     );
                                     _navigateToNextScreen();
                                   }
-                                   },
-                                 ),
-                               ),
-                             ],
-                           ),
-                         ),
-                       ],
-                     ),
-                   ),
-                 ),
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               // Full-screen loading overlay when posting data
-                 BlocBuilder<AssetAuditCubit, AssetAuditState>(
-                   builder: (context, state) {
-                     if (state is AssetAuditPosting) {
-                       return Container(
-                         color: Colors.black.withOpacity(0.5),
-                         child: const Center(
-                           child: CircularProgressIndicator(
-                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                           ),
-                         ),
-                       );
-                     }
-                     return const SizedBox.shrink();
-                   },
-                 ),
-               ],
-           ),
-         ),
-       ),
-     );
-   }
-
+              BlocBuilder<AssetAuditCubit, AssetAuditState>(
+                builder: (context, state) {
+                  if (state is AssetAuditPosting) {
+                    return Container(
+                      color: Colors.black.withOpacity(0.5),
+                      child: const Center(
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   /// Load existing photo from API
   Future<void> _loadExistingPhoto(int photoId) async {
     try {
       print('Fencing Screen: Loading existing photo with ID: $photoId');
-      
+
       // Use the AssetAuditGetImageCubit to fetch the image
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
-      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
+      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((
+        state,
+      ) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
           print('Fencing Screen: Photo loaded successfully for ID: $photoId');
           final finalImageData = state.imageData.startsWith('data:image/')
@@ -965,11 +1040,14 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
 
       context.read<AssetAuditGetImageCubit>().getImage(
         imgId: photoId.toString(),
-        schId: widget.assetAuditData?.pageHeader.first.siteAuditSchId?.toString() ?? '',
+        schId:
+            widget.assetAuditData?.pageHeader.first.siteAuditSchId
+                ?.toString() ??
+            '',
       );
 
       final imageData = await completer.future;
-      
+
       if (imageData != null && mounted) {
         setState(() {
           boundaryPhoto = imageData;
@@ -998,36 +1076,36 @@ class _FencingScreenState extends State<FencingScreen> with WidgetsBindingObserv
           getHeight(16),
           Text(
             'No Fencing Data Available',
-                    style: TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.w600,
               color: AppColors.white,
-                      fontFamily: fontFamilyMontserrat,
+              fontFamily: fontFamilyMontserrat,
             ),
-                    textAlign: TextAlign.center,
+            textAlign: TextAlign.center,
           ),
           getHeight(8),
           Text(
             'There are no Fencing items to audit for this site.',
-                    style: TextStyle(
+            style: TextStyle(
               fontSize: 16,
               color: AppColors.white.withOpacity(0.8),
-                      fontFamily: fontFamilyMontserrat,
+              fontFamily: fontFamilyMontserrat,
             ),
-                    textAlign: TextAlign.center,
+            textAlign: TextAlign.center,
           ),
           getHeight(16),
           Text(
             'You can proceed to the next screen or contact your administrator if you believe this is an error.',
-                    style: TextStyle(
-                      fontSize: 14,
+            style: TextStyle(
+              fontSize: 14,
               color: AppColors.white.withOpacity(0.6),
-                      fontFamily: fontFamilyMontserrat,
+              fontFamily: fontFamilyMontserrat,
             ),
-                                textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    );
-                  }
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
 }

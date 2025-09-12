@@ -46,6 +46,12 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _loadTickets() {
+    print("🔍 Loading tickets with parameters:");
+    print("   Activity Type: $_currentActivityType");
+    print("   Ticket Type: $_currentTicketType");
+    print("   Page Size: 50");
+    print("   Page No: 1");
+    
     context.read<TicketCubit>().getTickets(
       activityType: _currentActivityType,
       ticketType: _currentTicketType,
@@ -72,6 +78,8 @@ class _TicketScreenState extends State<TicketScreen> {
       case 'allocated':
         return TicketType.all;
       case 'in progress':
+        return TicketType.open;
+      case 'due':
         return TicketType.open;
       case 'completed':
         return TicketType.completed;
