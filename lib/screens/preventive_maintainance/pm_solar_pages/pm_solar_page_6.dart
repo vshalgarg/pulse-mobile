@@ -441,7 +441,7 @@ class _PmSolarPage6State extends State<PmSolarPage6> {
   }
 
   void _saveAndExit() async {
-    await _updateAuditScheduleStatus("In Progress");
+    await _updateAuditScheduleStatus("IN-PROGRESS");
     
     Navigator.pushReplacement(
       context,
@@ -808,7 +808,7 @@ class _PmSolarPage6State extends State<PmSolarPage6> {
             isLeftArrow: true,
             backgroundColor: AppColors.buttonColorBackBg,
             textColor: AppColors.buttonColorTextBg,
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, widget.pmData),
           ),
         ),
         getWidth(10),

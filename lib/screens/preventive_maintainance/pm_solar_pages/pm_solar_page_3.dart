@@ -459,7 +459,7 @@ class _PmSolarPage3State extends State<PmSolarPage3> {
   }
 
   void _saveAndExit() async {
-    await _updateAuditScheduleStatus("In Progress");
+    await _updateAuditScheduleStatus("IN-PROGRESS");
     
     Navigator.pushReplacement(
       context,
@@ -710,7 +710,8 @@ class _PmSolarPage3State extends State<PmSolarPage3> {
                             if (hasUnsavedChanges) {
                               await _submitForm();
                             }
-                            Navigator.pop(context);
+                            // Pass updated data back to previous screen
+                            Navigator.pop(context, widget.pmData);
                           },
                         ),
                       ),
@@ -740,7 +741,7 @@ class _PmSolarPage3State extends State<PmSolarPage3> {
                             // Navigate to next page regardless of submission status
                             // The BlocListener will handle the submission result
                             print('Navigating to PmSolarPage4');
-                            Navigator.push(
+                            final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => PmSolarPage4(
@@ -752,6 +753,16 @@ class _PmSolarPage3State extends State<PmSolarPage3> {
                                 ),
                               ),
                             );
+                            
+                            // If data was returned from Page 4, update the current page
+                            if (result != null && result is PmGetDataModel) {
+                              setState(() {
+                                // Update the pmData with the returned data
+                                // This will trigger a rebuild with the updated data
+                              });
+                              // Reload the data to reflect changes
+                              _loadExistingData(result);
+                            }
                           },
                         ),
                       ),

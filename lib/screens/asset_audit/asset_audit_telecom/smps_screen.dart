@@ -1128,7 +1128,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
         context.read<AuditScheduleStatusCubit>().updateStatus(
           siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
               .toString() ?? "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {
@@ -1157,7 +1157,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
         context.read<AuditScheduleStatusCubit>().updateStatus(
           siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
               .toString() ?? "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {
@@ -1871,7 +1871,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
         context.read<AuditScheduleStatusCubit>().updateStatus(
           siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId
               .toString() ?? "",
-          status: "Complete",
+          status: "COMPLETED",
         );
       }
 

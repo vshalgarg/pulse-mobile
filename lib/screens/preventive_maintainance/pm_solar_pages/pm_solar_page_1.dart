@@ -395,7 +395,7 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
   }
 
   void _saveAndExit() async {
-    await _updateAuditScheduleStatus("In Progress");
+    await _updateAuditScheduleStatus("IN-PROGRESS");
     
     Navigator.pushReplacement(
       context,
@@ -430,7 +430,7 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                 },
                 onDiscard: () async {
                   Navigator.of(context).pop(); // Pop dialog
-                  await _updateAuditScheduleStatus("in-progress"); // Added for consistency
+                  await _updateAuditScheduleStatus("IN-PROGRESS"); // Added for consistency
                   setState(() {
                     hasUnsavedChanges = false;
                   });
@@ -469,7 +469,7 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                     },
                     onDiscard: () async {
                       Navigator.of(context).pop(); // Pop dialog
-                      await _updateAuditScheduleStatus("in-progress");
+                      await _updateAuditScheduleStatus("IN-PROGRESS");
                       setState(() {
                         hasUnsavedChanges = false;
                       });
@@ -488,7 +488,7 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                   ),
                 );
               } else {
-                await _updateAuditScheduleStatus("in-progress");
+                await _updateAuditScheduleStatus("IN-PROGRESS");
                 // Go back to previous screen or home
                 if (Navigator.canPop(context)) {
                   Navigator.pop(context);
@@ -714,7 +714,7 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                             if (formData.isNotEmpty) {
                               await _submitForm();
                             }
-                            Navigator.push(
+                            final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => PmSolarPage2(
@@ -726,6 +726,16 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                                 ),
                               ),
                             );
+                            
+                            // If data was returned from Page 2, update the current page
+                            if (result != null && result is PmGetDataModel) {
+                              setState(() {
+                                // Update the pmData with the returned data
+                                // This will trigger a rebuild with the updated data
+                              });
+                              // Reload the data to reflect changes
+                              _loadExistingData(result);
+                            }
                           },
                         ),
                       ),

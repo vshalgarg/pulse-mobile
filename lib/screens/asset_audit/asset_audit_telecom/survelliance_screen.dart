@@ -657,7 +657,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
               widget.assetAuditData?.pageHeader.first.siteAuditSchId
                   .toString() ??
               "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {

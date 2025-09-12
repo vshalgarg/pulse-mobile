@@ -98,7 +98,7 @@ class _PmScreen9 extends State<PmScreen9> {
 
   Future<void> _saveAndExit() async {
     print('Save and Exit called');
-    await _updateAuditScheduleStatus("In Progress");
+    await _updateAuditScheduleStatus("IN-PROGRESS");
     if (mounted) {
       Navigator.pushReplacement(
         context,

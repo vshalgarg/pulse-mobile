@@ -108,7 +108,7 @@ class _PmScreen2 extends State<PmScreen2> {
     print('hasUnsavedChanges: $hasUnsavedChanges');
     
     try {
-      await _updateAuditScheduleStatus("In Progress");
+      await _updateAuditScheduleStatus("IN-PROGRESS");
       print('Status update completed');
       
       if (mounted) {

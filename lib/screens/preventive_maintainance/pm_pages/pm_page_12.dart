@@ -95,7 +95,7 @@ class _PmScreen12 extends State<PmScreen12> {
 
   Future<void> _saveAndExit() async {
     print('Save and Exit called');
-    await _updateAuditScheduleStatus("In Progress");
+    await _updateAuditScheduleStatus("IN-PROGRESS");
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -108,7 +108,7 @@ class _PmScreen12 extends State<PmScreen12> {
 
   Future<void> _submitAndComplete() async {
     print('Submit and Complete called');
-    await _updateAuditScheduleStatus("Complete");
+    await _updateAuditScheduleStatus("COMPLETED");
     if (mounted) {
       Navigator.pushReplacement(
         context,
@@ -672,11 +672,6 @@ class _PmScreen12 extends State<PmScreen12> {
                           _dummyState = DateTime.now().millisecondsSinceEpoch;
                         });
                         _showCompletionDialog();
-                        context.read<PmCubit>().getPmData(
-                          siteType: widget.ticketType.name,
-                          auditSchId: widget.auditSchId,
-                          siteAuditSchId: widget.siteAuditSchId,
-                        );
                       } else if (state is PmPostError) {
                         print('Post error: ${state.message}');
                         setState(() {
@@ -845,11 +840,6 @@ class _PmScreen12 extends State<PmScreen12> {
                           _dummyState = DateTime.now().millisecondsSinceEpoch;
                         });
                         _showCompletionDialog();
-                        context.read<PmCubit>().getPmData(
-                          siteType: widget.ticketType.name,
-                          auditSchId: widget.auditSchId,
-                          siteAuditSchId: widget.siteAuditSchId,
-                        );
                       } else if (state is PmPostError) {
                         print('Post error: ${state.message}');
                         setState(() {

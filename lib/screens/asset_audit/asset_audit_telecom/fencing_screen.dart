@@ -374,7 +374,7 @@ class _FencingScreenState extends State<FencingScreen>
               widget.assetAuditData?.pageHeader.first.siteAuditSchId
                   .toString() ??
               "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {

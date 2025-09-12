@@ -444,7 +444,7 @@ class _PmSolarPage7State extends State<PmSolarPage7> {
   }
 
   void _saveAndExit() async {
-    await _updateAuditScheduleStatus("In Progress");
+    await _updateAuditScheduleStatus("IN-PROGRESS");
     
     Navigator.pushReplacement(
       context,
@@ -717,7 +717,8 @@ class _PmSolarPage7State extends State<PmSolarPage7> {
                             if (formData.isNotEmpty) {
                               await _submitForm();
                             }
-                            Navigator.pop(context);
+                            // Pass updated data back to previous screen
+                            Navigator.pop(context, widget.pmData);
                           },
                         ),
                       ),

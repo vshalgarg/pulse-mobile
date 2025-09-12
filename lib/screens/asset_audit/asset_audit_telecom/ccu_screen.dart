@@ -564,7 +564,7 @@ class _CCUScreenState extends State<CCUScreen> {
               widget.assetAuditData?.pageHeader.first.siteAuditSchId
                   .toString() ??
               "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
 
@@ -851,7 +851,7 @@ class _CCUScreenState extends State<CCUScreen> {
               widget.assetAuditData?.pageHeader.first.siteAuditSchId
                   .toString() ??
               "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {

@@ -669,7 +669,7 @@ class _DgScreenState extends State<DgScreen> {
               widget.assetAuditData?.pageHeader.first.siteAuditSchId
                   .toString() ??
               "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {

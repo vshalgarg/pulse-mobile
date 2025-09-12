@@ -58,6 +58,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
   bool _fetchingImage = false;
   bool hasUnsavedChanges = false;
   bool isSubmitting = false;
+  bool _successDialogShown = false; // Flag to prevent multiple success dialogs
   Map<String, int> photoIds = {};
   Map<String, String> photoTimestamps = {};
   String? _currentUploadKey;
@@ -495,7 +496,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
 
   Future<void> _saveAndExit(BuildContext pageContext) async {
     await _updateAuditScheduleStatus(
-      'In Progress',
+      'IN-PROGRESS',
       siteAuditSchId: widget.siteAuditSchId,
       siteId: widget.siteId,
     );
@@ -542,7 +543,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                   Navigator.of(dialogContext).pop();
                   await _submitForm();
                   await _updateAuditScheduleStatus(
-                    'in_progress',
+                    'IN-PROGRESS',
                     siteAuditSchId: widget.siteAuditSchId,
                     siteId: widget.siteId,
                   );
@@ -554,7 +555,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                   print('Discard selected');
                   Navigator.of(dialogContext).pop();
                   await _updateAuditScheduleStatus(
-                    'in_progress',
+                    'IN-PROGRESS',
                     siteAuditSchId: widget.siteAuditSchId,
                     siteId: widget.siteId,
                   );
@@ -575,7 +576,17 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                   print('PmGetLoaded triggered with Cables data: ${state.pmGetDataModel.responseData?.cables}');
                   _loadExistingData(state.pmGetDataModel);
                 } else if (state is PmPostSuccess) {
-                  print('Post successful, showing success dialog');
+                  print('Post successful, checking if success dialog already shown: $_successDialogShown');
+                  
+                  // Prevent multiple success dialogs
+                  if (_successDialogShown) {
+                    print('Success dialog already shown, skipping...');
+                    return;
+                  }
+                  
+                  print('Showing success dialog');
+                  _successDialogShown = true; // Set flag to prevent multiple dialogs
+                  
                   setState(() {
                     formData.clear();
                     for (final key in photoIds.keys) {
@@ -608,7 +619,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                         onDone: () async {
                           print('Success dialog - onDone called');
                           await _updateAuditScheduleStatus(
-                            'Complete',
+                            'COMPLETED',
                             siteAuditSchId: widget.siteAuditSchId,
                             siteId: widget.siteId,
                           );
@@ -627,11 +638,13 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                   }
                 } else if (state is PmPostError) {
                   print('Post error: ${state.message}');
+                  _successDialogShown = false; // Reset flag on error
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('Error saving data: ${state.message}')),
                   );
                 } else if (state is PmPosting) {
                   print('Posting data...');
+                  _successDialogShown = false; // Reset flag when starting new submission
                 }
               },
             ),
@@ -741,7 +754,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                         Navigator.of(dialogContext).pop();
                         await _submitForm();
                         await _updateAuditScheduleStatus(
-                          'in_progress',
+                          'IN-PROGRESS',
                           siteAuditSchId: widget.siteAuditSchId,
                           siteId: widget.siteId,
                         );
@@ -753,7 +766,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                         print('Discard selected from appbar');
                         Navigator.of(dialogContext).pop();
                         await _updateAuditScheduleStatus(
-                          'in_progress',
+                          'IN-PROGRESS',
                           siteAuditSchId: widget.siteAuditSchId,
                           siteId: widget.siteId,
                         );
@@ -766,7 +779,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                 } else {
                   print('No unsaved changes, closing');
                   await _updateAuditScheduleStatus(
-                    'in_progress',
+                    'IN-PROGRESS',
                     siteAuditSchId: widget.siteAuditSchId,
                     siteId: widget.siteId,
                   );
@@ -827,7 +840,8 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                           if (hasUnsavedChanges) {
                             await _submitForm();
                           }
-                          Navigator.pop(innerContext);
+                          // Pass updated data back to previous screen
+                          Navigator.pop(innerContext, widget.pmData);
                         },
                       ),
                     ),

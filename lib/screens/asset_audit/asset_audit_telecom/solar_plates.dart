@@ -604,7 +604,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
       if (mounted) {
         context.read<AuditScheduleStatusCubit>().updateStatus(
           siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
-          status: "In Progress",
+          status: "IN-PROGRESS",
         );
       }
     } catch (e) {
