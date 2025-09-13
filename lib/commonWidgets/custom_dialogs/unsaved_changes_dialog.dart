@@ -1,17 +1,101 @@
+import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:app/bloc/audit_schedule_status_cubit.dart';
 
 class UnsavedChangesDialog extends StatelessWidget {
-  final String message;
+  final String? message;
   final VoidCallback onSaveAndExit;
   final VoidCallback onDiscard;
+  final String? siteAuditSchId;
+  final String? section;
+  final BuildContext? parentContext;
 
   const UnsavedChangesDialog({
     super.key,
-    required this.message,
+    this.message,
     required this.onSaveAndExit,
     required this.onDiscard,
+    this.siteAuditSchId,
+    this.section,
+    this.parentContext,
   });
+
+  void _saveAndExit(BuildContext context) async {
+    Navigator.of(context).pop();
+    try {
+      // Call the API to update audit schedule status if siteAuditSchId is provided
+      if (siteAuditSchId != null && siteAuditSchId!.isNotEmpty) {
+        await parentContext!.read<AuditScheduleStatusCubit>().updateStatus(
+          status: "IN-PROGRESS", // Change this to your desired status
+          siteAuditSchId: siteAuditSchId!,
+        );
+        
+        // Listen to the cubit state to get the response message
+        parentContext!.read<AuditScheduleStatusCubit>().stream.listen((state) {
+          if (state is AuditScheduleStatusSuccess) {
+            // Use the API response message in the success dialog
+            _showSuccessDialogWithMessage(parentContext!, state.message);
+          } else if (state is AuditScheduleStatusError) {
+            // Show error message if API call fails
+            _showErrorDialog(parentContext!, state.error);
+          }
+        });
+      } else {
+        // Fallback message if no siteAuditSchId provided
+        _showSuccessDialogWithMessage(parentContext!, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.");
+      }
+    } catch (e) {
+      // Fallback message if API call fails
+      _showSuccessDialogWithMessage(parentContext!, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
+    }
+
+    // Call the original callback
+    onSaveAndExit();
+  }
+
+  void _showSuccessDialogWithMessage(BuildContext context, String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black54,
+      builder: (context) => SuccessDialog(
+        ticketId: siteAuditSchId!,
+        message: message,
+        onDone: () {
+          Navigator.of(context).pop();
+          Navigator.of(context).pop();
+        },
+      ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text('Failed to update status: $errorMessage'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              // Still show success dialog with fallback message
+              _showSuccessDialogWithMessage(context, "Asset Audit for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
+            },
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+    void _onDiscard(BuildContext context) async {
+        Navigator.of(context).pop(); // Close dialog
+      onDiscard();
+    }
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +122,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Text(
-                  message,
+                  "Do you want to save your progress before exiting?",
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.black,
@@ -63,7 +147,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12),
                     ),
-                    onPressed: onSaveAndExit,
+                    onPressed: (){_saveAndExit(context);},
                     child: const Text("Save & Exit",
                         style: TextStyle(color: Colors.white)),
                   ),
@@ -77,7 +161,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12),
                     ),
-                    onPressed: onDiscard,
+                    onPressed: (){_onDiscard(context);},
                     child: const Text("Discard",
                         style: TextStyle(color: Colors.white)),
                   ),
@@ -90,17 +174,33 @@ class UnsavedChangesDialog extends StatelessWidget {
           Positioned(
             top: -25,
             right: 20,
-            child: InkWell(
-              onTap: (){
-                Navigator.pop(context);
-              },
-              child: const CircleAvatar(
-                radius: 20,
-                backgroundColor: AppColors.heartColor,
-                child: Icon(Icons.close, color: Colors.white, size: 22),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () {
+                  print('Close button tapped!'); // Debug print
+                  Navigator.pop(context); // Just close the dialog, no action
+                },
+                borderRadius: BorderRadius.circular(20),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: Colors.white.withOpacity(0.1),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: const BoxDecoration(
+                    color: AppColors.heartColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close, 
+                    color: Colors.white, 
+                    size: 20,
+                  ),
+                ),
               ),
             ),
           ),
+
         ],
       ),
     );

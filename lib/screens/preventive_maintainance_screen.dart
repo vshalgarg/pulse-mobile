@@ -62,7 +62,7 @@ class _PreventiveMaintenanceScreenState extends State<PreventiveMaintenanceScree
           // Show unsaved changes dialog
           showDialog(
             context: context,
-            barrierDismissible: false,
+            barrierDismissible: true,
             builder: (context) => UnsavedChangesDialog(
               // title: "Unsaved Changes",
               message: "Do you want to cancel the Preventive Maintenance for Site (ID: SITE-38974) ?",

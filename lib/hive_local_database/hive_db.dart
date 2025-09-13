@@ -262,7 +262,7 @@ class HiveDB {
     final key = '${HiveConstant.assetAuditSelfieKey}$siteAuditSchId';
     final data = box.get(key);
     if (data != null) {
-      print('HiveDB: Retrieved selfie for site $siteAuditSchId: $data');
+      print('HiveDB: Retrieved selfie for site $siteAuditSchId');
       // Cast the Hive data to the expected type
       return Map<String, dynamic>.from(data);
     }

@@ -27,10 +27,6 @@ class AuthRepository {
         },
       );
 
-      print("AuthRepository: Login response - isSuccess: ${response.isSuccess}, statusCode: ${response.statusCode}");
-      print("AuthRepository: Login response data: ${response.data}");
-      print("AuthRepository: Login error message: ${response.errorMessage}");
-
       if (response.isSuccess && response.data != null) {
         final authModel = AuthModel.fromJson(response.data!);
         print("AuthRepository: Login successful - token: ${authModel.token?.substring(0, 20)}...");
@@ -85,11 +81,7 @@ class AuthRepository {
         },
       );
 
-      print("API Response: ${result.data}");
-      print("Is Success: ${result.isSuccess}");
-      print("Status Code: ${result.statusCode}");
-      print("Error Message: ${result.errorMessage}");
-
+    
       // Check if status code is 200 for success
       if (result.isSuccess && result.data != null) {
         print("Forgot password successful: ${result.data}");

@@ -63,7 +63,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   }
 
   Widget _buildImageFromUrl(String url) {
-    print('Building image from URL: $url');
+    print('Building image from URL');
     try {
       if (url.startsWith('data:image')) {
         // Handle base64 data URL
@@ -128,7 +128,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
   @override
   Widget build(BuildContext context) {
-    print('ImageUploadField build, externalImageUrl: ${widget.externalImageUrl}, selectedImage: ${_selectedImage?.path}');
+    print('ImageUploadField build, selectedImage: ${_selectedImage?.path}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -11,6 +11,7 @@ import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/selfie_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
+import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -328,16 +329,17 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
   void _saveAndExit() async {
     _saveFormDataToHive();
-    Navigator.of(context).pop();
+  }
+
+  void _showSuccessDialogWithMessage(String message) {
     if (mounted) {
       showDialog(
         context: context,
         barrierDismissible: false,
         barrierColor: Colors.black54,
         builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
+          ticketId: widget.siteAuditSchId,
+          message: message,
           onDone: () {
             Navigator.of(context).pop();
             Navigator.of(context).pop();
@@ -347,15 +349,33 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     }
   }
 
+  void _showErrorDialog(String errorMessage) {
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => AlertDialog(
+          title: const Text('Error'),
+          content: Text('Failed to update status: $errorMessage'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Still show success dialog with fallback message
+                _showSuccessDialogWithMessage("Asset Audit for Site (ID: ${widget.siteAuditSchId}) has been recorded and saved locally.");
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   bool _validateForm() {
     setState(() {
       showValidationErrors = true;
     });
-
-    print('=== Form Validation Debug (_validateForm) ===');
-    print('uploadedPhotoPath: $uploadedPhotoPath');
-    print('uploadedImgId: $uploadedImgId');
-    print('fetchedImageData: ${fetchedImageData != null ? 'present' : 'null'}');
 
     final hasLocalPhoto =
         uploadedPhotoPath != null && uploadedPhotoPath!.isNotEmpty;
@@ -514,46 +534,24 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         builder: (context, state) {
           return PopScope(
             canPop: !hasUnsavedChanges,
-            onPopInvoked: (didPop) async {
-              if (didPop) return;
-
-              if (hasUnsavedChanges) {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message:
-                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
-                    },
-                    onDiscard: () {
-                      Navigator.of(context).pop(); // Close dialog
-                      Navigator.of(context).pop(); // Go back to previous screen
-                    },
-                  ),
-                );
-              }
-            },
             child: Scaffold(
               extendBodyBehindAppBar: true,
               resizeToAvoidBottomInset: true,
               appBar: CustomFormAppbar(
                 title: "Asset Audit",
                 onClose: () async {
-                  print('Close button tapped!');
                   if (hasUnsavedChanges) {
                     showDialog(
                       context: context,
-                      barrierDismissible: false,
+                      barrierDismissible: true,
                       builder: (context) => UnsavedChangesDialog(
-                        message:
-                            "Do you want to cancel the Asset Audit for Site (ID: ${widget.siteAuditSchId}) ?",
+                        siteAuditSchId: widget.siteAuditSchId,
+                        section: "Asset Audit",
+                        parentContext: context,
                         onSaveAndExit: () {
                           _saveAndExit();
                         },
                         onDiscard: () {
-                          Navigator.of(context).pop(); // Close dialog
                           Navigator.of(context).pop(); // Go back to previous screen
                         },
                       ),
@@ -705,26 +703,6 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                               .assetAuditData
                                               .pageHeader
                                               .first;
-
-                                          // Debug logging for solar fields
-                                          print(
-                                            'Solar Debug: PageHeader data:',
-                                          );
-                                          print(
-                                            '  - solarState: ${pageHeader.solarState}',
-                                          );
-                                          print(
-                                            '  - solarDistrict: ${pageHeader.solarDistrict}',
-                                          );
-                                          print(
-                                            '  - district: ${pageHeader.district}',
-                                          );
-                                          print(
-                                            '  - auditDueDt: ${pageHeader.auditDueDt}',
-                                          );
-                                          print(
-                                            '  - status: ${pageHeader.status}',
-                                          );
 
                                           // Format audit due date
                                           String formattedAuditDueDate = "N/A";

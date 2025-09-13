@@ -836,7 +836,7 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
         if (hasUnsavedChanges) {
           showDialog(
             context: context,
-            barrierDismissible: false,
+            barrierDismissible: true,
             builder: (context) => UnsavedChangesDialog(
               message: "Do you want to save the current data and exit, or discard all changes?",
               onSaveAndExit: () {

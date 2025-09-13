@@ -968,9 +968,10 @@ class _SPVScreenState extends State<SPVScreen> {
             print('SPV Showing UnsavedChangesDialog from PopScope');
             showDialog(
               context: context,
-              barrierDismissible: false,
+              barrierDismissible: true,
               builder: (context) => UnsavedChangesDialog(
                 message: _getCancelMessage(),
+                siteAuditSchId: widget.siteAuditSchId,
                 onSaveAndExit: () async {
                   Navigator.of(context).pop(); // Close the dialog first
                   _saveAndExit();
@@ -993,9 +994,10 @@ class _SPVScreenState extends State<SPVScreen> {
                 print('SPV Showing UnsavedChangesDialog from AppBar');
                 showDialog(
                   context: context,
-                  barrierDismissible: false,
+                  barrierDismissible: true,
                   builder: (context) => UnsavedChangesDialog(
                     message: _getCancelMessage(),
+                    siteAuditSchId: widget.siteAuditSchId,
                     onSaveAndExit: () async {
                       Navigator.of(context).pop(); // Close the dialog first
                       _saveAndExit();
