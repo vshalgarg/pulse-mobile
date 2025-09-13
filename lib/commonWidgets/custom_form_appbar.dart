@@ -22,37 +22,68 @@ class CustomFormAppbar extends StatelessWidget implements PreferredSizeWidget {
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       automaticallyImplyLeading: false,
-      flexibleSpace: Padding(
-        padding: const EdgeInsets.only(left: 16, top: 60, right: 10),
-        child: Row(
-          children: [
-            getHeight(80),
-            Expanded(
-              child: Text(
-                "$title",
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                  fontFamily: "Poppins",
+      toolbarHeight: 100, // Increased height for better touch area
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.black54,
+              Colors.transparent,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16, top: 20, right: 16, bottom: 10),
+            child: Row(
+              children: [
+                getHeight(80),
+                Expanded(
+                  child: Text(
+                    "$title",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: "Poppins",
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                overflow: TextOverflow.ellipsis,
-              ),
+                // Improved close button with better touch area and higher z-index
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onClose,
+                      borderRadius: BorderRadius.circular(25),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        padding: const EdgeInsets.all(10),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 30,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(
-                Icons.close,
-                color: Colors.red,
-                size: 30,
-              ),
-              onPressed: onClose,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize => const Size.fromHeight(100);
 }

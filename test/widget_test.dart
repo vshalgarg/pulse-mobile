@@ -7,6 +7,7 @@
 
 import 'package:app/app_config.dart';
 import 'package:app/app_root.dart';
+import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +16,7 @@ void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     final baseUrl = dotenv.env['BASE_URL_DEV'];
-    await tester.pumpWidget(AppRoot(config: AppConfig(baseUrl: baseUrl ?? "")));
+    await tester.pumpWidget(AppRoot(config: AppConfig(baseUrl: baseUrl ?? "", loadingCubit: GlobalLoadingCubit())));
 
     // Verify that our counter starts at 0.
     expect(find.text('0'), findsOneWidget);

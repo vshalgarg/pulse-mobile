@@ -11,9 +11,11 @@ import 'package:app/bloc/asset_audit_cubit.dart';
 import 'package:app/bloc/energy_reading_cubit.dart';
 import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/bloc/selfie_upload_cubit.dart';
+import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
 import 'package:app/routes/route_generator.dart';
+import 'package:app/commonWidgets/global_loading_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -42,6 +44,7 @@ class AppRoot extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
+        BlocProvider.value(value: config.globalLoadingCubit),
         BlocProvider(create: (context) => DemoBlocCubit(config.askRepository)),
         BlocProvider(create: (context) => AuthCubit(config.authRepository)),
         BlocProvider(create: (context) => ForgotPasswordCubit(config.authRepository)),
@@ -99,7 +102,12 @@ class AppRoot extends StatelessWidget {
         locale: localeProvider!.locale,
         debugShowCheckedModeBanner: false,
         navigatorKey: navigatorKey,
-        builder: FToastBuilder(),
+        builder: (context, child) {
+          return FToastBuilder()(
+            context,
+            GlobalLoadingOverlay(child: child!),
+          );
+        },
         themeMode: ThemeMode.system,
         theme: MyThemes.lightThemeMustard,
         // home: const CartScreen(),

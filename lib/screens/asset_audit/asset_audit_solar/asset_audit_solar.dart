@@ -73,6 +73,10 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   String? _lastRequestedPhotoId;
   Map<String, int> _retryCounts = {};
 
+  // Error handling
+  String? _apiError;
+  bool _isLoadingData = false;
+
   @override
   void initState() {
     super.initState();
@@ -90,6 +94,10 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     final currentState = context.read<AssetAuditCubit>().state;
     if (currentState is! AssetAuditLoaded) {
       print('=== Calling getAssetAuditData from didChangeDependencies ===');
+      setState(() {
+        _isLoadingData = true;
+        _apiError = null;
+      });
       context.read<AssetAuditCubit>().getAssetAuditData(
         siteType: widget.siteType,
         auditSchId: widget.auditSchId,
@@ -360,6 +368,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
     if (!hasLocalPhoto && !hasServerImage && !hasImageData) {
       print('Photo validation failed - No photo uploaded');
+      // Show error message to user
+      showCustomToast(context, 'Please upload a selfie before proceeding');
       return false;
     } else {
       print('Photo validation passed');
@@ -399,13 +409,23 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         BlocListener<AssetAuditCubit, AssetAuditState>(
           listener: (context, state) {
             if (state is AssetAuditError) {
-              showCustomToast(context, state.message);
+              setState(() {
+                _isLoadingData = false;
+                _apiError = state.message;
+              });
+              showCustomToast(context, 'Failed to load site data: ${state.message}');
+            } else if (state is AssetAuditLoaded) {
+              setState(() {
+                _isLoadingData = false;
+                _apiError = null;
+              });
             } else if (state is AssetAuditPostSuccess) {
               print(
                 'Asset audit data posted successfully: ${state.responses.length} responses',
               );
             } else if (state is AssetAuditPostError) {
               print('Error posting asset audit data: ${state.message}');
+              showCustomToast(context, 'Failed to save data: ${state.message}');
             }
           },
         ),
@@ -508,7 +528,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                       _saveAndExit();
                     },
                     onDiscard: () {
-                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(); // Close dialog
+                      Navigator.of(context).pop(); // Go back to previous screen
                     },
                   ),
                 );
@@ -520,18 +541,20 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
               appBar: CustomFormAppbar(
                 title: "Asset Audit",
                 onClose: () async {
+                  print('Close button tapped!');
                   if (hasUnsavedChanges) {
                     showDialog(
                       context: context,
                       barrierDismissible: false,
                       builder: (context) => UnsavedChangesDialog(
                         message:
-                            "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                            "Do you want to cancel the Asset Audit for Site (ID: ${widget.siteAuditSchId}) ?",
                         onSaveAndExit: () {
                           _saveAndExit();
                         },
                         onDiscard: () {
-                          Navigator.of(context).pop();
+                          Navigator.of(context).pop(); // Close dialog
+                          Navigator.of(context).pop(); // Go back to previous screen
                         },
                       ),
                     );
@@ -573,16 +596,111 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    BlocBuilder<
-                                      AssetAuditCubit,
-                                      AssetAuditState
-                                    >(
-                                      builder: (context, state) {
-                                        if (state is AssetAuditLoaded &&
-                                            state
-                                                .assetAuditData
-                                                .pageHeader
-                                                .isNotEmpty) {
+                                    // Show loading indicator
+                                    if (_isLoadingData)
+                                      Container(
+                                        padding: const EdgeInsets.all(20),
+                                        child: const Center(
+                                          child: Column(
+                                            children: [
+                                              CircularProgressIndicator(
+                                                color: AppColors.primaryGreen,
+                                              ),
+                                              SizedBox(height: 16),
+                                              Text(
+                                                'Loading site data...',
+                                                style: TextStyle(
+                                                  color: AppColors.white,
+                                                  fontSize: 16,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    
+                                    // Show error message
+                                    if (_apiError != null && !_isLoadingData)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 20),
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.errorColor.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: AppColors.errorColor,
+                                            width: 1,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.error_outline,
+                                                  color: AppColors.errorColor,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Failed to load site data',
+                                                    style: TextStyle(
+                                                      color: AppColors.errorColor,
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Text(
+                                              _apiError!,
+                                              style: TextStyle(
+                                                color: AppColors.errorColor,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            ElevatedButton(
+                                              onPressed: () {
+                                                setState(() {
+                                                  _isLoadingData = true;
+                                                  _apiError = null;
+                                                });
+                                                context.read<AssetAuditCubit>().getAssetAuditData(
+                                                  siteType: widget.siteType,
+                                                  auditSchId: widget.auditSchId,
+                                                  siteAuditSchId: widget.siteAuditSchId,
+                                                );
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: AppColors.errorColor,
+                                                foregroundColor: Colors.white,
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                  vertical: 8,
+                                                ),
+                                              ),
+                                              child: const Text('Retry'),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                    // Show form fields only when data is loaded and no error
+                                    if (!_isLoadingData && _apiError == null)
+                                      BlocBuilder<
+                                        AssetAuditCubit,
+                                        AssetAuditState
+                                      >(
+                                        builder: (context, state) {
+                                          if (state is AssetAuditLoaded &&
+                                              state
+                                                  .assetAuditData
+                                                  .pageHeader
+                                                  .isNotEmpty) {
                                           final pageHeader = state
                                               .assetAuditData
                                               .pageHeader
@@ -822,31 +940,76 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                       },
                                     ),
                                     getHeight(15),
-                                    ImageUploadField(
-                                      label: "Add a Selfie",
-                                      placeholder: "Selfie",
-                                      isRequired: true,
-                                      externalImageUrl: fetchedImageData,
-                                      onImageSelected: (file) {
-                                        if (file != null) {
-                                          debugPrint(
-                                            "Selected image path: ${file.path}",
-                                          );
-                                          setState(() {
-                                            uploadedPhotoPath = file.path;
-                                            hasUnsavedChanges = true;
-                                          });
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        ImageUploadField(
+                                          label: "Add a Selfie",
+                                          placeholder: "Selfie",
+                                          isRequired: true,
+                                          externalImageUrl: fetchedImageData,
+                                          onImageSelected: (file) {
+                                            if (file != null) {
+                                              debugPrint(
+                                                "Selected image path: ${file.path}",
+                                              );
+                                              setState(() {
+                                                uploadedPhotoPath = file.path;
+                                                hasUnsavedChanges = true;
+                                                showValidationErrors = false;
+                                              });
 
-                                          // Upload selfie to server
-                                          _uploadSelfie(file);
-                                        } else {
-                                          setState(() {
-                                            uploadedPhotoPath = null;
-                                            uploadedImgId = null;
-                                            fetchedImageData = null;
-                                          });
-                                        }
-                                      },
+                                              // Upload selfie to server
+                                              _uploadSelfie(file);
+                                            } else {
+                                              setState(() {
+                                                uploadedPhotoPath = null;
+                                                uploadedImgId = null;
+                                                fetchedImageData = null;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                        // Show validation error for image upload
+                                        if (showValidationErrors && 
+                                            uploadedPhotoPath == null && 
+                                            uploadedImgId == null && 
+                                            fetchedImageData == null)
+                                          Container(
+                                            margin: const EdgeInsets.only(top: 8),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 12,
+                                              vertical: 8,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.errorColor.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: AppColors.errorColor,
+                                                width: 1,
+                                              ),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.error_outline,
+                                                  color: AppColors.errorColor,
+                                                  size: 16,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Please upload a selfie to continue',
+                                                    style: TextStyle(
+                                                      color: AppColors.errorColor,
+                                                      fontSize: 14,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -864,60 +1027,104 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                             child: ArrowButton(
                               text: "SPV",
                               isLeftArrow: false,
-                              backgroundColor: AppColors.buttonColorBg,
-                              textColor: AppColors.buttonColorSite,
-                              onPressed: () async {
-                                print('SPV button pressed');
-                                if (_validateForm()) {
-                                  _saveFormDataToHive();
-
-                                  // Pass ALL asset audit data to SPV screen
-                                  final assetAuditState = context
-                                      .read<AssetAuditCubit>()
-                                      .state;
-                                  AssetAuditModel? assetAuditData;
-                                  if (assetAuditState is AssetAuditLoaded) {
-                                    assetAuditData =
-                                        assetAuditState.assetAuditData;
-                                    print(
-                                      '=== Main Screen: Passing asset audit data to SPV ===',
-                                    );
-                                    print(
-                                      'Asset audit data available: ${assetAuditData != null}',
-                                    );
-                                    if (assetAuditData != null) {
-                                      print(
-                                        'Categories available: ${assetAuditData.responseData.categories.keys.toList()}',
-                                      );
-                                      final spvCategory = assetAuditData
-                                          .responseData
-                                          .categories['SPV'];
-                                      if (spvCategory != null) {
-                                        print(
-                                          'SPV category found with ${spvCategory.assets.length} assets',
+                              backgroundColor: _apiError != null || _isLoadingData 
+                                  ? AppColors.greyColor 
+                                  : AppColors.buttonColorBg,
+                              textColor: _apiError != null || _isLoadingData 
+                                  ? AppColors.white 
+                                  : AppColors.buttonColorSite,
+                              onPressed: _apiError != null || _isLoadingData 
+                                  ? null 
+                                  : () async {
+                                      print('SPV button pressed');
+                                      
+                                      // Check if image is uploaded
+                                      final hasLocalPhoto = uploadedPhotoPath != null && uploadedPhotoPath!.isNotEmpty;
+                                      final hasServerImage = uploadedImgId != null && uploadedImgId!.isNotEmpty && uploadedImgId != "0";
+                                      final hasImageData = fetchedImageData != null && fetchedImageData!.isNotEmpty;
+                                      
+                                      if (!hasLocalPhoto && !hasServerImage && !hasImageData) {
+                                        // Show detailed error message
+                                        showDialog(
+                                          context: context,
+                                          barrierDismissible: true,
+                                          builder: (context) => AlertDialog(
+                                            title: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.warning_amber_rounded,
+                                                  color: AppColors.errorColor,
+                                                  size: 24,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                const Text('Image Required'),
+                                              ],
+                                            ),
+                                            content: const Text(
+                                              'Please upload a selfie before proceeding to the next step. This is required to complete the asset audit.',
+                                              style: TextStyle(fontSize: 16),
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.of(context).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
                                         );
-                                        if (spvCategory.assets.isNotEmpty) {
-                                          print(
-                                            'First SPV asset: ${spvCategory.assets.first.oemName}',
-                                          );
-                                        }
-                                      } else {
-                                        print('SPV category NOT found!');
+                                        return;
                                       }
-                                    }
-                                  }
+                                      
+                                      if (_validateForm()) {
+                                        _saveFormDataToHive();
 
-                                  pushPage(
-                                    context,
-                                    SPVScreen(
-                                      siteType: widget.siteType,
-                                      auditSchId: widget.auditSchId,
-                                      siteAuditSchId: widget.siteAuditSchId,
-                                      assetAuditData: assetAuditData,
-                                    ),
-                                  );
-                                }
-                              },
+                                        // Pass ALL asset audit data to SPV screen
+                                        final assetAuditState = context
+                                            .read<AssetAuditCubit>()
+                                            .state;
+                                        AssetAuditModel? assetAuditData;
+                                        if (assetAuditState is AssetAuditLoaded) {
+                                          assetAuditData =
+                                              assetAuditState.assetAuditData;
+                                          print(
+                                            '=== Main Screen: Passing asset audit data to SPV ===',
+                                          );
+                                          print(
+                                            'Asset audit data available: ${assetAuditData != null}',
+                                          );
+                                          if (assetAuditData != null) {
+                                            print(
+                                              'Categories available: ${assetAuditData.responseData.categories.keys.toList()}',
+                                            );
+                                            final spvCategory = assetAuditData
+                                                .responseData
+                                                .categories['SPV'];
+                                            if (spvCategory != null) {
+                                              print(
+                                                'SPV category found with ${spvCategory.assets.length} assets',
+                                              );
+                                              if (spvCategory.assets.isNotEmpty) {
+                                                print(
+                                                  'First SPV asset: ${spvCategory.assets.first.oemName}',
+                                                );
+                                              }
+                                            } else {
+                                              print('SPV category NOT found!');
+                                            }
+                                          }
+                                        }
+
+                                        pushPage(
+                                          context,
+                                          SPVScreen(
+                                            siteType: widget.siteType,
+                                            auditSchId: widget.auditSchId,
+                                            siteAuditSchId: widget.siteAuditSchId,
+                                            assetAuditData: assetAuditData,
+                                          ),
+                                        );
+                                      }
+                                    },
                             ),
                           ),
                         ],

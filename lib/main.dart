@@ -16,6 +16,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'app_config.dart';
 import 'app_root.dart';
 import 'bloc/global_bloc_observer.dart';
+import 'bloc/global_loading_cubit.dart';
 import 'firebase_options.dart';
 import 'hive_local_database/hive_db.dart';
 import 'utils.dart';
@@ -46,7 +47,8 @@ Future<void> main() async {
 
   // for loading data before running application
   final _baseUrl = dotenv.env['BASE_URL_DEV'];
-  final config = AppConfig(baseUrl: _baseUrl!);
+  final globalLoadingCubit = GlobalLoadingCubit();
+  final config = AppConfig(baseUrl: _baseUrl!, loadingCubit: globalLoadingCubit);
 
   // stripe
   // if (!kIsWeb) {

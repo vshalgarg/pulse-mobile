@@ -203,7 +203,6 @@ class ImageStrings {
   static const String filterIcon = "filter_icon.png";
 
   static const String google = "${assetImagePathIcons}ggl.png";
-  static const String facebook = "${assetImagePathIcons}fb.png";
   static const String crousel = "${assetImagePathIcons}crousel.png";
   static const String curveLog = "${assetImagePathIcons}curve.png";
   static const String lockImage = "lock.png";

@@ -1,4 +1,5 @@
 import 'package:app/bloc/pm_bloc/pm_cubit.dart';
+import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
@@ -32,6 +33,7 @@ import 'package:flutter/material.dart';
 class AppConfig {
   late final ApiService apiService;
   late final ApiProvider apiProvider;
+  final GlobalLoadingCubit globalLoadingCubit;
 
   late final DemoRepository askRepository;
   late final AuthRepository authRepository;
@@ -44,7 +46,7 @@ class AppConfig {
   late final AssetAuditPhotoUploadRepository assetAuditPhotoUploadRepository;
   late final ImageRepository imageRepository;
   late final PmRepository pmRepository;
-  final AuditScheduleRepository auditScheduleRepository;
+  late final AuditScheduleRepository auditScheduleRepository;
 
   // Cubits
   late final DemoBlocCubit demoBlocCubit;
@@ -58,10 +60,13 @@ class AppConfig {
   late final AssetAuditPhotoUploadCubit assetAuditPhotoUploadCubit;
   late final PmCubit pmCubit;
 
-  AppConfig({required String baseUrl}) 
-      : apiProvider = ApiProvider(baseUrl: baseUrl),
-        apiService = ApiService(ApiProvider(baseUrl: baseUrl)),
-        auditScheduleRepository = AuditScheduleRepository(ApiService(ApiProvider(baseUrl: baseUrl))) {
+  AppConfig({required String baseUrl, required GlobalLoadingCubit loadingCubit}) 
+      : globalLoadingCubit = loadingCubit {
+    
+    // Create single ApiProvider instance
+    apiProvider = ApiProvider(baseUrl: baseUrl, loadingCubit: loadingCubit);
+    apiService = ApiService(apiProvider);
+    auditScheduleRepository = AuditScheduleRepository(apiService);
 
     // Initialize ticket service
     final ticketService = TicketService(apiService: apiService);
