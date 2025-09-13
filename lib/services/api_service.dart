@@ -126,6 +126,86 @@ class ApiService {
     }
   }
 
+  /// New: Multipart POST that won't affect existing `post()`.
+  Future<ResponseResult<T>> postMultipart<T>({
+    required String path,
+    Map<String, dynamic>? fields,                 // regular text fields
+    List<MultipartFile>? files,                   // files under one field name
+    String fileFieldName = 'Documents',           // default field name for [files]
+    Map<String, List<MultipartFile>>? filesMap,   // multiple fields -> multiple files
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+  }) async {
+    try {
+      // Build base FormData from fields (or empty)
+      final formData = FormData.fromMap(fields ?? {});
+
+      // Option A: attach a list of files under one field name
+      if (files != null && files.isNotEmpty) {
+        for (final f in files) {
+          formData.files.add(MapEntry(fileFieldName, f));
+        }
+      }
+
+      // Option B: attach many fields, each with its own list of files
+      if (filesMap != null && filesMap.isNotEmpty) {
+        filesMap.forEach((field, list) {
+          for (final f in list) {
+            formData.files.add(MapEntry(field, f));
+          }
+        });
+      }
+
+      final result = await apiProvider.getClient().post(
+        path,
+        data: formData,
+        queryParameters: queryParameters,
+        options: Options(headers: headers),
+      );
+
+      if (result.statusCode != null && result.statusCode! >= 200 && result.statusCode! < 300) {
+        if (result.data is String) {
+          return ResponseResult.success(jsonDecode(result.data), result.statusCode);
+        }
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      _recordError(e);
+      return ResponseResult.error(
+        errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
+      );
+    } catch (e) {
+      return ResponseResult.error(errorMessage: 'Request failed: $e');
+    }
+  }
+
+  Future<ResponseResult<T>> postJson<T>({
+    required String path,
+    required dynamic body,
+    Map<String, dynamic>? queryParameters,
+    Map<String, String>? headers,
+  }) async {
+    final mergedHeaders = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+      if (headers != null) ...headers,
+    };
+    return post<T>(
+      path: path,
+      data: body,
+      queryParameters: queryParameters,
+      headers: mergedHeaders,
+      useFormDataFormat: false,
+    );
+  }
+
   Future<ResponseResult<T>> put<T>({
     required String path,
     Map<String, dynamic>? data,
@@ -264,7 +344,8 @@ class ResponseResult<T> extends Equatable {
     this.statusCode,
   }) : data = null;
 
-  bool get isSuccess => errorMessage == null && statusCode == 200;
+  // bool get isSuccess => errorMessage == null && statusCode == 200;
+  bool get isSuccess => statusCode != null && statusCode! >= 200 && statusCode! < 300;
 
   @override
   List<Object?> get props => [data, errorMessage, statusCode];

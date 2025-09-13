@@ -1,6 +1,6 @@
 import 'package:hive/hive.dart';
 
-part 'offline_ticket_model.g.dart';
+// part 'offline_ticket_model.g.dart';
 
 @HiveType(typeId: 0)
 class OfflineTicket extends HiveObject {

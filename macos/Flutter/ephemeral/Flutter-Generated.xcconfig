@@ -1,6 +1,6 @@
 // This is a generated file; do not edit or check into version control.
-FLUTTER_ROOT=/Users/user/fvm/versions/3.32.4
-FLUTTER_APPLICATION_PATH=/Users/user/Desktop/Flutter-projects/nexgen
+FLUTTER_ROOT=/Users/anubhavsingh/flutterDEV/flutter
+FLUTTER_APPLICATION_PATH=/Users/anubhavsingh/StudioProjects/pulse-mobile
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_BUILD_DIR=build
 FLUTTER_BUILD_NAME=1.0.0
