@@ -2,6 +2,7 @@ import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/spv_screen.dart';
+import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -544,20 +545,24 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                     showDialog(
                       context: context,
                       barrierDismissible: true,
-                      builder: (context) => UnsavedChangesDialog(
+                      builder: (dialogContext) => UnsavedChangesDialog(
                         siteAuditSchId: widget.siteAuditSchId,
                         section: "Asset Audit",
-                        parentContext: context,
+                        parentContext: context, // Use the outer context (screen context)
                         onSaveAndExit: () {
                           _saveAndExit();
                         },
                         onDiscard: () {
-                          Navigator.of(context).pop(); // Go back to previous screen
                         },
                       ),
                     );
                   } else {
-                    Navigator.pop(context);
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => HomeScreen()
+                      ),
+                    );
                   }
                 },
               ),

@@ -1,5 +1,6 @@
 import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
+import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/bloc/audit_schedule_status_cubit.dart';
@@ -23,32 +24,39 @@ class UnsavedChangesDialog extends StatelessWidget {
   });
 
   void _saveAndExit(BuildContext context) async {
+    // Close the dialog first
     Navigator.of(context).pop();
+    
+    // Use parentContext if available, otherwise use the dialog context
+    final contextToUse = parentContext ?? context;
+    
     try {
       // Call the API to update audit schedule status if siteAuditSchId is provided
       if (siteAuditSchId != null && siteAuditSchId!.isNotEmpty) {
-        await parentContext!.read<AuditScheduleStatusCubit>().updateStatus(
+        await contextToUse.read<AuditScheduleStatusCubit>().updateStatus(
           status: "IN-PROGRESS", // Change this to your desired status
           siteAuditSchId: siteAuditSchId!,
         );
         
-        // Listen to the cubit state to get the response message
-        parentContext!.read<AuditScheduleStatusCubit>().stream.listen((state) {
-          if (state is AuditScheduleStatusSuccess) {
-            // Use the API response message in the success dialog
-            _showSuccessDialogWithMessage(parentContext!, state.message);
-          } else if (state is AuditScheduleStatusError) {
-            // Show error message if API call fails
-            _showErrorDialog(parentContext!, state.error);
-          }
-        });
+        // Get the current state after the API call
+        final currentState = contextToUse.read<AuditScheduleStatusCubit>().state;
+        if (currentState is AuditScheduleStatusSuccess) {
+          // Use the API response message in the success dialog
+          _showSuccessDialogWithMessage(contextToUse, currentState.message);
+        } else if (currentState is AuditScheduleStatusError) {
+          // Show error message if API call fails
+          _showErrorDialog(contextToUse, currentState.error);
+        } else {
+          // Fallback if state is not what we expect
+          _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId}) has been recorded and saved.");
+        }
       } else {
         // Fallback message if no siteAuditSchId provided
-        _showSuccessDialogWithMessage(parentContext!, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.");
+        _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.");
       }
     } catch (e) {
       // Fallback message if API call fails
-      _showSuccessDialogWithMessage(parentContext!, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
+      _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
     }
 
     // Call the original callback
@@ -56,34 +64,57 @@ class UnsavedChangesDialog extends StatelessWidget {
   }
 
   void _showSuccessDialogWithMessage(BuildContext context, String message) {
+    // Use parentContext for navigation, fallback to context if parentContext is null
+    final navigationContext = parentContext ?? context;
+
+    print('DEBUG: parentContext is null: ${parentContext == null}');
+    print('DEBUG: Using navigationContext: ${navigationContext.runtimeType}');
+
     showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
-      builder: (context) => SuccessDialog(
+      builder: (dialogContext) => SuccessDialog(
         ticketId: siteAuditSchId!,
         message: message,
         onDone: () {
-          Navigator.of(context).pop();
-          Navigator.of(context).pop();
+          print('DEBUG: Success dialog onDone called');
+          Navigator.of(dialogContext).pop(); // Close the success dialog using dialog context
+          print('DEBUG: About to navigate to home screen');
+          // Navigate to home screen using the navigation context
+          Navigator.pushReplacement(
+            navigationContext,
+            MaterialPageRoute(
+                builder: (context) => HomeScreen()
+            ),
+          );
+          print('DEBUG: Navigation completed');
         },
       ),
     );
   }
 
   void _showErrorDialog(BuildContext context, String errorMessage) {
+    // Use parentContext for navigation, fallback to context if parentContext is null
+    final navigationContext = parentContext ?? context;
+
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Error'),
         content: Text('Failed to update status: $errorMessage'),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop();
-              // Still show success dialog with fallback message
-              _showSuccessDialogWithMessage(context, "Asset Audit for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
+              Navigator.of(dialogContext).pop(); // Close the error dialog using dialog context
+              // Navigate to home screen using the navigation context
+              Navigator.pushReplacement(
+                navigationContext,
+                MaterialPageRoute(
+                    builder: (context) => HomeScreen()
+                ),
+              );
             },
             child: const Text('OK'),
           ),
@@ -93,7 +124,18 @@ class UnsavedChangesDialog extends StatelessWidget {
   }
 
     void _onDiscard(BuildContext context) async {
-        Navigator.of(context).pop(); // Close dialog
+      // Close the dialog first
+      Navigator.of(context).pop();
+      
+      // Use parentContext if available, otherwise use the dialog context
+      final contextToUse = parentContext ?? context;
+      
+      Navigator.pushReplacement(
+        contextToUse,
+        MaterialPageRoute(
+            builder: (context) => HomeScreen()
+        ),
+      );
       onDiscard();
     }
 

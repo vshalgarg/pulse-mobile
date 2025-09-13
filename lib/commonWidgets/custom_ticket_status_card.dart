@@ -96,7 +96,6 @@ class StatusCard extends StatelessWidget {
   // Method to build icon widget based on type
   Widget _buildIcon(dynamic icon, Color color) {
     if (icon is String) {
-      print('Loading SVG: $icon');
       return SvgPicture.asset(
         icon,
         height: 24,

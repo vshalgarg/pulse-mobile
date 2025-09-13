@@ -9,7 +9,6 @@ import '../hive_local_database/hive_constant.dart';
 import '../hive_local_database/hive_db.dart';
 import '../routes/routes.dart';
 import '../bloc/global_loading_cubit.dart';
-import 'api_logging_interceptor.dart';
 
 class ApiProvider {
   final String baseUrl;
@@ -32,14 +31,6 @@ class ApiProvider {
     );
 
     _dio.options = options;
-    
-    // Add comprehensive API logging interceptor
-    _dio.interceptors.add(ApiLoggingInterceptor(
-      logRequests: true,
-      logResponses: true,
-      logErrors: true,
-      logHeaders: true,
-    ));
     
     // Add PrettyDioLogger for development (can be disabled in production)
     _dio.interceptors.add(PrettyDioLogger(

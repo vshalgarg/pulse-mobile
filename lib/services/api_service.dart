@@ -59,10 +59,7 @@ class ApiService {
     bool useFormDataFormat = false,
   }) async {
     try {
-      print("ApiService: Making POST request to $path");
-      print("ApiService: Request data: $data");
-      print("ApiService: Query parameters: $queryParameters");
-      
+
       dynamic dataPayload;
       
       if (useFormDataFormat) {
@@ -84,16 +81,12 @@ class ApiService {
         dataPayload = data;
       }
 
-      print("ApiService: Starting POST request...");
       final result = await apiProvider.getClient().post(
             path,
             data: dataPayload,
             queryParameters: queryParameters,
             options: Options(headers: headers),
           );
-
-      print("ApiService: POST request completed - statusCode: ${result.statusCode}");
-      print("ApiService: Response data: ${result.data}");
 
       // Check if status code indicates success (200, 201, 202, etc.)
       if (result.statusCode! >= 200 && result.statusCode! < 300) {
@@ -109,9 +102,7 @@ class ApiService {
         );
       }
     } on DioException catch (e) {
-      print("ApiService: DioException caught - type: ${e.type}, message: ${e.message}");
-      print("ApiService: DioException response: ${e.response?.data}");
-      // log("path: $path");
+       // log("path: $path");
       _recordError(e);
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),

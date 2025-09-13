@@ -51,8 +51,9 @@ class _SPVScreenState extends State<SPVScreen> {
   final TextEditingController serialController = TextEditingController();
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false;
+  bool _isFormInitialized = false;
+  bool _shouldUpdateFromAPI = true; // Flag to control when to update from API
   int totalItemsToScan = 6;
-  int currentScannedItems = 0;
   List<Map<String, dynamic>> savedItems = [];
 
   // SPV field values
@@ -67,7 +68,6 @@ class _SPVScreenState extends State<SPVScreen> {
   final TextEditingController spvSerialController = TextEditingController();
   int totalSpvItems = 0; // Will be set from API data
   bool isQRCodeScanned = false; // Track if serial was scanned or manually entered
-  String? lastValidatedSerial; // Track last validated serial to prevent repeated toasts
 
   // API integration fields
   String? uploadedPhotoPath;
@@ -114,9 +114,6 @@ class _SPVScreenState extends State<SPVScreen> {
         print('SPV total items from API: $totalSpvItems');
         print('SPV data received: ${spvData.assets.length} assets');
         if (spvData.assets.isNotEmpty) {
-          print('First SPV asset: ${spvData.assets.first.oemName}');
-          print('First SPV asset type: ${spvData.assets.first.itemType}');
-          print('First SPV asset capacity: ${spvData.assets.first.capacity}');
 
           // Load items that have been successfully posted to API AND have user interaction
           // (either photo taken or serial number entered - regardless of QR scan or manual entry)
@@ -135,8 +132,16 @@ class _SPVScreenState extends State<SPVScreen> {
               };
             }).toList();
             
-            savedSpvItems = postedItems;
-            currentScannedItems = savedSpvItems.length;
+            // Only update if this is the initial load or if we should update from API
+            if (savedSpvItems.isEmpty || _shouldUpdateFromAPI) {
+              // Preserve locally saved items that haven't been posted to API yet
+              final localItems = savedSpvItems.where((item) => 
+                item['assetAuditSiteRespId'] == null
+              ).toList();
+              
+              // Combine API items with local items
+              savedSpvItems = [...postedItems, ...localItems];
+            }
 
             // Initialize remarks from API only if user hasn't made changes
             if (spvData.remarks.isNotEmpty && remarksController.text.isEmpty) {
@@ -155,6 +160,12 @@ class _SPVScreenState extends State<SPVScreen> {
 
     // Check page header for additional data
     _checkPageHeaderForData();
+    
+    // Mark form as initialized after data loading
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isFormInitialized = true;
+      print('SPV Form initialized - change tracking enabled');
+    });
   }
 
   @override
@@ -175,26 +186,17 @@ class _SPVScreenState extends State<SPVScreen> {
       final hasImageData = fetchedImageData != null && fetchedImageData!.isNotEmpty;
 
       // Only set hasUnsavedChanges to true if there are actual unsaved changes in the current form
-      // Don't include savedSpvItems.isNotEmpty as those are already saved
-      hasUnsavedChanges = serialController.text.isNotEmpty ||
-          spvSerialController.text.isNotEmpty ||
-          hasLocalPhoto ||
-          hasServerImage ||
-          hasImageData ||
-          remarksController.text.isNotEmpty;
+      // and the form has been initialized (to avoid false positives during initialization)
+      if (_isFormInitialized) {
+        hasUnsavedChanges = serialController.text.isNotEmpty ||
+            spvSerialController.text.isNotEmpty ||
+            hasLocalPhoto ||
+            hasServerImage ||
+            hasImageData ||
+            remarksController.text.isNotEmpty;
+      }
 
       _hasFormDataChanges = true;
-
-      // Debug logging
-      print('SPV Form Changed - hasUnsavedChanges: $hasUnsavedChanges');
-      print('  - serialController: "${serialController.text}"');
-      print('  - spvSerialController: "${spvSerialController.text}"');
-      print('  - hasLocalPhoto: $hasLocalPhoto');
-      print('  - hasServerImage: $hasServerImage');
-      print('  - hasImageData: $hasImageData');
-      print('  - savedSpvItems.length: ${savedSpvItems.length} (not included in hasUnsavedChanges)');
-      print('  - remarksController: "${remarksController.text}"');
-
       if (showValidationErrors && (serialController.text.isNotEmpty || spvSerialController.text.isNotEmpty)) {
         showValidationErrors = false;
       }
@@ -214,23 +216,18 @@ class _SPVScreenState extends State<SPVScreen> {
     final assetAuditState = context.read<AssetAuditCubit>().state;
     if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
       final pageHeader = assetAuditState.assetAuditData.pageHeader.first;
-      print('SPV makerSelfieImageId: ${pageHeader.makerSelfieImageId}');
 
       if (pageHeader.makerSelfieImageId != null && pageHeader.makerSelfieImageId! > 0) {
         setState(() {
           uploadedImgId = pageHeader.makerSelfieImageId.toString();
           fetchedImageData = null;
         });
+        _onFormChanged();
 
         _imageQueue.add({'photoId': pageHeader.makerSelfieImageId.toString(), 'key': 'spv'});
         _fetchNextImage();
       }
     }
-  }
-
-  void _loadStoredData() async {
-    // No Hive loading - start with fresh form
-    print('SPV screen: Starting with fresh form (no Hive storage)');
   }
 
   void _fetchNextImage() {
@@ -242,7 +239,6 @@ class _SPVScreenState extends State<SPVScreen> {
     final photoId = image['photoId']!;
     final key = image['key']!;
 
-    print('Loading SPV image for photoId: $photoId, key: $key, retry count: ${_retryCounts[photoId] ?? 0}');
     _lastRequestedPhotoId = photoId;
     _retryCounts[photoId] = _retryCounts[photoId] ?? 0;
     context.read<AssetAuditGetImageCubit>().getImage(
@@ -268,25 +264,17 @@ class _SPVScreenState extends State<SPVScreen> {
 
   Future<String?> _uploadSpvPhoto(File file) async {
     try {
-      print('=== SPV Photo Upload Started ===');
-      print('File path: ${file.path}');
-      print('File exists: ${await file.exists()}');
-      print('File size: ${await file.length()} bytes');
 
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
         final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
-        print('Site Audit Sch ID: $schId');
 
         final imgIdToUse = "0";
-        print('Image ID to use: $imgIdToUse');
 
         final completer = Completer<String?>();
 
         late StreamSubscription subscription;
         subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
-          print('=== AssetAuditPhotoUploadCubit State Changed ===');
-          print('State type: ${state.runtimeType}');
 
           if (state is AssetAuditPhotoUploadSuccess) {
             print('✅ SPV Photo upload SUCCESS!');
@@ -336,26 +324,10 @@ class _SPVScreenState extends State<SPVScreen> {
   bool _validateSerialNumber(String serialNumber, bool isQRCodeScanned) {
     if (widget.assetAuditData == null) return false;
 
-    if (lastValidatedSerial == serialNumber) {
-      return true;
-    }
-
-    print('=== SPV Serial Number Validation Debug ===');
-    print('Validating serial number: "$serialNumber" (QR Scanned: $isQRCodeScanned)');
-
     final spvData = widget.assetAuditData!.responseData.categories['SPV'];
     if (spvData == null) return false;
 
     final allItems = spvData.assets;
-    print('SPV items available: ${allItems.length}');
-
-    if (allItems.isNotEmpty) {
-      print('SPV items details:');
-      for (var item in allItems) {
-        print('  - Item: ${item.itemType} | nexgenSerialNo: "${item.nexgenSerialNo}" | mfgSerialNo: "${item.mfgSerialNo}"');
-      }
-    }
-
     bool isValid = false;
 
     if (isQRCodeScanned) {
@@ -367,16 +339,6 @@ class _SPVScreenState extends State<SPVScreen> {
             (item) => item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase(),
       );
     }
-
-    lastValidatedSerial = serialNumber;
-    if (!isValid) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        showCustomToast(context, isQRCodeScanned
-            ? '❌ Invalid QR Code! Serial number not found in system.'
-            : '❌ Invalid manual entry! Serial number not found in system.');
-      });
-    }
-
     return isValid;
   }
   Future<void> _showPhotoViewer(BuildContext context, String? photo, String siteAuditSchId) async {
@@ -468,61 +430,7 @@ class _SPVScreenState extends State<SPVScreen> {
 
 
   void _saveAndExit() async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      // Post SPV data to API first
       await _postSPVData();
-      
-      // Update audit schedule status
-      await _updateAuditScheduleStatus("In Progress");
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      // Navigate to home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
-      );
-    } catch (e) {
-      // Close loading dialog if it's open
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  Future<void> _updateAuditScheduleStatus(String status) async {
-    try {
-      print('Attempting to update status to: $status'); // Added for debugging
-      await context.read<AuditScheduleStatusCubit>().updateStatus(
-        status: status,
-        siteAuditSchId: widget.siteAuditSchId,
-      );
-      print('Status update call completed'); // Added for debugging
-    } catch (e) {
-      print('Error updating audit schedule status: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
-      );
-    }
   }
 
   int? _getRemarksAssetAuditSiteRespId() {
@@ -564,10 +472,6 @@ class _SPVScreenState extends State<SPVScreen> {
     return null;
   }
 
-  // Post data in background without waiting for refresh
-  void _postSPVDataInBackground() {
-    _postSPVData();
-  }
 
   Future<void> _postSPVData() async {
     try {
@@ -651,23 +555,7 @@ class _SPVScreenState extends State<SPVScreen> {
       return false;
     }
 
-    if (!_validateSerialNumber(spvSerialController.text, isQRCodeScanned)) {
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
-
-    if (spvSerialController.text.isEmpty) {
-      return false;
-    }
-
-    if (spvPhoto == null || spvPhoto!.isEmpty) {
+    if(spvStatus == null || spvStatus!.isEmpty) {
       return false;
     }
 
@@ -679,6 +567,11 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   void _saveSpvForm() async {
+    if (!_isFormInitialized) {
+      showCustomToast(context, '❌ Form is still loading, please wait...');
+      return;
+    }
+    
     if (_isFormValid()) {
       String? photoImageId = spvPhoto;
 
@@ -686,23 +579,18 @@ class _SPVScreenState extends State<SPVScreen> {
         try {
           final file = File(spvPhoto!);
           if (await file.exists()) {
-            print('📤 Uploading SPV photo: ${spvPhoto}');
             photoImageId = await _uploadSpvPhoto(file);
-            print('✅ SPV photo uploaded successfully, image ID: $photoImageId');
           } else {
-            print('❌ SPV photo file does not exist: ${spvPhoto}');
+            return;
           }
         } catch (e) {
-          print('❌ Error uploading SPV photo: $e');
           return;
         }
-      } else {
-        print('ℹ️ No SPV photo to upload or already has image ID');
       }
 
       setState(() {
         final currentFormData = {
-          'serialNumber': spvSerialNumber,
+          'serialNumber': spvSerialController.text, // Use controller text instead of spvSerialNumber
           'photo': photoImageId,
           'status': spvStatus ?? 'OK',
           'timestamp': DateTime.now(),
@@ -710,34 +598,48 @@ class _SPVScreenState extends State<SPVScreen> {
         };
 
         final existingItemIndex = savedSpvItems.indexWhere(
-              (item) => item['serialNumber'] == spvSerialNumber,
+              (item) => item['serialNumber'] == spvSerialController.text,
         );
 
         if (existingItemIndex >= 0) {
           savedSpvItems[existingItemIndex] = currentFormData;
-          print('Updated existing SPV item: ${currentFormData['serialNumber']}');
         } else {
           savedSpvItems.add(currentFormData);
-          currentScannedItems++;
-          print('Added new SPV item: ${currentFormData['serialNumber']}');
         }
-
-        print('Building SPV saved items list with ${savedSpvItems.length} items');
-        savedSpvItems.forEach((item) => print('Item: $item'));
 
         spvSerialNumber = null;
         spvPhoto = null;
         spvStatus = null;
-        lastValidatedSerial = null;
         spvSerialController.clear();
         spvCardKey++;
         hasUnsavedChanges = false;
         showValidationErrors = false;
+        _isFormInitialized = false; // Reset initialization flag
+        _onFormChanged();
       });
 
-      print('✅ SPV item saved successfully! Total items: ${savedSpvItems.length}');
+      // Re-initialize form after reset
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _isFormInitialized = true;
+      });
     } else {
-      print('❌ SPV form validation failed');
+      // Show validation errors to user
+      setState(() {
+        showValidationErrors = true;
+      });
+      
+      // Show specific error messages
+      if (spvSerialController.text.isEmpty) {
+        showCustomToast(context, '❌ Please enter a serial number');
+      } else if (spvPhoto == null || spvPhoto!.isEmpty) {
+        showCustomToast(context, '❌ Please take a photo');
+      } else if (spvStatus == null || spvStatus!.isEmpty) {
+        showCustomToast(context, '❌ Please select status');
+      } else if (!_validateSerialNumber(spvSerialController.text, isQRCodeScanned)) {
+        showCustomToast(context, isQRCodeScanned 
+            ? '❌ Invalid QR Code! Serial number not found in system.'
+            : '❌ Invalid serial number! Please check and try again.');
+      }
     }
   }
 
@@ -757,11 +659,11 @@ class _SPVScreenState extends State<SPVScreen> {
       spvSerialController.text = item['serialNumber'] ?? '';
       displayedImageBase64 = null; // Clear Base64 to avoid showing old image
       isLoadingImage = false; // Reset loading state
-      savedSpvItems.remove(item);
-      currentScannedItems--;
+      savedSpvItems.remove(item); // Remove item from saved list when editing
       // Don't set hasUnsavedChanges = true here - let _onFormChanged handle it
       spvCardKey++;
     });
+    _onFormChanged();
 
     // Load image asynchronously to avoid blocking UI
     if (spvPhoto != null && spvPhoto!.isNotEmpty && _isNumeric(spvPhoto!)) {
@@ -838,6 +740,7 @@ class _SPVScreenState extends State<SPVScreen> {
                   _isRequestingImage = false;
                   _currentRequestedImageId = null;
                 });
+                _onFormChanged();
 
                 print('SPV photo updated with final image data');
               } else {
@@ -848,6 +751,7 @@ class _SPVScreenState extends State<SPVScreen> {
                   _isRequestingImage = false;
                   _currentRequestedImageId = null;
                 });
+                _onFormChanged();
               }
             } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
               print('=== SPV Screen: Image fetch failed for requested image ===');
@@ -858,6 +762,7 @@ class _SPVScreenState extends State<SPVScreen> {
                 _isRequestingImage = false;
                 _currentRequestedImageId = null;
               });
+              _onFormChanged();
             }
           },
         ),
@@ -886,8 +791,20 @@ class _SPVScreenState extends State<SPVScreen> {
                     };
                   }).toList();
                   
-                  savedSpvItems = postedItems;
-                  currentScannedItems = savedSpvItems.length;
+                  // Only update savedSpvItems if we should update from API
+                  if (_shouldUpdateFromAPI) {
+                    // Preserve locally saved items that haven't been posted to API yet
+                    final localItems = savedSpvItems.where((item) => 
+                      item['assetAuditSiteRespId'] == null
+                    ).toList();
+                    
+                    // Combine API items with local items
+                    savedSpvItems = [...postedItems, ...localItems];
+
+                    // Set flag to false to prevent further updates unless explicitly needed
+                    _shouldUpdateFromAPI = false;
+                  }
+                  
                   // Only update remarks if user hasn't made changes
                   if (remarksController.text.isEmpty) {
                     remarksController.text = spvData.remarks.isNotEmpty
@@ -895,17 +812,14 @@ class _SPVScreenState extends State<SPVScreen> {
                         : '';
                   }
                 });
-                print('SPV items updated from API: ${savedSpvItems.length} items');
-                print('SPV savedSpvItems: $savedSpvItems');
-                print('SPV total assets: ${spvData.assets.length}');
-                print('SPV assets with photoId: ${spvData.assets.where((asset) => asset.photoId != null).length}');
-                print('SPV assets with assetAuditSiteRespId: ${spvData.assets.where((asset) => asset.assetAuditSiteRespId != null).length}');
-              } else {
+             } else {
                 print('SPV category not found in loaded data');
               }
             } else if (state is AssetAuditError) {
               showCustomToast(context, state.message);
             } else if (state is AssetAuditPostSuccess) {
+              // Allow update from API after successful post
+              _shouldUpdateFromAPI = true;
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: widget.siteType,
                 auditSchId: widget.auditSchId,
@@ -939,6 +853,7 @@ class _SPVScreenState extends State<SPVScreen> {
                     fetchedImageData = state.imageData;
                     _hasFormDataChanges = true;
                   });
+                  _onFormChanged();
 
                   _fetchingImage = false;
                   _fetchNextImage();
@@ -960,55 +875,34 @@ class _SPVScreenState extends State<SPVScreen> {
       ],
       child: PopScope(
         canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          print('SPV PopScope onPopInvoked - didPop: $didPop, hasUnsavedChanges: $hasUnsavedChanges');
-          if (didPop) return;
-
-          if (hasUnsavedChanges) {
-            print('SPV Showing UnsavedChangesDialog from PopScope');
-            showDialog(
-              context: context,
-              barrierDismissible: true,
-              builder: (context) => UnsavedChangesDialog(
-                message: _getCancelMessage(),
-                siteAuditSchId: widget.siteAuditSchId,
-                onSaveAndExit: () async {
-                  Navigator.of(context).pop(); // Close the dialog first
-                  _saveAndExit();
-                },
-                onDiscard: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            );
-          }
-        },
         child: Scaffold(
           extendBodyBehindAppBar: true,
           resizeToAvoidBottomInset: false,
           appBar: CustomFormAppbar(
             title: "Asset Audit",
             onClose: () async {
-              print('SPV AppBar onClose - hasUnsavedChanges: $hasUnsavedChanges');
               if (hasUnsavedChanges) {
-                print('SPV Showing UnsavedChangesDialog from AppBar');
                 showDialog(
                   context: context,
                   barrierDismissible: true,
-                  builder: (context) => UnsavedChangesDialog(
-                    message: _getCancelMessage(),
+                  builder: (dialogContext) => UnsavedChangesDialog(
                     siteAuditSchId: widget.siteAuditSchId,
-                    onSaveAndExit: () async {
-                      Navigator.of(context).pop(); // Close the dialog first
+                    section: "Asset Audit",
+                    parentContext: context, // Use the outer context (screen context)
+                    onSaveAndExit: () {
                       _saveAndExit();
                     },
                     onDiscard: () {
-                      Navigator.of(context).pop();
                     },
                   ),
                 );
               } else {
-                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => HomeScreen()
+                  ),
+                );
               }
             },
           ),
@@ -1098,21 +992,21 @@ class _SPVScreenState extends State<SPVScreen> {
                                   onPhotoTap: (photoPath) {
                                     setState(() {
                                       spvPhoto = photoPath;
-                                      hasUnsavedChanges = true;
                                     });
+                                    _onFormChanged();
                                   },
                                   onStatusChanged: (val) {
                                     setState(() {
                                       spvStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
                                     });
+                                    _onFormChanged();
                                   },
                                   onSerialChanged: (serialNumber) {
                                     setState(() {
                                       spvSerialNumber = serialNumber;
                                       isQRCodeScanned = false;
-                                      hasUnsavedChanges = true;
                                     });
+                                    _onFormChanged();
                                   },
                                   initialStatus: spvStatus == "OK"
                                       ? true
@@ -1177,7 +1071,7 @@ class _SPVScreenState extends State<SPVScreen> {
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
-                                        _postSPVDataInBackground();
+                                        await _postSPVData();
                                         _navigateToNextScreen(context, nextScreen);
                                       },
                                     );
@@ -1200,8 +1094,6 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   Widget _buildSpvSavedItemsList() {
-      savedSpvItems.forEach((item) => print('Item: $item'));
-    
     if (savedSpvItems.isEmpty) {
       return Container(); // Return empty container if no items
     }
@@ -1215,93 +1107,87 @@ class _SPVScreenState extends State<SPVScreen> {
             color: AppColors.green7,
             borderRadius: BorderRadius.circular(5),
           ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Serial No.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                  Container(
+                    width: 200,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: const Text(
+                      "Serial No.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Status",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: const Text(
+                      "Status",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Scanned",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: const Text(
+                      "Scanned",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Photo",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: const Text(
+                      "Photo",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Edit",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  Container(
+                    width: 80,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: const Text(
+                      "Edit",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontFamily: fontFamilyMontserrat,
+                        fontWeight: FontWeight.w400,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -1321,11 +1207,12 @@ class _SPVScreenState extends State<SPVScreen> {
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Expanded(
+                        Container(
+                          width: 200,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Text(
-                            _formatSerialNumber(item["serialNumber"] ?? ""),
+                            item["serialNumber"] ?? "",
                             style: const TextStyle(
                               color: AppColors.color555555,
                               fontSize: 14,
@@ -1334,7 +1221,9 @@ class _SPVScreenState extends State<SPVScreen> {
                             ),
                           ),
                         ),
-                        Expanded(
+                        Container(
+                          width: 80,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Text(
                             item["status"] ?? "",
                             style: const TextStyle(
@@ -1345,7 +1234,9 @@ class _SPVScreenState extends State<SPVScreen> {
                             ),
                           ),
                         ),
-                        Expanded(
+                        Container(
+                          width: 80,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: Icon(
                             item['isQRCodeScanned'] == true
                                 ? Icons.qr_code_scanner
@@ -1355,7 +1246,9 @@ class _SPVScreenState extends State<SPVScreen> {
                                 : Colors.red,
                           ),
                         ),
-                        Expanded(
+                        Container(
+                          width: 80,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: IconButton(
                             icon: Icon(
                               Icons.camera_alt,
@@ -1370,7 +1263,9 @@ class _SPVScreenState extends State<SPVScreen> {
                                 : null,
                           ),
                         ),
-                        Expanded(
+                        Container(
+                          width: 80,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
                           child: IconButton(
                             icon: const Icon(
                               Icons.edit_calendar_outlined,
@@ -1386,7 +1281,8 @@ class _SPVScreenState extends State<SPVScreen> {
                   );
                 }).toList(),
               ],
-            ],
+              ],
+            ),
           ),
         ),
       ],

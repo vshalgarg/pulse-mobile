@@ -68,7 +68,7 @@
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
-        android:label="base_project"
+        android:label="Pulse Mobile"
         android:requestLegacyExternalStorage="true"
         tools:replace="android:label">
 
