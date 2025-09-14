@@ -293,8 +293,8 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         barrierDismissible: false,
         barrierColor: Colors.black54,
         builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message: "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
+          ticketId: widget.siteAuditSchId,
+          message: "Asset Audit for Site (ID: ${widget.siteAuditSchId}) has been recorded and saved.",
           onDone: () {
             Navigator.of(context).pop();
             Navigator.of(context).pop();
@@ -462,41 +462,29 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
 
     return PopScope(
       canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => UnsavedChangesDialog(
-              message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: _saveAndExit,
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
+     
       child: Scaffold(
         extendBodyBehindAppBar: true,
         resizeToAvoidBottomInset: true, // Allow resizing for keyboard
         appBar: CustomFormAppbar(
           title: "Asset Audit",
           onClose: () async {
-            if (hasUnsavedChanges) {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: _saveAndExit,
-                  onDiscard: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              );
-            } else {
+        if (hasUnsavedChanges) {
+          showDialog(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => UnsavedChangesDialog(
+              siteAuditSchId: widget.siteAuditSchId,
+              section: "Asset Audit",
+              parentContext: context, // Use the outer context (screen context)
+              onSaveAndExit: () {
+                _saveAndExit();
+              },
+              onDiscard: () {
+              },
+            ),
+          );
+        } else {
               Navigator.pop(context);
             }
           },
