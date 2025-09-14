@@ -228,7 +228,7 @@ class _SCADAScreenState extends State<SCADAScreen> {
     });
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
       await _postScadaData();
@@ -863,8 +863,8 @@ class _SCADAScreenState extends State<SCADAScreen> {
               barrierDismissible: false,
               builder: (context) => UnsavedChangesDialog(
                 message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
-                onSaveAndExit: () {
-                  _saveAndExit();
+                onSaveAndExit: () async {
+                  await _saveAndExit();
                 },
                 onDiscard: () {
                   Navigator.of(context).pop();
@@ -885,8 +885,8 @@ class _SCADAScreenState extends State<SCADAScreen> {
                   barrierDismissible: false,
                   builder: (context) => UnsavedChangesDialog(
                     message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
                     },
                     onDiscard: () {
                       Navigator.of(context).pop();
@@ -1039,7 +1039,7 @@ class _SCADAScreenState extends State<SCADAScreen> {
                                   if (nextScreen != null) {
                                     _navigateToNextScreen(context, nextScreen);
                                   } else {
-                                    _saveAndExit();
+                                    await _saveAndExit();
                                   }
                                 },
                               ),

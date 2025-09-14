@@ -7,7 +7,7 @@ import 'package:app/bloc/audit_schedule_status_cubit.dart';
 
 class UnsavedChangesDialog extends StatelessWidget {
   final String? message;
-  final VoidCallback onSaveAndExit;
+  final Future<void> Function() onSaveAndExit;
   final VoidCallback onDiscard;
   final String? siteAuditSchId;
   final String? section;
@@ -26,7 +26,7 @@ class UnsavedChangesDialog extends StatelessWidget {
   void _saveAndExit(BuildContext context) async {
     // Close the dialog first
     Navigator.of(context).pop();
-    
+    await onSaveAndExit();
     // Use parentContext if available, otherwise use the dialog context
     final contextToUse = parentContext ?? context;
     
@@ -58,9 +58,6 @@ class UnsavedChangesDialog extends StatelessWidget {
       // Fallback message if API call fails
       _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
     }
-
-    // Call the original callback
-    onSaveAndExit();
   }
 
   void _showSuccessDialogWithMessage(BuildContext context, String message) {

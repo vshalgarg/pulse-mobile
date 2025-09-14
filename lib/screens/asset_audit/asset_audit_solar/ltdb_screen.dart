@@ -147,34 +147,38 @@ class _LTDBScreenState extends State<LTDBScreen> {
           if (savedLtdbItems.isEmpty) {
             // Load items that have been successfully posted to API AND have user interaction
             // (either photo taken or serial number entered - regardless of QR scan or manual entry)
-            setState(() {
-              final postedItems = ltdbData.assets.where((asset) =>
-              asset.assetAuditSiteRespId != null &&
-                  asset.photoId != null
-              ).map((asset) {
-                return {
-                  'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
-                  'photo': asset.photoId?.toString(),
-                  'status': asset.assetStatus ?? 'OK',
-                  'isQRCodeScanned': asset.qrCodeScanned ?? false,
-                  'timestamp': DateTime.now(),
-                  'assetAuditSiteRespId': asset.assetAuditSiteRespId,
-                };
-              }).toList();
+            if (mounted) {
+              setState(() {
+                final postedItems = ltdbData.assets.where((asset) =>
+                asset.assetAuditSiteRespId != null &&
+                    asset.photoId != null
+                ).map((asset) {
+                  return {
+                    'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
+                    'photo': asset.photoId?.toString(),
+                    'status': asset.assetStatus ?? 'OK',
+                    'isQRCodeScanned': asset.qrCodeScanned ?? false,
+                    'timestamp': DateTime.now(),
+                    'assetAuditSiteRespId': asset.assetAuditSiteRespId,
+                  };
+                }).toList();
 
-              savedLtdbItems = postedItems;
-              currentScannedItems = savedLtdbItems.length;
-              print('LTDB: Loaded ${savedLtdbItems.length} items from API in didChangeDependencies (list was empty)');
-            });
+                savedLtdbItems = postedItems;
+                currentScannedItems = savedLtdbItems.length;
+                print('LTDB: Loaded ${savedLtdbItems.length} items from API in didChangeDependencies (list was empty)');
+              });
+            }
           } else {
             print('LTDB: Skipping API load in didChangeDependencies, ${savedLtdbItems.length} items already saved by user');
           }
 
           // Only initialize remarks from API if user hasn't made changes
           if (ltdbData.remarks.isNotEmpty && remarksController.text.isEmpty) {
-            setState(() {
-              remarksController.text = ltdbData.remarks.first.itemTypeRemark ?? '';
-            });
+            if (mounted) {
+              setState(() {
+                remarksController.text = ltdbData.remarks.first.itemTypeRemark ?? '';
+              });
+            }
           }
         } else {
           print('No LTDB assets found in API data');
@@ -500,7 +504,7 @@ class _LTDBScreenState extends State<LTDBScreen> {
   }
 
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       // Show loading dialog
       showDialog(
@@ -904,16 +908,31 @@ class _LTDBScreenState extends State<LTDBScreen> {
                 // Cache the image for future use
                 _imageCache[_currentRequestedImageId!] = finalImageData;
                 
-                setState(() {
-                  ltdbPhoto = finalImageData;
-                  ltdbCardKey++;
-                  _isRequestingImage = false;
-                  _currentRequestedImageId = null;
-                });
+                if (mounted) {
+                  setState(() {
+                    ltdbPhoto = finalImageData;
+                    ltdbCardKey++;
+                    _isRequestingImage = false;
+                    _currentRequestedImageId = null;
+                  });
+                }
 
                 print('LTDB photo updated with final image data and cached');
               } else {
                 print('LTDB Screen: Received empty image data');
+                if (mounted) {
+                  setState(() {
+                    ltdbPhoto = null;
+                    ltdbCardKey++;
+                    _isRequestingImage = false;
+                    _currentRequestedImageId = null;
+                  });
+                }
+              }
+            } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
+              print('=== LTDB Screen: Image fetch failed for requested image ===');
+              print('Error: ${state.errorMessage}');
+              if (mounted) {
                 setState(() {
                   ltdbPhoto = null;
                   ltdbCardKey++;
@@ -921,15 +940,6 @@ class _LTDBScreenState extends State<LTDBScreen> {
                   _currentRequestedImageId = null;
                 });
               }
-            } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
-              print('=== LTDB Screen: Image fetch failed for requested image ===');
-              print('Error: ${state.errorMessage}');
-              setState(() {
-                ltdbPhoto = null;
-                ltdbCardKey++;
-                _isRequestingImage = false;
-                _currentRequestedImageId = null;
-              });
             }
           },
         ),
@@ -938,7 +948,7 @@ class _LTDBScreenState extends State<LTDBScreen> {
             if (state is AssetAuditLoaded) {
               print('=== LTDB Screen: AssetAuditLoaded ===');
               final ltdbData = state.assetAuditData.responseData.categories['LTDB'];
-                if (ltdbData != null) {
+                if (ltdbData != null && mounted) {
                   setState(() {
                     totalLtdbItems = ltdbData.assets.length;
 
@@ -1008,10 +1018,12 @@ class _LTDBScreenState extends State<LTDBScreen> {
                     newImageData: state.imageData,
                   );
 
-                  setState(() {
-                    fetchedImageData = state.imageData;
-                    _hasFormDataChanges = true;
-                  });
+                  if (mounted) {
+                    setState(() {
+                      fetchedImageData = state.imageData;
+                      _hasFormDataChanges = true;
+                    });
+                  }
 
                   _fetchingImage = false;
                   _fetchNextImage();
@@ -1044,7 +1056,7 @@ class _LTDBScreenState extends State<LTDBScreen> {
                 message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
                 onSaveAndExit: () async {
                   Navigator.of(context).pop();
-                  _saveAndExit();
+                  await _saveAndExit();
                 },
                 onDiscard: () {
                   Navigator.of(context).pop();
@@ -1067,7 +1079,7 @@ class _LTDBScreenState extends State<LTDBScreen> {
                     message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
                     onSaveAndExit: () async {
                       Navigator.of(context).pop();
-                      _saveAndExit();
+                      await _saveAndExit();
                     },
                     onDiscard: () {
                       Navigator.of(context).pop();

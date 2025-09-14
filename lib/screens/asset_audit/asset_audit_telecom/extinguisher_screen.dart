@@ -650,7 +650,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
 
@@ -2078,8 +2078,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
               builder: (context) => UnsavedChangesDialog(
                 message:
                     "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                onSaveAndExit: () {
-                  _saveAndExit();
+                onSaveAndExit: () async {
+                  await _saveAndExit();
                 },
                 onDiscard: () {
                   Navigator.of(context).pop();
@@ -2101,8 +2101,8 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                   builder: (context) => UnsavedChangesDialog(
                     message:
                         "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
                     },
                     onDiscard: () {
                       Navigator.of(context).pop();

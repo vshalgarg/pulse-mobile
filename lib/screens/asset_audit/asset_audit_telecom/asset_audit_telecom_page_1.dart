@@ -283,7 +283,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     _saveFormDataToHive();
     Navigator.of(context).pop();
     await Future.delayed(const Duration(milliseconds: 200));

@@ -85,13 +85,6 @@ class _MMSScreenState extends State<MMSScreen> {
       final mmsData = widget.assetAuditData!.responseData.categories['MMS'];
       if (mmsData != null) {
         totalMmsItems = mmsData.assets.length;
-        print('MMS total items from API: $totalMmsItems');
-        print('MMS data received: ${mmsData.assets.length} assets');
-        if (mmsData.assets.isNotEmpty) {
-          print('First MMS asset: ${mmsData.assets.first.oemName}');
-          print('First MMS asset type: ${mmsData.assets.first.itemType}');
-          print('First MMS asset capacity: ${mmsData.assets.first.capacity}');
-        }
       } else {
         print('MMS category not found in asset audit data!');
       }
@@ -134,11 +127,27 @@ class _MMSScreenState extends State<MMSScreen> {
     // No Hive storage - data is only stored in memory and posted to API
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       await _postMMSData();
+      // Add a small delay before navigation to prevent Navigator lock
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomeScreen()),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving data: $e'), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving data: $e'), 
+            backgroundColor: Colors.red
+          )
+        );
+      }
     }
   }
 
@@ -279,20 +288,27 @@ class _MMSScreenState extends State<MMSScreen> {
                     siteAuditSchId: widget.siteAuditSchId,
                     section: "Asset Audit",
                     parentContext: context, // Use the outer context (screen context)
-                    onSaveAndExit: () {
-                      _saveAndExit();
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
                     },
                     onDiscard: () {
                     },
                   ),
                 );
               } else {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => HomeScreen()
-                  ),
-                );
+                // Add safety checks to prevent Navigator lock
+                if (mounted && Navigator.of(context).canPop()) {
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    if (mounted) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => HomeScreen()
+                        ),
+                      );
+                    }
+                  });
+                }
               }
         },
       ),
@@ -367,12 +383,24 @@ class _MMSScreenState extends State<MMSScreen> {
                             isLeftArrow: true,
                             backgroundColor: AppColors.buttonColorBackBg,
                             textColor: AppColors.buttonColorTextBg,
-                            onPressed: () {
+                            onPressed: () async {
                               final previousScreen = AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'MMS');
                               if (previousScreen != null) {
-                                _navigateToNextScreen(context, previousScreen);
+                                // Add safety checks for navigation
+                                if (mounted) {
+                                  await Future.delayed(const Duration(milliseconds: 100));
+                                  if (mounted) {
+                                    _navigateToNextScreen(context, previousScreen);
+                                  }
+                                }
                               } else {
-                                Navigator.pop(context);
+                                // Add safety checks for pop navigation
+                                if (mounted && Navigator.of(context).canPop()) {
+                                  await Future.delayed(const Duration(milliseconds: 100));
+                                  if (mounted) {
+                                    Navigator.pop(context);
+                                  }
+                                }
                               }
                             },
                           ),
@@ -385,27 +413,45 @@ class _MMSScreenState extends State<MMSScreen> {
                             backgroundColor: AppColors.buttonColorBg,
                             textColor: AppColors.buttonColorSite,
                             onPressed: () async {
-                              // Show loading indicator
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (context) => const Center(
-                                  child: CircularProgressIndicator(),
-                                ),
-                              );
+                              try {
+                                // Show loading indicator
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) => const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
 
-                              // Post data before navigating
-                              await _postMMSData();
+                                // Post data before navigating
+                                await _postMMSData();
 
-                              // Hide loading indicator
-                              Navigator.of(context).pop();
-
-                              final nextScreen = _getNextAvailableScreen();
-                              if (nextScreen != null) {
-                                _navigateToNextScreen(context, nextScreen);
-                              } else {
-                                // All screens completed, show success dialog
-                                _saveAndExit();
+                                // Hide loading indicator with a small delay to ensure it's properly dismissed
+                                if (mounted) {
+                                  Navigator.of(context).pop();
+                                  
+                                  // Add a small delay to prevent Navigator lock
+                                  await Future.delayed(const Duration(milliseconds: 100));
+                                  
+                                  final nextScreen = _getNextAvailableScreen();
+                                  if (nextScreen != null) {
+                                    _navigateToNextScreen(context, nextScreen);
+                                  } else {
+                                    // All screens completed, show success dialog
+                                    await _saveAndExit();
+                                  }
+                                }
+                              } catch (e) {
+                                // Hide loading indicator if there's an error
+                                if (mounted) {
+                                  Navigator.of(context).pop();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Error: $e'),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
                               }
                             },
                           ),

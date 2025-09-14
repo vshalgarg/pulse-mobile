@@ -113,10 +113,15 @@ class AssetAuditNavigationHelper {
     
     final currentIndex = _solarScreenOrder.indexOf(currentScreen);
     
-    if (currentIndex == -1 || currentIndex >= _solarScreenOrder.length - 1) return null;
-    
+    if (currentIndex < 0 || currentIndex >= _solarScreenOrder.length - 1) return null;
+    String screenName = _solarScreenOrder[currentIndex + 1];
+    if(assetAuditData == null || assetAuditData.responseData == null || assetAuditData.responseData.categories == null
+      || assetAuditData.responseData.categories.isEmpty || assetAuditData.responseData.categories[screenName] == null) {
+      return getNextAvailableScreen(assetAuditData, screenName);
+    }
+
     // Return the immediate next screen in the flow
-    return _solarScreenOrder[currentIndex + 1];
+    return screenName;
   }
 
   /// Get the previous available screen based on data availability (SOLAR)
@@ -126,9 +131,15 @@ class AssetAuditNavigationHelper {
     final currentIndex = _solarScreenOrder.indexOf(currentScreen);
     
     if (currentIndex <= 0) return null; // First screen or not found
-    
-    // Return the immediate previous screen in the flow
-    return _solarScreenOrder[currentIndex - 1];
+
+    String screenName = _solarScreenOrder[currentIndex - 1];
+    if(assetAuditData == null || assetAuditData.responseData == null || assetAuditData.responseData.categories == null
+        || assetAuditData.responseData.categories.isEmpty || assetAuditData.responseData.categories[screenName] == null) {
+      return getPreviousAvailableScreen(assetAuditData, screenName);
+    }
+
+    // Return the immediate next screen in the flow
+    return screenName;
   }
 
   /// Get the previous screen name for back button text (SOLAR)

@@ -208,7 +208,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
     return isValid;
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
       await _postSurveillanceData();
@@ -908,7 +908,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
                                       if (nextScreen != null) {
                                         _navigateToNextScreen(context, nextScreen);
                                       } else {
-                                        _saveAndExit();
+                                        await _saveAndExit();
                                       }
                                     },
                                   );

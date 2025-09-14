@@ -86,8 +86,6 @@ class _InvertorScreenState extends State<InvertorScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print('=== Invertor didChangeDependencies called ===');
-
     context.read<AssetAuditCubit>().getAssetAuditData(
       siteType: widget.siteType,
       auditSchId: widget.auditSchId,
@@ -260,62 +258,9 @@ class _InvertorScreenState extends State<InvertorScreen> {
     }
   }
 
-  void _saveAndExit() async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
+  Future<void> _saveAndExit() async {
       // Post Invertor data to API first
       await _postInvertorData();
-      
-      // Update audit schedule status
-      await _updateAuditScheduleStatus("In Progress");
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      // Navigate to home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
-      );
-    } catch (e) {
-      // Close loading dialog if it's open
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  Future<void> _updateAuditScheduleStatus(String status) async {
-    try {
-      print('Attempting to update status to: $status'); // Added for debugging
-      await context.read<AuditScheduleStatusCubit>().updateStatus(
-        status: status,
-        siteAuditSchId: widget.siteAuditSchId,
-      );
-      print('Status update call completed'); // Added for debugging
-    } catch (e) {
-      print('Error updating audit schedule status: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
-      );
-    }
   }
 
   // Helper method to get the next available screen based on data availability
@@ -349,7 +294,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
-        
+
         if (savedInvertorItems.isNotEmpty) {
           // Enhance saved items with additional data
           final enhancedItems = AssetAuditPostHelper.enhanceSavedItems(
@@ -541,7 +486,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
                 });
                 return;
               }
-              
+
               final assetAuditState = context.read<AssetAuditCubit>().state;
               if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
                 final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
@@ -571,7 +516,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
               }
             } else if (state is AssetAuditGetImageFailure) {
               print('Failed to load Invertor image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}');
-              
+
               // Handle edit case failure
               if (_isRequestingImage && _currentRequestedImageId != null) {
                 setState(() {
@@ -580,7 +525,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
                 });
                 return;
               }
-              
+
               await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'invertor');
             }
           },
@@ -588,27 +533,6 @@ class _InvertorScreenState extends State<InvertorScreen> {
       ],
       child: PopScope(
         canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          if (didPop) return;
-
-          if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message:
-                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                onSaveAndExit: () async {
-                  Navigator.of(context).pop(); // Close the dialog first
-                  _saveAndExit();
-                },
-                onDiscard: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            );
-          }
-        },
         child: Scaffold(
           extendBodyBehindAppBar: true,
           resizeToAvoidBottomInset: false,
@@ -618,21 +542,26 @@ class _InvertorScreenState extends State<InvertorScreen> {
               if (hasUnsavedChanges) {
                 showDialog(
                   context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message:
-                        "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                  barrierDismissible: true,
+                  builder: (dialogContext) => UnsavedChangesDialog(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    section: "Asset Audit",
+                    parentContext: context, // Use the outer context (screen context)
                     onSaveAndExit: () async {
-                      Navigator.of(context).pop(); // Close the dialog first
-                      _saveAndExit();
+                      await _saveAndExit();
                     },
                     onDiscard: () {
-                      Navigator.of(context).pop();
                     },
                   ),
                 );
               } else {
-                Navigator.pop(context);
+                // Add safety checks to prevent Navigator lock
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => HomeScreen()
+                  ),
+                );
               }
             },
           ),
@@ -825,10 +754,10 @@ class _InvertorScreenState extends State<InvertorScreen> {
                                       onPressed: () async {
                                         print('=== Invertor Navigation to $nextScreen ===');
                                         print('Passing asset audit data: ${widget.assetAuditData != null}');
-                                        
+
                                         _saveFormDataToHive();
                                         await _postInvertorData();
-                                        
+
                                         // Navigate to the next available screen
                                         _navigateToNextScreen(context, nextScreen);
                                       },

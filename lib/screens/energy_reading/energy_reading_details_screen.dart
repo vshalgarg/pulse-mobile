@@ -426,7 +426,7 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
 
@@ -839,8 +839,8 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
             barrierDismissible: true,
             builder: (context) => UnsavedChangesDialog(
               message: "Do you want to save the current data and exit, or discard all changes?",
-              onSaveAndExit: () {
-                _saveAndExit();
+              onSaveAndExit: () async {
+                await _saveAndExit();
               },
               onDiscard: () {
                 Navigator.of(context).pop();
@@ -861,8 +861,8 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
                 barrierDismissible: false,
                 builder: (context) => UnsavedChangesDialog(
                   message: "Do you want to save the current data and exit, or discard all changes?",
-                  onSaveAndExit: () {
-                    _saveAndExit();
+                  onSaveAndExit: () async {
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();

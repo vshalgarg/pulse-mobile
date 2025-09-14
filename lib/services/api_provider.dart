@@ -14,6 +14,7 @@ class ApiProvider {
   final String baseUrl;
   var boxes = Hive.box(HiveConstant.userCreds);
   GlobalLoadingCubit? _loadingCubit;
+  bool _isLoadingShown = false;
 
   final Dio _dio = Dio();
 
@@ -54,7 +55,8 @@ class ApiProvider {
           }
           
           // Show loading indicator for non-auth endpoints
-          if (!isAuthEndpoint && _loadingCubit != null) {
+          if (!isAuthEndpoint && _loadingCubit != null && !_isLoadingShown) {
+            _isLoadingShown = true;
             _loadingCubit!.showLoading(message: 'Loading...');
           }
           
@@ -62,14 +64,16 @@ class ApiProvider {
         },
         onResponse: (response, handler) async {
           // Hide loading indicator
-          if (_loadingCubit != null) {
+          if (_loadingCubit != null && _isLoadingShown) {
+            _isLoadingShown = false;
             _loadingCubit!.hideLoading();
           }
           return handler.next(response);
         },
         onError: (DioException e, handler) async {
           // Hide loading indicator on error
-          if (_loadingCubit != null) {
+          if (_loadingCubit != null && _isLoadingShown) {
+            _isLoadingShown = false;
             _loadingCubit!.hideLoading();
           }
           

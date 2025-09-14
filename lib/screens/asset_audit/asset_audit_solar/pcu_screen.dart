@@ -4,21 +4,15 @@ import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:io';
-import 'dart:async';
 
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
-import '../../../bloc/asset_audit_photo_upload_cubit.dart';
-import '../../../bloc/asset_audit_get_image_cubit.dart';
-import '../../../bloc/audit_schedule_status_cubit.dart';
 import '../../../models/asset_audit_post_model.dart';
-import 'dart:convert';
-import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -48,28 +42,11 @@ class _PCUScreenState extends State<PCUScreen> {
   final TextEditingController serialController = TextEditingController();
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false;
-  String? pcuSerialNumber;
-  String? pcuPhoto;
-  String? pcuStatus;
   final remarksController = TextEditingController();
   final ratingController = TextEditingController();
-  int pcuCardKey = 0;
   List<Map<String, dynamic>> savedPcuItems = [];
   bool isQRCodeScanned = false;
   String? lastValidatedSerial;
-
-  String? uploadedPhotoPath;
-  String? uploadedImgId;
-  String? fetchedImageData;
-  bool isLoadingImage = false;
-  List<Map<String, String>> _imageQueue = [];
-  bool _fetchingImage = false;
-  String? _lastRequestedPhotoId;
-  Map<String, int> _retryCounts = {};
-  
-  // Image loading tracking to prevent repeated processing
-  String? _currentRequestedImageId;
-  bool _isRequestingImage = false;
 
   final TextEditingController pcuSerialController = TextEditingController();
 
@@ -105,52 +82,57 @@ class _PCUScreenState extends State<PCUScreen> {
   }
 
   void _loadExistingData() {
-    if (widget.assetAuditData != null) {
-      final pcuData = widget.assetAuditData!.responseData.categories['Invertor'];
-      if (pcuData != null && pcuData.assets.isNotEmpty) {
-        setState(() {
-          savedPcuItems = pcuData.assets
-              .where((asset) => asset.photoId != null && asset.photoId.toString().isNotEmpty)
-              .map((asset) => {
-            'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
-            'photo': asset.photoId?.toString(),
-            'status': asset.assetStatus ?? 'OK',
-            'rating': asset.itemTypeRemark ?? '',
-            'isQRCodeScanned': asset.qrCodeScanned ?? false,
-            'timestamp': DateTime.now(),
-            'assetAuditSiteRespId': asset.assetAuditSiteRespId,
-          })
-              .toList();
-          // Only load remarks from API if user hasn't made changes
-          if (pcuData.remarks.isNotEmpty && remarksController.text.isEmpty) {
-            remarksController.text = pcuData.remarks.first.itemTypeRemark ?? '';
-          }
-          fetchedImageData = null; // Reset to prevent default image display
-          pcuPhoto = null;
-        });
-      }
+    if (widget.assetAuditData == null) return;
+    
+    final pcuData = widget.assetAuditData!.responseData.categories['Invertor'];
+    if (pcuData == null || pcuData.assets.isEmpty) return;
+
+    // Load saved items without unnecessary setState
+    final newSavedItems = pcuData.assets
+        .where((asset) => asset.photoId != null && asset.photoId.toString().isNotEmpty)
+        .map((asset) => {
+      'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
+      'photo': asset.photoId?.toString(),
+      'status': asset.assetStatus ?? 'OK',
+      'rating': asset.itemTypeRemark ?? '',
+      'isQRCodeScanned': asset.qrCodeScanned ?? false,
+      'timestamp': DateTime.now(),
+      'assetAuditSiteRespId': asset.assetAuditSiteRespId,
+    }).toList();
+
+    // Only update state if data actually changed
+    if (newSavedItems.length != savedPcuItems.length) {
+      setState(() {
+        savedPcuItems = newSavedItems;
+      });
+    } else {
+      savedPcuItems = newSavedItems;
+    }
+
+    // Load remarks only if needed
+    if (pcuData.remarks.isNotEmpty && remarksController.text.isEmpty) {
+      remarksController.text = pcuData.remarks.first.itemTypeRemark ?? '';
     }
   }
 
   void _onFormChanged() {
-    setState(() {
-      hasUnsavedChanges = pcuSerialController.text.isNotEmpty ||
-          ratingController.text.isNotEmpty ||
-          remarksController.text.isNotEmpty ||
-          pcuPhoto != null ||
-          uploadedPhotoPath != null ||
-          uploadedImgId != null;
+    final newHasUnsavedChanges = pcuSerialController.text.isNotEmpty ||
+        ratingController.text.isNotEmpty ||
+        remarksController.text.isNotEmpty;
 
-      if (showValidationErrors && _isFormValid()) {
-        showValidationErrors = false;
-      }
-    });
+    final newShowValidationErrors = showValidationErrors && _isFormValid() ? false : showValidationErrors;
+
+    // Only update state if values actually changed
+    if (hasUnsavedChanges != newHasUnsavedChanges || showValidationErrors != newShowValidationErrors) {
+      setState(() {
+        hasUnsavedChanges = newHasUnsavedChanges;
+        showValidationErrors = newShowValidationErrors;
+      });
+    }
   }
 
   bool _isFormValid() {
     return pcuSerialController.text.isNotEmpty &&
-        pcuPhoto != null &&
-        pcuPhoto!.isNotEmpty &&
         ratingController.text.isNotEmpty &&
         _validateSerialNumber(pcuSerialController.text, isQRCodeScanned);
   }
@@ -172,226 +154,25 @@ class _PCUScreenState extends State<PCUScreen> {
     return isValid;
   }
 
-  void _saveAndExit() async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      // Post PCU data to API first
-      await _postPcuData();
-      
-      // Update audit schedule status
-      await _updateAuditScheduleStatus("In Progress");
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      // Navigate to home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-          //     TicketScreen(
-          //   auditName: "PM",
-          //   status: "In Progress",
-          // ),
-        ),
-      );
-    } catch (e) {
-      // Close loading dialog if it's open
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-  Future<void> _updateAuditScheduleStatus(String status) async {
-    try {
-      print('Attempting to update status to: $status'); // Added for debugging
-      await context.read<AuditScheduleStatusCubit>().updateStatus(
-        status: status,
-        siteAuditSchId: widget.siteAuditSchId,
-      );
-      print('Status update call completed'); // Added for debugging
-    } catch (e) {
-      print('Error updating audit schedule status: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $e')),
-      );
-    }
+  bool _validatePCUSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    return _validateSerialNumber(serialNumber, isQRCodeScanned);
   }
 
-  void _savePcuForm() async {
-    if (savedPcuItems.length >= totalPcuItems) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Maximum number of PCU items ($totalPcuItems) already added.',
-            style: const TextStyle(color: Colors.white, fontSize: 14, fontFamily: fontFamilyMontserrat),
-          ),
-          backgroundColor: AppColors.errorColor,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    if (_isFormValid()) {
-      String? photoImageId = pcuPhoto;
-      if (pcuPhoto != null && !_isNumeric(pcuPhoto!) && !pcuPhoto!.startsWith('data:image/')) {
-        try {
-          final file = File(pcuPhoto!);
-          if (await file.exists()) {
-            photoImageId = await _uploadPcuPhoto(file);
-            if (photoImageId == null) return;
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Photo file does not exist.'),
-                backgroundColor: Colors.red,
-                duration: Duration(seconds: 3),
-              ),
-            );
-            return;
-          }
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error uploading photo: $e'),
-              backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-          return;
-        }
-      }
-
-      setState(() {
-        final currentFormData = {
-          'serialNumber': pcuSerialNumber,
-          'photo': photoImageId,
-          'status': pcuStatus ?? "OK",
-          'rating': ratingController.text.trim(),
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': isQRCodeScanned,
-        };
-        savedPcuItems.add(currentFormData);
-        pcuSerialNumber = null;
-        pcuPhoto = null;
-        pcuStatus = null;
-        isQRCodeScanned = false;
-        pcuSerialController.clear();
-        ratingController.clear();
-        uploadedPhotoPath = null;
-        uploadedImgId = null;
-        fetchedImageData = null;
-        pcuCardKey++;
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
-      });
-
-      final remainingPcu = totalPcuItems - savedPcuItems.length;
-    } else {
-      setState(() {
-        showValidationErrors = true;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill in all required fields (Serial Number, Photo, and Rating)'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  String _formatSerialNumber(String serialNumber) {
-    if (serialNumber.length <= 7) return serialNumber;
-    return "${serialNumber.substring(0, 5)}...";
-  }
-
-  void _editItem(Map<String, dynamic> item) {
+  void _onPCUItemSaved(List<Map<String, dynamic>> updatedItems) {
     setState(() {
-      pcuSerialNumber = item["serialNumber"];
-      pcuPhoto = item["photo"];
-      pcuStatus = item["status"];
-      isQRCodeScanned = item["isQRCodeScanned"] ?? false;
-      pcuSerialController.text = item["serialNumber"] ?? "";
-      ratingController.text = item["rating"] ?? "";
-      isLoadingImage = false;
-      savedPcuItems.remove(item);
+      savedPcuItems = List.from(updatedItems);
       hasUnsavedChanges = true;
-      pcuCardKey++;
     });
-
-    if (item["photo"] != null && _isNumeric(item["photo"])) {
-      setState(() {
-        _currentRequestedImageId = item["photo"];
-        _isRequestingImage = true;
-        isLoadingImage = true;
-        fetchedImageData = null; // Clear before fetching
-      });
-      context.read<AssetAuditGetImageCubit>().getImage(
-        imgId: item["photo"],
-        schId: widget.siteAuditSchId,
-      );
-    }
-
   }
 
-  bool _isNumeric(String str) {
-    return int.tryParse(str) != null;
+  Future<void> _saveAndExit() async {
+      await _postPcuData();
   }
 
-  Future<String?> _uploadPcuPhoto(File file) async {
-    try {
-      final imgIdToUse = "0";
-      final completer = Completer<String?>();
-      late StreamSubscription subscription;
-      subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
-        if (state is AssetAuditPhotoUploadSuccess) {
-          subscription.cancel();
-          completer.complete(state.response.imgId);
-        } else if (state is AssetAuditPhotoUploadFailure) {
-          subscription.cancel();
-          completer.completeError(state.errorMessage);
-        }
-      });
-      context.read<AssetAuditPhotoUploadCubit>().uploadPhoto(
-        file: file,
-        imgId: imgIdToUse,
-        schId: widget.siteAuditSchId,
-      );
-      return await completer.future.timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          subscription.cancel();
-          throw Exception('Photo upload timeout');
-        },
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error uploading photo: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      return null;
-    }
-  }
+
+
+
+
 
 
   String _formatDateForApi(DateTime dateTime) {
@@ -408,20 +189,9 @@ class _PCUScreenState extends State<PCUScreen> {
         String? photoId = item['photo'];
         int? numericPhotoId;
         if (photoId != null) {
-          if (_isNumeric(photoId)) {
-            numericPhotoId = int.tryParse(photoId);
-          } else if (!photoId.startsWith('data:image/')) {
-            final file = File(photoId);
-            if (await file.exists()) {
-              photoId = await _uploadPcuPhoto(file);
-              numericPhotoId = photoId != null ? int.tryParse(photoId) : null;
-              if (numericPhotoId == null) continue;
-            } else {
-              continue;
-            }
-          } else {
-            continue; // Skip base64 images, as they need to be uploaded
-          }
+          // The component handles photo uploads, so we expect numeric IDs
+          numericPhotoId = int.tryParse(photoId);
+          if (numericPhotoId == null) continue;
         }
         allItemsToPost.add({
           'assetAuditSiteRespId': (item['assetAuditSiteRespId'] is int) ? item['assetAuditSiteRespId'] : int.tryParse(item['assetAuditSiteRespId']?.toString() ?? '0') ?? 0,
@@ -508,20 +278,6 @@ class _PCUScreenState extends State<PCUScreen> {
         print('PCU Screen: Storing current remarks text: "$currentRemarksText"');
         
         context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
-        
-        // Refresh the data immediately after posting
-        print('Refreshing PCU data after posting...');
-        context.read<AssetAuditCubit>().getAssetAuditData(
-          siteType: widget.siteType,
-          auditSchId: widget.auditSchId,
-          siteAuditSchId: widget.siteAuditSchId,
-        );
-        
-        // Restore the remarks text after refresh to ensure it's not overwritten
-        if (currentRemarksText.isNotEmpty) {
-          print('PCU Screen: Restoring remarks text after refresh: "$currentRemarksText"');
-          remarksController.text = currentRemarksText;
-        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -550,107 +306,7 @@ class _PCUScreenState extends State<PCUScreen> {
         : null;
   }
 
-  void _fetchNextImage() {
-    if (_fetchingImage || _imageQueue.isEmpty) return;
-    _fetchingImage = true;
-    final image = _imageQueue.removeAt(0);
-    final photoId = image['photoId']!;
-    _lastRequestedPhotoId = photoId;
-    _retryCounts[photoId] = _retryCounts[photoId] ?? 0;
-    context.read<AssetAuditGetImageCubit>().getImage(
-      imgId: photoId,
-      schId: widget.siteAuditSchId,
-    );
-  }
 
-  Future<void> _handleImageLoadRetry(String photoId, String key) async {
-    const maxRetries = 5;
-    const retryDelay = Duration(seconds: 3);
-    final currentRetryCount = _retryCounts[photoId] ?? 0;
-    if (currentRetryCount < maxRetries) {
-      _retryCounts[photoId] = currentRetryCount + 1;
-      await Future.delayed(retryDelay);
-      _imageQueue.insert(0, {'photoId': photoId, 'key': key});
-      _fetchNextImage();
-    } else {
-      _retryCounts.remove(photoId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to load image after multiple attempts.'),
-          backgroundColor: Colors.red,
-          duration: Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  Future<void> _showPhotoViewer(BuildContext context, String? photo, String siteAuditSchId) async {
-    if (photo == null || photo.isEmpty) {
-      showCustomToast(context, 'No photo available to view.');
-      return;
-    }
-    String? imageData;
-    if (photo.startsWith('data:image/')) {
-      imageData = photo;
-    } else if (await File(photo).exists()) {
-      imageData = photo;
-    } else if (_isNumeric(photo)) {
-      final completer = Completer<String?>();
-      late StreamSubscription subscription;
-      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
-        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-          final finalImageData = state.imageData.startsWith('data:image/')
-              ? state.imageData
-              : 'data:image/jpeg;base64,${state.imageData}';
-          completer.complete(finalImageData);
-          subscription.cancel();
-        } else if (state is AssetAuditGetImageFailure) {
-          completer.complete(null);
-          subscription.cancel();
-        }
-      });
-      context.read<AssetAuditGetImageCubit>().getImage(
-        imgId: photo,
-        schId: siteAuditSchId,
-      );
-      imageData = await completer.future;
-    }
-    if (imageData != null && imageData.isNotEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              Container(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.7,
-                  maxWidth: MediaQuery.of(context).size.width * 0.9,
-                ),
-                child: imageData!.startsWith('data:image/')
-                    ? Image.memory(
-                  base64Decode(imageData.split(',').last),
-                  fit: BoxFit.contain,
-                )
-                    : Image.file(
-                  File(imageData),
-                  fit: BoxFit.contain,
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.red, size: 30),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-  }
 
   String? _getNextAvailableScreen() {
     return AssetAuditNavigationHelper.getNextAvailableScreen(widget.assetAuditData, 'Invertor');
@@ -687,10 +343,6 @@ class _PCUScreenState extends State<PCUScreen> {
     }
   }
 
-  String _getCancelMessage() {
-    // final siteId = _id();
-    return "Do you want to cancel the Earthing section for Solar Site (ID: ${widget.siteAuditSchId}) ?";
-  }
 
 
   @override
@@ -714,80 +366,9 @@ class _PCUScreenState extends State<PCUScreen> {
             }
           },
         ),
-        BlocListener<AssetAuditPhotoUploadCubit, AssetAuditPhotoUploadState>(
-          listener: (context, state) {
-            if (state is AssetAuditPhotoUploadSuccess) {
-              setState(() {
-                uploadedImgId = state.response.imgId;
-                uploadedPhotoPath = null;
-              });
-            } else if (state is AssetAuditPhotoUploadFailure) {
-              showCustomToast(context, state.errorMessage);
-            }
-          },
-        ),
-        BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
-          listener: (context, state) {
-            // Only handle images requested by this screen to prevent repeated processing
-            if (state is AssetAuditGetImageSuccess && 
-                state.imageData.isNotEmpty && 
-                _isRequestingImage && 
-                _currentRequestedImageId != null) {
-              final finalImageData = state.imageData.startsWith('data:image/')
-                  ? state.imageData
-                  : 'data:image/jpeg;base64,${state.imageData}';
-              setState(() {
-                fetchedImageData = finalImageData;
-                pcuPhoto = finalImageData;
-                isLoadingImage = false;
-                pcuCardKey++;
-                _isRequestingImage = false;
-                _currentRequestedImageId = null;
-              });
-              _fetchingImage = false;
-              _fetchNextImage();
-            } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
-              setState(() {
-                isLoadingImage = false;
-                pcuCardKey++;
-                _isRequestingImage = false;
-                _currentRequestedImageId = null;
-              });
-              _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'pcu');
-            } else if (state is AssetAuditGetImageLoading && _isRequestingImage) {
-              setState(() {
-                isLoadingImage = true;
-              });
-            }
-          },
-        ),
       ],
       child: PopScope(
         canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          if (didPop) return;
-          if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message: _getCancelMessage(),
-                onSaveAndExit: () async {
-                  Navigator.of(context).pop(); // Pop dialog
-                  _saveAndExit();
-                },
-                onDiscard: () async {
-                  Navigator.of(context).pop(); // Pop dialog
-                  await _updateAuditScheduleStatus("in-progress"); // Added for consistency
-                  setState(() {
-                    hasUnsavedChanges = false;
-                  });
-                  Navigator.pop(context); // Pop page (now canPop=true)
-                },
-              ),
-            );
-          }
-        },
         child: Scaffold(
           extendBodyBehindAppBar: true,
           resizeToAvoidBottomInset: false,
@@ -797,15 +378,26 @@ class _PCUScreenState extends State<PCUScreen> {
               if (hasUnsavedChanges) {
                 showDialog(
                   context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
-                    onSaveAndExit: _saveAndExit,
-                    onDiscard: () => Navigator.of(context).pop(),
+                  barrierDismissible: true,
+                  builder: (dialogContext) => UnsavedChangesDialog(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    section: "Asset Audit",
+                    parentContext: context, // Use the outer context (screen context)
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
+                    },
+                    onDiscard: () {
+                    },
                   ),
                 );
               } else {
-                Navigator.pop(context);
+                // Add safety checks to prevent Navigator lock
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => HomeScreen()
+                  ),
+                );
               }
             },
           ),
@@ -869,56 +461,33 @@ class _PCUScreenState extends State<PCUScreen> {
                                   ),
                                 ),
                                 getHeight(3),
-                                CustomInfoCard(
-                                  key: ValueKey('pcu_$pcuCardKey'),
-                                  serialLabel: pcuCategoryData?.assets.isNotEmpty == true
-                                      ? "Inverter (${pcuCategoryData!.assets.first.oemName ?? 'N/A'}) - Serial Number"
-                                      : "Inverter - Serial Number",
+                                AssetAuditFormComponent(
+                                  componentId: 'pcu_component',
+                                  serialLabel: "Inverter - Serial Number *",
                                   serialHintText: "Inverter Serial Number *",
                                   photoLabel: "Add a Photo",
-                                  statusLabel: "Status",
+                                  disabledFieldLabel: pcuCategoryData?.assets.isNotEmpty == true
+                                      ? "Inverter (${pcuCategoryData!.assets.first.oemName ?? 'N/A'})"
+                                      : "N/A",
+                                  disabledFieldValue: pcuCategoryData?.assets.isNotEmpty == true
+                                      ? pcuCategoryData!.assets.first.oemName ?? "N/A"
+                                      : "N/A",
                                   serialController: pcuSerialController,
-                                  onSave: _savePcuForm,
-                                  isStatusEditable: true,
-                                  backendStatus: false,
-                                  isRemarksEditable: true,
-                                  showSaveButton: true,
-                                  remarksLabel: "Rating",
-                                  remarksController: ratingController,
-                                  remarksHintText: pcuCategoryData?.assets.isNotEmpty == true
-                                      ? pcuCategoryData!.assets.first.itemTypeRemark ?? "Rating"
-                                      : "Rating",
-                                  onRemarksChanged: (rating) {
-                                    setState(() {
-                                      hasUnsavedChanges = true;
-                                    });
+                                  initialSavedItems: savedPcuItems,
+                                  onItemSaved: _onPCUItemSaved,
+                                  onStatusChanged: (status) {
+                                    // Handle status change if needed
                                   },
-                                  onPhotoTap: (photoPath) {
-                                    setState(() {
-                                      pcuPhoto = photoPath;
-                                      fetchedImageData = null; // Clear fetched image when new photo is selected
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onStatusChanged: (val) {
-                                    setState(() {
-                                      pcuStatus = val ? "OK" : "Not OK";
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  onSerialChanged: (serialNumber) {
-                                    setState(() {
-                                      pcuSerialNumber = serialNumber;
-                                      isQRCodeScanned = false;
-                                      hasUnsavedChanges = true;
-                                    });
-                                  },
-                                  initialStatus: pcuStatus == "OK" ? true : (pcuStatus == "Not OK" ? false : null),
-                                  initialPhotoPath: pcuPhoto, // Only use pcuPhoto, not fetchedImageData
-                                  isEditable: true,
+                                  customValidator: _validatePCUSerialNumber,
+                                  customValidationErrorMessage: isQRCodeScanned
+                                      ? 'Invalid QR Code! Serial number not found in system.'
+                                      : 'Invalid serial number! Please check and try again.',
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  showTable: true,
+                                  tableTitle: "Saved Inverter Items",
+                                  imageHeight: 150,
+                                  enableImageCompression: true,
                                 ),
-                                getHeight(8),
-                                _buildPcuSavedItemsList(),
                                 getHeight(15),
                                 CustomRemarksField(
                                   label: "Add Remarks",
@@ -968,11 +537,10 @@ class _PCUScreenState extends State<PCUScreen> {
                                         builder: (context) => const Center(child: CircularProgressIndicator()),
                                       );
                                       await _postPcuData();
-                                      Navigator.of(context).pop();
                                       if (nextScreen != null) {
                                         _navigateToNextScreen(context, nextScreen);
                                       } else {
-                                        _saveAndExit();
+                                        await _saveAndExit();
                                       }
                                     },
                                   );
@@ -993,211 +561,4 @@ class _PCUScreenState extends State<PCUScreen> {
     );
   }
 
-  Widget _buildPcuSavedItemsList() {
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.green7,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Serial No.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Status",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Scanned",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Rating",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Photo",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Edit",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (savedPcuItems.isNotEmpty) ...[
-                ...savedPcuItems.map((item) {
-                  return Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _formatSerialNumber(item["serialNumber"] ?? ""),
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            item["status"] ?? "",
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Expanded(
-                          child: Icon(
-                            item['isQRCodeScanned'] == true ? Icons.qr_code_scanner : Icons.close,
-                            color: item['isQRCodeScanned'] == true ? Colors.blue : Colors.red,
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            item["rating"]?.isNotEmpty == true ? item["rating"] : "N/A",
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            icon: Icon(
-                              Icons.camera_alt,
-                              color: item['photo'] != null && item['photo'].isNotEmpty ? AppColors.color555555 : Colors.grey,
-                            ),
-                            onPressed: item['photo'] != null && item['photo'].isNotEmpty
-                                ? () => _showPhotoViewer(context, item['photo'], widget.siteAuditSchId)
-                                : null,
-                          ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.edit_calendar_outlined,
-                              color: AppColors.color555555,
-                            ),
-                            onPressed: () => _editItem(item),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }

@@ -654,7 +654,7 @@ class _DgScreenState extends State<DgScreen> {
     });
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     Navigator.of(context).pop();
     await Future.delayed(const Duration(milliseconds: 200));
 
@@ -1319,8 +1319,8 @@ class _DgScreenState extends State<DgScreen> {
                 builder: (context) => UnsavedChangesDialog(
                   message:
                       "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () {
-                    _saveAndExit();
+                  onSaveAndExit: () async {
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();
@@ -1342,8 +1342,8 @@ class _DgScreenState extends State<DgScreen> {
                     builder: (context) => UnsavedChangesDialog(
                       message:
                           "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                      onSaveAndExit: () {
-                        _saveAndExit();
+                      onSaveAndExit: () async {
+                        await _saveAndExit();
                       },
                       onDiscard: () {
                         Navigator.of(context).pop();

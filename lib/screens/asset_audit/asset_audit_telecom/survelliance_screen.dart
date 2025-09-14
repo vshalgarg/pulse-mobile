@@ -643,7 +643,7 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     });
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
 
@@ -1462,8 +1462,8 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                 builder: (context) => UnsavedChangesDialog(
                   message:
                       "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () {
-                    _saveAndExit();
+                  onSaveAndExit: () async {
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();
@@ -1485,8 +1485,8 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
                     builder: (context) => UnsavedChangesDialog(
                       message:
                           "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                      onSaveAndExit: () {
-                        _saveAndExit();
+                      onSaveAndExit: () async {
+                        await _saveAndExit();
                       },
                       onDiscard: () {
                         Navigator.of(context).pop();

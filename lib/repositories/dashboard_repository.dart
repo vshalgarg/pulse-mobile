@@ -15,7 +15,6 @@ class DashboardRepository {
         path: "api/v1/mobile/mobile-dashboard",
       );
       if (result.isSuccess) {
-        kDebugPrint("Dashboard data is here $result.data");
         return ResponseResult.success(DashboardModel.fromJson(result.data), result.statusCode);
       } else {
         return ResponseResult.error(errorMessage: result.errorMessage);

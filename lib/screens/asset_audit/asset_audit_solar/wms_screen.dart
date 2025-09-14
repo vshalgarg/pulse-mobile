@@ -402,7 +402,7 @@ class _WMSScreenState extends State<WMSScreen> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       showDialog(
         context: context,
@@ -772,8 +772,8 @@ class _WMSScreenState extends State<WMSScreen> {
               builder: (context) => UnsavedChangesDialog(
                 message:
                     "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
-                onSaveAndExit: () {
-                  _saveAndExit();
+                onSaveAndExit: () async {
+                  await _saveAndExit();
                 },
                 onDiscard: () {
                   Navigator.of(context).pop();
@@ -795,8 +795,8 @@ class _WMSScreenState extends State<WMSScreen> {
                   builder: (context) => UnsavedChangesDialog(
                     message:
                         "Do you want to cancel the Asset Audit for Site (ID: SITE-38974)?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
                     },
                     onDiscard: () {
                       Navigator.of(context).pop();
@@ -1472,7 +1472,7 @@ class _WMSScreenState extends State<WMSScreen> {
 //     });
 //   }
 //
-//   void _saveAndExit() async {
+//   Future<void> _saveAndExit() async {
 //     Navigator.of(context).pop();
 //     if (mounted) {
 //       showDialog(
@@ -1659,8 +1659,8 @@ class _WMSScreenState extends State<WMSScreen> {
 //             builder: (context) => UnsavedChangesDialog(
 //               message:
 //               "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-//               onSaveAndExit: () {
-//                 _saveAndExit();
+//               onSaveAndExit: () async {
+//                 await _saveAndExit();
 //               },
 //               onDiscard: () {
 //                 Navigator.of(context).pop();
@@ -1682,8 +1682,8 @@ class _WMSScreenState extends State<WMSScreen> {
 //                 builder: (context) => UnsavedChangesDialog(
 //                   message:
 //                   "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-//                   onSaveAndExit: () {
-//                     _saveAndExit();
+//                   onSaveAndExit: () async {
+//                     await _saveAndExit();
 //                   },
 //                   onDiscard: () {
 //                     Navigator.of(context).pop();

@@ -466,9 +466,9 @@ class _PmScreen1 extends State<PmScreen1> {
             builder: (context) => UnsavedChangesDialog(
               // title: "Unsaved Changes",
               message: _getCancelMessage(),
-              onSaveAndExit: () {
+              onSaveAndExit: () async {
                 // Save the data and exit
-                _saveAndExit();
+                await _saveAndExit();
               },
               onDiscard: () {
                 // Discard changes and exit
@@ -492,9 +492,9 @@ class _PmScreen1 extends State<PmScreen1> {
                 builder: (context) => UnsavedChangesDialog(
                   // title: "Unsaved Changes",
                   message: _getCancelMessage(),
-                  onSaveAndExit: () {
+                  onSaveAndExit: () async {
                     // Save the data and exit
-                    _saveAndExit();
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     // Discard changes and exit

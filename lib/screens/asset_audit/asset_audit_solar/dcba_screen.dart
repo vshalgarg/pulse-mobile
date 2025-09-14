@@ -195,7 +195,7 @@ class _DCBAScreenState extends State<DCBAScreen> {
     });
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       // Show loading dialog
       showDialog(
@@ -908,7 +908,7 @@ class _DCBAScreenState extends State<DCBAScreen> {
               "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
               onSaveAndExit: () async {
                 Navigator.of(context).pop(); // Close the dialog first
-                _saveAndExit();
+                await _saveAndExit();
               },
               onDiscard: () {
                 Navigator.of(context).pop();
@@ -933,7 +933,7 @@ class _DCBAScreenState extends State<DCBAScreen> {
                   "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
                   onSaveAndExit: () async {
                     Navigator.of(context).pop(); // Close the dialog first
-                    _saveAndExit();
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();

@@ -1114,7 +1114,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
 
@@ -2436,8 +2436,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                     UnsavedChangesDialog(
                       message:
                       "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                      onSaveAndExit: () {
-                        _saveAndExit();
+                      onSaveAndExit: () async {
+                        await _saveAndExit();
                       },
                       onDiscard: () {
                         Navigator.of(context).pop();
@@ -2460,8 +2460,8 @@ class _SMPSScreenState extends State<SMPSScreen> {
                         UnsavedChangesDialog(
                           message:
                           "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                          onSaveAndExit: () {
-                            _saveAndExit();
+                          onSaveAndExit: () async {
+                            await _saveAndExit();
                           },
                           onDiscard: () {
                             Navigator.of(context).pop();

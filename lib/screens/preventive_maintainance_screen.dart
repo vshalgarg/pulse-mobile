@@ -31,7 +31,7 @@ class _PreventiveMaintenanceScreenState extends State<PreventiveMaintenanceScree
     });
   }
 
-  void _saveAndExit() {
+  Future<void> _saveAndExit() async {
     // First close the unsaved changes dialog
     Navigator.of(context).pop();
     
@@ -66,9 +66,9 @@ class _PreventiveMaintenanceScreenState extends State<PreventiveMaintenanceScree
             builder: (context) => UnsavedChangesDialog(
               // title: "Unsaved Changes",
               message: "Do you want to cancel the Preventive Maintenance for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () {
+              onSaveAndExit: () async {
                 // Save the data and exit
-                _saveAndExit();
+                await _saveAndExit();
               },
               onDiscard: () {
                 // Discard changes and exit
@@ -91,9 +91,9 @@ class _PreventiveMaintenanceScreenState extends State<PreventiveMaintenanceScree
                 builder: (context) => UnsavedChangesDialog(
                   // title: "Unsaved Changes",
                   message: "Do you want to cancel the Preventive Maintenance for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () {
+                  onSaveAndExit: () async {
                     // Save the data and exit
-                    _saveAndExit();
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     // Discard changes and exit

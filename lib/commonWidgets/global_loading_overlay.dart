@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'dart:async';
 import '../bloc/global_loading_cubit.dart';
 import '../constants/app_colors.dart';
 
-class GlobalLoadingOverlay extends StatelessWidget {
+class GlobalLoadingOverlay extends StatefulWidget {
   final Widget child;
 
   const GlobalLoadingOverlay({
@@ -12,22 +13,55 @@ class GlobalLoadingOverlay extends StatelessWidget {
   });
 
   @override
+  State<GlobalLoadingOverlay> createState() => _GlobalLoadingOverlayState();
+}
+
+class _GlobalLoadingOverlayState extends State<GlobalLoadingOverlay> {
+  Timer? _debounceTimer;
+  bool _isLoading = false;
+  String _loadingMessage = 'Loading...';
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  void _handleLoadingState(GlobalLoadingState state) {
+    _debounceTimer?.cancel();
+    
+    if (state is GlobalLoadingShow) {
+      // Debounce showing loading to prevent rapid state changes
+      _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+        if (mounted) {
+          setState(() {
+            _isLoading = true;
+            _loadingMessage = state.message;
+          });
+        }
+      });
+    } else if (state is GlobalLoadingHide) {
+      // Debounce hiding loading to prevent rapid state changes
+      _debounceTimer = Timer(const Duration(milliseconds: 50), () {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BlocListener<GlobalLoadingCubit, GlobalLoadingState>(
       listener: (context, state) {
-        // The overlay will be shown/hidden based on the state
+        _handleLoadingState(state);
       },
       child: Stack(
         children: [
-          child,
-          BlocBuilder<GlobalLoadingCubit, GlobalLoadingState>(
-            builder: (context, state) {
-              if (state is GlobalLoadingShow) {
-                return _buildLoadingOverlay(context, state.message);
-              }
-              return const SizedBox.shrink();
-            },
-          ),
+          widget.child,
+          if (_isLoading) _buildLoadingOverlay(context, _loadingMessage),
         ],
       ),
     );

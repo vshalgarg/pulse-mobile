@@ -26,28 +26,20 @@ class AssetAuditPostHelper {
     
     // Get current location
     final location = await getCurrentLocation();
-    print('AssetAuditPostHelper: Current location - Lat: ${location['latitude']}, Lng: ${location['longitude']}');
-    
+
     // Get site info from assetAuditData
     final siteInfo = assetAuditData.pageHeader.isNotEmpty 
         ? assetAuditData.pageHeader.first 
         : null;
     
     if (siteInfo == null) {
-      print('AssetAuditPostHelper: No site info available');
       return [];
     }
     
-    print('AssetAuditPostHelper: Site info - siteId: ${siteInfo.siteId}, siteAuditSchId: ${siteInfo.siteAuditSchId}');
-
     // Get the category data for this item type to find matching assetAuditSiteRespId
     dynamic categoryData = assetAuditData.responseData.categories[itemType];
     
-    // Debug: Print what we're looking for and what we found
-    print('AssetAuditPostHelper: Looking for itemType: "$itemType"');
-    print('AssetAuditPostHelper: Available categories: ${assetAuditData.responseData.categories.keys.toList()}');
-    print('AssetAuditPostHelper: categoryData found: ${categoryData != null}');
-    
+
     // Special handling for ACDB - it's nested under SMPS subcategories
     if (itemType == 'ACDB') {
       final smpsData = assetAuditData.responseData.categories['SMPS'];
@@ -59,48 +51,20 @@ class AssetAuditPostHelper {
           assets: acdbAssets,
           remarks: acdbRemarks,
         );
-        print('AssetAuditPostHelper: Processing $itemType items from SMPS subcategories, found ${acdbAssets.length} assets in API response');
       } else {
-        print('AssetAuditPostHelper: No ACDB data found in SMPS subcategories');
         categoryData = null;
       }
-    } else {
-      print('AssetAuditPostHelper: Processing $itemType items, found ${categoryData?.assets.length ?? 0} assets in API response');
     }
     
-    // Debug: Print all available categories
-    print('AssetAuditPostHelper: Available categories: ${assetAuditData.responseData.categories.keys.toList()}');
-    
-    // Debug: Print raw API response structure for Boundary
-    if (itemType == 'Boundary') {
-      print('AssetAuditPostHelper: Raw API response structure:');
-      print('AssetAuditPostHelper: assetAuditData.responseData.categories: ${assetAuditData.responseData.categories}');
-    }
-    
-    // Debug: Print Boundary category details if it exists
-    if (itemType == 'Boundary' && categoryData != null) {
-      print('AssetAuditPostHelper: Boundary category found with ${categoryData.assets.length} assets');
-      print('AssetAuditPostHelper: Boundary category type: ${categoryData.runtimeType}');
-      print('AssetAuditPostHelper: Boundary category properties: ${categoryData.toString()}');
-      
       // Check if there are any other properties in the category
       try {
-        print('AssetAuditPostHelper: Boundary category has remarks: ${categoryData.remarks?.length ?? 0}');
         if (categoryData.remarks != null && categoryData.remarks!.isNotEmpty) {
           for (int i = 0; i < categoryData.remarks!.length; i++) {
             final remark = categoryData.remarks![i];
-            print('AssetAuditPostHelper: Boundary remark $i: id=${remark.assetAuditSiteRespId}, type=${remark.itemType}');
           }
         }
       } catch (e) {
-        print('AssetAuditPostHelper: Error accessing remarks: $e');
-      }
-      
-      for (int i = 0; i < categoryData.assets.length; i++) {
-        final asset = categoryData.assets[i];
-        print('AssetAuditPostHelper: Boundary asset $i: id=${asset.assetAuditSiteRespId}, nexgen=${asset.nexgenSerialNo}, mfg=${asset.mfgSerialNo}');
-      }
-    }
+  }
 
     for (int i = 0; i < savedItems.length; i++) {
       final item = savedItems[i];
@@ -147,15 +111,7 @@ class AssetAuditPostHelper {
         );
         
         requests.add(request);
-        print('AssetAuditPostHelper: Created request for $screenName item ${i + 1}');
-        print('AssetAuditPostHelper: Item ${i + 1} details:');
-        print('  - assetAuditSiteRespId: $assetAuditSiteRespId');
-        print('  - serialNumber: ${item['serialNumber'] ?? item['nexgenSerialNo']}');
-        print('  - photoId: $photoId');
-        print('  - isQRScanned: $isQRScanned');
-        print('  - status: ${item['status'] ?? item['assetStatus']}');
-        print('  - location: ${location['latitude']}, ${location['longitude']}');
-        print('  - Full item data: $item');
+
         
       } catch (e) {
         print('AssetAuditPostHelper: Error creating request for item ${i + 1}: $e');

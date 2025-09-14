@@ -458,7 +458,7 @@ class _PmSolarPage3State extends State<PmSolarPage3> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     await _updateAuditScheduleStatus("IN-PROGRESS");
     
     Navigator.pushReplacement(

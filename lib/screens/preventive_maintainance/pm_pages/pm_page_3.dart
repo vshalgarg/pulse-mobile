@@ -608,7 +608,7 @@ class _PmScreen3 extends State<PmScreen3> {
               onSaveAndExit: () async {
                 Navigator.of(context).pop();
                 await _submitForm();
-                _saveAndExit();
+                await _saveAndExit();
               },
               onDiscard: () {
                 Navigator.of(context).pop();
@@ -632,7 +632,7 @@ class _PmScreen3 extends State<PmScreen3> {
                   onSaveAndExit: () async {
                     Navigator.of(context).pop();
                     await _submitForm();
-                    _saveAndExit();
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();

@@ -846,7 +846,7 @@ class _CCUScreenState extends State<CCUScreen> {
     // Note: setState removed to prevent build phase errors
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     Navigator.of(context).pop();
 
     if (!_hasDataToShow()) {
@@ -2722,8 +2722,8 @@ class _CCUScreenState extends State<CCUScreen> {
                     builder: (context) => UnsavedChangesDialog(
                       message:
                           "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                      onSaveAndExit: () {
-                        _saveAndExit();
+                      onSaveAndExit: () async {
+                        await _saveAndExit();
                       },
                       onDiscard: () {
                         Navigator.pop(context);
@@ -2745,8 +2745,8 @@ class _CCUScreenState extends State<CCUScreen> {
                         builder: (context) => UnsavedChangesDialog(
                           message:
                               "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                          onSaveAndExit: () {
-                            _saveAndExit();
+                          onSaveAndExit: () async {
+                            await _saveAndExit();
                           },
                           onDiscard: () {
                             Navigator.pop(context);

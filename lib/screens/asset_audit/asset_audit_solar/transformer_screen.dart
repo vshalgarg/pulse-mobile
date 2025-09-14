@@ -221,7 +221,7 @@ class _TransformerScreenState extends State<TransformerScreen> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
       await _postTransformerData();
@@ -815,8 +815,8 @@ class _TransformerScreenState extends State<TransformerScreen> {
                   UnsavedChangesDialog(
                     message:
                     "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                    onSaveAndExit: () {
-                      _saveAndExit();
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
                     },
                     onDiscard: () {
                       Navigator.of(context).pop();
@@ -839,8 +839,8 @@ class _TransformerScreenState extends State<TransformerScreen> {
                       UnsavedChangesDialog(
                         message:
                         "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                        onSaveAndExit: () {
-                          _saveAndExit();
+                        onSaveAndExit: () async {
+                          await _saveAndExit();
                         },
                         onDiscard: () {
                           Navigator.of(context).pop();

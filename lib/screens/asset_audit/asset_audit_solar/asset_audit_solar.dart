@@ -329,7 +329,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     }
   }
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     _saveFormDataToHive();
   }
 
@@ -550,8 +550,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                         siteAuditSchId: widget.siteAuditSchId,
                         section: "Asset Audit",
                         parentContext: context, // Use the outer context (screen context)
-                        onSaveAndExit: () {
-                          _saveAndExit();
+                        onSaveAndExit: () async {
+                          await _saveAndExit();
                         },
                         onDiscard: () {
                         },

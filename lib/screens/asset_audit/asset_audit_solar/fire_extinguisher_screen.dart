@@ -275,7 +275,7 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
 
 
 
-  void _saveAndExit() async {
+  Future<void> _saveAndExit() async {
     try {
       // Show loading dialog
       showDialog(
@@ -1252,7 +1252,7 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
               "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
               onSaveAndExit: () async {
                 Navigator.of(context).pop(); // Close the dialog first
-                _saveAndExit();
+                await _saveAndExit();
               },
               onDiscard: () {
                 Navigator.of(context).pop();
@@ -1276,7 +1276,7 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
                   "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
                   onSaveAndExit: () async {
                     Navigator.of(context).pop(); // Close the dialog first
-                    _saveAndExit();
+                    await _saveAndExit();
                   },
                   onDiscard: () {
                     Navigator.of(context).pop();
@@ -1619,7 +1619,7 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
                                       _navigateToNextScreen(context, nextScreen);
                                     } else {
                                       // All screens completed, show success dialog
-                                      _saveAndExit();
+                                      await _saveAndExit();
                                     }
                                   } else {
                                     // Data posting failed, show error message
