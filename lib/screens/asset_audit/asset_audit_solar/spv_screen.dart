@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -58,6 +59,7 @@ class _SPVScreenState extends State<SPVScreen> {
 
   // SPV field values
   String? spvSerialNumber;
+  String? photoImageId;
   String? spvPhoto;
   String? spvStatus;
   final remarksController = TextEditingController(); // User remarks
@@ -86,6 +88,16 @@ class _SPVScreenState extends State<SPVScreen> {
   // Image loading tracking to prevent repeated processing
   String? _currentRequestedImageId;
   bool _isRequestingImage = false;
+  
+  // Flag to prevent repeated API calls
+  bool _hasInitialized = false;
+  
+  // Track original values for change detection
+  String? _originalSpvStatus;
+  
+  // Track if we're editing an existing item
+  bool _isEditingExistingItem = false;
+  String? _editingItemSerialNumber;
 
   @override
   void initState() {
@@ -98,21 +110,29 @@ class _SPVScreenState extends State<SPVScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print('=== SPV didChangeDependencies called ===');
+    Logger.debugLog('=== SPV didChangeDependencies called ===');
 
-    context.read<AssetAuditCubit>().getAssetAuditData(
-      siteType: widget.siteType,
-      auditSchId: widget.auditSchId,
-      siteAuditSchId: widget.siteAuditSchId,
-    );
+    // Check if data is already loaded before making API call
+    final currentState = context.read<AssetAuditCubit>().state;
+    if (currentState is! AssetAuditLoaded && !_hasInitialized) {
+      _hasInitialized = true;
+      Logger.debugLog('=== SPV: Making initial API call ===');
+      context.read<AssetAuditCubit>().getAssetAuditData(
+        siteType: widget.siteType,
+        auditSchId: widget.auditSchId,
+        siteAuditSchId: widget.siteAuditSchId,
+      );
+    } else {
+      Logger.debugLog('=== SPV: Skipping API call - data already loaded or already initialized ===');
+    }
 
     // Initialize total items and saved items from API data
     if (widget.assetAuditData != null) {
       final spvData = widget.assetAuditData!.responseData.categories['SPV'];
       if (spvData != null) {
         totalSpvItems = spvData.assets.length;
-        print('SPV total items from API: $totalSpvItems');
-        print('SPV data received: ${spvData.assets.length} assets');
+        Logger.debugLog('SPV total items from API: $totalSpvItems');
+        Logger.debugLog('SPV data received: ${spvData.assets.length} assets');
         if (spvData.assets.isNotEmpty) {
 
           // Load items that have been successfully posted to API AND have user interaction
@@ -149,13 +169,13 @@ class _SPVScreenState extends State<SPVScreen> {
             }
           });
         } else {
-          print('No SPV assets found in API data');
+          Logger.debugLog('No SPV assets found in API data');
         }
       } else {
-        print('SPV category not found in asset audit data!');
+        Logger.debugLog('SPV category not found in asset audit data!');
       }
     } else {
-      print('Asset audit data is null!');
+      Logger.debugLog('Asset audit data is null!');
     }
 
     // Check page header for additional data
@@ -164,7 +184,7 @@ class _SPVScreenState extends State<SPVScreen> {
     // Mark form as initialized after data loading
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _isFormInitialized = true;
-      print('SPV Form initialized - change tracking enabled');
+      Logger.debugLog('SPV Form initialized - change tracking enabled');
     });
   }
 
@@ -180,20 +200,35 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   void _onFormChanged() {
+    // Add debug logging to track how often this is called
+    Logger.debugLog('=== SPV: _onFormChanged called ===');
+    
     setState(() {
       final hasLocalPhoto = uploadedPhotoPath != null && uploadedPhotoPath!.isNotEmpty;
       final hasServerImage = uploadedImgId != null && uploadedImgId!.isNotEmpty && uploadedImgId != "0";
       final hasImageData = fetchedImageData != null && fetchedImageData!.isNotEmpty;
 
+      // Check if there are unsaved items in savedSpvItems (items without assetAuditSiteRespId)
+      final hasUnsavedItems = savedSpvItems.any((item) => item['assetAuditSiteRespId'] == null);
+
       // Only set hasUnsavedChanges to true if there are actual unsaved changes in the current form
       // and the form has been initialized (to avoid false positives during initialization)
       if (_isFormInitialized) {
+        // Check if status has changed from original value
+        final statusChanged = _originalSpvStatus != null && spvStatus != _originalSpvStatus;
+        
+        if (statusChanged) {
+          Logger.debugLog('=== SPV: Status changed from $_originalSpvStatus to $spvStatus ===');
+        }
+        
         hasUnsavedChanges = serialController.text.isNotEmpty ||
             spvSerialController.text.isNotEmpty ||
             hasLocalPhoto ||
             hasServerImage ||
             hasImageData ||
-            remarksController.text.isNotEmpty;
+            remarksController.text.isNotEmpty ||
+            statusChanged || // Include status changes
+            hasUnsavedItems; // Include unsaved items in the check
       }
 
       _hasFormDataChanges = true;
@@ -277,46 +312,46 @@ class _SPVScreenState extends State<SPVScreen> {
         subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
 
           if (state is AssetAuditPhotoUploadSuccess) {
-            print('✅ SPV Photo upload SUCCESS!');
-            print('Response imgId: ${state.response.imgId}');
+            Logger.debugLog('✅ SPV Photo upload SUCCESS!');
+            Logger.debugLog('Response imgId: ${state.response.imgId}');
             subscription.cancel();
             completer.complete(state.response.imgId);
           } else if (state is AssetAuditPhotoUploadFailure) {
-            print('❌ SPV Photo upload FAILED!');
-            print('Error message: ${state.errorMessage}');
+            Logger.errorLog('❌ SPV Photo upload FAILED!');
+            Logger.errorLog('Error message: ${state.errorMessage}');
             subscription.cancel();
             completer.completeError(state.errorMessage);
           } else {
-            print('📤 SPV Photo upload in progress...');
+            Logger.debugLog('📤 SPV Photo upload in progress...');
           }
         });
 
-        print('Starting SPV photo upload...');
+        Logger.debugLog('Starting SPV photo upload...');
         context.read<AssetAuditPhotoUploadCubit>().uploadPhoto(
           file: file,
           imgId: imgIdToUse,
           schId: schId,
         );
 
-        print('Waiting for SPV photo upload result...');
+        Logger.debugLog('Waiting for SPV photo upload result...');
         final result = await completer.future.timeout(
           const Duration(seconds: 30),
           onTimeout: () {
-            print('⏰ SPV Photo upload TIMEOUT after 30 seconds');
+            Logger.errorLog('⏰ SPV Photo upload TIMEOUT after 30 seconds');
             subscription.cancel();
             throw Exception('Photo upload timeout');
           },
         );
 
-        print('=== SPV Photo Upload Completed ===');
-        print('Final result: $result');
+        Logger.debugLog('=== SPV Photo Upload Completed ===');
+        Logger.debugLog('Final result: $result');
         return result;
       } else {
-        print('❌ Site data not loaded for SPV photo upload');
+        Logger.errorLog('❌ Site data not loaded for SPV photo upload');
         throw Exception('Site data not loaded');
       }
     } catch (e) {
-      print('❌ Error uploading SPV photo: $e');
+      Logger.errorLog('❌ Error uploading SPV photo: $e');
       rethrow;
     }
   }
@@ -359,20 +394,20 @@ class _SPVScreenState extends State<SPVScreen> {
     }
     // Case 3: Photo is a photo ID (numeric) from the API
     else if (_isNumeric(photo)) {
-      print('Fetching image for photo ID: $photo');
+      Logger.debugLog('Fetching image for photo ID: $photo');
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
       subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
         if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-          print('Image fetched successfully for photo ID: $photo');
+          Logger.debugLog('Image fetched successfully for photo ID: $photo');
           final finalImageData = state.imageData.startsWith('data:image/')
               ? state.imageData
               : 'data:image/jpeg;base64,${state.imageData}';
           completer.complete(finalImageData);
           subscription.cancel();
         } else if (state is AssetAuditGetImageFailure) {
-          print('Failed to fetch image: ${state.errorMessage}');
+          Logger.errorLog('Failed to fetch image: ${state.errorMessage}');
           completer.complete(null);
           subscription.cancel();
         }
@@ -434,41 +469,41 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   int? _getRemarksAssetAuditSiteRespId() {
-    print('=== SPV Screen: Getting Remarks AssetAuditSiteRespId ===');
+    Logger.debugLog('=== SPV Screen: Getting Remarks AssetAuditSiteRespId ===');
 
     if (widget.assetAuditData == null) {
-      print('assetAuditData is null, cannot get remarks ID');
+      Logger.debugLog('assetAuditData is null, cannot get remarks ID');
       return null;
     }
 
     final spvData = widget.assetAuditData!.responseData.categories['SPV'];
     if (spvData == null) {
-      print('SPV category data is null');
+      Logger.debugLog('SPV category data is null');
       return null;
     }
 
     final remarks = spvData.remarks;
     if (remarks.isNotEmpty) {
-      print('Found ${remarks.length} remarks in backend data');
+      Logger.debugLog('Found ${remarks.length} remarks in backend data');
 
       for (var remark in remarks) {
         if (remark.assetAuditSiteRespId != null &&
             remark.assetAuditSiteRespId > 0 &&
             remark.itemType == 'SPV') {
-          print('Using SPV remarks ID: ${remark.assetAuditSiteRespId}');
+          Logger.debugLog('Using SPV remarks ID: ${remark.assetAuditSiteRespId}');
           return remark.assetAuditSiteRespId;
         }
       }
 
       for (var remark in remarks) {
         if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0) {
-          print('Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}');
+          Logger.debugLog('Using fallback remarks ID: ${remark.assetAuditSiteRespId} for itemType: ${remark.itemType}');
           return remark.assetAuditSiteRespId;
         }
       }
     }
 
-    print('No valid remarks ID found in backend data');
+    Logger.debugLog('No valid remarks ID found in backend data');
     return null;
   }
 
@@ -507,16 +542,16 @@ class _SPVScreenState extends State<SPVScreen> {
               'localModifiedDt': DateTime.now().toString(),
             };
             allItemsToPost.add(remarksData);
-            print('SPV Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text}"');
+            Logger.debugLog('SPV Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text}"');
           } else {
-            print('SPV Screen: Could not find remarks ID from backend data');
+            Logger.debugLog('SPV Screen: Could not find remarks ID from backend data');
           }
         } else {
-          print('SPV Screen: No remarks to post - remarksController.text is empty');
+          Logger.debugLog('SPV Screen: No remarks to post - remarksController.text is empty');
         }
 
         if (allItemsToPost.isEmpty) {
-          print('SPV Screen: No items to post');
+          Logger.debugLog('SPV Screen: No items to post');
           return;
         }
 
@@ -533,16 +568,16 @@ class _SPVScreenState extends State<SPVScreen> {
         if (requests.isNotEmpty) {
 
           final currentRemarksText = remarksController.text;
-          print('SPV Screen: Storing current remarks text: "$currentRemarksText"');
+          Logger.debugLog('SPV Screen: Storing current remarks text: "$currentRemarksText"');
 
           context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
 
         }
       } else {
-        print('No SPV items to post - user can navigate without saving items');
+        Logger.debugLog('No SPV items to post - user can navigate without saving items');
       }
     } catch (e) {
-      print('Error posting SPV data: $e');
+      Logger.errorLog('Error posting SPV data: $e');
     }
   }
 
@@ -550,8 +585,7 @@ class _SPVScreenState extends State<SPVScreen> {
     if (spvSerialController.text.isEmpty) {
       return false;
     }
-
-    if (spvPhoto == null || spvPhoto!.isEmpty) {
+    if ((spvPhoto == null || spvPhoto!.isEmpty) && (photoImageId == null || photoImageId!.isEmpty)) {
       return false;
     }
 
@@ -562,7 +596,7 @@ class _SPVScreenState extends State<SPVScreen> {
     if (!_validateSerialNumber(spvSerialController.text, isQRCodeScanned)) {
       return false;
     }
-
+  // Debug print removed
     return true;
   }
 
@@ -573,49 +607,74 @@ class _SPVScreenState extends State<SPVScreen> {
     }
     
     if (_isFormValid()) {
-      String? photoImageId = spvPhoto;
-
+      Logger.debugLog("form is valid");
       if (spvPhoto != null && spvPhoto!.isNotEmpty && !spvPhoto!.startsWith('http')) {
         try {
+          Logger.debugLog("in try block");
           final file = File(spvPhoto!);
           if (await file.exists()) {
+            Logger.debugLog("in if block");
             photoImageId = await _uploadSpvPhoto(file);
           } else {
-            return;
+            if(photoImageId == null || photoImageId!.isEmpty) {
+              return;
+            }
           }
         } catch (e) {
+            Logger.errorLog("in catch block");
           return;
         }
       }
-
       setState(() {
         final currentFormData = {
           'serialNumber': spvSerialController.text, // Use controller text instead of spvSerialNumber
           'photo': photoImageId,
+          'spvPhoto': spvPhoto,
           'status': spvStatus ?? 'OK',
           'timestamp': DateTime.now(),
           'isQRCodeScanned': isQRCodeScanned,
         };
+        
 
-        final existingItemIndex = savedSpvItems.indexWhere(
-              (item) => item['serialNumber'] == spvSerialController.text,
-        );
-
-        if (existingItemIndex >= 0) {
-          savedSpvItems[existingItemIndex] = currentFormData;
+        if (_isEditingExistingItem && _editingItemSerialNumber != null) {
+          // Update existing item
+          final existingItemIndex = savedSpvItems.indexWhere(
+                (item) => item['serialNumber'] == _editingItemSerialNumber,
+          );
+          
+          if (existingItemIndex >= 0) {
+            Logger.debugLog('=== SPV: Updating existing item at index $existingItemIndex ===');
+            savedSpvItems[existingItemIndex] = currentFormData;
+          } else {
+            Logger.debugLog('=== SPV: Existing item not found, adding as new item ===');
+            savedSpvItems.add(currentFormData);
+          }
         } else {
-          savedSpvItems.add(currentFormData);
+          // Add new item
+          final existingItemIndex = savedSpvItems.indexWhere(
+                (item) => item['serialNumber'] == spvSerialController.text,
+          );
+
+          if (existingItemIndex >= 0) {
+            Logger.debugLog('=== SPV: Item with same serial number exists, updating ===');
+            savedSpvItems[existingItemIndex] = currentFormData;
+          } else {
+            Logger.debugLog('=== SPV: Adding new item ===');
+            savedSpvItems.add(currentFormData);
+          }
         }
 
         spvSerialNumber = null;
         spvPhoto = null;
         spvStatus = null;
+        _originalSpvStatus = null; // Reset original status
+        _isEditingExistingItem = false; // Reset editing flag
+        _editingItemSerialNumber = null; // Reset editing serial number
         spvSerialController.clear();
         spvCardKey++;
-        hasUnsavedChanges = false;
         showValidationErrors = false;
         _isFormInitialized = false; // Reset initialization flag
-        _onFormChanged();
+        _onFormChanged(); // This will now properly detect unsaved items
       });
 
       // Re-initialize form after reset
@@ -651,25 +710,35 @@ class _SPVScreenState extends State<SPVScreen> {
   }
 
   void _editItem(Map<String, dynamic> item) {
+    Logger.debugLog('=== SPV: _editItem called with item: $item ===');
+    Logger.debugLog('=== SPV: Item status: ${item['status']} ===');
     setState(() {
       spvSerialNumber = item['serialNumber'];
-      spvPhoto = item['photo'];
+      photoImageId = item['photo'];
+      spvPhoto = item['spvPhoto'];
       spvStatus = item['status'];
+      _originalSpvStatus = item['status']; // Store original status for change detection
       isQRCodeScanned = item['isQRCodeScanned'] ?? false;
       spvSerialController.text = item['serialNumber'] ?? '';
       displayedImageBase64 = null; // Clear Base64 to avoid showing old image
       isLoadingImage = false; // Reset loading state
-      savedSpvItems.remove(item); // Remove item from saved list when editing
+      
+      // Set editing flags
+      _isEditingExistingItem = true;
+      _editingItemSerialNumber = item['serialNumber'];
+      
       // Don't set hasUnsavedChanges = true here - let _onFormChanged handle it
       spvCardKey++;
     });
+    Logger.debugLog('=== SPV: After _editItem setState - spvStatus: $spvStatus, _originalSpvStatus: $_originalSpvStatus ===');
+    Logger.debugLog('=== SPV: Editing existing item: $_isEditingExistingItem, Serial: $_editingItemSerialNumber ===');
     _onFormChanged();
 
     // Load image asynchronously to avoid blocking UI
-    if (spvPhoto != null && spvPhoto!.isNotEmpty && _isNumeric(spvPhoto!)) {
-      print('=== SPV Edit: Fetching image for photo ID: $spvPhoto ===');
+    if ((spvPhoto == null || spvPhoto!.isEmpty) && (photoImageId != null || photoImageId!.isNotEmpty)) {
+      Logger.debugLog('=== SPV Edit: Fetching image for photo ID: $photoImageId ===');
       setState(() {
-        _currentRequestedImageId = spvPhoto;
+        _currentRequestedImageId = photoImageId;
         _isRequestingImage = true;
         isLoadingImage = true;
       });
@@ -677,14 +746,11 @@ class _SPVScreenState extends State<SPVScreen> {
       // Use Future.microtask to load image in next frame
       Future.microtask(() {
         context.read<AssetAuditGetImageCubit>().getImage(
-          imgId: spvPhoto!,
+          imgId: photoImageId!,
           schId: widget.siteAuditSchId,
         );
       });
     }
-
-
-
   }
 
   bool _isNumeric(String str) {
@@ -720,18 +786,18 @@ class _SPVScreenState extends State<SPVScreen> {
             if (state is AssetAuditGetImageSuccess && 
                 _isRequestingImage && 
                 _currentRequestedImageId != null) {
-              print('=== SPV Screen: Image fetch success for requested image ===');
-              print('Image data length: ${state.imageData.length}');
-              print('Image data preview: ${state.imageData.substring(0, state.imageData.length > 100 ? 100 : state.imageData.length)}...');
+              Logger.debugLog('=== SPV Screen: Image fetch success for requested image ===');
+              Logger.debugLog('Image data length: ${state.imageData.length}');
+              Logger.debugLog('Image data preview: ${state.imageData.substring(0, state.imageData.length > 100 ? 100 : state.imageData.length)}...');
 
               if (state.imageData.isNotEmpty) {
                 String finalImageData;
                 if (state.imageData.startsWith('data:image/')) {
                   finalImageData = state.imageData;
-                  print('SPV: Image data is already in data URL format');
+                  Logger.debugLog('SPV: Image data is already in data URL format');
                 } else {
                   finalImageData = 'data:image/jpeg;base64,${state.imageData}';
-                  print('SPV: Added data URL prefix to raw base64 data');
+                  Logger.debugLog('SPV: Added data URL prefix to raw base64 data');
                 }
 
                 setState(() {
@@ -742,9 +808,9 @@ class _SPVScreenState extends State<SPVScreen> {
                 });
                 _onFormChanged();
 
-                print('SPV photo updated with final image data');
+                Logger.debugLog('SPV photo updated with final image data');
               } else {
-                print('SPV Screen: Received empty image data');
+                Logger.debugLog('SPV Screen: Received empty image data');
                 setState(() {
                   spvPhoto = null;
                   spvCardKey++;
@@ -754,8 +820,8 @@ class _SPVScreenState extends State<SPVScreen> {
                 _onFormChanged();
               }
             } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
-              print('=== SPV Screen: Image fetch failed for requested image ===');
-              print('Error: ${state.errorMessage}');
+              Logger.errorLog('=== SPV Screen: Image fetch failed for requested image ===');
+              Logger.errorLog('Error: ${state.errorMessage}');
               setState(() {
                 spvPhoto = null;
                 spvCardKey++;
@@ -769,7 +835,7 @@ class _SPVScreenState extends State<SPVScreen> {
         BlocListener<AssetAuditCubit, AssetAuditState>(
           listener: (context, state) {
             if (state is AssetAuditLoaded) {
-              print('=== SPV Screen: AssetAuditLoaded ===');
+              Logger.debugLog('=== SPV Screen: AssetAuditLoaded ===');
               final spvData = state.assetAuditData.responseData.categories['SPV'];
               if (spvData != null) {
                 setState(() {
@@ -812,8 +878,11 @@ class _SPVScreenState extends State<SPVScreen> {
                         : '';
                   }
                 });
+                
+                // Update hasUnsavedChanges after data refresh
+                _onFormChanged();
              } else {
-                print('SPV category not found in loaded data');
+                Logger.debugLog('SPV category not found in loaded data');
               }
             } else if (state is AssetAuditError) {
               showCustomToast(context, state.message);
@@ -826,7 +895,7 @@ class _SPVScreenState extends State<SPVScreen> {
                 siteAuditSchId: widget.siteAuditSchId,
               );
             } else if (state is AssetAuditPostError) {
-              print('Error posting SPV data: ${state.message}');
+              Logger.errorLog('Error posting SPV data: ${state.message}');
               // Only show toast if this screen initiated the post action
               if (mounted) {
                 showCustomToast(context, 'Error saving SPV data: ${state.message}');
@@ -837,7 +906,7 @@ class _SPVScreenState extends State<SPVScreen> {
         BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
           listener: (context, state) async {
             if (state is AssetAuditGetImageSuccess) {
-              print('SPV Image loaded for photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}');
+              Logger.debugLog('SPV Image loaded for photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}');
               final assetAuditState = context.read<AssetAuditCubit>().state;
               if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
                 final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
@@ -858,16 +927,16 @@ class _SPVScreenState extends State<SPVScreen> {
                   _fetchingImage = false;
                   _fetchNextImage();
                 } else {
-                  print('Empty image data received for SPV photoId: $_lastRequestedPhotoId');
+                  Logger.debugLog('Empty image data received for SPV photoId: $_lastRequestedPhotoId');
                   await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'spv');
                 }
               } else {
-                print('AssetAuditCubit state is not AssetAuditLoaded or pageHeader is empty');
+                Logger.debugLog('AssetAuditCubit state is not AssetAuditLoaded or pageHeader is empty');
                 _fetchingImage = false;
                 _fetchNextImage();
               }
             } else if (state is AssetAuditGetImageFailure) {
-              print('Failed to load SPV image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}');
+              Logger.errorLog('Failed to load SPV image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}');
               await _handleImageLoadRetry(_lastRequestedPhotoId ?? '', 'spv');
             }
           },
@@ -996,9 +1065,13 @@ class _SPVScreenState extends State<SPVScreen> {
                                     _onFormChanged();
                                   },
                                   onStatusChanged: (val) {
+                                    Logger.debugLog('=== SPV: onStatusChanged called with value: $val ===');
+                                    Logger.debugLog('=== SPV: Current spvStatus before change: $spvStatus ===');
+                                    Logger.debugLog('=== SPV: Original status: $_originalSpvStatus ===');
                                     setState(() {
                                       spvStatus = val ? "OK" : "Not OK";
                                     });
+                                    Logger.debugLog('=== SPV: New spvStatus after change: $spvStatus ===');
                                     _onFormChanged();
                                   },
                                   onSerialChanged: (serialNumber) {

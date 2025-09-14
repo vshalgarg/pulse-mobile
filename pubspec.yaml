@@ -101,6 +101,9 @@ dependencies:
   url_launcher: ^6.3.1
   permission_handler: ^11.3.1
 
+  # Image compression
+  flutter_image_compress: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

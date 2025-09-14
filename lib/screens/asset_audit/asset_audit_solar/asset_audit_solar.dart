@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/utils/logger.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/spv_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
@@ -90,12 +91,12 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    print('=== didChangeDependencies called ===');
+    Logger.debugLog('=== didChangeDependencies called ===');
 
     // Only call getAssetAuditData if not already loaded
     final currentState = context.read<AssetAuditCubit>().state;
     if (currentState is! AssetAuditLoaded) {
-      print('=== Calling getAssetAuditData from didChangeDependencies ===');
+      Logger.debugLog('=== Calling getAssetAuditData from didChangeDependencies ===');
       setState(() {
         _isLoadingData = true;
         _apiError = null;
@@ -106,7 +107,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         siteAuditSchId: widget.siteAuditSchId,
       );
     } else {
-      print(
+      Logger.debugLog(
         '=== AssetAuditData already loaded, skipping getAssetAuditData call ===',
       );
     }
@@ -188,7 +189,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     if (assetAuditState is AssetAuditLoaded &&
         assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
       final pageHeader = assetAuditState.assetAuditData.pageHeader.first;
-      print('makerSelfieImageId: ${pageHeader.makerSelfieImageId}');
+      Logger.debugLog('makerSelfieImageId: ${pageHeader.makerSelfieImageId}');
 
       if (pageHeader.makerSelfieImageId != null &&
           pageHeader.makerSelfieImageId! > 0) {
@@ -204,9 +205,9 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         _fetchNextImage();
       }
     } else {
-      print('assetAuditState type: ${assetAuditState.runtimeType}');
+      Logger.debugLog('assetAuditState type: ${assetAuditState.runtimeType}');
       if (assetAuditState is AssetAuditLoaded) {
-        print(
+        Logger.debugLog(
           'pageHeader length: ${assetAuditState.assetAuditData.pageHeader.length}',
         );
       }
@@ -284,7 +285,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         uploadedImgId!.isNotEmpty &&
         uploadedImgId != "0" &&
         fetchedImageData == null) {
-      print('Fallback: Re-fetching image for selfie, photoId: $uploadedImgId');
+      Logger.debugLog('Fallback: Re-fetching image for selfie, photoId: $uploadedImgId');
       _imageQueue.add({'photoId': uploadedImgId!, 'key': 'selfie'});
       _fetchNextImage();
     }
@@ -299,7 +300,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     final photoId = image['photoId']!;
     final key = image['key']!;
 
-    print(
+    Logger.debugLog(
       'Loading image for photoId: $photoId, key: $key, retry count: ${_retryCounts[photoId] ?? 0}',
     );
     _lastRequestedPhotoId = photoId;
@@ -316,14 +317,14 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     final currentRetryCount = _retryCounts[photoId] ?? 0;
     if (currentRetryCount < maxRetries) {
       _retryCounts[photoId] = currentRetryCount + 1;
-      print(
+      Logger.debugLog(
         'Retrying image load for photoId: $photoId, key: $key, attempt: ${_retryCounts[photoId]} of $maxRetries',
       );
       // await Future.delayed(retryDelay);
       _imageQueue.insert(0, {'photoId': photoId, 'key': key});
       _fetchNextImage();
     } else {
-      print('Max retries reached for photoId: $photoId, key: $key');
+      Logger.debugLog('Max retries reached for photoId: $photoId, key: $key');
       _retryCounts.remove(photoId);
     }
   }
@@ -388,15 +389,15 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         fetchedImageData != null && fetchedImageData!.isNotEmpty;
 
     if (!hasLocalPhoto && !hasServerImage && !hasImageData) {
-      print('Photo validation failed - No photo uploaded');
+      Logger.debugLog('Photo validation failed - No photo uploaded');
       // Show error message to user
       showCustomToast(context, 'Please upload a selfie before proceeding');
       return false;
     } else {
-      print('Photo validation passed');
+      Logger.debugLog('Photo validation passed');
     }
 
-    print('All validations passed!');
+    Logger.debugLog('All validations passed!');
     return true;
   }
 
@@ -441,11 +442,11 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                 _apiError = null;
               });
             } else if (state is AssetAuditPostSuccess) {
-              print(
+              Logger.debugLog(
                 'Asset audit data posted successfully: ${state.responses.length} responses',
               );
             } else if (state is AssetAuditPostError) {
-              print('Error posting asset audit data: ${state.message}');
+              Logger.errorLog('Error posting asset audit data: ${state.message}');
               showCustomToast(context, 'Failed to save data: ${state.message}');
             }
           },
@@ -466,7 +467,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
           listener: (context, state) async {
             if (state is AssetAuditGetImageSuccess) {
-              print(
+              Logger.debugLog(
                 'Image loaded for photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}',
               );
               final assetAuditState = context.read<AssetAuditCubit>().state;
@@ -504,7 +505,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                   _fetchingImage = false;
                   _fetchNextImage();
                 } else {
-                  print(
+                  Logger.debugLog(
                     'Empty image data received for photoId: $_lastRequestedPhotoId',
                   );
                   await _handleImageLoadRetry(
@@ -513,14 +514,14 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                   );
                 }
               } else {
-                print(
+                Logger.debugLog(
                   'AssetAuditCubit state is not AssetAuditLoaded or pageHeader is empty',
                 );
                 _fetchingImage = false;
                 _fetchNextImage();
               }
             } else if (state is AssetAuditGetImageFailure) {
-              print(
+              Logger.errorLog(
                 'Failed to load image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}',
               );
               await _handleImageLoadRetry(
@@ -723,7 +724,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                               formattedAuditDueDate =
                                                   "${dateTime.day.toString().padLeft(2, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.year}";
                                             } catch (e) {
-                                              print(
+                                              Logger.debugLog(
                                                 'Solar Debug: Error parsing audit due date: $e',
                                               );
                                               formattedAuditDueDate =
@@ -1019,7 +1020,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                               onPressed: _apiError != null || _isLoadingData 
                                   ? null 
                                   : () async {
-                                      print('SPV button pressed');
+                                      Logger.debugLog('SPV button pressed');
                                       
                                       // Check if image is uploaded
                                       final hasLocalPhoto = uploadedPhotoPath != null && uploadedPhotoPath!.isNotEmpty;
@@ -1069,30 +1070,30 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                         if (assetAuditState is AssetAuditLoaded) {
                                           assetAuditData =
                                               assetAuditState.assetAuditData;
-                                          print(
+                                          Logger.debugLog(
                                             '=== Main Screen: Passing asset audit data to SPV ===',
                                           );
-                                          print(
+                                          Logger.debugLog(
                                             'Asset audit data available: ${assetAuditData != null}',
                                           );
                                           if (assetAuditData != null) {
-                                            print(
+                                            Logger.debugLog(
                                               'Categories available: ${assetAuditData.responseData.categories.keys.toList()}',
                                             );
                                             final spvCategory = assetAuditData
                                                 .responseData
                                                 .categories['SPV'];
                                             if (spvCategory != null) {
-                                              print(
+                                              Logger.debugLog(
                                                 'SPV category found with ${spvCategory.assets.length} assets',
                                               );
                                               if (spvCategory.assets.isNotEmpty) {
-                                                print(
+                                                Logger.debugLog(
                                                   'First SPV asset: ${spvCategory.assets.first.oemName}',
                                                 );
                                               }
                                             } else {
-                                              print('SPV category NOT found!');
+                                              Logger.debugLog('SPV category NOT found!');
                                             }
                                           }
                                         }

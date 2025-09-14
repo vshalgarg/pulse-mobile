@@ -136,13 +136,8 @@ class _MMSScreenState extends State<MMSScreen> {
 
   void _saveAndExit() async {
     try {
-      showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
       await _postMMSData();
-      await _updateAuditScheduleStatus("In Progress");
-      Navigator.of(context).pop();
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
     } catch (e) {
-      if (Navigator.canPop(context)) Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving data: $e'), backgroundColor: Colors.red));
     }
   }
@@ -165,7 +160,8 @@ class _MMSScreenState extends State<MMSScreen> {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
-        
+        print('vishal: ${remarksController.text}');
+        print('garg: $mmsAssets');
         // Check if we have MMS data and remarks to post
         if (remarksController.text.isNotEmpty && mmsAssets.isNotEmpty) {
           final mmsAsset = mmsAssets.first;
@@ -200,17 +196,16 @@ class _MMSScreenState extends State<MMSScreen> {
 
           await context.read<AssetAuditCubit>().postAssetAuditData(requests: [postRequest]);
 
-          context.read<AssetAuditCubit>().getAssetAuditData(
-            siteType: widget.siteType,
-            auditSchId: widget.auditSchId,
-            siteAuditSchId: widget.siteAuditSchId,
-          );
+          // Don't refresh the entire dataset for just saving remarks
+          // This prevents unnecessary image loading
+          // context.read<AssetAuditCubit>().getAssetAuditData(
+          //   siteType: widget.siteType,
+          //   auditSchId: widget.auditSchId,
+          //   siteAuditSchId: widget.siteAuditSchId,
+          // );
           
-          // Restore the remarks text after refresh to ensure it's not overwritten
-          if (currentRemarksText.isNotEmpty) {
-            print('MMS Screen: Restoring remarks text after refresh: "$currentRemarksText"');
-            remarksController.text = currentRemarksText;
-          }
+          // Keep the remarks text as is since we're not refreshing
+          print('MMS Screen: Remarks saved successfully: "$currentRemarksText"');
         } else {
           print('=== MMS POST: No remarks to post or no MMS data available ===');
         }
@@ -277,23 +272,28 @@ class _MMSScreenState extends State<MMSScreen> {
         title: "MMS",
         onClose: () {
           if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message:
-                    "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                onSaveAndExit: () {
-                  _saveAndExit();
-                },
-                onDiscard: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            );
-          } else {
-            Navigator.pop(context);
-          }
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (dialogContext) => UnsavedChangesDialog(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    section: "Asset Audit",
+                    parentContext: context, // Use the outer context (screen context)
+                    onSaveAndExit: () {
+                      _saveAndExit();
+                    },
+                    onDiscard: () {
+                    },
+                  ),
+                );
+              } else {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => HomeScreen()
+                  ),
+                );
+              }
         },
       ),
       body: Stack(

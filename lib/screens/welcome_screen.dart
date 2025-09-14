@@ -55,10 +55,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
           ),
 
           // Content
-          Padding(
-            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 30),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 30,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(

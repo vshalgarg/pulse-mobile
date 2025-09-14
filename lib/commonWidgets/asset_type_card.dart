@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:app/utils/image_compression_helper.dart';
+import 'package:app/utils/logger.dart';
 
 import '../constants/constants_strings.dart';
 import '../screens/qrScannerScreen.dart';
@@ -101,11 +103,75 @@ class _CustomInfoCardState extends State<CustomInfoCard> {
     final pickedFile = await picker.pickImage(source: ImageSource.camera);
 
     if (pickedFile != null) {
-      setState(() {
-        _selectedImage = File(pickedFile.path);
-      });
-      // Call the callback with the file path
-      widget.onPhotoTap(_selectedImage!.path);
+      final originalFile = File(pickedFile.path);
+      
+      // Show loading indicator while compressing
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primaryGreen,
+          ),
+        ),
+      );
+
+      try {
+        Logger.imageLog('CustomInfoCard: Starting image compression...');
+        // Compress the image to 2MB
+        final compressedFile = await ImageCompressionHelper.compressImageTo2MB(originalFile);
+        Logger.imageLog('CustomInfoCard: Compression completed, result: ${compressedFile != null ? "Success" : "Failed"}');
+        
+        // Close loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+
+        if (compressedFile != null) {
+          setState(() {
+            _selectedImage = compressedFile;
+          });
+          // Call the callback with the compressed file path
+          widget.onPhotoTap(_selectedImage!.path);
+        } else {
+          // If compression fails, use original file
+          setState(() {
+            _selectedImage = originalFile;
+          });
+          widget.onPhotoTap(_selectedImage!.path);
+          
+          // Show warning that compression failed
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Image compression failed, using original image'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        // Close loading dialog
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+        
+        // If compression fails, use original file
+        setState(() {
+          _selectedImage = originalFile;
+        });
+        widget.onPhotoTap(_selectedImage!.path);
+        
+        // Show error message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error compressing image: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
