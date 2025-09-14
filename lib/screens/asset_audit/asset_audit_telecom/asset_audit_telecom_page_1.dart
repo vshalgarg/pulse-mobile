@@ -477,7 +477,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
               siteAuditSchId: widget.siteAuditSchId,
               section: "Asset Audit",
               parentContext: context, // Use the outer context (screen context)
-              onSaveAndExit: () {
+              onSaveAndExit: () async {
                 _saveAndExit();
               },
               onDiscard: () {

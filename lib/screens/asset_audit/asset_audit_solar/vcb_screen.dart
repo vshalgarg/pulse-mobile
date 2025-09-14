@@ -1,28 +1,22 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:io';
-import 'dart:async';
 
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
-import '../../../bloc/asset_audit_photo_upload_cubit.dart';
-import '../../../bloc/asset_audit_get_image_cubit.dart';
-import '../../../bloc/audit_schedule_status_cubit.dart';
-import '../../../utils/asset_audit_post_helper.dart';
-import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
-import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../home_screen.dart';
+import '../../../utils/asset_audit_navigation_helper.dart';
+import '../../../utils/asset_audit_post_helper.dart';
 
 class VCBScreen extends StatefulWidget {
   final String siteType;
@@ -35,7 +29,7 @@ class VCBScreen extends StatefulWidget {
     required this.siteType,
     required this.auditSchId,
     required this.siteAuditSchId,
-    this.assetAuditData, // Complete asset audit data
+    this.assetAuditData,
   });
 
   @override
@@ -43,501 +37,162 @@ class VCBScreen extends StatefulWidget {
 }
 
 class _VCBScreenState extends State<VCBScreen> {
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController serialController = TextEditingController();
   bool hasUnsavedChanges = false;
-  bool showValidationErrors = false;
-  String? vcbSerialNumber;
-  String? vcbPhoto;
-  String? vcbStatus;
   final remarksController = TextEditingController();
-  int vcbCardKey = 0;
-  List<Map<String, dynamic>> savedVcbItems = [];
-  bool isQRCodeScanned = false;
-
-  String? uploadedPhotoId;
-  String? displayedImageBase64;
-  bool isUploadingPhoto = false;
-  bool isLoadingImage = false;
-  StreamSubscription? _photoUploadSubscription;
-  StreamSubscription? _getImageSubscription;
-  StreamSubscription? _assetAuditSubscription;
+  List<Map<String, dynamic>> _savedVcbItems = [];
   
-  // Image caching for faster loading
-  Map<String, String> _imageCache = {};
+  List<Map<String, dynamic>> get savedVcbItems => _savedVcbItems;
+  set savedVcbItems(List<Map<String, dynamic>> value) {
+    _savedVcbItems = value;
+  }
   
-  // Image loading tracking to prevent repeated processing
-  String? _currentRequestedImageId;
-  bool _isRequestingImage = false;
-
   final TextEditingController vcbSerialController = TextEditingController();
-
-  int get totalVcbItems {
-    if (widget.assetAuditData?.responseData.categories['VCB']?.assets != null) {
-      return widget.assetAuditData!.responseData.categories['VCB']!.assets.length;
-    }
-    return 0;
-  }
-
-  CategoryData? get vcbCategoryData {
-    return widget.assetAuditData?.responseData.categories['VCB'];
-  }
+  String? lastValidatedSerial;
+  String? _pendingNavigation;
 
   @override
   void initState() {
     super.initState();
-    serialController.addListener(_onFormChanged);
     vcbSerialController.addListener(_onFormChanged);
     remarksController.addListener(_onFormChanged);
-    _setupPhotoUploadListener();
-    _setupGetImageListener();
-    _setupAssetAuditListener();
   }
 
   @override
   void dispose() {
-    serialController.removeListener(_onFormChanged);
     vcbSerialController.removeListener(_onFormChanged);
     remarksController.removeListener(_onFormChanged);
-    serialController.dispose();
     vcbSerialController.dispose();
     remarksController.dispose();
-    _photoUploadSubscription?.cancel();
-    _getImageSubscription?.cancel();
-    _assetAuditSubscription?.cancel();
     super.dispose();
   }
 
-  void _setupAssetAuditListener() {
-    _assetAuditSubscription = context.read<AssetAuditCubit>().stream.listen((state) {
-      if (state is AssetAuditLoaded) {
-        setState(() {
-          final vcbData = state.assetAuditData.responseData.categories['VCB'];
-          if (vcbData != null) {
-            // Load items that have been successfully posted to API AND have user interaction
-            // (either photo taken or serial number entered - regardless of QR scan or manual entry)
-            final postedItems = vcbData.assets.where((asset) => 
-              asset.assetAuditSiteRespId != null && 
-              asset.photoId != null
-            ).map((asset) {
-              return {
-                'serialNumber': asset.mfgSerialNo ?? asset.nexgenSerialNo ?? '',
-                'photo': asset.photoId?.toString(),
-                'status': asset.assetStatus ?? 'OK',
-                'timestamp': DateTime.now(),
-                'isQRCodeScanned': asset.qrCodeScanned ?? false,
-                'assetAuditSiteRespId': asset.assetAuditSiteRespId,
-              };
-            }).toList();
-            
-            // Update savedVcbItems with posted items
-            savedVcbItems = postedItems;
-            
-            // Only load remarks from API if user hasn't made changes
-            if (remarksController.text.isEmpty) {
-              remarksController.text = vcbData.remarks.isNotEmpty
-                  ? vcbData.remarks.first.itemTypeRemark ?? ''
-                  : '';
-              print('VCB Screen: Loaded remarks from API: "${remarksController.text}"');
-            }
-            print('VCB Screen: Loaded posted items: ${savedVcbItems.length} items');
-          }
-        });
-      } else if (state is AssetAuditError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading updated data: ${state.message}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  void _onFormChanged() {
+    final newHasUnsavedChanges = vcbSerialController.text.isNotEmpty ||
+        remarksController.text.isNotEmpty;
+
+    if (newHasUnsavedChanges != hasUnsavedChanges) {
+      setState(() {
+        hasUnsavedChanges = newHasUnsavedChanges;
+      });
+    }
+  }
+
+  void _onVcbItemSaved(List<Map<String, dynamic>> updatedItems) {
+    setState(() {
+      savedVcbItems = List.from(updatedItems);
+      hasUnsavedChanges = true;
     });
   }
 
-  void _onFormChanged() {
-    setState(() {
-      final hasLocalPhoto = vcbPhoto != null && vcbPhoto!.isNotEmpty;
-      final hasImageData = displayedImageBase64 != null && displayedImageBase64!.isNotEmpty;
+  bool _validateVcbSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    if (widget.assetAuditData == null) return false;
+    
+    final vcbData = widget.assetAuditData!.responseData.categories['VCB'];
+    if (vcbData == null) return false;
 
-      hasUnsavedChanges = serialController.text.isNotEmpty ||
-          vcbSerialController.text.isNotEmpty ||
-          hasLocalPhoto ||
-          hasImageData ||
-          savedVcbItems.isNotEmpty ||
-          remarksController.text.isNotEmpty;
-
-      if (showValidationErrors && (serialController.text.isNotEmpty || vcbSerialController.text.isNotEmpty)) {
-        showValidationErrors = false;
-      }
-    });
+    final allItems = vcbData.assets;
+    
+    if (isQRCodeScanned) {
+      return allItems.any((item) => item.nexgenSerialNo?.toLowerCase() == serialNumber.toLowerCase());
+    } else {
+      return allItems.any((item) => item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase());
+    }
   }
 
   Future<void> _saveAndExit() async {
-    try {
-      showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-      await _postVcbData();
-      await _updateAuditScheduleStatus("In Progress");
-      Navigator.of(context).pop();
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => HomeScreen()));
-    } catch (e) {
-      if (Navigator.canPop(context)) Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving data: $e'), backgroundColor: Colors.red));
-    }
+    await _postVcbData();
   }
-
-  Future<void> _updateAuditScheduleStatus(String status) async {
-    try {
-      await context.read<AuditScheduleStatusCubit>().updateStatus(status: status, siteAuditSchId: widget.siteAuditSchId);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update status: $e')));
-    }
-  }
-
-  bool _isFormValid() {
-    if (vcbSerialController.text.isEmpty) {
-      return false;
-    }
-
-    if (vcbPhoto == null || vcbPhoto!.isEmpty) {
-      return false;
-    }
-
-    return true;
-  }
-
-  bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
-
-    if (vcbSerialController.text.isEmpty) {
-      return false;
-    }
-
-    if (vcbPhoto == null || vcbPhoto!.isEmpty) {
-      return false;
-    }
-
-    return true;
-  }
-
-  void _saveVcbForm() async {
-    if (savedVcbItems.length >= totalVcbItems) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Maximum number of VCB items ($totalVcbItems) already added.',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontFamily: fontFamilyMontserrat,
-            ),
-          ),
-          backgroundColor: AppColors.errorColor,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    if (_isFormValid()) {
-      String? photoImageId = vcbPhoto;
-
-      if (vcbPhoto != null && vcbPhoto!.isNotEmpty && !vcbPhoto!.startsWith('http') && !_isNumeric(vcbPhoto!)) {
-        try {
-          final file = File(vcbPhoto!);
-          if (await file.exists()) {
-            photoImageId = await _uploadVcbPhoto(file);
-          }
-        } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error uploading photo: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
-        }
-      }
-
-      setState(() {
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': vcbSerialNumber,
-          'photo': photoImageId,
-          'status': vcbStatus ?? "OK",
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': isQRCodeScanned,
-        };
-
-        savedVcbItems.add(currentFormData);
-
-        vcbSerialNumber = null;
-        vcbPhoto = null;
-        vcbStatus = null;
-        isQRCodeScanned = false;
-        displayedImageBase64 = null;
-
-        vcbSerialController.clear();
-
-        vcbCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
-      });
-
-      int remainingVcb = totalVcbItems - savedVcbItems.length;
-    }
-  }
-
-  String _formatSerialNumber(String serialNumber) {
-    if (serialNumber.length <= 7) {
-      return serialNumber;
-    }
-    return "${serialNumber.substring(0, 5)}...";
-  }
-
-
-  void _setupPhotoUploadListener() {
-    _photoUploadSubscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
-      if (state is AssetAuditPhotoUploadSuccess) {
-        setState(() {
-          uploadedPhotoId = state.response.imgId;
-          vcbPhoto = state.response.imgId;
-          isUploadingPhoto = false;
-        });
-      } else if (state is AssetAuditPhotoUploadFailure) {
-        setState(() {
-          isUploadingPhoto = false;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Photo upload failed: ${state.errorMessage}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      } else if (state is AssetAuditPhotoUploadLoading) {
-        setState(() {
-          isUploadingPhoto = true;
-        });
-      }
-    });
-  }
-
-  void _setupGetImageListener() {
-    _getImageSubscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
-      // Only handle images for the main form, not for saved items
-      // This listener should only be triggered when editing an item from the main form
-      if (state is AssetAuditGetImageSuccess && 
-          _isRequestingImage && 
-          _currentRequestedImageId != null) {
-        // Cache the image for future use
-        _imageCache[_currentRequestedImageId!] = state.imageData;
-        
-        setState(() {
-          displayedImageBase64 = state.imageData;
-          isLoadingImage = false;
-          _isRequestingImage = false;
-          _currentRequestedImageId = null;
-        });
-        print('VCB: Image cached for photoId: $_currentRequestedImageId');
-      } else if (state is AssetAuditGetImageFailure && _isRequestingImage) {
-        setState(() {
-          displayedImageBase64 = null;
-          isLoadingImage = false;
-          _isRequestingImage = false;
-          _currentRequestedImageId = null;
-        });
-      } else if (state is AssetAuditGetImageLoading && _isRequestingImage) {
-        setState(() {
-          isLoadingImage = true;
-        });
-      }
-    });
-  }
-
-  bool _isNumeric(String str) {
-    return double.tryParse(str) != null;
-  }
-
-  Future<String?> _uploadVcbPhoto(File file) async {
-    try {
-      final assetAuditState = context.read<AssetAuditCubit>().state;
-      if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
-        final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
-        final imgIdToUse = "0";
-
-        final completer = Completer<String?>();
-
-        late StreamSubscription subscription;
-        subscription = context.read<AssetAuditPhotoUploadCubit>().stream.listen((state) {
-          if (state is AssetAuditPhotoUploadSuccess) {
-            subscription.cancel();
-            completer.complete(state.response.imgId);
-          } else if (state is AssetAuditPhotoUploadFailure) {
-            subscription.cancel();
-            completer.completeError(Exception(state.errorMessage));
-          }
-        });
-
-        context.read<AssetAuditPhotoUploadCubit>().uploadPhoto(
-          file: file,
-          imgId: imgIdToUse,
-          schId: schId,
-        );
-
-        return await completer.future;
-      } else {
-        throw Exception('Asset audit data not available');
-      }
-    } catch (e) {
-      rethrow;
-    }
-  }
-
 
   Future<void> _postVcbData() async {
-    if (savedVcbItems.isEmpty && remarksController.text.trim().isEmpty) {
-      return;
-    }
-
     try {
+      print('=== _postVcbData Started ===');
       final assetAuditState = context.read<AssetAuditCubit>().state;
+      print('Asset audit state: ${assetAuditState.runtimeType}');
+      
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+        print('Asset audit data loaded successfully');
         List<Map<String, dynamic>> allItemsToPost = [];
 
         if (savedVcbItems.isNotEmpty) {
-          final enhancedItems = AssetAuditPostHelper.enhanceSavedItems(
-            savedItems: savedVcbItems,
+          allItemsToPost.addAll(savedVcbItems);
+        }
+
+        if (remarksController.text.isNotEmpty) {
+          Map<String, dynamic> remarksData = {
+            'itemType': 'VCB',
+            'remarks': remarksController.text,
+            'recordType': 'Remarks',
+            'timestamp': DateTime.now(),
+            'status': 'OK',
+            'serialNumber': 'REMARKS',
+          };
+          allItemsToPost.add(remarksData);
+        }
+
+        if (allItemsToPost.isNotEmpty) {
+          print('Items to post: ${allItemsToPost.length}');
+          final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
+            savedItems: allItemsToPost,
+            assetAuditData: assetAuditState.assetAuditData,
+            itemType: 'VCB',
+            itemTypeId: 2,
             screenName: 'solar_vcb',
-          );
-          allItemsToPost.addAll(enhancedItems);
-        }
-
-        if (remarksController.text.trim().isNotEmpty) {
-          String? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
-          if (remarksAssetAuditSiteRespId != null) {
-            Map<String, dynamic> remarksData = {
-              'itemType': 'VCB',
-              'remarks': remarksController.text.trim(),
-              'recordType': 'Remarks',
-              'timestamp': DateTime.now(),
-              'assetAuditSiteRespId': remarksAssetAuditSiteRespId,
-              'status': 'OK',
-              'serialNumber': 'REMARKS',
-              'photo': null,
-              'photoTakenTs': DateTime.now().toString(),
-              'isQRCodeScanned': false,
-              'localQrCodeScannedTs': DateTime.now().toString(),
-              'localCreatedDt': DateTime.now().toString(),
-              'localModifiedDt': DateTime.now().toString(),
-            };
-            allItemsToPost.add(remarksData);
-          }
-        }
-
-        if (allItemsToPost.isEmpty) {
-          return;
-        }
-
-        final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
-          savedItems: allItemsToPost,
-          assetAuditData: assetAuditState.assetAuditData,
-          itemType: 'VCB',
-          itemTypeId: 5,
-          screenName: 'solar_vcb',
-          context: context,
-          auditSchId: widget.auditSchId,
-        );
-
-        if (requests.isNotEmpty) {
-          // Store the current remarks text before posting
-          final currentRemarksText = remarksController.text;
-          print('VCB Screen: Storing current remarks text: "$currentRemarksText"');
-          
-          await context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
-          
-          // Refresh the data immediately after posting
-          print('Refreshing VCB data after posting...');
-          context.read<AssetAuditCubit>().getAssetAuditData(
-            siteType: widget.siteType,
+            context: context,
             auditSchId: widget.auditSchId,
-            siteAuditSchId: widget.siteAuditSchId,
           );
-          
-          // Restore the remarks text after refresh to ensure it's not overwritten
-          if (currentRemarksText.isNotEmpty) {
-            print('VCB Screen: Restoring remarks text after refresh: "$currentRemarksText"');
-            remarksController.text = currentRemarksText;
+
+          print('Generated requests: ${requests.length}');
+          if (requests.isNotEmpty) {
+            print('Calling postAssetAuditData...');
+            context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
+          } else {
+            print('No requests to post, proceeding with navigation');
+            // If no data to post, proceed with navigation immediately
+            if (_pendingNavigation != null) {
+              final navigationTarget = _pendingNavigation;
+              _pendingNavigation = null;
+              print('No data to post, navigating to: $navigationTarget');
+              
+              if (navigationTarget == 'home') {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen()),
+                );
+              } else {
+                _navigateToNextScreen(context, navigationTarget!);
+              }
+            }
+          }
+        } else {
+          print('No items to post, proceeding with navigation');
+          // If no data to post, proceed with navigation immediately
+          if (_pendingNavigation != null) {
+            final navigationTarget = _pendingNavigation;
+            _pendingNavigation = null;
+            print('No data to post, navigating to: $navigationTarget');
+            
+            if (navigationTarget == 'home') {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => HomeScreen()),
+              );
+            } else {
+              _navigateToNextScreen(context, navigationTarget!);
+            }
           }
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error posting VCB data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      print('Error posting VCB data: $e');
     }
   }
 
-  void _editItem(Map<String, dynamic> item) {
-    setState(() {
-      vcbSerialNumber = item['serialNumber'];
-      vcbPhoto = item['photo'];
-      vcbStatus = item['status'];
-      isQRCodeScanned = item['isQRCodeScanned'] ?? false;
-      vcbSerialController.text = item['serialNumber'] ?? '';
-      savedVcbItems.remove(item);
-      hasUnsavedChanges = true;
-      vcbCardKey++;
-    });
-
-    // Load image with caching for faster loading
-    if (vcbPhoto != null && vcbPhoto!.isNotEmpty && _isNumeric(vcbPhoto!)) {
-      // Check if image is already cached
-      if (_imageCache.containsKey(vcbPhoto!)) {
-        setState(() {
-          displayedImageBase64 = _imageCache[vcbPhoto!];
-          isLoadingImage = false;
-        });
-        print('VCB: Using cached image for photoId: $vcbPhoto');
-      } else {
-        // Load from API if not cached
-        setState(() {
-          _currentRequestedImageId = vcbPhoto;
-          _isRequestingImage = true;
-          displayedImageBase64 = null;
-          isLoadingImage = true;
-        });
-        
-        print('VCB: Loading image from API for photoId: $vcbPhoto');
-        context.read<AssetAuditGetImageCubit>().getImage(
-          imgId: vcbPhoto!,
-          schId: widget.siteAuditSchId,
-        );
-      }
-    } else {
-      setState(() {
-        displayedImageBase64 = null;
-        isLoadingImage = false;
-      });
-    }
-
-  }
-
-  String? _getRemarksAssetAuditSiteRespId() {
-    final vcbData = widget.assetAuditData?.responseData.categories['VCB'];
-    if (vcbData != null && vcbData.remarks.isNotEmpty) {
-      return vcbData.remarks.first.assetAuditSiteRespId.toString();
-    }
-    return null;
-  }
-
-  // Navigation helper methods
   String? _getNextAvailableScreen() {
     return AssetAuditNavigationHelper.getNextAvailableScreen(widget.assetAuditData, 'VCB');
+  }
+
+  String? _getPreviousAvailableScreen() {
+    return AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'VCB');
   }
 
   void _navigateToNextScreen(BuildContext context, String screenName) {
@@ -553,414 +208,213 @@ class _VCBScreenState extends State<VCBScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AssetAuditCubit, AssetAuditState>(
-      builder: (context, state) {
-        return PopScope(
-          canPop: !hasUnsavedChanges,
-          onPopInvoked: (didPop) async {
-            if (didPop) return;
-
-            if (hasUnsavedChanges) {
+    final vcbData = widget.assetAuditData?.responseData.categories['VCB'];
+    
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<AssetAuditCubit, AssetAuditState>(
+          listener: (context, state) {
+            print('=== VCB BlocListener State Changed ===');
+            print('State type: ${state.runtimeType}');
+            print('Pending navigation: $_pendingNavigation');
+            
+            if (state is AssetAuditPosting) {
+              print('VCB Asset audit posting started');
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                  onSaveAndExit: () async {
-                    await _saveAndExit();
-                  },
-                  onDiscard: () {
-                    Navigator.of(context).pop();
-                  },
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
                 ),
               );
-            }
-          },
-          child: Scaffold(
-            extendBodyBehindAppBar: true,
-            resizeToAvoidBottomInset: false,
-            appBar: CustomFormAppbar(
-              title: "Asset Audit",
-              onClose: () async {
-                if (hasUnsavedChanges) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => UnsavedChangesDialog(
-                      message: "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-                      onSaveAndExit: () async {
-                        await _saveAndExit();
-                      },
-                      onDiscard: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
+            } else if (state is AssetAuditPostSuccess) {
+              print('VCB Asset audit post success');
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              
+              if (_pendingNavigation != null) {
+                final navigationTarget = _pendingNavigation;
+                _pendingNavigation = null;
+                
+                print('Navigating to: $navigationTarget');
+                
+                if (navigationTarget == 'home') {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => HomeScreen()),
                   );
                 } else {
-                  Navigator.pop(context);
+                  _navigateToNextScreen(context, navigationTarget!);
                 }
-              },
-            ),
-            body: Stack(
-              children: [
-                Positioned.fill(
-                  child: SvgPicture.asset(
-                    AppImages.home,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
+                return;
+              }
+              
+              // If no pending navigation, refresh data
+              context.read<AssetAuditCubit>().getAssetAuditData(
+                siteType: widget.siteType,
+                auditSchId: widget.auditSchId,
+                siteAuditSchId: widget.siteAuditSchId,
+              );
+            } else if (state is AssetAuditPostError) {
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              _pendingNavigation = null;
+              showCustomToast(context, 'Error saving VCB data: ${state.message}');
+            } else if (state is AssetAuditError) {
+              showCustomToast(context, 'Error loading data: ${state.message}');
+            }
+          },
+        ),
+      ],
+      child: PopScope(
+        canPop: !hasUnsavedChanges,
+        child: Scaffold(
+          extendBodyBehindAppBar: true,
+          resizeToAvoidBottomInset: false,
+          appBar: CustomFormAppbar(
+            title: "Asset Audit",
+            onClose: () async {
+              if (hasUnsavedChanges) {
+                showDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  builder: (dialogContext) => UnsavedChangesDialog(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    section: "Asset Audit",
+                    parentContext: context,
+                    onSaveAndExit: () async {
+                      await _saveAndExit();
+                    },
+                    onDiscard: () {
+                    },
                   ),
+                );
+              } else {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen()),
+                );
+              }
+            },
+          ),
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: SvgPicture.asset(
+                  AppImages.home,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
                 ),
-                SafeArea(
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: SingleChildScrollView(
-                            padding: EdgeInsets.only(
-                              bottom: MediaQuery.of(context).viewInsets.bottom + 120,
-                            ),
-                            child: Container(
-                              padding: const EdgeInsets.only(
-                                top: 20,
-                                left: 16,
-                                right: 16,
-                                bottom: 20,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  CustomFormField(
-                                    label: "VCB Type",
-                                    hintText: "Text",
-                                    isRequired: true,
-                                    isEditable: false,
-                                  ),
-                                  getHeight(15),
-                                  CustomFormField(
-                                    label: "Count of VCB",
-                                    initialValue: totalVcbItems.toString(),
-                                    isRequired: false,
-                                    isEditable: false,
-                                  ),
-                                  getHeight(15),
-                                  Text(
-                                    "VCB Details",
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                      color: Colors.white,
-                                      fontFamily: fontFamilyMontserrat,
-                                    ),
-                                  ),
-                                  getHeight(3),
-                                  CustomInfoCard(
-                                    key: ValueKey('vcb_$vcbCardKey'),
-                                    serialLabel: "VCB - Serial Number",
-                                    serialHintText: "VCB Serial Number *",
-                                    photoLabel: "Add a Photo",
-                                    statusLabel: "Status",
-                                    serialController: vcbSerialController,
-                                    onSave: _saveVcbForm,
-                                    isStatusEditable: true,
-                                    backendStatus: false,
-                                    remarksLabel: vcbCategoryData?.assets.isNotEmpty == true
-                                        ? vcbCategoryData!.assets.first.itemType ?? "VCB"
-                                        : "VCB",
-                                    remarksHintText: vcbCategoryData?.assets.isNotEmpty == true
-                                        ? vcbCategoryData!.assets.first.capacity ?? ""
-                                        : "5",
-                                    remarksController: null,
-                                    isRemarksEditable: false,
-                                    onPhotoTap: (photoPath) {
-                                      setState(() {
-                                        vcbPhoto = photoPath;
-                                        displayedImageBase64 = null;
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                    onStatusChanged: (val) {
-                                      setState(() {
-                                        vcbStatus = val ? "OK" : "Not OK";
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                    onSerialChanged: (serialNumber) {
-                                      setState(() {
-                                        vcbSerialNumber = serialNumber;
-                                        isQRCodeScanned = false;
-                                        hasUnsavedChanges = true;
-                                      });
-                                    },
-                                    initialStatus: vcbStatus == "OK"
-                                        ? true
-                                        : (vcbStatus == "Not OK" ? false : null),
-                                    initialPhotoPath: vcbPhoto ?? displayedImageBase64,
-                                    isEditable: true,
-                                  ),
-                                  getHeight(8),
-                                  _buildVcbSavedItemsList(),
-                                  getHeight(15),
-                                  CustomRemarksField(
-                                    label: "Add Remarks",
-                                    hintText: "Remarks",
-                                    controller: remarksController,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+              ),
+              SafeArea(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom + 120,
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          width: double.infinity,
-                          child: Row(
+                        child: Container(
+                          padding: const EdgeInsets.only(
+                            top: 20,
+                            left: 16,
+                            right: 16,
+                            bottom: 20,
+                          ),
+                          child: Column(
                             children: [
-                              Expanded(
-                                child: ArrowButton(
-                                  text: AssetAuditNavigationHelper.getSolarPreviousScreenName('VCB'),
-                                  isLeftArrow: true,
-                                  backgroundColor: AppColors.buttonColorBackBg,
-                                  textColor: AppColors.buttonColorTextBg,
-                                  onPressed: () {
-                                    final previousScreen = AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'VCB');
-                                    if (previousScreen != null) {
-                                      _navigateToNextScreen(context, previousScreen);
-                                    } else {
-                                      Navigator.pop(context);
-                                    }
-                                  },
-                                ),
+                              AssetAuditFormComponent(
+                                componentId: 'vcb',
+                                serialLabel: vcbData?.assets.isNotEmpty == true
+                                    ? "VCB (${vcbData?.assets.first.oemName ?? 'N/A'}) - Serial Number"
+                                    : "VCB - Serial Number",
+                                serialHintText: "VCB Serial Number *",
+                                photoLabel: "Add a Photo",
+                                disabledFieldLabel: 'VCB (Capacity)',
+                                disabledFieldValue: vcbData?.assets.isNotEmpty == true
+                                    ? vcbData?.assets.first.capacity ?? 'N/A'
+                                    : 'N/A',
+                                serialController: vcbSerialController,
+                                siteAuditSchId: widget.siteAuditSchId,
+                                initialSavedItems: savedVcbItems,
+                                onItemSaved: _onVcbItemSaved,
+                                onStatusChanged: (status) {},
+                                customValidator: _validateVcbSerialNumber,
                               ),
-                              getWidth(14),
-                              Expanded(
-                                child: Builder(
-                                  builder: (context) {
-                                    final nextScreen = _getNextAvailableScreen();
-                                    if (nextScreen == null) {
-                                      return ArrowButton(
-                                        text: "Submit",
-                                        isLeftArrow: false,
-                                        backgroundColor: AppColors.buttonColorBg,
-                                        textColor: AppColors.buttonColorSite,
-                                        onPressed: () async {
-                                          await _postVcbData();
-                                          Navigator.pop(context);
-                                        },
-                                      );
-                                    } else {
-                                      return ArrowButton(
-                                        text: nextScreen,
-                                        isLeftArrow: false,
-                                        backgroundColor: AppColors.buttonColorBg,
-                                        textColor: AppColors.buttonColorSite,
-                                        onPressed: () async {
-                                          print('=== VCB Navigation to $nextScreen ===');
-                                          print('Passing asset audit data: ${widget.assetAuditData != null}');
-                                          await _postVcbData();
-                                          _navigateToNextScreen(context, nextScreen);
-                                        },
-                                      );
-                                    }
-                                  },
-                                ),
+                              getHeight(15),
+                              CustomRemarksField(
+                                label: "Add Remarks",
+                                hintText: "Remarks",
+                                controller: remarksController,
                               ),
                             ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      width: double.infinity,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: ArrowButton(
+                              text: _getPreviousAvailableScreen() ?? "Back",
+                              isLeftArrow: true,
+                              backgroundColor: AppColors.buttonColorBackBg,
+                              textColor: AppColors.buttonColorTextBg,
+                              onPressed: () {
+                                final previousScreen = _getPreviousAvailableScreen();
+                                if (previousScreen != null) {
+                                  _navigateToNextScreen(context, previousScreen);
+                                } else {
+                                  Navigator.pop(context);
+                                }
+                              },
+                            ),
+                          ),
+                          getWidth(14),
+                          Expanded(
+                            child: Builder(
+                              builder: (context) {
+                                final nextScreen = _getNextAvailableScreen();
+                                return ArrowButton(
+                                  text: nextScreen ?? "Submit",
+                                  isLeftArrow: false,
+                                  backgroundColor: AppColors.buttonColorBg,
+                                  textColor: AppColors.buttonColorSite,
+                                  onPressed: () async {
+                                    print('=== VCB Next Screen Button Pressed ===');
+                                    print('Next screen: $nextScreen');
+                                    
+                                    if (nextScreen != null) {
+                                      _pendingNavigation = nextScreen;
+                                      print('Set pending navigation to: $nextScreen');
+                                    } else {
+                                      _pendingNavigation = 'home';
+                                      print('Set pending navigation to: home');
+                                    }
+                                    
+                                    print('Calling _postVcbData()...');
+                                    await _postVcbData();
+                                  },
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildVcbSavedItemsList() {
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.green7,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Serial No.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Status",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Scanned",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Photo",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Edit",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ],
               ),
-              const SizedBox(height: 8),
-              if (savedVcbItems.isNotEmpty) ...[
-                ...savedVcbItems.map((item) {
-                  return Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _formatSerialNumber(item["serialNumber"] ?? ""),
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            item["status"] ?? "",
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Icon(
-                            item['isQRCodeScanned'] == true
-                                ? Icons.qr_code_scanner
-                                : Icons.close,
-                            color: item['isQRCodeScanned'] == true
-                                ? Colors.blue
-                                : Colors.red,
-                          ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.camera_alt,
-                              color: AppColors.color555555,
-                            ),
-                            onPressed: () {
-                              // Handle photo click
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.edit_calendar_outlined,
-                              color: AppColors.color555555,
-                            ),
-                            onPressed: () {
-                              _editItem(item);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
             ],
           ),
         ),
-      ],
+      ),
     );
   }
 }

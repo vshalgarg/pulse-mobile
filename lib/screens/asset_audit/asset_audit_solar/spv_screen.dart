@@ -14,8 +14,6 @@ import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
-import '../../../bloc/audit_schedule_status_cubit.dart';
-import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
@@ -75,6 +73,7 @@ class _SPVScreenState extends State<SPVScreen> {
   String? uploadedImgId;
   String? fetchedImageData;
   bool _hasFormDataChanges = false;
+  String? _pendingNavigation; // Track pending navigation after successful post
   List<Map<String, String>> _imageQueue = [];
   bool _fetchingImage = false;
   String? _lastRequestedPhotoId;
@@ -462,7 +461,7 @@ class _SPVScreenState extends State<SPVScreen> {
 
 
   Future<void> _saveAndExit() async {
-      await _postSPVData();
+    await _postSPVData();
   }
 
   int? _getRemarksAssetAuditSiteRespId() {
@@ -720,8 +719,38 @@ class _SPVScreenState extends State<SPVScreen> {
               }
             } else if (state is AssetAuditError) {
               showCustomToast(context, state.message);
+            } else if (state is AssetAuditPosting) {
+              // Show loading dialog when posting data
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
             } else if (state is AssetAuditPostSuccess) {
-              // Allow update from API after successful post
+              // Close loading dialog when posting is successful
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              
+              // Handle pending navigation
+              if (_pendingNavigation != null) {
+                final navigationTarget = _pendingNavigation;
+                _pendingNavigation = null; // Clear the flag
+                
+                if (navigationTarget == 'home') {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => HomeScreen()),
+                  );
+                } else {
+                  _navigateToNextScreen(context, navigationTarget!);
+                }
+                return; // Don't refresh data if navigating away
+              }
+              
+              // Allow update from API after successful post (only if not navigating)
               _shouldUpdateFromAPI = true;
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: widget.siteType,
@@ -729,6 +758,12 @@ class _SPVScreenState extends State<SPVScreen> {
                 siteAuditSchId: widget.siteAuditSchId,
               );
             } else if (state is AssetAuditPostError) {
+              // Close loading dialog if it's open
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              // Clear pending navigation on error
+              _pendingNavigation = null;
               Logger.errorLog('Error posting SPV data: ${state.message}');
               // Only show toast if this screen initiated the post action
               if (mounted) {
@@ -945,8 +980,8 @@ class _SPVScreenState extends State<SPVScreen> {
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
+                                        _pendingNavigation = 'home';
                                         await _postSPVData();
-
                                       },
                                     );
                                   } else {
@@ -957,7 +992,7 @@ class _SPVScreenState extends State<SPVScreen> {
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
                                         await _postSPVData();
-                                        _navigateToNextScreen(context, nextScreen);
+                                        _pendingNavigation = nextScreen;
                                       },
                                     );
                                   }
