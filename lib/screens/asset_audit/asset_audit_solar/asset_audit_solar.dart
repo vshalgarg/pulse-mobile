@@ -213,77 +213,96 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       final db = context.read<AppDatabase>();
       final assetAuditService = AssetAuditService(db);
 
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+      print("pageheaderData");
+      print(widget.auditSchId);
+      print(pageHeader.siteId);
+
+      // Parse & validate IDs safely
+      final int auditSchId = int.tryParse((widget.auditSchId ?? '').toString()) ?? 0;
+      final int siteId = pageHeader.siteId ?? 0;
+      // if (auditSchId == 0 || siteId == null) {
+      //   showCustomToast(context, 'Missing required identifiers (Audit/Site).');
+      //   return;
+      // }
+
+      // Prefer scanned/typed serial, else null
+      final String? cardSerial = assetCardSerialNumber?.trim();
+      final String typedSerial = serialController.text.trim();
+      final String nexgenSerial;
+      if ((cardSerial?.isNotEmpty ?? false)) {
+        nexgenSerial = cardSerial ?? "";
+      } else {
+        nexgenSerial = (typedSerial.isNotEmpty ? typedSerial : "");
+      }
+
+      // Remarks controller may be null in some screens
+      final String? remarksText =
+      (cctvSerialController?.text.isNotEmpty ?? false) ? cctvSerialController!.text : null;
+
       final nowIso = DateTime.now().toIso8601String();
 
-      final state = context.read<AssetAuditCubit>().state;
+      final req = AssetAuditPostRequest(
+        assetAuditSiteRespId: null,
 
-      if (state is AssetAuditLoaded && state.assetAuditData.pageHeader.isNotEmpty) {
-        final pageHeader = state.assetAuditData.pageHeader.first;
+        // Local identity for draft
+        localAuditLogId: 0,               // let DB auto-increment its own PK
+        auditSchId: auditSchId,
+        siteAuditSchId: pageHeader.siteAuditSchId,
+        siteId: siteId,
 
-        // Build local draft request (map your UI state → DB fields)
-        final req = AssetAuditPostRequest(
-          // Server id stays null/0 until sync
-          assetAuditSiteRespId: null,
+        // Asset identity / selection
+        itemInstanceId: 0,
+        nexgenSerialNo: nexgenSerial,
+        itemTypeId: 0,
 
-          // Local identity (use your widget values)
-          localAuditLogId: 0,
-          auditSchId:  int.parse(widget.auditSchId),
-          siteAuditSchId: pageHeader.siteAuditSchId,
-          siteId: pageHeader.siteId!,
+        // QR state
+        qrCodeScanned: false,
+        qrCodeScannedTs: null,
 
-          // Asset identity / selection
-          itemInstanceId:  0,             // map from your UI
-          nexgenSerialNo: assetCardSerialNumber?.trim().isNotEmpty == true
-              ? assetCardSerialNumber!.trim()
-              : serialController.text.trim(),
-          itemTypeId:  0,
+        // Photo fields for draft
+        photoId: null,
+        photoTakenTs: "",
 
-          // QR state (adjust if you capture it elsewhere)
-          qrCodeScanned: false,
-          qrCodeScannedTs: null,
+        // Status / geo / remarks
+        assetStatus: (selectedStatus ?? 'draft').toString(),
+        longitude: null,
+        latitude: null,
+        itemTypeRemark: assetCardStatus,
+        remarks: remarksText,
 
-          // Photo server fields are unknown for drafts
-          photoId: null,
-          photoTakenTs: "",
+        // Local timestamps
+        localQrCodeScannedTs: nowIso,
+        localCreatedDt: nowIso,
+        localModifiedDt: nowIso,
 
-          // Status / geo / remarks
-          assetStatus: (selectedStatus ?? 'draft').toString(),
-          longitude: null,
-          latitude: null,
-          itemTypeRemark: assetCardStatus,
-          remarks: cctvSerialController.text.isNotEmpty ? cctvSerialController.text : null,
+        // Process flags
+        syncProcessId: 0,
+        isActive: true,
+      );
 
-          // Local timestamps
-          localQrCodeScannedTs: nowIso,
-          localCreatedDt: nowIso,
-          localModifiedDt: nowIso,
+      // If no photo yet, use 0 (or change service to accept nullable)
+      final String localPhotoId = uploadedImgId ?? "";
 
-          // Process flags
-          syncProcessId: 0,
-          isActive: true,
-        );
+      await assetAuditService.upsertFromRequest(req, 'solar_page_1', localPhotoId);
 
-        // Upsert the asset draft
-        await assetAuditService.upsertFromRequest(req, 'solar_page_1',uploadedImgId!);
-
-
-        final datalistdraft = await assetAuditService.listDrafts();
-        print("datalistdraft => ");
-        print(datalistdraft);
-
-      }
+      final drafts = await assetAuditService.listDrafts();
+      debugPrint("datalistdraft => $drafts");
 
       _hasFormDataChanges = false;
-      if (mounted) {
-        showCustomToast(context, 'Saved locally');
-      }
-    } catch (e) {
-      if (mounted) {
-        print("Save failed: $e");
-        showCustomToast(context, 'Save failed: $e');
-      }
+      if (mounted) showCustomToast(context, 'Saved locally');
+    } catch (e, st) {
+      debugPrint("Save failed: $e\n$st");
+      if (mounted) showCustomToast(context, 'Save failed: $e');
     }
   }
+
 
 
   void _saveFormDataToHive() {
