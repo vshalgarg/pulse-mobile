@@ -342,12 +342,12 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
   }
 
   Future<void> _submitForm() async {
-    if (formData.isEmpty) return;
-
     final cubit = context.read<PmCubit>();
     final state = cubit.state;
 
     if (state is PmGetLoaded) {
+      // Always call API, even if formData is empty
+      // This ensures existing data is saved and API is hit
       await cubit.postPmData(
         formData: formData,
         pmData: state.pmGetDataModel,
@@ -711,9 +711,8 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                           onPressed: isSubmitting
                               ? null
                               : () async {
-                            if (formData.isNotEmpty) {
-                              await _submitForm();
-                            }
+                            // Always call API regardless of formData state
+                            await _submitForm();
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(

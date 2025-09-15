@@ -132,7 +132,7 @@ class Ticket extends Equatable {
 // Ticket filter parameters
 class TicketFilterParams extends Equatable {
   final String activityType; // AA, PM, ER
-  final String type; // ALL, OPEN, COMPLETED, CLOSED, MISSED DEADLINE
+  final String type; // ALL, IN_PROGRESS, COMPLETED, CLOSED, MISSED_DEADLINE
   final int? pageSize;
   final int? pageNo;
 
@@ -173,8 +173,8 @@ class ActivityType {
 // Ticket type constants
 class TicketType {
   static const String all = 'ALL';
-  static const String open = 'OPEN';
+  static const String open = 'IN_PROGRESS';
   static const String completed = 'COMPLETED';
   static const String closed = 'CLOSED';
-  static const String missedDeadline = 'MISSED DEADLINE';
+  static const String missedDeadline = 'MISSED_DEADLINE';
 }

@@ -9,7 +9,7 @@ class TicketService {
   /// Get tickets based on activity type and ticket type
   /// 
   /// [activityType] - AA (Asset Audit), PM (Preventive Maintenance), ER (Energy Reading)
-  /// [ticketType] - ALL, OPEN, COMPLETED, CLOSED, MISSED DEADLINE
+  /// [ticketType] - ALL, IN_PROGRESS, COMPLETED, CLOSED, MISSED_DEADLINE
   /// [pageSize] - Number of records per page (optional, default = 50)
   /// [pageNo] - Page number (optional, default = 1)
   Future<ResponseResult<TicketResponse>> getTickets({
