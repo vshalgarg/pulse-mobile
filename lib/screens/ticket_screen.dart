@@ -298,8 +298,14 @@ class _TicketScreenState extends State<TicketScreen> {
       itemCount: ticketResponse.tickets.length,
       itemBuilder: (context, index) {
         final ticket = ticketResponse.tickets[index];
-        // Use dynamic status from ticket data, fallback to filter-based status
-        final statusText = ticket.status ?? _getStatusFromTicketType(_currentTicketType);
+        // Use dynamic status from ticket data, fallback to filter-based status only if no status available
+        final statusText = ticket.status?.isNotEmpty == true 
+            ? ticket.status! 
+            : _getStatusFromTicketType(_currentTicketType);
+        
+        // Debug logging to see actual status values
+        print("🔍 Ticket ${ticket.pvTicketId}: API status='${ticket.status}', final status='$statusText'");
+        
         return Padding(
           padding: EdgeInsets.only(bottom: index == ticketResponse.tickets.length - 1 ? 0 : 10),
           child: TicketCard(

@@ -84,7 +84,11 @@ class Ticket extends Equatable {
       return null;
     }
 
-    return Ticket(
+    // Debug logging for status field
+    print("🔍 Ticket.fromJson: Raw status field = '${json['status']}'");
+    print("🔍 Ticket.fromJson: Status field type = ${json['status'].runtimeType}");
+    
+    final ticket = Ticket(
       ticketSchId: int.tryParse(json['ticket_sch_id'].toString()) ?? 0,
       pvTicketId: json['pv_ticket_id'] ?? '',
       siteCode: json['site_code'],
@@ -98,6 +102,11 @@ class Ticket extends Equatable {
       siteDomainName: json['site_domain_name'],
       status: json['status'],
     );
+    
+    // Debug logging for final ticket object
+    print("🔍 Ticket.fromJson: Final ticket status = '${ticket.status}'");
+    
+    return ticket;
   }
 
   Map<String, dynamic> toJson() {
