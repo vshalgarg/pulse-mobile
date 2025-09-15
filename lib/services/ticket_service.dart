@@ -40,12 +40,7 @@ class TicketService {
 
       if (response.statusCode == 200) {
         final responseData = response.data;
-        
-        // Debug logging
-        print("🔍 API Response Debug:");
-        print("   Response type: ${responseData.runtimeType}");
-        print("   Response data: $responseData");
-        
+
         // Handle different response structures
         if (responseData is Map<String, dynamic>) {
           // API returned the expected TicketResponse structure
@@ -62,9 +57,7 @@ class TicketService {
         } else if (responseData is List<dynamic>) {
           // API returned a list directly - wrap it in TicketResponse
           try {
-            print("📋 API returned List<dynamic>, converting to TicketResponse");
-            print("   First ticket data: ${responseData.isNotEmpty ? responseData.first : 'Empty list'}");
-            
+
             final tickets = (responseData as List<dynamic>)
                 .map((ticket) {
                   print("   Parsing ticket: $ticket");
