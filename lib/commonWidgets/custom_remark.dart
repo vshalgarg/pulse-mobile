@@ -30,7 +30,7 @@ class CustomRemarksField extends StatelessWidget {
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
-            color: Colors.white,
+            color: AppColors.white,
             fontFamily: fontFamilyMontserrat,
           ),
         ),
@@ -40,7 +40,7 @@ class CustomRemarksField extends StatelessWidget {
           maxLines: maxLines,
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: const TextStyle(color: Colors.grey),
+            hintStyle: const TextStyle(color: AppColors.color555555),
             filled: true,
             fillColor: Colors.white,
             border: OutlineInputBorder(

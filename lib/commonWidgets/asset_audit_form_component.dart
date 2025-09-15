@@ -595,6 +595,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   /// Fetches and displays server image for editing
   Future<void> _fetchAndDisplayServerImage(String photoId) async {
     try {
+      // Show loading indicator
+      setState(() {
+        _isUploading = true;
+      });
+      
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
@@ -621,10 +626,18 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       if (mounted && imageData != null && imageData.isNotEmpty) {
         setState(() {
           _selectedPhotoPath = imageData; // Store as base64 data for display
+          _isUploading = false; // Clear loading state
+        });
+      } else {
+        setState(() {
+          _isUploading = false; // Clear loading state
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isUploading = false; // Clear loading state
+        });
         // If fetching fails, keep the photo ID so it can still be viewed
         setState(() {
           _selectedPhotoPath = photoId;

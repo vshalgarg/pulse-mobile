@@ -94,6 +94,7 @@ class AssetAuditNavigationHelper {
   // Define the order of all solar screens
   static const List<String> _solarScreenOrder = [
     'SPV',
+    'DCDB',
     'MMS', 
     'Invertor',
     'ACDB',
@@ -240,14 +241,14 @@ class AssetAuditNavigationHelper {
           assetAuditData: assetAuditData,
         ));
         break;
-            case 'SCADA':
-              pushPage(context, SCADAScreen(
-                siteType: siteType,
-                auditSchId: auditSchId,
-                siteAuditSchId: siteAuditSchId,
-                assetAuditData: assetAuditData,
-              ));
-              break;
+      case 'SCADA':
+        pushPage(context, SCADAScreen(
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          assetAuditData: assetAuditData,
+        ));
+        break;
       case 'Fire Extinguisher':
         pushPage(context, FireExtinguisherScreen(
           siteType: siteType,
