@@ -12,6 +12,8 @@ import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_post_model.dart';
 import 'dart:convert';
 import '../../../commonWidgets/asset_type_card.dart';
@@ -399,6 +401,126 @@ class _PCUScreenState extends State<PCUScreen> {
   }
 
   Future<void> _postPcuData() async {
+    if (savedPcuItems.isEmpty && remarksController.text.trim().isEmpty) return;
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      final int auditSchId =
+          int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      final nowIso = DateTime.now().toIso8601String();
+      int saved = 0;
+
+      // ---- Save each PCU row locally (NO UPLOADS) ----
+      for (final item in savedPcuItems) {
+        final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+        if (serial.isEmpty) continue;
+
+        // Keep whatever is in 'photo': file path, data URL, or numeric id as string.
+        final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+        final req = AssetAuditPostRequest(
+          assetAuditSiteRespId: item['assetAuditSiteRespId'], // keep if present; else null
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: serial,
+          itemTypeId: 6, // PCU (kept as in your original code)
+
+          qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+          qrCodeScannedTs: null, // local-only
+          photoId: null,         // keep null; pass localPhotoId to upsert
+          photoTakenTs: (item['timestamp'] is DateTime)
+              ? (item['timestamp'] as DateTime).toIso8601String()
+              : nowIso,
+
+          assetStatus: (item['status'] as String?) ?? 'OK',
+          longitude: null,
+          latitude: null,
+          // Store rating (if any) as both remark fields commonly used in your codebase
+          itemTypeRemark: (item['rating'] as String?)?.trim(),
+          remarks: (item['rating'] as String?)?.trim(),
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(req, 'solar_pcu', localPhotoId);
+        saved++;
+      }
+
+      // ---- Save remarks as its own local row (if any) ----
+      final remarksText = remarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: _getRemarksAssetAuditSiteRespId(),
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: 6, // PCU
+
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: remarksText,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, 'solar_pcu', "");
+        saved++;
+      }
+
+      if (mounted) {
+        showCustomToast(context, saved > 0 ? 'PCU saved locally ($saved)' : 'Nothing to save');
+      }
+    } catch (e, st) {
+      debugPrint('PCU local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+
+  Future<void> _postPcuData_api() async {
     if (savedPcuItems.isEmpty && remarksController.text.trim().isEmpty) return;
     try {
       final now = DateTime.now();

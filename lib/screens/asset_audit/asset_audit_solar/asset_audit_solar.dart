@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -206,8 +208,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   }
 
 
-  Future<void> _saveFormDataToDbDraft() async {
-    if (!_hasFormDataChanges) return;
+  Future<int> _saveFormDataToDbDraft() async {
+    if (!_hasFormDataChanges) return 0;
 
     try {
       final db = context.read<AppDatabase>();
@@ -216,7 +218,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       final state = context.read<AssetAuditCubit>().state;
       if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
         showCustomToast(context, 'Please wait for site data to load before saving');
-        return;
+        return 0;
       }
 
       final pageHeader = state.assetAuditData.pageHeader.first;
@@ -297,9 +299,14 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
       _hasFormDataChanges = false;
       if (mounted) showCustomToast(context, 'Saved locally');
+
+      return 1;
+
     } catch (e, st) {
       debugPrint("Save failed: $e\n$st");
       if (mounted) showCustomToast(context, 'Save failed: $e');
+
+      return 0;
     }
   }
 
@@ -453,26 +460,27 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
   void _saveAndExit() async {
     // _saveFormDataToHive();
-    _saveFormDataToDbDraft();
+   int result = await _saveFormDataToDbDraft();
 
 
-
-    Navigator.of(context).pop();
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54,
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-              "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
-        ),
-      );
+    if(result == 1){
+      Navigator.of(context).pop();
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          barrierColor: Colors.black54,
+          builder: (context) => SuccessDialog(
+            ticketId: "UVORKJR00044",
+            message:
+            "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
+            onDone: () {
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
+            },
+          ),
+        );
+      }
     }
   }
 
@@ -867,35 +875,42 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                 print('SPV button pressed');
                                 if (_validateForm()) {
                                   // _saveFormDataToHive();
-                                  _saveFormDataToDbDraft();
-                                  
-                                  // Pass ALL asset audit data to SPV screen
-                                  final assetAuditState = context.read<AssetAuditCubit>().state;
-                                  AssetAuditModel? assetAuditData;
-                                  if (assetAuditState is AssetAuditLoaded) {
-                                    assetAuditData = assetAuditState.assetAuditData;
-                                    print('=== Main Screen: Passing asset audit data to SPV ===');
-                                    print('Asset audit data available: ${assetAuditData != null}');
-                                    if (assetAuditData != null) {
-                                      print('Categories available: ${assetAuditData.responseData.categories.keys.toList()}');
-                                      final spvCategory = assetAuditData.responseData.categories['SPV'];
-                                      if (spvCategory != null) {
-                                        print('SPV category found with ${spvCategory.assets.length} assets');
-                                        if (spvCategory.assets.isNotEmpty) {
-                                          print('First SPV asset: ${spvCategory.assets.first.oemName}');
+                                  int result = await _saveFormDataToDbDraft();
+                                  if (result == 1) {
+
+                                    // Pass ALL asset audit data to SPV screen
+                                    final assetAuditState = context.read<AssetAuditCubit>().state;
+                                    AssetAuditModel? assetAuditData;
+                                    if (assetAuditState is AssetAuditLoaded) {
+                                      assetAuditData = assetAuditState.assetAuditData;
+                                      print('=== Main Screen: Passing asset audit data to SPV ===');
+                                      print('Asset audit data available: ${assetAuditData != null}');
+                                      if (assetAuditData != null) {
+                                        print('Categories available: ${assetAuditData.responseData.categories.keys.toList()}');
+                                        final spvCategory = assetAuditData.responseData.categories['SPV'];
+                                        if (spvCategory != null) {
+                                          print('SPV category found with ${spvCategory.assets.length} assets');
+                                          if (spvCategory.assets.isNotEmpty) {
+                                            print('First SPV asset: ${spvCategory.assets.first.oemName}');
+                                          }
+                                        } else {
+                                          print('SPV category NOT found!');
                                         }
-                                      } else {
-                                        print('SPV category NOT found!');
                                       }
                                     }
+
+                                    pushPage(context, SPVScreen(
+                                      siteType: widget.siteType,
+                                      auditSchId: widget.auditSchId,
+                                      siteAuditSchId: widget.siteAuditSchId,
+                                      assetAuditData: assetAuditData,
+                                    ));
+
                                   }
-                                  
-                                  pushPage(context, SPVScreen(
-                                    siteType: widget.siteType,
-                                    auditSchId: widget.auditSchId,
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    assetAuditData: assetAuditData,
-                                  ));
+
+
+
+
                                 } else {
                                   showCustomToast(context, 'Please upload a selfie photo to continue');
                                 }

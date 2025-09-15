@@ -11,7 +11,10 @@ import '../../../commonWidgets/custom_remark.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_model.dart';
+import '../../../models/asset_audit_post_model.dart';
 import '../../home_screen.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
@@ -591,9 +594,136 @@ class _TransformerScreenState extends State<TransformerScreen> {
   }
 
 
+  Future<void> _postTransformerData() async {
+    print('=== Transformer LOCAL save started ===');
+
+    if (savedTransItems.isEmpty && remarksController.text.trim().isEmpty) {
+      print('Transformer Screen: No data to save');
+      return;
+    }
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      final int auditSchId = int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+      final nowIso = DateTime.now().toIso8601String();
+
+      int saved = 0;
+
+      // ---- Save each Transformer row locally ----
+      for (final item in savedTransItems) {
+        final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+        if (serial.isEmpty) continue;
+
+        // Keep whatever you stored in 'photo' (file path or data URL)
+        final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+        final req = AssetAuditPostRequest(
+          assetAuditSiteRespId: item['assetAuditSiteRespId'], // keep if present; else null
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          // store the serial here; map to mfg/nexgen during sync if needed
+          nexgenSerialNo: serial,
+          // Transformer item type
+          itemTypeId: 9,
+
+          qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+          qrCodeScannedTs: null,
+          photoId: null, // keep null; pass localPhotoId below
+          photoTakenTs: (item['timestamp'] is DateTime)
+              ? (item['timestamp'] as DateTime).toIso8601String()
+              : nowIso,
+
+          assetStatus: (item['status'] as String?) ?? 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: null,
+          remarks: null,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        // Use your existing screen name; you had 'solar_dcba' in the API version
+        await assetAuditService.upsertFromRequest(req, 'solar_dcba', localPhotoId);
+        saved++;
+      }
+
+      // ---- Save remarks as its own local row (if any) ----
+      final remarksText = remarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: null, // local-only draft
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: 9, // Transformer
+
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: null,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, 'solar_dcba', "");
+        saved++;
+      }
+
+      if (mounted) {
+        showCustomToast(context, saved > 0 ? 'Transformer saved locally ($saved)' : 'Nothing to save');
+      }
+
+      print('=== Transformer LOCAL save completed, rows: $saved ===');
+    } catch (e, st) {
+      debugPrint('Transformer local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
 
   /// Post Transformer data to API
-  Future<void> _postTransformerData() async {
+  Future<void> _postTransformerData_api() async {
     print('=== Transformer Post Data Started ===');
 
     if (savedTransItems.isEmpty && remarksController.text.trim().isEmpty) {

@@ -16,6 +16,8 @@ import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_post_model.dart';
 import '../../../commonWidgets/asset_type_card.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
@@ -358,6 +360,113 @@ class _BoundaryScreenState extends State<BoundaryScreen> {
   }
 
   Future<bool> _postBoundaryData() async {
+    try {
+      if (!_isFormValid()) {
+        setState(() {
+          showValidationErrors = true;
+        });
+        return false;
+      }
+
+      // Ensure site context is loaded
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        return false;
+      }
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      // Try to get location (don’t fail if permission denied)
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      } catch (e) {
+        debugPrint('Boundary: location unavailable ($e)');
+      }
+      final String? lng = position?.longitude.toString();
+      final String? lat = position?.latitude.toString();
+
+      // Local DB service
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      // IDs & timestamps
+      final int auditSchId = int.tryParse(widget.auditSchId) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse(widget.siteAuditSchId) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+      final nowIso = DateTime.now().toIso8601String();
+
+      // Keep photo reference AS-IS (file path or base64 data URL or numeric string)
+      final String localPhotoId = (cctvPhoto ?? '').trim();
+
+      // Existing asset (if any)
+      final int? existingAssetId = _getExistingBoundaryAssetId();
+
+      // Item type
+      final int itemTypeId = AssetAuditPostHelper.getItemTypeId('boundary') ?? 0;
+
+      // Serial
+      final String serial =
+      (cctvSerialNumber?.trim().isNotEmpty ?? false)
+          ? cctvSerialNumber!.trim()
+          : 'FENCING-${DateTime.now().millisecondsSinceEpoch}';
+
+      // Build local-only request
+      final req = AssetAuditPostRequest(
+        assetAuditSiteRespId: existingAssetId,
+        localAuditLogId: 0,
+        auditSchId: auditSchId,
+        siteAuditSchId: siteAuditSchId,
+        siteId: siteId,
+
+        itemInstanceId: 0,
+        nexgenSerialNo: serial,
+        itemTypeId: itemTypeId,
+
+        qrCodeScanned: isCCTVQRCodeScanned,
+        qrCodeScannedTs: isCCTVQRCodeScanned ? nowIso : null,
+
+        // LOCAL: do not upload; store actual photo in localPhotoId param below
+        photoId: null,
+        photoTakenTs: nowIso,
+
+        assetStatus: cctvStatus ?? 'OK',
+        longitude: lng,
+        latitude: lat,
+
+        itemTypeRemark: remarksController.text.trim().isNotEmpty
+            ? remarksController.text.trim()
+            : null,
+        remarks: remarksController.text.trim().isNotEmpty
+            ? remarksController.text.trim()
+            : null,
+
+        localQrCodeScannedTs: nowIso,
+        localCreatedDt: nowIso,
+        localModifiedDt: nowIso,
+
+        syncProcessId: 0,
+        isActive: true,
+      );
+
+      // Save locally (screenName chosen for boundary screen)
+      await assetAuditService.upsertFromRequest(req, 'solar_boundary', localPhotoId);
+
+      if (mounted) showCustomToast(context, 'Boundary saved locally');
+      return true;
+    } catch (e, st) {
+      debugPrint('Boundary local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+      return false;
+    }
+  }
+
+
+  Future<bool> _postBoundaryData_api() async {
     try {
       if (!_isFormValid()) {
         setState(() {

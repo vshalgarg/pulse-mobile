@@ -12,6 +12,8 @@ import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../bloc/audit_schedule_status_cubit.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../commonWidgets/asset_type_card.dart';
@@ -738,6 +740,142 @@ class _ACDBScreenState extends State<ACDBScreen> {
   // }
 
   Future<void> _postAcdbData() async {
+    try {
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      // If nothing to save, bail out early
+      if (savedAcdbItems.isEmpty && remarksController.text.trim().isEmpty) {
+        print('ACDB LOCAL: No items or remarks to save');
+        return;
+      }
+
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final int auditSchId = int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      const int itemTypeId = 7; // ACDB
+      const String screenName = 'solar_acdb';
+      final String nowIso = DateTime.now().toIso8601String();
+
+      int saved = 0;
+
+      // ---- Save each ACDB row locally (add rating -> itemTypeRemark & remarks) ----
+      if (savedAcdbItems.isNotEmpty) {
+        print('=== ACDB LOCAL: Processing ${savedAcdbItems.length} saved items ===');
+        for (int i = 0; i < savedAcdbItems.length; i++) {
+          print('Item $i: ${savedAcdbItems[i]}');
+        }
+
+        for (final item in savedAcdbItems) {
+          final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+          if (serial.isEmpty) continue;
+
+          final String? rating = (item['rating'] as String?)?.trim();
+          final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+          final req = AssetAuditPostRequest(
+            assetAuditSiteRespId: item['assetAuditSiteRespId'],
+            localAuditLogId: 0,
+            auditSchId: auditSchId,
+            siteAuditSchId: siteAuditSchId,
+            siteId: siteId,
+
+            itemInstanceId: 0,
+            nexgenSerialNo: serial,
+            itemTypeId: itemTypeId,
+
+            qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+            qrCodeScannedTs: null,
+
+            // LOCAL-ONLY: photoId stays null; actual ref stored via localPhotoId below
+            photoId: null,
+            photoTakenTs: (item['timestamp'] is DateTime)
+                ? (item['timestamp'] as DateTime).toIso8601String()
+                : nowIso,
+
+            assetStatus: (item['status'] as String?) ?? 'OK',
+            longitude: null,
+            latitude: null,
+
+            // Map rating into both fields for compatibility
+            itemTypeRemark: rating,
+            remarks: rating,
+
+            localQrCodeScannedTs: nowIso,
+            localCreatedDt: nowIso,
+            localModifiedDt: nowIso,
+
+            syncProcessId: 0,
+            isActive: true,
+          );
+
+          await assetAuditService.upsertFromRequest(req, screenName, localPhotoId);
+          saved++;
+        }
+      }
+
+      // ---- Save remarks as its own local row (if any) ----
+      final String remarksText = remarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: int.parse(_getRemarksAssetAuditSiteRespId()?? "0"),
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: itemTypeId,
+
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: remarksText,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, screenName, "");
+        saved++;
+      }
+
+      if (mounted) {
+        showCustomToast(context, saved > 0 ? 'ACDB saved locally ($saved)' : 'Nothing to save');
+      }
+    } catch (e, st) {
+      debugPrint('ACDB local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+
+  Future<void> _postAcdbData_api() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {

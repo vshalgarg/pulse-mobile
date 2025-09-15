@@ -22,7 +22,10 @@ import '../../../commonWidgets/custom_remark.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../../data/asset_audit_service.dart';
+import '../../../data/database.dart' hide Image, Form;
 import '../../../hive_local_database/hive_db.dart';
+import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../home_screen.dart';
@@ -567,7 +570,128 @@ class _SPVScreenState extends State<SPVScreen> {
     return null;
   }
 
-  Future<void> _postSPVData() async {
+  // LOCAL ONLY: save SPV rows + remarks to local DB
+  Future<int> _postSPVData() async {
+    int saved = 0;
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      // Use what you already have in memory; do NOT fetch
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return 0;
+      }
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      final int auditSchId = int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+      final nowIso = DateTime.now().toIso8601String();
+
+      // Save each SPV item locally
+      for (final item in savedSpvItems) {
+        final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+        if (serial.isEmpty) continue;
+
+        // we keep local photo reference (dataURL or file path)
+        final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+        final req = AssetAuditPostRequest(
+          assetAuditSiteRespId: item['assetAuditSiteRespId'], // keep if present
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          // store entered/scanned serial here
+          nexgenSerialNo: serial,
+          // SPV
+          itemTypeId: 4,
+
+          qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+          qrCodeScannedTs: null,
+          photoId: null, // keep null, pass localPhotoId separately
+          photoTakenTs: (item['timestamp'] is DateTime)
+              ? (item['timestamp'] as DateTime).toIso8601String()
+              : nowIso,
+
+          assetStatus: (item['status'] as String?) ?? 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: null,
+          remarks: null,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(req, 'solar_spv', localPhotoId);
+        saved++;
+      }
+
+      // Save remarks (if any) as a local row
+      final remarksText = remarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: _getRemarksAssetAuditSiteRespId(),
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: 4,
+
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: null,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, 'solar_spv', "");
+        saved++;
+      }
+
+      if (saved > 0) {
+        _hasFormDataChanges = false;
+        if (mounted) showCustomToast(context, 'Saved locally ($saved)');
+      } else {
+        if (mounted) showCustomToast(context, 'Nothing to save');
+      }
+
+      return saved;
+    } catch (e, st) {
+      debugPrint('SPV local save failed: $e\n$st');
+      if (mounted) showCustomToast(context, 'Save failed: $e');
+      return 0;
+    }
+  }
+
+
+  Future<void> _postSPVData_api() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {

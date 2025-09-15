@@ -4,7 +4,10 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/fencing_screen.dart'
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_model.dart';
+import '../../../models/asset_audit_post_model.dart' show AssetAuditPostRequest;
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
@@ -1034,8 +1037,147 @@ class _SurveillianceScreenState extends State<SurveillianceScreen> {
     return null;
   }
 
-  /// Post current screen data to API before navigating to next screen
   Future<bool> _postCurrentScreenData() async {
+    try {
+      if (savedCCTVItems.isEmpty && generalRemarksController.text.trim().isEmpty) {
+        print('Surveillance: Nothing to save');
+        return false;
+      }
+
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return false;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final int auditSchId =  0;
+      final int siteAuditSchId =
+          int.tryParse((widget.assetAuditData?.pageHeader.first.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      // Prefer your helper's mapping; fall back to CCTV (6)
+      final int itemTypeId =
+          (AssetAuditPostHelper.getItemTypeId('Surveillance') ??
+              AssetAuditPostHelper.getItemTypeId('CCTV')) ?? 6;
+
+      // Pick a stable screen name; fall back to the CCTV screen used elsewhere
+      const String screenNameFallback = 'solar_cctv';
+      final String screenName = 'Surveillance';
+
+      final nowIso = DateTime.now().toIso8601String();
+      int saved = 0;
+
+      // ---- Save each CCTV row locally ----
+      for (final item in savedCCTVItems) {
+        final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+        if (serial.isEmpty) continue;
+
+        // keep photo reference as-is (file path or data URL)
+        final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+        final req = AssetAuditPostRequest(
+          assetAuditSiteRespId: item['assetAuditSiteRespId'],
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: serial,
+          itemTypeId: itemTypeId,
+
+          qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+          qrCodeScannedTs: null,
+
+          // LOCAL-ONLY: keep photoId null; pass localPhotoId to upsert
+          photoId: null,
+          photoTakenTs: (item['timestamp'] is DateTime)
+              ? (item['timestamp'] as DateTime).toIso8601String()
+              : nowIso,
+
+          assetStatus: (item['status'] as String?) ?? 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: item['itemTypeRemark'] as String?,
+          remarks: item['remarks'] as String?,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(req, screenName, localPhotoId);
+        saved++;
+      }
+
+      // ---- Save remarks as a dedicated local row (if any) ----
+      final remarksText = generalRemarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: _getRemarksAssetAuditSiteRespId(),
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: itemTypeId,
+
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: remarksText,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, screenName, "");
+        saved++;
+      }
+
+      if (saved > 0) {
+        if (mounted) {
+          setState(() => _hasPostedSurveillanceData = true);
+          showCustomToast(context, 'Surveillance saved locally ($saved)');
+        }
+        return true;
+      } else {
+        if (mounted) showCustomToast(context, 'Nothing to save');
+        return false;
+      }
+    } catch (e, st) {
+      debugPrint('Surveillance local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+      return false;
+    }
+  }
+
+
+  /// Post current screen data to API before navigating to next screen
+  Future<bool> _postCurrentScreenData_api() async {
     if (widget.assetAuditData == null) {
       print('Surveillance Screen: No asset audit data available for posting');
       return false;

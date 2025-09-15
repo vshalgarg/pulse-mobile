@@ -14,6 +14,8 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_model.dart';
 import '../../home_screen.dart';
 import '../../../models/asset_audit_post_model.dart';
@@ -160,8 +162,82 @@ class _MMSScreenState extends State<MMSScreen> {
     return '${dateTime.day.toString().padLeft(2, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.year} ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
-  /// POST MMS remarks to the existing MMS item's item_type_remark field
+
   Future<void> _postMMSData() async {
+    // Only remarks for MMS in this screen
+    if (remarksController.text.trim().isEmpty) {
+      print('MMS: No remarks to save');
+      return;
+    }
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      final int auditSchId = int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      final nowIso = DateTime.now().toIso8601String();
+      final mmsAsset = (mmsAssets.isNotEmpty) ? mmsAssets.first : null;
+
+      final req = AssetAuditPostRequest(
+        // Prefer MMS asset’s respId if present; else fallback to remarks id (if your helper provides one)
+        assetAuditSiteRespId: mmsAsset?.assetAuditSiteRespId ?? 0,
+
+        localAuditLogId: 0,
+        auditSchId: auditSchId,
+        siteAuditSchId: siteAuditSchId,
+        siteId: siteId,
+
+        // Keep linkage context if available; store as a dedicated remarks row
+        itemInstanceId: mmsAsset?.itemInstanceId ?? 0,
+        nexgenSerialNo: 'REMARKS',
+        itemTypeId: 6, // MMS item type (keep as in your code)
+
+        qrCodeScanned: false,
+        qrCodeScannedTs: null,
+        photoId: null,
+        photoTakenTs: nowIso,
+
+        assetStatus: 'OK',
+        longitude: mmsAsset?.longitude,
+        latitude: mmsAsset?.latitude,
+        itemTypeRemark: remarksController.text.trim(),
+        remarks: remarksController.text.trim(),
+
+        localQrCodeScannedTs: nowIso,
+        localCreatedDt: nowIso,
+        localModifiedDt: nowIso,
+
+        syncProcessId: 0,
+        isActive: true,
+      );
+
+      await assetAuditService.upsertFromRequest(req, 'solar_mms', "");
+      if (mounted) showCustomToast(context, 'MMS remarks saved locally');
+    } catch (e, st) {
+      debugPrint('MMS local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+
+  /// POST MMS remarks to the existing MMS item's item_type_remark field
+  Future<void> _postMMSData_api() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {

@@ -24,7 +24,10 @@ import '../../../commonWidgets/asset_type_card.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../models/asset_audit_model.dart';
+import '../../../models/asset_audit_post_model.dart' show AssetAuditPostRequest;
 import '../../home_screen.dart';
 
 class FireExtinguisherScreen extends StatefulWidget {
@@ -472,8 +475,167 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
     return int.tryParse(str) != null;
   }
 
-  // POST Fire Extinguisher data to API
   Future<bool> _postFireExtinguisherData() async {
+    try {
+      print('Fire Extinguisher Screen: Starting LOCAL save...');
+
+      final nothingToSave = (savedRectifierItems.isEmpty &&
+          savedFloodLightItems.isEmpty &&
+          savedMPPTItems.isEmpty &&
+          remarksController.text.trim().isEmpty);
+
+      if (nothingToSave) {
+        print('Fire Extinguisher Screen: Nothing to save');
+        return true;
+      }
+
+      // Try to get location; don't fail if permissions denied
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      } catch (e) {
+        print('Fire Extinguisher Screen: Location unavailable ($e)');
+      }
+      final String? lng = position?.longitude.toString();
+      final String? lat = position?.latitude.toString();
+
+      // Ensure site context is loaded
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return false;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final int auditSchId = int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      final nowIso = DateTime.now().toIso8601String();
+      int saved = 0;
+
+      // Resolve item type IDs (prefer helper; fallback to 0 if unknown)
+      final int feId = AssetAuditPostHelper.getItemTypeId('fire_extinguisher') ?? 0;
+      final int flId = AssetAuditPostHelper.getItemTypeId('flood_light') ?? 0;
+      final int sbId = AssetAuditPostHelper.getItemTypeId('sand_bucket') ?? 0;
+
+      // Common saver
+      Future<void> _saveList(
+          List<Map<String, dynamic>> list,
+          int itemTypeId,
+          String screenName,
+          ) async {
+        for (final item in list) {
+          final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+          if (serial.isEmpty) continue;
+
+          // Keep local photo reference (file path or data URL)
+          final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+          final req = AssetAuditPostRequest(
+            assetAuditSiteRespId: item['assetAuditSiteRespId'],
+            localAuditLogId: 0,
+            auditSchId: auditSchId,
+            siteAuditSchId: siteAuditSchId,
+            siteId: siteId,
+
+            itemInstanceId: 0,
+            nexgenSerialNo: serial,
+            itemTypeId: itemTypeId,
+
+            qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+            qrCodeScannedTs: null,
+            photoId: null, // local-only; store actual ref via localPhotoId below
+            photoTakenTs: (item['timestamp'] is DateTime)
+                ? (item['timestamp'] as DateTime).toIso8601String()
+                : nowIso,
+
+            assetStatus: (item['status'] as String?) ?? 'OK',
+            longitude: lng,
+            latitude: lat,
+            itemTypeRemark: item['itemTypeRemark'] as String?,
+            remarks: item['remarks'] as String?,
+
+            localQrCodeScannedTs: nowIso,
+            localCreatedDt: nowIso,
+            localModifiedDt: nowIso,
+
+            syncProcessId: 0,
+            isActive: true,
+          );
+
+          await assetAuditService.upsertFromRequest(req, screenName, localPhotoId);
+          saved++;
+        }
+      }
+
+      // Save Fire Extinguisher items (your code stores these in savedRectifierItems)
+      await _saveList(savedRectifierItems, feId, 'solar_fire_extinguisher');
+
+      // Save Flood Light items
+      await _saveList(savedFloodLightItems, flId, 'solar_fire_extinguisher');
+
+      // Save Sand Bucket items (your code uses savedMPPTItems for these)
+      await _saveList(savedMPPTItems, sbId, 'solar_fire_extinguisher');
+
+      // Save remarks (as a dedicated row tied to the Fire Extinguisher section)
+      final remarksText = remarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: int.parse(_getRemarksAssetAuditSiteRespId()??"0"),
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: feId, // tie remarks to Fire Extinguisher
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: lng,
+          latitude: lat,
+          itemTypeRemark: remarksText,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, 'solar_fire_extinguisher', "");
+        saved++;
+      }
+
+      if (mounted) {
+        showCustomToast(context, saved > 0 ? 'Fire & Safety saved locally ($saved)' : 'Nothing to save');
+      }
+      return saved > 0;
+    } catch (e, st) {
+      debugPrint('Fire Extinguisher LOCAL save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+      return false;
+    }
+  }
+
+
+  // POST Fire Extinguisher data to API
+  Future<bool> _postFireExtinguisherData_api() async {
     try {
       print('Fire Extinguisher Screen: Starting to post Fire Extinguisher data...');
       

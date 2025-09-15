@@ -12,8 +12,11 @@ import '../../../commonWidgets/custom_remark.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../hive_local_database/hive_db.dart';
 import '../../../models/asset_audit_model.dart';
+import '../../../models/asset_audit_post_model.dart' show AssetAuditPostRequest;
 import '../../home_screen.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
@@ -600,6 +603,128 @@ class _LTDBScreenState extends State<LTDBScreen> {
   }
 
   Future<void> _postLtdbData() async {
+    if (savedLtdbItems.isEmpty && remarksController.text.trim().isEmpty) {
+      print('LTDB: Nothing to save');
+      return;
+    }
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      final int auditSchId =
+          int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      final nowIso = DateTime.now().toIso8601String();
+      int saved = 0;
+
+      // ---- Save each LTDB row locally ----
+      for (final item in savedLtdbItems) {
+        final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+        if (serial.isEmpty) continue;
+
+        // keep local photo reference (file path or data URL)
+        final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+        final req = AssetAuditPostRequest(
+          assetAuditSiteRespId: item['assetAuditSiteRespId'], // keep if present
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: serial,
+          itemTypeId: 4, // LTDB
+
+          qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+          qrCodeScannedTs: null,
+          photoId: null, // keep null; pass localPhotoId separately
+          photoTakenTs: (item['timestamp'] is DateTime)
+              ? (item['timestamp'] as DateTime).toIso8601String()
+              : nowIso,
+
+          assetStatus: (item['status'] as String?) ?? 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: null,
+          remarks: null,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(req, 'solar_ltdb', localPhotoId);
+        saved++;
+      }
+
+      // ---- Save remarks as its own local row (if any) ----
+      final remarksText = remarksController.text.trim();
+      if (remarksText.isNotEmpty) {
+        final reqRemarks = AssetAuditPostRequest(
+          assetAuditSiteRespId: _getRemarksAssetAuditSiteRespId(),
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: 4, // LTDB
+
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: nowIso,
+
+          assetStatus: 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: remarksText,
+          remarks: remarksText,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(reqRemarks, 'solar_ltdb', "");
+        saved++;
+      }
+
+      if (mounted) {
+        showCustomToast(context, saved > 0 ? 'LTDB saved locally ($saved)' : 'Nothing to save');
+      }
+    } catch (e, st) {
+      debugPrint('LTDB local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+
+  Future<void> _postLtdbData_api() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {

@@ -17,7 +17,10 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
+import '../../../data/asset_audit_service.dart' show AssetAuditService;
+import '../../../data/database.dart' show AppDatabase;
 import '../../../hive_local_database/hive_db.dart';
+import '../../../models/asset_audit_post_model.dart' show AssetAuditPostRequest;
 import '../../../utils/asset_audit_form_persistence_helper.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../models/asset_audit_model.dart';
@@ -347,7 +350,90 @@ class _InvertorScreenState extends State<InvertorScreen> {
     return int.tryParse(str) != null;
   }
 
+
   Future<void> _postInvertorData() async {
+    if (savedInvertorItems.isEmpty) return;
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final state = context.read<AssetAuditCubit>().state;
+      if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+        showCustomToast(context, 'Please wait for site data to load before saving');
+        return;
+      }
+
+      final pageHeader = state.assetAuditData.pageHeader.first;
+
+      final int auditSchId =
+          int.tryParse((widget.auditSchId).toString()) ?? 0;
+      final int siteAuditSchId =
+          int.tryParse((widget.siteAuditSchId).toString()) ?? (pageHeader.siteAuditSchId ?? 0);
+      final int siteId = pageHeader.siteId ?? 0;
+
+      final nowIso = DateTime.now().toIso8601String();
+      int saved = 0;
+
+      // ---- Save each Invertor row locally ----
+      for (final item in savedInvertorItems) {
+        final serial = (item['serialNumber'] as String?)?.trim() ?? '';
+        if (serial.isEmpty) continue;
+
+        // keep local photo reference (file path or data URL)
+        final String localPhotoId = (item['photo'] as String?)?.trim() ?? '';
+
+        final req = AssetAuditPostRequest(
+          assetAuditSiteRespId: item['assetAuditSiteRespId'], // keep if present
+          localAuditLogId: 0,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          siteId: siteId,
+
+          itemInstanceId: 0,
+          nexgenSerialNo: serial,
+          itemTypeId: 14, // Invertor
+
+          qrCodeScanned: (item['isQRCodeScanned'] as bool?) ?? false,
+          qrCodeScannedTs: null,
+          photoId: null, // keep null; pass localPhotoId separately
+          photoTakenTs: (item['timestamp'] is DateTime)
+              ? (item['timestamp'] as DateTime).toIso8601String()
+              : nowIso,
+
+          assetStatus: (item['status'] as String?) ?? 'OK',
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: null,
+          remarks: null,
+
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        await assetAuditService.upsertFromRequest(req, 'solar_invertor', localPhotoId);
+        saved++;
+      }
+
+      if (mounted) {
+        showCustomToast(context, saved > 0 ? 'Invertor saved locally ($saved)' : 'Nothing to save');
+      }
+    } catch (e, st) {
+      debugPrint('Invertor local save failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Local save failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+
+  Future<void> _postInvertorData_api() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
