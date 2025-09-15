@@ -303,10 +303,10 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                         children: [
                           Expanded(
                             child: ArrowButton(
-                              text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                              text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
                                 widget.assetAuditData, 
                                 'Site Info'
-                              ),
+                              ) ?? 'BACK',
                               isLeftArrow: true,
                               backgroundColor: AppColors.buttonColorBg,
                               textColor: AppColors.buttonColorSite,
@@ -318,48 +318,15 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                           getWidth(14),
                           Expanded(
                             child: ArrowButton(
-                              text: AssetAuditNavigationHelper.getNextScreenDisplayName(
+                              text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
                                 widget.assetAuditData, 
                                 'Site Info'
-                              ),
+                              ) ?? 'SUBMIT',
                               isLeftArrow: false,
                               backgroundColor: AppColors.buttonColorBackBg,
                               textColor: AppColors.buttonColorTextBg,
                               onPressed: () {
                                 _navigateToNextScreen();
-                                // if (_validateForm()) {
-                                //   showDialog(
-                                //     context: context,
-                                //     barrierDismissible: false,
-                                //     builder: (context) => SuccessDialog(
-                                //       ticketId: "UVORKJR00044",
-                                //       message:
-                                //       "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-                                //       onDone: () {
-                                //         Navigator.of(context).pop();
-                                //         Navigator.of(context).pop();
-                                //       },
-                                //     ),
-                                //   );
-                                // } else {
-                                //
-                                //   ScaffoldMessenger.of(context).showSnackBar(
-                                //     SnackBar(
-                                //       content: Text(
-                                //         uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty
-                                //             ? 'Please upload a selfie photo to continue'
-                                //             : 'Please fill in all required fields',
-                                //         style: const TextStyle(
-                                //           color: Colors.white,
-                                //           fontSize: 14,
-                                //           fontFamily: fontFamilyMontserrat,
-                                //         ),
-                                //       ),
-                                //       backgroundColor: AppColors.errorColor,
-                                //       duration: const Duration(seconds: 3),
-                                //     ),
-                                //   );
-                                // }
                               },
                             ),
                           ),

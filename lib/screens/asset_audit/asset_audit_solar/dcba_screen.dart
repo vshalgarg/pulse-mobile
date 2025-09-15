@@ -784,7 +784,7 @@ class _DCBAScreenState extends State<DCBAScreen> {
                         children: [
                           Expanded(
                             child: ArrowButton(
-                              text: AssetAuditNavigationHelper.getSolarPreviousScreenName('DCDB'),
+                              text: _getPreviousAvailableScreen() ?? 'BACK',
                               isLeftArrow: true,
                               backgroundColor: AppColors.buttonColorBackBg,
                               textColor: AppColors.buttonColorTextBg,
@@ -824,11 +824,6 @@ class _DCBAScreenState extends State<DCBAScreen> {
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
-                                        print(
-                                            '=== DCBA Navigation to $nextScreen ===');
-                                        print(
-                                            'Passing asset audit data: ${widget
-                                                .assetAuditData != null}');
 
                                         // POST data to API before navigation
                                         await _postDcbaData();

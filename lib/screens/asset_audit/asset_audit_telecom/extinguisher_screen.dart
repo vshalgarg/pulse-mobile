@@ -274,10 +274,10 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                                text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
                                   widget.assetAuditData, 
                                   'Extinguisher'
-                                ),
+                                ) ?? 'BACK',
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBg,
                                 textColor: AppColors.buttonColorSite,
@@ -289,12 +289,11 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                             getWidth(14),
                             Expanded(
                               child: ArrowButton(
-                                text: _hasDataToShow() 
-                                    ? AssetAuditNavigationHelper.getNextScreenDisplayName(
+                                text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
                                         widget.assetAuditData, 
                                         'Extinguisher'
                                       ) 
-                                    : "Skip",
+                                    ?? "SUBMIT",
                                 isLeftArrow: false,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,

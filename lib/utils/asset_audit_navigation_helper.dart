@@ -53,60 +53,14 @@ class AssetAuditNavigationHelper {
         return assetAuditData.responseData.categories[categoryName];
     }
   }
-
-  static String getNextScreenName(String currentScreen) {
-    switch (currentScreen.toLowerCase()) {
-      case 'site info':
-        return 'CCU';
-      case 'ccu':
-        return 'Battery';
-      case 'battery':
-        return 'Extinguisher';
-      case 'extinguisher':
-        return 'Solar Plates';
-      case 'solar plates':
-        return 'CCTV';
-      case 'cctv':
-        return 'Fencing';
-      case 'fencing':
-        return 'DG';
-      case 'dg':
-        return 'SMPS (Submit)'; // Final screen
-      default:
-        return '';
-    }
-  }
-
-  static String getPreviousScreenName(String currentScreen) {
-    switch (currentScreen.toLowerCase()) {
-      case 'ccu':
-        return 'Site Info';
-      case 'battery':
-        return 'CCU';
-      case 'extinguisher':
-        return 'Battery';
-      case 'solar plates':
-        return 'Extinguisher';
-      case 'cctv':
-        return 'Solar Plates';
-      case 'fencing':
-        return 'CCTV';
-      case 'dg':
-        return 'Fencing';
-      case 'smps':
-        return 'DG';
-      default:
-        return '';
-    }
-  }
-
   // ===== SOLAR NAVIGATION METHODS (NEW) =====
   
   // Define the order of all solar screens
   static const List<String> _solarScreenOrder = [
     'SPV',
     'DCDB',
-    'MMS', 
+    'MMS',
+    'PCU',
     'Invertor',
     'ACDB',
     'LTDB',
@@ -208,46 +162,6 @@ class AssetAuditNavigationHelper {
     return screenName;
   }
 
-  /// Get the display name for previous screen button (TELECOM)
-  static String getPreviousScreenDisplayName(AssetAuditModel? assetAuditData, String currentScreen) {
-    final previousScreen = getPreviousAvailableTelecomScreen(assetAuditData, currentScreen);
-    if (previousScreen == null) return "Back";
-    
-    // Return a user-friendly display name
-    switch (previousScreen) {
-      case 'Site Info': return 'General';
-      case 'CCU': return 'CCU';
-      case 'Battery': return 'Battery';
-      case 'Extinguisher': return 'Extinguisher';
-      case 'Solar Plates': return 'Solar Plates';
-      case 'CCTV': return 'CCTV';
-      case 'Fencing': return 'Fencing';
-      case 'DG': return 'DG';
-      case 'SMPS': return 'SMPS';
-      default: return previousScreen;
-    }
-  }
-
-  /// Get the display name for next screen button (TELECOM)
-  static String getNextScreenDisplayName(AssetAuditModel? assetAuditData, String currentScreen) {
-    final nextScreen = getNextAvailableTelecomScreen(assetAuditData, currentScreen);
-    if (nextScreen == null) return "Submit";
-    
-    // Return a user-friendly display name
-    switch (nextScreen) {
-      case 'Site Info': return 'Site Info';
-      case 'CCU': return 'CCU';
-      case 'Battery': return 'Battery';
-      case 'Extinguisher': return 'Extinguisher';
-      case 'Solar Plates': return 'Solar Plates';
-      case 'CCTV': return 'CCTV';
-      case 'Fencing': return 'Fencing';
-      case 'DG': return 'DG';
-      case 'SMPS': return 'SMPS';
-      default: return nextScreen;
-    }
-  }
-
   /// Get the previous screen name for back button text (SOLAR)
   static String getSolarPreviousScreenName(String currentScreen) {
     final currentIndex = _solarScreenOrder.indexOf(currentScreen);
@@ -257,11 +171,6 @@ class AssetAuditNavigationHelper {
     }
     
     return _solarScreenOrder[currentIndex - 1];
-  }
-
-  /// Check if current screen is the first screen in the flow
-  static bool isFirstScreen(String currentScreen) {
-    return _solarScreenOrder.indexOf(currentScreen) == 0;
   }
 
   /// Navigate to the next screen based on screen name
@@ -292,6 +201,14 @@ class AssetAuditNavigationHelper {
         break;
       case 'DCDB':
         pushPage(context, DCBAScreen(
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          assetAuditData: assetAuditData,
+        ));
+        break;
+      case 'PCU':
+        pushPage(context, PCUScreen(
           siteType: siteType,
           auditSchId: auditSchId,
           siteAuditSchId: siteAuditSchId,
@@ -454,35 +371,5 @@ class AssetAuditNavigationHelper {
         print('Unknown screen: $screenName');
         break;
     }
-  }
-
-  /// Check if a screen has data available
-  static bool hasScreenData(AssetAuditModel? assetAuditData, String screenName) {
-    if (assetAuditData == null) return false;
-    
-    final categories = assetAuditData.responseData.categories;
-    if (!categories.containsKey(screenName)) return false;
-    
-    final categoryData = categories[screenName];
-    return categoryData != null && categoryData.assets.isNotEmpty;
-  }
-
-  /// Get all available screens with data (SOLAR)
-  static List<String> getAvailableScreens(AssetAuditModel? assetAuditData) {
-    if (assetAuditData == null) return [];
-    
-    final categories = assetAuditData.responseData.categories;
-    final availableScreens = <String>[];
-    
-    for (String screenName in _solarScreenOrder) {
-      if (categories.containsKey(screenName)) {
-        final categoryData = categories[screenName];
-        if (categoryData != null && categoryData.assets.isNotEmpty) {
-          availableScreens.add(screenName);
-        }
-      }
-    }
-    
-    return availableScreens;
   }
 }

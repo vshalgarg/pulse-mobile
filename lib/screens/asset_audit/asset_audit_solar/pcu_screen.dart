@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -52,11 +53,23 @@ class _PCUScreenState extends State<PCUScreen> {
   final TextEditingController pcuSerialController = TextEditingController();
 
   int get totalPcuItems {
-    return widget.assetAuditData?.responseData.categories['Invertor']?.assets.length ?? 0;
+    return getPcuData(widget.assetAuditData)?.assets.length ?? 0;
   }
 
   CategoryData? get pcuCategoryData {
-    return widget.assetAuditData?.responseData.categories['Invertor'];
+    return getPcuData(widget.assetAuditData);
+  }
+
+  static CategoryData? getPcuData(AssetAuditModel? assetAuditData) {
+    CategoryData? invertorData = assetAuditData?.responseData.categories['Invertor'];
+    if(invertorData != null){
+      return invertorData;
+    }
+    CategoryData? pcuData = assetAuditData?.responseData.categories['PCU'];
+    if(pcuData != null){
+      return pcuData;
+    }
+    return null;
   }
 
   @override
@@ -85,7 +98,7 @@ class _PCUScreenState extends State<PCUScreen> {
   void _loadExistingData() {
     if (widget.assetAuditData == null) return;
     
-    final pcuData = widget.assetAuditData!.responseData.categories['Invertor'];
+    final pcuData = getPcuData(widget.assetAuditData);
     if (pcuData == null || pcuData.assets.isEmpty) return;
 
     // Load saved items without unnecessary setState
@@ -140,7 +153,7 @@ class _PCUScreenState extends State<PCUScreen> {
 
   bool _validateSerialNumber(String serialNumber, bool isQRCodeScanned) {
     if (widget.assetAuditData == null || lastValidatedSerial == serialNumber) return true;
-    final pcuData = widget.assetAuditData!.responseData.categories['Invertor'];
+    final pcuData = getPcuData(widget.assetAuditData);
     if (pcuData == null) return false;
     final allItems = pcuData.assets;
     bool isValid = isQRCodeScanned
@@ -293,10 +306,10 @@ class _PCUScreenState extends State<PCUScreen> {
 
 
   int? _getRemarksAssetAuditSiteRespId() {
-    final pcuData = widget.assetAuditData?.responseData.categories['Invertor'];
+    final pcuData = getPcuData(widget.assetAuditData);
     if (pcuData != null && pcuData.remarks.isNotEmpty) {
       for (var remark in pcuData.remarks) {
-        if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0 && remark.itemType == 'Invertor') {
+        if (remark.assetAuditSiteRespId != null && remark.assetAuditSiteRespId > 0 && (remark.itemType == 'Invertor' || remark.itemType == 'PCU')) {
           return remark.assetAuditSiteRespId;
         }
       }
@@ -569,12 +582,12 @@ class _PCUScreenState extends State<PCUScreen> {
                                     backgroundColor: AppColors.buttonColorBg,
                                     textColor: AppColors.buttonColorSite,
                                     onPressed: () async {
-                                      if (nextScreen != null) {
-                                        _pendingNavigation = nextScreen;
-                                      } else {
-                                        _pendingNavigation = 'home';
-                                      }
+                                      // POST data to API before navigation
                                       await _postPcuData();
+
+                                      // Navigate to the next available screen
+                                      _navigateToNextScreen(
+                                          context, nextScreen ?? 'HOME');
                                     },
                                   );
                                 },

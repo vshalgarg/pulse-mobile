@@ -1629,10 +1629,10 @@ class _BatteryScreenState extends State<BatteryScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                                text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
                                   widget.assetAuditData, 
                                   'Battery'
-                                ),
+                                ) ?? 'BACK',
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBg,
                                 textColor: AppColors.buttonColorSite,
@@ -1644,10 +1644,10 @@ class _BatteryScreenState extends State<BatteryScreen> {
                             getWidth(14),
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getNextScreenDisplayName(
+                                text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
                                   widget.assetAuditData, 
                                   'Battery'
-                                ),
+                                ) ?? 'SUBMIT',
                                 isLeftArrow: false,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,

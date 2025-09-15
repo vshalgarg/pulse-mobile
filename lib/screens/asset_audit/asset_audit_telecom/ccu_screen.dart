@@ -3347,10 +3347,10 @@ class _CCUScreenState extends State<CCUScreen> {
                                 children: [
                                   Expanded(
                                     child: ArrowButton(
-                                      text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                                      text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
                                         widget.assetAuditData, 
                                         'CCU'
-                                      ),
+                                      ) ?? 'BACK',
                                       isLeftArrow: true,
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
@@ -3362,12 +3362,10 @@ class _CCUScreenState extends State<CCUScreen> {
                                   getWidth(14),
                                   Expanded(
                                     child: ArrowButton(
-                                      text: _hasDataToShow()
-                                          ? AssetAuditNavigationHelper.getNextScreenDisplayName(
+                                      text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
                                               widget.assetAuditData, 
                                               'CCU'
-                                            )
-                                          : "Skip CCU",
+                                            ) ?? 'SUBMIT',
                                       isLeftArrow: false,
                                       backgroundColor:
                                           AppColors.buttonColorBackBg,
