@@ -17,10 +17,6 @@ class PmCubit extends Cubit<PmState> {
     required String auditSchId,
     required String siteAuditSchId,
   }) async {
-    print("🔍 DEBUG: PmCubit.getPmData called with:");
-    print("🔍 siteType: $siteType");
-    print("🔍 auditSchId: $auditSchId");
-    print("🔍 siteAuditSchId: $siteAuditSchId");
     
     emit(PmGetLoading());
 
@@ -31,11 +27,10 @@ class PmCubit extends Cubit<PmState> {
         siteAuditSchId: siteAuditSchId,
       );
 
-      print("🔍 DEBUG: API call successful, data received");
+      
       emit(PmGetLoaded(pmGetDataModel: pmGetDataModel));
     } catch (e) {
-      print("🔍 DEBUG: API call failed with error: $e");
-      // Clean up the error message for display
+     
       String errorMessage = e.toString();
       if (errorMessage.startsWith('Exception: ')) {
         errorMessage = errorMessage.substring('Exception: '.length);

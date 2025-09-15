@@ -33,15 +33,15 @@ class ApiProvider {
 
     _dio.options = options;
     
-    // Add PrettyDioLogger for development (can be disabled in production)
-    _dio.interceptors.add(PrettyDioLogger(
-      requestHeader: true,
-      requestBody: true,
-      responseHeader: true,
-      responseBody: true,
-      error: true,
-      compact: false,
-    ));
+    // PrettyDioLogger removed to reduce console logs
+    // _dio.interceptors.add(PrettyDioLogger(
+    //   requestHeader: true,
+    //   requestBody: true,
+    //   responseHeader: true,
+    //   responseBody: true,
+    //   error: true,
+    //   compact: false,
+    // ));
 
     _dio.interceptors.add(
       InterceptorsWrapper(

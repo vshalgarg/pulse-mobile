@@ -17,6 +17,7 @@ import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/screens/preventive_maintainance/pm_solar_pages/pm_solar_page_7.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 
 import '../../../bloc/audit_schedule_status_cubit.dart';
@@ -225,8 +226,17 @@ class _PmSolarPage6State extends State<PmSolarPage6> {
         }
 
         if (item['photo_taken_ts'] != null) {
-          photoTimestamps[key] = item['photo_taken_ts']!;
-          print('Added to photoTimestamps: $key = ${item['photo_taken_ts']}');
+          // Ensure timestamp is in dd/MM/yyyy HH:mm format for API
+          try {
+            final parsedDate = DateTime.parse(item['photo_taken_ts']!);
+            final formattedTimestamp = DateFormat("dd/MM/yyyy HH:mm").format(parsedDate);
+            photoTimestamps[key] = formattedTimestamp;
+            print('Added to photoTimestamps: $key = $formattedTimestamp (converted from ${item['photo_taken_ts']})');
+          } catch (e) {
+            // If parsing fails, use the original timestamp
+            photoTimestamps[key] = item['photo_taken_ts']!;
+            print('Added to photoTimestamps: $key = ${item['photo_taken_ts']} (parsing failed)');
+          }
         }
 
         // Load remarks data if available

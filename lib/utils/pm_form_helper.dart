@@ -1,17 +1,24 @@
 import 'package:app/models/PmGetDataModel.dart';
 import 'package:app/models/PmPostRequestModel.dart';
 import 'package:app/services/location_service.dart';
+import 'package:intl/intl.dart';
 
 class PmFormHelper {
-  /// Safely parse and format date strings to ISO 8601 format
+  /// Safely parse and format date strings to dd/MM/yyyy HH:mm format (API expected format)
   static String? _parseAndFormatDate(String dateString) {
     try {
       // Try to parse as ISO format first
       final parsedDate = DateTime.parse(dateString);
-      return parsedDate.toIso8601String();
+      return DateFormat('dd/MM/yyyy HH:mm').format(parsedDate);
     } catch (e) {
-      print('Warning: Could not parse date: $dateString');
-      return null;
+      // Try to parse as dd/MM/yyyy HH:mm format (used by photo upload)
+      try {
+        final parsedDate = DateFormat('dd/MM/yyyy HH:mm').parse(dateString);
+        return DateFormat('dd/MM/yyyy HH:mm').format(parsedDate);
+      } catch (e2) {
+        print('Warning: Could not parse date: $dateString');
+        return null;
+      }
     }
   }
 
@@ -32,8 +39,14 @@ class PmFormHelper {
     final latitude = location['latitude'] ?? '';
     final longitude = location['longitude'] ?? '';
     
-    // Get current timestamp in ISO 8601 format as expected by the API
-    final now = DateTime.now().toIso8601String();
+    print('PmFormHelper: Location data received - Latitude: $latitude, Longitude: $longitude');
+    print('PmFormHelper: Processing ${formData.length} form fields');
+    print('PmFormHelper: photoTimestamps received: $photoTimestamps');
+    print('PmFormHelper: photoIds received: $photoIds');
+    
+    // Get current timestamp in dd/MM/yyyy HH:mm format as expected by the API
+    final now = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+    print('PmFormHelper: now variable set to: $now');
 
     formData.forEach((key, value) {
       if (value != null && value.toString().isNotEmpty) {
@@ -42,9 +55,15 @@ class PmFormHelper {
           final pmItemType = parts[0];
           final clOrder = int.tryParse(parts[1]) ?? 0;
           
+          print('PmFormHelper: Processing field $key with pmItemType: $pmItemType, clOrder: $clOrder, value: $value');
+          
           // Get photo ID and timestamp if this field has a photo
           final photoId = photoIds[key] ?? 0;
           final photoTakenTs = photoTimestamps[key] ?? '';
+          
+          print('PmFormHelper: Processing field $key - photoId: $photoId, photoTakenTs: $photoTakenTs');
+          print('PmFormHelper: Available photoTimestamps keys: ${photoTimestamps.keys.toList()}');
+          print('PmFormHelper: Looking for key "$key" in photoTimestamps: ${photoTimestamps.containsKey(key)}');
           
           // Get remarks for this field if available
           final remarks = remarksData[key] ?? '';
@@ -115,14 +134,13 @@ class PmFormHelper {
                 break;
               // case 'BOUNDARY':
               //   sectionData = pmData.responseData!.;
-                break;
+              //   break;
               default:
                 print('Warning: Unknown pmItemType: $pmItemType');
                 sectionData = null;
             }
             
-            // Find the item with matching clOrder and get respType
-            String? respType;
+            // Find the item with matching clOrder
             if (sectionData != null) {
               for (var item in sectionData) {
                 int itemClOrder;
@@ -132,7 +150,6 @@ class PmFormHelper {
                   if (itemClOrder == clOrder) {
                     pmCheckListSiteRespId = item['pm_check_list_site_resp_id'];
                     checklistDesc = item['checklist_desc'] ?? '';
-                    respType = item['resp_type'] ?? '';
                     break;
                   }
                 } else {
@@ -141,7 +158,6 @@ class PmFormHelper {
                   if (itemClOrder == clOrder) {
                     pmCheckListSiteRespId = item.pmCheckListSiteRespId;
                     checklistDesc = item.checklistDesc ?? '';
-                    respType = item.respType ?? '';
                     break;
                   }
                 }
@@ -171,7 +187,7 @@ class PmFormHelper {
             resp: apiValue,
             clOrder: clOrder,
             photoId: photoId > 0 ? photoId : null,
-            photoTakenTs: photoTakenTs.isNotEmpty ? _parseAndFormatDate(photoTakenTs) : null,
+            photoTakenTs: photoId > 0 ? (photoTakenTs.isNotEmpty ? _parseAndFormatDate(photoTakenTs) : now) : null,
             longitude: longitude.isNotEmpty ? longitude : null,
             latitude: latitude.isNotEmpty ? latitude : null,
             localCreatedDt: now,
@@ -179,6 +195,21 @@ class PmFormHelper {
             remarks: remarks,
             isActive: true,
           );
+
+          // Debug logging for photo data
+          if (photoId > 0) {
+            print('PmFormHelper: Photo data - photoId: $photoId, photoTakenTs: ${request.photoTakenTs}, originalTimestamp: $photoTakenTs');
+            print('PmFormHelper: Final request photoTakenTs: ${request.photoTakenTs}');
+            print('PmFormHelper: now variable: $now');
+            print('PmFormHelper: photoTakenTs.isNotEmpty: ${photoTakenTs.isNotEmpty}');
+            print('PmFormHelper: _parseAndFormatDate result: ${photoTakenTs.isNotEmpty ? _parseAndFormatDate(photoTakenTs) : 'using now fallback'}');
+          }
+          
+          // Debug logging for EARTHING data specifically
+          if (pmItemType.toUpperCase() == 'EARTHING') {
+            print('PmFormHelper: EARTHING request created - Longitude: ${request.longitude}, Latitude: ${request.latitude}');
+            print('PmFormHelper: EARTHING request details - pmItemType: ${request.pmItemType}, resp: ${request.resp}, clOrder: ${request.clOrder}');
+          }
 
           requests.add(request);
         }
@@ -205,8 +236,8 @@ class PmFormHelper {
     final latitude = location['latitude'] ?? '';
     final longitude = location['longitude'] ?? '';
     
-    // Get current timestamp in ISO 8601 format as expected by the API
-    final now = DateTime.now().toIso8601String();
+    // Get current timestamp in dd/MM/yyyy HH:mm format as expected by the API
+    final now = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
 
     return PmPostRequest(
       pmCheckListSiteRespId: pmCheckListSiteRespId,
@@ -219,7 +250,7 @@ class PmFormHelper {
       resp: resp,
       clOrder: clOrder,
       photoId: photoId,
-      photoTakenTs: photoTakenTs != null ? _parseAndFormatDate(photoTakenTs) : now,
+      photoTakenTs: photoId != null && photoId > 0 ? (photoTakenTs != null ? _parseAndFormatDate(photoTakenTs) : now) : null,
       longitude: longitude.isNotEmpty ? longitude : null,
       latitude: latitude.isNotEmpty ? latitude : null,
       localCreatedDt: now,

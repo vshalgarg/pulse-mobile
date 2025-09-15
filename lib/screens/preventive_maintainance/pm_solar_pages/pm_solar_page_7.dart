@@ -228,8 +228,17 @@ class _PmSolarPage7State extends State<PmSolarPage7> {
         }
 
         if (item['photo_taken_ts'] != null) {
-          photoTimestamps[key] = item['photo_taken_ts']!;
-          print('Added to photoTimestamps: $key = ${item['photo_taken_ts']}');
+          // Ensure timestamp is in dd/MM/yyyy HH:mm format for API
+          try {
+            final parsedDate = DateTime.parse(item['photo_taken_ts']!);
+            final formattedTimestamp = DateFormat("dd/MM/yyyy HH:mm").format(parsedDate);
+            photoTimestamps[key] = formattedTimestamp;
+            print('Added to photoTimestamps: $key = $formattedTimestamp (converted from ${item['photo_taken_ts']})');
+          } catch (e) {
+            // If parsing fails, use the original timestamp
+            photoTimestamps[key] = item['photo_taken_ts']!;
+            print('Added to photoTimestamps: $key = ${item['photo_taken_ts']} (parsing failed)');
+          }
         }
 
         // Load remarks data if available
@@ -609,7 +618,7 @@ class _PmSolarPage7State extends State<PmSolarPage7> {
             if (state is AssetAuditPhotoUploadSuccess) {
               if (_currentUploadKey != null) {
                 final photoId = int.tryParse(state.response.imgId) ?? 0;
-                final timestamp = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+                final timestamp = DateFormat("dd/MM/yyyy HH:mm").format(DateTime.now());
 
                 setState(() {
                   photoIds[_currentUploadKey!] = photoId;

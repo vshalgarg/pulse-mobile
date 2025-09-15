@@ -44,7 +44,7 @@ class PmPostRequest {
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = {
       'pmCheckListSiteRespId': pmCheckListSiteRespId,
       'pmCheckListMstId': pmCheckListMstId,
       'auditSchId': auditSchId,
@@ -64,8 +64,14 @@ class PmPostRequest {
       'syncProcessId': syncProcessId,
       'isActive': isActive,
       'remarks': remarks,
-
     };
+    
+    // Debug logging for EARTHING data
+    if (pmItemType.toUpperCase() == 'EARTHING') {
+      print('PmPostRequest.toJson: EARTHING data - Longitude: ${json['longitude']}, Latitude: ${json['latitude']}');
+    }
+    
+    return json;
   }
 
   factory PmPostRequest.fromJson(Map<String, dynamic> json) {

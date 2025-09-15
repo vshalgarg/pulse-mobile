@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/services/push_notification_api.dart';
+import 'package:app/services/location_permission_service.dart';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -74,6 +75,8 @@ Future<void> init() async {
   await dotenv.load(fileName: ".env");
   // initialize Hive database
   await initHive();
+  // Initialize location permissions
+  await _initializeLocationPermissions();
   // Future.delayed(const Duration(seconds: 3));
   // FlutterNativeSplash.remove();
 }
@@ -118,6 +121,21 @@ class MyHttpOverrides extends HttpOverrides {
   HttpClient createHttpClient(SecurityContext? context) {
     return super.createHttpClient(context)
       ..badCertificateCallback = (X509Certificate cert, String host, int port) => true;
+  }
+}
+
+// Initialize location permissions on app startup
+Future<void> _initializeLocationPermissions() async {
+  try {
+    print('Initializing location permissions...');
+    final permissionResult = await LocationPermissionService.requestLocationPermissions();
+    if (permissionResult['success']) {
+      print('Location permissions initialized successfully');
+    } else {
+      print('Location permissions initialization failed: ${permissionResult['message']}');
+    }
+  } catch (e) {
+    print('Error initializing location permissions: $e');
   }
 }
 

@@ -243,8 +243,17 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
         }
 
         if (item.photoTakenTs != null) {
-          photoTimestamps[key] = item.photoTakenTs!;
-          print('Added to photoTimestamps: $key = ${item.photoTakenTs}');
+          // Ensure timestamp is in dd/MM/yyyy HH:mm format for API
+          try {
+            final parsedDate = DateTime.parse(item.photoTakenTs!);
+            final formattedTimestamp = DateFormat('dd/MM/yyyy HH:mm').format(parsedDate);
+            photoTimestamps[key] = formattedTimestamp;
+            print('Added to photoTimestamps: $key = $formattedTimestamp (converted from ${item.photoTakenTs})');
+          } catch (e) {
+            // If parsing fails, use the original timestamp
+            photoTimestamps[key] = item.photoTakenTs!;
+            print('Added to photoTimestamps: $key = ${item.photoTakenTs} (parsing failed)');
+          }
         }
 
         // Load remarks data if available
