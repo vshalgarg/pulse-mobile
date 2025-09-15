@@ -50,6 +50,7 @@ class Ticket extends Equatable {
   final double? longitude;
   final double? latitude;
   final String? siteDomainName;
+  final String? status;
 
   const Ticket({
     required this.ticketSchId,
@@ -63,6 +64,7 @@ class Ticket extends Equatable {
     this.longitude,
     this.latitude,
     this.siteDomainName,
+    this.status,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
@@ -94,6 +96,7 @@ class Ticket extends Equatable {
       longitude: parseDouble(json['longitude']),
       latitude: parseDouble(json['latitude']),
       siteDomainName: json['site_domain_name'],
+      status: json['status'],
     );
   }
 
@@ -110,6 +113,7 @@ class Ticket extends Equatable {
       'longitude': longitude,
       'latitude': latitude,
       'site_domain_name': siteDomainName,
+      'status': status,
     };
   }
 
@@ -126,6 +130,7 @@ class Ticket extends Equatable {
         longitude,
         latitude,
         siteDomainName,
+        status,
       ];
 }
 
