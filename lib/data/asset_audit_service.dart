@@ -13,7 +13,7 @@ class AssetAuditService {
   // -------------------- CREATE / UPSERT --------------------
 
   /// Save or update a local asset audit record from a request model.
-  Future<void> upsertFromRequest(AssetAuditPostRequest req) async {
+  Future<void> upsertFromRequest(AssetAuditPostRequest req,String screenName,String photoReflocalID) async {
     await db.assetAuditDao.upsert(AssetAuditsCompanion(
       assetAuditSiteRespId: Value(req.assetAuditSiteRespId),
       localAuditLogId: Value(req.localAuditLogId),
@@ -27,7 +27,7 @@ class AssetAuditService {
       qrCodeScanned: Value(req.qrCodeScanned),
       qrCodeScannedTs: Value(req.qrCodeScannedTs),
 
-      photoId: Value(req.photoId),
+      photoId: Value(""),
       photoTakenTs: Value(req.photoTakenTs), // request had String non-null, but safe as Value()
 
       assetStatus: Value(req.assetStatus),
@@ -47,6 +47,8 @@ class AssetAuditService {
       syncStatus: const Value('draft'),
       lastSyncError: const Value(null),
       serverUpdatedAt: const Value(null),
+      screenName : Value(screenName),
+        photoReflocalID:Value(photoReflocalID)
     ));
   }
 
@@ -58,7 +60,7 @@ class AssetAuditService {
 
       // Server-side fields that may have changed/been assigned
       assetAuditSiteRespId: Value(res.assetAuditSiteRespId),
-      photoId: Value(res.photoId),
+      photoId: Value(res.photoId as String?),
       photoTakenTs: Value(res.photoTakenTs),
 
       // If server echoes other fields and you want to trust server, set them too:

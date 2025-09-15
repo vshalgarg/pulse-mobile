@@ -17,7 +17,10 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
+import '../../../data/asset_audit_service.dart';
+import '../../../data/database.dart' hide Form;
 import '../../../hive_local_database/hive_db.dart';
+import '../../../models/asset_audit_post_model.dart';
 import '../../../utils/asset_audit_form_persistence_helper.dart';
 import '../../../models/asset_audit_model.dart';
 
@@ -138,6 +141,119 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       }
     });
   }
+
+  // Save selfie locally (no server upload)
+  Future<void> _uploadSelfie(File file) async {
+    final state = context.read<AssetAuditCubit>().state;
+
+    if (state is! AssetAuditLoaded || state.assetAuditData.pageHeader.isEmpty) {
+      showCustomToast(context, 'Please wait for site data to load before saving photo');
+      return;
+    }
+
+    try {
+      _hasFormDataChanges = true;
+
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      // Persist a local photo row tied to this audit
+      final id = await assetAuditService.addLocalPhoto(
+        localAuditLogId: 0, // your local audit PK
+        localPath: file.path,
+        fileName: file.path.split('/').last,
+      );
+
+      debugPrint("id img upload page 1: ${id}");
+
+      // Keep UI state in sync (optional but handy for previews)
+      setState(() {
+        uploadedPhotoPath = file.path;
+        selectedFile = file as String?;
+        // uploadedImgId stays null until an actual server upload happens later
+        uploadedImgId = id;
+      });
+
+      showCustomToast(context, 'Photo saved locally');
+    } catch (e) {
+      showCustomToast(context, 'Failed to save photo locally: $e');
+    }
+  }
+
+
+  Future<void> _saveFormDataToDbDraft() async {
+    if (!_hasFormDataChanges) return;
+
+    try {
+      final db = context.read<AppDatabase>();
+      final assetAuditService = AssetAuditService(db);
+
+      final nowIso = DateTime.now().toIso8601String();
+
+      final state = context.read<AssetAuditCubit>().state;
+
+      if (state is AssetAuditLoaded && state.assetAuditData.pageHeader.isNotEmpty) {
+        final pageHeader = state.assetAuditData.pageHeader.first;
+
+        // Build local draft request (map your UI state → DB fields)
+        final req = AssetAuditPostRequest(
+          // Server id stays null/0 until sync
+          assetAuditSiteRespId: null,
+
+          // Local identity (use your widget values)
+          localAuditLogId: 0,
+          auditSchId:  int.parse(widget.auditSchId),
+          siteAuditSchId: pageHeader.siteAuditSchId,
+          siteId: pageHeader.siteId!,
+
+          // Asset identity / selection
+          itemInstanceId:  0,             // map from your UI
+          nexgenSerialNo: assetCardSerialNumber?.trim().isNotEmpty == true
+              ? assetCardSerialNumber!.trim()
+              : serialController.text.trim(),
+          itemTypeId:  0,
+
+          // QR state (adjust if you capture it elsewhere)
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+
+          // Photo server fields are unknown for drafts
+          photoId: null,
+          photoTakenTs: "",
+
+          // Status / geo / remarks
+          assetStatus: (selectedStatus ?? 'draft').toString(),
+          longitude: null,
+          latitude: null,
+          itemTypeRemark: assetCardStatus,
+          remarks: cctvSerialController.text.isNotEmpty ? cctvSerialController.text : null,
+
+          // Local timestamps
+          localQrCodeScannedTs: nowIso,
+          localCreatedDt: nowIso,
+          localModifiedDt: nowIso,
+
+          // Process flags
+          syncProcessId: 0,
+          isActive: true,
+        );
+
+        // Upsert the asset draft
+        await assetAuditService.upsertFromRequest(req, 'solar_page_1',uploadedImgId!);
+
+      }
+
+      _hasFormDataChanges = false;
+      if (mounted) {
+        showCustomToast(context, 'Saved locally');
+      }
+    } catch (e) {
+      if (mounted) {
+        showCustomToast(context, 'Save failed: $e');
+      }
+    }
+  }
+
 
   void _saveFormDataToHive() {
     if (!_hasFormDataChanges) return;
@@ -287,6 +403,9 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
   void _saveAndExit() async {
     _saveFormDataToHive();
+
+
+
     Navigator.of(context).pop();
     if (mounted) {
       showDialog(
@@ -333,7 +452,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   }
 
 
-  void _uploadSelfie(File file) {
+  void _uploadSelfie_old(File file) {
     final assetAuditState = context.read<AssetAuditCubit>().state;
     if (assetAuditState is AssetAuditLoaded &&
         assetAuditState.assetAuditData.pageHeader.isNotEmpty) {

@@ -14,7 +14,7 @@ class PmService {
 
   // -------------------- PM RESPONSES --------------------
 
-  Future<void> upsertPmFromRequest(PmPostRequest r) async {
+  Future<void> upsertPmFromRequest(PmPostRequest r,String screenName,String photoReflocalID) async {
     await db.pmResponseDao.upsert(PmResponsesCompanion(
       pmCheckListSiteRespId: Value(r.pmCheckListSiteRespId),
       pmCheckListMstId: Value(r.pmCheckListMstId),
@@ -25,7 +25,7 @@ class PmService {
       checklistDesc: Value(r.checklistDesc),
       resp: Value(r.resp),
       clOrder: Value(r.clOrder),
-      photoId: Value(r.photoId),
+      photoId: Value(""),
       photoTakenTs: Value(r.photoTakenTs),
       longitude: Value(r.longitude),
       latitude: Value(r.latitude),
@@ -39,6 +39,8 @@ class PmService {
       syncStatus: const Value('draft'),
       lastSyncError: const Value(null),
       serverUpdatedAt: const Value(null),
+      screenName : Value(screenName),
+        photoReflocalID:Value(photoReflocalID)
     ));
   }
 

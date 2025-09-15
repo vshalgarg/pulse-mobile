@@ -67,7 +67,7 @@ class AssetAudits extends Table {
   TextColumn get qrCodeScannedTs => text().nullable()();
 
   // photoId from server (keep nullable; sometimes not set)
-  IntColumn get photoId => integer().nullable()();
+  TextColumn get photoId => text().nullable()();
 
   // Some APIs return photoTakenTs optional; keep nullable to be safe
   TextColumn get photoTakenTs => text().nullable()();
@@ -90,6 +90,9 @@ class AssetAudits extends Table {
   TextColumn get syncStatus => text().withDefault(const Constant('draft'))();
   TextColumn get lastSyncError => text().nullable()();
   TextColumn get serverUpdatedAt => text().nullable()();
+
+  TextColumn get screenName => text().nullable()();
+  TextColumn get photoReflocalID => text().nullable()();
 
   // Make the local ID the primary key
   @override
@@ -155,7 +158,7 @@ class PmResponses extends Table {
   IntColumn get clOrder => integer()();
 
   // Optional photo and geo
-  IntColumn get photoId => integer().nullable()();
+  TextColumn get photoId => text().nullable()();
   TextColumn get photoTakenTs => text().nullable()();
   TextColumn get longitude => text().nullable()();
   TextColumn get latitude => text().nullable()();
@@ -173,6 +176,8 @@ class PmResponses extends Table {
   TextColumn get syncStatus => text().withDefault(const Constant('draft'))();
   TextColumn get lastSyncError => text().nullable()();
   TextColumn get serverUpdatedAt => text().nullable()();
+  TextColumn get screenName => text().nullable()();
+  TextColumn get photoReflocalID => text().nullable()();
 
   // Local primary key (composite) so you can have multiple rows for one audit
   @override
