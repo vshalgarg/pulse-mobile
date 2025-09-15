@@ -2,6 +2,7 @@ import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
+import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -84,6 +85,11 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    print('🔍 DEBUG: Calling getAssetAuditData with:');
+    print('  - siteType: ${widget.siteType}');
+    print('  - auditSchId: ${widget.auditSchId}');
+    print('  - siteAuditSchId: ${widget.siteAuditSchId}');
 
     context.read<AssetAuditCubit>().getAssetAuditData(
       siteType: widget.siteType,
@@ -283,27 +289,6 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     }
   }
 
-  Future<void> _saveAndExit() async {
-    _saveFormDataToHive();
-    Navigator.of(context).pop();
-    await Future.delayed(const Duration(milliseconds: 200));
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54,
-        builder: (context) => SuccessDialog(
-          ticketId: widget.siteAuditSchId,
-          message: "Asset Audit for Site (ID: ${widget.siteAuditSchId}) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
-        ),
-      );
-    }
-  }
-
   bool _validateForm() {
     setState(() {
       showValidationErrors = true;
@@ -410,6 +395,10 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         ),
         BlocListener<AssetAuditCubit, AssetAuditState>(
           listener: (context, state) {
+            print('🔍 DEBUG: BlocListener received state: ${state.runtimeType}');
+            if (state is AssetAuditLoaded) {
+              print('🔍 DEBUG: AssetAuditLoaded in listener - pageHeader length: ${state.assetAuditData.pageHeader.length}');
+            }
             if (state is AssetAuditError) {
               if (state.message.contains('NO_SITE_AUDIT_SCHEDULE:')) {
                 showDialog(
@@ -458,6 +447,18 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
     var pageHeader = <PageHeader>[];
     if (state is AssetAuditLoaded) {
       pageHeader = state.assetAuditData.pageHeader;
+      print('🔍 DEBUG: AssetAuditLoaded - pageHeader length: ${pageHeader.length}');
+      if (pageHeader.isNotEmpty) {
+        print('🔍 DEBUG: First pageHeader data:');
+        print('  - circle: ${pageHeader.first.circle}');
+        print('  - cluster: ${pageHeader.first.cluster}');
+        print('  - district: ${pageHeader.first.district}');
+        print('  - clientName: ${pageHeader.first.clientName}');
+        print('  - siteCode: ${pageHeader.first.siteCode}');
+        print('  - siteName: ${pageHeader.first.siteName}');
+      }
+    } else {
+      print('🔍 DEBUG: State is not AssetAuditLoaded: ${state.runtimeType}');
     }
 
     return PopScope(
@@ -478,14 +479,24 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
               section: "Asset Audit",
               parentContext: context, // Use the outer context (screen context)
               onSaveAndExit: () async {
-                _saveAndExit();
               },
               onDiscard: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => HomeScreen()
+                  ),
+                );
               },
             ),
           );
         } else {
-              Navigator.pop(context);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+                builder: (context) => HomeScreen()
+            ),
+          );
             }
           },
         ),
@@ -615,21 +626,13 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                           op1Name: siteData.op1Name ?? "",
                                           op2Name: siteData.op2Name ?? "N/A",
                                           assetAuditData: state.assetAuditData,
+                                          siteType: siteData.siteTypeName,
+                                          auditSchId: siteData.siteAuditSchId.toString(),
+                                          siteAuditSchId: siteData.siteAuditSchId.toString(),
                                         ),
                                       );
                                     } else {
-                                      pushPage(
-                                        context,
-                                        SiteInfoScreen(
-                                          siteName: "N/A",
-                                          siteTypeName: "N/A",
-                                          indoorOutdoor: "N/A",
-                                          ebNonEb: "N/A",
-                                          op1Name: "N/A",
-                                          op2Name: "N/A",
-                                          assetAuditData: null,
-                                        ),
-                                      );
+
                                     }
                                   }
                                 },

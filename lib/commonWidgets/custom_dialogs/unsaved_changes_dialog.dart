@@ -33,10 +33,24 @@ class UnsavedChangesDialog extends StatelessWidget {
     try {
       // Call the API to update audit schedule status if siteAuditSchId is provided
       if (siteAuditSchId != null && siteAuditSchId!.isNotEmpty) {
+        // Show loading dialog
+        showDialog(
+          context: contextToUse,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+        
         await contextToUse.read<AuditScheduleStatusCubit>().updateStatus(
           status: "IN-PROGRESS", // Change this to your desired status
           siteAuditSchId: siteAuditSchId!,
         );
+        
+        // Close loading dialog
+        if (Navigator.canPop(contextToUse)) {
+          Navigator.of(contextToUse).pop();
+        }
         
         // Get the current state after the API call
         final currentState = contextToUse.read<AuditScheduleStatusCubit>().state;
@@ -55,6 +69,10 @@ class UnsavedChangesDialog extends StatelessWidget {
         _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.");
       }
     } catch (e) {
+      // Close loading dialog if it's open
+      if (Navigator.canPop(contextToUse)) {
+        Navigator.of(contextToUse).pop();
+      }
       // Fallback message if API call fails
       _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
     }

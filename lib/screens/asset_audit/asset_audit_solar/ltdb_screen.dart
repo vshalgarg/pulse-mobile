@@ -647,8 +647,12 @@ class _LTDBScreenState extends State<LTDBScreen> {
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
-                                        _pendingNavigation = nextScreen;
+                                        // POST data to API before navigation
                                         await _postLtdbData();
+
+                                        // Navigate to the next available screen
+                                        _navigateToNextScreen(
+                                            context, nextScreen);
                                       },
                                     );
                                   }

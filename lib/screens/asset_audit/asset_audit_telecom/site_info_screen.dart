@@ -4,6 +4,7 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../models/asset_audit_model.dart';
+import '../../../utils/asset_audit_navigation_helper.dart';
 
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
@@ -11,6 +12,7 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
+import '../../home_screen.dart';
 
 class SiteInfoScreen extends StatefulWidget {
   final String siteName;
@@ -20,6 +22,9 @@ class SiteInfoScreen extends StatefulWidget {
   final String op1Name;
   final String op2Name;
   final AssetAuditModel? assetAuditData;
+  final String siteType;
+  final String auditSchId;
+  final String siteAuditSchId;
 
   const SiteInfoScreen({
     super.key,
@@ -30,6 +35,9 @@ class SiteInfoScreen extends StatefulWidget {
     required this.op1Name,
     required this.op2Name,
     this.assetAuditData,
+    required this.siteType,
+    required this.auditSchId,
+    required this.siteAuditSchId,
   });
 
   @override
@@ -94,76 +102,34 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
     });
   }
 
-  Future<void> _saveAndExit() async {
-    // First close the unsaved changes dialog
-    Navigator.of(context).pop();
-
-    // Wait a bit for the dialog to fully close and overlay to clear
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    // Then show success dialog with a clean barrier
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54, // Ensure clean barrier
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-          "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
-        ),
+  void _navigateToNextScreen() {
+    final nextScreen = AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
+      widget.assetAuditData, 
+      'Site Info'
+    );
+    
+    if (nextScreen != null) {
+      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+        context,
+        nextScreen,
+        widget.siteType,
+        widget.auditSchId,
+        widget.siteAuditSchId,
+        widget.assetAuditData,
+      );
+    } else {
+      // Navigate to home if no next screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
       );
     }
-  }
-
-  bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
-
-    print('=== Form Validation Debug (_validateForm) ===');
-
-    // Check if photo is uploaded
-    print('uploadedPhotoPath: $uploadedPhotoPath');
-    if (uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty) {
-      print('Photo validation failed - No photo uploaded');
-      return false;
-    } else {
-      print('Photo validation passed');
-    }
-
-    print('All validations passed!');
-    return true;
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => UnsavedChangesDialog(
-              message:
-              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () async {
-                await _saveAndExit();
-              },
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
       child: Scaffold(
         extendBodyBehindAppBar: true,
         resizeToAvoidBottomInset: false,
@@ -173,20 +139,24 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
             if (hasUnsavedChanges) {
               showDialog(
                 context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message:
-                  "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                barrierDismissible: true,
+                builder: (dialogContext) => UnsavedChangesDialog(
+                  siteAuditSchId: widget.siteAuditSchId,
+                  section: "Asset Audit",
+                  parentContext: context, // Use the outer context (screen context)
                   onSaveAndExit: () async {
-                    await _saveAndExit();
                   },
                   onDiscard: () {
-                    Navigator.of(context).pop();
                   },
                 ),
               );
             } else {
-              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => HomeScreen()
+                ),
+              );
             }
           },
         ),
@@ -271,7 +241,10 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                         children: [
                           Expanded(
                             child: ArrowButton(
-                              text: "General",
+                              text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
+                                widget.assetAuditData, 
+                                'Site Info'
+                              ) ?? 'BACK',
                               isLeftArrow: true,
                               backgroundColor: AppColors.buttonColorBg,
                               textColor: AppColors.buttonColorSite,
@@ -283,48 +256,15 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                           getWidth(14),
                           Expanded(
                             child: ArrowButton(
-                              text: "CCU",
+                              text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
+                                widget.assetAuditData, 
+                                'Site Info'
+                              ) ?? 'SUBMIT',
                               isLeftArrow: false,
                               backgroundColor: AppColors.buttonColorBackBg,
                               textColor: AppColors.buttonColorTextBg,
                               onPressed: () {
-                                pushPage(context, CCUScreen(
-                                  ccuData: widget.assetAuditData?.responseData.ccu,
-                                  assetAuditData: widget.assetAuditData,
-                                ));
-                                // if (_validateForm()) {
-                                //   showDialog(
-                                //     context: context,
-                                //     barrierDismissible: false,
-                                //     builder: (context) => SuccessDialog(
-                                //       ticketId: "UVORKJR00044",
-                                //       message:
-                                //       "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-                                //       onDone: () {
-                                //         Navigator.of(context).pop();
-                                //         Navigator.of(context).pop();
-                                //       },
-                                //     ),
-                                //   );
-                                // } else {
-                                //
-                                //   ScaffoldMessenger.of(context).showSnackBar(
-                                //     SnackBar(
-                                //       content: Text(
-                                //         uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty
-                                //             ? 'Please upload a selfie photo to continue'
-                                //             : 'Please fill in all required fields',
-                                //         style: const TextStyle(
-                                //           color: Colors.white,
-                                //           fontSize: 14,
-                                //           fontFamily: fontFamilyMontserrat,
-                                //         ),
-                                //       ),
-                                //       backgroundColor: AppColors.errorColor,
-                                //       duration: const Duration(seconds: 3),
-                                //     ),
-                                //   );
-                                // }
+                                _navigateToNextScreen();
                               },
                             ),
                           ),

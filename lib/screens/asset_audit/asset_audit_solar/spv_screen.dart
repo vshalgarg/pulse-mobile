@@ -90,6 +90,9 @@ class _SPVScreenState extends State<SPVScreen> {
   // Flag to prevent repeated API calls
   bool _hasInitialized = false;
   
+  // Loading state for getAssetAuditData API
+  bool _isLoadingAssetData = false;
+  
   // Track original values for change detection
   String? _originalSpvStatus;
   
@@ -115,6 +118,9 @@ class _SPVScreenState extends State<SPVScreen> {
     if (currentState is! AssetAuditLoaded && !_hasInitialized) {
       _hasInitialized = true;
       Logger.debugLog('=== SPV: Making initial API call ===');
+      setState(() {
+        _isLoadingAssetData = true;
+      });
       context.read<AssetAuditCubit>().getAssetAuditData(
         siteType: widget.siteType,
         auditSchId: widget.auditSchId,
@@ -669,6 +675,9 @@ class _SPVScreenState extends State<SPVScreen> {
           listener: (context, state) {
             if (state is AssetAuditLoaded) {
               Logger.debugLog('=== SPV Screen: AssetAuditLoaded ===');
+              setState(() {
+                _isLoadingAssetData = false;
+              });
               final spvData = state.assetAuditData.responseData.categories['SPV'];
               if (spvData != null) {
                 setState(() {
@@ -718,6 +727,9 @@ class _SPVScreenState extends State<SPVScreen> {
                 Logger.debugLog('SPV category not found in loaded data');
               }
             } else if (state is AssetAuditError) {
+              setState(() {
+                _isLoadingAssetData = false;
+              });
               showCustomToast(context, state.message);
             } else if (state is AssetAuditPosting) {
               // Show loading dialog when posting data
@@ -752,6 +764,9 @@ class _SPVScreenState extends State<SPVScreen> {
               
               // Allow update from API after successful post (only if not navigating)
               _shouldUpdateFromAPI = true;
+              setState(() {
+                _isLoadingAssetData = true;
+              });
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: widget.siteType,
                 auditSchId: widget.auditSchId,
@@ -854,6 +869,16 @@ class _SPVScreenState extends State<SPVScreen> {
                   height: double.infinity,
                 ),
               ),
+              // Loading indicator for getAssetAuditData API
+              if (_isLoadingAssetData)
+                Container(
+                  color: Colors.black.withOpacity(0.3),
+                  child: const Center(
+                    child: CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.green7),
+                    ),
+                  ),
+                ),
               SafeArea(
                 child: Form(
                   key: _formKey,
@@ -954,7 +979,7 @@ class _SPVScreenState extends State<SPVScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getSolarPreviousScreenName('SPV'),
+                                text: _getPreviousAvailableScreen() ?? 'BACK',
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,

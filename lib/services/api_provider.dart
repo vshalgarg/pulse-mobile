@@ -10,6 +10,14 @@ import '../hive_local_database/hive_db.dart';
 import '../routes/routes.dart';
 import '../bloc/global_loading_cubit.dart';
 
+/// ApiProvider handles HTTP requests with Dio
+/// 
+/// Features:
+/// - Automatic token injection for authenticated requests
+/// - Global loading indicator management
+/// - Logging with base64 image data filtering to prevent log spam
+/// - Automatic logout on 401 responses
+
 class ApiProvider {
   final String baseUrl;
   var boxes = Hive.box(HiveConstant.userCreds);
@@ -33,15 +41,46 @@ class ApiProvider {
 
     _dio.options = options;
     
-    // PrettyDioLogger removed to reduce console logs
-    // _dio.interceptors.add(PrettyDioLogger(
-    //   requestHeader: true,
-    //   requestBody: true,
-    //   responseHeader: true,
-    //   responseBody: true,
-    //   error: true,
-    //   compact: false,
-    // ));
+    // Add PrettyDioLogger for development (can be disabled in production)
+    _dio.interceptors.add(PrettyDioLogger(
+      requestHeader: true,
+      requestBody: true,
+      responseHeader: true,
+      responseBody: true,
+      error: true,
+      compact: false,
+      logPrint: (object) {
+        // Filter out base64 image data from logs to prevent log spam
+        String logMessage = object.toString();
+        
+        // Check if this log contains image data and filter it out
+        if (logMessage.contains('imageData') && logMessage.contains('base64')) {
+          // Replace base64 image data with a placeholder
+          logMessage = logMessage.replaceAllMapped(
+            RegExp(r'"imageData":\s*"[^"]*"'),
+            (match) => '"imageData": "[BASE64_IMAGE_DATA_REMOVED_FROM_LOGS]"',
+          );
+        }
+        
+        // Also filter out any other large base64 strings that might be images
+        if (logMessage.contains('data:image/')) {
+          logMessage = logMessage.replaceAllMapped(
+            RegExp(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+'),
+            (match) => 'data:image/jpeg;base64,[BASE64_IMAGE_DATA_REMOVED_FROM_LOGS]',
+          );
+        }
+        
+        // Filter out any other potential large base64 data
+        if (logMessage.length > 1000 && logMessage.contains('base64')) {
+          logMessage = logMessage.replaceAllMapped(
+            RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'),
+            (match) => '[LARGE_BASE64_DATA_REMOVED_FROM_LOGS]',
+          );
+        }
+        
+        print(logMessage);
+      },
+    ));
 
     _dio.interceptors.add(
       InterceptorsWrapper(

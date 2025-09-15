@@ -277,43 +277,9 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
 
   Future<void> _saveAndExit() async {
     try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
       // Post Fire Extinguisher data to API first
       await _postFireExtinguisherData();
-      
-      // Update audit schedule status
-      await _updateAuditScheduleStatus("In Progress");
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      // Navigate to home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
-      );
     } catch (e) {
-      // Close loading dialog if it's open
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
     }
   }
 
@@ -730,15 +696,23 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
   }
 
   // Helper method to navigate to the next screen based on screen name
-  void _navigateToNextScreen(BuildContext context, String screenName) {
-    AssetAuditNavigationHelper.navigateToNextScreen(
-      context,
-      screenName,
-      widget.siteType,
-      widget.auditSchId,
-      widget.siteAuditSchId,
-      widget.assetAuditData,
-    );
+  void _navigateToNextScreen(BuildContext context, String? nextScreen) {
+    if (nextScreen != null) {
+      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+        context,
+        nextScreen,
+        widget.siteType ?? '',
+        widget.auditSchId ?? '',
+        widget.siteAuditSchId ?? '',
+        widget.assetAuditData,
+      );
+    } else {
+      // No next screen available, go to home
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    }
   }
 
 
@@ -1240,27 +1214,6 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
       ],
       child: PopScope(
         canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => UnsavedChangesDialog(
-              message:
-              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () async {
-                Navigator.of(context).pop(); // Close the dialog first
-                await _saveAndExit();
-              },
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
       child: Scaffold(
         extendBodyBehindAppBar: true,
         resizeToAvoidBottomInset: false,
@@ -1270,21 +1223,25 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
             if (hasUnsavedChanges) {
               showDialog(
                 context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message:
-                  "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                barrierDismissible: true,
+                builder: (dialogContext) => UnsavedChangesDialog(
+                  siteAuditSchId: widget.siteAuditSchId,
+                  section: "Asset Audit",
+                  parentContext: context, // Use the outer context (screen context)
                   onSaveAndExit: () async {
-                    Navigator.of(context).pop(); // Close the dialog first
                     await _saveAndExit();
                   },
                   onDiscard: () {
-                    Navigator.of(context).pop();
                   },
                 ),
               );
             } else {
-              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => HomeScreen()
+                ),
+              );
             }
           },
         ),
@@ -1596,68 +1553,9 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
                               backgroundColor: AppColors.buttonColorBg,
                               textColor: AppColors.buttonColorSite,
                               onPressed: () async {
-                                // Show loading indicator
-                                showDialog(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) => const Center(
-                                    child: CircularProgressIndicator(),
-                                  ),
-                                );
-                                
-                                try {
                                   // Post data before navigating
-                                  final success = await _postFireExtinguisherData();
-                                  
-                                  // Hide loading indicator
-                                  Navigator.of(context).pop();
-                                  
-                                  if (success) {
-                                    // Data posted successfully, proceed with navigation
-                                    final nextScreen = _getNextAvailableScreen();
-                                    if (nextScreen != null) {
-                                      _navigateToNextScreen(context, nextScreen);
-                                    } else {
-                                      // All screens completed, show success dialog
-                                      await _saveAndExit();
-                                    }
-                                  } else {
-                                    // Data posting failed, show error message
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          'Failed to save data. Please try again.',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 14,
-                                            fontFamily: fontFamilyMontserrat,
-                                          ),
-                                        ),
-                                        backgroundColor: Colors.red,
-                                        duration: Duration(seconds: 3),
-                                      ),
-                                    );
-                                  }
-                                } catch (e) {
-                                  // Hide loading indicator
-                                  Navigator.of(context).pop();
-                                  
-                                  // Show error message
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Error saving data: $e',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14,
-                                          fontFamily: fontFamilyMontserrat,
-                                        ),
-                                      ),
-                                      backgroundColor: Colors.red,
-                                      duration: const Duration(seconds: 3),
-                                    ),
-                                  );
-                                }
+                                  await _postFireExtinguisherData();
+                                  _navigateToNextScreen(context, _getNextAvailableScreen());
                               },
 
                             ),

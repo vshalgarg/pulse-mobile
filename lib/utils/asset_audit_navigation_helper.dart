@@ -11,6 +11,17 @@ import 'package:app/screens/asset_audit/asset_audit_solar/scada_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/fire_extinguisher_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
+
+// Telecom screen imports
+import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/solar_plates.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/survelliance_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/fencing_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/dg_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/smps_screen.dart';
 import 'package:app/models/asset_audit_model.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -42,59 +53,14 @@ class AssetAuditNavigationHelper {
         return assetAuditData.responseData.categories[categoryName];
     }
   }
-
-  static String getNextScreenName(String currentScreen) {
-    switch (currentScreen.toLowerCase()) {
-      case 'site info':
-        return 'CCU';
-      case 'ccu':
-        return 'Battery';
-      case 'battery':
-        return 'Extinguisher';
-      case 'extinguisher':
-        return 'Solar Plates';
-      case 'solar plates':
-        return 'CCTV';
-      case 'cctv':
-        return 'Fencing';
-      case 'fencing':
-        return 'DG';
-      case 'dg':
-        return 'SMPS (Submit)'; // Final screen
-      default:
-        return '';
-    }
-  }
-
-  static String getPreviousScreenName(String currentScreen) {
-    switch (currentScreen.toLowerCase()) {
-      case 'ccu':
-        return 'Site Info';
-      case 'battery':
-        return 'CCU';
-      case 'extinguisher':
-        return 'Battery';
-      case 'solar plates':
-        return 'Extinguisher';
-      case 'cctv':
-        return 'Solar Plates';
-      case 'fencing':
-        return 'CCTV';
-      case 'dg':
-        return 'Fencing';
-      case 'smps':
-        return 'DG';
-      default:
-        return '';
-    }
-  }
-
   // ===== SOLAR NAVIGATION METHODS (NEW) =====
   
   // Define the order of all solar screens
   static const List<String> _solarScreenOrder = [
     'SPV',
-    'MMS', 
+    'DCDB',
+    'MMS',
+    'PCU',
     'Invertor',
     'ACDB',
     'LTDB',
@@ -105,6 +71,19 @@ class AssetAuditNavigationHelper {
     'Fire Extinguisher',
     'CCTV',
     'Boundary'
+  ];
+
+  // Define the order of all telecom screens
+  static const List<String> _telecomScreenOrder = [
+    'Site Info',
+    'CCU',
+    'Battery',
+    'Fire Extinguisher',
+    'Solar Plates',
+    'CCTV',
+    'Fencing',
+    'DG',
+    'SMPS'
   ];
 
   /// Get the next available screen based on data availability (SOLAR)
@@ -142,6 +121,47 @@ class AssetAuditNavigationHelper {
     return screenName;
   }
 
+  // ===== TELECOM NAVIGATION METHODS =====
+  
+  /// Get the next available screen based on data availability (TELECOM)
+  static String? getNextAvailableTelecomScreen(AssetAuditModel? assetAuditData, String currentScreen) {
+    if (assetAuditData == null) return null;
+    
+    final currentIndex = _telecomScreenOrder.indexOf(currentScreen);
+    
+    if (currentIndex < 0 || currentIndex >= _telecomScreenOrder.length - 1) return null;
+    String screenName = _telecomScreenOrder[currentIndex + 1];
+    
+    // Check if the screen has data using the telecom data structure
+    CategoryData? categoryData = getCategoryData(assetAuditData, screenName);
+    if (categoryData == null || (categoryData.assets.isEmpty && categoryData.subCategories!.isEmpty && categoryData.remarks.isEmpty)) {
+      return getNextAvailableTelecomScreen(assetAuditData, screenName);
+    }
+
+    // Return the immediate next screen in the flow
+    return screenName;
+  }
+
+  /// Get the previous available screen based on data availability (TELECOM)
+  static String? getPreviousAvailableTelecomScreen(AssetAuditModel? assetAuditData, String currentScreen) {
+    if (assetAuditData == null) return null;
+    
+    final currentIndex = _telecomScreenOrder.indexOf(currentScreen);
+    
+    if (currentIndex <= 0) return null; // First screen or not found
+
+    String screenName = _telecomScreenOrder[currentIndex - 1];
+    
+    // Check if the screen has data using the telecom data structure
+    CategoryData? categoryData = getCategoryData(assetAuditData, screenName);
+    if (categoryData == null || (categoryData.assets.isEmpty && categoryData.subCategories!.isEmpty && categoryData.remarks.isEmpty)) {
+      return getPreviousAvailableTelecomScreen(assetAuditData, screenName);
+    }
+
+    // Return the immediate next screen in the flow
+    return screenName;
+  }
+
   /// Get the previous screen name for back button text (SOLAR)
   static String getSolarPreviousScreenName(String currentScreen) {
     final currentIndex = _solarScreenOrder.indexOf(currentScreen);
@@ -151,11 +171,6 @@ class AssetAuditNavigationHelper {
     }
     
     return _solarScreenOrder[currentIndex - 1];
-  }
-
-  /// Check if current screen is the first screen in the flow
-  static bool isFirstScreen(String currentScreen) {
-    return _solarScreenOrder.indexOf(currentScreen) == 0;
   }
 
   /// Navigate to the next screen based on screen name
@@ -186,6 +201,14 @@ class AssetAuditNavigationHelper {
         break;
       case 'DCDB':
         pushPage(context, DCBAScreen(
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          assetAuditData: assetAuditData,
+        ));
+        break;
+      case 'PCU':
+        pushPage(context, PCUScreen(
           siteType: siteType,
           auditSchId: auditSchId,
           siteAuditSchId: siteAuditSchId,
@@ -240,14 +263,14 @@ class AssetAuditNavigationHelper {
           assetAuditData: assetAuditData,
         ));
         break;
-            case 'SCADA':
-              pushPage(context, SCADAScreen(
-                siteType: siteType,
-                auditSchId: auditSchId,
-                siteAuditSchId: siteAuditSchId,
-                assetAuditData: assetAuditData,
-              ));
-              break;
+      case 'SCADA':
+        pushPage(context, SCADAScreen(
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+          assetAuditData: assetAuditData,
+        ));
+        break;
       case 'Fire Extinguisher':
         pushPage(context, FireExtinguisherScreen(
           siteType: siteType,
@@ -273,38 +296,84 @@ class AssetAuditNavigationHelper {
         ));
         break;
       default:
-        print('Unknown screen: $screenName');
+        print('Unknown screen for solar: $screenName');
         break;
     }
   }
 
-  /// Check if a screen has data available
-  static bool hasScreenData(AssetAuditModel? assetAuditData, String screenName) {
-    if (assetAuditData == null) return false;
-    
-    final categories = assetAuditData.responseData.categories;
-    if (!categories.containsKey(screenName)) return false;
-    
-    final categoryData = categories[screenName];
-    return categoryData != null && categoryData.assets.isNotEmpty;
-  }
-
-  /// Get all available screens with data (SOLAR)
-  static List<String> getAvailableScreens(AssetAuditModel? assetAuditData) {
-    if (assetAuditData == null) return [];
-    
-    final categories = assetAuditData.responseData.categories;
-    final availableScreens = <String>[];
-    
-    for (String screenName in _solarScreenOrder) {
-      if (categories.containsKey(screenName)) {
-        final categoryData = categories[screenName];
-        if (categoryData != null && categoryData.assets.isNotEmpty) {
-          availableScreens.add(screenName);
-        }
-      }
+  /// Navigate to the next screen based on screen name
+  static void navigateToNextTelecomScreen(
+      BuildContext context,
+      String screenName,
+      String siteType,
+      String auditSchId,
+      String siteAuditSchId,
+      AssetAuditModel? assetAuditData,
+      ) {
+    switch (screenName) {
+      case 'CCU':
+        pushPage(context, CCUScreen(
+          ccuData: getCategoryData(assetAuditData, 'CCU'),
+          assetAuditData: assetAuditData,
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+        ));
+        break;
+      case 'Battery':
+        pushPage(context, BatteryScreen(
+          batteryData: getCategoryData(assetAuditData, 'Battery'),
+          assetAuditData: assetAuditData,
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+        ));
+        break;
+      case 'Fire Extinguisher':
+        pushPage(context, ExtinguisherScreen(
+          extinguisherData: getCategoryData(assetAuditData, 'Fire Extinguisher'),
+          assetAuditData: assetAuditData,
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+        ));
+        break;
+      case 'Solar Plates':
+        pushPage(context, SolarPlatesScreen(
+          solarPlatesData: getCategoryData(assetAuditData, 'Solar Plates'),
+          assetAuditData: assetAuditData,
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+        ));
+        break;
+      case 'CCTV':
+        pushPage(context, SurveillianceScreen(
+          cctvData: getCategoryData(assetAuditData, 'CCTV'),
+          assetAuditData: assetAuditData,
+        ));
+        break;
+      case 'Fencing':
+        pushPage(context, FencingScreen(
+          fencingData: getCategoryData(assetAuditData, 'Fencing'),
+          assetAuditData: assetAuditData,
+        ));
+        break;
+      case 'DG':
+        pushPage(context, DgScreen(
+          dgData: getCategoryData(assetAuditData, 'DG'),
+          assetAuditData: assetAuditData,
+        ));
+        break;
+      case 'SMPS':
+        pushPage(context, SMPSScreen(
+          smpsData: getCategoryData(assetAuditData, 'SMPS'),
+          assetAuditData: assetAuditData,
+        ));
+        break;
+      default:
+        print('Unknown screen for telecom: $screenName');
+        break;
     }
-    
-    return availableScreens;
   }
 }

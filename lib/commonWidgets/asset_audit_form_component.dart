@@ -113,7 +113,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   bool? _selectedStatus;
   bool _isQRCodeScanned = false;
   bool _isUploading = false;
-  String? _uploadedImageId;
+  String? _uploadedImageId; // Photo ID from server
+  String? _photoData; // Photo byte data or base64
+  bool _hasNewPhotoSelected = false; // Track if user selected a new photo
   
   // Validation state
   bool _showValidationErrors = false;
@@ -186,17 +188,24 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Runs custom validation on serial number
   bool _validateSerialNumber() {
+    print('🔍 AssetAuditFormComponent - Running custom validation...');
     if (widget.customValidator != null) {
+      print('🔍 Custom validator exists, calling with: "${widget.serialController.text}", QR: $_isQRCodeScanned');
       final isValid = widget.customValidator!(
         widget.serialController.text,
         _isQRCodeScanned,
       );
       
+      print('🔍 Custom validator result: $isValid');
+      
       if (!isValid) {
         _validationErrorMessage = widget.customValidationErrorMessage ?? 
             'Invalid serial number. Please check and try again.';
+        print('❌ Custom validation failed: $_validationErrorMessage');
         return false;
       }
+    } else {
+      print('🔍 No custom validator provided, skipping validation');
     }
     return true;
   }
@@ -206,10 +215,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   void _handlePhotoSelection(String? photoPath) {
     setState(() {
       _selectedPhotoPath = photoPath;
+      _photoData = photoPath; // Store the photo data
+      _uploadedImageId = null; // Reset photo ID since we have new photo data
+      _hasNewPhotoSelected = true; // Mark that user selected a new photo
       _showValidationErrors = false;
     });
     // Photo selection is handled internally, no parent callback needed
   }
+
 
   /// Picks image from camera (matching CustomInfoCard)
   Future<void> _pickImage() async {
@@ -353,6 +366,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles save button click
   Future<void> _handleSave() async {
+    print('🔍 AssetAuditFormComponent - Save button clicked!');
+    print('🔍 Serial Number: "${widget.serialController.text}"');
+    print('🔍 Photo Path: "$_selectedPhotoPath"');
+    print('🔍 Status: "$_selectedStatus"');
+    
     try {
       // Reset validation state
       setState(() {
@@ -361,51 +379,50 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       });
 
       // Step 1: Run mandatory checks
+      print('🔍 Running mandatory field validation...');
       if (!_validateAllFields()) {
+        print('❌ Mandatory field validation failed');
         _showValidationError();
         return;
       }
+      print('✅ Mandatory field validation passed');
 
       // Step 2: Run custom validation on serial number
+      print('🔍 Running custom serial number validation...');
       if (!_validateSerialNumber()) {
+        print('❌ Custom serial number validation failed');
         _showValidationError();
         return;
       }
+      print('✅ Custom serial number validation passed');
 
     // Step 3: Handle photo upload
-    // Check if this is an edit operation by looking for existing item with same serial number
-    final existingItem = _savedItems.firstWhere(
-      (item) => item['serialNumber'] == widget.serialController.text,
-      orElse: () => {},
-    );
+    // Use _editingItem if we're editing, otherwise look for existing item
+    final existingItem = _isEditing && _editingItem != null ? _editingItem! : 
+        _savedItems.firstWhere(
+          (item) => item['serialNumber'] == widget.serialController.text,
+          orElse: () => {},
+        );
 
+    print('🔍 Photo handling - isEditing: $_isEditing, existingItem: ${existingItem.isNotEmpty}');
+    print('🔍 Selected photo path: $_selectedPhotoPath');
+    print('🔍 Uploaded image ID: $_uploadedImageId');
+    print('🔍 Photo data: $_photoData');
+    print('🔍 Has new photo selected: $_hasNewPhotoSelected');
     
-    if (_selectedPhotoPath != null && _selectedPhotoPath!.isNotEmpty) {
-      // Check if this is a new photo (not the same as existing)
-      bool isNewPhoto = true;
-      
-      if (existingItem.isNotEmpty && existingItem['photoPath'] != null) {
-        // If the photo path is the same as existing, it's not a new photo
-        if (existingItem['photoPath'] == _selectedPhotoPath) {
-          isNewPhoto = false;
-          print('Same photo path detected, preserving existing photo ID: ${existingItem['photo']}');
-        }
-      }
-      
-      if (isNewPhoto) {
-        print('New photo detected, but upload method not implemented yet');
-        // For now, just use the photo path as the ID
-        // TODO: Implement proper photo upload using AssetAuditPhotoUploadCubit
-        _uploadedImageId = _selectedPhotoPath;
-      } else {
-        // Same photo, preserve existing photo ID
-        _uploadedImageId = existingItem['photo'];
-      }
+    if (_hasNewPhotoSelected && _selectedPhotoPath != null && _selectedPhotoPath!.isNotEmpty) {
+      // User actually selected a new photo - upload it
+      print('New photo selected by user, uploading...');
+      await _uploadPhoto();
     } else {
-      // No photo selected, but if editing existing item with photo, preserve it
-      if (existingItem.isNotEmpty && 
+      // No new photo selected by user
+      if (_isEditing && _uploadedImageId != null) {
+        // If we're editing and have a preserved photo ID, use it
+        print('No new photo selected, using preserved photo ID: $_uploadedImageId');
+      } else if (existingItem.isNotEmpty && 
           existingItem['photo'] != null && existingItem['photo'].toString().isNotEmpty) {
-        print('No new photo selected, preserving existing: ${existingItem['photo']}');
+        // If editing existing item with photo, preserve it
+        print('No new photo selected, preserving existing photo ID: ${existingItem['photo']}');
         _uploadedImageId = existingItem['photo'];
       }
     }
@@ -414,17 +431,28 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         final itemData = {
           'serialNumber': widget.serialController.text,
           'status': _selectedStatus! ? 'OK' : 'Not OK',
-          'photo': _uploadedImageId,
-          'photoPath': _selectedPhotoPath,
+          'photo': _uploadedImageId, // Photo ID from server
+          'photoPath': _selectedPhotoPath, // Local photo path
           'isQRCodeScanned': _isQRCodeScanned,
           'disabledFieldValue': widget.disabledFieldValue,
           'timestamp': DateTime.now().toIso8601String(),
         };
         
-        // If we have a new photo, ensure the photoPath reflects the new photo
-        if (_uploadedImageId != null && _selectedPhotoPath != null) {
-          // For newly uploaded photos, the photoPath should be the photo ID for consistency
-          itemData['photoPath'] = _uploadedImageId.toString();
+        // Handle photo data properly
+        if (_uploadedImageId != null) {
+          // We have a photo ID from server
+          itemData['photo'] = _uploadedImageId;
+          if (_selectedPhotoPath != null) {
+            // New photo was selected and uploaded
+            itemData['photoPath'] = _uploadedImageId.toString();
+          } else {
+            // Using existing photo ID, keep original photoPath
+            itemData['photoPath'] = _photoData ?? existingItem['photoPath'];
+          }
+        } else if (_photoData != null) {
+          // We have local photo data (base64 or local path)
+          itemData['photo'] = null;
+          itemData['photoPath'] = _photoData;
         }
         
         // Debug logging for photo data
@@ -506,17 +534,25 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles photo upload
   Future<void> _uploadPhoto() async {
-    if (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty) return;
+    print('🔍 _uploadPhoto called with path: $_selectedPhotoPath');
+    
+    if (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty) {
+      print('❌ No photo path provided, skipping upload');
+      return;
+    }
     
     setState(() {
       _isUploading = true;
     });
 
     try {
+      print('🔍 Starting photo upload...');
       final imageId = await GenericPhotoUploadHelper.uploadPhotoFromPath(
         context: context,
         filePath: _selectedPhotoPath!,
       );
+
+      print('🔍 Photo upload completed, imageId: $imageId');
 
       setState(() {
         _isUploading = false;
@@ -524,12 +560,16 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       });
 
       if (imageId == null || imageId.isEmpty) {
+        print('❌ Photo upload failed - no image ID returned');
         setState(() {
           _isUploading = false;
         });
         throw Exception('Photo upload failed - no image ID returned');
       }
+      
+      print('✅ Photo upload successful, imageId: $imageId');
     } catch (e) {
+      print('❌ Photo upload error: $e');
       setState(() {
         _isUploading = false;
       });
@@ -555,6 +595,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _selectedStatus = null;
       _isQRCodeScanned = false;
       _uploadedImageId = null;
+      _photoData = null;
+      _hasNewPhotoSelected = false;
       _showValidationErrors = false;
       _validationErrorMessage = null;
       _isEditing = false;
@@ -564,28 +606,43 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Starts editing an item
   void _startEditing(Map<String, dynamic> item) async {
+    print('🔍 Starting to edit item: ${item['serialNumber']}');
+    print('🔍 Item photo data: ${item['photo']}');
+    print('🔍 Item photoPath data: ${item['photoPath']}');
+    
     setState(() {
       _isEditing = true;
       _editingItem = item;
       widget.serialController.text = item['serialNumber'] ?? '';
       _selectedStatus = item['status'] == 'OK' ? true : false;
       _isQRCodeScanned = item['isQRCodeScanned'] == true;
+      _hasNewPhotoSelected = false; // Reset flag when starting to edit
     });
     
     // Handle photo loading for editing
-    final photoData = item['photoPath'] ?? item['photo'];
-    if (photoData != null && photoData.isNotEmpty) {
-      // Check if it's a photo ID (numeric) from server
-      if (_isNumeric(photoData) && widget.siteAuditSchId != null && widget.siteAuditSchId!.isNotEmpty) {
-        // Fetch the actual image from server
-        await _fetchAndDisplayServerImage(photoData);
-      } else {
-        // It's a local file path or base64 data
-        setState(() {
-          _selectedPhotoPath = photoData;
-        });
-      }
+    final photoId = item['photo']; // This is the photo ID from server
+    final photoPath = item['photoPath']; // This is the local path or base64 data
+    
+    if (photoId != null && photoId.isNotEmpty && _isNumeric(photoId)) {
+      // Server photo ID - fetch and display the image
+      print('🔍 Photo ID from server: $photoId');
+      _uploadedImageId = photoId; // Store the photo ID
+      _photoData = null; // No local photo data
+      await _fetchAndDisplayServerImage(photoId);
+      print('🔍 Preserved uploaded image ID: $_uploadedImageId');
+    } else if (photoPath != null && photoPath.isNotEmpty) {
+      // Local photo path or base64 data
+      print('🔍 Local photo path or base64: $photoPath');
+      _uploadedImageId = null; // No server photo ID
+      _photoData = photoPath; // Store the photo data
+      setState(() {
+        _selectedPhotoPath = photoPath;
+      });
+      print('🔍 Set photo data: $_photoData');
     } else {
+      print('🔍 No photo data found for item');
+      _uploadedImageId = null;
+      _photoData = null;
       setState(() {
         _selectedPhotoPath = null;
       });
@@ -595,6 +652,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   /// Fetches and displays server image for editing
   Future<void> _fetchAndDisplayServerImage(String photoId) async {
     try {
+      // Show loading indicator
+      setState(() {
+        _isUploading = true;
+      });
+      
       final completer = Completer<String?>();
       late StreamSubscription subscription;
 
@@ -621,10 +683,18 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       if (mounted && imageData != null && imageData.isNotEmpty) {
         setState(() {
           _selectedPhotoPath = imageData; // Store as base64 data for display
+          _isUploading = false; // Clear loading state
+        });
+      } else {
+        setState(() {
+          _isUploading = false; // Clear loading state
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isUploading = false; // Clear loading state
+        });
         // If fetching fails, keep the photo ID so it can still be viewed
         setState(() {
           _selectedPhotoPath = photoId;

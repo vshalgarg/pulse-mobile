@@ -192,7 +192,7 @@ class ResponseData {
   CategoryData? get dg => categories['DG'];
   CategoryData? get ccu => categories['CCU'];
   CategoryData? get battery => categories['Battery'];
-  CategoryData? get fencing => categories['Fencing'];
+  CategoryData? get fencing => categories['Boundary'];
   
   // Solar categories
   CategoryData? get solarPlates => categories['Solar Plates'];
@@ -263,7 +263,7 @@ class CategoryData {
 
   CategoryData({
     required this.assets,
-    required this.remarks,
+    this.remarks = const [],
     this.subCategories,
   });
 

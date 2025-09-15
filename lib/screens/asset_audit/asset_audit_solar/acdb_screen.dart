@@ -1248,20 +1248,13 @@ class _ACDBScreenState extends State<ACDBScreen> {
                               children: [
                                 Expanded(
                                   child: ArrowButton(
-                                    text:
-                                        AssetAuditNavigationHelper.getSolarPreviousScreenName(
-                                          'ACDB',
-                                        ),
+                                    text: _getPreviousAvailableScreen() ?? 'BACK',
                                     isLeftArrow: true,
                                     backgroundColor:
                                         AppColors.buttonColorBackBg,
                                     textColor: AppColors.buttonColorTextBg,
                                     onPressed: () {
-                                      final previousScreen =
-                                          AssetAuditNavigationHelper.getPreviousAvailableScreen(
-                                            widget.assetAuditData,
-                                            'ACDB',
-                                          );
+                                      final previousScreen = _getPreviousAvailableScreen();
                                       if (previousScreen != null) {
                                         _navigateToNextScreen(
                                           context,
