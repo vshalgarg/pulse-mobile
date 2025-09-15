@@ -353,50 +353,62 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles save button click
   Future<void> _handleSave() async {
-    // Reset validation state
-    setState(() {
-      _showValidationErrors = false;
-      _validationErrorMessage = null;
-    });
-
-    // Step 1: Run mandatory checks
-    if (!_validateAllFields()) {
-      _showValidationError();
-      return;
-    }
-
-    // Step 2: Run custom validation on serial number
-    if (!_validateSerialNumber()) {
-      _showValidationError();
-      return;
-    }
-
-    // Step 3: Upload photo if all validations pass
-    if (_selectedPhotoPath != null && _selectedPhotoPath!.isNotEmpty) {
+    try {
+      // Reset validation state
       setState(() {
-        _isUploading = true;
+        _showValidationErrors = false;
+        _validationErrorMessage = null;
       });
 
-      try {
-        final imageId = await GenericPhotoUploadHelper.uploadPhotoFromPath(
-          context: context,
-          filePath: _selectedPhotoPath!,
-        );
+      // Step 1: Run mandatory checks
+      if (!_validateAllFields()) {
+        _showValidationError();
+        return;
+      }
 
-        setState(() {
-          _isUploading = false;
-          _uploadedImageId = imageId;
-        });
+      // Step 2: Run custom validation on serial number
+      if (!_validateSerialNumber()) {
+        _showValidationError();
+        return;
+      }
 
-        if (imageId == null || imageId.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to upload photo. Please try again.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
+    // Step 3: Handle photo upload
+    // Check if this is an edit operation by looking for existing item with same serial number
+    final existingItem = _savedItems.firstWhere(
+      (item) => item['serialNumber'] == widget.serialController.text,
+      orElse: () => {},
+    );
+
+    
+    if (_selectedPhotoPath != null && _selectedPhotoPath!.isNotEmpty) {
+      // Check if this is a new photo (not the same as existing)
+      bool isNewPhoto = true;
+      
+      if (existingItem.isNotEmpty && existingItem['photoPath'] != null) {
+        // If the photo path is the same as existing, it's not a new photo
+        if (existingItem['photoPath'] == _selectedPhotoPath) {
+          isNewPhoto = false;
+          print('Same photo path detected, preserving existing photo ID: ${existingItem['photo']}');
         }
+      }
+      
+      if (isNewPhoto) {
+        print('New photo detected, but upload method not implemented yet');
+        // For now, just use the photo path as the ID
+        // TODO: Implement proper photo upload using AssetAuditPhotoUploadCubit
+        _uploadedImageId = _selectedPhotoPath;
+      } else {
+        // Same photo, preserve existing photo ID
+        _uploadedImageId = existingItem['photo'];
+      }
+    } else {
+      // No photo selected, but if editing existing item with photo, preserve it
+      if (existingItem.isNotEmpty && 
+          existingItem['photo'] != null && existingItem['photo'].toString().isNotEmpty) {
+        print('No new photo selected, preserving existing: ${existingItem['photo']}');
+        _uploadedImageId = existingItem['photo'];
+      }
+    }
 
         // Step 4: Create item data and add to saved items
         final itemData = {
@@ -408,6 +420,19 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           'disabledFieldValue': widget.disabledFieldValue,
           'timestamp': DateTime.now().toIso8601String(),
         };
+        
+        // If we have a new photo, ensure the photoPath reflects the new photo
+        if (_uploadedImageId != null && _selectedPhotoPath != null) {
+          // For newly uploaded photos, the photoPath should be the photo ID for consistency
+          itemData['photoPath'] = _uploadedImageId.toString();
+        }
+        
+        // Debug logging for photo data
+        print('=== Item Data Debug ===');
+        print('Uploaded Image ID: $_uploadedImageId');
+        print('Selected Photo Path: $_selectedPhotoPath');
+        print('Item Data: $itemData');
+        print('=== End Item Data Debug ===');
 
         // Step 5: Handle save (add new or update existing)
         if (_isEditing && _editingItem != null) {
@@ -429,19 +454,39 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
             ),
           );
         } else {
-          // Add new item to the internal list
-          _savedItems.add(itemData);
-          
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Item saved successfully!'),
-              backgroundColor: Colors.green,
-            ),
+          // Check if item with same serial number already exists
+          final existingIndex = _savedItems.indexWhere((item) => 
+            item['serialNumber'] == widget.serialController.text
           );
+          
+          if (existingIndex != -1) {
+            // Update existing item instead of creating duplicate
+            _savedItems[existingIndex] = itemData;
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Item updated successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          } else {
+            // Add new item to the internal list
+            _savedItems.add(itemData);
+            
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Item saved successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
 
         // Notify parent with the complete updated list
         widget.onItemSaved?.call(List.from(_savedItems));
+
+        // Force a rebuild to ensure the table updates
+        setState(() {});
 
         // Step 6: Clear form
         _clearForm();
@@ -452,11 +497,43 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error uploading photo: $e'),
+            content: Text('Error saving item: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
+    }
+
+  /// Handles photo upload
+  Future<void> _uploadPhoto() async {
+    if (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty) return;
+    
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      final imageId = await GenericPhotoUploadHelper.uploadPhotoFromPath(
+        context: context,
+        filePath: _selectedPhotoPath!,
+      );
+
+      setState(() {
+        _isUploading = false;
+        _uploadedImageId = imageId;
+      });
+
+      if (imageId == null || imageId.isEmpty) {
+        setState(() {
+          _isUploading = false;
+        });
+        throw Exception('Photo upload failed - no image ID returned');
+      }
+    } catch (e) {
+      setState(() {
+        _isUploading = false;
+      });
+      throw Exception('Photo upload failed: $e');
     }
   }
 
@@ -1076,6 +1153,13 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Builds a table photo cell
   Widget _buildTablePhotoCell(Map<String, dynamic> item, double width) {
+    // Debug logging for table photo cell
+    print('=== Table Photo Cell Debug ===');
+    print('Item: $item');
+    print('Photo ID: ${item['photo']}');
+    print('Photo Path: ${item['photoPath']}');
+    print('=== End Table Photo Cell Debug ===');
+    
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1172,6 +1256,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Shows photo viewer dialog
   Future<void> _showPhotoViewer(BuildContext context, String? photo) async {
+    // Debug logging for photo viewer
+    print('=== Photo Viewer Debug ===');
+    print('Received photo: $photo');
+    print('Photo type: ${photo.runtimeType}');
+    print('=== End Photo Viewer Debug ===');
+    
     if (photo == null || photo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

@@ -47,6 +47,7 @@ class _PCUScreenState extends State<PCUScreen> {
   List<Map<String, dynamic>> savedPcuItems = [];
   bool isQRCodeScanned = false;
   String? lastValidatedSerial;
+  String? _pendingNavigation; // Track pending navigation after successful post
 
   final TextEditingController pcuSerialController = TextEditingController();
 
@@ -353,14 +354,51 @@ class _PCUScreenState extends State<PCUScreen> {
           listener: (context, state) {
             if (state is AssetAuditLoaded) {
               _loadExistingData();
+            } else if (state is AssetAuditPosting) {
+              // Show loading dialog when posting data
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
             } else if (state is AssetAuditPostSuccess) {
+              // Close loading dialog when posting is successful
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              
+              // Handle pending navigation
+              if (_pendingNavigation != null) {
+                final navigationTarget = _pendingNavigation;
+                _pendingNavigation = null; // Clear the flag
+                
+                if (navigationTarget == 'home') {
+                  Navigator.pushReplacement(
+                    context,
+                    MaterialPageRoute(builder: (context) => HomeScreen()),
+                  );
+                } else {
+                  _navigateToNextScreen(context, navigationTarget!);
+                }
+                return; // Don't refresh data if navigating away
+              }
+              
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: widget.siteType,
                 auditSchId: widget.auditSchId,
                 siteAuditSchId: widget.siteAuditSchId,
               );
             } else if (state is AssetAuditPostError) {
+              // Close loading dialog if it's open
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              // Clear pending navigation on error
+              _pendingNavigation = null;
               print("for error ${state.message}");
+              showCustomToast(context, 'Error saving PCU data: ${state.message}');
             } else if (state is AssetAuditError) {
               showCustomToast(context, 'Error loading data: ${state.message}');
             }
@@ -531,17 +569,12 @@ class _PCUScreenState extends State<PCUScreen> {
                                     backgroundColor: AppColors.buttonColorBg,
                                     textColor: AppColors.buttonColorSite,
                                     onPressed: () async {
-                                      showDialog(
-                                        context: context,
-                                        barrierDismissible: false,
-                                        builder: (context) => const Center(child: CircularProgressIndicator()),
-                                      );
-                                      await _postPcuData();
                                       if (nextScreen != null) {
-                                        _navigateToNextScreen(context, nextScreen);
+                                        _pendingNavigation = nextScreen;
                                       } else {
-                                        await _saveAndExit();
+                                        _pendingNavigation = 'home';
                                       }
+                                      await _postPcuData();
                                     },
                                   );
                                 },
