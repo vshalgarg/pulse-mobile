@@ -87,7 +87,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
   bool _validateSolarSurvellianceSerialNumber(String serialNumber, bool isQRCodeScanned) {
     if (widget.assetAuditData == null) return false;
     
-    final solarSurvellianceData = widget.assetAuditData!.responseData.categories['Solar Surveillance'];
+    final solarSurvellianceData = widget.assetAuditData!.responseData.categories['CCTV'];
     if (solarSurvellianceData == null) return false;
 
     final allItems = solarSurvellianceData.assets;
@@ -115,7 +115,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
 
         if (remarksController.text.isNotEmpty) {
             Map<String, dynamic> remarksData = {
-            'itemType': 'Solar Surveillance',
+            'itemType': 'CCTV',
             'remarks': remarksController.text,
               'recordType': 'Remarks',
               'timestamp': DateTime.now(),
@@ -129,7 +129,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
         final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
           savedItems: allItemsToPost,
           assetAuditData: assetAuditState.assetAuditData,
-            itemType: 'Solar Surveillance',
+            itemType: 'CCTV',
             itemTypeId: 7,
             screenName: 'solar_survelliance',
           context: context,
@@ -147,11 +147,11 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
   }
 
   String? _getNextAvailableScreen() {
-    return AssetAuditNavigationHelper.getNextAvailableScreen(widget.assetAuditData, 'Solar Surveillance');
+    return AssetAuditNavigationHelper.getNextAvailableScreen(widget.assetAuditData, 'CCTV');
   }
 
   String? _getPreviousAvailableScreen() {
-    return AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'Solar Surveillance');
+    return AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'CCTV');
   }
 
   void _navigateToNextScreen(BuildContext context, String screenName) {
@@ -167,7 +167,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final solarSurvellianceData = widget.assetAuditData?.responseData.categories['Solar Surveillance'];
+    final solarSurvellianceData = widget.assetAuditData?.responseData.categories['CCTV'];
     
     return MultiBlocListener(
       listeners: [
@@ -280,7 +280,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
                                 width: double.infinity,
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: AppColors.green7,
                                   borderRadius: BorderRadius.circular(8),
                                   boxShadow: [
                                     BoxShadow(
@@ -298,7 +298,7 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
                                           ? "Solar Surveillance (${solarSurvellianceData?.assets.first.oemName ?? 'N/A'}) - Serial Number"
                                           : "Solar Surveillance - Serial Number",
                                       style: const TextStyle(
-                                        color: AppColors.color555555,
+                                        color: AppColors.white,
                                     fontSize: 16,
                                         fontWeight: FontWeight.w600,
                                     fontFamily: fontFamilyMontserrat,
@@ -370,11 +370,28 @@ class _SolarSurveillanceScreenState extends State<SolarSurveillanceScreen> {
                                     textColor: AppColors.buttonColorSite,
                                     onPressed: () async {
                                       if (nextScreen != null) {
-                                      _pendingNavigation = nextScreen;
+                                        _pendingNavigation = nextScreen;
                                       } else {
-                                      _pendingNavigation = 'home';
+                                        _pendingNavigation = 'home';
                                       }
-                                    await _postSolarSurvellianceData();
+                                      
+                                      // Check if there's any data to post
+                                      bool hasDataToPost = savedSolarSurvellianceItems.isNotEmpty || 
+                                                          remarksController.text.isNotEmpty;
+                                      
+                                      if (hasDataToPost) {
+                                        await _postSolarSurvellianceData();
+                                      } else {
+                                        // No data to post, navigate directly
+                                        if (_pendingNavigation == 'home') {
+                                          Navigator.pushReplacement(
+                                            context,
+                                            MaterialPageRoute(builder: (context) => HomeScreen()),
+                                          );
+                                        } else {
+                                          _navigateToNextScreen(context, _pendingNavigation!);
+                                        }
+                                      }
                                     },
                                   );
                                 },

@@ -16,6 +16,7 @@ import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
 
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
@@ -49,16 +50,9 @@ class _DCBAScreenState extends State<DCBAScreen> {
   final TextEditingController serialController = TextEditingController();
   bool hasUnsavedChanges = false;
   bool showValidationErrors = false;
-  int totalItemsToScan = 6;
-  int currentScannedItems = 0;
-  List<Map<String, dynamic>> savedItems = [];
 
   // DCBA field values
-  String? dcbaSerialNumber;
-  String? dcbaPhoto;
-  String? dcbaStatus;
   final remarksController = TextEditingController();
-  int dcbaCardKey = 0;
   List<Map<String, dynamic>> savedDcbaItems = [];
   bool isQRCodeScanned = false; // Track if serial was scanned or manually entered
 
@@ -83,6 +77,12 @@ class _DCBAScreenState extends State<DCBAScreen> {
 
   // Get DCBA data from API
   int totalDcbaItems = 0; // Total DCBA items from API
+
+  // Loading state for getAssetAuditData API
+  bool _isLoadingAssetData = false;
+  
+  // Loading state for postAssetAuditData API
+  bool _isPostingData = false;
 
   // Get DCBA category data
   CategoryData? get dcbaCategoryData {
@@ -135,6 +135,9 @@ class _DCBAScreenState extends State<DCBAScreen> {
     }
 
     // Load fresh data into cubit
+    setState(() {
+      _isLoadingAssetData = true;
+    });
     context.read<AssetAuditCubit>().getAssetAuditData(
       siteType: widget.siteType,
       auditSchId: widget.auditSchId,
@@ -187,7 +190,12 @@ class _DCBAScreenState extends State<DCBAScreen> {
 
   void _onFormChanged() {
     setState(() {
-      hasUnsavedChanges = serialController.text.isNotEmpty || remarksController.text.isNotEmpty;
+      // Check if there are unsaved items in savedDcbaItems (items without assetAuditSiteRespId)
+      final hasUnsavedItems = savedDcbaItems.any((item) => item['assetAuditSiteRespId'] == null);
+      
+      hasUnsavedChanges = serialController.text.isNotEmpty || 
+                         remarksController.text.isNotEmpty ||
+                         hasUnsavedItems; // Include unsaved items in the check
 
       if (showValidationErrors && serialController.text.isNotEmpty) {
         showValidationErrors = false;
@@ -196,45 +204,9 @@ class _DCBAScreenState extends State<DCBAScreen> {
   }
 
   Future<void> _saveAndExit() async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
 
       // Post DCBA data to API first
       await _postDcbaData();
-      
-      // Update audit schedule status
-      await _updateAuditScheduleStatus("In Progress");
-
-      // Close loading dialog
-      Navigator.of(context).pop();
-
-      // Navigate to home screen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
-      );
-    } catch (e) {
-      // Close loading dialog if it's open
-      if (Navigator.canPop(context)) {
-        Navigator.of(context).pop();
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error saving data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
   }
 
   Future<void> _updateAuditScheduleStatus(String status) async {
@@ -253,42 +225,6 @@ class _DCBAScreenState extends State<DCBAScreen> {
     }
   }
 
-  bool _isFormValid() {
-    print('=== DCBA VALIDATION: Checking form validity ===');
-    print('Serial controller text: "${dcbaSerialController.text}"');
-    print('Photo: $dcbaPhoto');
-
-    if (dcbaSerialController.text.isEmpty) {
-      print('=== DCBA VALIDATION: Serial number is empty ===');
-      return false;
-    }
-
-    if (dcbaPhoto == null || dcbaPhoto!.isEmpty) {
-      print('=== DCBA VALIDATION: Photo is null or empty ===');
-      return false;
-    }
-
-    print('=== DCBA VALIDATION: Form is valid ===');
-    return true;
-  }
-
-  bool _validateForm() {
-    if (dcbaSerialController.text.isEmpty) {
-      return false;
-    }
-
-    if (dcbaPhoto == null || dcbaPhoto!.isEmpty) {
-      return false;
-    }
-
-    return true;
-  }
-
-  void _setValidationErrors() {
-    setState(() {
-      showValidationErrors = true;
-    });
-  }
 
   // Helper method to get the next available screen based on data availability
   String? _getNextAvailableScreen() {
@@ -408,10 +344,10 @@ class _DCBAScreenState extends State<DCBAScreen> {
     }
   }
 
-  String? _getRemarksAssetAuditSiteRespId() {
+  int? _getRemarksAssetAuditSiteRespId() {
     final dcbaData = widget.assetAuditData?.responseData.categories['DCDB'];
     if (dcbaData != null && dcbaData.remarks.isNotEmpty) {
-      return dcbaData.remarks.first.assetAuditSiteRespId.toString();
+      return dcbaData.remarks.first.assetAuditSiteRespId;
     }
     print('No valid remarks ID found in backend data');
     return null;
@@ -447,42 +383,79 @@ class _DCBAScreenState extends State<DCBAScreen> {
   }
 
 
-  // POST DCBA data to API
-  Future<void> _postDCBAData() async {
-    print('=== DCBA POST: Starting POST data ===');
-    print('Saved DCBA items count: ${savedDcbaItems.length}');
-    print('Remarks text: "${remarksController.text.trim()}"');
 
-    if (savedDcbaItems.isEmpty && remarksController.text.trim().isEmpty) {
-      print('=== DCBA POST: No data to post, returning ===');
-      return;
+
+
+  String _formatSerialNumber(String serialNumber) {
+    if (serialNumber.length <= 7) {
+      return serialNumber;
     }
+    return "${serialNumber.substring(0, 5)}...";
+  }
 
+
+
+  /// Check if string is numeric
+  bool _isNumeric(String str) {
+    return double.tryParse(str) != null;
+  }
+
+  // Custom validation function for the AssetAuditFormComponent
+  bool _validateDCBASerialNumber(String serialNumber, bool isQRCodeScanned) {
+    if (widget.assetAuditData == null) return false;
+
+    final dcbaData = widget.assetAuditData!.responseData.categories['DCDB'];
+    if (dcbaData == null) return false;
+
+    final allItems = dcbaData.assets;
+    bool isValid = false;
+
+    if (isQRCodeScanned) {
+      isValid = allItems.any(
+            (item) => item.nexgenSerialNo?.toLowerCase() == serialNumber.toLowerCase(),
+      );
+    } else {
+      isValid = allItems.any(
+            (item) => item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase(),
+      );
+    }
+    return isValid;
+  }
+
+  // Simplified save method - component handles all logic, just receives updated list
+  void _onDCBAItemSaved(List<Map<String, dynamic>> updatedItems) {
+    setState(() {
+      savedDcbaItems.clear();
+      savedDcbaItems.addAll(updatedItems);
+      hasUnsavedChanges = true;
+      print('DCBA items updated: ${updatedItems.length} items');
+    });
+  }
+
+
+
+  /// Post DCBA data to API
+  Future<void> _postDcbaData() async {
     try {
       final assetAuditState = context.read<AssetAuditCubit>().state;
       if (assetAuditState is AssetAuditLoaded && assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
         List<Map<String, dynamic>> allItemsToPost = [];
 
         if (savedDcbaItems.isNotEmpty) {
-          print('=== DCBA POST: Processing ${savedDcbaItems.length} saved items ===');
-          for (int i = 0; i < savedDcbaItems.length; i++) {
-            print('Item $i: ${savedDcbaItems[i]}');
-          }
-
           final enhancedItems = AssetAuditPostHelper.enhanceSavedItems(
             savedItems: savedDcbaItems,
             screenName: 'solar_dcba',
           );
-          print('=== DCBA POST: Enhanced items count: ${enhancedItems.length} ===');
           allItemsToPost.addAll(enhancedItems);
         }
 
-        if (remarksController.text.trim().isNotEmpty) {
-          String? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
+        if (remarksController.text.isNotEmpty) {
+          int? remarksAssetAuditSiteRespId = _getRemarksAssetAuditSiteRespId();
+
           if (remarksAssetAuditSiteRespId != null) {
             Map<String, dynamic> remarksData = {
               'itemType': 'DCDB',
-              'remarks': remarksController.text.trim(),
+              'remarks': remarksController.text,
               'recordType': 'Remarks',
               'timestamp': DateTime.now(),
               'assetAuditSiteRespId': remarksAssetAuditSiteRespId,
@@ -496,10 +469,16 @@ class _DCBAScreenState extends State<DCBAScreen> {
               'localModifiedDt': DateTime.now().toString(),
             };
             allItemsToPost.add(remarksData);
+            print('DCBA Screen: Added user remarks to post with ID: $remarksAssetAuditSiteRespId, text: "${remarksController.text}"');
+          } else {
+            print('DCBA Screen: Could not find remarks ID from backend data');
           }
+        } else {
+          print('DCBA Screen: No remarks to post - remarksController.text is empty');
         }
 
         if (allItemsToPost.isEmpty) {
+          print('DCBA Screen: No items to post');
           return;
         }
 
@@ -514,284 +493,19 @@ class _DCBAScreenState extends State<DCBAScreen> {
         );
 
         if (requests.isNotEmpty) {
-          print('=== DCBA POST: Posting ${requests.length} requests to API ===');
-          await context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
-          print('=== DCBA POST: API call completed ===');
-        } else {
-          print('=== DCBA POST: No requests to post ===');
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error posting DCBA data: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-
-  void _saveDcbaForm() async {
-    print('=== DCBA SAVE: Starting save form ===');
-    print('Current savedDcbaItems count: ${savedDcbaItems.length}');
-    print('Total DCBA items: $totalDcbaItems');
-    print('Serial number: $dcbaSerialNumber');
-    print('Photo: $dcbaPhoto');
-    print('Status: $dcbaStatus');
-
-    if (savedDcbaItems.length >= totalDcbaItems) {
-      print('=== DCBA SAVE: Maximum items reached ===');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Maximum number of SPV items ($totalDcbaItems) already added.',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontFamily: fontFamilyMontserrat,
-            ),
-          ),
-          backgroundColor: AppColors.errorColor,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-      return;
-    }
-
-    if (_isFormValid()) {
-      print('=== DCBA SAVE: Form is valid, proceeding ===');
-      String? photoImageId = dcbaPhoto;
-
-      // If photo is a file path, upload it and get image ID
-      if (dcbaPhoto != null && dcbaPhoto!.isNotEmpty && !dcbaPhoto!.startsWith('http')) {
-        try {
-          final file = File(dcbaPhoto!);
-          if (await file.exists()) {
-            print(' Uploading DCBA photo: ${dcbaPhoto}');
-            photoImageId = await _uploadDcbaPhoto(file);
-            print('✅ DCBA photo uploaded successfully, image ID: $photoImageId');
-          } else {
-            print('❌ DCBA photo file does not exist: ${dcbaPhoto}');
-          }
-        } catch (e) {
-          print('❌ Error uploading DCBA photo: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error uploading photo: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
+          final currentRemarksText = remarksController.text;
+          print('DCBA Screen: Storing current remarks text: "$currentRemarksText"');
+          
+          setState(() {
+            _isPostingData = true;
+          });
+          context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
         }
       } else {
-        print('ℹ️ No DCBA photo to upload or already has image ID');
+        print('No DCBA items to post - user can navigate without saving items');
       }
-
-      setState(() {
-        Map<String, dynamic> currentFormData = {
-          'serialNumber': dcbaSerialNumber,
-          'photo': photoImageId, // Use image ID instead of file path
-          'status': dcbaStatus ?? "OK",
-          'timestamp': DateTime.now(),
-          'isQRCodeScanned': false, // Add this field
-          'photoTakenTs': DateTime.now().toString(), // Add this field
-          'localQrCodeScannedTs': DateTime.now().toString(), // Add this field
-          'localCreatedDt': DateTime.now().toString(), // Add this field
-          'localModifiedDt': DateTime.now().toString(), // Add this field
-        };
-
-        savedDcbaItems.add(currentFormData);
-        currentScannedItems++;
-
-        print('=== DCBA SAVE: Item added to savedDcbaItems ===');
-        print('New savedDcbaItems count: ${savedDcbaItems.length}');
-        print('Added item: $currentFormData');
-
-        dcbaSerialNumber = null;
-        dcbaPhoto = null;
-        dcbaStatus = null;
-
-        dcbaSerialController.clear();
-
-        dcbaCardKey++;
-
-        hasUnsavedChanges = false;
-        showValidationErrors = false;
-      });
-
-      int remainingSpv = totalDcbaItems - savedDcbaItems.length;
-    } else {
-      print('=== DCBA SAVE: Form validation failed ===');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please fill in all required fields (Serial Number and Photo)'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
-  }
-
-  String _formatSerialNumber(String serialNumber) {
-    if (serialNumber.length <= 7) {
-      return serialNumber;
-    }
-    return "${serialNumber.substring(0, 5)}...";
-  }
-
-  void _editItem(Map<String, dynamic> item) {
-    setState(() {
-      dcbaSerialNumber = item["serialNumber"];
-      dcbaPhoto = item["photo"];
-      dcbaStatus = item["status"];
-      isQRCodeScanned = item["isQRCodeScanned"] ?? false; // Restore QR scan status
-
-      dcbaSerialController.text = item["serialNumber"] ?? "";
-      displayedImageBase64 = null; // Clear Base64 to avoid showing old image
-      isLoadingImage = false; // Reset loading state
-
-      savedDcbaItems.remove(item);
-
-      hasUnsavedChanges = true;
-
-      // Force rebuild of the CustomInfoCard to show restored values
-      dcbaCardKey++;
-    });
-
-    // Load image asynchronously to avoid blocking UI
-    if (dcbaPhoto != null && dcbaPhoto!.isNotEmpty && _isNumeric(dcbaPhoto!)) {
-      print('=== DCBA Edit: Fetching image for photo ID: $dcbaPhoto ===');
-      setState(() {
-        isLoadingImage = true;
-      });
-
-      // Use Future.microtask to load image in next frame
-      Future.microtask(() {
-        context.read<AssetAuditGetImageCubit>().getImage(
-          imgId: dcbaPhoto!,
-          schId: widget.siteAuditSchId,
-        );
-      });
-    }
-
-
-    // If the photo is a photo ID (numeric), fetch the image from API
-    if (dcbaPhoto != null && dcbaPhoto!.isNotEmpty && _isNumeric(dcbaPhoto!)) {
-      print('=== DCBA Edit: Fetching image for photo ID: $dcbaPhoto ===');
-      context.read<AssetAuditGetImageCubit>().getImage(
-        imgId: dcbaPhoto!,
-        schId: widget.siteAuditSchId,
-      );
-    }
-  }
-
-
-  /// Check if string is numeric
-  bool _isNumeric(String str) {
-    return double.tryParse(str) != null;
-  }
-
-
-
-  /// Post DCBA data to API
-  Future<void> _postDcbaData() async {
-    print('=== DCBA Post Data Started ===');
-
-    if (savedDcbaItems.isEmpty && remarksController.text.trim().isEmpty) {
-      print('DCBA Screen: No data to post');
-      return;
-    }
-
-    try {
-      // Collect all items and remarks
-      List<Map<String, dynamic>> allItemsToPost = [];
-
-      // Add saved DCBA items with proper structure
-      for (var item in savedDcbaItems) {
-        Map<String, dynamic> formattedItem = {
-          'serialNumber': item['serialNumber'],
-          'photo': item['photo'],
-          'status': item['status'],
-          'photoTakenTs': item['timestamp']?.toString() ?? DateTime.now().toString(),
-          'isQRCodeScanned': item['isQRCodeScanned'] ?? false,
-          'localQrCodeScannedTs': item['timestamp']?.toString() ?? DateTime.now().toString(),
-          'localCreatedDt': item['timestamp']?.toString() ?? DateTime.now().toString(),
-          'localModifiedDt': item['timestamp']?.toString() ?? DateTime.now().toString(),
-        };
-        allItemsToPost.add(formattedItem);
-      }
-
-      // Add user remarks if any - use the correct structure for remarks
-      if (remarksController.text.trim().isNotEmpty) {
-        Map<String, dynamic> remarksData = {
-          'recordType': 'remarks',
-          'itemType': 'DCDB',
-          'remarks': remarksController.text.trim(),
-          'status': 'OK',
-          'serialNumber': 'REMARKS',
-          'photo': null,
-          'photoTakenTs': DateTime.now().toString(),
-          'isQRCodeScanned': false,
-          'localQrCodeScannedTs': DateTime.now().toString(),
-          'localCreatedDt': DateTime.now().toString(),
-          'localModifiedDt': DateTime.now().toString(),
-        };
-        allItemsToPost.add(remarksData);
-        print('DCBA Screen: Added user remarks to post, text: "${remarksController.text.trim()}"');
-      }
-
-      if (allItemsToPost.isEmpty) {
-        print('DCBA Screen: No items to post');
-        return;
-      }
-
-      // Convert to POST request format
-      final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
-        savedItems: allItemsToPost,
-        assetAuditData: widget.assetAuditData!,
-        itemType: 'DCDB',
-        itemTypeId: 9, // DCBA item type ID
-        screenName: 'solar_dcba',
-        context: context,
-        auditSchId: widget.auditSchId,
-      );
-
-      // Post data
-      if (requests.isNotEmpty) {
-        print('DCBA Screen: Posting ${requests.length} requests');
-        
-        // Store the current remarks text before posting
-        final currentRemarksText = remarksController.text;
-        print('DCBA Screen: Storing current remarks text: "$currentRemarksText"');
-        
-        context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
-        
-        // Refresh the data immediately after posting
-        print('Refreshing DCBA data after posting...');
-        context.read<AssetAuditCubit>().getAssetAuditData(
-          siteType: widget.siteType,
-          auditSchId: widget.auditSchId,
-          siteAuditSchId: widget.siteAuditSchId,
-        );
-        
-        // Restore the remarks text after refresh to ensure it's not overwritten
-        if (currentRemarksText.isNotEmpty) {
-          print('DCBA Screen: Restoring remarks text after refresh: "$currentRemarksText"');
-          remarksController.text = currentRemarksText;
-        }
-      }
-
-      print('DCBA Screen: All data posted successfully');
     } catch (e) {
-      print('DCBA Screen: Error posting data: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error posting data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      print('Error posting DCBA data: $e');
     }
   }
 
@@ -817,13 +531,11 @@ class _DCBAScreenState extends State<DCBAScreen> {
               setState(() {
                 displayedImageBase64 = finalImageData;
                 isLoadingImage = false;
-                dcbaCardKey++;
               });
             } else if (state is AssetAuditGetImageFailure) {
               setState(() {
                 displayedImageBase64 = null;
                 isLoadingImage = false;
-                dcbaCardKey++;
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -842,6 +554,9 @@ class _DCBAScreenState extends State<DCBAScreen> {
         BlocListener<AssetAuditCubit, AssetAuditState>(
           listener: (context, state) {
             if (state is AssetAuditLoaded) {
+              setState(() {
+                _isLoadingAssetData = false;
+              });
               final dcbaData = state.assetAuditData.responseData.categories['DCDB'];
               if (dcbaData != null) {
                 setState(() {
@@ -868,6 +583,9 @@ class _DCBAScreenState extends State<DCBAScreen> {
                 });
               }
             } else if (state is AssetAuditError) {
+              setState(() {
+                _isLoadingAssetData = false;
+              });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message ?? 'Error loading data'),
@@ -875,13 +593,37 @@ class _DCBAScreenState extends State<DCBAScreen> {
                   duration: const Duration(seconds: 3),
                 ),
               );
+            } else if (state is AssetAuditPosting) {
+              // Show loading dialog when posting data
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
             } else if (state is AssetAuditPostSuccess) {
+              // Close loading dialog when posting is successful
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              setState(() {
+                _isPostingData = false;
+                _isLoadingAssetData = true;
+              });
               context.read<AssetAuditCubit>().getAssetAuditData(
                 siteType: widget.siteType,
                 auditSchId: widget.auditSchId,
                 siteAuditSchId: widget.siteAuditSchId,
               );
             } else if (state is AssetAuditPostError) {
+              // Close loading dialog if it's open
+              if (Navigator.canPop(context)) {
+                Navigator.of(context).pop();
+              }
+              setState(() {
+                _isPostingData = false;
+              });
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(state.message ?? 'Error saving data'),
@@ -895,28 +637,6 @@ class _DCBAScreenState extends State<DCBAScreen> {
       ],
       child: PopScope(
         canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-              builder: (context) =>
-                  UnsavedChangesDialog(
-              message:
-              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () async {
-                Navigator.of(context).pop(); // Close the dialog first
-                await _saveAndExit();
-              },
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
       child: Scaffold(
         extendBodyBehindAppBar: true,
         resizeToAvoidBottomInset: false,
@@ -926,22 +646,26 @@ class _DCBAScreenState extends State<DCBAScreen> {
             if (hasUnsavedChanges) {
               showDialog(
                 context: context,
-                barrierDismissible: false,
-                  builder: (context) =>
-                      UnsavedChangesDialog(
-                  message:
-                  "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                barrierDismissible: true,
+                builder: (dialogContext) => UnsavedChangesDialog(
+                  siteAuditSchId: widget.siteAuditSchId,
+                  section: "Asset Audit",
+                  parentContext: context, // Use the outer context (screen context)
                   onSaveAndExit: () async {
-                    Navigator.of(context).pop(); // Close the dialog first
                     await _saveAndExit();
                   },
                   onDiscard: () {
-                    Navigator.of(context).pop();
                   },
                 ),
               );
             } else {
-              Navigator.pop(context);
+              // Add safety checks to prevent Navigator lock
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => HomeScreen()
+                ),
+              );
             }
           },
         ),
@@ -955,6 +679,16 @@ class _DCBAScreenState extends State<DCBAScreen> {
                 height: double.infinity,
               ),
             ),
+            // Loading indicator for getAssetAuditData API
+            if (_isLoadingAssetData)
+              Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.green7),
+                  ),
+                ),
+              ),
             SafeArea(
               child: Form(
                 key: _formKey,
@@ -1004,53 +738,33 @@ class _DCBAScreenState extends State<DCBAScreen> {
                                 ),
                               ),
                               getHeight(3),
-                              CustomInfoCard(
-                                  key: ValueKey('dcba_$dcbaCardKey'),
-                                serialLabel: dcbaCategoryData?.assets.isNotEmpty == true
-                                    ? "DCBA (${dcbaCategoryData?.assets.first.oemName ?? 'N/A'}) - Serial Number"
-                                    : "DCBA - Serial Number",
+                              AssetAuditFormComponent(
+                                componentId: 'dcba_component',
+                                serialLabel: "DCBA - Serial Number *",
                                 serialHintText: "DCBA Serial Number *",
                                 photoLabel: "Add a Photo",
-                                statusLabel: "Status",
-                                  serialController: dcbaSerialController,
-                                onSave: _saveDcbaForm,
-                                isStatusEditable: true,
-                                backendStatus: false,
-                                showSaveButton: true,
-                                remarksLabel: 'DCBA (Capacity)',
-                                remarksHintText: dcbaCategoryData?.assets.isNotEmpty == true
-                                    ? dcbaCategoryData?.assets.first.capacity ?? 'N/A'
-                                    : 'N/A',
-                                remarksController: null,
-                                isRemarksEditable: false,
-                                onPhotoTap: (photoPath) {
-                                  setState(() {
-                                      dcbaPhoto = photoPath;
-                                      displayedImageBase64 = null;
-                                    hasUnsavedChanges = true;
-                                  });
+                                disabledFieldLabel: dcbaCategoryData?.assets.isNotEmpty == true
+                                    ? "DCBA (${dcbaCategoryData?.assets.first.capacity ?? 'N/A'})"
+                                    : "DCBA (Capacity)",
+                                disabledFieldValue: dcbaCategoryData?.assets.isNotEmpty == true
+                                    ? dcbaCategoryData?.assets.first.capacity ?? "N/A"
+                                    : "N/A",
+                                serialController: dcbaSerialController,
+                                initialSavedItems: savedDcbaItems,
+                                onItemSaved: _onDCBAItemSaved,
+                                onStatusChanged: (status) {
+                                  // Handle status change if needed
                                 },
-                                onStatusChanged: (val) {
-                                  setState(() {
-                                      dcbaStatus = val ? "OK" : "Not OK";
-                                    hasUnsavedChanges = true;
-                                  });
-                                },
-                                onSerialChanged: (serialNumber) {
-                                  setState(() {
-                                    dcbaSerialNumber = serialNumber;
-                                    isQRCodeScanned = false; // Manual entry
-                                    hasUnsavedChanges = true;
-                                  });
-                                },
-                                  initialStatus: dcbaStatus == "OK"
-                                    ? true
-                                      : (dcbaStatus == "Not OK" ? false : null),
-                                  initialPhotoPath: dcbaPhoto,
-                                isEditable: true,
+                                customValidator: _validateDCBASerialNumber,
+                                customValidationErrorMessage: isQRCodeScanned 
+                                    ? 'Invalid QR Code! Serial number not found in system.'
+                                    : 'Invalid serial number! Please check and try again.',
+                                siteAuditSchId: widget.siteAuditSchId,
+                                showTable: true,
+                                tableTitle: "Saved DCBA Items",
+                                imageHeight: 150,
+                                enableImageCompression: true,
                               ),
-                              getHeight(8),
-                              _buildDcbaSavedItemsList(),
                               getHeight(15),
                               CustomRemarksField(
                                 label: "Add Remarks",
@@ -1097,7 +811,7 @@ class _DCBAScreenState extends State<DCBAScreen> {
                               backgroundColor: AppColors.buttonColorBg,
                               textColor: AppColors.buttonColorSite,
                                       onPressed: () async {
-                                        await _postDCBAData();
+                                        await _postDcbaData();
                                         // Navigate to final submission or back to main screen
                                         Navigator.pop(context);
                                       },
@@ -1117,7 +831,7 @@ class _DCBAScreenState extends State<DCBAScreen> {
                                                 .assetAuditData != null}');
 
                                         // POST data to API before navigation
-                                        await _postDCBAData();
+                                        await _postDcbaData();
 
                                         // Navigate to the next available screen
                                         _navigateToNextScreen(
@@ -1143,187 +857,4 @@ class _DCBAScreenState extends State<DCBAScreen> {
     }
 
 
-  Widget _buildDcbaSavedItemsList() {
-    return Column(
-      children: [
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.green7,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Serial No.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Status",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Scanned",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Photo",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: const Text(
-                        "Edit",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontFamily: fontFamilyMontserrat,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              if (savedDcbaItems.isNotEmpty) ...[
-                ...savedDcbaItems.map((item) {
-                  return Container(
-                    margin: const EdgeInsets.only(top: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.white,
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _formatSerialNumber(item["serialNumber"] ?? ""),
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Text(
-                            item["status"] ?? "",
-                            style: const TextStyle(
-                              color: AppColors.color555555,
-                              fontSize: 14,
-                              fontFamily: fontFamilyMontserrat,
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Icon(
-                            item['isQRCodeScanned'] == true
-                                ? Icons.qr_code_scanner
-                                : Icons.close,
-                            color: item['isQRCodeScanned'] == true
-                                ? Colors.blue
-                                : Colors.red,
-                          ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.camera_alt,
-                              color: AppColors.color555555,
-                            ),
-                            onPressed: () {
-                              // handle photo click
-                            },
-                          ),
-                        ),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(
-                              Icons.edit_calendar_outlined,
-                              color: AppColors.color555555,
-                            ),
-                            onPressed: () {
-                              _editItem(item);
-                            },
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }

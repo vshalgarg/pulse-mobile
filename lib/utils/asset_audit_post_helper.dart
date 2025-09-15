@@ -432,8 +432,8 @@ class AssetAuditPostHelper {
         return 'SCADA';
       case 'solar_fire_extinguisher':
         return 'Fire Extinguisher';
-      case 'solar_surveillance':
-        return 'Solar Surveillance';
+      case 'cctv':
+        return 'CCTV';
       case 'solar_boundary':
         return 'Boundary';
       case 'solar_ltdb':
