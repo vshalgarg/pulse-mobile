@@ -6,6 +6,7 @@ import '../../hive_local_database/hive_constant.dart';
 import '../../hive_local_database/hive_db.dart';
 import '../../models/auth_model.dart';
 import '../../repositories/auth_repository.dart';
+import '../../services/user_details_service.dart';
 import '../../utils.dart';
 
 part 'auth_state.dart';
@@ -43,6 +44,10 @@ class AuthCubit extends Cubit<AuthState> {
         if (rememberMe) {
           await _saveUserCredentials(username, password);
         }
+        
+        // Fetch user details and save fullName
+        print("AuthCubit: Fetching user details...");
+        await _fetchAndSaveUserDetails();
         
         print("AuthCubit: Emitting AuthSuccess state");
         emit(AuthSuccess(result.data!));
@@ -101,7 +106,13 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> logout() async {
     try {
       print("AuthCubit: Starting logout process");
+      
+      // Clear user details
+      await UserDetailsService.instance.clearUserDetails();
+      
+      // Clear authentication data
       await HiveDB.logout();
+      
       print("AuthCubit: Logout completed, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {
@@ -155,6 +166,11 @@ class AuthCubit extends Cubit<AuthState> {
       if (result.isSuccess && result.data != null) {
         // Save tokens to local storage
         await _saveTokensToStorage(result.data!);
+        
+        // Fetch user details and save fullName
+        print("AuthCubit: Auto-login - Fetching user details...");
+        await _fetchAndSaveUserDetails();
+        
         emit(AuthSuccess(result.data!));
       } else {
         // Auto-login failed, clear stored credentials
@@ -182,6 +198,21 @@ class AuthCubit extends Cubit<AuthState> {
 
   // Get stored username
   String? get getStoredUsername => HiveDB.getUsername;
+
+  // Fetch user details and save fullName
+  Future<void> _fetchAndSaveUserDetails() async {
+    try {
+      final userDetails = await UserDetailsService.instance.getUserDetails();
+      if (userDetails != null && userDetails.fullName != null) {
+        print("AuthCubit: User details fetched successfully, fullName: ${userDetails.fullName}");
+      } else {
+        print("AuthCubit: Failed to fetch user details or fullName is null");
+      }
+    } catch (e) {
+      print("AuthCubit: Error fetching user details: $e");
+      // Don't fail the login if user details fetch fails
+    }
+  }
 
   // Get stored password
   String? get getStoredPassword => HiveDB.getPassword;

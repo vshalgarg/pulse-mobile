@@ -76,6 +76,7 @@ class HiveDB {
     await userCredential.delete(HiveConstant.token);
     await userCredential.delete(HiveConstant.tokenExpiry);
     await userCredential.delete(HiveConstant.firstName);
+    await userCredential.delete(HiveConstant.fullName);
     await userCredential.delete(HiveConstant.email);
     
     // Clear saved credentials if remember me is not enabled
@@ -226,6 +227,14 @@ class HiveDB {
 
   // get first name
   static String? get getFirstName => userCredential.get(HiveConstant.firstName, defaultValue: null);
+
+  // save full name
+  static Future<void> saveFullName(String fullName) async {
+    await userCredential.put(HiveConstant.fullName, fullName);
+  }
+
+  // get full name
+  static String? get getFullName => userCredential.get(HiveConstant.fullName, defaultValue: null);
 
   // get session key
   static String? get appSessionKey => userCredential.get('sessionKey');

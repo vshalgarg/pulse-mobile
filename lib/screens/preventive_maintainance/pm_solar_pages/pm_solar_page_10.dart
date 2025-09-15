@@ -239,8 +239,17 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
         }
 
         if (item['photo_taken_ts'] != null) {
-          photoTimestamps[key] = item['photo_taken_ts'].toString();
-          print('Added to photoTimestamps: $key = ${item['photo_taken_ts']}');
+          // Ensure timestamp is in dd/MM/yyyy HH:mm format for API
+          try {
+            final parsedDate = DateTime.parse(item['photo_taken_ts'].toString());
+            final formattedTimestamp = DateFormat("dd/MM/yyyy HH:mm").format(parsedDate);
+            photoTimestamps[key] = formattedTimestamp;
+            print('Added to photoTimestamps: $key = $formattedTimestamp (converted from ${item['photo_taken_ts']})');
+          } catch (e) {
+            // If parsing fails, use the original timestamp
+            photoTimestamps[key] = item['photo_taken_ts'].toString();
+            print('Added to photoTimestamps: $key = ${item['photo_taken_ts']} (parsing failed)');
+          }
         }
 
         if (item['remarks'] != null && item['remarks'].toString().isNotEmpty) {
@@ -667,7 +676,7 @@ class _PmSolarPage10State extends State<PmSolarPage10> {
                   print('Photo upload success: _currentUploadKey = $_currentUploadKey');
                   if (_currentUploadKey != null) {
                     final photoId = int.tryParse(state.response.imgId) ?? 0;
-                    final timestamp = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());
+                    final timestamp = DateFormat("dd/MM/yyyy HH:mm").format(DateTime.now());
                     final keyToSave = _currentUploadKey!;
                     setState(() {
                       photoIds[keyToSave] = photoId;

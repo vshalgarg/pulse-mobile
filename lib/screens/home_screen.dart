@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
+import '../utils/user_name_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -155,14 +156,20 @@ class _HomeScreenState extends State<HomeScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Hello Amit,',
-              style: TextStyle(
-                fontSize: AppSizes.twentyFour,
-                fontFamily: dmSans,
-                fontWeight: FontWeight.w700,
-                color: AppColors.white,
-              ),
+            FutureBuilder<String>(
+              future: UserNameUtils.getUserDisplayNameEnhanced(),
+              builder: (context, snapshot) {
+                final displayName = snapshot.data ?? 'User';
+                return Text(
+                  'Hello $displayName,',
+                  style: TextStyle(
+                    fontSize: AppSizes.twentyFour,
+                    fontFamily: dmSans,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
+                );
+              },
             ),
             Text(
               'Here\'s a quick look at your tasks.',
@@ -245,6 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget assetAuditTicketStatus(DashboardState state) {
     String allTicketsCount = "0";
     String dueCount = "0";
+    String inProgressCount = "0";
     String completedCount = "0";
     String closedCount = "0";
     String missedDeadlineCount = "0";
@@ -259,6 +267,9 @@ class _HomeScreenState extends State<HomeScreen> {
               break;
             case "Due":
               dueCount = ticket.ticketCnt?.toString() ?? "0";
+              break;
+            case "In Progress":
+              inProgressCount = ticket.ticketCnt?.toString() ?? "0";
               break;
             case "Completed":
               completedCount = ticket.ticketCnt?.toString() ?? "0";
@@ -294,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: dueCount,
+                count: inProgressCount,
                 title: "In Progress",
                 onTap: () {
                   pushPage(context, TicketScreen(
@@ -366,6 +377,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget pmAuditTicketStatus(DashboardState state) {
     String allTicketsCount = "0";
     String dueCount = "0";
+    String inProgressCount = "0";
     String completedCount = "0";
     String closedCount = "0";
     String missedDeadlineCount = "0";
@@ -378,8 +390,9 @@ class _HomeScreenState extends State<HomeScreen> {
             case "All Tickets":
               allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
               break;
-            case "Due":
-              dueCount = ticket.ticketCnt?.toString() ?? "0";
+            
+            case "In Progress":
+              inProgressCount = ticket.ticketCnt?.toString() ?? "0";
               break;
             case "Completed":
               completedCount = ticket.ticketCnt?.toString() ?? "0";
@@ -415,7 +428,7 @@ class _HomeScreenState extends State<HomeScreen> {
             getWidth(5),
             Expanded(
               child: StatusCard(
-                count: dueCount,
+                count: inProgressCount,
                 title: "In Progress",
                 onTap: () {
                   pushPage(context, TicketScreen(

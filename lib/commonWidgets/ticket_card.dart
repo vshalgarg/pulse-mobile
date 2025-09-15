@@ -11,6 +11,7 @@ class TicketCard extends StatelessWidget {
   final String raisedOn;
   final String dueDate;
   final String statusText;
+  final Color? statusColor;
   final VoidCallback? onDownloadTap;
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
@@ -25,6 +26,7 @@ class TicketCard extends StatelessWidget {
     required this.raisedOn,
     required this.dueDate,
     required this.statusText,
+    this.statusColor,
     this.onDownloadTap,
     this.onDirectionTap,
     this.onTap,
@@ -38,13 +40,19 @@ class TicketCard extends StatelessWidget {
       case 'completed':
         return AppColors.green8;
       case 'missed deadline':
+      case 'missed_deadline':
         return AppColors.missedLineColor;
       case 'in progress':
+      case 'in-progress':
         return AppColors.pendingColor;
       case 'pending':
         return AppColors.bellColor;
       case 'assigned to me':
         return AppColors.assignedColor;
+      case 'closed':
+        return AppColors.green8; // Use green for closed status
+      case 'due':
+        return AppColors.bellColor; // Use bell color for due status
       default:
         return Colors.grey; // Default color for unknown status
     }
@@ -86,7 +94,7 @@ class TicketCard extends StatelessWidget {
                       horizontal: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(statusText),
+                      color: statusColor ?? _getStatusColor(statusText),
                       borderRadius: BorderRadius.circular(5),
                     ),
                     child: Text(

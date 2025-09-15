@@ -22,6 +22,7 @@ class HiveConstant {
   static const String cartCount = "cartCount";
   static const String profileImage = "profileImage";
   static const String firstName = "firstName";
+  static const String fullName = "fullName";
   static const String firebaseToken = "firebaseToken";
   
   // Remember me functionality

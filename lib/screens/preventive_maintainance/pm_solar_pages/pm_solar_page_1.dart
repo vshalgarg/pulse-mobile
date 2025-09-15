@@ -243,8 +243,17 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
         }
 
         if (item.photoTakenTs != null) {
-          photoTimestamps[key] = item.photoTakenTs!;
-          print('Added to photoTimestamps: $key = ${item.photoTakenTs}');
+          // Ensure timestamp is in dd/MM/yyyy HH:mm format for API
+          try {
+            final parsedDate = DateTime.parse(item.photoTakenTs!);
+            final formattedTimestamp = DateFormat('dd/MM/yyyy HH:mm').format(parsedDate);
+            photoTimestamps[key] = formattedTimestamp;
+            print('Added to photoTimestamps: $key = $formattedTimestamp (converted from ${item.photoTakenTs})');
+          } catch (e) {
+            // If parsing fails, use the original timestamp
+            photoTimestamps[key] = item.photoTakenTs!;
+            print('Added to photoTimestamps: $key = ${item.photoTakenTs} (parsing failed)');
+          }
         }
 
         // Load remarks data if available
@@ -342,12 +351,12 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
   }
 
   Future<void> _submitForm() async {
-    if (formData.isEmpty) return;
-
     final cubit = context.read<PmCubit>();
     final state = cubit.state;
 
     if (state is PmGetLoaded) {
+      // Always call API, even if formData is empty
+      // This ensures existing data is saved and API is hit
       await cubit.postPmData(
         formData: formData,
         pmData: state.pmGetDataModel,
@@ -711,9 +720,8 @@ class _PmSolarPage1State extends State<PmSolarPage1> {
                           onPressed: isSubmitting
                               ? null
                               : () async {
-                            if (formData.isNotEmpty) {
-                              await _submitForm();
-                            }
+                            // Always call API regardless of formData state
+                            await _submitForm();
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(

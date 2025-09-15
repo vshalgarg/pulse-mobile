@@ -50,6 +50,7 @@ class Ticket extends Equatable {
   final double? longitude;
   final double? latitude;
   final String? siteDomainName;
+  final String? status;
 
   const Ticket({
     required this.ticketSchId,
@@ -63,6 +64,7 @@ class Ticket extends Equatable {
     this.longitude,
     this.latitude,
     this.siteDomainName,
+    this.status,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
@@ -82,7 +84,11 @@ class Ticket extends Equatable {
       return null;
     }
 
-    return Ticket(
+    // Debug logging for status field
+    print("🔍 Ticket.fromJson: Raw status field = '${json['status']}'");
+    print("🔍 Ticket.fromJson: Status field type = ${json['status'].runtimeType}");
+    
+    final ticket = Ticket(
       ticketSchId: int.tryParse(json['ticket_sch_id'].toString()) ?? 0,
       pvTicketId: json['pv_ticket_id'] ?? '',
       siteCode: json['site_code'],
@@ -94,7 +100,13 @@ class Ticket extends Equatable {
       longitude: parseDouble(json['longitude']),
       latitude: parseDouble(json['latitude']),
       siteDomainName: json['site_domain_name'],
+      status: json['status'],
     );
+    
+    // Debug logging for final ticket object
+    print("🔍 Ticket.fromJson: Final ticket status = '${ticket.status}'");
+    
+    return ticket;
   }
 
   Map<String, dynamic> toJson() {
@@ -110,6 +122,7 @@ class Ticket extends Equatable {
       'longitude': longitude,
       'latitude': latitude,
       'site_domain_name': siteDomainName,
+      'status': status,
     };
   }
 
@@ -126,13 +139,14 @@ class Ticket extends Equatable {
         longitude,
         latitude,
         siteDomainName,
+        status,
       ];
 }
 
 // Ticket filter parameters
 class TicketFilterParams extends Equatable {
   final String activityType; // AA, PM, ER
-  final String type; // ALL, OPEN, COMPLETED, CLOSED, MISSED DEADLINE
+  final String type; // ALL, IN_PROGRESS, COMPLETED, CLOSED, MISSED_DEADLINE
   final int? pageSize;
   final int? pageNo;
 
@@ -173,8 +187,8 @@ class ActivityType {
 // Ticket type constants
 class TicketType {
   static const String all = 'ALL';
-  static const String open = 'OPEN';
+  static const String open = 'IN_PROGRESS';
   static const String completed = 'COMPLETED';
   static const String closed = 'CLOSED';
-  static const String missedDeadline = 'MISSED DEADLINE';
+  static const String missedDeadline = 'MISSED_DEADLINE';
 }
