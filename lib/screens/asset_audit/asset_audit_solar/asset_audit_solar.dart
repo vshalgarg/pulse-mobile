@@ -187,7 +187,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         fileName: file.path.split('/').last,
       );
 
-      debugPrint("id img upload page 1: ${id}");
+      print("id img upload page 1: ${id}");
 
       // Keep UI state in sync (optional but handy for previews)
       setState(() {
@@ -197,8 +197,10 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         uploadedImgId = id;
       });
 
+
       showCustomToast(context, 'Photo saved locally');
     } catch (e) {
+      print("iFailed to save photo locally: $e");
       showCustomToast(context, 'Failed to save photo locally: $e');
     }
   }
@@ -264,6 +266,11 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         // Upsert the asset draft
         await assetAuditService.upsertFromRequest(req, 'solar_page_1',uploadedImgId!);
 
+
+        final datalistdraft = await assetAuditService.listDrafts();
+        print("datalistdraft => ");
+        print(datalistdraft);
+
       }
 
       _hasFormDataChanges = false;
@@ -272,6 +279,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       }
     } catch (e) {
       if (mounted) {
+        print("Save failed: $e");
         showCustomToast(context, 'Save failed: $e');
       }
     }

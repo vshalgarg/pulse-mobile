@@ -12,10 +12,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:provider/provider.dart';
 
 import 'app_config.dart';
 import 'app_root.dart';
 import 'bloc/global_bloc_observer.dart';
+import 'data/asset_audit_service.dart';
+import 'data/database.dart';
 import 'firebase_options.dart';
 import 'hive_local_database/hive_db.dart';
 import 'utils.dart';
@@ -61,10 +64,29 @@ Future<void> main() async {
   
   // Check token status on startup
   _checkTokenStatus();
-  
-  runApp(AppRoot(
-    config: config,
-  ));
+
+  runApp(
+    MultiProvider(
+      providers: [
+        Provider<AppDatabase>(
+          // keep DB alive for entire app lifetime
+          create: (_) => AppDatabase(),
+          dispose: (_, db) => db.close(),
+        ),
+        // Optional but recommended: provide your service once
+        ProxyProvider<AppDatabase, AssetAuditService?>(
+          update: (_, db, __) => AssetAuditService(db),
+        ),
+      ],
+      child: AppRoot(config: config),
+    ),
+  );
+
+
+  // runApp(
+  //     AppRoot(
+  //   config: config,
+  // ));
 }
 
 Future<void> init() async {
