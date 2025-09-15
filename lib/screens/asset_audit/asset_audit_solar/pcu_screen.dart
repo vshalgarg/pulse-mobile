@@ -330,24 +330,26 @@ class _PCUScreenState extends State<PCUScreen> {
     return AssetAuditNavigationHelper.getPreviousAvailableScreen(widget.assetAuditData, 'Invertor');
   }
 
-  void _navigateToNextScreen(BuildContext context, String screenName) {
-    print('=== PCU Navigation Debug ===');
-    print('Navigating to: $screenName');
-    print('auditSchId: ${widget.auditSchId} (${widget.auditSchId.runtimeType})');
-    print('siteAuditSchId: ${widget.siteAuditSchId} (${widget.siteAuditSchId.runtimeType})');
-    print('siteType: ${widget.siteType}');
-    print('assetAuditData: ${widget.assetAuditData != null}');
-    print('=== End PCU Navigation Debug ===');
-    
+  void _navigateToNextScreen(BuildContext context, String? screenName) {
+
     try {
-      AssetAuditNavigationHelper.navigateToNextScreen(
-        context,
-        screenName,
-        widget.siteType,
-        widget.auditSchId,
-        widget.siteAuditSchId,
-        widget.assetAuditData,
-      );
+      if(screenName != null) {
+        AssetAuditNavigationHelper.navigateToNextScreen(
+          context,
+          screenName,
+          widget.siteType,
+          widget.auditSchId,
+          widget.siteAuditSchId,
+          widget.assetAuditData,
+        );
+      } else {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => HomeScreen()
+          ),
+        );
+      }
     } catch (e, stackTrace) {
       print('=== PCU Navigation Error ===');
       print('Error: $e');
@@ -584,10 +586,9 @@ class _PCUScreenState extends State<PCUScreen> {
                                     onPressed: () async {
                                       // POST data to API before navigation
                                       await _postPcuData();
-
                                       // Navigate to the next available screen
                                       _navigateToNextScreen(
-                                          context, nextScreen ?? 'HOME');
+                                          context, nextScreen);
                                     },
                                   );
                                 },

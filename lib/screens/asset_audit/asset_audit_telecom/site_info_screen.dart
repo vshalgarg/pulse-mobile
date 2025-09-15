@@ -109,7 +109,7 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
     );
     
     if (nextScreen != null) {
-      AssetAuditNavigationHelper.navigateToNextScreen(
+      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
         context,
         nextScreen,
         widget.siteType,
@@ -126,76 +126,10 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
     }
   }
 
-  Future<void> _saveAndExit() async {
-    // First close the unsaved changes dialog
-    Navigator.of(context).pop();
-
-    // Wait a bit for the dialog to fully close and overlay to clear
-    await Future.delayed(const Duration(milliseconds: 200));
-
-    // Then show success dialog with a clean barrier
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54, // Ensure clean barrier
-        builder: (context) => SuccessDialog(
-          ticketId: "UVORKJR00044",
-          message:
-          "Asset Audit for Site (ID: SITE-38974) has been recorded and saved.",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pop();
-          },
-        ),
-      );
-    }
-  }
-
-  bool _validateForm() {
-    setState(() {
-      showValidationErrors = true;
-    });
-
-    print('=== Form Validation Debug (_validateForm) ===');
-
-    // Check if photo is uploaded
-    print('uploadedPhotoPath: $uploadedPhotoPath');
-    if (uploadedPhotoPath == null || uploadedPhotoPath!.isEmpty) {
-      print('Photo validation failed - No photo uploaded');
-      return false;
-    } else {
-      print('Photo validation passed');
-    }
-
-    print('All validations passed!');
-    return true;
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: !hasUnsavedChanges,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-
-        if (hasUnsavedChanges) {
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => UnsavedChangesDialog(
-              message:
-              "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
-              onSaveAndExit: () async {
-                await _saveAndExit();
-              },
-              onDiscard: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          );
-        }
-      },
       child: Scaffold(
         extendBodyBehindAppBar: true,
         resizeToAvoidBottomInset: false,
@@ -205,20 +139,24 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
             if (hasUnsavedChanges) {
               showDialog(
                 context: context,
-                barrierDismissible: false,
-                builder: (context) => UnsavedChangesDialog(
-                  message:
-                  "Do you want to cancel the Asset Audit for Site (ID: SITE-38974) ?",
+                barrierDismissible: true,
+                builder: (dialogContext) => UnsavedChangesDialog(
+                  siteAuditSchId: widget.siteAuditSchId,
+                  section: "Asset Audit",
+                  parentContext: context, // Use the outer context (screen context)
                   onSaveAndExit: () async {
-                    await _saveAndExit();
                   },
                   onDiscard: () {
-                    Navigator.of(context).pop();
                   },
                 ),
               );
             } else {
-              Navigator.pop(context);
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                    builder: (context) => HomeScreen()
+                ),
+              );
             }
           },
         ),

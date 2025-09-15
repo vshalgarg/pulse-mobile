@@ -25,6 +25,8 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/base64_image_widget.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
+import '../../../models/asset_audit_post_model.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
@@ -54,13 +56,52 @@ class ExtinguisherScreen extends StatefulWidget {
 
 class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController remarksController = TextEditingController();
-  bool hasUnsavedChanges = false;
-  bool _isPostingData = false;
+  final TextEditingController generalRemarksController = TextEditingController();
+  
+  // Controllers for AssetAuditFormComponent
+  final TextEditingController extinguisherSerialController = TextEditingController();
+  
+  // Saved items lists
+  List<Map<String, dynamic>> savedExtinguisherItems = [];
+  
+  // Validation methods
+  bool _validateExtinguisherSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    if (widget.extinguisherData == null) return false;
+    
+    final allItems = widget.extinguisherData!.assets ?? [];
+    return allItems.any((item) => 
+      item.mfgSerialNo?.toLowerCase() == serialNumber.toLowerCase() ||
+      item.nexgenSerialNo?.toLowerCase() == serialNumber.toLowerCase()
+    );
+  }
+  
+  // Callback methods for AssetAuditFormComponent
+  void _onExtinguisherItemSaved(List<Map<String, dynamic>> items) {
+    setState(() {
+      savedExtinguisherItems.addAll(items);
+    });
+  }
+  
+  // Check if there are unsaved changes
+  bool get _hasChanges {
+    return generalRemarksController.text.isNotEmpty || savedExtinguisherItems.isNotEmpty;
+  }
 
   @override
   void initState() {
     super.initState();
+    
+    // Load remarks if available
+    if (widget.extinguisherData?.remarks.isNotEmpty == true) {
+      final remarks = widget.extinguisherData!.remarks;
+      for (var remark in remarks) {
+        if (remark.itemTypeRemark != null && remark.itemTypeRemark!.isNotEmpty) {
+          generalRemarksController.text = remark.itemTypeRemark!;
+          break;
+        }
+      }
+    }
+    
     if (widget.showSuccessMessage) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showSuccessMessage();
@@ -87,100 +128,165 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
            widget.extinguisherData!.assets.isNotEmpty;
   }
 
-  void _navigateToNextScreen() {
-    AssetAuditNavigationHelper.navigateToNextScreen(
-      context,
-      'Extinguisher',
-      widget.siteType,
-      widget.auditSchId,
-      widget.siteAuditSchId,
-      widget.assetAuditData,
-    );
+  // Navigation methods
+  void _navigateToNextScreen(BuildContext context, String? nextScreen) {
+    if (nextScreen != null) {
+      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+        context,
+        nextScreen,
+        widget.siteType,
+        widget.auditSchId,
+        widget.siteAuditSchId,
+        widget.assetAuditData,
+      );
+    } else {
+      // No next screen available, go to home
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    }
   }
 
-  Future<void> _postCurrentScreenData() async {
-    if (!_hasDataToShow()) return;
+  // Helper method to get the next available screen based on data availability
+  String? _getNextAvailableScreen() {
+    return AssetAuditNavigationHelper.getNextAvailableTelecomScreen(widget.assetAuditData, 'Fire Extinguisher');
+  }
 
-    setState(() {
-      _isPostingData = true;
-    });
+  // Helper method to get the previous available screen based on data availability
+  String? _getPreviousAvailableScreen() {
+    return AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(widget.assetAuditData, 'Fire Extinguisher');
+  }
+
+  // Post current screen data to API
+  Future<bool> _postCurrentScreenData() async {
+    if (widget.assetAuditData == null) {
+      print('Extinguisher Screen: No asset audit data available for posting');
+      return false;
+    }
 
     try {
-      // For now, just navigate to next screen since we don't have specific extinguisher data to post
-      _navigateToNextScreen();
-    } catch (e) {
-      print('Error posting extinguisher data: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isPostingData = false;
-        });
+      // Convert saved items to POST request format
+      final requests = await AssetAuditPostHelper.convertSavedItemsToPostRequest(
+        savedItems: savedExtinguisherItems,
+        assetAuditData: widget.assetAuditData!,
+        itemType: 'Extinguisher',
+        itemTypeId: AssetAuditPostHelper.getItemTypeId('Extinguisher'),
+        screenName: 'Extinguisher',
+        context: context,
+      );
+
+      if (requests.isEmpty) {
+        print('Extinguisher Screen: No items to post');
+        return false;
       }
+
+      // Add remarks if available
+      if (generalRemarksController.text.isNotEmpty) {
+        final remarksRequest = AssetAuditPostRequest(
+          assetAuditSiteRespId: widget.extinguisherData?.assets.isNotEmpty == true 
+              ? widget.extinguisherData!.assets.first.assetAuditSiteRespId ?? 0
+              : 0,
+          auditSchId: int.tryParse(widget.auditSchId) ?? 0,
+          siteAuditSchId: int.tryParse(widget.siteAuditSchId) ?? 0,
+          siteId: widget.assetAuditData?.pageHeader.first.siteId ?? 0,
+          itemInstanceId: 0,
+          nexgenSerialNo: 'REMARKS',
+          itemTypeId: AssetAuditPostHelper.getItemTypeId('Extinguisher'),
+          qrCodeScanned: false,
+          qrCodeScannedTs: null,
+          photoId: null,
+          photoTakenTs: DateTime.now().toString(),
+          assetStatus: 'OK',
+          longitude: '37.4219983',
+          latitude: '-122.084',
+          itemTypeRemark: generalRemarksController.text,
+          localAuditLogId: DateTime.now().millisecondsSinceEpoch,
+          localQrCodeScannedTs: DateTime.now().toString(),
+          localCreatedDt: DateTime.now().toString(),
+          localModifiedDt: DateTime.now().toString(),
+          syncProcessId: DateTime.now().millisecondsSinceEpoch,
+          isActive: true,
+          remarks: generalRemarksController.text,
+        );
+        requests.add(remarksRequest);
+      }
+
+      // Post data using the cubit
+      context.read<AssetAuditCubit>().postAssetAuditData(requests: requests);
+      return true;
+    } catch (e) {
+      print('Extinguisher Screen: Error preparing data: $e');
+      return false;
     }
+  }
+  
+  Future<void> _saveAndExit() async {
+    try {
+      await _postCurrentScreenData();
+    } catch (e) {
+      print('Error posting Extinguisher data: $e');
+    }
+  }
+  
+  @override
+  void dispose() {
+    extinguisherSerialController.dispose();
+    generalRemarksController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocListener(
-      listeners: [
-        BlocListener<AssetAuditCubit, AssetAuditState>(
-          listener: (context, state) {
-            if (state is AssetAuditPostSuccess) {
-              _navigateToNextScreen();
-            } else if (state is AssetAuditPostError) {
-              showCustomToast(context, 'Failed to save extinguisher data. Please try again.');
-            }
-          },
-        ),
-      ],
+    return BlocListener<AssetAuditCubit, AssetAuditState>(
+      listener: (context, state) {
+        if (state is AssetAuditPostSuccess) {
+          final nextScreen = _getNextAvailableScreen();
+          _navigateToNextScreen(context, nextScreen);
+        }
+      },
       child: PopScope(
-        canPop: !hasUnsavedChanges,
-        onPopInvoked: (didPop) async {
-          if (didPop) return;
-
-          if (hasUnsavedChanges) {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => UnsavedChangesDialog(
-                message: "Do you want to cancel the Asset Audit?",
-                onSaveAndExit: () async {
-                  await _postCurrentScreenData();
-                  Navigator.of(context).pop();
-                },
-                onDiscard: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            );
-          }
-        },
+        canPop: !_hasChanges,
         child: Scaffold(
+          extendBodyBehindAppBar: true,
+          resizeToAvoidBottomInset: false,
           appBar: CustomFormAppbar(
-            title: "Extinguisher",
+            title: "Asset Audit",
             onClose: () async {
-              if (hasUnsavedChanges) {
+              if (_hasChanges) {
                 showDialog(
                   context: context,
-                  barrierDismissible: false,
-                  builder: (context) => UnsavedChangesDialog(
-                    message: "Do you want to cancel the Asset Audit?",
+                  barrierDismissible: true,
+                  builder: (dialogContext) => UnsavedChangesDialog(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    section: "Asset Audit",
+                    parentContext: context,
                     onSaveAndExit: () async {
-                      await _postCurrentScreenData();
-                      Navigator.of(context).pop();
+                      await _saveAndExit();
                     },
                     onDiscard: () {
-                      Navigator.of(context).pop();
+                      // Dialog will be closed automatically
                     },
                   ),
                 );
               } else {
-                Navigator.pop(context);
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => HomeScreen()),
+                );
               }
             },
           ),
           body: Stack(
             children: [
+              Positioned.fill(
+                child: SvgPicture.asset(
+                  AppImages.home,
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                ),
+              ),
               SafeArea(
                 child: Form(
                   key: _formKey,
@@ -188,80 +294,44 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                     children: [
                       Expanded(
                         child: SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom: MediaQuery.of(context).viewInsets.bottom + 120,
+                          ),
                           child: Container(
-                            padding: EdgeInsets.only(
+                            padding: const EdgeInsets.only(
+                              top: 20,
                               left: 16,
                               right: 16,
-                              bottom: MediaQuery.of(context).viewInsets.bottom + 120,
+                              bottom: 20,
                             ),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (_hasDataToShow()) ...[
-                                  // Show extinguisher data
-                                  ...widget.extinguisherData!.assets.map((asset) {
-                                    return Container(
-                                      margin: const EdgeInsets.only(bottom: 16),
-                                      child: CustomInfoCard(
-                                        serialLabel: "Serial Number",
-                                        photoLabel: "Photo",
-                                        statusLabel: "Status",
-                                        buttonLabel: "Save",
-                                        serialController: TextEditingController(text: asset.nexgenSerialNo ?? asset.mfgSerialNo ?? ''),
-                                        onSave: () {
-                                          setState(() {
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        onPhotoTap: (photoPath) async {
-                                          setState(() {
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        onStatusChanged: (val) {
-                                          setState(() {
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        onSerialChanged: (serialNumber) {
-                                          setState(() {
-                                            hasUnsavedChanges = true;
-                                          });
-                                        },
-                                        initialStatus: asset.assetStatus == 'OK',
-                                        initialPhotoPath: asset.imageName,
-                                        isEditable: false,
-                                        isStatusEditable: false,
-                                      ),
-                                    );
-                                  }).toList(),
-                                ] else ...[
-                                  // Show no data message
-                                  Container(
-                                    padding: const EdgeInsets.all(32),
-                                    child: Column(
-                                      children: [
-                                        Icon(
-                                          Icons.info_outline,
-                                          size: 64,
-                                          color: Colors.grey[400],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'No extinguisher data available',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                // Extinguisher Form Component
+                                AssetAuditFormComponent(
+                                  componentId: 'extinguisher',
+                                  serialLabel: "Extinguisher - Serial Number *",
+                                  serialHintText: "Extinguisher Serial Number",
+                                  photoLabel: "Add a Photo",
+                                  disabledFieldLabel: "Type",
+                                  disabledFieldValue: "Fire Extinguisher",
+                                  serialController: extinguisherSerialController,
+                                  initialSavedItems: savedExtinguisherItems,
+                                  onItemSaved: _onExtinguisherItemSaved,
+                                  onStatusChanged: (bool? status) {
+                                    // Handle status change if needed
+                                  },
+                                  customValidator: _validateExtinguisherSerialNumber,
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                ),
+                                
                                 getHeight(15),
+                                
+                                // General Remarks
                                 CustomRemarksField(
-                                  label: "Remarks",
-                                  hintText: "Enter remarks for extinguisher",
-                                  controller: remarksController,
+                                  label: "Add Remarks",
+                                  hintText: "Remarks",
+                                  controller: generalRemarksController,
                                 ),
                               ],
                             ),
@@ -270,46 +340,36 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                       ),
                       Container(
                         padding: const EdgeInsets.all(16),
+                        width: double.infinity,
                         child: Row(
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
-                                  widget.assetAuditData, 
-                                  'Extinguisher'
-                                ) ?? 'BACK',
+                                text: _getPreviousAvailableScreen() ?? 'BACK',
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBg,
                                 textColor: AppColors.buttonColorSite,
                                 onPressed: () {
-                                  Navigator.pop(context);
+                                  final previousScreen = _getPreviousAvailableScreen();
+                                  if (previousScreen != null) {
+                                    _navigateToNextScreen(context, previousScreen);
+                                  } else {
+                                    Navigator.pop(context);
+                                  }
                                 },
                               ),
                             ),
                             getWidth(14),
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
-                                        widget.assetAuditData, 
-                                        'Extinguisher'
-                                      ) 
-                                    ?? "SUBMIT",
+                                text: _getNextAvailableScreen() ?? 'SUBMIT',
                                 isLeftArrow: false,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () async {
-                                  // If no data to show, just navigate to next screen
-                                  if (!_hasDataToShow()) {
-                                    _navigateToNextScreen();
-                                    return;
-                                  }
-
-                                  // If there are unsaved changes, post them first
-                                  if (hasUnsavedChanges) {
-                                    await _postCurrentScreenData();
-                                  } else {
-                                    _navigateToNextScreen();
-                                  }
+                                  await _postCurrentScreenData();
+                                  final nextScreen = _getNextAvailableScreen();
+                                  _navigateToNextScreen(context, nextScreen);
                                 },
                               ),
                             ),
@@ -320,6 +380,7 @@ class _ExtinguisherScreenState extends State<ExtinguisherScreen> {
                   ),
                 ),
               ),
+
               // Loading overlay
               BlocBuilder<AssetAuditCubit, AssetAuditState>(
                 builder: (context, state) {

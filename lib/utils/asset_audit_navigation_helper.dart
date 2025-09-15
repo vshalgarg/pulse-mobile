@@ -78,7 +78,7 @@ class AssetAuditNavigationHelper {
     'Site Info',
     'CCU',
     'Battery',
-    'Extinguisher',
+    'Fire Extinguisher',
     'Solar Plates',
     'CCTV',
     'Fencing',
@@ -134,7 +134,7 @@ class AssetAuditNavigationHelper {
     
     // Check if the screen has data using the telecom data structure
     CategoryData? categoryData = getCategoryData(assetAuditData, screenName);
-    if (categoryData == null || categoryData.assets.isEmpty) {
+    if (categoryData == null || (categoryData.assets.isEmpty && categoryData.subCategories!.isEmpty && categoryData.remarks.isEmpty)) {
       return getNextAvailableTelecomScreen(assetAuditData, screenName);
     }
 
@@ -154,7 +154,7 @@ class AssetAuditNavigationHelper {
     
     // Check if the screen has data using the telecom data structure
     CategoryData? categoryData = getCategoryData(assetAuditData, screenName);
-    if (categoryData == null || categoryData.assets.isEmpty) {
+    if (categoryData == null || (categoryData.assets.isEmpty && categoryData.subCategories!.isEmpty && categoryData.remarks.isEmpty)) {
       return getPreviousAvailableTelecomScreen(assetAuditData, screenName);
     }
 
@@ -295,21 +295,22 @@ class AssetAuditNavigationHelper {
           assetAuditData: assetAuditData,
         ));
         break;
-      // Telecom screen cases
-      case 'Site Info':
-        pushPage(context, SiteInfoScreen(
-          siteName: 'Site Info',
-          siteTypeName: siteType,
-          indoorOutdoor: 'Indoor',
-          ebNonEb: 'EB',
-          op1Name: 'Operator 1',
-          op2Name: 'Operator 2',
-          assetAuditData: assetAuditData,
-          siteType: siteType,
-          auditSchId: auditSchId,
-          siteAuditSchId: siteAuditSchId,
-        ));
+      default:
+        print('Unknown screen for solar: $screenName');
         break;
+    }
+  }
+
+  /// Navigate to the next screen based on screen name
+  static void navigateToNextTelecomScreen(
+      BuildContext context,
+      String screenName,
+      String siteType,
+      String auditSchId,
+      String siteAuditSchId,
+      AssetAuditModel? assetAuditData,
+      ) {
+    switch (screenName) {
       case 'CCU':
         pushPage(context, CCUScreen(
           ccuData: getCategoryData(assetAuditData, 'CCU'),
@@ -328,7 +329,7 @@ class AssetAuditNavigationHelper {
           siteAuditSchId: siteAuditSchId,
         ));
         break;
-      case 'Extinguisher':
+      case 'Fire Extinguisher':
         pushPage(context, ExtinguisherScreen(
           extinguisherData: getCategoryData(assetAuditData, 'Fire Extinguisher'),
           assetAuditData: assetAuditData,
@@ -341,6 +342,9 @@ class AssetAuditNavigationHelper {
         pushPage(context, SolarPlatesScreen(
           solarPlatesData: getCategoryData(assetAuditData, 'Solar Plates'),
           assetAuditData: assetAuditData,
+          siteType: siteType,
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
         ));
         break;
       case 'CCTV':
@@ -368,7 +372,7 @@ class AssetAuditNavigationHelper {
         ));
         break;
       default:
-        print('Unknown screen: $screenName');
+        print('Unknown screen for telecom: $screenName');
         break;
     }
   }

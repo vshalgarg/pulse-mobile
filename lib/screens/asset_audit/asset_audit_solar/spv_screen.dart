@@ -979,7 +979,7 @@ class _SPVScreenState extends State<SPVScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getSolarPreviousScreenName('SPV'),
+                                text: _getPreviousAvailableScreen() ?? 'BACK',
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
