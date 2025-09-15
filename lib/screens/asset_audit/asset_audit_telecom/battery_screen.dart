@@ -7,6 +7,7 @@ import 'package:flutter_svg/svg.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
+import '../../../utils/asset_audit_navigation_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
@@ -20,6 +21,7 @@ import 'dart:io';
 import 'dart:convert';
 
 import '../../../commonWidgets/asset_type_card.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -37,11 +39,17 @@ import '../../home_screen.dart';
 class BatteryScreen extends StatefulWidget {
   final CategoryData? batteryData;
   final AssetAuditModel? assetAuditData;
+  final String siteType;
+  final String auditSchId;
+  final String siteAuditSchId;
 
   const BatteryScreen({
     super.key,
     this.batteryData,
     this.assetAuditData,
+    required this.siteType,
+    required this.auditSchId,
+    required this.siteAuditSchId,
   });
 
   @override
@@ -504,17 +512,28 @@ class _BatteryScreenState extends State<BatteryScreen> {
     return hasData;
   }
 
-  void _navigateToExtinguisherScreen() {
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ExtinguisherScreen(
-          extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
-          assetAuditData: widget.assetAuditData,
-          showSuccessMessage: false,
-        ),
-      ),
+  void _navigateToNextScreen() {
+    final nextScreen = AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
+      widget.assetAuditData, 
+      'Battery'
     );
+    
+    if (nextScreen != null) {
+      AssetAuditNavigationHelper.navigateToNextScreen(
+        context,
+        nextScreen,
+        widget.siteType,
+        widget.auditSchId,
+        widget.siteAuditSchId,
+        widget.assetAuditData,
+      );
+    } else {
+      // Navigate to home if no next screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    }
   }
 
   /// Build the "No Data" message widget
@@ -1201,16 +1220,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
               // Wait for data to refresh, then navigate
                 if (mounted) {
                   try {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => ExtinguisherScreen(
-                          extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
-                          assetAuditData: widget.assetAuditData,
-                          showSuccessMessage: false,
-                        ),
-                      ),
-                    );
+                    _navigateToNextScreen();
                     // Reset the flag after successful navigation
                     setState(() {
                       _hasPostedBatteryData = false;
@@ -1224,16 +1234,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
               // Fallback: navigate immediately
               if (mounted) {
                 try {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => ExtinguisherScreen(
-                          extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
-                          assetAuditData: widget.assetAuditData,
-                          showSuccessMessage: false,
-                        ),
-                      ),
-                    );
+                  _navigateToNextScreen();
                     setState(() {
                       _hasPostedBatteryData = false;
                     });
@@ -1628,7 +1629,10 @@ class _BatteryScreenState extends State<BatteryScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: "CCU",
+                                text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                                  widget.assetAuditData, 
+                                  'Battery'
+                                ),
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBg,
                                 textColor: AppColors.buttonColorSite,
@@ -1640,23 +1644,17 @@ class _BatteryScreenState extends State<BatteryScreen> {
                             getWidth(14),
                             Expanded(
                               child: ArrowButton(
-                                text: "Extinguisher",
+                                text: AssetAuditNavigationHelper.getNextScreenDisplayName(
+                                  widget.assetAuditData, 
+                                  'Battery'
+                                ),
                                 isLeftArrow: false,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () async {
                                   // If no data to show, just navigate to next screen
                                   if (!_hasDataToShow()) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => ExtinguisherScreen(
-                                          extinguisherData: widget.assetAuditData?.responseData.fireExtinguisher,
-                                          assetAuditData: widget.assetAuditData,
-                                          showSuccessMessage: false,
-                                        ),
-                                      ),
-                                    );
+                                    _navigateToNextScreen();
                                     return;
                                   }
 

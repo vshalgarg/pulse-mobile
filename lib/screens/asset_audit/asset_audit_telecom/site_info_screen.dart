@@ -4,6 +4,7 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../models/asset_audit_model.dart';
+import '../../../utils/asset_audit_navigation_helper.dart';
 
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
@@ -11,6 +12,7 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
+import '../../home_screen.dart';
 
 class SiteInfoScreen extends StatefulWidget {
   final String siteName;
@@ -20,6 +22,9 @@ class SiteInfoScreen extends StatefulWidget {
   final String op1Name;
   final String op2Name;
   final AssetAuditModel? assetAuditData;
+  final String siteType;
+  final String auditSchId;
+  final String siteAuditSchId;
 
   const SiteInfoScreen({
     super.key,
@@ -30,6 +35,9 @@ class SiteInfoScreen extends StatefulWidget {
     required this.op1Name,
     required this.op2Name,
     this.assetAuditData,
+    required this.siteType,
+    required this.auditSchId,
+    required this.siteAuditSchId,
   });
 
   @override
@@ -92,6 +100,30 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
         showValidationErrors = false;
       }
     });
+  }
+
+  void _navigateToNextScreen() {
+    final nextScreen = AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
+      widget.assetAuditData, 
+      'Site Info'
+    );
+    
+    if (nextScreen != null) {
+      AssetAuditNavigationHelper.navigateToNextScreen(
+        context,
+        nextScreen,
+        widget.siteType,
+        widget.auditSchId,
+        widget.siteAuditSchId,
+        widget.assetAuditData,
+      );
+    } else {
+      // Navigate to home if no next screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    }
   }
 
   Future<void> _saveAndExit() async {
@@ -271,7 +303,10 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                         children: [
                           Expanded(
                             child: ArrowButton(
-                              text: "General",
+                              text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                                widget.assetAuditData, 
+                                'Site Info'
+                              ),
                               isLeftArrow: true,
                               backgroundColor: AppColors.buttonColorBg,
                               textColor: AppColors.buttonColorSite,
@@ -283,15 +318,15 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
                           getWidth(14),
                           Expanded(
                             child: ArrowButton(
-                              text: "CCU",
+                              text: AssetAuditNavigationHelper.getNextScreenDisplayName(
+                                widget.assetAuditData, 
+                                'Site Info'
+                              ),
                               isLeftArrow: false,
                               backgroundColor: AppColors.buttonColorBackBg,
                               textColor: AppColors.buttonColorTextBg,
                               onPressed: () {
-                                pushPage(context, CCUScreen(
-                                  ccuData: widget.assetAuditData?.responseData.ccu,
-                                  assetAuditData: widget.assetAuditData,
-                                ));
+                                _navigateToNextScreen();
                                 // if (_validateForm()) {
                                 //   showDialog(
                                 //     context: context,

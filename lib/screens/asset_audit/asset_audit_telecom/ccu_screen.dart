@@ -8,6 +8,7 @@ import 'package:flutter_svg/svg.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../utils/asset_audit_photo_upload_helper.dart';
+import '../../../utils/asset_audit_navigation_helper.dart';
 import '../../../bloc/asset_audit_cubit.dart';
 import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
@@ -30,8 +31,18 @@ import '../../../constants/constants_strings.dart';
 class CCUScreen extends StatefulWidget {
   final CategoryData? ccuData;
   final AssetAuditModel? assetAuditData;
+  final String siteType;
+  final String auditSchId;
+  final String siteAuditSchId;
 
-  const CCUScreen({super.key, this.ccuData, this.assetAuditData});
+  const CCUScreen({
+    super.key, 
+    this.ccuData, 
+    this.assetAuditData,
+    required this.siteType,
+    required this.auditSchId,
+    required this.siteAuditSchId,
+  });
 
   @override
   State<CCUScreen> createState() => _CCUScreenState();
@@ -383,7 +394,7 @@ class _CCUScreenState extends State<CCUScreen> {
     if (!_hasDataToShow()) {
       // Use post frame callback to avoid build context issues
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _navigateToBatteryScreen();
+        _navigateToNextScreen();
       });
       return;
     }
@@ -521,13 +532,7 @@ class _CCUScreenState extends State<CCUScreen> {
     }
 
     if (!_hasChanges) {
-      pushPage(
-        context,
-        BatteryScreen(
-          batteryData: widget.assetAuditData?.responseData.battery,
-          assetAuditData: widget.assetAuditData,
-        ),
-      );
+      _navigateToNextScreen();
       return;
     }
 
@@ -554,15 +559,34 @@ class _CCUScreenState extends State<CCUScreen> {
     _postCurrentScreenData();
   }
 
+  /// Navigate to next screen using navigation helper
+  void _navigateToNextScreen() {
+    final nextScreen = AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
+      widget.assetAuditData, 
+      'CCU'
+    );
+    
+    if (nextScreen != null) {
+      AssetAuditNavigationHelper.navigateToNextScreen(
+        context,
+        nextScreen,
+        widget.siteType,
+        widget.auditSchId,
+        widget.siteAuditSchId,
+        widget.assetAuditData,
+      );
+    } else {
+      // Navigate to home if no next screen
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    }
+  }
+
   /// Navigate immediately to next screen
   void _navigateImmediately() {
-    pushPage(
-      context,
-      BatteryScreen(
-        batteryData: widget.assetAuditData?.responseData.battery,
-        assetAuditData: widget.assetAuditData,
-      ),
-    );
+    _navigateToNextScreen();
   }
 
   /// Post data and navigate to next screen
@@ -616,13 +640,7 @@ class _CCUScreenState extends State<CCUScreen> {
             'CCU Debug: batteryData subcategories: ${widget.assetAuditData!.responseData.battery!.subCategories?.keys.toList()}',
           );
         }
-        pushPage(
-          context,
-          BatteryScreen(
-            batteryData: widget.assetAuditData?.responseData.battery,
-            assetAuditData: widget.assetAuditData,
-          ),
-        );
+        _navigateToNextScreen();
       }
     } catch (e) {
       print('Error posting CCU data: $e');
@@ -851,7 +869,7 @@ class _CCUScreenState extends State<CCUScreen> {
 
     if (!_hasDataToShow()) {
       if (mounted) {
-        _navigateToBatteryScreen();
+        _navigateToNextScreen();
       }
       return;
     }
@@ -3329,7 +3347,10 @@ class _CCUScreenState extends State<CCUScreen> {
                                 children: [
                                   Expanded(
                                     child: ArrowButton(
-                                      text: "Back",
+                                      text: AssetAuditNavigationHelper.getPreviousScreenDisplayName(
+                                        widget.assetAuditData, 
+                                        'CCU'
+                                      ),
                                       isLeftArrow: true,
                                       backgroundColor: AppColors.buttonColorBg,
                                       textColor: AppColors.buttonColorSite,
@@ -3342,7 +3363,10 @@ class _CCUScreenState extends State<CCUScreen> {
                                   Expanded(
                                     child: ArrowButton(
                                       text: _hasDataToShow()
-                                          ? "Battery"
+                                          ? AssetAuditNavigationHelper.getNextScreenDisplayName(
+                                              widget.assetAuditData, 
+                                              'CCU'
+                                            )
                                           : "Skip CCU",
                                       isLeftArrow: false,
                                       backgroundColor:
@@ -3350,7 +3374,7 @@ class _CCUScreenState extends State<CCUScreen> {
                                       textColor: AppColors.buttonColorTextBg,
                                       onPressed: () {
                                         // Use our new smart navigation system
-                                        _navigateToBatteryScreen();
+                                        _navigateToNextScreen();
                                       },
                                     ),
                                   ),
@@ -3873,13 +3897,7 @@ class _CCUScreenState extends State<CCUScreen> {
     _clearChangeTracking();
 
     // Navigate to next screen
-    pushPage(
-      context,
-      BatteryScreen(
-        batteryData: widget.assetAuditData?.responseData.battery,
-        assetAuditData: widget.assetAuditData,
-      ),
-    );
+    _navigateToNextScreen();
   }
 
   /// Update saved items with edited values
@@ -3982,13 +4000,7 @@ class _CCUScreenState extends State<CCUScreen> {
     _clearChangeTracking();
 
     // Navigate to next screen
-    pushPage(
-      context,
-      BatteryScreen(
-        batteryData: widget.assetAuditData?.responseData.battery,
-        assetAuditData: widget.assetAuditData,
-      ),
-    );
+    _navigateToNextScreen();
   }
 
   bool _areFormsCompletelyFilled() {
@@ -4126,6 +4138,9 @@ class _CCUScreenState extends State<CCUScreen> {
         BatteryScreen(
           batteryData: widget.assetAuditData?.responseData.battery,
           assetAuditData: widget.assetAuditData,
+          siteType: widget.siteType,
+          auditSchId: widget.auditSchId,
+          siteAuditSchId: widget.siteAuditSchId,
         ),
       );
     } catch (e) {
@@ -4207,13 +4222,7 @@ class _CCUScreenState extends State<CCUScreen> {
     // Clear all change tracking
     _clearChangeTracking();
 
-    pushPage(
-      context,
-      BatteryScreen(
-        batteryData: widget.assetAuditData?.responseData.battery,
-        assetAuditData: widget.assetAuditData,
-      ),
-    );
+    _navigateToNextScreen();
   }
 
   /// Reset to original values

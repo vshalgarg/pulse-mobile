@@ -71,17 +71,31 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         ebNonEb: "",
         op1Name: "",
         op2Name: "",
+        siteType: "",
+        auditSchId: "",
+        siteAuditSchId: "",
       ));
     case ccuScreen:
-      return _push(const CCUScreen());
+      return _push(const CCUScreen(
+        siteType: "",
+        auditSchId: "",
+        siteAuditSchId: "",
+      ));
     case batteryScreen:
-      return _push(const BatteryScreen());
+      return _push(const BatteryScreen(
+        siteType: "",
+        auditSchId: "",
+        siteAuditSchId: "",
+      ));
     case extinguisherScreen:
       final args = settings.arguments as Map<String, dynamic>?;
       return _push(ExtinguisherScreen(
         extinguisherData: args?['extinguisherData'],
         assetAuditData: args?['assetAuditData'],
         showSuccessMessage: args?['showSuccessMessage'] ?? false,
+        siteType: args?['siteType'] ?? "",
+        auditSchId: args?['auditSchId'] ?? "",
+        siteAuditSchId: args?['siteAuditSchId'] ?? "",
       ));
     case solarPlateScreen:
       // SolarPlatesScreen should only be accessed through asset audit flow with proper data

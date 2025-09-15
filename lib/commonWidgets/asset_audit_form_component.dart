@@ -211,6 +211,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     // Photo selection is handled internally, no parent callback needed
   }
 
+
   /// Picks image from camera (matching CustomInfoCard)
   Future<void> _pickImage() async {
     final picker = ImagePicker();
@@ -393,10 +394,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       }
       
       if (isNewPhoto) {
-        print('New photo detected, but upload method not implemented yet');
-        // For now, just use the photo path as the ID
-        // TODO: Implement proper photo upload using AssetAuditPhotoUploadCubit
-        _uploadedImageId = _selectedPhotoPath;
+        print('New photo detected, uploading...');
+        // Upload the photo using AssetAuditPhotoUploadCubit
+        await _uploadPhoto();
       } else {
         // Same photo, preserve existing photo ID
         _uploadedImageId = existingItem['photo'];

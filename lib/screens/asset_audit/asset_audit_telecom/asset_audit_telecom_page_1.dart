@@ -615,6 +615,9 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                           op1Name: siteData.op1Name ?? "",
                                           op2Name: siteData.op2Name ?? "N/A",
                                           assetAuditData: state.assetAuditData,
+                                          siteType: siteData.siteTypeName,
+                                          auditSchId: siteData.siteAuditSchId.toString(),
+                                          siteAuditSchId: siteData.siteAuditSchId.toString(),
                                         ),
                                       );
                                     } else {
@@ -627,6 +630,9 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                                           ebNonEb: "N/A",
                                           op1Name: "N/A",
                                           op2Name: "N/A",
+                                          siteType: "N/A",
+                                          auditSchId: "N/A",
+                                          siteAuditSchId: "N/A",
                                           assetAuditData: null,
                                         ),
                                       );
