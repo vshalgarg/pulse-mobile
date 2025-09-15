@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/asset_audit_post_model.dart';
 import '../models/asset_audit_model.dart';
 import '../bloc/selfie_upload_cubit.dart';
+import '../services/location_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -24,8 +25,8 @@ class AssetAuditPostHelper {
     final now = DateTime.now();
     final timestamp = _formatDateTime(now);
     
-    // Get current location
-    final location = await getCurrentLocation();
+    // Get current location with offline support
+    final location = await LocationService.getCurrentLocationOffline();
 
     // Get site info from assetAuditData
     final siteInfo = assetAuditData.pageHeader.isNotEmpty 
@@ -59,12 +60,11 @@ class AssetAuditPostHelper {
       // Check if there are any other properties in the category
       try {
         if (categoryData.remarks != null && categoryData.remarks!.isNotEmpty) {
-          for (int i = 0; i < categoryData.remarks!.length; i++) {
-            final remark = categoryData.remarks![i];
-          }
+          // Remarks data is available for processing
         }
       } catch (e) {
-  }
+        // Handle any errors in category data processing
+      }
 
     for (int i = 0; i < savedItems.length; i++) {
       final item = savedItems[i];
@@ -85,6 +85,9 @@ class AssetAuditPostHelper {
         // Get photo ID from the uploaded photo
         final int? photoId = _getPhotoIdForRequest(item);
         
+        // Handle photoTakenTs for remarks vs assets
+        final String? photoTakenTs = _getPhotoTakenTsForRequest(item, timestamp);
+        
         final request = AssetAuditPostRequest(
           assetAuditSiteRespId: assetAuditSiteRespId, // Use ID from GET API response
           auditSchId: auditSchId != null ? int.parse(auditSchId) : 0,
@@ -96,7 +99,7 @@ class AssetAuditPostHelper {
           qrCodeScanned: isQRScanned,
           qrCodeScannedTs: qrCodeScannedTs, // null for manual entry, timestamp for QR scan
           photoId: photoId, // Use uploaded photo ID
-          photoTakenTs: item['photoTakenTs'] ?? timestamp,
+          photoTakenTs: photoTakenTs ?? timestamp,
           assetStatus: item['status'] ?? 'OK',
           longitude: location['longitude'] ?? item['longitude'], // Use current location if available
           latitude: location['latitude'] ?? item['latitude'], // Use current location if available
@@ -145,8 +148,8 @@ class AssetAuditPostHelper {
     final now = DateTime.now();
     final timestamp = _formatDateTime(now);
     
-    // Get current location
-    final location = await getCurrentLocation();
+    // Get current location with offline support
+    final location = await LocationService.getCurrentLocationOffline();
     print('AssetAuditPostHelper: Current location for single item - Lat: ${location['latitude']}, Lng: ${location['longitude']}');
     
     // Get site info from assetAuditData
@@ -172,6 +175,9 @@ class AssetAuditPostHelper {
     final bool isQRScanned = savedItem['isQRCodeScanned'] ?? false;
     final String? qrCodeScannedTs = isQRScanned ? timestamp : null;
 
+    // Handle photoTakenTs for remarks vs assets
+    final String? photoTakenTs = _getPhotoTakenTsForRequest(savedItem, timestamp);
+
     final request = AssetAuditPostRequest(
       assetAuditSiteRespId: assetAuditSiteRespId, // Use ID from GET API response
       auditSchId: auditSchId != null ? int.parse(auditSchId) : 0,
@@ -183,7 +189,7 @@ class AssetAuditPostHelper {
       qrCodeScanned: isQRScanned,
       qrCodeScannedTs: qrCodeScannedTs,
       photoId: _getPhotoIdForRequest(savedItem), // Handle photoId properly for different record types
-      photoTakenTs: savedItem['photoTakenTs'] ?? timestamp,
+      photoTakenTs: photoTakenTs ?? timestamp,
       assetStatus: savedItem['status'] ?? 'OK',
       longitude: location['longitude'] ?? savedItem['longitude'], // Use current location if available
       latitude: location['latitude'] ?? savedItem['latitude'], // Use current location if available
@@ -409,6 +415,28 @@ class AssetAuditPostHelper {
     return intPhotoId;
   }
 
+  /// Get photoTakenTs for request, handling remarks vs assets differently
+  static String? _getPhotoTakenTsForRequest(Map<String, dynamic> item, String timestamp) {
+    final recordType = item['recordType']?.toString().toLowerCase();
+    final itemType = item['itemType']?.toString().toLowerCase();
+    
+    // For remarks entries, photoTakenTs should be null since no photo is taken
+    if (recordType == 'remarks' || itemType?.contains('remarks') == true) {
+      print('AssetAuditPostHelper: Using photoTakenTs null for remarks entry (no photo taken)');
+      return null;
+    }
+    
+    // For asset entries, use the provided photoTakenTs or fallback to timestamp
+    final photoTakenTs = item['photoTakenTs'];
+    if (photoTakenTs != null && photoTakenTs.toString().isNotEmpty) {
+      print('AssetAuditPostHelper: Using provided photoTakenTs: $photoTakenTs for asset entry');
+      return photoTakenTs.toString();
+    }
+    
+    print('AssetAuditPostHelper: Using fallback timestamp for photoTakenTs: $timestamp for asset entry');
+    return timestamp;
+  }
+
   /// Get item type string from screen name
   static String _getItemTypeFromScreenName(String screenName) {
     switch (screenName.toLowerCase()) {
@@ -432,8 +460,8 @@ class AssetAuditPostHelper {
         return 'SCADA';
       case 'solar_fire_extinguisher':
         return 'Fire Extinguisher';
-      case 'solar_surveillance':
-        return 'Solar Surveillance';
+      case 'cctv':
+        return 'CCTV';
       case 'solar_boundary':
         return 'Boundary';
       case 'solar_ltdb':
@@ -504,9 +532,6 @@ class AssetAuditPostHelper {
     // For remarks, if no backend ID is found, allow posting with null ID
     // The backend will assign a new ID for locally created remarks
     print('No valid remarks ID found in backend data for $itemType, allowing null ID for new remark');
-    return null;
-
-    print('No valid remarks ID found in backend data for $itemType');
     return null;
   }
 

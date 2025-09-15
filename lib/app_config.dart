@@ -16,6 +16,7 @@ import 'package:app/repositories/audit_schedule_repository.dart';
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
 import 'services/ticket_service.dart';
+import 'services/user_details_service.dart';
 
 import 'bloc/demo_bloc_cubit.dart';
 import 'bloc/login_bloc/auth_cubit.dart';
@@ -77,6 +78,9 @@ class AppConfig {
     dashboardRepository = DashboardRepository(apiService);
     ticketRepository = TicketRepository(ticketService: ticketService);
     assetAuditRepository = AssetAuditRepository(apiService: apiService);
+    
+    // Initialize user details service
+    UserDetailsService.instance.initialize(apiService);
     energyReadingRepository = EnergyReadingRepository(apiService);
     energyReadingDetailRepository = EnergyReadingDetailRepository(apiService);
     selfieUploadRepository = SelfieUploadRepository(apiService);

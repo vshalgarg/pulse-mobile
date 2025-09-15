@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
+import '../utils/user_name_utils.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -155,14 +156,20 @@ class _HomeScreenState extends State<HomeScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Hello Amit,',
-              style: TextStyle(
-                fontSize: AppSizes.twentyFour,
-                fontFamily: dmSans,
-                fontWeight: FontWeight.w700,
-                color: AppColors.white,
-              ),
+            FutureBuilder<String>(
+              future: UserNameUtils.getUserDisplayNameEnhanced(),
+              builder: (context, snapshot) {
+                final displayName = snapshot.data ?? 'User';
+                return Text(
+                  'Hello $displayName,',
+                  style: TextStyle(
+                    fontSize: AppSizes.twentyFour,
+                    fontFamily: dmSans,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
+                );
+              },
             ),
             Text(
               'Here\'s a quick look at your tasks.',

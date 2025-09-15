@@ -27,10 +27,10 @@ class PmFormHelper {
   }) async {
     List<PmPostRequest> requests = [];
     
-    // Get current location
-    final position = await LocationService.getCurrentLocation();
-    final latitude = position?.latitude.toString() ?? '';
-    final longitude = position?.longitude.toString() ?? '';
+    // Get current location with offline support
+    final location = await LocationService.getCurrentLocationOffline();
+    final latitude = location['latitude'] ?? '';
+    final longitude = location['longitude'] ?? '';
     
     // Get current timestamp in ISO 8601 format as expected by the API
     final now = DateTime.now().toIso8601String();
@@ -200,10 +200,10 @@ class PmFormHelper {
     String? photoTakenTs,
     int? pmCheckListSiteRespId,
   }) async {
-    // Get current location
-    final position = await LocationService.getCurrentLocation();
-    final latitude = position?.latitude.toString() ?? '';
-    final longitude = position?.longitude.toString() ?? '';
+    // Get current location with offline support
+    final location = await LocationService.getCurrentLocationOffline();
+    final latitude = location['latitude'] ?? '';
+    final longitude = location['longitude'] ?? '';
     
     // Get current timestamp in ISO 8601 format as expected by the API
     final now = DateTime.now().toIso8601String();

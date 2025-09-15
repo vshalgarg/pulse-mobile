@@ -1,8 +1,14 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
+import 'offline_location_service.dart';
 
 class LocationService {
+  /// Get user's current location with offline support
+  static Future<Map<String, String?>> getCurrentLocationOffline() async {
+    return await OfflineLocationService.getCurrentLocationOffline();
+  }
+
   /// Get user's current location
   static Future<Position?> getCurrentLocation() async {
     try {
