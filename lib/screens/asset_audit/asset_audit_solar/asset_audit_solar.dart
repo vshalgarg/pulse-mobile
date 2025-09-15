@@ -142,6 +142,29 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     });
   }
 
+  void _uploadSelfie_old(File file) {
+    final assetAuditState = context.read<AssetAuditCubit>().state;
+    if (assetAuditState is AssetAuditLoaded &&
+        assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+      final schId = assetAuditState
+          .assetAuditData
+          .pageHeader
+          .first
+          .siteAuditSchId
+          .toString();
+      final imgIdToUse = uploadedImgId != null && uploadedImgId!.isNotEmpty ? uploadedImgId! : "0";
+
+      _hasFormDataChanges = true;
+      context.read<SelfieUploadCubit>().uploadSelfie(
+        file: file,
+        imgId: imgIdToUse,
+        schId: schId,
+      );
+    } else {
+      showCustomToast(context, 'Please wait for site data to load before uploading selfie');
+    }
+  }
+
   // Save selfie locally (no server upload)
   Future<void> _uploadSelfie(File file) async {
     final state = context.read<AssetAuditCubit>().state;
@@ -402,7 +425,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   }
 
   void _saveAndExit() async {
-    _saveFormDataToHive();
+    // _saveFormDataToHive();
+    _saveFormDataToDbDraft();
 
 
 
@@ -452,28 +476,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   }
 
 
-  void _uploadSelfie_old(File file) {
-    final assetAuditState = context.read<AssetAuditCubit>().state;
-    if (assetAuditState is AssetAuditLoaded &&
-        assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
-      final schId = assetAuditState
-          .assetAuditData
-          .pageHeader
-          .first
-          .siteAuditSchId
-          .toString();
-      final imgIdToUse = uploadedImgId != null && uploadedImgId!.isNotEmpty ? uploadedImgId! : "0";
 
-      _hasFormDataChanges = true;
-      context.read<SelfieUploadCubit>().uploadSelfie(
-        file: file,
-        imgId: imgIdToUse,
-        schId: schId,
-      );
-    } else {
-      showCustomToast(context, 'Please wait for site data to load before uploading selfie');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -836,7 +839,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                               onPressed: () async {
                                 print('SPV button pressed');
                                 if (_validateForm()) {
-                                  _saveFormDataToHive();
+                                  // _saveFormDataToHive();
+                                  _saveFormDataToDbDraft();
                                   
                                   // Pass ALL asset audit data to SPV screen
                                   final assetAuditState = context.read<AssetAuditCubit>().state;
