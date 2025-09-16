@@ -1,4 +1,4 @@
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_db.dart';
 import '../repositories/asset_audit_repository.dart';
 import '../models/asset_audit_model.dart';
 import '../utils/offline_image_helper.dart';
@@ -47,8 +47,8 @@ class TicketDownloadService {
       // Convert the complete data to JSON for storage
       final completeTicketData = assetAuditData.toJson();
 
-      // Save to Hive database
-      await HiveDB.saveOfflineTicket(
+      // Save to local storage
+      await LocalStorageDB.saveOfflineTicket(
         siteAuditSchId: siteAuditSchId,
         completeTicketData: completeTicketData,
       );
@@ -72,22 +72,22 @@ class TicketDownloadService {
 
   /// Check if a ticket is already downloaded
   bool isTicketDownloaded(String siteAuditSchId) {
-    return HiveDB.isTicketDownloaded(siteAuditSchId);
+    return LocalStorageDB.isTicketDownloaded(siteAuditSchId);
   }
 
   /// Get downloaded ticket data
   Map<String, dynamic>? getDownloadedTicketData(String siteAuditSchId) {
-    return HiveDB.getOfflineTicket(siteAuditSchId);
+    return LocalStorageDB.getOfflineTicket(siteAuditSchId);
   }
 
   /// Delete downloaded ticket data
   Future<void> deleteDownloadedTicket(String siteAuditSchId) async {
-    await HiveDB.deleteOfflineTicket(siteAuditSchId);
+    await LocalStorageDB.deleteOfflineTicket(siteAuditSchId);
   }
 
   /// Get all downloaded tickets
   List<Map<String, dynamic>> getAllDownloadedTickets() {
-    return HiveDB.getAllOfflineTickets();
+    return LocalStorageDB.getAllOfflineTickets();
   }
 
   /// Save all images from asset audit data locally

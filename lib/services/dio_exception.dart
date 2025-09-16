@@ -1,6 +1,6 @@
 import 'package:dio/dio.dart';
 
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_db.dart';
 
 class DioExceptions implements Exception {
   static String message = "";
@@ -115,7 +115,7 @@ class DioExceptions implements Exception {
   }
 
   sessionExpire(dynamic error) async {
-    await HiveDB.clearAllData();
+    await LocalStorageDB.clearAllData();
     // message = errorResponseModel.message ?? "";
     // return pushNamedAndRemoveUntil(navigatorKey.currentContext!, loginScreen);
   }

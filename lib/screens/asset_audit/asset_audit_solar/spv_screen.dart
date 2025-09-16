@@ -22,7 +22,7 @@ import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
-import '../../../hive_local_database/hive_db.dart';
+import '../../../services/local_storage_db.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../home_screen.dart';
@@ -796,7 +796,7 @@ class _SPVScreenState extends State<SPVScreen> {
                 final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
 
                 if (state.imageData.isNotEmpty) {
-                  HiveDB.updateAssetAuditSelfie(
+                  LocalStorageDB.updateAssetAuditSelfie(
                     siteAuditSchId: schId,
                     newImageId: _lastRequestedPhotoId ?? '',
                     newImageData: state.imageData,

@@ -1,4 +1,4 @@
-import 'package:app/hive_local_database/hive_db.dart';
+import 'package:app/services/local_storage_db.dart';
 import 'package:app/utils.dart';
 
 class AuthService {
@@ -9,17 +9,17 @@ class AuthService {
 
   // Check if user is authenticated
   bool get isAuthenticated {
-    final token = HiveDB.getToken;
+    final token = LocalStorageDB.getToken;
     if (token == null || token.isEmpty) return false;
     
     return !Utils.isTokenExpired(token);
   }
 
   // Get current token
-  String? get currentToken => HiveDB.getToken;
+  String? get currentToken => LocalStorageDB.getToken;
 
   // Get token expiration
-  DateTime? get tokenExpiration => HiveDB.getTokenExpiry;
+  DateTime? get tokenExpiration => LocalStorageDB.getTokenExpiry;
 
   // Check if token will expire soon (within 5 minutes)
   bool get isTokenExpiringSoon {
@@ -34,12 +34,12 @@ class AuthService {
 
   // Logout user
   Future<void> logout() async {
-    await HiveDB.logout();
+    await LocalStorageDB.logout();
   }
 
   // Clear all data
   Future<void> clearAllData() async {
-    await HiveDB.clearAllData();
+    await LocalStorageDB.clearAllData();
   }
 
   // Get headers with token

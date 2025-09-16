@@ -13,6 +13,7 @@ import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_1.dart';
 import 'package:app/screens/reset_password_screen.dart';
 import 'package:app/screens/splash_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
+import 'package:app/screens/sqlite_query_screen.dart';
 import 'package:flutter/material.dart';
 
 import '../screens/login_screen.dart';
@@ -114,6 +115,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       );
     case ticketScreen:
       return _push(const TicketScreen(auditName: "", status: ""));
+    case sqliteQueryScreen:
+      return _push(const SQLiteQueryScreen());
 
     default:
       return MaterialPageRoute(

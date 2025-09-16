@@ -20,9 +20,11 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
-import '../../../hive_local_database/hive_db.dart';
-import '../../../utils/asset_audit_form_persistence_helper.dart';
+import '../../../services/local_storage_db.dart';
+import '../../../utils/asset_audit_form_persistence_helper_sqlite.dart';
+import '../../../utils/debug_sqlite_helper.dart';
 import '../../../models/asset_audit_model.dart';
+import '../../debug_sqlite_screen.dart';
 
 class AssetAuditSolarScreen extends StatefulWidget {
   final String siteType;
@@ -92,9 +94,18 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     Logger.debugLog('=== didChangeDependencies called ===');
+    Logger.debugLog('Parameters: siteType=${widget.siteType}, auditSchId=${widget.auditSchId}, siteAuditSchId=${widget.siteAuditSchId}');
+
+    // Debug: Print current SQLite data
+    final siteAuditSchIdInt = int.tryParse(widget.siteAuditSchId);
+    if (siteAuditSchIdInt != null) {
+      DebugSQLiteHelper.printSiteData(siteAuditSchIdInt);
+    }
 
     // Only call getAssetAuditData if not already loaded
     final currentState = context.read<AssetAuditCubit>().state;
+    Logger.debugLog('Current AssetAuditCubit state: ${currentState.runtimeType}');
+    
     if (currentState is! AssetAuditLoaded) {
       Logger.debugLog('=== Calling getAssetAuditData from didChangeDependencies ===');
       setState(() {
@@ -110,12 +121,14 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       Logger.debugLog(
         '=== AssetAuditData already loaded, skipping getAssetAuditData call ===',
       );
+      // Debug: Test if we can reconstruct the model from database
+      if (siteAuditSchIdInt != null) {
+        DebugSQLiteHelper.testAssetAuditModelReconstruction(siteAuditSchIdInt);
+      }
     }
 
-    AssetAuditFormPersistenceHelper.ensureHiveBoxReady().then((_) {
-      _loadStoredSelfie();
-      _checkPageHeaderForSelfie();
-    });
+    _loadStoredSelfie();
+    _checkPageHeaderForSelfie();
   }
 
   @override
@@ -158,7 +171,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
     });
   }
 
-  void _saveFormDataToHive() {
+  void _saveFormDataToSQLite() {
     if (!_hasFormDataChanges) return;
 
     final Map<String, dynamic> formData = {
@@ -176,7 +189,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     };
 
-    AssetAuditFormPersistenceHelper.saveFormData(
+    AssetAuditFormPersistenceHelperSQLite.saveFormData(
       siteAuditSchId: widget.siteAuditSchId,
       screenName: 'solar_page_1',
       formData: formData,
@@ -186,13 +199,21 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
   void _checkPageHeaderForSelfie() {
     final assetAuditState = context.read<AssetAuditCubit>().state;
+    Logger.debugLog('=== _checkPageHeaderForSelfie called ===');
+    Logger.debugLog('AssetAuditState type: ${assetAuditState.runtimeType}');
+    
     if (assetAuditState is AssetAuditLoaded &&
         assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
       final pageHeader = assetAuditState.assetAuditData.pageHeader.first;
-      Logger.debugLog('makerSelfieImageId: ${pageHeader.makerSelfieImageId}');
+      Logger.debugLog('PageHeader found:');
+      Logger.debugLog('  - siteAuditSchId: ${pageHeader.siteAuditSchId}');
+      Logger.debugLog('  - siteName: ${pageHeader.siteName}');
+      Logger.debugLog('  - makerSelfieImageId: ${pageHeader.makerSelfieImageId}');
+      Logger.debugLog('  - makerSelfieImageId type: ${pageHeader.makerSelfieImageId.runtimeType}');
 
       if (pageHeader.makerSelfieImageId != null &&
           pageHeader.makerSelfieImageId! > 0) {
+        Logger.debugLog('✅ makerSelfieImageId is valid, setting up image fetch');
         setState(() {
           uploadedImgId = pageHeader.makerSelfieImageId.toString();
           fetchedImageData = null;
@@ -203,19 +224,20 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
           'key': 'selfie',
         });
         _fetchNextImage();
+      } else {
+        Logger.debugLog('❌ makerSelfieImageId is null or <= 0, no image to fetch');
       }
     } else {
-      Logger.debugLog('assetAuditState type: ${assetAuditState.runtimeType}');
+      Logger.debugLog('❌ AssetAuditState is not loaded or pageHeader is empty');
+      Logger.debugLog('AssetAuditState type: ${assetAuditState.runtimeType}');
       if (assetAuditState is AssetAuditLoaded) {
-        Logger.debugLog(
-          'pageHeader length: ${assetAuditState.assetAuditData.pageHeader.length}',
-        );
+        Logger.debugLog('PageHeader length: ${assetAuditState.assetAuditData.pageHeader.length}');
       }
     }
   }
 
   void _loadStoredSelfie() async {
-    final formData = await AssetAuditFormPersistenceHelper.loadFormData(
+    final formData = await AssetAuditFormPersistenceHelperSQLite.loadFormData(
       siteAuditSchId: widget.siteAuditSchId,
       screenName: 'solar_page_1',
     );
@@ -241,41 +263,46 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
 
       if (formData['uploadedImgId'] != null &&
           formData['uploadedImgId'].toString().isNotEmpty) {
-        final storedSelfie = HiveDB.getAssetAuditSelfie(widget.siteAuditSchId);
-        if (storedSelfie != null &&
-            storedSelfie['imageData'] != null &&
-            storedSelfie['imageData'].toString().isNotEmpty) {
-          setState(() {
-            fetchedImageData = storedSelfie['imageData'] as String?;
-          });
-        } else {
-          _imageQueue.add({
-            'photoId': formData['uploadedImgId'].toString(),
-            'key': 'selfie',
-          });
-          _fetchNextImage();
+        final imageId = int.tryParse(formData['uploadedImgId'].toString());
+        if (imageId != null) {
+          final cachedImage = await AssetAuditFormPersistenceHelperSQLite.getCachedImage(imageId);
+          if (cachedImage != null && cachedImage.isNotEmpty) {
+            setState(() {
+              fetchedImageData = cachedImage;
+            });
+          } else {
+            _imageQueue.add({
+              'photoId': formData['uploadedImgId'].toString(),
+              'key': 'selfie',
+            });
+            _fetchNextImage();
+          }
         }
       }
     } else {
-      final storedSelfie = HiveDB.getAssetAuditSelfie(widget.siteAuditSchId);
-      if (storedSelfie != null) {
-        if (storedSelfie['imageData'] != null &&
-            storedSelfie['imageData'].toString().isNotEmpty) {
-          setState(() {
-            uploadedImgId = storedSelfie['imageId'] as String?;
-            fetchedImageData = storedSelfie['imageData'] as String?;
-            uploadedPhotoPath = null;
-          });
-        } else if (storedSelfie['imageId'] != null &&
-            storedSelfie['imageId'].toString().isNotEmpty) {
-          setState(() {
-            uploadedImgId = storedSelfie['imageId'] as String?;
-          });
-          _imageQueue.add({
-            'photoId': storedSelfie['imageId'].toString(),
-            'key': 'selfie',
-          });
-          _fetchNextImage();
+      // Check if there's a cached image from page header
+      final assetAuditState = context.read<AssetAuditCubit>().state;
+      if (assetAuditState is AssetAuditLoaded &&
+          assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
+        final pageHeader = assetAuditState.assetAuditData.pageHeader.first;
+        if (pageHeader.makerSelfieImageId != null && pageHeader.makerSelfieImageId! > 0) {
+          final cachedImage = await AssetAuditFormPersistenceHelperSQLite.getCachedImage(pageHeader.makerSelfieImageId!);
+          if (cachedImage != null && cachedImage.isNotEmpty) {
+            setState(() {
+              uploadedImgId = pageHeader.makerSelfieImageId.toString();
+              fetchedImageData = cachedImage;
+              uploadedPhotoPath = null;
+            });
+          } else {
+            setState(() {
+              uploadedImgId = pageHeader.makerSelfieImageId.toString();
+            });
+            _imageQueue.add({
+              'photoId': pageHeader.makerSelfieImageId.toString(),
+              'key': 'selfie',
+            });
+            _fetchNextImage();
+          }
         }
       }
     }
@@ -330,7 +357,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
   }
 
   Future<void> _saveAndExit() async {
-    _saveFormDataToHive();
+    _saveFormDataToSQLite();
   }
 
   void _showSuccessDialogWithMessage(String message) {
@@ -430,17 +457,33 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
       listeners: [
         BlocListener<AssetAuditCubit, AssetAuditState>(
           listener: (context, state) {
+            Logger.debugLog('=== AssetAuditCubit state changed ===');
+            Logger.debugLog('New state: ${state.runtimeType}');
+            
             if (state is AssetAuditError) {
+              Logger.errorLog('❌ AssetAuditError: ${state.message}');
               setState(() {
                 _isLoadingData = false;
                 _apiError = state.message;
               });
               showCustomToast(context, 'Failed to load site data: ${state.message}');
             } else if (state is AssetAuditLoaded) {
+              Logger.debugLog('✅ AssetAuditLoaded successfully');
+              Logger.debugLog('Page headers: ${state.assetAuditData.pageHeader.length}');
+              Logger.debugLog('Categories: ${state.assetAuditData.responseData.categories.length}');
+              
+              if (state.assetAuditData.pageHeader.isNotEmpty) {
+                final pageHeader = state.assetAuditData.pageHeader.first;
+                Logger.debugLog('Site name: ${pageHeader.siteName}');
+                Logger.debugLog('Selfie image ID: ${pageHeader.makerSelfieImageId}');
+              }
+              
               setState(() {
                 _isLoadingData = false;
                 _apiError = null;
               });
+            } else if (state is AssetAuditLoading) {
+              Logger.debugLog('⏳ AssetAuditLoading...');
             } else if (state is AssetAuditPostSuccess) {
               Logger.debugLog(
                 'Asset audit data posted successfully: ${state.responses.length} responses',
@@ -466,10 +509,14 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
         ),
         BlocListener<AssetAuditGetImageCubit, AssetAuditGetImageState>(
           listener: (context, state) async {
+            Logger.debugLog('=== AssetAuditGetImageCubit state changed ===');
+            Logger.debugLog('State type: ${state.runtimeType}');
+            
             if (state is AssetAuditGetImageSuccess) {
-              Logger.debugLog(
-                'Image loaded for photoId: $_lastRequestedPhotoId, data length: ${state.imageData.length}',
-              );
+              Logger.debugLog('✅ Image fetch SUCCESS for photoId: $_lastRequestedPhotoId');
+              Logger.debugLog('Image data length: ${state.imageData.length}');
+              Logger.debugLog('Image data preview: ${state.imageData.length > 50 ? state.imageData.substring(0, 50) + "..." : state.imageData}');
+              
               final assetAuditState = context.read<AssetAuditCubit>().state;
               if (assetAuditState is AssetAuditLoaded &&
                   assetAuditState.assetAuditData.pageHeader.isNotEmpty) {
@@ -491,22 +538,18 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                         _lastRequestedPhotoId;
 
                 if (state.imageData.isNotEmpty) {
-                  HiveDB.updateAssetAuditSelfie(
-                    siteAuditSchId: schId,
-                    newImageId: _lastRequestedPhotoId ?? '',
-                    newImageData: state.imageData,
-                  );
-
+                  Logger.debugLog('🔄 Setting fetchedImageData in state');
                   setState(() {
                     fetchedImageData = state.imageData;
                     _hasFormDataChanges = true;
                   });
+                  Logger.debugLog('✅ fetchedImageData set to: ${fetchedImageData?.length ?? 0} characters');
 
                   _fetchingImage = false;
                   _fetchNextImage();
                 } else {
                   Logger.debugLog(
-                    'Empty image data received for photoId: $_lastRequestedPhotoId',
+                    '❌ Empty image data received for photoId: $_lastRequestedPhotoId',
                   );
                   await _handleImageLoadRetry(
                     _lastRequestedPhotoId ?? '',
@@ -515,19 +558,21 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                 }
               } else {
                 Logger.debugLog(
-                  'AssetAuditCubit state is not AssetAuditLoaded or pageHeader is empty',
+                  '❌ AssetAuditCubit state is not AssetAuditLoaded or pageHeader is empty',
                 );
                 _fetchingImage = false;
                 _fetchNextImage();
               }
             } else if (state is AssetAuditGetImageFailure) {
               Logger.errorLog(
-                'Failed to load image for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}',
+                '❌ Image fetch FAILED for photoId: $_lastRequestedPhotoId, error: ${state.errorMessage}',
               );
               await _handleImageLoadRetry(
                 _lastRequestedPhotoId ?? '',
                 'selfie',
               );
+            } else if (state is AssetAuditGetImageLoading) {
+              Logger.debugLog('⏳ Image fetch LOADING for photoId: $_lastRequestedPhotoId');
             }
           },
         ),
@@ -692,6 +737,60 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                           ],
                                         ),
                                       ),
+
+                                    // Debug button (remove in production)
+                                    Container(
+                                      margin: const EdgeInsets.only(bottom: 20),
+                                      child: Column(
+                                        children: [
+                                          // First row
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  onPressed: () {
+                                                    DebugSQLiteHelper.printAllData();
+                                                  },
+                                                  child: const Text('Print All Data', style: TextStyle(fontSize: 12)),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: ElevatedButton(
+                                                  onPressed: () {
+                                                    final siteAuditSchIdInt = int.tryParse(widget.siteAuditSchId);
+                                                    if (siteAuditSchIdInt != null) {
+                                                      DebugSQLiteHelper.printSiteData(siteAuditSchIdInt);
+                                                    }
+                                                  },
+                                                  child: const Text('Print Site Data', style: TextStyle(fontSize: 12)),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          // Second row
+                                          SizedBox(
+                                            width: double.infinity,
+                                            child: ElevatedButton(
+                                              onPressed: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => const DebugSQLiteScreen(),
+                                                  ),
+                                                );
+                                              },
+                                              child: const Text('Open Debug Screen'),
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.orange,
+                                                foregroundColor: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
 
                                     // Show form fields only when data is loaded and no error
                                     if (!_isLoadingData && _apiError == null)
@@ -927,12 +1026,18 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                     Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        ImageUploadField(
-                                          label: "Add a Selfie",
-                                          placeholder: "Selfie",
-                                          isRequired: true,
-                                          externalImageUrl: fetchedImageData,
-                                          onImageSelected: (file) {
+                                        Builder(
+                                          builder: (context) {
+                                            Logger.imageLog('🏗️ Building ImageUploadField widget');
+                                            Logger.imageLog('fetchedImageData length: ${fetchedImageData?.length ?? 0}');
+                                            Logger.imageLog('uploadedPhotoPath: $uploadedPhotoPath');
+                                            Logger.imageLog('uploadedImgId: $uploadedImgId');
+                                            return ImageUploadField(
+                                              label: "Add a Selfie",
+                                              placeholder: "Selfie",
+                                              isRequired: true,
+                                              externalImageUrl: fetchedImageData,
+                                              onImageSelected: (file) {
                                             if (file != null) {
                                               debugPrint(
                                                 "Selected image path: ${file.path}",
@@ -952,6 +1057,8 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                                 fetchedImageData = null;
                                               });
                                             }
+                                          },
+                                            );
                                           },
                                         ),
                                         // Show validation error for image upload
@@ -1060,7 +1167,7 @@ class _AssetAuditSolarScreenState extends State<AssetAuditSolarScreen> {
                                       }
                                       
                                       if (_validateForm()) {
-                                        _saveFormDataToHive();
+                                        _saveFormDataToSQLite();
 
                                         // Pass ALL asset audit data to SPV screen
                                         final assetAuditState = context

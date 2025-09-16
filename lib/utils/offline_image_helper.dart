@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import '../hive_local_database/hive_db.dart';
-import '../hive_local_database/hive_constant.dart';
+import '../services/local_storage_db.dart';
+import '../services/local_storage_constants.dart';
+import '../services/local_storage_service.dart';
 
 class OfflineImageHelper {
   /// Save image data to local storage and return local path
@@ -54,11 +55,10 @@ class OfflineImageHelper {
     String? category,
   }) async {
     try {
-      await HiveDB.openHiveDB(HiveConstant.assetAuditImages);
-      final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
+      // Using SharedPreferences now
       final key = 'offline_image_${siteAuditSchId}_$photoId';
       
-      await box.put(key, {
+      await LocalStorageService.setJson(key, {
         'photoId': photoId,
         'localPath': localPath,
         'category': category,
@@ -76,10 +76,9 @@ class OfflineImageHelper {
   static String? getLocalImagePath(String siteAuditSchId, String photoId) {
     try {
       print('OfflineImageHelper: getLocalImagePath - siteAuditSchId: $siteAuditSchId, photoId: $photoId');
-      final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
       final key = 'offline_image_${siteAuditSchId}_$photoId';
       print('OfflineImageHelper: Looking for key: $key');
-      final data = box.get(key);
+      final data = LocalStorageService.getJson(key);
       print('OfflineImageHelper: Data found: ${data != null}');
       
       if (data != null) {
@@ -107,23 +106,22 @@ class OfflineImageHelper {
   /// Get all saved images for a site
   static List<Map<String, dynamic>> getSavedImages(String siteAuditSchId) {
     try {
-      final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
       final List<Map<String, dynamic>> images = [];
+      final keys = LocalStorageService.getKeys();
       
       print('OfflineImageHelper: getSavedImages - siteAuditSchId: $siteAuditSchId');
-      print('OfflineImageHelper: Total keys in box: ${box.keys.length}');
+      print('OfflineImageHelper: Total keys: ${keys.length}');
       
-      for (final key in box.keys) {
+      for (final key in keys) {
         print('OfflineImageHelper: Checking key: $key');
-        if (key.toString().startsWith('offline_image_${siteAuditSchId}_')) {
+        if (key.startsWith('offline_image_${siteAuditSchId}_')) {
           print('OfflineImageHelper: Found matching key: $key');
-          final data = box.get(key);
+          final data = LocalStorageService.getJson(key);
           if (data != null) {
-            final metadata = Map<String, dynamic>.from(data);
-            print('OfflineImageHelper: Metadata: $metadata');
-            if (metadata['localPath'] != null && File(metadata['localPath']).existsSync()) {
-              images.add(metadata);
-              print('OfflineImageHelper: Added image: ${metadata['photoId']}');
+            print('OfflineImageHelper: Metadata: $data');
+            if (data['localPath'] != null && File(data['localPath']).existsSync()) {
+              images.add(data);
+              print('OfflineImageHelper: Added image: ${data['photoId']}');
             }
           }
         }
@@ -140,17 +138,17 @@ class OfflineImageHelper {
   /// Clear all images for a site
   static Future<void> clearImagesForSite(String siteAuditSchId) async {
     try {
-      final box = HiveDB.getHiveBox(HiveConstant.assetAuditImages);
       final keysToDelete = <String>[];
+      final keys = LocalStorageService.getKeys();
       
-      for (final key in box.keys) {
-        if (key.toString().startsWith('offline_image_${siteAuditSchId}_')) {
-          keysToDelete.add(key.toString());
+      for (final key in keys) {
+        if (key.startsWith('offline_image_${siteAuditSchId}_')) {
+          keysToDelete.add(key);
         }
       }
       
       for (final key in keysToDelete) {
-        await box.delete(key);
+        await LocalStorageService.remove(key);
       }
       
       // Also delete the physical files

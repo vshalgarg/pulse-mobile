@@ -1,6 +1,6 @@
-import 'package:app/hive_local_database/hive_db.dart';
+import 'package:app/services/local_storage_db.dart';
 
-import '../hive_local_database/hive_constant.dart';
+import '../services/local_storage_constants.dart';
 
 /// Helper class for managing form data persistence across asset audit screens
 class AssetAuditFormPersistenceHelper {
@@ -34,7 +34,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before saving
     await ensureHiveBoxReady();
 
-    await HiveDB.saveAssetAuditFormData(
+    await LocalStorageDB.saveAssetAuditFormData(
       siteAuditSchId: siteAuditSchId,
       screenName: screenName,
       formData: formData,
@@ -54,7 +54,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before loading
     await ensureHiveBoxReady();
 
-    final savedData = HiveDB.getAssetAuditFormData(
+    final savedData = LocalStorageDB.getAssetAuditFormData(
       siteAuditSchId: siteAuditSchId,
       screenName: screenName,
     );
@@ -82,7 +82,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before updating
     await ensureHiveBoxReady();
 
-    await HiveDB.updateAssetAuditFormData(
+    await LocalStorageDB.updateAssetAuditFormData(
       siteAuditSchId: siteAuditSchId,
       screenName: screenName,
       newFormData: newFormData,
@@ -101,7 +101,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before clearing
     await ensureHiveBoxReady();
 
-    await HiveDB.clearAssetAuditFormData(
+    await LocalStorageDB.clearAssetAuditFormData(
       siteAuditSchId: siteAuditSchId,
       screenName: screenName,
     );
@@ -117,7 +117,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before clearing
     await ensureHiveBoxReady();
 
-    await HiveDB.clearAllAssetAuditFormData(siteAuditSchId);
+    await LocalStorageDB.clearAllAssetAuditFormData(siteAuditSchId);
 
     print('=== Form Persistence: All data cleared successfully ===');
   }
@@ -135,7 +135,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before checking
     await ensureHiveBoxReady();
     
-    final savedData = HiveDB.getAssetAuditFormData(
+    final savedData = LocalStorageDB.getAssetAuditFormData(
       siteAuditSchId: siteAuditSchId,
       screenName: screenName,
     );
@@ -150,7 +150,7 @@ class AssetAuditFormPersistenceHelper {
     // Ensure Hive box is ready before getting timestamp
     await ensureHiveBoxReady();
     
-    final savedData = HiveDB.getAssetAuditFormData(
+    final savedData = LocalStorageDB.getAssetAuditFormData(
       siteAuditSchId: siteAuditSchId,
       screenName: screenName,
     );
@@ -164,7 +164,7 @@ class AssetAuditFormPersistenceHelper {
   /// Ensure Hive box is ready before operations
   static Future<void> ensureHiveBoxReady() async {
     try {
-      await HiveDB.openHiveDB(HiveConstant.assetAuditFormData);
+      // No need to open Hive box - using SharedPreferences now
       print('=== Form Persistence: Hive box is ready ===');
     } catch (e) {
       print('=== Form Persistence: Error ensuring Hive box ready: $e ===');

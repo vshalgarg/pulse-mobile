@@ -4,11 +4,12 @@ import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants/constants_methods.dart';
-import '../hive_local_database/hive_constant.dart';
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_constants.dart';
+import '../services/local_storage_db.dart';
+import '../services/local_storage_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -18,7 +19,7 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 class PushNotificationApi {
   final _firebaseMessaging = FirebaseMessaging.instance;
-  var boxes = Hive.box(HiveConstant.userCreds);
+  // Removed Hive box reference - using SharedPreferences now
 
   final AndroidNotificationChannel _androidChannel = const AndroidNotificationChannel(
     'high_importance_channel', // id
@@ -98,8 +99,8 @@ class PushNotificationApi {
   Future<void> initNotifications() async {
     await _firebaseMessaging.requestPermission();
     final fcmToken = await _firebaseMessaging.getToken();
-    boxes.put(HiveConstant.firebaseToken, fcmToken.toString());
-    kDebugPrint("saved Firebase Token: ${HiveDB.getFireBaseToken}");
+    await LocalStorageService.setString(LocalStorageConstants.firebaseToken, fcmToken.toString());
+    kDebugPrint("saved Firebase Token: ${LocalStorageDB.getFireBaseToken}");
     initPushNotifications();
     initLocalNotifications();
   }

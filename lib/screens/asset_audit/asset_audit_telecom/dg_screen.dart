@@ -640,7 +640,7 @@ class _DgScreenState extends State<DgScreen> {
                                     // Handle status change if needed
                                   },
                                   customValidator: _validateDGSerialNumber,
-                                  siteAuditSchId: widget.siteAuditSchId,
+                                  siteAuditSchId: widget.siteAuditSchId ?? '',
                                 ),
                                 getHeight(15),
                                 

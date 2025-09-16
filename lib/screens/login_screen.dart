@@ -6,7 +6,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/hive_local_database/hive_db.dart';
+import 'package:app/services/local_storage_db.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
@@ -52,9 +52,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
 
   void _loadSavedCredentials() {
-    if (HiveDB.getRememberMe) {
-      final savedUsername = HiveDB.getUsername;
-      final savedPassword = HiveDB.getPassword;
+    if (LocalStorageDB.getRememberMe) {
+      final savedUsername = LocalStorageDB.getUsername;
+      final savedPassword = LocalStorageDB.getPassword;
       
       if (savedUsername != null && savedPassword != null) {
         mobileController.text = savedUsername;

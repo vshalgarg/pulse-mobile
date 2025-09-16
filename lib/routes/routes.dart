@@ -20,6 +20,7 @@ const String batteryScreen = "/batteryScreen";
 const String extinguisherScreen = "/extinguisherScreen";
 const String solarPlateScreen = "/solarPlateScreen";
 const String pmScreen1 = "/pmScreen1";
+const String sqliteQueryScreen = "/sqliteQueryScreen";
 
 
 

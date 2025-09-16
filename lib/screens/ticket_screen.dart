@@ -2,6 +2,7 @@
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_1.dart';
+import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -17,6 +18,8 @@ import '../routes/routes.dart';
 import '../services/location_service.dart';
 import 'asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 import 'asset_audit/asset_audit_solar/asset_audit_solar.dart';
+import 'asset_audit/asset_audit_solar_v2/asset_audit_solar_v2_screen.dart';
+import '../services/asset_audit/central_service_initializer.dart';
 import 'energy_reading/energy_reading_screen.dart';
 
 class TicketScreen extends StatefulWidget {
@@ -34,12 +37,14 @@ class TicketScreen extends StatefulWidget {
 }
 
 class _TicketScreenState extends State<TicketScreen> {
+  late CentralAssetAuditService _service;
   late String _currentTicketType;
   late String _currentActivityType;
 
   @override
   void initState() {
     super.initState();
+    _service = CentralAssetAuditServiceInitializer.getService();
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
     _loadTickets();
@@ -108,6 +113,92 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
+  /// Navigate to Solar Asset Audit V2 with data fetching
+  Future<void> _navigateToSolarAssetAuditV2(Ticket? ticket) async {
+    if (ticket == null) return;
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading asset audit data...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Initialize service if not already done
+      if (!CentralAssetAuditServiceInitializer.isInitialized) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Central Asset Audit service not initialized'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Get the service and fetch data
+      final service = CentralAssetAuditServiceInitializer.getService();
+      final data = await service.getAssetAuditData(
+        siteType: "Solar",
+        auditSchId: ticket.auditSchId?.toString() ?? "",
+        siteAuditSchId: ticket.ticketSchId.toString(),
+      );
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      if (data != null) {
+        // Navigate to the screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssetAuditSolarV2Screen(
+              siteType: "Solar",
+              auditSchId: ticket.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket.ticketSchId.toString(),
+            ),
+          ),
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load asset audit data'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _navigateToAuditScreen(Ticket? ticket) {
     if (widget.auditName == "Asset Audit") {
       // Check site domain to determine which screen to navigate to
@@ -124,17 +215,8 @@ class _TicketScreenState extends State<TicketScreen> {
           ),
         );
       } else {
-        // Navigate to Solar Asset Audit
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AssetAuditSolarScreen(
-              siteType: "Solar",
-              auditSchId: ticket?.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
-            ),
-          ),
-        );
+        // Navigate to Solar Asset Audit V2
+        _navigateToSolarAssetAuditV2(ticket);
       }
     } else {
       switch (widget.auditName) {
@@ -342,12 +424,92 @@ class _TicketScreenState extends State<TicketScreen> {
               }
             },
             onDownloadTap: () {
-              print("Download ticket details for ${ticket.pvTicketId}");
+              _showClearDatabaseDialog();
             },
           ),
         );
       },
     );
+  }
+
+
+  void _showClearDatabaseDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Database'),
+        content: const Text(
+          'This will clear all cached data from the database. This action cannot be undone.\n\n'
+              'Do you want to continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _clearDatabase();
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Clear All Data'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearDatabase() async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Clearing database...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Clear the database
+      await _service.clearAllData();
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Database cleared successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error clearing database: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _buildErrorWidget(String errorMessage) {

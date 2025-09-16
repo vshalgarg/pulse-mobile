@@ -13,7 +13,7 @@ import '../../../bloc/asset_audit_state.dart';
 import '../../../bloc/selfie_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
-import '../../../hive_local_database/hive_db.dart';
+import '../../../services/local_storage_db.dart';
 import '../../../utils/asset_audit_form_persistence_helper.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/custom_dialog.dart';
@@ -201,7 +201,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
       });
 
       if (formData['uploadedImgId'] != null && formData['uploadedImgId'].toString().isNotEmpty) {
-        final storedSelfie = HiveDB.getAssetAuditSelfie(widget.siteAuditSchId);
+        final storedSelfie = LocalStorageDB.getAssetAuditSelfie(widget.siteAuditSchId);
         if (storedSelfie != null && storedSelfie['imageData'] != null && storedSelfie['imageData'].toString().isNotEmpty) {
           setState(() {
             fetchedImageData = storedSelfie['imageData'] as String?;
@@ -212,7 +212,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
         }
       }
     } else {
-      final storedSelfie = HiveDB.getAssetAuditSelfie(widget.siteAuditSchId);
+      final storedSelfie = LocalStorageDB.getAssetAuditSelfie(widget.siteAuditSchId);
       if (storedSelfie != null) {
         if (storedSelfie['imageData'] != null && storedSelfie['imageData'].toString().isNotEmpty) {
           setState(() {
@@ -338,7 +338,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                 });
 
                 if (state.response.imgId.isNotEmpty) {
-                  HiveDB.saveAssetAuditSelfie(
+                  LocalStorageDB.saveAssetAuditSelfie(
                     siteAuditSchId: schId,
                     imageId: state.response.imgId,
                     imageData: '',
@@ -365,7 +365,7 @@ class _AssetAuditTelecomScreenState extends State<AssetAuditTelecomScreen> {
                 final isFromPageHeader = pageHeader.makerSelfieImageId != null && pageHeader.makerSelfieImageId.toString() == _lastRequestedPhotoId;
 
                 if (state.imageData.isNotEmpty) {
-                  HiveDB.updateAssetAuditSelfie(
+                  LocalStorageDB.updateAssetAuditSelfie(
                     siteAuditSchId: schId,
                     newImageId: _lastRequestedPhotoId ?? '',
                     newImageData: state.imageData,

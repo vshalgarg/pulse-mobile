@@ -1,6 +1,6 @@
 // import 'package:flutter/material.dart';
 // import 'offline_data_helper.dart';
-// import '../hive_local_database/hive_db.dart';
+// import '../services/local_storage_db.dart';
 //
 // /// Test utility to verify offline data loading works correctly
 // class OfflineDataTest {

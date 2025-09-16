@@ -1,5 +1,6 @@
 import '../services/user_details_service.dart';
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_db.dart';
+import '../services/local_storage_service.dart';
 
 class DebugUserApi {
   /// Debug method to test the user details API and see what fields are returned
@@ -8,7 +9,7 @@ class DebugUserApi {
       print('=== DEBUG USER API ===');
       
       // Check if user is authenticated
-      final token = HiveDB.getToken;
+      final token = LocalStorageDB.getToken;
       if (token == null || token.isEmpty) {
         print('DEBUG: No token found, user not authenticated');
         return;
@@ -32,7 +33,7 @@ class DebugUserApi {
         print('  - designation: ${userDetails.designation}');
         
         // Check what's stored locally
-        final storedFullName = HiveDB.getFullName;
+        final storedFullName = LocalStorageDB.getFullName;
         print('DEBUG: Stored fullName in local storage: $storedFullName');
         
         if (userDetails.fullName == null || userDetails.fullName!.isEmpty) {
@@ -55,10 +56,10 @@ class DebugUserApi {
   /// Test method to manually set a fullName for testing
   static Future<void> testSetFullName(String testName) async {
     try {
-      await HiveDB.saveFullName(testName);
+      await LocalStorageDB.saveFullName(testName);
       print('DEBUG: Test fullName set to: $testName');
       
-      final retrievedName = HiveDB.getFullName;
+      final retrievedName = LocalStorageDB.getFullName;
       print('DEBUG: Retrieved fullName: $retrievedName');
     } catch (e) {
       print('DEBUG: Error setting test fullName: $e');
@@ -68,7 +69,7 @@ class DebugUserApi {
   /// Clear all user data for testing
   static Future<void> clearUserData() async {
     try {
-      await HiveDB.getHiveBox('userCreds').delete('fullName');
+      await LocalStorageService.remove('fullName');
       print('DEBUG: User data cleared');
     } catch (e) {
       print('DEBUG: Error clearing user data: $e');

@@ -1,17 +1,17 @@
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_db.dart';
 import '../services/user_details_service.dart';
 
 class UserNameUtils {
   /// Get the user's display name (fullName if available, otherwise firstName, otherwise "User")
   static String getUserDisplayName() {
     // First try to get fullName from local storage
-    final fullName = HiveDB.getFullName;
+    final fullName = LocalStorageDB.getFullName;
     if (fullName != null && fullName.isNotEmpty) {
       return fullName;
     }
 
     // Fallback to firstName
-    final firstName = HiveDB.getFirstName;
+    final firstName = LocalStorageDB.getFirstName;
     if (firstName != null && firstName.isNotEmpty) {
       return firstName;
     }
@@ -22,18 +22,18 @@ class UserNameUtils {
 
   /// Get the user's full name from local storage
   static String? getFullName() {
-    return HiveDB.getFullName;
+    return LocalStorageDB.getFullName;
   }
 
   /// Get the user's first name from local storage
   static String? getFirstName() {
-    return HiveDB.getFirstName;
+    return LocalStorageDB.getFirstName;
   }
 
   /// Check if user details are available
   static bool get hasUserDetails {
-    final fullName = HiveDB.getFullName;
-    final firstName = HiveDB.getFirstName;
+    final fullName = LocalStorageDB.getFullName;
+    final firstName = LocalStorageDB.getFirstName;
     return (fullName != null && fullName.isNotEmpty) || 
            (firstName != null && firstName.isNotEmpty);
   }
@@ -69,13 +69,13 @@ class UserNameUtils {
   static Future<String> getUserDisplayNameEnhanced() async {
     try {
       // First try to get from local storage
-      final fullName = HiveDB.getFullName;
+      final fullName = LocalStorageDB.getFullName;
       if (fullName != null && fullName.isNotEmpty && fullName != "User") {
         return fullName;
       }
 
       // Try to get firstName as fallback
-      final firstName = HiveDB.getFirstName;
+      final firstName = LocalStorageDB.getFirstName;
       if (firstName != null && firstName.isNotEmpty && firstName != "User") {
         return firstName;
       }

@@ -4,7 +4,7 @@
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import '../bloc/asset_audit_photo_upload_cubit.dart';
 // import '../services/connectivity_service.dart';
-// import '../hive_local_database/hive_db.dart';
+// import '../services/local_storage_db.dart';
 // import 'photo_id_adapter.dart';
 //
 // class OfflinePhotoUploadHelper {

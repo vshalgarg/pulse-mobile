@@ -2,8 +2,9 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../constants/constants_strings.dart';
-import '../../hive_local_database/hive_constant.dart';
-import '../../hive_local_database/hive_db.dart';
+import '../../services/local_storage_constants.dart';
+import '../../services/local_storage_db.dart';
+import '../../services/local_storage_service.dart';
 import '../../models/auth_model.dart';
 import '../../repositories/auth_repository.dart';
 import '../../services/user_details_service.dart';
@@ -65,24 +66,24 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> _saveTokensToStorage(AuthModel authData) async {
     try {
       // Save access token
-      await HiveDB.saveToken(authData.token);
+      await LocalStorageDB.saveToken(authData.token);
       
       // Save token expiry if available
       if (authData.tokenExpiry != null) {
-        await HiveDB.saveTokenExpiry(authData.tokenExpiry!);
+        await LocalStorageDB.saveTokenExpiry(authData.tokenExpiry!);
       }
       
       // Save user ID if available
       if (authData.userId != null) {
-        await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.userId, authData.userId);
+        await LocalStorageService.setString(LocalStorageConstants.userId, authData.userId!);
       }
       
       // Save user info if available
       if (authData.firstName != null) {
-        await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.firstName, authData.firstName);
+        await LocalStorageService.setString(LocalStorageConstants.firstName, authData.firstName!);
       }
       if (authData.email != null) {
-        await HiveDB.getHiveBox(HiveConstant.userCreds).put(HiveConstant.email, authData.email);
+        await LocalStorageService.setString(LocalStorageConstants.email, authData.email!);
       }
     } catch (e) {
       // Handle storage error
@@ -93,9 +94,9 @@ class AuthCubit extends Cubit<AuthState> {
   // Save user credentials for remember me functionality
   Future<void> _saveUserCredentials(String username, String password) async {
     try {
-      await HiveDB.saveUsername(username);
-      await HiveDB.savePassword(password);
-      await HiveDB.setRememberMe(true);
+      await LocalStorageDB.saveUsername(username);
+      await LocalStorageDB.savePassword(password);
+      await LocalStorageDB.setRememberMe(true);
     } catch (e) {
       // Handle storage error
       emit(AuthFailure('Failed to save user credentials'));
@@ -111,7 +112,7 @@ class AuthCubit extends Cubit<AuthState> {
       await UserDetailsService.instance.clearUserDetails();
       
       // Clear authentication data
-      await HiveDB.logout();
+      await LocalStorageDB.logout();
       
       print("AuthCubit: Logout completed, emitting AuthInitial state");
       emit(AuthInitial());
@@ -123,7 +124,7 @@ class AuthCubit extends Cubit<AuthState> {
 
   // Check if user is logged in
   bool get isLoggedIn {
-    final token = HiveDB.getToken;
+    final token = LocalStorageDB.getToken;
     print("AuthCubit: Checking if user is logged in - token: ${token != null ? '${token.substring(0, 20)}...' : 'null'}");
     
     if (token == null || token.isEmpty) {
@@ -144,15 +145,15 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // Get stored token
-  String? get getStoredToken => HiveDB.getToken;
+  String? get getStoredToken => LocalStorageDB.getToken;
 
   // Auto login with stored credentials
   Future<void> autoLogin() async {
     if (state is AuthLoading) return;
     
-    final username = HiveDB.getUsername;
-    final password = HiveDB.getPassword;
-    final rememberMe = HiveDB.getRememberMe;
+    final username = LocalStorageDB.getUsername;
+    final password = LocalStorageDB.getPassword;
+    final rememberMe = LocalStorageDB.getRememberMe;
     
     // Only auto-login if remember me is enabled and credentials exist
     if (rememberMe && username != null && password != null) {
@@ -174,7 +175,7 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthSuccess(result.data!));
       } else {
         // Auto-login failed, clear stored credentials
-        await HiveDB.clearAllCredentials();
+        await LocalStorageDB.clearAllCredentials();
         emit(AuthInitial());
       }
     } else {
@@ -184,20 +185,20 @@ class AuthCubit extends Cubit<AuthState> {
 
   // Check token validity
   bool get isTokenValid {
-    final token = HiveDB.getToken;
+    final token = LocalStorageDB.getToken;
     if (token == null || token.isEmpty) return false;
     
     return !Utils.isTokenExpired(token);
   }
 
   // Get token expiration time
-  DateTime? get getTokenExpiration => HiveDB.getTokenExpiry;
+  DateTime? get getTokenExpiration => LocalStorageDB.getTokenExpiry;
 
   // Get remember me status
-  bool get getRememberMe => HiveDB.getRememberMe;
+  bool get getRememberMe => LocalStorageDB.getRememberMe;
 
   // Get stored username
-  String? get getStoredUsername => HiveDB.getUsername;
+  String? get getStoredUsername => LocalStorageDB.getUsername;
 
   // Fetch user details and save fullName
   Future<void> _fetchAndSaveUserDetails() async {
@@ -215,13 +216,13 @@ class AuthCubit extends Cubit<AuthState> {
   }
 
   // Get stored password
-  String? get getStoredPassword => HiveDB.getPassword;
+  String? get getStoredPassword => LocalStorageDB.getPassword;
 
   // Force clear all data (for manual logout)
   Future<void> forceClearAllData() async {
     try {
       print("AuthCubit: Force clearing all data");
-      await HiveDB.clearAllCredentials();
+      await LocalStorageDB.clearAllCredentials();
       print("AuthCubit: All data cleared, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {

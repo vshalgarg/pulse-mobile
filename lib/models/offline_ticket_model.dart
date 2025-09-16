@@ -1,79 +1,29 @@
-import 'package:hive/hive.dart';
+// Removed Hive dependency - using SharedPreferences now
 
-part 'offline_ticket_model.g.dart';
-
-@HiveType(typeId: 0)
-class OfflineTicket extends HiveObject {
-  @HiveField(0)
+class OfflineTicket {
   final String ticketId;
-
-  @HiveField(1)
   final String siteAuditSchId;
-
-  @HiveField(2)
   final String siteId;
-
-  @HiveField(3)
   final String auditSchId;
-
-  @HiveField(4)
   final String activityType;
-
-  @HiveField(5)
   final String ticketType;
-
-  @HiveField(6)
   final String companyName;
-
-  @HiveField(7)
   final String siteName;
-
-  @HiveField(8)
   final String siteAddress;
-
-  @HiveField(9)
   final String scheduledDate;
-
-  @HiveField(10)
   final String dueDate;
-
-  @HiveField(11)
   final String status;
-
-  @HiveField(12)
   final String priority;
-
-  @HiveField(13)
   final bool isDownloaded;
-
-  @HiveField(14)
   final bool isOfflineAvailable;
-
-  @HiveField(15)
   final DateTime downloadedAt;
-
-  @HiveField(16)
   final DateTime lastModified;
-
-  @HiveField(17)
   final Map<String, dynamic> completeTicketData;
-
-  @HiveField(18)
   final List<OfflineFormData> formDataList;
-
-  @HiveField(19)
   final List<OfflinePhoto> photos;
-
-  @HiveField(20)
   final List<OfflineRemark> remarks;
-
-  @HiveField(21)
   final bool isPendingSync;
-
-  @HiveField(22)
   final DateTime? lastSyncAttempt;
-
-  @HiveField(23)
   final int syncRetryCount;
 
   OfflineTicket({
@@ -224,24 +174,12 @@ class OfflineTicket extends HiveObject {
   }
 }
 
-@HiveType(typeId: 1)
-class OfflineFormData extends HiveObject {
-  @HiveField(0)
+class OfflineFormData {
   final String screenName;
-
-  @HiveField(1)
   final String itemType;
-
-  @HiveField(2)
   final Map<String, dynamic> formData;
-
-  @HiveField(3)
   final DateTime lastModified;
-
-  @HiveField(4)
   final bool isPendingSync;
-
-  @HiveField(5)
   final String? assetAuditSiteRespId;
 
   OfflineFormData({
@@ -294,33 +232,15 @@ class OfflineFormData extends HiveObject {
   }
 }
 
-@HiveType(typeId: 2)
-class OfflinePhoto extends HiveObject {
-  @HiveField(0)
+class OfflinePhoto {
   final String photoId;
-
-  @HiveField(1)
   final String photoPath;
-
-  @HiveField(2)
   final String? base64Data;
-
-  @HiveField(3)
   final String screenName;
-
-  @HiveField(4)
   final String itemType;
-
-  @HiveField(5)
   final DateTime takenAt;
-
-  @HiveField(6)
   final bool isUploaded;
-
-  @HiveField(7)
   final bool isPendingSync;
-
-  @HiveField(8)
   final String? serverPhotoId;
 
   OfflinePhoto({
@@ -388,27 +308,13 @@ class OfflinePhoto extends HiveObject {
   }
 }
 
-@HiveType(typeId: 3)
-class OfflineRemark extends HiveObject {
-  @HiveField(0)
+class OfflineRemark {
   final String remarkId;
-
-  @HiveField(1)
   final String screenName;
-
-  @HiveField(2)
   final String itemType;
-
-  @HiveField(3)
   final String remarkText;
-
-  @HiveField(4)
   final DateTime createdAt;
-
-  @HiveField(5)
   final bool isPendingSync;
-
-  @HiveField(6)
   final String? assetAuditSiteRespId;
 
   OfflineRemark({

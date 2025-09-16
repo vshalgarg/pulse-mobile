@@ -5,7 +5,7 @@
 import '../../../bloc/offline_mode_cubit.dart';
 import '../../../services/connectivity_service.dart';
 import '../../../commonWidgets/offline_indicator.dart';
-import '../../../hive_local_database/hive_db.dart';
+import '../../../services/local_storage_db.dart';
 */
 
 // 2. Add these variables to the state class:
@@ -37,7 +37,7 @@ import '../../../hive_local_database/hive_db.dart';
       // Check if we have offline data for this ticket
       final ticketId = widget.assetAuditData?.pageHeader.first.pvTicketId;
       if (ticketId != null) {
-        final offlineTicket = await HiveDB.getOfflineTicket(ticketId);
+        final offlineTicket = await LocalStorageDB.getOfflineTicket(ticketId);
         if (offlineTicket != null) {
           _loadFormDataFromOffline(offlineTicket);
         }

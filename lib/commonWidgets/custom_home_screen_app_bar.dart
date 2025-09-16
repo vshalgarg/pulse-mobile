@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app/extensions/string_extension.dart';
-import 'package:hive_flutter/adapters.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 
 import '../commonWidgets/custom_search_icon.dart';
@@ -9,8 +9,8 @@ import '../commonWidgets/notification_badge.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_methods.dart';
 import '../constants/image_strings.dart';
-import '../hive_local_database/hive_constant.dart';
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_constants.dart';
+import '../services/local_storage_db.dart';
 
 class CustomHomeScreenAppBar extends AppBar {
   CustomHomeScreenAppBar({
@@ -28,11 +28,11 @@ class CustomHomeScreenAppBar extends AppBar {
             padding: const EdgeInsets.all(1.0),
             child: Column(
               children: [
-                ValueListenableBuilder(
-                  valueListenable: HiveDB.userCredential.listenable(),
-                  builder: (context, box, child) {
-                    final String? profileImage = box.get(HiveConstant.profileImage);
-                    final String? firstName = box.get(HiveConstant.firstName);
+                // Removed ValueListenableBuilder - using SharedPreferences now
+                Builder(
+                  builder: (context) {
+                    final String? profileImage = LocalStorageDB.getProfileImage;
+                    final String? firstName = LocalStorageDB.getFirstName;
                     if (profileImage == null && firstName == null) {
                       // place holder
                       return Row(

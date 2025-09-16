@@ -12,15 +12,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_config.dart';
 import 'app_root.dart';
 import 'bloc/global_bloc_observer.dart';
 import 'bloc/global_loading_cubit.dart';
 import 'firebase_options.dart';
-import 'hive_local_database/hive_db.dart';
+import 'services/local_storage_db.dart';
+import 'database/asset_audit_database.dart';
+import 'utils/asset_audit_form_persistence_helper_sqlite.dart';
+import 'services/asset_audit/central_service_initializer.dart';
 import 'utils.dart';
+
+// Global config variable
+AppConfig? globalConfig;
 
 // prod main file
 Future<void> main() async {
@@ -49,7 +55,17 @@ Future<void> main() async {
   // for loading data before running application
   final _baseUrl = dotenv.env['BASE_URL_DEV'];
   final globalLoadingCubit = GlobalLoadingCubit();
-  final config = AppConfig(baseUrl: _baseUrl!, loadingCubit: globalLoadingCubit);
+  globalConfig = AppConfig(baseUrl: _baseUrl!, loadingCubit: globalLoadingCubit);
+  
+  // Initialize form persistence helper with API provider
+  print('🔧 Initializing AssetAuditFormPersistenceHelperSQLite...');
+  AssetAuditFormPersistenceHelperSQLite.initialize(globalConfig!.apiProvider);
+  print('✅ AssetAuditFormPersistenceHelperSQLite initialized');
+  
+  // Initialize Central Asset Audit Service immediately
+  print('🔧 Initializing CentralAssetAuditServiceInitializer in main()...');
+  CentralAssetAuditServiceInitializer.initialize(globalConfig!.apiService);
+  print('✅ CentralAssetAuditServiceInitializer initialized in main()');
 
   // stripe
   // if (!kIsWeb) {
@@ -66,32 +82,27 @@ Future<void> main() async {
   _checkTokenStatus();
   
   runApp(AppRoot(
-    config: config,
+    config: globalConfig!,
   ));
 }
 
 Future<void> init() async {
   // load .env file
   await dotenv.load(fileName: ".env");
-  // initialize Hive database
-  await initHive();
+  // initialize local storage
+  await LocalStorageDB.init();
+  // Initialize SQLite database
+  await AssetAuditDatabase().database;
   // Initialize location permissions
   await _initializeLocationPermissions();
+  
+  // Central Asset Audit Service is already initialized in main()
+  
   // Future.delayed(const Duration(seconds: 3));
   // FlutterNativeSplash.remove();
 }
 
-initHive() async {
-  /// hive database
-  // var path = Directory.current.path;
-  await Hive.initFlutter();
-  HiveDB.registerHiveAdapter();
-  // Hive
-  //   ..init(path)
-  //   ..registerAdapter(ProductDetailsModelAdapter());
-  // open hive database
-  await HiveDB.openAllHiveDbBoxes();
-}
+// Removed initHive function as we're using SharedPreferences now
 
 late AppLinks _appLinks;
 
@@ -141,12 +152,12 @@ Future<void> _initializeLocationPermissions() async {
 
 // Check token status on app startup
 void _checkTokenStatus() async {
-  final token = HiveDB.getToken;
+  final token = LocalStorageDB.getToken;
   if (token != null) {
     if (Utils.isTokenExpired(token)) {
       print('Token is expired on app startup');
       // Clear expired token
-      await HiveDB.logout();
+      await LocalStorageDB.logout();
     } else {
       print('Token is valid on app startup');
     }

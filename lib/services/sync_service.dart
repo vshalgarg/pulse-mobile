@@ -5,8 +5,8 @@
 //
 // import '../models/offline_ticket_model.dart';
 // import '../models/asset_audit_post_model.dart';
-// import '../hive_local_database/hive_db.dart';
-// import '../hive_local_database/hive_constant.dart';
+// import '../services/local_storage_db.dart';
+// import '../services/local_storage_constants.dart';
 // import '../services/connectivity_service.dart';
 // import '../services/api_service.dart';
 // import '../bloc/asset_audit_cubit.dart';

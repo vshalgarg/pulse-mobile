@@ -17,7 +17,7 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_strings.dart';
-import '../../../hive_local_database/hive_db.dart';
+import '../../../services/local_storage_db.dart';
 import '../../../utils/asset_audit_form_persistence_helper.dart';
 import '../../../utils/asset_audit_post_helper.dart';
 import '../../../models/asset_audit_model.dart';
@@ -195,7 +195,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
       });
 
       if (formData['uploadedImgId'] != null && formData['uploadedImgId'].toString().isNotEmpty) {
-        final storedImage = HiveDB.getAssetAuditSelfie(widget.siteAuditSchId);
+        final storedImage = LocalStorageDB.getAssetAuditSelfie(widget.siteAuditSchId);
         if (storedImage != null && storedImage['imageData'] != null && storedImage['imageData'].toString().isNotEmpty) {
           setState(() {
             fetchedImageData = storedImage['imageData'] as String?;
@@ -492,7 +492,7 @@ class _InvertorScreenState extends State<InvertorScreen> {
                 final schId = assetAuditState.assetAuditData.pageHeader.first.siteAuditSchId.toString();
 
                 if (state.imageData.isNotEmpty) {
-                  HiveDB.updateAssetAuditSelfie(
+                  LocalStorageDB.updateAssetAuditSelfie(
                     siteAuditSchId: schId,
                     newImageId: _lastRequestedPhotoId ?? '',
                     newImageData: state.imageData,

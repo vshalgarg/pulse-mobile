@@ -48,7 +48,6 @@ dependencies:
   camera: ^0.11.1
   carousel_slider: ^5.0.0
   badges: ^3.1.2
-  hive_flutter: ^1.1.0
   chips_choice: ^3.0.1
   fl_chart: ^1.0.0
   flutter_staggered_grid_view: ^0.7.0
@@ -77,6 +76,8 @@ dependencies:
   dio: ^5.8.0+1
   flutter_bloc: ^9.1.1
   pretty_dio_logger: ^1.4.0
+  uuid: ^4.5.1
+  path: ^1.9.0
 
   firebase_messaging: ^15.2.6
   firebase_crashlytics: ^4.3.6
@@ -104,6 +105,7 @@ dependencies:
   # Offline support
   shared_preferences: ^2.3.2
   connectivity_plus: ^6.0.5
+  sqflite: ^2.3.3+1
 
   # Image compression
   flutter_image_compress: ^2.3.0

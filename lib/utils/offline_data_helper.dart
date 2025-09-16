@@ -1,11 +1,11 @@
-import '../hive_local_database/hive_db.dart';
+import '../services/local_storage_db.dart';
 import '../models/asset_audit_model.dart';
 
 class OfflineDataHelper {
   /// Get offline AssetAuditModel data for a specific ticket
   static AssetAuditModel? getOfflineAssetAuditData(String siteAuditSchId) {
     try {
-      final offlineTicket = HiveDB.getOfflineTicket(siteAuditSchId);
+      final offlineTicket = LocalStorageDB.getOfflineTicket(siteAuditSchId);
       if (offlineTicket == null) return null;
 
       final completeTicketData = offlineTicket['completeTicketData'] as Map<String, dynamic>?;
@@ -22,7 +22,7 @@ class OfflineDataHelper {
   /// Check if offline data exists for a specific ticket
   static bool hasOfflineData(String siteAuditSchId) {
     try {
-      final offlineTicket = HiveDB.getOfflineTicket(siteAuditSchId);
+      final offlineTicket = LocalStorageDB.getOfflineTicket(siteAuditSchId);
       return offlineTicket != null;
     } catch (e) {
       print('OfflineDataHelper: Error checking for offline data: $e');

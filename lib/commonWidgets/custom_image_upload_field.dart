@@ -150,17 +150,23 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         Logger.imageLog('Rendering local file image: $url');
         return _buildLocalImage(url);
       } else {
-        // Handle network URL
-        Logger.imageLog('Rendering network image: $url');
-        return Image.network(
-          url,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            Logger.errorLog('Error displaying network image: $error');
-            return _buildPlaceholder();
-          },
-        );
+        // Handle raw base64 data (from API response)
+        Logger.imageLog('Rendering raw base64 image, data length: ${url.length}');
+        try {
+          final bytes = base64Decode(url);
+          return Image.memory(
+            bytes,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            errorBuilder: (context, error, stackTrace) {
+              Logger.errorLog('Error displaying raw base64 image: $error');
+              return _buildPlaceholder();
+            },
+          );
+        } catch (e) {
+          Logger.errorLog('Error decoding raw base64 data: $e');
+          return _buildPlaceholder();
+        }
       }
     } catch (e) {
       Logger.errorLog('Error in _buildImageFromUrl: $e');
@@ -194,7 +200,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
   @override
   Widget build(BuildContext context) {
-    Logger.imageLog('ImageUploadField build, selectedImage: ${_selectedImage?.path}');
+    Logger.imageLog('=== ImageUploadField build called ===');
+    Logger.imageLog('selectedImage: ${_selectedImage?.path}');
+    Logger.imageLog('externalImageUrl length: ${widget.externalImageUrl?.length ?? 0}');
+    Logger.imageLog('externalImageUrl preview: ${widget.externalImageUrl != null && widget.externalImageUrl!.length > 50 ? widget.externalImageUrl!.substring(0, 50) + "..." : widget.externalImageUrl}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -245,9 +254,19 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
                 : widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty
                 ? ClipRRect(
               borderRadius: BorderRadius.circular(5),
-              child: _buildImageFromUrl(widget.externalImageUrl!),
+              child: Builder(
+                builder: (context) {
+                  Logger.imageLog('🖼️ Building external image from URL');
+                  return _buildImageFromUrl(widget.externalImageUrl!);
+                },
+              ),
             )
-                : _buildPlaceholder(),
+                : Builder(
+              builder: (context) {
+                Logger.imageLog('📷 Showing placeholder - no image available');
+                return _buildPlaceholder();
+              },
+            ),
           ),
         ),
       ],

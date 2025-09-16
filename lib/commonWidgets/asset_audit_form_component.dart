@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
+import 'package:app/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
@@ -12,6 +13,10 @@ import 'package:app/utils/generic_photo_upload_helper.dart';
 import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/bloc/asset_audit_cubit.dart';
 import 'package:app/bloc/asset_audit_get_image_cubit.dart';
+import 'package:app/services/image_upload_service.dart';
+import 'package:app/enum/image_activity_type_enum.dart';
+import 'package:app/services/api_service.dart';
+import 'package:app/app_config.dart';
 
 /// Comprehensive Asset Audit Form Component
 /// 
@@ -38,16 +43,16 @@ class AssetAuditFormComponent extends StatefulWidget {
   final String photoLabel;
 
   /// Label for the disabled text field
-  final String disabledFieldLabel;
+  final String? disabledFieldLabel;
   
   /// Value for the disabled text field
-  final String disabledFieldValue;
+  final String? disabledFieldValue;
 
   /// Controller for the serial number field
   final TextEditingController serialController;
   
   /// Initial list of saved items (for display only)
-  final List<Map<String, dynamic>> initialSavedItems;
+  final List<dynamic> initialSavedItems;
   
   /// Callback when items are updated (passes complete list)
   final Function(List<Map<String, dynamic>>)? onItemSaved;
@@ -67,7 +72,7 @@ class AssetAuditFormComponent extends StatefulWidget {
   static const Color backgroundColor = AppColors.green7;
   
   /// Site audit schedule ID for API calls (optional)
-  final String? siteAuditSchId;
+  final String siteAuditSchId;
   
   /// Whether to show the table of saved items
   final bool showTable;
@@ -88,15 +93,15 @@ class AssetAuditFormComponent extends StatefulWidget {
     required this.serialLabel,
     required this.serialHintText,
     required this.photoLabel,
-    required this.disabledFieldLabel,
-    required this.disabledFieldValue,
+    this.disabledFieldLabel,
+    this.disabledFieldValue,
     required this.serialController,
     required this.initialSavedItems,
     this.onItemSaved,
     required this.onStatusChanged,
     this.customValidator,
     this.customValidationErrorMessage,
-    this.siteAuditSchId,
+    required this.siteAuditSchId,
     this.showTable = true,
     this.tableTitle,
     this.imageHeight = 150,
@@ -113,6 +118,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   bool? _selectedStatus;
   bool _isQRCodeScanned = false;
   bool _isUploading = false;
+  String? qrCodeScannedTs = null;
   String? _uploadedImageId; // Photo ID from server
   String? _photoData; // Photo byte data or base64
   bool _hasNewPhotoSelected = false; // Track if user selected a new photo
@@ -127,6 +133,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   
   // Internal saved items state
   late List<Map<String, dynamic>> _savedItems;
+  
+  // Image upload service
+  late ImageUploadService _imageUploadService;
 
   @override
   void initState() {
@@ -135,6 +144,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     _savedItems = List<Map<String, dynamic>>.from(widget.initialSavedItems);
     // Listen to serial controller changes to detect manual input vs scanning
     widget.serialController.addListener(_onSerialChanged);
+    // Initialize image upload service
+    _imageUploadService = ImageUploadService(apiService: AppConfig.of(context).apiService);
   }
 
   @override
@@ -148,6 +159,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     if (!_isQRCodeScanned) {
       setState(() {
         _isQRCodeScanned = false;
+        qrCodeScannedTs = null;
       });
     }
   }
@@ -176,13 +188,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _validationErrorMessage = 'Please select a status';
       return false;
     }
-
-    // Check disabled field (if it's mandatory)
-    if (widget.disabledFieldValue.isEmpty) {
-      _validationErrorMessage = '${widget.disabledFieldLabel} is required';
-      return false;
-    }
-
     return true;
   }
 
@@ -400,7 +405,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     // Use _editingItem if we're editing, otherwise look for existing item
     final existingItem = _isEditing && _editingItem != null ? _editingItem! : 
         _savedItems.firstWhere(
-          (item) => item['serialNumber'] == widget.serialController.text,
+          (item) => item['mfg_serial_no'] == widget.serialController.text,
           orElse: () => {},
         );
 
@@ -429,19 +434,20 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
         // Step 4: Create item data and add to saved items
         final itemData = {
-          'serialNumber': widget.serialController.text,
-          'status': _selectedStatus! ? 'OK' : 'Not OK',
-          'photo': _uploadedImageId, // Photo ID from server
+          'mfg_serial_no': widget.serialController.text,
+          'asset_status': _selectedStatus! ? 'OK' : 'Not OK',
+          'photo_id': _uploadedImageId, // Photo ID from server
           'photoPath': _selectedPhotoPath, // Local photo path
-          'isQRCodeScanned': _isQRCodeScanned,
+          'qr_code_scanned': _isQRCodeScanned,
+          'qr_code_scanned_ts': qrCodeScannedTs,
           'disabledFieldValue': widget.disabledFieldValue,
-          'timestamp': DateTime.now().toIso8601String(),
+          'timestamp': Utils.getCurrentDateTimeISO8601(),
         };
         
         // Handle photo data properly
         if (_uploadedImageId != null) {
           // We have a photo ID from server
-          itemData['photo'] = _uploadedImageId;
+          itemData['photo_id'] = _uploadedImageId;
           if (_selectedPhotoPath != null) {
             // New photo was selected and uploaded
             itemData['photoPath'] = _uploadedImageId.toString();
@@ -466,8 +472,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         if (_isEditing && _editingItem != null) {
           // Update existing item in the internal list
           final existingIndex = _savedItems.indexWhere((item) => 
-            item['serialNumber'] == _editingItem!['serialNumber'] &&
-            item['timestamp'] == _editingItem!['timestamp']
+            item['mfg_serial_no'] == _editingItem!['mfg_serial_no']
           );
           
           if (existingIndex != -1) {
@@ -484,7 +489,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         } else {
           // Check if item with same serial number already exists
           final existingIndex = _savedItems.indexWhere((item) => 
-            item['serialNumber'] == widget.serialController.text
+            item['mfg_serial_no'] == widget.serialController.text
           );
           
           if (existingIndex != -1) {
@@ -532,7 +537,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       }
     }
 
-  /// Handles photo upload
+  /// Handles photo upload using ImageUploadService
   Future<void> _uploadPhoto() async {
     print('🔍 _uploadPhoto called with path: $_selectedPhotoPath');
     
@@ -546,28 +551,36 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     });
 
     try {
-      print('🔍 Starting photo upload...');
-      final imageId = await GenericPhotoUploadHelper.uploadPhotoFromPath(
-        context: context,
-        filePath: _selectedPhotoPath!,
+      print('🔍 Starting photo upload using ImageUploadService...');
+      
+      // Read image file and convert to base64
+      final imageFile = File(_selectedPhotoPath!);
+      final imageBytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(imageBytes);
+      
+      // Upload using ImageUploadService
+      final uniqueId = await _imageUploadService.uploadImage(
+        base64Image,
+        ImageActivityTypeEnum.assetAudit,
+        widget.siteAuditSchId,
       );
 
-      print('🔍 Photo upload completed, imageId: $imageId');
+      print('🔍 Photo upload completed, uniqueId: $uniqueId');
 
       setState(() {
         _isUploading = false;
-        _uploadedImageId = imageId;
+        _uploadedImageId = uniqueId;
       });
 
-      if (imageId == null || imageId.isEmpty) {
-        print('❌ Photo upload failed - no image ID returned');
+      if (uniqueId.isEmpty) {
+        print('❌ Photo upload failed - no unique ID returned');
         setState(() {
           _isUploading = false;
         });
-        throw Exception('Photo upload failed - no image ID returned');
+        throw Exception('Photo upload failed - no unique ID returned');
       }
       
-      print('✅ Photo upload successful, imageId: $imageId');
+      print('✅ Photo upload successful, uniqueId: $uniqueId');
     } catch (e) {
       print('❌ Photo upload error: $e');
       setState(() {
@@ -594,6 +607,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _selectedPhotoPath = null;
       _selectedStatus = null;
       _isQRCodeScanned = false;
+      qrCodeScannedTs = null;
       _uploadedImageId = null;
       _photoData = null;
       _hasNewPhotoSelected = false;
@@ -613,22 +627,23 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     setState(() {
       _isEditing = true;
       _editingItem = item;
-      widget.serialController.text = item['serialNumber'] ?? '';
-      _selectedStatus = item['status'] == 'OK' ? true : false;
+      widget.serialController.text = item['mfg_serial_no'] ?? '';
+      _selectedStatus = item['asset_status'] == 'OK' ? true : false;
       _isQRCodeScanned = item['isQRCodeScanned'] == true;
+      qrCodeScannedTs = item['isQRCodeScanned'] == true ? item['qrCodeScannedTs'] : null;
       _hasNewPhotoSelected = false; // Reset flag when starting to edit
     });
     
     // Handle photo loading for editing
-    final photoId = item['photo']; // This is the photo ID from server
+    final uniqueId = item['photo_id']; // This is the unique ID from ImageUploadService
     final photoPath = item['photoPath']; // This is the local path or base64 data
     
-    if (photoId != null && photoId.isNotEmpty && _isNumeric(photoId)) {
-      // Server photo ID - fetch and display the image
-      print('🔍 Photo ID from server: $photoId');
-      _uploadedImageId = photoId; // Store the photo ID
+    if (uniqueId != null && uniqueId.isNotEmpty) {
+      // Unique ID from ImageUploadService - fetch and display the image
+      print('🔍 Unique ID from ImageUploadService: $uniqueId');
+      _uploadedImageId = uniqueId; // Store the unique ID
       _photoData = null; // No local photo data
-      await _fetchAndDisplayServerImage(photoId);
+      await _fetchAndDisplayServerImage(uniqueId);
       print('🔍 Preserved uploaded image ID: $_uploadedImageId');
     } else if (photoPath != null && photoPath.isNotEmpty) {
       // Local photo path or base64 data
@@ -649,40 +664,25 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     }
   }
 
-  /// Fetches and displays server image for editing
-  Future<void> _fetchAndDisplayServerImage(String photoId) async {
+  /// Fetches and displays server image for editing using ImageUploadService
+  Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
     try {
       // Show loading indicator
       setState(() {
         _isUploading = true;
       });
       
-      final completer = Completer<String?>();
-      late StreamSubscription subscription;
-
-      subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
-        if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-          final finalImageData = state.imageData.startsWith('data:image/')
-              ? state.imageData
-              : 'data:image/jpeg;base64,${state.imageData}';
-          completer.complete(finalImageData);
-          subscription.cancel();
-        } else if (state is AssetAuditGetImageFailure) {
-          completer.complete(null);
-          subscription.cancel();
-        }
-      });
-
-      context.read<AssetAuditGetImageCubit>().getImage(
-        imgId: photoId,
-        schId: widget.siteAuditSchId!,
-      );
-
-      final imageData = await completer.future;
+      // Use ImageUploadService to get image data
+      final imageData = await _imageUploadService.getImageUsingUniqueId(uniqueId);
       
       if (mounted && imageData != null && imageData.isNotEmpty) {
+        // Ensure the image data has proper data URL format
+        final finalImageData = imageData.startsWith('data:image/')
+            ? imageData
+            : 'data:image/jpeg;base64,$imageData';
+            
         setState(() {
-          _selectedPhotoPath = imageData; // Store as base64 data for display
+          _selectedPhotoPath = finalImageData; // Store as base64 data for display
           _isUploading = false; // Clear loading state
         });
       } else {
@@ -695,26 +695,13 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         setState(() {
           _isUploading = false; // Clear loading state
         });
-        // If fetching fails, keep the photo ID so it can still be viewed
+        // If fetching fails, keep the unique ID so it can still be viewed
         setState(() {
-          _selectedPhotoPath = photoId;
+          _selectedPhotoPath = uniqueId;
         });
       }
     }
   }
-
-  /// Cancels editing
-  void _cancelEditing() {
-    setState(() {
-      _isEditing = false;
-      _editingItem = null;
-      widget.serialController.clear();
-      _selectedPhotoPath = null;
-      _selectedStatus = null;
-      _isQRCodeScanned = false;
-    });
-  }
-
   /// Builds the serial number field with QR scanner (matching CustomInfoCard design)
   Widget _buildSerialNumberField() {
     return Column(
@@ -753,6 +740,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           onChanged: (value) {
             setState(() {
               _isQRCodeScanned = false;
+              qrCodeScannedTs = null;
             });
           },
           decoration: InputDecoration(
@@ -772,11 +760,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                     MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                   );
                   if (result != null && result is String) {
-                    setState(() {
-                      widget.serialController.text = result;
-                      _isQRCodeScanned = true;
-                      _showValidationErrors = false;
-                    });
+                      setState(() {
+                        widget.serialController.text = widget.initialSavedItems.where((item) => item['nexgen_serial_no'] == result)?.first['mfg_serial_no'] ?? '';
+                        _isQRCodeScanned = true;
+                        qrCodeScannedTs = Utils.getCurrentDateTimeISO8601();
+                        _showValidationErrors = false;
+                      });
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -918,7 +907,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       children: [
         // Label (matching CustomInfoCard)
         Text(
-          widget.disabledFieldLabel,
+          widget.disabledFieldLabel ?? "",
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w500,
@@ -1173,12 +1162,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       ),
       child: Row(
         children: [
-          _buildTableDataCell(item['serialNumber'] ?? '', 200),
-          _buildTableDataCell(item['status'] ?? '', 80),
+          _buildTableDataCell(item['mfg_serial_no'] ?? '', 200),
+          _buildTableDataCell(item['asset_status'] ?? '', 80),
           _buildTableDataCell(
-            item['isQRCodeScanned'] == true ? 'Yes' : 'No',
+            item['qr_code_scanned'] == true ? 'Yes' : 'No',
             80,
-            isScanned: item['isQRCodeScanned'] == true,
+            isScanned: item['qr_code_scanned'] == true,
           ),
           _buildTablePhotoCell(item, 80),
           _buildTableEditCell(item, 80),
@@ -1236,14 +1225,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       child: IconButton(
         icon: Icon(
           Icons.camera_alt,
-          color: (item['photo'] != null && item['photo'].isNotEmpty) ||
+          color: (item['photo_id'] != null && item['photo_id'].isNotEmpty) ||
                  (item['photoPath'] != null && item['photoPath'].isNotEmpty)
               ? AppColors.color555555
               : Colors.grey,
         ),
-        onPressed: (item['photo'] != null && item['photo'].isNotEmpty) ||
+        onPressed: (item['photo_id'] != null && item['photo_id'].isNotEmpty) ||
                   (item['photoPath'] != null && item['photoPath'].isNotEmpty)
-            ? () => _showPhotoViewer(context, item['photo'] ?? item['photoPath'])
+            ? () => _showPhotoViewer(context, item['photo_id'] ?? item['photoPath'])
             : null,
       ),
     );
@@ -1290,7 +1279,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               const SizedBox(height: 16),
               
               // Disabled field (if needed)
-              if (widget.disabledFieldLabel.isNotEmpty) ...[
+              if (widget.disabledFieldLabel != null) ...[
                 _buildDisabledField(),
                 const SizedBox(height: 16),
               ],
@@ -1352,66 +1341,43 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     else if (await File(photo).exists()) {
       imageData = photo;
     }
-    // Case 3: Photo is a photo ID (numeric) from the API
-    else if (_isNumeric(photo)) {
-      if (widget.siteAuditSchId != null && widget.siteAuditSchId!.isNotEmpty) {
-        // Show loading dialog while fetching from API
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(
-              color: AppColors.primaryGreen,
-            ),
+    // Case 3: Photo is a unique ID from ImageUploadService
+    else if (!_isNumeric(photo)) {
+      // Show loading dialog while fetching from ImageUploadService
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primaryGreen,
           ),
-        );
+        ),
+      );
 
-        try {
-          final completer = Completer<String?>();
-          late StreamSubscription subscription;
-
-          subscription = context.read<AssetAuditGetImageCubit>().stream.listen((state) {
-            if (state is AssetAuditGetImageSuccess && state.imageData.isNotEmpty) {
-              final finalImageData = state.imageData.startsWith('data:image/')
-                  ? state.imageData
-                  : 'data:image/jpeg;base64,${state.imageData}';
-              completer.complete(finalImageData);
-              subscription.cancel();
-            } else if (state is AssetAuditGetImageFailure) {
-              completer.complete(null);
-              subscription.cancel();
-            }
-          });
-
-          context.read<AssetAuditGetImageCubit>().getImage(
-            imgId: photo,
-            schId: widget.siteAuditSchId!,
-          );
-
-          imageData = await completer.future;
-          
-          // Close loading dialog
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        } catch (e) {
-          // Close loading dialog on error
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Failed to load image: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          return;
+      try {
+        // Use ImageUploadService to get image data
+        imageData = await _imageUploadService.getImageUsingUniqueId(photo);
+        
+        if (imageData != null && imageData.isNotEmpty) {
+          // Ensure proper data URL format
+          imageData = imageData.startsWith('data:image/')
+              ? imageData
+              : 'data:image/jpeg;base64,$imageData';
         }
-      } else {
+        
+        // Close loading dialog
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
+      } catch (e) {
+        // Close loading dialog on error
+        if (context.mounted) {
+          Navigator.of(context).pop();
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Photo viewing for uploaded images requires site audit ID.'),
-            backgroundColor: Colors.orange,
+          SnackBar(
+            content: Text('Failed to load image: $e'),
+            backgroundColor: Colors.red,
           ),
         );
         return;

@@ -1,5 +1,6 @@
 import '../models/user_details_model.dart';
-import '../hive_local_database/hive_db.dart';
+import 'local_storage_db.dart';
+import 'local_storage_service.dart';
 import 'api_service.dart';
 
 class UserDetailsService {
@@ -26,14 +27,14 @@ class UserDetailsService {
       }
 
       // Check if fullName is already stored locally
-      final storedFullName = HiveDB.getFullName;
+      final storedFullName = LocalStorageDB.getFullName;
       if (storedFullName != null && storedFullName.isNotEmpty) {
         print('UserDetailsService: FullName already stored locally: $storedFullName');
         return UserDetailsModel(fullName: storedFullName);
       }
 
       // Check if user is authenticated
-      final token = HiveDB.getToken;
+      final token = LocalStorageDB.getToken;
       if (token == null || token.isEmpty) {
         print('UserDetailsService: No token found, user not authenticated');
         return null;
@@ -64,7 +65,7 @@ class UserDetailsService {
         
         // Save fullName to local storage
         if (userDetails.fullName != null && userDetails.fullName!.isNotEmpty) {
-          await HiveDB.saveFullName(userDetails.fullName!);
+          await LocalStorageDB.saveFullName(userDetails.fullName!);
           print('UserDetailsService: FullName saved to local storage: ${userDetails.fullName}');
         } else {
           print('UserDetailsService: No fullName found in API response');
@@ -83,13 +84,13 @@ class UserDetailsService {
 
   /// Get stored fullName from local storage
   String? getStoredFullName() {
-    return HiveDB.getFullName;
+    return LocalStorageDB.getFullName;
   }
 
   /// Clear stored user details (called during logout)
   Future<void> clearUserDetails() async {
     try {
-      await HiveDB.getHiveBox('userCreds').delete('fullName');
+      await LocalStorageService.remove('fullName');
       print('UserDetailsService: User details cleared from local storage');
     } catch (e) {
       print('UserDetailsService: Error clearing user details: $e');
@@ -106,7 +107,7 @@ class UserDetailsService {
       }
 
       // Check if user is authenticated
-      final token = HiveDB.getToken;
+      final token = LocalStorageDB.getToken;
       if (token == null || token.isEmpty) {
         print('UserDetailsService: No token found, user not authenticated');
         return null;
@@ -131,7 +132,7 @@ class UserDetailsService {
         
         // Save fullName to local storage
         if (userDetails.fullName != null && userDetails.fullName!.isNotEmpty) {
-          await HiveDB.saveFullName(userDetails.fullName!);
+          await LocalStorageDB.saveFullName(userDetails.fullName!);
           print('UserDetailsService: FullName saved to local storage: ${userDetails.fullName}');
         }
         
@@ -148,7 +149,7 @@ class UserDetailsService {
 
   /// Check if user details are stored locally
   bool get hasStoredUserDetails {
-    final fullName = HiveDB.getFullName;
+    final fullName = LocalStorageDB.getFullName;
     return fullName != null && fullName.isNotEmpty;
   }
 }

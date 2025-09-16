@@ -15,7 +15,7 @@ import 'constants/app_colors.dart';
 import 'constants/constants_methods.dart';
 import 'models/device_info/device_info.dart';
 
-import 'hive_local_database/hive_db.dart';
+import 'services/local_storage_db.dart';
 
 class Utils {
   static String toDateTime(DateTime dateTime) {
@@ -42,6 +42,19 @@ class Utils {
   static String toDateDDMMYYYY(DateTime dateTime) {
     final date = DateFormat.yMd().format(dateTime); //etc. DateFormat('dd-MM-yyyy').format(dateTime);
     return date;
+  }
+
+  /// Convert current date time to ISO 8601 format with timezone offset
+  /// Returns format: 2025-09-12T15:25:00.000+00:00
+  static String getCurrentDateTimeISO8601() {
+    final now = DateTime.now();
+    return now.toUtc().toIso8601String();
+  }
+
+  static String? getCurrentDateTimeFromMsISO8601(int? milliseconds) {
+    if(milliseconds == null) return null;
+    final now = DateTime.fromMillisecondsSinceEpoch(milliseconds);
+    return now.toUtc().toIso8601String();
   }
 
   static String toDateYYYYMMDD(DateTime dateTime) {
@@ -325,7 +338,7 @@ class Utils {
 
   // Check if current stored token is expired
   static bool isCurrentTokenExpired() {
-    final token = HiveDB.getToken;
+    final token = LocalStorageDB.getToken;
     return isTokenExpired(token);
   }
 

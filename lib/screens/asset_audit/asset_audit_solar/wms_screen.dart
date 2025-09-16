@@ -930,9 +930,7 @@ class _WMSScreenState extends State<WMSScreen> {
                             Expanded(
                               child: ArrowButton(
                                 text:
-                                    AssetAuditNavigationHelper.getSolarPreviousScreenName(
-                                      'WMS',
-                                    ),
+                                    'WMS',
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,

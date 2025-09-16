@@ -5,8 +5,8 @@
 // import '../models/offline_ticket_model.dart';
 // import '../services/connectivity_service.dart';
 // import '../services/sync_service.dart';
-// import '../hive_local_database/hive_db.dart';
-// import '../hive_local_database/hive_constant.dart';
+// import '../services/local_storage_db.dart';
+// import '../services/local_storage_constants.dart';
 //
 // // States
 // abstract class OfflineModeState extends Equatable {

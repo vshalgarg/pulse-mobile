@@ -11,6 +11,9 @@ import 'package:app/screens/asset_audit/asset_audit_solar/scada_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/fire_extinguisher_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/dcdb_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/mms_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/spv_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 
 // Telecom screen imports
@@ -24,6 +27,7 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/fencing_screen.dart'
 import 'package:app/screens/asset_audit/asset_audit_telecom/dg_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/smps_screen.dart';
 import 'package:app/models/asset_audit_model.dart';
+import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/constants_methods.dart';
 
@@ -58,9 +62,10 @@ class AssetAuditNavigationHelper {
   
   // Define the order of all solar screens
   static const List<String> _solarScreenOrder = [
+    'GENERAL',
     'SPV',
-    'DCDB',
     'MMS',
+    'DCDB',
     'PCU',
     'Invertor',
     'ACDB',
@@ -74,6 +79,20 @@ class AssetAuditNavigationHelper {
     'Boundary'
   ];
 
+  static String dataValueForPage(String page, String type) {
+    if(type == 'SOLAR') {
+      return _dataValueForSolarPage(page);
+    }
+    return page;
+  }
+  static String _dataValueForSolarPage(String page) {
+    switch (page) {
+      case 'GENERAL' : return 'PageHeader';
+      default:
+        return page;
+    }
+  }
+
   // Define the order of all telecom screens
   static const List<String> _telecomScreenOrder = [
     'Site Info',
@@ -86,6 +105,98 @@ class AssetAuditNavigationHelper {
     'DG',
     'SMPS'
   ];
+
+  static String? _getNextAvailableScreenNameV2(Map<String, dynamic>? assetAuditData, String currentScreen, List<String> screenOrder, String type) {
+    if (assetAuditData == null) return null;
+
+    final currentIndex = screenOrder.indexOf(currentScreen);
+
+    if (currentIndex < 0 || currentIndex >= screenOrder.length - 1) return null;
+    String screenName = screenOrder[currentIndex + 1];
+    String dataValueForScrnName = dataValueForPage(screenName, type);
+    if(assetAuditData['responseData'] == null
+        || assetAuditData['responseData'][dataValueForScrnName] == null) {
+        return _getNextAvailableScreenNameV2(assetAuditData, screenName, screenOrder, type);
+    }
+
+    // Return the immediate next screen in the flow
+    return screenName;
+  }
+
+  static String? _getPreviousAvailableScreenNameV2(Map<String, dynamic>? assetAuditData, String currentScreen, List<String> screenOrder, String type) {
+    if (assetAuditData == null) return null;
+
+    final currentIndex = screenOrder.indexOf(currentScreen);
+
+    if (currentIndex <= 0 ) return null;
+    String screenName = screenOrder[currentIndex - 1];
+    String dataValueForScrnName = dataValueForPage(screenName, type);
+    if(assetAuditData['responseData'] == null
+        || assetAuditData['responseData'][dataValueForScrnName] == null) {
+      return _getPreviousAvailableScreenNameV2(assetAuditData, screenName, screenOrder, type);
+    }
+
+    // Return the immediate next screen in the flow
+    return screenName;
+  }
+
+  static String getSolarNextScreenName(Map<String, dynamic>? assetAuditData, String currentScreen) {
+    return _getNextAvailableScreenNameV2(assetAuditData, currentScreen, _solarScreenOrder, 'SOLAR')
+    ?? 'SUBMIT';
+  }
+
+  static String getSolarPreviousScreenName(Map<String, dynamic>? assetAuditData, String currentScreen) {
+    return _getPreviousAvailableScreenNameV2(assetAuditData, currentScreen, _solarScreenOrder, 'SOLAR')
+    ?? 'BACK';
+  }
+
+  static void navigateToNextSolarScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
+    String? nextScreenName = _getNextAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'SOLAR');
+    if(nextScreenName == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    } else {
+      _navigateToSolarScreen(context, siteAuditSchId, siteType, auditSchId, nextScreenName);
+    }
+  }
+
+  static void navigateToPreviousSolarScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
+    String? previousScreenName = _getPreviousAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'SOLAR');
+    if(previousScreenName == null) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()),
+      );
+    } else {
+       _navigateToSolarScreen(context, siteAuditSchId, siteType, auditSchId, previousScreenName);
+    }
+  }
+
+  static void _navigateToSolarScreen(BuildContext context, String siteAuditSchId, String siteType, String auditSchId, String screenToNavigateOn) {
+    switch(screenToNavigateOn) {
+      case 'SPV' : pushPage(context, SPVV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'DCDB' : pushPage(context, DCDBV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'MMS' : pushPage(context, MMSV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      default: break;
+    }
+  }
 
   /// Get the next available screen based on data availability (SOLAR)
   static String? getNextAvailableScreen(AssetAuditModel? assetAuditData, String currentScreen) {
@@ -165,25 +276,14 @@ class AssetAuditNavigationHelper {
     return screenName;
   }
 
-  /// Get the previous screen name for back button text (SOLAR)
-  static String getSolarPreviousScreenName(String currentScreen) {
-    final currentIndex = _solarScreenOrder.indexOf(currentScreen);
-    
-    if (currentIndex <= 0) {
-      return "General"; // First screen goes back to main screen
-    }
-    
-    return _solarScreenOrder[currentIndex - 1];
-  }
-
   /// Navigate to the next screen based on screen name
   static void navigateToNextScreen(
-    BuildContext context, 
-    String screenName, 
-    String siteType,
-    String auditSchId,
-    String siteAuditSchId,
-    AssetAuditModel? assetAuditData,
+      BuildContext context,
+      String screenName,
+      String siteType,
+      String auditSchId,
+      String siteAuditSchId,
+      AssetAuditModel? assetAuditData
   ) {
     switch (screenName) {
       case 'SPV':

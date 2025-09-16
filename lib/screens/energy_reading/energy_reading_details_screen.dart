@@ -8,7 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/models/energy_reading_detail_model.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:app/hive_local_database/hive_db.dart';
+import 'package:app/services/local_storage_db.dart';
 
 import '../../../commonWidgets/custom_dialogs/success_dialog.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
@@ -129,7 +129,7 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
   // Load saved form data from local storage
   void _loadSavedFormData() {
     try {
-      final savedData = HiveDB.getEnergyReadingFormData;
+      final savedData = LocalStorageDB.getEnergyReadingFormData;
       if (savedData != null) {
         setState(() {
           // Load dropdown selections
@@ -219,8 +219,8 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
       'uploadedFileId': uploadedFileId,
     };
     
-    await HiveDB.saveEnergyReadingFormData(formData);
-    await HiveDB.saveEnergyReadingIds(
+    await LocalStorageDB.saveEnergyReadingFormData(formData);
+    await LocalStorageDB.saveEnergyReadingIds(
       auditSchId: widget.auditSchId,
       siteAuditSchId: widget.siteAuditSchId,
       siteId: widget.siteId,
@@ -682,7 +682,7 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
   }
 
   // Clear all form fields
-  void _clearFormFields() {
+  Future<void> _clearFormFields() async {
     setState(() {
       // Clear dropdown selections
       selectedStatus = null;
@@ -719,7 +719,7 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
     });
     
     // Clear saved data from local storage
-    HiveDB.clearEnergyReadingData();
+    await LocalStorageDB.clearEnergyReadingData();
   }
 
   // Initialize edit mode with existing data
@@ -807,7 +807,7 @@ class _EnergyDetailScreenState extends State<EnergyDetailScreen> {
           );
         } else if (state is EnergyReadingDetailSaveSuccess) {
           // Clear saved data since it was successfully submitted to server
-          await HiveDB.clearEnergyReadingData();
+          await LocalStorageDB.clearEnergyReadingData();
           
           // Show success dialog for both normal submission and save-and-exit
           _showSuccessDialog();

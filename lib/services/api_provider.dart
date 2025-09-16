@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
-import 'package:hive/hive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../app_root.dart';
 import '../constants/constants_methods.dart';
-import '../hive_local_database/hive_constant.dart';
-import '../hive_local_database/hive_db.dart';
+import 'local_storage_constants.dart';
+import 'local_storage_db.dart';
 import '../routes/routes.dart';
 import '../bloc/global_loading_cubit.dart';
 
@@ -20,7 +20,7 @@ import '../bloc/global_loading_cubit.dart';
 
 class ApiProvider {
   final String baseUrl;
-  var boxes = Hive.box(HiveConstant.userCreds);
+  // Removed Hive box reference - using LocalStorageDB instead
   GlobalLoadingCubit? _loadingCubit;
   bool _isLoadingShown = false;
 
@@ -88,8 +88,8 @@ class ApiProvider {
           final isAuthEndpoint = options.path.contains('authenticate/login');
           
           if (!isAuthEndpoint) {
-            if (HiveDB.getToken != null) {
-              options.headers['Authorization'] = 'Bearer ${HiveDB.getToken}';
+            if (LocalStorageDB.getToken != null) {
+              options.headers['Authorization'] = 'Bearer ${LocalStorageDB.getToken}';
             }
           }
           
@@ -129,7 +129,7 @@ class ApiProvider {
 
   Future<void> _logoutUser() async {
     try {
-      await HiveDB.logout();
+      await LocalStorageDB.logout();
       // Navigate to login screen
       if (navigatorKey.currentContext != null) {
         pushNamedAndRemoveUntil(navigatorKey.currentContext!, loginScreen);

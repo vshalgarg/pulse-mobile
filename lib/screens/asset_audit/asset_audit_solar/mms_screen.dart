@@ -379,7 +379,7 @@ class _MMSScreenState extends State<MMSScreen> {
                       children: [
                         Expanded(
                           child: ArrowButton(
-                            text: AssetAuditNavigationHelper.getSolarPreviousScreenName('MMS'),
+                            text: 'MMS',
                             isLeftArrow: true,
                             backgroundColor: AppColors.buttonColorBackBg,
                             textColor: AppColors.buttonColorTextBg,
