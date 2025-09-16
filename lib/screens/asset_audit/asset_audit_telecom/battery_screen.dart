@@ -538,32 +538,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
                 auditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
                 siteAuditSchId: widget.assetAuditData?.pageHeader.first.siteAuditSchId.toString() ?? "",
               );
-
-              // Wait for data to refresh, then navigate
-                if (mounted) {
-                  try {
-                      _navigateToNextScreen();
-                    // Reset the flag after successful navigation
-                    setState(() {
-                      _hasPostedBatteryData = false;
-                    });
-                  } catch (e) {
-                    print(e);
-                  }
-                }
-
-            } catch (e) {
-              // Fallback: navigate immediately
-              if (mounted) {
-                try {
-                      _navigateToNextScreen();
-                    setState(() {
-                      _hasPostedBatteryData = false;
-                    });
-                  } catch (e) {
-                  }
-                }
-            }
+            } catch (e) {}
           }
 
         } else if (state is AssetAuditPostError) {
@@ -788,45 +763,33 @@ class _BatteryScreenState extends State<BatteryScreen> {
                           children: [
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getPreviousAvailableTelecomScreen(
-                                  widget.assetAuditData, 
-                                  'Battery'
-                                ) ?? 'BACK',
+                                text: _getPreviousAvailableScreen() ?? "BACK",
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBg,
                                 textColor: AppColors.buttonColorSite,
                                 onPressed: () {
-                                  Navigator.pop(context);
+                                  final previousScreen = _getPreviousAvailableScreen();
+                                  if (previousScreen != null) {
+                                    _navigateToNextScreen(context, previousScreen);
+                                  } else {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => HomeScreen()),
+                                    );
+                                  }
                                 },
                               ),
                             ),
                             getWidth(14),
                             Expanded(
                               child: ArrowButton(
-                                text: AssetAuditNavigationHelper.getNextAvailableTelecomScreen(
-                                  widget.assetAuditData, 
-                                  'Battery'
-                                ) ?? 'SUBMIT',
+                                text: _getNextAvailableScreen() ?? "SUBMIT",
                                 isLeftArrow: false,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () async {
-                                  // If no data to show, just navigate to next screen
-                                  if (!_hasDataToShow()) {
-                                    _navigateToNextScreen();
-                                    return;
-                                  }
-
-                                  // Allow navigation - no validation blocking
-
-                                  // Post current screen data before navigating
-                                  final success = await _postCurrentScreenData();
-
-                                  if (success) {
-                                    _navigateToNextScreen();
-                                  } else {
-                                    showCustomToast(context, 'Failed to post data. Please try again.');
-                                  }
+                                 await _postCurrentScreenData();
+                                 _navigateToNextScreen(context, _getNextAvailableScreen());
                                 },
                               ),
                             ),
@@ -880,16 +843,23 @@ class _BatteryScreenState extends State<BatteryScreen> {
     );
   }
 
-  void _navigateToNextScreen() {
-    final nextScreen = _getNextAvailableScreen();
-    if (nextScreen != null) {
-      _navigateToNextScreenWithName(context, nextScreen);
-            } else {
+  void _navigateToNextScreen(BuildContext context, String? nextScreen) {
+    if (nextScreen == null) {
       // No next screen available, go to home
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => HomeScreen()),
       );
+      return;
     }
+    // Navigate to the next screen using AssetAuditNavigationHelper
+    AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+      context,
+      nextScreen,
+      widget.siteType ?? '',
+      widget.auditSchId ?? '',
+      widget.siteAuditSchId ?? '',
+      widget.assetAuditData,
+    );
   }
 }

@@ -665,7 +665,7 @@ class _DgScreenState extends State<DgScreen> {
                         children: [
                           Expanded(
                             child: ArrowButton(
-                              text: _getPreviousAvailableScreen() != null ? "Previous" : "BACK",
+                              text: _getPreviousAvailableScreen() ?? "BACK",
                               isLeftArrow: true,
                               backgroundColor: _getPreviousAvailableScreen() != null 
                                   ? AppColors.buttonColorBackBg 

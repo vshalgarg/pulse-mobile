@@ -11,6 +11,7 @@ import 'package:app/screens/asset_audit/asset_audit_solar/scada_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/fire_extinguisher_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 
 // Telecom screen imports
 import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
@@ -151,7 +152,9 @@ class AssetAuditNavigationHelper {
     if (currentIndex <= 0) return null; // First screen or not found
 
     String screenName = _telecomScreenOrder[currentIndex - 1];
-    
+    if(currentIndex-1 == 0) {
+      return screenName;
+    }
     // Check if the screen has data using the telecom data structure
     CategoryData? categoryData = getCategoryData(assetAuditData, screenName);
     if (categoryData == null || (categoryData.assets.isEmpty && categoryData.subCategories!.isEmpty && categoryData.remarks.isEmpty)) {
@@ -311,6 +314,13 @@ class AssetAuditNavigationHelper {
       AssetAuditModel? assetAuditData,
       ) {
     switch (screenName) {
+      case 'Site Info':
+        pushPage(context, AssetAuditTelecomScreen(
+          siteType: "Telecom",
+          auditSchId: auditSchId,
+          siteAuditSchId: siteAuditSchId,
+        ));
+        break;
       case 'CCU':
         pushPage(context, CCUScreen(
           ccuData: getCategoryData(assetAuditData, 'CCU'),
