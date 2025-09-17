@@ -1,35 +1,36 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../../../commonWidgets/custom_form_appbar.dart';
-import '../../../../commonWidgets/custom_form_field.dart';
-import '../../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../../commonWidgets/custom_buttons/arrow_botton.dart';
-import '../../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import '../../../../commonWidgets/asset_audit_form_component.dart';
-import '../../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
-import '../../../../constants/app_colors.dart';
-import '../../../../constants/app_images.dart';
-import '../../../../constants/constants_methods.dart';
-import '../../../../utils/logger.dart';
-import '../../../../models/asset_audit_model.dart';
-import '../../../../services/asset_audit/central_service_initializer.dart';
-import '../../../../services/asset_audit/central_asset_audit_service.dart';
-import '../../../../services/asset_audit_post_service.dart';
-import '../../../../services/image_upload_service.dart';
-import '../../../../enum/image_activity_type_enum.dart';
-import '../../../../app_config.dart';
+import '../../../commonWidgets/custom_form_appbar.dart';
+import '../../../commonWidgets/custom_form_field.dart';
+import '../../../commonWidgets/custom_image_upload_field.dart';
+import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
+import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
+import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_images.dart';
+import '../../../constants/constants_methods.dart';
+import '../../../utils/logger.dart';
+import '../../../models/asset_audit_model.dart';
+import '../../../services/asset_audit/central_service_initializer.dart';
+import '../../../services/asset_audit/central_asset_audit_service.dart';
+import '../../../services/asset_audit_post_service.dart';
+import '../../../services/image_upload_service.dart';
+import '../../../enum/image_activity_type_enum.dart';
+import '../../../app_config.dart';
 
-class TransformerV2Screen extends StatefulWidget {
+class LTDBV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const TransformerV2Screen({
+  const LTDBV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -37,11 +38,11 @@ class TransformerV2Screen extends StatefulWidget {
   });
 
   @override
-  State<TransformerV2Screen> createState() => _TransformerV2ScreenState();
+  State<LTDBV2Screen> createState() => _LTDBV2ScreenState();
 }
 
-class _TransformerV2ScreenState extends State<TransformerV2Screen> {
-  final String _screenName = 'Transformer';
+class _LTDBV2ScreenState extends State<LTDBV2Screen> {
+  final String _screenName = 'LTDB';
   
   // Service
   late CentralAssetAuditService _service;
@@ -51,7 +52,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
   Map<String, dynamic>? _displayFormData;
   
   // Controllers
-  final TextEditingController _transformerSerialController = TextEditingController();
+  final TextEditingController _ltdbSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   
   // State
@@ -71,13 +72,13 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
     _loadData();
     
     // Add listeners for form changes
-    _transformerSerialController.addListener(_onFormChanged);
+    _ltdbSerialController.addListener(_onFormChanged);
     _remarksController.addListener(_onFormChanged);
   }
 
   @override
   void dispose() {
-    _transformerSerialController.dispose();
+    _ltdbSerialController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
@@ -97,7 +98,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Transformer V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog('🔄 LTDB V2: Loading data for site ${widget.siteAuditSchId}');
       
       final data = await _service.getAssetAuditData(
         siteType: widget.siteType,
@@ -106,19 +107,19 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
       );
 
       if (data != null) {
-        final transformerItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+        final ltdbItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
         as Map<String, dynamic>? ?? {};
 
-        if (transformerItems.isNotEmpty) {
-          final firstItem = transformerItems['assets'].first;
+        if (ltdbItems.isNotEmpty) {
+          final firstItem = ltdbItems['assets'].first;
           final formData = <String, dynamic>{
-            'transformerType': firstItem['item_type']?.toString() ?? "N/A",
-            'transformerMake': firstItem['oem_name']?.toString() ?? "N/A",
+            'ltdbType': firstItem['item_type']?.toString() ?? "N/A",
+            'ltdbMake': firstItem['oem_name']?.toString() ?? "N/A",
             'capacity': firstItem['capacity']?.toString() ?? "N/A",
-            'totalItems': transformerItems['assets'].length.toString(),
-            'remarks': transformerItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': transformerItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
-            'allAssets': transformerItems['assets'],
+            'totalItems': ltdbItems['assets'].length.toString(),
+            'remarks': ltdbItems['remarks'].first['item_type_remark']?.toString() ?? "",
+            'assets': ltdbItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'allAssets': ltdbItems['assets'],
           };
 
           setState(() {
@@ -133,17 +134,17 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
         } else {
           setState(() {
             _isLoadingData = false;
-            _errorMessage = 'No Transformer data found';
+            _errorMessage = 'No LTDB data found';
           });
         }
       } else {
         setState(() {
           _isLoadingData = false;
-          _errorMessage = 'Failed to load Transformer data';
+          _errorMessage = 'Failed to load LTDB data';
         });
       }
     } catch (e) {
-      Logger.errorLog('❌ Transformer V2: Error loading data: $e');
+      Logger.errorLog('❌ LTDB V2: Error loading data: $e');
       setState(() {
         _isLoadingData = false;
         _errorMessage = 'Error loading data: $e';
@@ -160,20 +161,20 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
     }
   }
 
-  // Callback when Transformer item is saved
-  void _onTransformerItemSaved(List<Map<String, dynamic>> items) {
+  // Callback when LTDB item is saved
+  void _onLTDBItemSaved(List<Map<String, dynamic>> items) {
     _displayFormData?['assets'] = [...items];
     setState(() {
       _hasFormDataChanges = true;
     });
   }
 
-  // Validate Transformer serial number
-  bool _validateTransformerSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedTransformerItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    if (savedTransformerItems.isEmpty) return false;
+  // Validate LTDB serial number
+  bool _validateLTDBSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedLTDBItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    if (savedLTDBItems.isEmpty) return false;
 
-    final isValid = savedTransformerItems.any((item) {
+    final isValid = savedLTDBItems.any((item) {
       if (isQRCodeScanned) {
         return item['nexgen_serial_no']?.toString().toLowerCase() ==
             serialNumber.toLowerCase();
@@ -188,7 +189,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
 
   Future<void> postCurrentScreenData() async {
     try {
-      Logger.debugLog('📤 Transformer V2: Starting postCurrentScreenData');
+      Logger.debugLog('📤 LTDB V2: Starting postCurrentScreenData');
       
       final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
@@ -243,7 +244,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
         ...finalRemarks
       ];
 
-      Logger.debugLog('📤 Transformer V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog('📤 LTDB V2: Prepared ${postObject.length} items for posting');
       
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
@@ -258,10 +259,10 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
         requests: postObject,
       );
       
-      Logger.debugLog('✅ Transformer V2: Data posted successfully');
+      Logger.debugLog('✅ LTDB V2: Data posted successfully');
       
     } catch (e) {
-      Logger.errorLog('❌ Transformer V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ LTDB V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
   }
@@ -339,7 +340,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'Loading Transformer data...',
+                                      'Loading LTDB data...',
                                       style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
@@ -411,7 +412,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
                               padding: const EdgeInsets.all(20),
                               child: const Center(
                                 child: Text(
-                                  'No Transformer data available',
+                                  'No LTDB data available',
                                   style: TextStyle(
                                     color: AppColors.white,
                                     fontSize: 16,
@@ -450,36 +451,36 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Transformer Type
+        // LTDB Type
         CustomFormField(
-          label: "Transformer Type",
-          initialValue: _displayFormData?['transformerType']?.toString() ?? "N/A",
+          label: "LTDB Type",
+          initialValue: _displayFormData?['ltdbType']?.toString() ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         
-        // Transformer Make
+        // LTDB Make
         CustomFormField(
-          label: "Transformer Make",
-          initialValue: _displayFormData?['transformerMake']?.toString() ?? "N/A",
+          label: "LTDB Make",
+          initialValue: _displayFormData?['ltdbMake']?.toString() ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         
-        // Count of Transformer
+        // Count of LTDB
         CustomFormField(
-          label: "Count of Transformer",
+          label: "Count of LTDB",
           initialValue: _displayFormData?['totalItems']?.toString() ?? "0",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         
-        // Transformer Section
+        // LTDB Section
         const Text(
-          "Transformer",
+          "LTDB",
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -488,42 +489,36 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
         ),
         getHeight(15),
         
-        // Transformer Form Component
+        // LTDB Form Component
         AssetAuditFormComponent(
-          componentId: 'transformer_component',
-          serialLabel: "Transformer - Serial Number *",
-          serialHintText: "Transformer Serial Number *",
+          componentId: 'ltdb_component',
+          serialLabel: "LTDB - Serial Number *",
+          serialHintText: "LTDB Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
           disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
-          serialController: _transformerSerialController,
+          serialController: _ltdbSerialController,
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
-          onItemSaved: _onTransformerItemSaved,
+          onItemSaved: _onLTDBItemSaved,
           onStatusChanged: (status) {
             setState(() {
               _hasFormDataChanges = true;
             });
           },
-          customValidator: _validateTransformerSerialNumber,
-          customValidationErrorMessage: "Invalid Transformer serial number. Please check and try again.",
+          customValidator: _validateLTDBSerialNumber,
+          customValidationErrorMessage: "Invalid LTDB serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
-          tableTitle: "Transformer Items",
+          tableTitle: "LTDB Items",
         ),
         getHeight(15),
         
         // Remarks
-        CustomFormField(
+        CustomRemarksField(
           label: "Add Remarks",
-          initialValue: "",
-          isRequired: false,
-          isEditable: true,
+          hintText: "Remarks",
           controller: _remarksController,
-          onChanged: (value) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
+          initialValue: _displayFormData?['remarks'] ?? '',
         ),
       ],
     );

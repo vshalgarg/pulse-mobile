@@ -1,35 +1,36 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../../../commonWidgets/custom_form_appbar.dart';
-import '../../../../commonWidgets/custom_form_field.dart';
-import '../../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../../commonWidgets/custom_buttons/arrow_botton.dart';
-import '../../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import '../../../../commonWidgets/asset_audit_form_component.dart';
-import '../../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
-import '../../../../constants/app_colors.dart';
-import '../../../../constants/app_images.dart';
-import '../../../../constants/constants_methods.dart';
-import '../../../../utils/logger.dart';
-import '../../../../models/asset_audit_model.dart';
-import '../../../../services/asset_audit/central_service_initializer.dart';
-import '../../../../services/asset_audit/central_asset_audit_service.dart';
-import '../../../../services/asset_audit_post_service.dart';
-import '../../../../services/image_upload_service.dart';
-import '../../../../enum/image_activity_type_enum.dart';
-import '../../../../app_config.dart';
+import '../../../commonWidgets/custom_form_appbar.dart';
+import '../../../commonWidgets/custom_form_field.dart';
+import '../../../commonWidgets/custom_image_upload_field.dart';
+import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
+import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
+import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_images.dart';
+import '../../../constants/constants_methods.dart';
+import '../../../utils/logger.dart';
+import '../../../models/asset_audit_model.dart';
+import '../../../services/asset_audit/central_service_initializer.dart';
+import '../../../services/asset_audit/central_asset_audit_service.dart';
+import '../../../services/asset_audit_post_service.dart';
+import '../../../services/image_upload_service.dart';
+import '../../../enum/image_activity_type_enum.dart';
+import '../../../app_config.dart';
 
-class LTDBV2Screen extends StatefulWidget {
+class TransformerV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const LTDBV2Screen({
+  const TransformerV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -37,11 +38,11 @@ class LTDBV2Screen extends StatefulWidget {
   });
 
   @override
-  State<LTDBV2Screen> createState() => _LTDBV2ScreenState();
+  State<TransformerV2Screen> createState() => _TransformerV2ScreenState();
 }
 
-class _LTDBV2ScreenState extends State<LTDBV2Screen> {
-  final String _screenName = 'LTDB';
+class _TransformerV2ScreenState extends State<TransformerV2Screen> {
+  final String _screenName = 'Transformer';
   
   // Service
   late CentralAssetAuditService _service;
@@ -51,7 +52,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
   Map<String, dynamic>? _displayFormData;
   
   // Controllers
-  final TextEditingController _ltdbSerialController = TextEditingController();
+  final TextEditingController _transformerSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   
   // State
@@ -71,13 +72,13 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     _loadData();
     
     // Add listeners for form changes
-    _ltdbSerialController.addListener(_onFormChanged);
+    _transformerSerialController.addListener(_onFormChanged);
     _remarksController.addListener(_onFormChanged);
   }
 
   @override
   void dispose() {
-    _ltdbSerialController.dispose();
+    _transformerSerialController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
@@ -97,7 +98,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 LTDB V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog('🔄 Transformer V2: Loading data for site ${widget.siteAuditSchId}');
       
       final data = await _service.getAssetAuditData(
         siteType: widget.siteType,
@@ -106,19 +107,20 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
       );
 
       if (data != null) {
-        final ltdbItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+        final transformerItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
         as Map<String, dynamic>? ?? {};
 
-        if (ltdbItems.isNotEmpty) {
-          final firstItem = ltdbItems['assets'].first;
+        if (transformerItems.isNotEmpty) {
+          final firstItem = transformerItems['assets'].first;
           final formData = <String, dynamic>{
-            'ltdbType': firstItem['item_type']?.toString() ?? "N/A",
-            'ltdbMake': firstItem['oem_name']?.toString() ?? "N/A",
-            'capacity': firstItem['capacity']?.toString() ?? "N/A",
-            'totalItems': ltdbItems['assets'].length.toString(),
-            'remarks': ltdbItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': ltdbItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
-            'allAssets': ltdbItems['assets'],
+            'transformerAvailable': "Yes", // Default to Yes
+            'transformerType': firstItem['item_type']?.toString() ?? "N/A",
+            'transformerMake': firstItem['oem_name']?.toString() ?? "N/A",
+            'capacity': firstItem['capacity']?.toString() ?? "5 KW",
+            'totalItems': transformerItems['assets'].length.toString(),
+            'remarks': transformerItems['remarks'].first['item_type_remark']?.toString() ?? "",
+            'assets': transformerItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'allAssets': transformerItems['assets'],
           };
 
           setState(() {
@@ -133,17 +135,17 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         } else {
           setState(() {
             _isLoadingData = false;
-            _errorMessage = 'No LTDB data found';
+            _errorMessage = 'No Transformer data found';
           });
         }
       } else {
         setState(() {
           _isLoadingData = false;
-          _errorMessage = 'Failed to load LTDB data';
+          _errorMessage = 'Failed to load Transformer data';
         });
       }
     } catch (e) {
-      Logger.errorLog('❌ LTDB V2: Error loading data: $e');
+      Logger.errorLog('❌ Transformer V2: Error loading data: $e');
       setState(() {
         _isLoadingData = false;
         _errorMessage = 'Error loading data: $e';
@@ -160,20 +162,20 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     }
   }
 
-  // Callback when LTDB item is saved
-  void _onLTDBItemSaved(List<Map<String, dynamic>> items) {
+  // Callback when Transformer item is saved
+  void _onTransformerItemSaved(List<Map<String, dynamic>> items) {
     _displayFormData?['assets'] = [...items];
     setState(() {
       _hasFormDataChanges = true;
     });
   }
 
-  // Validate LTDB serial number
-  bool _validateLTDBSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedLTDBItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    if (savedLTDBItems.isEmpty) return false;
+  // Validate Transformer serial number
+  bool _validateTransformerSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedTransformerItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    if (savedTransformerItems.isEmpty) return false;
 
-    final isValid = savedLTDBItems.any((item) {
+    final isValid = savedTransformerItems.any((item) {
       if (isQRCodeScanned) {
         return item['nexgen_serial_no']?.toString().toLowerCase() ==
             serialNumber.toLowerCase();
@@ -188,7 +190,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
 
   Future<void> postCurrentScreenData() async {
     try {
-      Logger.debugLog('📤 LTDB V2: Starting postCurrentScreenData');
+      Logger.debugLog('📤 Transformer V2: Starting postCurrentScreenData');
       
       final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
@@ -243,7 +245,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         ...finalRemarks
       ];
 
-      Logger.debugLog('📤 LTDB V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog('📤 Transformer V2: Prepared ${postObject.length} items for posting');
       
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
@@ -258,10 +260,10 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         requests: postObject,
       );
       
-      Logger.debugLog('✅ LTDB V2: Data posted successfully');
+      Logger.debugLog('✅ Transformer V2: Data posted successfully');
       
     } catch (e) {
-      Logger.errorLog('❌ LTDB V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ Transformer V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
   }
@@ -339,7 +341,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'Loading LTDB data...',
+                                      'Loading Transformer data...',
                                       style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
@@ -411,7 +413,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
                               padding: const EdgeInsets.all(20),
                               child: const Center(
                                 child: Text(
-                                  'No LTDB data available',
+                                  'No Transformer data available',
                                   style: TextStyle(
                                     color: AppColors.white,
                                     fontSize: 16,
@@ -450,36 +452,41 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // LTDB Type
+        // Transformer Available
+        _buildRadioButtonField(
+          label: "Transformer Available",
+          isRequired: true,
+          groupValue: _displayFormData?['transformerAvailable'] ?? "Yes",
+          onChanged: (value) {
+            setState(() {
+              _displayFormData?['transformerAvailable'] = value;
+              _hasFormDataChanges = true;
+            });
+          },
+        ),
+        getHeight(15),
+        
+        // Transformer Type
         CustomFormField(
-          label: "LTDB Type",
-          initialValue: _displayFormData?['ltdbType']?.toString() ?? "N/A",
+          label: "Transformer Type",
+          initialValue: _displayFormData?['transformerType']?.toString() ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         
-        // LTDB Make
+        // Count of Transformer
         CustomFormField(
-          label: "LTDB Make",
-          initialValue: _displayFormData?['ltdbMake']?.toString() ?? "N/A",
+          label: "Count of Transformer",
+          initialValue: _displayFormData?['totalItems']?.toString() ?? "1",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         
-        // Count of LTDB
-        CustomFormField(
-          label: "Count of LTDB",
-          initialValue: _displayFormData?['totalItems']?.toString() ?? "0",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-        
-        // LTDB Section
+        // Transformer Details Section
         const Text(
-          "LTDB",
+          "Transformer Details",
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -488,42 +495,101 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         ),
         getHeight(15),
         
-        // LTDB Form Component
+        // Transformer Form Component
         AssetAuditFormComponent(
-          componentId: 'ltdb_component',
-          serialLabel: "LTDB - Serial Number *",
-          serialHintText: "LTDB Serial Number *",
+          componentId: 'transformer_component',
+          serialLabel: "Transformer - Serial Number *",
+          serialHintText: "Transformer Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
-          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
-          serialController: _ltdbSerialController,
+          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "5 KW",
+          serialController: _transformerSerialController,
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
-          onItemSaved: _onLTDBItemSaved,
+          onItemSaved: _onTransformerItemSaved,
           onStatusChanged: (status) {
             setState(() {
               _hasFormDataChanges = true;
             });
           },
-          customValidator: _validateLTDBSerialNumber,
-          customValidationErrorMessage: "Invalid LTDB serial number. Please check and try again.",
+          customValidator: _validateTransformerSerialNumber,
+          customValidationErrorMessage: "Invalid Transformer serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
-          tableTitle: "LTDB Items",
+          tableTitle: "Transformer Items",
         ),
         getHeight(15),
-        
+
         // Remarks
-        CustomFormField(
+        CustomRemarksField(
           label: "Add Remarks",
-          initialValue: "",
-          isRequired: false,
-          isEditable: true,
+          hintText: "Remarks",
           controller: _remarksController,
-          onChanged: (value) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
+          initialValue: _displayFormData?['remarks'] ?? '',
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRadioButtonField({
+    required String label,
+    required bool isRequired,
+    required String groupValue,
+    required Function(String?) onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (isRequired)
+              const Text(
+                " *",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                ),
+              ),
+          ],
+        ),
+        getHeight(8),
+        Row(
+          children: [
+            Radio<String>(
+              value: "Yes",
+              groupValue: groupValue,
+              onChanged: onChanged,
+              activeColor: AppColors.primaryGreen,
+            ),
+            const Text(
+              "Yes",
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Radio<String>(
+              value: "No",
+              groupValue: groupValue,
+              onChanged: onChanged,
+              activeColor: AppColors.primaryGreen,
+            ),
+            const Text(
+              "No",
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+              ),
+            ),
+          ],
         ),
       ],
     );

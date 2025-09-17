@@ -46,12 +46,12 @@ class Utils {
 
   /// Convert current date time to ISO 8601 format with timezone offset
   /// Returns format: 2025-09-12T15:25:00.000+00:00
-  static String getCurrentDateTimeISO8601() {
+  static String getCurrentDateTimeForAPICall() {
     final now = DateTime.now();
     return now.toUtc().toIso8601String();
   }
 
-  static String? getCurrentDateTimeFromMsISO8601(int? milliseconds) {
+  static String? getTmeFromMSForAPICall(int? milliseconds) {
     if(milliseconds == null) return null;
     final now = DateTime.fromMillisecondsSinceEpoch(milliseconds);
     return now.toUtc().toIso8601String();

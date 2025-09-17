@@ -14,9 +14,13 @@ import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/acdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/dcdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/inverter_v2_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar_v2/ltdb_v2/ltdb_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/ltdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/mms_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/pcu_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/scada_v2/scada_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/transformer_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/vcb_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/wms_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/spv_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 
@@ -225,6 +229,31 @@ class AssetAuditNavigationHelper {
         auditSchId: auditSchId,
       ));
       break;
+      case 'Transformer' : pushPage(context, TransformerV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'VCB' : pushPage(context, VCBV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'WMS' : pushPage(context, WMSV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'SCADA' : pushPage(context, SCADAV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+
       default: break;
     }
   }

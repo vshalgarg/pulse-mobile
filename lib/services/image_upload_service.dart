@@ -309,7 +309,7 @@ class ImageUploadService {
           response.add(serverId.toString());
         }
         int? createdTime = result.first['created_at'] as int?;
-        String? createdTimeStr = Utils.getCurrentDateTimeFromMsISO8601(
+        String? createdTimeStr = Utils.getTmeFromMSForAPICall(
             createdTime);
         if (createdTimeStr != null) {
           response.add(createdTimeStr.toString());

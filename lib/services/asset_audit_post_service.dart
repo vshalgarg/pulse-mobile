@@ -31,8 +31,8 @@ class AssetAuditPostService {
 
       for (int i = 0; i < requests.length; i++) {
         final processedRequest = await _processAssetAuditRequest(requests[i]);
-          processedRequest['localCreatedDt'] =  Utils.getCurrentDateTimeISO8601();
-          processedRequest['localModifiedDt'] =  Utils.getCurrentDateTimeISO8601();
+          processedRequest['localCreatedDt'] =  Utils.getCurrentDateTimeForAPICall();
+          processedRequest['localModifiedDt'] =  Utils.getCurrentDateTimeForAPICall();
           processedRequests.add(processedRequest);
       }
       
@@ -91,7 +91,7 @@ class AssetAuditPostService {
       } else {
         // This is already a server_id, just add photo_taken_ts if not present
         if (updatedRequest['photo_taken_ts'] == null || updatedRequest['photo_taken_ts'].toString().isEmpty) {
-          final currentTime = Utils.getCurrentDateTimeISO8601();
+          final currentTime = Utils.getCurrentDateTimeForAPICall();
           updatedRequest['photo_taken_ts'] = currentTime;
           Logger.debugLog('📅 Added current timestamp for server_id: $photoId');
         }

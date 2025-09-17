@@ -441,7 +441,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           'qr_code_scanned': _isQRCodeScanned,
           'qr_code_scanned_ts': qrCodeScannedTs,
           'disabledFieldValue': widget.disabledFieldValue,
-          'timestamp': Utils.getCurrentDateTimeISO8601(),
+          'timestamp': Utils.getCurrentDateTimeForAPICall(),
         };
         
         // Handle photo data properly
@@ -763,7 +763,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                       setState(() {
                         widget.serialController.text = widget.initialSavedItems.where((item) => item['nexgen_serial_no'] == result)?.first['mfg_serial_no'] ?? '';
                         _isQRCodeScanned = true;
-                        qrCodeScannedTs = Utils.getCurrentDateTimeISO8601();
+                        qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
                         _showValidationErrors = false;
                       });
                   }
