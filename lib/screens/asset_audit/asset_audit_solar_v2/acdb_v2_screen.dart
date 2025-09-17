@@ -107,7 +107,6 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
         if (acdbItems.isNotEmpty) {
           final firstItem = acdbItems['assets'].first;
           final formData = <String, dynamic>{
-            'acdbType': firstItem['item_type']?.toString() ?? "N/A",
             'acdbMake': firstItem['oem_name']?.toString() ?? "N/A",
             'capacity': firstItem['capacity']?.toString() ?? "N/A",
             'totalItems': acdbItems['assets'].length.toString(),
@@ -445,15 +444,6 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ACDB Type
-        CustomFormField(
-          label: "ACDB Type",
-          initialValue: _displayFormData?['acdbType']?.toString() ?? "N/A",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-        
         // ACDB Make
         CustomFormField(
           label: "ACDB Make",

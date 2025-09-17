@@ -1,36 +1,28 @@
-import 'dart:io';
-import 'dart:convert';
-import 'package:app/screens/home_screen.dart';
+import 'package:app/app_config.dart';
+import 'package:app/commonWidgets/asset_audit_form_component.dart';
+import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
+import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import 'package:app/commonWidgets/custom_form_appbar.dart';
+import 'package:app/commonWidgets/custom_form_field.dart';
+import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/constants/app_colors.dart';
+import 'package:app/constants/app_images.dart';
+import 'package:app/constants/constants_methods.dart';
+import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/asset_audit/central_service_initializer.dart';
+import 'package:app/services/asset_audit_post_service.dart';
+import 'package:app/services/image_upload_service.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../../../commonWidgets/custom_form_appbar.dart';
-import '../../../../commonWidgets/custom_form_field.dart';
-import '../../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../../commonWidgets/custom_buttons/arrow_botton.dart';
-import '../../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import '../../../../commonWidgets/asset_audit_form_component.dart';
-import '../../../../commonWidgets/custom_remark.dart';
-import '../../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
-import '../../../../constants/app_colors.dart';
-import '../../../../constants/app_images.dart';
-import '../../../../constants/constants_methods.dart';
-import '../../../../utils/logger.dart';
-import '../../../../models/asset_audit_model.dart';
-import '../../../../services/asset_audit/central_service_initializer.dart';
-import '../../../../services/asset_audit/central_asset_audit_service.dart';
-import '../../../../services/asset_audit_post_service.dart';
-import '../../../../services/image_upload_service.dart';
-import '../../../../enum/image_activity_type_enum.dart';
-import '../../../../app_config.dart';
 
-class SCADAV2Screen extends StatefulWidget {
+class SurveillanceV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const SCADAV2Screen({
+  const SurveillanceV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -38,11 +30,11 @@ class SCADAV2Screen extends StatefulWidget {
   });
 
   @override
-  State<SCADAV2Screen> createState() => _SCADAV2ScreenState();
+  State<SurveillanceV2Screen> createState() => _SurveillanceV2ScreenState();
 }
 
-class _SCADAV2ScreenState extends State<SCADAV2Screen> {
-  final String _screenName = 'SCADA';
+class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
+  final String _screenName = 'Surveillance';
   
   // Service
   late CentralAssetAuditService _service;
@@ -52,13 +44,16 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
   Map<String, dynamic>? _displayFormData;
   
   // Controllers
-  final TextEditingController _scadaSerialController = TextEditingController();
+  final TextEditingController _cctvSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
+  
+  // Section visibility states
+  bool _showCCTVDetails = false;
 
   @override
   void initState() {
@@ -67,13 +62,13 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
     _loadData();
     
     // Add listeners for form changes
-    _scadaSerialController.addListener(_onFormChanged);
+    _cctvSerialController.addListener(_onFormChanged);
     _remarksController.addListener(_onFormChanged);
   }
 
   @override
   void dispose() {
-    _scadaSerialController.dispose();
+    _cctvSerialController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
@@ -93,7 +88,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 SCADA V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog('🔄 Surveillance V2: Loading data for site ${widget.siteAuditSchId}');
       
       final data = await _service.getAssetAuditData(
         siteType: widget.siteType,
@@ -102,43 +97,39 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
       );
 
       if (data != null) {
-        final scadaItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+        final cctvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
         as Map<String, dynamic>? ?? {};
 
-        if (scadaItems.isNotEmpty) {
-          final firstItem = scadaItems['assets'].first;
-          final formData = <String, dynamic>{
-            'scadaMake': firstItem['oem_name']?.toString() ?? "N/A",
-            'capacity': firstItem['capacity']?.toString() ?? "N/A",
-            'totalItems': scadaItems['assets'].length.toString(),
-            'remarks': scadaItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': scadaItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
-            'allAssets': scadaItems['assets'],
-          };
+        // Parse CCTV data
+        final cctvAssets = cctvItems['assets'] as List<dynamic>? ?? [];
+        final remarksData = cctvItems['remarks'] as List<dynamic>? ?? [];
 
-          setState(() {
-            _isLoadingData = false;
-            _assetAuditData = data;
-            _displayFormData = formData;
-          });
+        final formData = <String, dynamic>{
+          'cctvAvailable': cctvAssets.isNotEmpty ? "Yes" : "No",
+          'cctvCount': cctvAssets.length.toString(),
+          'cctvAssets': cctvAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'cctvAllAssets': cctvAssets,
+          'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
+        };
 
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _initializeFormControllers(formData);
-          });
-        } else {
-          setState(() {
-            _isLoadingData = false;
-            _errorMessage = 'No SCADA data found';
-          });
-        }
+        setState(() {
+          _isLoadingData = false;
+          _assetAuditData = data;
+          _displayFormData = formData;
+          _showCCTVDetails = cctvAssets.isNotEmpty;
+        });
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _initializeFormControllers(formData);
+        });
       } else {
         setState(() {
           _isLoadingData = false;
-          _errorMessage = 'Failed to load SCADA data';
+          _errorMessage = 'Failed to load Surveillance data';
         });
       }
     } catch (e) {
-      Logger.errorLog('❌ SCADA V2: Error loading data: $e');
+      Logger.errorLog('❌ Surveillance V2: Error loading data: $e');
       setState(() {
         _isLoadingData = false;
         _errorMessage = 'Error loading data: $e';
@@ -155,20 +146,20 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
     }
   }
 
-  // Callback when SCADA item is saved
-  void _onSCADAItemSaved(List<Map<String, dynamic>> items) {
-    _displayFormData?['assets'] = [...items];
+  // Callback method for AssetAuditFormComponent
+  void _onCCTVItemSaved(List<Map<String, dynamic>> items) {
+    _displayFormData?['cctvAssets'] = [...items];
     setState(() {
       _hasFormDataChanges = true;
     });
   }
 
-  // Validate SCADA serial number
-  bool _validateSCADASerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedSCADAItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    if (savedSCADAItems.isEmpty) return false;
+  // Validation method
+  bool _validateCCTVSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['cctvAllAssets'] as List<dynamic>? ?? [];
+    if (savedItems.isEmpty) return false;
 
-    final isValid = savedSCADAItems.any((item) {
+    final isValid = savedItems.any((item) {
       if (isQRCodeScanned) {
         return item['nexgen_serial_no']?.toString().toLowerCase() ==
             serialNumber.toLowerCase();
@@ -183,41 +174,19 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
 
   Future<void> postCurrentScreenData() async {
     try {
-      Logger.debugLog('📤 SCADA V2: Starting postCurrentScreenData');
+      Logger.debugLog('📤 Surveillance V2: Starting postCurrentScreenData');
       
-      final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
-      final modifiedAssetsWithAllProperties = [];
       final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
-      final finalAssets = finalData?['assets'] as List<dynamic>? ?? [];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
+      final finalCCTVAssets = finalData['assets'] as List<dynamic>? ?? [];
       
-      Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
+      // Collect modified assets
+      final modifiedAssetsWithAllProperties = <dynamic>[];
       
-      // Update assets with modified data
-      for(dynamic asset in finalAssets) {
-        try {
-          final assetSerialNo = asset['mfg_serial_no']?.toString();
-          final modifiedAsset = modifiedAssets.where((ass) => 
-            ass['mfg_serial_no']?.toString() == assetSerialNo
-          ).firstOrNull;
-          
-          if (modifiedAsset != null) {
-            asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-            asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-            asset['photo_id'] = modifiedAsset['photo_id'];
-            asset['longitude'] = 'Tobechanged';
-            asset['latitude'] = 'Tobechanged';
-            asset['asset_status'] = modifiedAsset['asset_status'];
-            modifiedAssetsWithAllProperties.add(asset);
-            Logger.debugLog('✅ Updated asset: $assetSerialNo');
-          } else {
-            Logger.debugLog('⚠️ No modified asset found for serial: $assetSerialNo');
-          }
-        } catch (e) {
-          Logger.errorLog('❌ Error updating asset: $e');
-        }
-      }
-      
+      // Add CCTV assets
+      final modifiedCCTVAssets = _displayFormData?['cctvAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(_modifyData(finalCCTVAssets, modifiedCCTVAssets));
+
       // Update remarks
       final String remark = _remarksController.text;
       if(remark.isNotEmpty && finalRemarks.isNotEmpty){
@@ -238,7 +207,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         ...finalRemarks
       ];
 
-      Logger.debugLog('📤 SCADA V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog('📤 Surveillance V2: Prepared ${postObject.length} items for posting');
       
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
@@ -253,12 +222,40 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         requests: postObject,
       );
       
-      Logger.debugLog('✅ SCADA V2: Data posted successfully');
+      Logger.debugLog('✅ Surveillance V2: Data posted successfully');
       
     } catch (e) {
-      Logger.errorLog('❌ SCADA V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ Surveillance V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
+  }
+
+  static List<dynamic> _modifyData(List<dynamic> actualData, List<dynamic> modifiedData) {
+    List<dynamic> modifiedDataToReturn = [];
+    for(dynamic asset in actualData) {
+      try {
+        final assetSerialNo = asset['mfg_serial_no']?.toString();
+        final modifiedAsset = modifiedData.where((ass) =>
+        ass['mfg_serial_no']?.toString() == assetSerialNo
+        ).firstOrNull;
+
+        if (modifiedAsset != null) {
+          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+          asset['photo_id'] = modifiedAsset['photo_id'];
+          asset['longitude'] = 'Tobechanged';
+          asset['latitude'] = 'Tobechanged';
+          asset['asset_status'] = modifiedAsset['asset_status'];
+          modifiedDataToReturn.add(asset);
+          Logger.debugLog('✅ Updated asset: $assetSerialNo');
+        } else {
+          Logger.debugLog('⚠️ No modified asset found for serial: $assetSerialNo');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error updating asset: $e');
+      }
+    }
+    return modifiedDataToReturn;
   }
 
   void _showUnsavedChangesDialog() {
@@ -280,6 +277,71 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
     } else {
       AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
+  }
+
+  Widget _buildRadioButtonField({
+    required String label,
+    required bool isRequired,
+    required String groupValue,
+    required Function(String?) onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (isRequired)
+              const Text(
+                " *",
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                ),
+              ),
+          ],
+        ),
+        getHeight(8),
+        Row(
+          children: [
+            Radio<String>(
+              value: "Yes",
+              groupValue: groupValue,
+              onChanged: onChanged,
+              activeColor: AppColors.primaryGreen,
+            ),
+            const Text(
+              "Yes",
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Radio<String>(
+              value: "No",
+              groupValue: groupValue,
+              onChanged: onChanged,
+              activeColor: AppColors.primaryGreen,
+            ),
+            const Text(
+              "No",
+              style: TextStyle(
+                color: AppColors.white,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   @override
@@ -334,7 +396,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'Loading SCADA data...',
+                                      'Loading Surveillance data...',
                                       style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
@@ -406,7 +468,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
                               padding: const EdgeInsets.all(20),
                               child: const Center(
                                 child: Text(
-                                  'No SCADA data available',
+                                  'No Surveillance data available',
                                   style: TextStyle(
                                     color: AppColors.white,
                                     fontSize: 16,
@@ -445,49 +507,65 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Data Logger / SCADA Make
-        CustomFormField(
-          label: "Data Logger / SCADA Make",
-          initialValue: _displayFormData?['scadaMake']?.toString() ?? "N/A",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-        
-        // Data Logger / SCADA Details Section
-        const Text(
-          "Data Logger / SCADA Details",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.white,
-          ),
-        ),
-        getHeight(15),
-        
-        // SCADA Form Component
-        AssetAuditFormComponent(
-          componentId: 'scada_component',
-          serialLabel: "Data Logger / SCADA - Serial Number *",
-          serialHintText: "Data Logger / SCADA Serial Number *",
-          photoLabel: "Add a Photo",
-          disabledFieldLabel: "Status",
-          disabledFieldValue: "Ok",
-          serialController: _scadaSerialController,
-          initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
-          onItemSaved: _onSCADAItemSaved,
-          onStatusChanged: (status) {
+        // CCTV Available
+        _buildRadioButtonField(
+          label: "CCTV Available",
+          isRequired: true,
+          groupValue: _displayFormData?['cctvAvailable'] ?? "No",
+          onChanged: (value) {
             setState(() {
+              _displayFormData?['cctvAvailable'] = value;
               _hasFormDataChanges = true;
             });
           },
-          customValidator: _validateSCADASerialNumber,
-          customValidationErrorMessage: "Invalid SCADA serial number. Please check and try again.",
-          siteAuditSchId: widget.siteAuditSchId,
-          showTable: true,
-          tableTitle: "SCADA Items",
         ),
         getHeight(15),
+
+        // CCTV Details Section (only show if available)
+        if (_showCCTVDetails) ...[
+          // Count of CCTV
+          CustomFormField(
+            label: "Count of CCTV",
+            initialValue: _displayFormData?['cctvCount']?.toString() ?? "0",
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
+
+          const Text(
+            "CCTV Details",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.white,
+            ),
+          ),
+          getHeight(15),
+          
+          // CCTV Form Component
+          AssetAuditFormComponent(
+            componentId: 'cctv_component',
+            serialLabel: "CCTV - Serial Number *",
+            serialHintText: "CCTV Serial Number *",
+            photoLabel: "Add a Photo",
+            disabledFieldLabel: "Status",
+            disabledFieldValue: "Ok",
+            serialController: _cctvSerialController,
+            initialSavedItems: _displayFormData?['cctvAssets'] as List<dynamic>? ?? [],
+            onItemSaved: _onCCTVItemSaved,
+            onStatusChanged: (status) {
+              setState(() {
+                _hasFormDataChanges = true;
+              });
+            },
+            customValidator: _validateCCTVSerialNumber,
+            customValidationErrorMessage: "Invalid CCTV serial number. Please check and try again.",
+            siteAuditSchId: widget.siteAuditSchId,
+            showTable: true,
+            tableTitle: "CCTV Items",
+          ),
+          getHeight(15),
+        ],
         
         // Remarks using CustomRemarksField
         CustomRemarksField(

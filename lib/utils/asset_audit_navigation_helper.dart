@@ -17,7 +17,8 @@ import 'package:app/screens/asset_audit/asset_audit_solar_v2/inverter_v2_screen.
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/ltdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/mms_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/pcu_v2_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_solar_v2/scada_v2/scada_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/scada_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/surveillance_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/transformer_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/vcb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/wms_v2_screen.dart';
@@ -35,6 +36,7 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/fencing_screen.dart'
 import 'package:app/screens/asset_audit/asset_audit_telecom/dg_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/smps_screen.dart';
 import 'package:app/models/asset_audit_model.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/fire_extinguisher_v2_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -83,7 +85,7 @@ class AssetAuditNavigationHelper {
     'WMS',
     'SCADA',
     'Fire Extinguisher',
-    'CCTV',
+    'Surveillance',
     'Boundary'
   ];
 
@@ -98,6 +100,7 @@ class AssetAuditNavigationHelper {
   static String _dataValueForSolarPage(String page) {
     switch (page) {
       case 'GENERAL' : return 'PageHeader';
+      case 'Surveillance': return 'CCTV';
       default:
         return page;
     }
@@ -253,7 +256,18 @@ class AssetAuditNavigationHelper {
         auditSchId: auditSchId,
       ));
       break;
-
+      case 'Fire Extinguisher' : pushPage(context, FireExtinguisherV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'Surveillance' : pushPage(context, SurveillanceV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
       default: break;
     }
   }

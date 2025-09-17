@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +11,7 @@ import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
+import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
@@ -25,12 +25,12 @@ import '../../../services/image_upload_service.dart';
 import '../../../enum/image_activity_type_enum.dart';
 import '../../../app_config.dart';
 
-class LTDBV2Screen extends StatefulWidget {
+class SCADAV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const LTDBV2Screen({
+  const SCADAV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -38,11 +38,11 @@ class LTDBV2Screen extends StatefulWidget {
   });
 
   @override
-  State<LTDBV2Screen> createState() => _LTDBV2ScreenState();
+  State<SCADAV2Screen> createState() => _SCADAV2ScreenState();
 }
 
-class _LTDBV2ScreenState extends State<LTDBV2Screen> {
-  final String _screenName = 'LTDB';
+class _SCADAV2ScreenState extends State<SCADAV2Screen> {
+  final String _screenName = 'SCADA';
   
   // Service
   late CentralAssetAuditService _service;
@@ -52,18 +52,13 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
   Map<String, dynamic>? _displayFormData;
   
   // Controllers
-  final TextEditingController _ltdbSerialController = TextEditingController();
+  final TextEditingController _scadaSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
-  
-  // Image handling
-  String? _selectedImagePath;
-  String? _uploadedImgId;
-  String? _fetchedImageData;
 
   @override
   void initState() {
@@ -72,13 +67,13 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     _loadData();
     
     // Add listeners for form changes
-    _ltdbSerialController.addListener(_onFormChanged);
+    _scadaSerialController.addListener(_onFormChanged);
     _remarksController.addListener(_onFormChanged);
   }
 
   @override
   void dispose() {
-    _ltdbSerialController.dispose();
+    _scadaSerialController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
@@ -98,7 +93,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 LTDB V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog('🔄 SCADA V2: Loading data for site ${widget.siteAuditSchId}');
       
       final data = await _service.getAssetAuditData(
         siteType: widget.siteType,
@@ -107,18 +102,18 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
       );
 
       if (data != null) {
-        final ltdbItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+        final scadaItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
         as Map<String, dynamic>? ?? {};
 
-        if (ltdbItems.isNotEmpty) {
-          final firstItem = ltdbItems['assets'].first;
+        if (scadaItems.isNotEmpty) {
+          final firstItem = scadaItems['assets'].first;
           final formData = <String, dynamic>{
-            'ltdbMake': firstItem['oem_name']?.toString() ?? "N/A",
+            'scadaMake': firstItem['oem_name']?.toString() ?? "N/A",
             'capacity': firstItem['capacity']?.toString() ?? "N/A",
-            'totalItems': ltdbItems['assets'].length.toString(),
-            'remarks': ltdbItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': ltdbItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
-            'allAssets': ltdbItems['assets'],
+            'totalItems': scadaItems['assets'].length.toString(),
+            'remarks': scadaItems['remarks'].first['item_type_remark']?.toString() ?? "",
+            'assets': scadaItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'allAssets': scadaItems['assets'],
           };
 
           setState(() {
@@ -133,17 +128,17 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         } else {
           setState(() {
             _isLoadingData = false;
-            _errorMessage = 'No LTDB data found';
+            _errorMessage = 'No SCADA data found';
           });
         }
       } else {
         setState(() {
           _isLoadingData = false;
-          _errorMessage = 'Failed to load LTDB data';
+          _errorMessage = 'Failed to load SCADA data';
         });
       }
     } catch (e) {
-      Logger.errorLog('❌ LTDB V2: Error loading data: $e');
+      Logger.errorLog('❌ SCADA V2: Error loading data: $e');
       setState(() {
         _isLoadingData = false;
         _errorMessage = 'Error loading data: $e';
@@ -160,20 +155,20 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     }
   }
 
-  // Callback when LTDB item is saved
-  void _onLTDBItemSaved(List<Map<String, dynamic>> items) {
+  // Callback when SCADA item is saved
+  void _onSCADAItemSaved(List<Map<String, dynamic>> items) {
     _displayFormData?['assets'] = [...items];
     setState(() {
       _hasFormDataChanges = true;
     });
   }
 
-  // Validate LTDB serial number
-  bool _validateLTDBSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedLTDBItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    if (savedLTDBItems.isEmpty) return false;
+  // Validate SCADA serial number
+  bool _validateSCADASerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedSCADAItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    if (savedSCADAItems.isEmpty) return false;
 
-    final isValid = savedLTDBItems.any((item) {
+    final isValid = savedSCADAItems.any((item) {
       if (isQRCodeScanned) {
         return item['nexgen_serial_no']?.toString().toLowerCase() ==
             serialNumber.toLowerCase();
@@ -188,7 +183,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
 
   Future<void> postCurrentScreenData() async {
     try {
-      Logger.debugLog('📤 LTDB V2: Starting postCurrentScreenData');
+      Logger.debugLog('📤 SCADA V2: Starting postCurrentScreenData');
       
       final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
@@ -243,7 +238,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         ...finalRemarks
       ];
 
-      Logger.debugLog('📤 LTDB V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog('📤 SCADA V2: Prepared ${postObject.length} items for posting');
       
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
@@ -258,10 +253,10 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         requests: postObject,
       );
       
-      Logger.debugLog('✅ LTDB V2: Data posted successfully');
+      Logger.debugLog('✅ SCADA V2: Data posted successfully');
       
     } catch (e) {
-      Logger.errorLog('❌ LTDB V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ SCADA V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
   }
@@ -339,7 +334,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'Loading LTDB data...',
+                                      'Loading SCADA data...',
                                       style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
@@ -411,7 +406,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
                               padding: const EdgeInsets.all(20),
                               child: const Center(
                                 child: Text(
-                                  'No LTDB data available',
+                                  'No SCADA data available',
                                   style: TextStyle(
                                     color: AppColors.white,
                                     fontSize: 16,
@@ -450,28 +445,18 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-
-        // LTDB Make
+        // Data Logger / SCADA Make
         CustomFormField(
-          label: "LTDB Make",
-          initialValue: _displayFormData?['ltdbMake']?.toString() ?? "N/A",
+          label: "Data Logger / SCADA Make",
+          initialValue: _displayFormData?['scadaMake']?.toString() ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         
-        // Count of LTDB
-        CustomFormField(
-          label: "Count of LTDB",
-          initialValue: _displayFormData?['totalItems']?.toString() ?? "0",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-        
-        // LTDB Section
+        // Data Logger / SCADA Details Section
         const Text(
-          "LTDB",
+          "Data Logger / SCADA Details",
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -480,36 +465,35 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         ),
         getHeight(15),
         
-        // LTDB Form Component
+        // SCADA Form Component
         AssetAuditFormComponent(
-          componentId: 'ltdb_component',
-          serialLabel: "LTDB - Serial Number *",
-          serialHintText: "LTDB Serial Number *",
+          componentId: 'scada_component',
+          serialLabel: "Data Logger / SCADA - Serial Number *",
+          serialHintText: "Data Logger / SCADA Serial Number *",
           photoLabel: "Add a Photo",
-          disabledFieldLabel: "Rating",
-          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
-          serialController: _ltdbSerialController,
+          disabledFieldLabel: "Status",
+          disabledFieldValue: "Ok",
+          serialController: _scadaSerialController,
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
-          onItemSaved: _onLTDBItemSaved,
+          onItemSaved: _onSCADAItemSaved,
           onStatusChanged: (status) {
             setState(() {
               _hasFormDataChanges = true;
             });
           },
-          customValidator: _validateLTDBSerialNumber,
-          customValidationErrorMessage: "Invalid LTDB serial number. Please check and try again.",
+          customValidator: _validateSCADASerialNumber,
+          customValidationErrorMessage: "Invalid SCADA serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
-          tableTitle: "LTDB Items",
+          tableTitle: "SCADA Items",
         ),
         getHeight(15),
         
-        // Remarks
+        // Remarks using CustomRemarksField
         CustomRemarksField(
           label: "Add Remarks",
           hintText: "Remarks",
           controller: _remarksController,
-          initialValue: _displayFormData?['remarks'] ?? '',
         ),
       ],
     );
