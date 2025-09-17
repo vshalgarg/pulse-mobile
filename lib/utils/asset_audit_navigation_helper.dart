@@ -12,6 +12,8 @@ import 'package:app/screens/asset_audit/asset_audit_solar/fire_extinguisher_scre
 import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/acdb_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/asset_audit_solar_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/boundary_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/dcdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/inverter_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/ltdb_v2_screen.dart';
@@ -26,7 +28,6 @@ import 'package:app/screens/asset_audit/asset_audit_solar_v2/spv_v2_screen.dart'
 import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 
 // Telecom screen imports
-import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
@@ -37,6 +38,16 @@ import 'package:app/screens/asset_audit/asset_audit_telecom/dg_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/smps_screen.dart';
 import 'package:app/models/asset_audit_model.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/fire_extinguisher_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/asset_audit_telecom_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/battery_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/boundary_telecom_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/cctv_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/ccu_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/dg_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/fire_extinguisher_telecom_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/site_info_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/smps_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/solar_plate_v2_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -99,7 +110,7 @@ class AssetAuditNavigationHelper {
   }
   static String _dataValueForSolarPage(String page) {
     switch (page) {
-      case 'GENERAL' : return 'PageHeader';
+      case 'GENERAL' : return 'pageHeader';
       case 'Surveillance': return 'CCTV';
       default:
         return page;
@@ -108,7 +119,8 @@ class AssetAuditNavigationHelper {
 
   static String _dataValueForTelecomPage(String page) {
     switch (page) {
-      case 'GENERAL' : return 'PageHeader';
+      case 'GENERAL' : return 'pageHeader';
+      case 'Site Info' : return 'pageHeader';
       default:
         return page;
     }
@@ -116,6 +128,7 @@ class AssetAuditNavigationHelper {
 
   // Define the order of all telecom screens
   static const List<String> _telecomScreenOrder = [
+    'GENERAL',
     'Site Info',
     'CCU',
     'Battery',
@@ -135,8 +148,8 @@ class AssetAuditNavigationHelper {
     if (currentIndex < 0 || currentIndex >= screenOrder.length - 1) return null;
     String screenName = screenOrder[currentIndex + 1];
     String dataValueForScrnName = dataValueForPage(screenName, type);
-    if(assetAuditData['responseData'] == null
-        || assetAuditData['responseData'][dataValueForScrnName] == null) {
+    if((assetAuditData['responseData'] == null
+        || assetAuditData['responseData'][dataValueForScrnName] == null) && (assetAuditData[dataValueForScrnName] == null)) {
         return _getNextAvailableScreenNameV2(assetAuditData, screenName, screenOrder, type);
     }
 
@@ -152,8 +165,8 @@ class AssetAuditNavigationHelper {
     if (currentIndex <= 0 ) return null;
     String screenName = screenOrder[currentIndex - 1];
     String dataValueForScrnName = dataValueForPage(screenName, type);
-    if(assetAuditData['responseData'] == null
-        || assetAuditData['responseData'][dataValueForScrnName] == null) {
+    if((assetAuditData['responseData'] == null
+        || assetAuditData['responseData'][dataValueForScrnName] == null) && (assetAuditData[dataValueForScrnName] == null)) {
       return _getPreviousAvailableScreenNameV2(assetAuditData, screenName, screenOrder, type);
     }
 
@@ -191,6 +204,11 @@ class AssetAuditNavigationHelper {
 
   static void _navigateToSolarScreen(BuildContext context, String siteAuditSchId, String siteType, String auditSchId, String screenToNavigateOn) {
     switch(screenToNavigateOn) {
+      case 'GENERAL' : pushPage(context, AssetAuditSolarV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
       case 'SPV' : pushPage(context, SPVV2Screen(
         siteAuditSchId: siteAuditSchId,
         siteType: siteType,
@@ -268,22 +286,27 @@ class AssetAuditNavigationHelper {
         auditSchId: auditSchId,
       ));
       break;
+      case 'Boundary' : pushPage(context, BoundaryV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
       default: break;
     }
   }
 
   static String getTelecomNextScreenName(Map<String, dynamic>? assetAuditData, String currentScreen) {
-    return _getNextAvailableScreenNameV2(assetAuditData, currentScreen, _solarScreenOrder, 'TELECOM')
+    return _getNextAvailableScreenNameV2(assetAuditData, currentScreen, _telecomScreenOrder, 'TELECOM')
         ?? 'SUBMIT';
   }
 
   static String getTelecomPreviousScreenName(Map<String, dynamic>? assetAuditData, String currentScreen) {
-    return _getPreviousAvailableScreenNameV2(assetAuditData, currentScreen, _solarScreenOrder, 'TELECOM')
+    return _getPreviousAvailableScreenNameV2(assetAuditData, currentScreen, _telecomScreenOrder, 'TELECOM')
         ?? 'BACK';
   }
 
   static void navigateToNextTelecomScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
-    String? nextScreenName = _getNextAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'TELECOM');
+    String? nextScreenName = _getNextAvailableScreenNameV2(assetAuditData, currentScreenName, _telecomScreenOrder, 'TELECOM');
     if(nextScreenName == null) {
       navigateToHomeScreen(context);
     } else {
@@ -292,7 +315,7 @@ class AssetAuditNavigationHelper {
   }
 
   static void navigateToPreviousTelecomScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
-    String? previousScreenName = _getPreviousAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'TELECOM');
+    String? previousScreenName = _getPreviousAvailableScreenNameV2(assetAuditData, currentScreenName, _telecomScreenOrder, 'TELECOM');
     if(previousScreenName == null) {
       navigateToHomeScreen(context);
     } else {
@@ -302,6 +325,66 @@ class AssetAuditNavigationHelper {
 
   static void _navigateToTelecomScreen(BuildContext context, String siteAuditSchId, String siteType, String auditSchId, String screenToNavigateOn) {
     switch(screenToNavigateOn) {
+      case 'GENERAL' : pushPage(context, AssetAuditTelecomV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'Site Info' : pushPage(context, SiteInfoV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'CCU' : pushPage(context, CCUV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'Battery' : pushPage(context, BatteryV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'Fire Extinguisher' : pushPage(context, FireExtinguisherTelecomV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'Solar Plates' : pushPage(context, SolarPlateV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'CCTV' : pushPage(context, CCTVV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'Boundary' : pushPage(context, BoundaryTelecomV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'DG' : pushPage(context, DGV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'SMPS' : pushPage(context, SMPSV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
       default: break;
     }
   }

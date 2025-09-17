@@ -1,28 +1,28 @@
-import 'package:app/app_config.dart';
-import 'package:app/commonWidgets/asset_audit_form_component.dart';
-import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
-import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import 'package:app/commonWidgets/custom_form_appbar.dart';
-import 'package:app/commonWidgets/custom_form_field.dart';
-import 'package:app/commonWidgets/custom_remark.dart';
-import 'package:app/constants/app_colors.dart';
-import 'package:app/constants/app_images.dart';
-import 'package:app/constants/constants_methods.dart';
-import 'package:app/services/asset_audit/central_asset_audit_service.dart';
-import 'package:app/services/asset_audit/central_service_initializer.dart';
-import 'package:app/services/asset_audit_post_service.dart';
-import 'package:app/services/image_upload_service.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
-import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
+import '../../../commonWidgets/custom_form_appbar.dart';
+import '../../../commonWidgets/custom_form_field.dart';
+import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/asset_audit_form_component.dart';
+import '../../../commonWidgets/custom_remark.dart';
+import '../../../constants/app_colors.dart';
+import '../../../constants/app_images.dart';
+import '../../../constants/constants_methods.dart';
+import '../../../utils/logger.dart';
+import '../../../services/asset_audit/central_service_initializer.dart';
+import '../../../services/asset_audit/central_asset_audit_service.dart';
+import '../../../services/asset_audit_post_service.dart';
+import '../../../services/image_upload_service.dart';
+import '../../../app_config.dart';
 
-class SurveillanceV2Screen extends StatefulWidget {
+class FireExtinguisherTelecomV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const SurveillanceV2Screen({
+  const FireExtinguisherTelecomV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -30,11 +30,11 @@ class SurveillanceV2Screen extends StatefulWidget {
   });
 
   @override
-  State<SurveillanceV2Screen> createState() => _SurveillanceV2ScreenState();
+  State<FireExtinguisherTelecomV2Screen> createState() => _FireExtinguisherTelecomV2ScreenState();
 }
 
-class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
-  final String _screenName = 'Surveillance';
+class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTelecomV2Screen> {
+  final String _screenName = 'Fire Extinguisher';
   
   // Service
   late CentralAssetAuditService _service;
@@ -43,8 +43,10 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
   
-  // Controllers
-  final TextEditingController _cctvSerialController = TextEditingController();
+  // Controllers for each section
+  final TextEditingController _fireExtinguisherSerialController = TextEditingController();
+  final TextEditingController _floodLightSerialController = TextEditingController();
+  final TextEditingController _sandBucketSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
   
   // State
@@ -53,7 +55,9 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
   bool _hasFormDataChanges = false;
   
   // Section visibility states
-  bool _showCCTVDetails = false;
+  bool _showFireExtinguisherDetails = false;
+  bool _showFloodLightDetails = false;
+  bool _showSandBucketDetails = false;
 
   @override
   void initState() {
@@ -62,13 +66,17 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
     _loadData();
     
     // Add listeners for form changes
-    _cctvSerialController.addListener(_onFormChanged);
+    _fireExtinguisherSerialController.addListener(_onFormChanged);
+    _floodLightSerialController.addListener(_onFormChanged);
+    _sandBucketSerialController.addListener(_onFormChanged);
     _remarksController.addListener(_onFormChanged);
   }
 
   @override
   void dispose() {
-    _cctvSerialController.dispose();
+    _fireExtinguisherSerialController.dispose();
+    _floodLightSerialController.dispose();
+    _sandBucketSerialController.dispose();
     _remarksController.dispose();
     super.dispose();
   }
@@ -88,7 +96,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Surveillance V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog('🔄 Fire Extinguisher V2: Loading data for site ${widget.siteAuditSchId}');
       
       final data = await _service.getAssetAuditData(
         siteType: widget.siteType,
@@ -97,18 +105,27 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
       );
 
       if (data != null) {
-        final cctvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+        final fireExtinguisherItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
         as Map<String, dynamic>? ?? {};
 
-        // Parse CCTV data
-        final cctvAssets = cctvItems['assets'] as List<dynamic>? ?? [];
-        final remarksData = cctvItems['remarks'] as List<dynamic>? ?? [];
+        // Parse Fire Extinguisher data
+        final fireExtinguisherAssets = fireExtinguisherItems['assets'] as List<dynamic>? ?? [];
+        final floodLightAssets = fireExtinguisherItems['Flood Light'] as List<dynamic>? ?? [];
+        final sandBucketAssets = fireExtinguisherItems['Sand Bucket'] as List<dynamic>? ?? [];
+        final remarksData = fireExtinguisherItems['remarks'] as List<dynamic>? ?? [];
 
         final formData = <String, dynamic>{
-          'cctvAvailable': cctvAssets.isNotEmpty ? "Yes" : "No",
-          'cctvCount': cctvAssets.length.toString(),
-          'cctvAssets': cctvAssets.where((obj) => obj['photo_id'] != null).toList(),
-          'cctvAllAssets': cctvAssets,
+          'fireExtinguisherAvailable': fireExtinguisherAssets.isNotEmpty ? "Yes" : "No",
+          'fireExtinguisherCount': fireExtinguisherAssets.length.toString(),
+          'floodLightAvailable': floodLightAssets.isNotEmpty ? "Yes" : "No",
+          'sandBucketCount': sandBucketAssets.length.toString(),
+          'capacity': fireExtinguisherAssets.isNotEmpty ? fireExtinguisherAssets.first['capacity'] : 'N/A',
+          'fireExtinguisherAssets': fireExtinguisherAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'fireExtinguisherAllAssets': fireExtinguisherAssets,
+          'floodLightAssets': floodLightAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'floodLightAllAssets': floodLightAssets,
+          'sandBucketAssets': sandBucketAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'sandBucketAllAssets': sandBucketAssets,
           'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
         };
 
@@ -116,7 +133,9 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
           _isLoadingData = false;
           _assetAuditData = data;
           _displayFormData = formData;
-          _showCCTVDetails = cctvAssets.isNotEmpty;
+          _showFireExtinguisherDetails = fireExtinguisherAssets.isNotEmpty;
+          _showFloodLightDetails = floodLightAssets.isNotEmpty;
+          _showSandBucketDetails = sandBucketAssets.isNotEmpty;
         });
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -125,11 +144,11 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
       } else {
         setState(() {
           _isLoadingData = false;
-          _errorMessage = 'Failed to load Surveillance data';
+          _errorMessage = 'Failed to load Fire Extinguisher data';
         });
       }
     } catch (e) {
-      Logger.errorLog('❌ Surveillance V2: Error loading data: $e');
+      Logger.errorLog('❌ Fire Extinguisher V2: Error loading data: $e');
       setState(() {
         _isLoadingData = false;
         _errorMessage = 'Error loading data: $e';
@@ -146,17 +165,65 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
     }
   }
 
-  // Callback method for AssetAuditFormComponent
-  void _onCCTVItemSaved(List<Map<String, dynamic>> items) {
-    _displayFormData?['cctvAssets'] = [...items];
+  // Callback methods for each AssetAuditFormComponent
+  void _onFireExtinguisherItemSaved(List<Map<String, dynamic>> items) {
+    _displayFormData?['fireExtinguisherAssets'] = [...items];
     setState(() {
       _hasFormDataChanges = true;
     });
   }
 
-  // Validation method
-  bool _validateCCTVSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['cctvAllAssets'] as List<dynamic>? ?? [];
+  void _onFloodLightItemSaved(List<Map<String, dynamic>> items) {
+    _displayFormData?['floodLightAssets'] = [...items];
+    setState(() {
+      _hasFormDataChanges = true;
+    });
+  }
+
+  void _onSandBucketItemSaved(List<Map<String, dynamic>> items) {
+    _displayFormData?['sandBucketAssets'] = [...items];
+    setState(() {
+      _hasFormDataChanges = true;
+    });
+  }
+
+  // Validation methods for each section
+  bool _validateFireExtinguisherSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['fireExtinguisherAllAssets'] as List<dynamic>? ?? [];
+    if (savedItems.isEmpty) return false;
+
+    final isValid = savedItems.any((item) {
+      if (isQRCodeScanned) {
+        return item['nexgen_serial_no']?.toString().toLowerCase() ==
+            serialNumber.toLowerCase();
+      } else {
+        return item['mfg_serial_no']?.toString().toLowerCase() ==
+            serialNumber.toLowerCase();
+      }
+    });
+
+    return isValid;
+  }
+
+  bool _validateFloodLightSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['floodLightAllAssets'] as List<dynamic>? ?? [];
+    if (savedItems.isEmpty) return false;
+
+    final isValid = savedItems.any((item) {
+      if (isQRCodeScanned) {
+        return item['nexgen_serial_no']?.toString().toLowerCase() ==
+            serialNumber.toLowerCase();
+      } else {
+        return item['mfg_serial_no']?.toString().toLowerCase() ==
+            serialNumber.toLowerCase();
+      }
+    });
+
+    return isValid;
+  }
+
+  bool _validateSandBucketSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['sandBucketAllAssets'] as List<dynamic>? ?? [];
     if (savedItems.isEmpty) return false;
 
     final isValid = savedItems.any((item) {
@@ -174,18 +241,28 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
 
   Future<void> postCurrentScreenData() async {
     try {
-      Logger.debugLog('📤 Surveillance V2: Starting postCurrentScreenData');
+      Logger.debugLog('📤 Fire Extinguisher V2: Starting postCurrentScreenData');
       
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
+      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      final finalCCTVAssets = finalData['assets'] as List<dynamic>? ?? [];
+      final finalFireExtinguisherAssets = finalData['assets'] as List<dynamic>? ?? [];
+      final finalFloodLightAssets = finalData['Flood Light'] as List<dynamic>? ?? [];
+      final finalSandBucketAssets = finalData['Sand Bucket'] as List<dynamic>? ?? [];
       
-      // Collect modified assets
+      // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
       
-      // Add CCTV assets
-      final modifiedCCTVAssets = _displayFormData?['cctvAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(_modifyData(finalCCTVAssets, modifiedCCTVAssets));
+      // Add Fire Extinguisher assets
+      final modifiedFireExtinguisherAssets = _displayFormData?['fireExtinguisherAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(_modifyData(finalFireExtinguisherAssets, modifiedFireExtinguisherAssets));
+
+      // Add Flood Light assets
+      final modifiedFloodLightAssets = _displayFormData?['floodLightAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(_modifyData(finalFloodLightAssets, modifiedFloodLightAssets));
+
+      // Add Flood Light assets
+      final modifiedSandBucketAssets = _displayFormData?['sandBucketAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(_modifyData(finalSandBucketAssets, modifiedSandBucketAssets));
 
       // Update remarks
       final String remark = _remarksController.text;
@@ -207,7 +284,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
         ...finalRemarks
       ];
 
-      Logger.debugLog('📤 Surveillance V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog('📤 Fire Extinguisher V2: Prepared ${postObject.length} items for posting');
       
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
@@ -222,10 +299,10 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
         requests: postObject,
       );
       
-      Logger.debugLog('✅ Surveillance V2: Data posted successfully');
+      Logger.debugLog('✅ Fire Extinguisher V2: Data posted successfully');
       
     } catch (e) {
-      Logger.errorLog('❌ Surveillance V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ Fire Extinguisher V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
   }
@@ -268,7 +345,9 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
           section: "Asset Audit",
           parentContext: context,
           onSaveAndExit: () async {
-            await postCurrentScreenData();
+            if(_hasFormDataChanges) {
+              await postCurrentScreenData();
+            }
           },
           onDiscard: () {
           },
@@ -396,7 +475,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'Loading Surveillance data...',
+                                      'Loading Fire Extinguisher data...',
                                       style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
@@ -468,7 +547,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
                               padding: const EdgeInsets.all(20),
                               child: const Center(
                                 child: Text(
-                                  'No Surveillance data available',
+                                  'No Fire Extinguisher data available',
                                   style: TextStyle(
                                     color: AppColors.white,
                                     fontSize: 16,
@@ -483,11 +562,13 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
                 ),
                 
                 // Bottom buttons using your specific format
-                AssetAuditSolarBottomButtons(
+                AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -507,33 +588,33 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // CCTV Available
+        // Fire Extinguisher Available
         _buildRadioButtonField(
-          label: "CCTV Available",
+          label: "Fire Extinguisher Available",
           isRequired: true,
-          groupValue: _displayFormData?['cctvAvailable'] ?? "No",
+          groupValue: _displayFormData?['fireExtinguisherAvailable'] ?? "No",
           onChanged: (value) {
             setState(() {
-              _displayFormData?['cctvAvailable'] = value;
+              _displayFormData?['fireExtinguisherAvailable'] = value;
               _hasFormDataChanges = true;
             });
           },
         ),
         getHeight(15),
 
-        // CCTV Details Section (only show if available)
-        if (_showCCTVDetails) ...[
-          // Count of CCTV
+        // Fire Extinguisher Details Section (only show if available)
+        if (_showFireExtinguisherDetails) ...[
+          // Count of Fire Extinguisher
           CustomFormField(
-            label: "Count of CCTV",
-            initialValue: _displayFormData?['cctvCount']?.toString() ?? "0",
+            label: "Count of Fire Extinguisher",
+            initialValue: _displayFormData?['fireExtinguisherCount']?.toString() ?? "0",
             isRequired: false,
             isEditable: false,
           ),
           getHeight(15),
 
           const Text(
-            "CCTV Details",
+            "Fire Extinguisher Details",
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -542,27 +623,120 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
           ),
           getHeight(15),
           
-          // CCTV Form Component
+          // Fire Extinguisher Form Component
           AssetAuditFormComponent(
-            componentId: 'cctv_component',
-            serialLabel: "CCTV - Serial Number *",
-            serialHintText: "CCTV Serial Number *",
+            componentId: 'fire_extinguisher_component',
+            serialLabel: "Fire Extinguisher - Serial Number *",
+            serialHintText: "Fire Extinguisher Serial Number *",
             photoLabel: "Add a Photo",
-            disabledFieldLabel: "Status",
-            disabledFieldValue: "Ok",
-            serialController: _cctvSerialController,
-            initialSavedItems: _displayFormData?['cctvAssets'] as List<dynamic>? ?? [],
-            onItemSaved: _onCCTVItemSaved,
+            disabledFieldLabel: "Capacity of Fire Extinguisher (In Kg)",
+            disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
+            serialController: _fireExtinguisherSerialController,
+            initialSavedItems: _displayFormData?['fireExtinguisherAssets'] as List<dynamic>? ?? [],
+            onItemSaved: _onFireExtinguisherItemSaved,
             onStatusChanged: (status) {
               setState(() {
                 _hasFormDataChanges = true;
               });
             },
-            customValidator: _validateCCTVSerialNumber,
-            customValidationErrorMessage: "Invalid CCTV serial number. Please check and try again.",
+            customValidator: _validateFireExtinguisherSerialNumber,
+            customValidationErrorMessage: "Invalid Fire Extinguisher serial number. Please check and try again.",
             siteAuditSchId: widget.siteAuditSchId,
             showTable: true,
-            tableTitle: "CCTV Items",
+            tableTitle: "Fire Extinguisher Items",
+          ),
+          getHeight(15),
+        ],
+        
+        // Flood Light Availability
+        _buildRadioButtonField(
+          label: "Flood Light Availability",
+          isRequired: true,
+          groupValue: _displayFormData?['floodLightAvailable'] ?? "No",
+          onChanged: (value) {
+            setState(() {
+              _displayFormData?['floodLightAvailable'] = value;
+              _hasFormDataChanges = true;
+            });
+          },
+        ),
+        getHeight(15),
+        
+        // Flood Light Details Section (only show if available)
+        if (_showFloodLightDetails) ...[
+          const Text(
+            "Flood Light Details",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.white,
+            ),
+          ),
+          getHeight(15),
+          
+          // Flood Light Form Component
+          AssetAuditFormComponent(
+            componentId: 'flood_light_component',
+            serialLabel: "Flood Light - Serial Number *",
+            serialHintText: "Flood Light Serial Number *",
+            photoLabel: "Add a Photo",
+            serialController: _floodLightSerialController,
+            initialSavedItems: _displayFormData?['floodLightAssets'] as List<dynamic>? ?? [],
+            onItemSaved: _onFloodLightItemSaved,
+            onStatusChanged: (status) {
+              setState(() {
+                _hasFormDataChanges = true;
+              });
+            },
+            customValidator: _validateFloodLightSerialNumber,
+            customValidationErrorMessage: "Invalid Flood Light serial number. Please check and try again.",
+            siteAuditSchId: widget.siteAuditSchId,
+            showTable: true,
+            tableTitle: "Flood Light Items",
+          ),
+          getHeight(15),
+        ],
+        if (_showSandBucketDetails) ...[
+          // Count of Sand Buckets
+          CustomFormField(
+            label: "Count of Sand Buckets",
+            initialValue: _displayFormData?['sandBucketCount']?.toString() ?? "0",
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
+
+          // Sand Bucket Details Section (only show if available)
+
+          const Text(
+            "Sand Bucket Details",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.white,
+            ),
+          ),
+          getHeight(15),
+          
+          // Sand Bucket Form Component
+          AssetAuditFormComponent(
+            componentId: 'sand_bucket_component',
+            serialLabel: "Sand Buckets - Serial Number *",
+            serialHintText: "Sand Buckets Serial Number *",
+            photoLabel: "Add a Photo",
+            serialController: _sandBucketSerialController,
+            initialSavedItems: _displayFormData?['sandBucketAssets'] as List<dynamic>? ?? [],
+            onItemSaved: _onSandBucketItemSaved,
+            onStatusChanged: (status) {
+              setState(() {
+                _hasFormDataChanges = true;
+              });
+            },
+            customValidator: _validateSandBucketSerialNumber,
+            customValidationErrorMessage: "Invalid Sand Bucket serial number. Please check and try again.",
+            siteAuditSchId: widget.siteAuditSchId,
+            showTable: true,
+            tableTitle: "Sand Bucket Items",
           ),
           getHeight(15),
         ],

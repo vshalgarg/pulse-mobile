@@ -127,6 +127,7 @@ class _FireExtinguisherV2ScreenState extends State<FireExtinguisherV2Screen> {
           'fireExtinguisherCount': fireExtinguisherAssets.length.toString(),
           'floodLightAvailable': floodLightAssets.isNotEmpty ? "Yes" : "No",
           'sandBucketCount': sandBucketAssets.length.toString(),
+          'capacity': fireExtinguisherAssets.first?['capacity'],
           'fireExtinguisherAssets': fireExtinguisherAssets.where((obj) => obj['photo_id'] != null).toList(),
           'fireExtinguisherAllAssets': fireExtinguisherAssets,
           'floodLightAssets': floodLightAssets.where((obj) => obj['photo_id'] != null).toList(),
@@ -398,7 +399,7 @@ class _FireExtinguisherV2ScreenState extends State<FireExtinguisherV2Screen> {
             Radio<String>(
               value: "Yes",
               groupValue: groupValue,
-              onChanged: onChanged,
+              onChanged: null,
               activeColor: AppColors.primaryGreen,
             ),
             const Text(
@@ -412,7 +413,7 @@ class _FireExtinguisherV2ScreenState extends State<FireExtinguisherV2Screen> {
             Radio<String>(
               value: "No",
               groupValue: groupValue,
-              onChanged: onChanged,
+              onChanged: null,
               activeColor: AppColors.primaryGreen,
             ),
             const Text(
@@ -633,7 +634,7 @@ class _FireExtinguisherV2ScreenState extends State<FireExtinguisherV2Screen> {
             serialHintText: "Fire Extinguisher Serial Number *",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Capacity of Fire Extinguisher (In Kg)",
-            disabledFieldValue: "Select",
+            disabledFieldValue: _displayFormData?['capacity'],
             serialController: _fireExtinguisherSerialController,
             initialSavedItems: _displayFormData?['fireExtinguisherAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onFireExtinguisherItemSaved,

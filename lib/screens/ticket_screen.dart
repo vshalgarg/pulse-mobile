@@ -19,6 +19,7 @@ import '../services/location_service.dart';
 import 'asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 import 'asset_audit/asset_audit_solar/asset_audit_solar.dart';
 import 'asset_audit/asset_audit_solar_v2/asset_audit_solar_v2_screen.dart';
+import 'asset_audit/asset_audit_telecom_v2/asset_audit_telecom_v2_screen.dart';
 import '../services/asset_audit/central_service_initializer.dart';
 import 'energy_reading/energy_reading_screen.dart';
 
@@ -199,21 +200,98 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
+  /// Navigate to Telecom Asset Audit V2 with data fetching
+  Future<void> _navigateToTelecomAssetAuditV2(Ticket? ticket) async {
+    if (ticket == null) return;
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading asset audit data...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Initialize service if not already done
+      if (!CentralAssetAuditServiceInitializer.isInitialized) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Central Asset Audit service not initialized'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Get the service and fetch data
+      final service = CentralAssetAuditServiceInitializer.getService();
+      final data = await service.getAssetAuditData(
+        siteType: "Telecom",
+        auditSchId: ticket.auditSchId?.toString() ?? "",
+        siteAuditSchId: ticket.ticketSchId.toString(),
+      );
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      if (data != null) {
+        // Navigate to the screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => AssetAuditTelecomV2Screen(
+              siteType: "Telecom",
+              auditSchId: ticket.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket.ticketSchId.toString(),
+            ),
+          ),
+        );
+      } else {
+        // Show error message
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load asset audit data'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   void _navigateToAuditScreen(Ticket? ticket) {
     if (widget.auditName == "Asset Audit") {
       // Check site domain to determine which screen to navigate to
       if (ticket?.siteDomainName == "Telecom") {
-        // Navigate to Telecom Asset Audit
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AssetAuditTelecomScreen(
-              siteType: "Telecom",
-              auditSchId: ticket?.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
-            ),
-          ),
-        );
+        // Navigate to Telecom Asset Audit V2
+        _navigateToTelecomAssetAuditV2(ticket);
       } else {
         // Navigate to Solar Asset Audit V2
         _navigateToSolarAssetAuditV2(ticket);

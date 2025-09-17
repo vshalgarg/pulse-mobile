@@ -1,6 +1,6 @@
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/asset_audit_form_component.dart';
-import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
+import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
@@ -17,12 +17,12 @@ import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
-class SurveillanceV2Screen extends StatefulWidget {
+class CCTVV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const SurveillanceV2Screen({
+  const CCTVV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -30,11 +30,11 @@ class SurveillanceV2Screen extends StatefulWidget {
   });
 
   @override
-  State<SurveillanceV2Screen> createState() => _SurveillanceV2ScreenState();
+  State<CCTVV2Screen> createState() => _CCTVV2ScreenState();
 }
 
-class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
-  final String _screenName = 'Surveillance';
+class _CCTVV2ScreenState extends State<CCTVV2Screen> {
+  final String _screenName = 'CCTV';
   
   // Service
   late CentralAssetAuditService _service;
@@ -97,7 +97,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
       );
 
       if (data != null) {
-        final cctvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+        final cctvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
         as Map<String, dynamic>? ?? {};
 
         // Parse CCTV data
@@ -176,7 +176,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
     try {
       Logger.debugLog('📤 Surveillance V2: Starting postCurrentScreenData');
       
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
+      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       final finalCCTVAssets = finalData['assets'] as List<dynamic>? ?? [];
       
@@ -268,7 +268,9 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
           section: "Asset Audit",
           parentContext: context,
           onSaveAndExit: () async {
-            await postCurrentScreenData();
+            if(_hasFormDataChanges) {
+              await postCurrentScreenData();
+            }
           },
           onDiscard: () {
           },
@@ -483,11 +485,13 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
                 ),
                 
                 // Bottom buttons using your specific format
-                AssetAuditSolarBottomButtons(
+                AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -548,8 +552,6 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
             serialLabel: "CCTV - Serial Number *",
             serialHintText: "CCTV Serial Number *",
             photoLabel: "Add a Photo",
-            disabledFieldLabel: "Status",
-            disabledFieldValue: "Ok",
             serialController: _cctvSerialController,
             initialSavedItems: _displayFormData?['cctvAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onCCTVItemSaved,

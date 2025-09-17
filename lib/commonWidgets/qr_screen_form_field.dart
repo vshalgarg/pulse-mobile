@@ -7,11 +7,13 @@ import '../screens/qrScannerScreen.dart';
 class SerialNumberField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
+  final Function(String)? onQRScanned;
 
   const SerialNumberField({
     super.key,
     required this.label,
     required this.controller,
+    this.onQRScanned,
   });
 
   @override
@@ -67,6 +69,8 @@ class SerialNumberField extends StatelessWidget {
                   if (result != null && result is String && result.isNotEmpty) {
                     controller.text = result;
                     print('Serial number set to: $result');
+                    // Call the callback to notify parent that QR was scanned
+                    onQRScanned?.call(result);
                   } else {
                     print('Invalid or empty result from QR scanner');
                   }

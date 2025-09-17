@@ -457,6 +457,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
           label: "Transformer Available",
           isRequired: true,
           groupValue: _displayFormData?['transformerAvailable'] ?? "Yes",
+
           onChanged: (value) {
             setState(() {
               _displayFormData?['transformerAvailable'] = value;
@@ -465,67 +466,71 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
           },
         ),
         getHeight(15),
-        
-        // Transformer Type
-        CustomFormField(
-          label: "Transformer Type",
-          initialValue: _displayFormData?['transformerType']?.toString() ?? "N/A",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-        
-        // Count of Transformer
-        CustomFormField(
-          label: "Count of Transformer",
-          initialValue: _displayFormData?['totalItems']?.toString() ?? "1",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-        
-        // Transformer Details Section
-        const Text(
-          "Transformer Details",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.white,
+        if(_displayFormData?['transformerAvailable'] == "Yes") ...[
+          // Transformer Type
+          CustomFormField(
+            label: "Transformer Type",
+            initialValue: _displayFormData?['transformerType']?.toString() ??
+                "N/A",
+            isRequired: false,
+            isEditable: false,
           ),
-        ),
-        getHeight(15),
-        
-        // Transformer Form Component
-        AssetAuditFormComponent(
-          componentId: 'transformer_component',
-          serialLabel: "Transformer - Serial Number *",
-          serialHintText: "Transformer Serial Number *",
-          photoLabel: "Add a Photo",
-          disabledFieldLabel: "Rating",
-          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "5 KW",
-          serialController: _transformerSerialController,
-          initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
-          onItemSaved: _onTransformerItemSaved,
-          onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
-          customValidator: _validateTransformerSerialNumber,
-          customValidationErrorMessage: "Invalid Transformer serial number. Please check and try again.",
-          siteAuditSchId: widget.siteAuditSchId,
-          showTable: true,
-          tableTitle: "Transformer Items",
-        ),
-        getHeight(15),
+          getHeight(15),
 
-        // Remarks
-        CustomRemarksField(
-          label: "Add Remarks",
-          hintText: "Remarks",
-          controller: _remarksController,
-          initialValue: _displayFormData?['remarks'] ?? '',
-        ),
+          // Count of Transformer
+          CustomFormField(
+            label: "Count of Transformer",
+            initialValue: _displayFormData?['totalItems']?.toString() ?? "1",
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
+
+          // Transformer Details Section
+          const Text(
+            "Transformer Details",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.white,
+            ),
+          ),
+          getHeight(15),
+
+          // Transformer Form Component
+          AssetAuditFormComponent(
+            componentId: 'transformer_component',
+            serialLabel: "Transformer - Serial Number *",
+            serialHintText: "Transformer Serial Number *",
+            photoLabel: "Add a Photo",
+            disabledFieldLabel: "Rating",
+            disabledFieldValue: _displayFormData?['capacity']?.toString() ??
+                "5 KW",
+            serialController: _transformerSerialController,
+            initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ??
+                [],
+            onItemSaved: _onTransformerItemSaved,
+            onStatusChanged: (status) {
+              setState(() {
+                _hasFormDataChanges = true;
+              });
+            },
+            customValidator: _validateTransformerSerialNumber,
+            customValidationErrorMessage: "Invalid Transformer serial number. Please check and try again.",
+            siteAuditSchId: widget.siteAuditSchId,
+            showTable: true,
+            tableTitle: "Transformer Items",
+          ),
+          getHeight(15),
+
+          // Remarks
+          CustomRemarksField(
+            label: "Add Remarks",
+            hintText: "Remarks",
+            controller: _remarksController,
+            initialValue: _displayFormData?['remarks'] ?? '',
+          ),
+        ]
       ],
     );
   }
@@ -565,7 +570,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
             Radio<String>(
               value: "Yes",
               groupValue: groupValue,
-              onChanged: onChanged,
+              onChanged: null,
               activeColor: AppColors.primaryGreen,
             ),
             const Text(
@@ -579,7 +584,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
             Radio<String>(
               value: "No",
               groupValue: groupValue,
-              onChanged: onChanged,
+              onChanged: null,
               activeColor: AppColors.primaryGreen,
             ),
             const Text(
