@@ -222,7 +222,7 @@ class _SMPSScreenState extends State<SMPSScreen> {
       return;
     }
 
-    AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+    AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
       context,
       nextScreen,
       widget.siteType ?? '',

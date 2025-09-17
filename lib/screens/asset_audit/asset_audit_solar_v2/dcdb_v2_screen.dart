@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
-import 'package:app/commonWidgets/asset_audit_bottom_buttons.dart';
+import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -419,7 +419,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                     ),
                   ),
                 ),
-                AssetAuditBottomButtons(
+                AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick:  () async {

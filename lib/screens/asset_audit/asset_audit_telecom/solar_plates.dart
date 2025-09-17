@@ -232,7 +232,7 @@ class _SolarPlatesScreenState extends State<SolarPlatesScreen> {
   // Navigation methods
   void _navigateToNextScreen(BuildContext context, String? nextScreen) {
     if (nextScreen != null) {
-      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+      AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
         context,
         nextScreen,
         widget.siteType ?? '',

@@ -497,7 +497,7 @@ class _CCUScreenState extends State<CCUScreen> {
   // Navigation methods
   void _navigateToNextScreen(BuildContext context, String? nextScreen) {
     if (nextScreen != null) {
-      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+      AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
         context,
         nextScreen,
         widget.siteType ?? '',

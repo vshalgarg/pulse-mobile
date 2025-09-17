@@ -14,6 +14,7 @@ import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/acdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/dcdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/inverter_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/ltdb_v2/ltdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/mms_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/pcu_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/spv_v2_screen.dart';
@@ -85,10 +86,20 @@ class AssetAuditNavigationHelper {
   static String dataValueForPage(String page, String type) {
     if(type == 'SOLAR') {
       return _dataValueForSolarPage(page);
+    } else if(type == 'TELECOM') {
+      return _dataValueForTelecomPage(page);
     }
     return page;
   }
   static String _dataValueForSolarPage(String page) {
+    switch (page) {
+      case 'GENERAL' : return 'PageHeader';
+      default:
+        return page;
+    }
+  }
+
+  static String _dataValueForTelecomPage(String page) {
     switch (page) {
       case 'GENERAL' : return 'PageHeader';
       default:
@@ -208,6 +219,46 @@ class AssetAuditNavigationHelper {
         auditSchId: auditSchId,
       ));
       break;
+      case 'LTDB' : pushPage(context, LTDBV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      default: break;
+    }
+  }
+
+  static String getTelecomNextScreenName(Map<String, dynamic>? assetAuditData, String currentScreen) {
+    return _getNextAvailableScreenNameV2(assetAuditData, currentScreen, _solarScreenOrder, 'TELECOM')
+        ?? 'SUBMIT';
+  }
+
+  static String getTelecomPreviousScreenName(Map<String, dynamic>? assetAuditData, String currentScreen) {
+    return _getPreviousAvailableScreenNameV2(assetAuditData, currentScreen, _solarScreenOrder, 'TELECOM')
+        ?? 'BACK';
+  }
+
+  static void navigateToNextTelecomScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
+    String? nextScreenName = _getNextAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'TELECOM');
+    if(nextScreenName == null) {
+      navigateToHomeScreen(context);
+    } else {
+      _navigateToTelecomScreen(context, siteAuditSchId, siteType, auditSchId, nextScreenName);
+    }
+  }
+
+  static void navigateToPreviousTelecomScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
+    String? previousScreenName = _getPreviousAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'TELECOM');
+    if(previousScreenName == null) {
+      navigateToHomeScreen(context);
+    } else {
+      _navigateToTelecomScreen(context, siteAuditSchId, siteType, auditSchId, previousScreenName);
+    }
+  }
+
+  static void _navigateToTelecomScreen(BuildContext context, String siteAuditSchId, String siteType, String auditSchId, String screenToNavigateOn) {
+    switch(screenToNavigateOn) {
       default: break;
     }
   }
@@ -425,7 +476,7 @@ class AssetAuditNavigationHelper {
   }
 
   /// Navigate to the next screen based on screen name
-  static void navigateToNextTelecomScreen(
+  static void navigateToNextTelecomScreenDeprecated(
       BuildContext context,
       String screenName,
       String siteType,

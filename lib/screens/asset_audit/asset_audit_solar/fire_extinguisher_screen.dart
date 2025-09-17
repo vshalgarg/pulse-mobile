@@ -698,7 +698,7 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
   // Helper method to navigate to the next screen based on screen name
   void _navigateToNextScreen(BuildContext context, String? nextScreen) {
     if (nextScreen != null) {
-      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+      AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
         context,
         nextScreen,
         widget.siteType ?? '',

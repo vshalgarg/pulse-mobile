@@ -5,7 +5,7 @@ import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../../commonWidgets/asset_audit_bottom_buttons.dart';
+import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
@@ -374,7 +374,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                 ),
 
                 // Bottom button container
-                AssetAuditBottomButtons(
+                AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick:  () async {

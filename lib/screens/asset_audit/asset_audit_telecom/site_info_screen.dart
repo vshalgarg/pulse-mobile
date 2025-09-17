@@ -109,7 +109,7 @@ class _SiteInfoScreenState extends State<SiteInfoScreen> {
     );
     
     if (nextScreen != null) {
-      AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+      AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
         context,
         nextScreen,
         widget.siteType,

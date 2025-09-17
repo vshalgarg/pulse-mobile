@@ -268,7 +268,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
 
   // Helper method to navigate to the next screen based on screen name
   void _navigateToNextScreenWithName(BuildContext context, String screenName) {
-    AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+    AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
       context,
       screenName,
       widget.siteType,
@@ -853,7 +853,7 @@ class _BatteryScreenState extends State<BatteryScreen> {
       return;
     }
     // Navigate to the next screen using AssetAuditNavigationHelper
-    AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+    AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
       context,
       nextScreen,
       widget.siteType ?? '',

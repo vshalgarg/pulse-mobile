@@ -174,7 +174,7 @@ class _DgScreenState extends State<DgScreen> {
     }
 
     // Navigate to the next screen using AssetAuditNavigationHelper
-    AssetAuditNavigationHelper.navigateToNextTelecomScreen(
+    AssetAuditNavigationHelper.navigateToNextTelecomScreenDeprecated(
       context,
       nextScreen,
       widget.siteType ?? '',
