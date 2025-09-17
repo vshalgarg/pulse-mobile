@@ -303,7 +303,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
       }
       
       // Update local data
-      _service.updateAssetAuditData(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
       // Prepare data for posting
       final postObject = [

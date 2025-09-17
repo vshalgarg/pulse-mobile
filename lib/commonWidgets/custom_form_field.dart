@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class CustomFormField extends StatelessWidget {
-  final String label;
+  final String? label;
   final String? initialValue;
   final String? hintText;
   final bool isRequired;
@@ -17,7 +17,7 @@ class CustomFormField extends StatelessWidget {
 
   const CustomFormField({
     super.key,
-    required this.label,
+    this.label,
     this.initialValue,
     this.hintText,
     this.isRequired = false,
@@ -44,29 +44,35 @@ class CustomFormField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with optional *
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
-                fontFamily: fontFamilyMontserrat,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.errorColor,
-                  fontFamily: fontFamilyMontserrat,
+        if(label != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label ?? '',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
-          ],
-        ),
+              if (isRequired)
+                const Text(
+                  " *",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.errorColor,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 5),
 
         // Input field

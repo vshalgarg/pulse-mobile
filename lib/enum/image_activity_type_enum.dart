@@ -1,5 +1,6 @@
 enum ImageActivityTypeEnum {
-  assetAudit("AA");
+  assetAudit("AA"),
+  preventiveMaintenance("PM");
   
   const ImageActivityTypeEnum(this.value);
   

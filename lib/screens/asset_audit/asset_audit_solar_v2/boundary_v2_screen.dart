@@ -210,7 +210,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
       final postObject = [...modifiedData];
 
       // Update local data
-      _service.updateAssetAuditData(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;

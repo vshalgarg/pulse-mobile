@@ -4,7 +4,7 @@ import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
 
 class CustomOptionSelector extends StatefulWidget {
-  final String label;
+  final String? label;
   final List<OptionItem> options;
   final Function(String value) onChanged;
   final String? initialValue;
@@ -12,7 +12,7 @@ class CustomOptionSelector extends StatefulWidget {
 
   const CustomOptionSelector({
     super.key,
-    required this.label,
+    this.label,
     required this.options,
     required this.onChanged,
     this.initialValue,
@@ -38,29 +38,35 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with required mark
-        Row(
-          children: [
-            Text(
-              widget.label,
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w100,
-                  color: Colors.white,
-                  fontFamily: fontFamilyMontserrat
-              ),
-            ),
-            if (widget.isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.errorColor,
-                    fontFamily: fontFamilyMontserrat
+        if(widget.label != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label ?? '',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w100,
+                      color: Colors.white,
+                      fontFamily: fontFamilyMontserrat
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
-          ],
-        ),
+              if (widget.isRequired)
+                const Text(
+                  " *",
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.errorColor,
+                      fontFamily: fontFamilyMontserrat
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 5),
 
         // Options Row

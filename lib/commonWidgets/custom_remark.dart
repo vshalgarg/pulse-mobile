@@ -4,7 +4,7 @@ import '../constants/constants_strings.dart';
 import '../constants/app_colors.dart';
 
 class CustomRemarksField extends StatelessWidget {
-  final String label;
+  final String? label;
   final String hintText;
   final TextEditingController controller;
   final int maxLines;
@@ -12,7 +12,7 @@ class CustomRemarksField extends StatelessWidget {
 
   const CustomRemarksField({
     super.key,
-    required this.label,
+    this.label,
     required this.hintText,
     required this.controller,
     this.initialValue,
@@ -25,15 +25,17 @@ class CustomRemarksField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: AppColors.white,
-            fontFamily: fontFamilyMontserrat,
+        if(label != null) ...[
+          Text(
+            label ?? '',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: AppColors.white,
+              fontFamily: fontFamilyMontserrat,
+            ),
           ),
-        ),
+        ],
         const SizedBox(height: 5),
         TextFormField(
           controller: controller,

@@ -230,7 +230,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
       }
       
       // Update local data
-      _service.updateAssetAuditData(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
       // Prepare data for posting
       final postObject = [

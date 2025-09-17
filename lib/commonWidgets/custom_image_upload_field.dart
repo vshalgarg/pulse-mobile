@@ -10,7 +10,7 @@ import '../constants/app_colors.dart';
 
 
 class ImageUploadField extends StatefulWidget {
-  final String label;
+  final String? label;
   final String? placeholder;
   final bool isRequired;
   final Function(File?) onImageSelected;
@@ -18,7 +18,7 @@ class ImageUploadField extends StatefulWidget {
 
   const ImageUploadField({
     super.key,
-    required this.label,
+    this.label,
     this.placeholder,
     this.isRequired = false,
     required this.onImageSelected,
@@ -208,27 +208,33 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with required mark
-        Row(
-          children: [
-            Text(
-              widget.label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: Colors.white,
-                fontFamily: fontFamilyMontserrat,
-              ),
-            ),
-            if (widget.isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.red,
+        if(widget.label != null) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  widget.label ?? '',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.white,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 2,
                 ),
               ),
-          ],
-        ),
+              if (widget.isRequired)
+                const Text(
+                  " *",
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.red,
+                  ),
+                ),
+            ],
+          ),
+        ],
         const SizedBox(height: 6),
 
         // Upload box

@@ -279,7 +279,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         }
       }
 
-      _service.updateAssetAuditData(siteAuditSchId: widget.siteAuditSchId,
+      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId,
           updatedData: _assetAuditData ?? {});
 
       // Prepare data for posting

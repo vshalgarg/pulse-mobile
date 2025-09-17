@@ -1,7 +1,5 @@
 
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/enum/pm_ticket_type_enum.dart';
-import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_1.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,12 +14,11 @@ import '../constants/constants_strings.dart';
 import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
-import 'asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
-import 'asset_audit/asset_audit_solar/asset_audit_solar.dart';
 import 'asset_audit/asset_audit_solar_v2/asset_audit_solar_v2_screen.dart';
 import 'asset_audit/asset_audit_telecom_v2/asset_audit_telecom_v2_screen.dart';
 import '../services/asset_audit/central_service_initializer.dart';
 import 'energy_reading/energy_reading_screen.dart';
+import '../commonWidgets/pm_page_render.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -286,6 +283,125 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
+  Future<void> _navigateToPmV2(Ticket? ticket) async {
+    if (ticket == null) return;
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Loading PM Data...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      if (!CentralAssetAuditServiceInitializer.isInitialized) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Service not initialized. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Determine site type - check if it's solar or telecom
+      final siteType = _getSiteTypeForPM(ticket);
+      print("🔍 PM Ticket Site Type: $siteType");
+
+      final service = CentralAssetAuditServiceInitializer.getService();
+      final data = await service.getPmData(
+        siteType: siteType,
+        auditSchId: ticket.auditSchId?.toString() ?? "",
+        siteAuditSchId: ticket.ticketSchId.toString(),
+      );
+
+      Navigator.pop(context);
+
+      if (data != null) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PMPageRender(
+              pmData: data,
+            ),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to load PM data. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error loading PM data: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  /// Determine if a PM ticket is for Solar or Telecom based on ticket properties
+  String _getSiteTypeForPM(Ticket ticket) {
+    // Check siteDomainName first
+    if (ticket.siteDomainName != null && ticket.siteDomainName!.isNotEmpty) {
+      final domainName = ticket.siteDomainName!.toLowerCase();
+      if (domainName.contains('solar')) {
+        return 'Solar';
+      } else if (domainName.contains('telecom')) {
+        return 'Telecom';
+      }
+    }
+
+    // Check siteCode for solar indicators
+    if (ticket.siteCode != null && ticket.siteCode!.isNotEmpty) {
+      final siteCode = ticket.siteCode!.toLowerCase();
+      if (siteCode.contains('solar') || siteCode.contains('spv') || siteCode.contains('pv')) {
+        return 'Solar';
+      }
+    }
+
+    // Check operator/company name for solar indicators
+    if (ticket.operator != null && ticket.operator!.isNotEmpty) {
+      final operatorName = ticket.operator!.toLowerCase();
+      if (operatorName.contains('solar') || operatorName.contains('renewable') || operatorName.contains('energy')) {
+        return 'Solar';
+      }
+    }
+
+    // Check cluster for solar indicators
+    if (ticket.cluster != null && ticket.cluster!.isNotEmpty) {
+      final cluster = ticket.cluster!.toLowerCase();
+      if (cluster.contains('solar') || cluster.contains('spv') || cluster.contains('pv')) {
+        return 'Solar';
+      }
+    }
+
+    // Default to Telecom for backward compatibility
+    return 'Telecom';
+  }
+
   void _navigateToAuditScreen(Ticket? ticket) {
     if (widget.auditName == "Asset Audit") {
       // Check site domain to determine which screen to navigate to
@@ -299,20 +415,7 @@ class _TicketScreenState extends State<TicketScreen> {
     } else {
       switch (widget.auditName) {
         case "PM":
-          print("🔍 DEBUG: Navigating to PM with ticket data:");
-          print("🔍 siteDomainName: ${ticket?.siteDomainName}");
-          print("🔍 auditSchId: ${ticket?.auditSchId}");
-          print("🔍 siteAuditSchId: ${ticket?.ticketSchId}");
-          print("🔍 Parsed ticketType: ${PmTicketTypeEnum.fromString(ticket?.siteDomainName)}");
-          
-          Navigator.push(context, MaterialPageRoute(
-            builder: (context) => PmScreen1(
-              ticketType: PmTicketTypeEnum.fromString(ticket?.siteDomainName),
-              auditSchId: ticket?.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
-              siteId: ticket?.ticketSchId.toString() ?? "0",
-            ),
-          ));
+          _navigateToPmV2(ticket);
           break;
         case "CM":
           Navigator.pushNamed(context, correctiveMaintenanceScreen);
