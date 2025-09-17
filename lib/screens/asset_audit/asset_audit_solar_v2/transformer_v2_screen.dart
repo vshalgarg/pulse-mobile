@@ -230,6 +230,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
       if(remark.isNotEmpty && finalRemarks.isNotEmpty){
         try {
           finalRemarks.first['item_type_remark'] = remark;
+           finalRemarks.first['assetStatus'] = 'OK';
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');

@@ -43,18 +43,18 @@ class SCADAV2Screen extends StatefulWidget {
 
 class _SCADAV2ScreenState extends State<SCADAV2Screen> {
   final String _screenName = 'SCADA';
-  
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers
   final TextEditingController _scadaSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
@@ -65,7 +65,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
     super.initState();
     _service = CentralAssetAuditServiceInitializer.getService();
     _loadData();
-    
+
     // Add listeners for form changes
     _scadaSerialController.addListener(_onFormChanged);
     _remarksController.addListener(_onFormChanged);
@@ -93,8 +93,10 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 SCADA V2: Loading data for site ${widget.siteAuditSchId}');
-      
+      Logger.debugLog(
+        '🔄 SCADA V2: Loading data for site ${widget.siteAuditSchId}',
+      );
+
       final data = await _service.getAssetAuditData(
         siteType: widget.siteType,
         auditSchId: widget.auditSchId,
@@ -102,8 +104,13 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
       );
 
       if (data != null) {
-        final scadaItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
-        as Map<String, dynamic>? ?? {};
+        final scadaItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'SOLAR',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
         if (scadaItems.isNotEmpty) {
           final firstItem = scadaItems['assets'].first;
@@ -111,8 +118,12 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
             'scadaMake': firstItem['oem_name']?.toString() ?? "N/A",
             'capacity': firstItem['capacity']?.toString() ?? "N/A",
             'totalItems': scadaItems['assets'].length.toString(),
-            'remarks': scadaItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': scadaItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'remarks':
+                scadaItems['remarks'].first['item_type_remark']?.toString() ??
+                "",
+            'assets': scadaItems['assets']
+                .where((obj) => obj['photo_id'] != null)
+                .toList(),
             'allAssets': scadaItems['assets'],
           };
 
@@ -165,7 +176,8 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
 
   // Validate SCADA serial number
   bool _validateSCADASerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedSCADAItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    final savedSCADAItems =
+        _displayFormData?['allAssets'] as List<dynamic>? ?? [];
     if (savedSCADAItems.isEmpty) return false;
 
     final isValid = savedSCADAItems.any((item) {
@@ -184,23 +196,30 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 SCADA V2: Starting postCurrentScreenData');
-      
-      final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
+
+      final modifiedAssets =
+          _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'SOLAR',
+          )];
       final finalAssets = finalData?['assets'] as List<dynamic>? ?? [];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      
-      Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
-      
+
+      Logger.debugLog(
+        '📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}',
+      );
+
       // Update assets with modified data
-      for(dynamic asset in finalAssets) {
+      for (dynamic asset in finalAssets) {
         try {
           final assetSerialNo = asset['mfg_serial_no']?.toString();
-          final modifiedAsset = modifiedAssets.where((ass) => 
-            ass['mfg_serial_no']?.toString() == assetSerialNo
-          ).firstOrNull;
-          
+          final modifiedAsset = modifiedAssets
+              .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+              .firstOrNull;
+
           if (modifiedAsset != null) {
             asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
             asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
@@ -211,35 +230,40 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
             modifiedAssetsWithAllProperties.add(asset);
             Logger.debugLog('✅ Updated asset: $assetSerialNo');
           } else {
-            Logger.debugLog('⚠️ No modified asset found for serial: $assetSerialNo');
+            Logger.debugLog(
+              '⚠️ No modified asset found for serial: $assetSerialNo',
+            );
           }
         } catch (e) {
           Logger.errorLog('❌ Error updating asset: $e');
         }
       }
-      
+
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
+          finalRemarks.first['assetStatus'] = 'OK';
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateAssetAuditData(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateAssetAuditData(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
 
       // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
 
-      Logger.debugLog('📤 SCADA V2: Prepared ${postObject.length} items for posting');
-      
+      Logger.debugLog(
+        '📤 SCADA V2: Prepared ${postObject.length} items for posting',
+      );
+
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
@@ -247,14 +271,13 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         apiService: apiService,
         imageUploadService: imageUploadService,
       );
-      
+
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
       );
-      
+
       Logger.debugLog('✅ SCADA V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ SCADA V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -273,8 +296,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
@@ -344,7 +366,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -395,13 +417,17 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -419,7 +445,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom buttons using your specific format
                 AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
@@ -453,7 +479,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         // Data Logger / SCADA Details Section
         const Text(
           "Data Logger / SCADA Details",
@@ -464,7 +490,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
           ),
         ),
         getHeight(15),
-        
+
         // SCADA Form Component
         AssetAuditFormComponent(
           componentId: 'scada_component',
@@ -474,7 +500,8 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
           disabledFieldLabel: "Status",
           disabledFieldValue: "Ok",
           serialController: _scadaSerialController,
-          initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
+          initialSavedItems:
+              _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onSCADAItemSaved,
           onStatusChanged: (status) {
             setState(() {
@@ -482,13 +509,14 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
             });
           },
           customValidator: _validateSCADASerialNumber,
-          customValidationErrorMessage: "Invalid SCADA serial number. Please check and try again.",
+          customValidationErrorMessage:
+              "Invalid SCADA serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "SCADA Items",
         ),
         getHeight(15),
-        
+
         // Remarks using CustomRemarksField
         CustomRemarksField(
           label: "Add Remarks",

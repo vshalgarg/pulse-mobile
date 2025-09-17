@@ -158,8 +158,8 @@ class OfflinePostHelper {
       // Add location to item data
       final enhancedItemData = {
         ...itemData,
-        'latitude': location['latitude'],
-        'longitude': location['longitude'],
+        'latitude': location?['latitude'],
+        'longitude': location?['longitude'],
         'locationTimestamp': DateTime.now().toIso8601String(),
       };
       

@@ -36,8 +36,8 @@ class PmFormHelper {
     
     // Get current location with offline support
     final location = await LocationService.getCurrentLocationOffline();
-    final latitude = location['latitude'] ?? '';
-    final longitude = location['longitude'] ?? '';
+    final latitude = location?['latitude'] ?? '';
+    final longitude = location?['longitude'] ?? '';
     
     print('PmFormHelper: Location data received - Latitude: $latitude, Longitude: $longitude');
     print('PmFormHelper: Processing ${formData.length} form fields');
@@ -233,8 +233,8 @@ class PmFormHelper {
   }) async {
     // Get current location with offline support
     final location = await LocationService.getCurrentLocationOffline();
-    final latitude = location['latitude'] ?? '';
-    final longitude = location['longitude'] ?? '';
+    final latitude = location?['latitude'] ?? '';
+    final longitude = location?['longitude'] ?? '';
     
     // Get current timestamp in dd/MM/yyyy HH:mm format as expected by the API
     final now = DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now());

@@ -181,7 +181,8 @@ class ImageUploadService {
       }
       
       // Server ID not found, need to upload
-      Logger.debugLog('🌐 Server ID not found, uploading image to server');
+      Logger.debugLog('🌐 Server ID not found in SQLite, uploading image to server');
+      Logger.debugLog('🌐 Uploading for uniqueId: $uniqueId, activityType: ${activityType.value}, siteSchId: $siteSchId');
       
       // Get image data from SQLite
       final imageData = await _getImageDataFromSQLite(uniqueId);
@@ -190,18 +191,26 @@ class ImageUploadService {
         return [];
       }
       
+      Logger.debugLog('📸 Image data found, size: ${imageData.length} characters');
+      
       // Upload to server
       final newServerId = await _uploadToServer(imageData, activityType, siteSchId);
       if (newServerId != null) {
+        Logger.debugLog('✅ Upload successful, got server ID: $newServerId');
+        
         // Update server_id in SQLite
         await _updateServerId(uniqueId, newServerId);
-        Logger.debugLog('✅ Image uploaded to server with ID: $newServerId');
+        Logger.debugLog('💾 Updated SQLite with server ID: $newServerId');
+        
         final serverIdWithCreatedTime = await _getServerIdFromSQLite(uniqueId);
         if (serverIdWithCreatedTime.isNotEmpty) {
+          Logger.debugLog('✅ Retrieved from SQLite: $serverIdWithCreatedTime');
           return serverIdWithCreatedTime;
+        } else {
+          Logger.errorLog('❌ Failed to retrieve server ID from SQLite after update');
         }
       } else {
-        Logger.errorLog('❌ Failed to upload image to server');
+        Logger.errorLog('❌ Failed to upload image to server - newServerId is null');
       }
     } catch (e) {
       Logger.errorLog('❌ Error in getServerId: $e');
@@ -295,6 +304,8 @@ class ImageUploadService {
   Future<List<String>> _getServerIdFromSQLite(String uniqueId) async {
     final db = await database;
     try {
+      Logger.debugLog('🔍 SQLite lookup for uniqueId: $uniqueId');
+      
       final result = await db.query(
         _tableName,
         columns: ['server_id', 'created_at'],
@@ -302,9 +313,14 @@ class ImageUploadService {
         whereArgs: [uniqueId],
         limit: 1,
       );
+      
+      Logger.debugLog('🔍 SQLite query result: $result');
+      
       List<String> response = [];
       if (result.isNotEmpty) {
         String? serverId = result.first['server_id'] as String?;
+        Logger.debugLog('🔍 Found server_id: $serverId');
+        
         if (serverId != null) {
           response.add(serverId.toString());
         }
@@ -371,7 +387,9 @@ class ImageUploadService {
   /// Update server ID in SQLite
   Future<void> _updateServerId(String uniqueId, String serverId) async {
     final db = await database;
-    await db.update(
+    Logger.debugLog('💾 Updating SQLite: uniqueId=$uniqueId, serverId=$serverId');
+    
+    final result = await db.update(
       _tableName,
       {
         'server_id': serverId,
@@ -380,6 +398,8 @@ class ImageUploadService {
       where: 'unique_id = ?',
       whereArgs: [uniqueId],
     );
+    
+    Logger.debugLog('💾 SQLite update result: $result rows affected');
   }
 
   /// Upload image to server
@@ -424,15 +444,20 @@ class ImageUploadService {
       }
       
       if (response.isSuccess && response.data != null) {
+        Logger.debugLog('📤 API Response: ${response.data}');
+        
         final photoId = response.data!['imgId']?.toString() ?? 
                        response.data!['photoId']?.toString() ??
                        response.data!['id']?.toString();
+        
+        Logger.debugLog('🔍 Extracted photo ID: $photoId');
         
         if (photoId != null && photoId.isNotEmpty) {
           Logger.debugLog('✅ Image uploaded to server with ID: $photoId');
           return photoId;
         } else {
           Logger.errorLog('❌ No photo ID returned in response: ${response.data}');
+          Logger.errorLog('❌ Tried keys: imgId, photoId, id');
           return null;
         }
       } else {

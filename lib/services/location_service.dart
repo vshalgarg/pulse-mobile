@@ -5,7 +5,7 @@ import 'offline_location_service.dart';
 
 class LocationService {
   /// Get user's current location with offline support
-  static Future<Map<String, String?>> getCurrentLocationOffline() async {
+  static Future<Map<String, String>?> getCurrentLocationOffline() async {
     return await OfflineLocationService.getCurrentLocationOffline();
   }
 

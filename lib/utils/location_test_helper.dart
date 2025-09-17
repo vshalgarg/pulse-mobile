@@ -20,10 +20,10 @@ class LocationTestHelper {
       final offlineLocation = await OfflineLocationService.getCurrentLocationOffline();
       print('OfflineLocationService result: $offlineLocation');
       
-      if (offlineLocation['latitude'] != null && offlineLocation['longitude'] != null) {
+      if (offlineLocation?['latitude'] != null && offlineLocation?['longitude'] != null) {
         results['success'] = true;
-        results['latitude'] = offlineLocation['latitude'];
-        results['longitude'] = offlineLocation['longitude'];
+        results['latitude'] = offlineLocation?['latitude'];
+        results['longitude'] = offlineLocation?['longitude'];
         results['method'] = 'offline_service';
         print('✅ Location test successful via OfflineLocationService');
         return results;
@@ -34,10 +34,10 @@ class LocationTestHelper {
       final locationServiceResult = await LocationService.getCurrentLocationOffline();
       print('LocationService result: $locationServiceResult');
       
-      if (locationServiceResult['latitude'] != null && locationServiceResult['longitude'] != null) {
+      if (locationServiceResult?['latitude'] != null && locationServiceResult?['longitude'] != null) {
         results['success'] = true;
-        results['latitude'] = locationServiceResult['latitude'];
-        results['longitude'] = locationServiceResult['longitude'];
+        results['latitude'] = locationServiceResult?['latitude'];
+        results['longitude'] = locationServiceResult?['longitude'];
         results['method'] = 'location_service';
         print('✅ Location test successful via LocationService');
         return results;
@@ -72,11 +72,11 @@ class LocationTestHelper {
       };
       
       print('Mock EARTHING form data: $mockFormData');
-      print('Location data: Lat=${location['latitude']}, Lng=${location['longitude']}');
+      print('Location data: Lat=${location?['latitude']}, Lng=${location?['longitude']}');
       
       // Simulate what PmFormHelper would do
-      final latitude = location['latitude'] ?? '';
-      final longitude = location['longitude'] ?? '';
+      final latitude = location?['latitude'] ?? '';
+      final longitude = location?['longitude'] ?? '';
       
       print('Processed location: Lat=$latitude, Lng=$longitude');
       

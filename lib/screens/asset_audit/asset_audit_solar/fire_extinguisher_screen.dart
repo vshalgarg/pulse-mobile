@@ -515,7 +515,8 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
             context: context,
             auditSchId: widget.auditSchId,
           );
-          allItemsToPost.addAll(fireExtinguisherRequests.map((request) => request.toJson()).toList());
+          final fireExtinguisherJsonList = await Future.wait(fireExtinguisherRequests.map((request) => request.toJson()));
+          allItemsToPost.addAll(fireExtinguisherJsonList);
         }
         
         if (savedFloodLightItems.isNotEmpty) {
@@ -539,7 +540,8 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
             context: context,
             auditSchId: widget.auditSchId,
           );
-          allItemsToPost.addAll(floodLightRequests.map((request) => request.toJson()).toList());
+          final floodLightJsonList = await Future.wait(floodLightRequests.map((request) => request.toJson()));
+          allItemsToPost.addAll(floodLightJsonList);
         }
         
         if (savedMPPTItems.isNotEmpty) {
@@ -563,7 +565,8 @@ class _FireExtinguisherScreenState extends State<FireExtinguisherScreen> {
             context: context,
             auditSchId: widget.auditSchId,
           );
-          allItemsToPost.addAll(sandBucketRequests.map((request) => request.toJson()).toList());
+          final sandBucketJsonList = await Future.wait(sandBucketRequests.map((request) => request.toJson()));
+          allItemsToPost.addAll(sandBucketJsonList);
         }
       }
 
