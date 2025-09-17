@@ -143,6 +143,16 @@ class AssetAuditPostService {
         processedRequest['longitude'] = finalLongitude;
         processedRequest['latitude'] = finalLatitude;
 
+        // Add auditSchId: 0 to every object
+        processedRequest['auditSchId'] = 0;
+        Logger.debugLog('🔍 AssetAuditPostService: Added auditSchId: 0 to request ${i + 1}');
+
+        // Check if record_type is "Remarks" and add asset_Status: 'ok'
+        if (processedRequest['record_type'] == 'Remarks') {
+          processedRequest['asset_Status'] = 'ok';
+          Logger.debugLog('🔍 AssetAuditPostService: Added asset_Status: ok for Remarks record ${i + 1}');
+        }
+
         processedRequest['localCreatedDt'] =
             Utils.getCurrentDateTimeForAPICall();
         processedRequest['localModifiedDt'] =
