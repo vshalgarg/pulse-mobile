@@ -41,7 +41,6 @@ class PMConstants {
 
   // Solar PM Page Order Configuration
   static const Map<String, String> solarPageOrder = {
-    PMSolarPagesConstants.siteInfo: 'Site Info',
     PMSolarPagesConstants.SPV: 'SPV',
     PMSolarPagesConstants.CABLES: 'Cables',
     PMSolarPagesConstants.INVERTERS: 'Inverters',
