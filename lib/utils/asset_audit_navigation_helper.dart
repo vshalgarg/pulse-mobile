@@ -11,8 +11,11 @@ import 'package:app/screens/asset_audit/asset_audit_solar/scada_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/fire_extinguisher_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/solar_survelliance_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar/boundary_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/acdb_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/dcdb_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/inverter_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/mms_v2_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_solar_v2/pcu_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_solar_v2/spv_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom/asset_audit_telecom_page_1.dart';
 
@@ -153,10 +156,7 @@ class AssetAuditNavigationHelper {
   static void navigateToNextSolarScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
     String? nextScreenName = _getNextAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'SOLAR');
     if(nextScreenName == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      );
+      navigateToHomeScreen(context);
     } else {
       _navigateToSolarScreen(context, siteAuditSchId, siteType, auditSchId, nextScreenName);
     }
@@ -165,10 +165,7 @@ class AssetAuditNavigationHelper {
   static void navigateToPreviousSolarScreen(BuildContext context, Map<String, dynamic>? assetAuditData, String currentScreenName, String siteAuditSchId, String siteType, String auditSchId) {
     String? previousScreenName = _getPreviousAvailableScreenNameV2(assetAuditData, currentScreenName, _solarScreenOrder, 'SOLAR');
     if(previousScreenName == null) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => HomeScreen()),
-      );
+      navigateToHomeScreen(context);
     } else {
        _navigateToSolarScreen(context, siteAuditSchId, siteType, auditSchId, previousScreenName);
     }
@@ -194,8 +191,31 @@ class AssetAuditNavigationHelper {
         auditSchId: auditSchId,
       ));
       break;
+      case 'Invertor' : pushPage(context, InverterV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      case 'PCU' : pushPage(context, PcuV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
+      case 'ACDB' : pushPage(context, ACDBV2Screen(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+      ));
+      break;
       default: break;
     }
+  }
+
+  static void navigateToHomeScreen(BuildContext context) {
+    Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => HomeScreen()));
   }
 
   /// Get the next available screen based on data availability (SOLAR)

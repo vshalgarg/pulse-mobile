@@ -25,12 +25,12 @@ import '../../../services/image_upload_service.dart';
 import '../../../enum/image_activity_type_enum.dart';
 import '../../../app_config.dart';
 
-class SPVV2Screen extends StatefulWidget {
+class PcuV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
 
-  const SPVV2Screen({
+  const PcuV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
@@ -38,50 +38,57 @@ class SPVV2Screen extends StatefulWidget {
   });
 
   @override
-  State<SPVV2Screen> createState() => _SPVV2ScreenState();
+  State<PcuV2Screen> createState() => _PcuV2ScreenState();
 }
 
-class _SPVV2ScreenState extends State<SPVV2Screen> {
-  String _screenName = 'SPV';
+class _PcuV2ScreenState extends State<PcuV2Screen> {
+  final String _screenName = 'PCU';
+  
+  // Service
   late CentralAssetAuditService _service;
-
-  // Loading states
-  bool _isLoadingData = true;
-  String? _errorMessage;
-
-  // Form controllers
-  final TextEditingController _spvSerialController = TextEditingController();
-  final TextEditingController _remarksController = TextEditingController();
-
-  // Form data
-  bool _hasFormDataChanges = false;
-
-  // SPV data
+  
+  // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
+  
+  // Controllers
+  final TextEditingController _inverterSerialController = TextEditingController();
+  final TextEditingController _remarksController = TextEditingController();
+  
+  // State
+  bool _isLoadingData = false;
+  String? _errorMessage;
+  bool _hasFormDataChanges = false;
+  
+  // Image handling
+  String? _selectedImagePath;
+  String? _uploadedImgId;
+  String? _fetchedImageData;
 
   @override
   void initState() {
     super.initState();
-    _initializeServices();
+    _service = CentralAssetAuditServiceInitializer.getService();
     _loadData();
+    
+    // Add listeners for form changes
+    _inverterSerialController.addListener(_onFormChanged);
+    _remarksController.addListener(_onFormChanged);
   }
 
-  void _initializeServices() {
-    Logger.debugLog('🔧 Initializing Central Asset Audit service for SPV V2');
-    _service = CentralAssetAuditServiceInitializer.getService();
-    
-    // Check if service is initialized
-    if (!CentralAssetAuditServiceInitializer.isInitialized) {
-      Logger.errorLog('❌ Central service not initialized!');
+  @override
+  void dispose() {
+    _inverterSerialController.dispose();
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  void _onFormChanged() {
+    if (!_hasFormDataChanges) {
       setState(() {
-        _errorMessage = 'Central service not initialized. Please restart the app.';
-        _isLoadingData = false;
+        _hasFormDataChanges = true;
       });
-      return;
     }
-    
-    Logger.debugLog('✅ Central Asset Audit service initialized successfully for SPV V2');
   }
 
   Future<void> _loadData() async {
@@ -91,61 +98,84 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Loading SPV data for site ${widget.siteAuditSchId}');
+      Logger.debugLog('🔄 Inverter V2: Loading data for site ${widget.siteAuditSchId}');
+      
+      final data = await _service.getAssetAuditData(
+        siteType: widget.siteType,
+        auditSchId: widget.auditSchId,
+        siteAuditSchId: widget.siteAuditSchId,
+      );
 
-      final data = await _service.getAssetAuditData(siteType: widget.siteType, auditSchId: widget.auditSchId, siteAuditSchId: widget.siteAuditSchId);
       if (data != null) {
-        // Extract SPV items
-        final spvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
-        as Map<String, dynamic>? ?? {};
-        
-        // Extract form data for display
-        final formData = <String, dynamic>{};
+        final inverterItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
+            as Map<String, dynamic>? ?? {};
 
-        // Extract display data from first item if available
-        final firstItem = spvItems['assets'].first;
-        formData['spvMake'] = firstItem['oem_name']?.toString() ?? "N/A";
-        formData['typeOfSpv'] = firstItem['item_type']?.toString() ?? "N/A";
-        formData['totalItems'] = spvItems['assets'].length.toString();
-        formData['capacity'] = firstItem['capacity']?.toString() ?? "N/A";
-        formData['remarks'] = spvItems['remarks'].first['item_type_remark']?.toString() ?? "";
-        formData['assets'] = spvItems['assets'].where((obj) => obj['photo_id'] != null).toList();
-        formData['allAssets'] = spvItems['assets'];
+        if (inverterItems.isNotEmpty) {
+          final firstItem = inverterItems['assets'].first;
+          final formData = <String, dynamic>{
+            'inverterMake': firstItem['oem_name']?.toString() ?? "N/A",
+            'typeOfInverter': firstItem['item_type']?.toString() ?? "N/A",
+            'capacity': firstItem['capacity']?.toString() ?? "N/A",
+            'totalItems': inverterItems['assets'].length.toString(),
+            'remarks': inverterItems['remarks'].first['item_type_remark']?.toString() ?? "",
+            'assets': inverterItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'allAssets': inverterItems['assets'],
+          };
 
-        setState(() {
-          _isLoadingData = false;
-          _assetAuditData = data;
-          _displayFormData = formData;
-        });
-        
-        // Set the remarks controller text after the widget is built
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _initializeFormControllers(formData);
-        });
-        
+          setState(() {
+            _isLoadingData = false;
+            _assetAuditData = data;
+            _displayFormData = formData;
+          });
+
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _initializeFormControllers(formData);
+          });
+        } else {
+          setState(() {
+            _isLoadingData = false;
+            _errorMessage = 'No Inverter data found';
+          });
+        }
       } else {
         setState(() {
           _isLoadingData = false;
-          _errorMessage = 'No SPV data available for this site';
+          _errorMessage = 'Failed to load Inverter data';
         });
-        Logger.errorLog('❌ No SPV data available for site ${widget.siteAuditSchId}');
       }
     } catch (e) {
-      Logger.errorLog('❌ Error loading SPV data: $e');
+      Logger.errorLog('❌ Inverter V2: Error loading data: $e');
       setState(() {
         _isLoadingData = false;
-        _errorMessage = 'Failed to load SPV data: $e';
+        _errorMessage = 'Error loading data: $e';
       });
     }
   }
 
-  // Custom validation function for SPV serial number
-  bool _validateSPVSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedSpvItems = _displayFormData?['allAssets'] as List<dynamic>;
-    if (savedSpvItems.isEmpty) return false;
-    
-    // Check if serial number exists in SPV items
-    final isValid = savedSpvItems.any((item) {
+  void _initializeFormControllers(Map<String, dynamic> formData) {
+    final remarks = formData['remarks'] ?? "";
+    _remarksController.text = remarks;
+    Logger.debugLog('📝 Initialized remarks controller with: $remarks');
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  // Callback when Inverter item is saved
+  void _onInverterItemSaved(List<Map<String, dynamic>> items) {
+    _displayFormData?['assets'] = [...items];
+    setState(() {
+      _hasFormDataChanges = true;
+    });
+  }
+
+  // Validate Inverter serial number
+  bool _validateInverterSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedInverterItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    if (savedInverterItems.isEmpty) return false;
+
+    final isValid = savedInverterItems.any((item) {
       if (isQRCodeScanned) {
         return item['nexgen_serial_no']?.toString().toLowerCase() ==
             serialNumber.toLowerCase();
@@ -154,36 +184,13 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
             serialNumber.toLowerCase();
       }
     });
-    
-    Logger.debugLog('🔍 SPV Validation - Serial: $serialNumber, QR: $isQRCodeScanned, Valid: $isValid');
+
     return isValid;
   }
 
-  // Callback when SPV item is saved
-  void _onSPVItemSaved(List<Map<String, dynamic>> items) {
-    _displayFormData?['assets'] = [...items];
-    setState(() {
-      _hasFormDataChanges = true;
-    });
-    Logger.debugLog('📝 SPV items updated: ${items.length} items');
-  }
-
-  // Initialize form controllers with loaded data
-  void _initializeFormControllers(Map<String, dynamic> formData) {
-    // Set remarks controller text
-    final remarks = formData['remarks'] ?? "";
-    _remarksController.text = remarks;
-    Logger.debugLog('📝 Initialized remarks controller with: $remarks');
-    
-    // Trigger a rebuild to ensure the UI updates
-    if (mounted) {
-      setState(() {});
-    }
-  }
-  
   Future<void> postCurrentScreenData() async {
     try {
-      Logger.debugLog('📤 SPV V2: Starting postCurrentScreenData');
+      Logger.debugLog('📤 Inverter V2: Starting postCurrentScreenData');
       
       final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
@@ -238,7 +245,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         ...finalRemarks
       ];
 
-      Logger.debugLog('📤 SPV V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog('📤 Inverter V2: Prepared ${postObject.length} items for posting');
       
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
@@ -253,27 +260,41 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         requests: postObject,
       );
       
-      Logger.debugLog('✅ SPV V2: Data posted successfully');
+      Logger.debugLog('✅ Inverter V2: Data posted successfully');
       
     } catch (e) {
-      Logger.errorLog('❌ SPV V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ Inverter V2: Error in postCurrentScreenData: $e');
+      rethrow;
     }
   }
 
-  @override
-  void dispose() {
-    _spvSerialController.dispose();
-    _remarksController.dispose();
-    super.dispose();
+  void _showUnsavedChangesDialog() {
+    if (!_hasFormDataChanges) {
+      Navigator.pop(context);
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return UnsavedChangesDialog(
+          parentContext: context, // Use the outer context (screen context)
+          onSaveAndExit: () async {
+            await postCurrentScreenData();
+          },
+          onDiscard: () {
+          },
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Inverter V2',
         onClose: () {
           _showUnsavedChangesDialog();
         },
@@ -319,7 +340,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                                     ),
                                     SizedBox(height: 16),
                                     Text(
-                                      'Loading SPV data...',
+                                      'Loading Inverter data...',
                                       style: TextStyle(
                                         color: AppColors.white,
                                         fontSize: 16,
@@ -355,23 +376,14 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
-                                          'Failed to load SPV data',
-                                          style: TextStyle(
+                                          _errorMessage!,
+                                          style: const TextStyle(
                                             color: AppColors.errorColor,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14,
                                           ),
                                         ),
                                       ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    _errorMessage!,
-                                    style: TextStyle(
-                                      color: AppColors.errorColor,
-                                      fontSize: 14,
-                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                   ElevatedButton(
@@ -389,16 +401,32 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                                 ],
                               ),
                             ),
-
-                          // Show form fields only when data is loaded and no error
-                          if (!_isLoadingData && _errorMessage == null)
+                          
+                          // Show form when data is loaded
+                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
                             _buildFormFields(),
+                          
+                          // Show message when no data
+                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                            Container(
+                              padding: const EdgeInsets.all(20),
+                              child: const Center(
+                                child: Text(
+                                  'No Inverter data available',
+                                  style: TextStyle(
+                                    color: AppColors.white,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
                   ),
                 ),
-
+                
+                // Bottom buttons
                 AssetAuditBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
@@ -421,54 +449,70 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
 
   Widget _buildFormFields() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Site information fields (read-only)
+        // Inverter Make
         CustomFormField(
-          label: "SPV Make",
-          initialValue: _displayFormData?['spvMake'] ?? "N/A",
+          label: "Inverter Make",
+          initialValue: _displayFormData?['inverterMake']?.toString() ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
+        
+        // Capacity of Inverter
         CustomFormField(
-          label: "Type of SPV",
-          initialValue: _displayFormData?['typeOfSpv'] ?? "N/A",
+          label: "Capacity of Inverter",
+          initialValue: _displayFormData?['capacity']?.toString() ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
+        
+        // Count of Inverter
         CustomFormField(
-          label: "Total SPV Items",
-          initialValue: _displayFormData?['totalItems'] ?? "0",
+          label: "Count of Inverter",
+          initialValue: _displayFormData?['totalItems']?.toString() ?? "0",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
-
-        // AssetAuditFormComponent for SPV items
+        
+        // Inverter Details Section
+        const Text(
+          "Inverter Details",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: AppColors.white,
+          ),
+        ),
+        getHeight(15),
+        
+        // Inverter Form Component
         AssetAuditFormComponent(
-          componentId: 'spv_component',
-          serialLabel: "SPV - Serial Number *",
-          serialHintText: "SPV Serial Number *",
+          componentId: 'inverter_component',
+          serialLabel: "Inverter - Serial Number *",
+          serialHintText: "Inverter Serial Number *",
           photoLabel: "Add a Photo",
-          disabledFieldLabel: "SPV (Watt)",
-          disabledFieldValue:  _displayFormData?['capacity']?.toString() ?? "",
-          serialController: _spvSerialController,
+          disabledFieldLabel: "Rating",
+          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
+          serialController: _inverterSerialController,
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
-          onItemSaved: _onSPVItemSaved,
+          onItemSaved: _onInverterItemSaved,
           onStatusChanged: (status) {
             setState(() {
               _hasFormDataChanges = true;
             });
           },
-          customValidator: _validateSPVSerialNumber,
-          customValidationErrorMessage: "Invalid SPV serial number. Please check and try again.",
+          customValidator: _validateInverterSerialNumber,
+          customValidationErrorMessage: "Invalid Inverter serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
-          tableTitle: "SPV Items",
+          tableTitle: "Inverter Items",
         ),
-
-
+        getHeight(15),
+        
         // Remarks
         CustomRemarksField(
           label: "Add Remarks",
@@ -476,29 +520,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           controller: _remarksController,
           initialValue: _displayFormData?['remarks'] ?? '',
         ),
-        getHeight(15),
       ],
     );
-  }
-
-  void _showUnsavedChangesDialog() {
-    if (_hasFormDataChanges) {
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (dialogContext) => UnsavedChangesDialog(
-          siteAuditSchId: widget.siteAuditSchId,
-          section: "Asset Audit",
-          parentContext: context, // Use the outer context (screen context)
-          onSaveAndExit: () async {
-            await postCurrentScreenData();
-          },
-          onDiscard: () {
-          },
-        ),
-      );
-    } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
-    }
   }
 }

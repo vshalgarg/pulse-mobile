@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:app/commonWidgets/asset_audit_bottom_buttons.dart';
+import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -260,7 +262,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
 
   void _showUnsavedChangesDialog() {
     if (!_hasFormDataChanges) {
-      Navigator.pop(context);
+      AssetAuditNavigationHelper.navigateToHomeScreen(context);
       return;
     }
 
@@ -417,40 +419,17 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                     ),
                   ),
                 ),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ArrowButton(
-                          text: AssetAuditNavigationHelper.getSolarPreviousScreenName(_assetAuditData, _screenName),
-                          isLeftArrow: true,
-                          backgroundColor: AppColors.buttonColorBackBg,
-                          textColor: AppColors.buttonColorTextBg,
-                          onPressed: () {
-                            AssetAuditNavigationHelper.navigateToPreviousSolarScreen(context, _assetAuditData, _screenName, widget.siteAuditSchId, widget.siteType, widget.auditSchId);
-                          },
-                        ),
-                      ),
-                      getWidth(14),
-                      Expanded(
-                        child: ArrowButton(
-                          text: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName),
-                          isLeftArrow: false,
-                          backgroundColor: AppColors.buttonColorBg,
-                          textColor: AppColors.buttonColorSite,
-                          onPressed: () async {
-                            await postCurrentScreenData();
-                            AssetAuditNavigationHelper.navigateToNextSolarScreen(context, _assetAuditData, _screenName, widget.siteAuditSchId, widget.siteType, widget.auditSchId);
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                AssetAuditBottomButtons(
+                  isLoading: _isLoadingData,
+                  errorMessage: _errorMessage,
+                  onNextButtonClick:  () async {
+                    await postCurrentScreenData();
+                  },
+                  assetAuditData: _assetAuditData,
+                  auditSchId: widget.auditSchId,
+                  siteType: widget.siteType,
+                  siteAuditSchId: widget.siteAuditSchId,
+                  screenName: _screenName,
                 ),
               ],
             ),
@@ -504,19 +483,12 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
           tableTitle: "DCDB Items",
         ),
 
-
         // Remarks
-        CustomFormField(
-          label: "Remarks",
-          initialValue: "",
-          isRequired: false,
-          isEditable: true,
+        CustomRemarksField(
+          label: "Add Remarks",
+          hintText: "Remarks",
           controller: _remarksController,
-          onChanged: (value) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
+          initialValue: _displayFormData?['remarks'] ?? '',
         ),
       ],
     );

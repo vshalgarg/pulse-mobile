@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:app/commonWidgets/asset_audit_bottom_buttons.dart';
+import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -200,7 +202,7 @@ class _MMSV2ScreenState extends State<MMSV2Screen> {
 
   void _showUnsavedChangesDialog() {
     if (!_hasFormDataChanges) {
-      Navigator.pop(context);
+      AssetAuditNavigationHelper.navigateToHomeScreen(context);
       return;
     }
     showDialog(
@@ -222,8 +224,10 @@ class _MMSV2ScreenState extends State<MMSV2Screen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
+      resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'MMS V2',
+        title: 'Asset Audit',
         onClose: () {
           _showUnsavedChangesDialog();
         },
@@ -356,71 +360,18 @@ class _MMSV2ScreenState extends State<MMSV2Screen> {
                 ),
                 
                 // Bottom buttons
-                if (!_isLoadingData && _errorMessage == null)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(20),
-                        topRight: Radius.circular(20),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              await postCurrentScreenData();
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.auditColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text(
-                              'Save & Exit',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              await postCurrentScreenData();
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(builder: (context) => const HomeScreen()),
-                              );
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primaryGreen,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            child: const Text(
-                              'Submit',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                AssetAuditBottomButtons(
+                  isLoading: _isLoadingData,
+                  errorMessage: _errorMessage,
+                  onNextButtonClick:  () async {
+                    await postCurrentScreenData();
+                  },
+                  assetAuditData: _assetAuditData,
+                  auditSchId: widget.auditSchId,
+                  siteType: widget.siteType,
+                  siteAuditSchId: widget.siteAuditSchId,
+                  screenName: _screenName,
+                ),
               ],
             ),
           ),
@@ -449,19 +400,13 @@ class _MMSV2ScreenState extends State<MMSV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         // Remarks
-        CustomFormField(
-          label: "Remarks",
-          initialValue: "",
-          isRequired: false,
-          isEditable: true,
+        CustomRemarksField(
+          label: "Add Remarks",
+          hintText: "Remarks",
           controller: _remarksController,
-          onChanged: (value) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
+          initialValue: _displayFormData?['remarks'] ?? '',
         ),
         getHeight(15),
       ],

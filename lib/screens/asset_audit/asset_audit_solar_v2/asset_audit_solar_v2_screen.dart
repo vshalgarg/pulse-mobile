@@ -5,6 +5,7 @@ import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
+import '../../../commonWidgets/asset_audit_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
@@ -69,7 +70,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
   void _initializeServices() {
     Logger.debugLog('🔧 Initializing Central Asset Audit service');
     _service = CentralAssetAuditServiceInitializer.getService();
-    
+
     // Check if service is initialized
     if (!CentralAssetAuditServiceInitializer.isInitialized) {
       Logger.errorLog('❌ Central service not initialized!');
@@ -79,7 +80,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
       });
       return;
     }
-    
+
     Logger.debugLog('✅ Central Asset Audit service initialized successfully');
   }
 
@@ -110,7 +111,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           final pageHeaders = data['pageHeader'] as List<dynamic>?;
           final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
           final formData = <String, String>{};
-        
+
         if (pageHeader != null) {
           formData['state'] = pageHeader['solar_state']?.toString() ?? "N/A";
           formData['district'] = pageHeader['solar_district']?.toString() ?? "N/A";
@@ -119,7 +120,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           formData['siteName'] = pageHeader['site_name']?.toString() ?? "N/A";
           formData['siteType'] = pageHeader['site_type_name']?.toString() ?? "N/A";
           formData['status'] = pageHeader['status']?.toString() ?? "N/A";
-          
+
           // Format audit due date
           String formattedAuditDueDate = "N/A";
           final auditDueDt = pageHeader['audit_due_dt']?.toString();
@@ -172,7 +173,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
     try {
       // Use the actual service to load image
       final imageData = await _service.getImageAsDataUrl(imageId);
-      
+
       if (imageData != null) {
         Logger.debugLog('✅ Image data received: ${imageData.length} characters');
         Logger.debugLog('✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...');
@@ -212,7 +213,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
         if(pageHeader != null) {
           pageHeader['maker_selfie_image_id'] = imgId;
-          
+
         }
       }
       if (imgId != null) {
@@ -302,7 +303,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -373,43 +374,16 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                 ),
 
                 // Bottom button container
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ArrowButton(
-                          text: AssetAuditNavigationHelper.getSolarPreviousScreenName(_assetAuditData, 'GENERAL'),
-                          isLeftArrow: true,
-                          backgroundColor: AppColors.buttonColorBackBg,
-                          textColor: AppColors.buttonColorTextBg,
-                          onPressed: () {
-                            AssetAuditNavigationHelper.navigateToPreviousSolarScreen(context, _assetAuditData, 'GENERAL', widget.siteAuditSchId, widget.siteType, widget.auditSchId);
-                          },
-                        ),
-                      ),
-                      getWidth(14),
-                      Expanded(
-                        child: Builder(
-                          builder: (context) {
-                            return ArrowButton(
-                                text: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, 'GENERAL'),
-                                isLeftArrow: false,
-                                backgroundColor: AppColors.buttonColorBg,
-                                textColor: AppColors.buttonColorSite,
-                                onPressed: () async {
-                                  AssetAuditNavigationHelper.navigateToNextSolarScreen(context, _assetAuditData, 'GENERAL', widget.siteAuditSchId, widget.siteType, widget.auditSchId);
-                                },
-                              );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
+                AssetAuditBottomButtons(
+                  isLoading: _isLoadingData,
+                  errorMessage: _errorMessage,
+                  onNextButtonClick:  () async {
+                  },
+                  assetAuditData: _assetAuditData,
+                  auditSchId: widget.auditSchId,
+                  siteType: widget.siteType,
+                  siteAuditSchId: widget.siteAuditSchId,
+                  screenName: 'GENERAL',
                 ),
 
               ],
@@ -487,7 +461,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         // Image upload section
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -525,9 +499,9 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
               },
             ),
             // Show validation error for image upload
-            if (_showValidationErrors && 
-                _selectedImage == null && 
-                _uploadedImgId == null && 
+            if (_showValidationErrors &&
+                _selectedImage == null &&
+                _uploadedImgId == null &&
                 _fetchedImageData == null)
               Container(
                 margin: const EdgeInsets.only(top: 8),
@@ -590,29 +564,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
     return true;
   }
 
-  void _onSaveAndExit() async {
-    try {
-      Logger.debugLog('💾 Save & Exit button pressed');
-      
-      // Reset form changes flag
-      setState(() {
-        _hasFormDataChanges = false;
-      });
-      
-      // Navigate back to home
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-      
-      showCustomToast(context, 'Data saved successfully');
-      Logger.debugLog('✅ Data saved and navigated to home');
-    } catch (e) {
-      Logger.errorLog('❌ Error saving data: $e');
-      showCustomToast(context, 'Failed to save data: $e');
-    }
-  }
-
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
       showDialog(
@@ -623,23 +574,13 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           section: "Asset Audit",
           parentContext: context, // Use the outer context (screen context)
           onSaveAndExit: () async {
-            _onSaveAndExit();
           },
           onDiscard: () {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (context) => const HomeScreen()),
-            );
           },
         ),
       );
     } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
-      );
+      AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
   }
 
