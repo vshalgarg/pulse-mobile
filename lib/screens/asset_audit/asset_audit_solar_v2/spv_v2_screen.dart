@@ -220,9 +220,11 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       
       // Update remarks
       final String remark = _remarksController.text;
+      final String asset_Status = 'OK';
       if(remark.isNotEmpty && finalRemarks.isNotEmpty){
         try {
           finalRemarks.first['item_type_remark'] = remark;
+          finalRemarks.first['asset_status'] = asset_Status;
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
