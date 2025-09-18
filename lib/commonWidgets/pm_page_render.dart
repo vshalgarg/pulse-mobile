@@ -296,6 +296,7 @@ class _PMPageRenderState extends State<PMPageRender> {
       // Post data with photo ID replacement
       await _postService!.postAssetAuditDataWithPhotoReplacement(
         requests: dataToPost,
+        isAssetAudit: false
       );
       print('✅ PM data posted successfully to API');
     } catch (e) {

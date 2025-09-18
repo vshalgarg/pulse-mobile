@@ -27,6 +27,7 @@ class AssetAuditPostService {
   /// and adds photo_taken_ts using the images table's created_at timestamp
   Future<void> postAssetAuditDataWithPhotoReplacement({
     required List<dynamic> requests,
+    bool isAssetAudit = true
   }) async {
     try {
       // Get current location with offline support
@@ -187,7 +188,7 @@ class AssetAuditPostService {
 
       // Post the processed requests to the API
       final response = await _apiService.post<List<dynamic>>(
-        path: '/api/v1/mobile/AssetAuditSiteResp',
+        path: isAssetAudit ? '/api/v1/mobile/AssetAuditSiteResp' : '/api/v1/mobile/PmResponse',
         data: transformedRequests,
       );
 
@@ -237,7 +238,7 @@ class AssetAuditPostService {
           photoId.toString(),
           ActivityTypeEnum.assetAudit,
           updatedRequest['site_audit_sch_id'].toString(),
-        );ss
+        );
         Logger.debugLog(
           '🔍 Server ID response: $serverIdWithCreatedTime (length: ${serverIdWithCreatedTime.length})',
         );
