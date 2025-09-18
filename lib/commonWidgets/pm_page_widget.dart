@@ -89,6 +89,128 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     widget.onDataChanged(_pmItems);
   }
 
+  /// Validate all form fields
+  bool _validateAllFields() {
+    bool isValid = true;
+    
+    for (final pmItem in _pmItems) {
+      final respValue = pmItem['resp'];
+      final respTypeList = pmItem['resp_type'];
+      
+      // Handle resp_type as array or string
+      List<String> respTypes = [];
+      if (respTypeList is List) {
+        respTypes = respTypeList.map((e) => e.toString()).toList();
+      } else if (respTypeList is String) {
+        respTypes = respTypeList.split(",");
+      }
+      
+      // Check if any required field is empty
+      if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+        isValid = false;
+        break;
+      }
+      
+      if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+        isValid = false;
+        break;
+      }
+      
+      if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+        isValid = false;
+        break;
+      }
+      
+      if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+        isValid = false;
+        break;
+      }
+    }
+    
+    return isValid;
+  }
+
+  /// Get validation error messages for all fields
+  List<String> _getValidationErrors() {
+    List<String> errors = [];
+    
+    for (final pmItem in _pmItems) {
+      final respValue = pmItem['resp'];
+      final respTypeList = pmItem['resp_type'];
+      final checklistDesc = pmItem['checklist_desc']?.toString() ?? 'This field';
+      
+      // Handle resp_type as array or string
+      List<String> respTypes = [];
+      if (respTypeList is List) {
+        respTypes = respTypeList.map((e) => e.toString()).toList();
+      } else if (respTypeList is String) {
+        respTypes = respTypeList.split(",");
+      }
+      
+      // Check if any required field is empty
+      if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+        errors.add('$checklistDesc is required');
+      }
+      
+      if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+        errors.add('$checklistDesc is required');
+      }
+      
+      if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+        errors.add('$checklistDesc is required');
+      }
+      
+      if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+        errors.add('$checklistDesc is required');
+      }
+    }
+    
+    return errors;
+  }
+
+  /// Show validation error dialog
+  void _showValidationErrorDialog(List<String> errors) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Validation Error'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Please fill in all required fields:'),
+              const SizedBox(height: 16),
+              ...errors.map((error) => Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Text('• $error'),
+              )).toList(),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Handle right button press with validation
+  void _handleRightButtonPress() {
+    // Validate all fields
+    if (!_validateAllFields()) {
+      final errors = _getValidationErrors();
+      _showValidationErrorDialog(errors);
+      return;
+    }
+    
+    // If validation passes, proceed with the original callback
+    widget.onRightButtonPressed();
+  }
+
   void _sortItemsByOrder() {
     _pmItems.sort((a, b) {
       final orderA = a['cl_order'] as int? ?? 0;
@@ -206,7 +328,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                     leftButtonText: widget.leftButtonText,
                     rightButtonText: widget.rightButtonText,
                     onLeftButtonPressed: widget.onLeftButtonPressed,
-                    onRightButtonPressed: widget.onRightButtonPressed,
+                    onRightButtonPressed: _handleRightButtonPress,
                     isLoading: widget.isLoading,
                     errorMessage: widget.errorMessage,
                   ),

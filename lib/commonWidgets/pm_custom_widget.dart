@@ -125,6 +125,73 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     widget.onValueChanged(_currentItem);
   }
 
+  /// Validate if all required fields are filled
+  bool validateForm() {
+    final respValue = _currentItem['resp'];
+    final respTypeList = _currentItem['resp_type'];
+    
+    // Handle resp_type as array or string
+    List<String> respTypes = [];
+    if (respTypeList is List) {
+      respTypes = respTypeList.map((e) => e.toString()).toList();
+    } else if (respTypeList is String) {
+      respTypes = respTypeList.split(",");
+    }
+    
+    // Check if any required field is empty
+    if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+      return false;
+    }
+    
+    if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+      return false;
+    }
+    
+    if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+      return false;
+    }
+    
+    if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  /// Get validation error message for this field
+  String? getValidationError() {
+    final respValue = _currentItem['resp'];
+    final respTypeList = _currentItem['resp_type'];
+    final checklistDesc = _currentItem['checklist_desc']?.toString() ?? 'This field';
+    
+    // Handle resp_type as array or string
+    List<String> respTypes = [];
+    if (respTypeList is List) {
+      respTypes = respTypeList.map((e) => e.toString()).toList();
+    } else if (respTypeList is String) {
+      respTypes = respTypeList.split(",");
+    }
+    
+    // Check if any required field is empty
+    if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+      return '$checklistDesc is required';
+    }
+    
+    if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+      return '$checklistDesc is required';
+    }
+    
+    if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+      return '$checklistDesc is required';
+    }
+    
+    if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+      return '$checklistDesc is required';
+    }
+    
+    return null;
+  }
+
   void _onDropdownChanged(String? value) {
     setState(() {
       _selectedDropdownValue = value;
