@@ -15,6 +15,7 @@ import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
@@ -70,7 +71,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
 
   void _initializeServices() {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for Telecom');
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
 
     // Check if service is initialized
     if (!CentralAssetAuditServiceInitializer.isInitialized) {
@@ -95,9 +96,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       Logger.debugLog('🔄 Loading telecom asset audit data for site ${widget.siteAuditSchId}');
 
       // Use the actual service to load data
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
@@ -199,9 +198,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         imageFile: _selectedImage!,
       );
 
-      final dbData = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final dbData = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
       if(dbData != null) {

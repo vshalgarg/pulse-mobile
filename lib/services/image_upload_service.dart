@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
-import 'package:app/enum/image_activity_type_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -128,7 +128,7 @@ class ImageUploadService {
 
   /// 1. Upload image - Save to SQLite and try to upload to server
   ///
-  Future<String> uploadImage(String imageData, ImageActivityTypeEnum activityType, String siteSchId) async {
+  Future<String> uploadImage(String imageData, ActivityTypeEnum activityType, String siteSchId) async {
     try {
       final uniqueId = _generateUniqueId();
       final now = DateTime.now().millisecondsSinceEpoch;
@@ -149,7 +149,7 @@ class ImageUploadService {
       
       // Try to upload to server
       try {
-        final serverId = await _uploadToServer(imageData, ImageActivityTypeEnum.assetAudit, siteSchId);
+        final serverId = await _uploadToServer(imageData, ActivityTypeEnum.assetAudit, siteSchId, false);
         if (serverId != null) {
           // Update server_id in SQLite
           await _updateServerId(uniqueId, serverId);
@@ -169,8 +169,51 @@ class ImageUploadService {
     }
   }
 
+  /// 1. Upload image - Save to SQLite and try to upload to server
+  ///
+  Future<String> uploadSelfie(String imageData, ActivityTypeEnum activityType, String siteSchId) async {
+    try {
+      final uniqueId = _generateUniqueId();
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      Logger.debugLog('📤 Uploading image with unique ID: $uniqueId');
+      Logger.debugLog('📤 Image data size: ${imageData.length} bytes');
+
+      // Save image to SQLite first
+      await _saveImageToSQLite(
+        uniqueId: uniqueId,
+        imageData: imageData,
+        serverId: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      Logger.debugLog('✅ Image saved to SQLite with ID: $uniqueId');
+
+      // Try to upload to server
+      try {
+        final serverId = await _uploadToServer(imageData, ActivityTypeEnum.assetAudit, siteSchId, true);
+        if (serverId != null) {
+          // Update server_id in SQLite
+          await _updateServerId(uniqueId, serverId);
+          Logger.debugLog('✅ Image uploaded to server with ID: $serverId');
+        } else {
+          Logger.debugLog('⚠️ Server upload failed, but image saved locally with ID: $uniqueId');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Server upload failed: $e');
+        Logger.debugLog('⚠️ Image saved locally with ID: $uniqueId');
+      }
+
+      return uniqueId;
+    } catch (e) {
+      Logger.errorLog('❌ Error in uploadImage: $e');
+      rethrow;
+    }
+  }
+
   /// 2. Get server ID - Check SQLite first, upload if needed
-  Future<List<String>> getServerIdAndCreatedTime(String uniqueId, ImageActivityTypeEnum activityType, String siteSchId) async {
+  Future<List<String>> getServerIdAndCreatedTime(String uniqueId, ActivityTypeEnum activityType, String siteSchId) async {
     try {
       Logger.debugLog('🔍 Getting server ID for unique ID: $uniqueId');
       List<String> response = [];
@@ -191,7 +234,7 @@ class ImageUploadService {
       }
       
       // Upload to server
-      final newServerId = await _uploadToServer(imageData, activityType, siteSchId);
+      final newServerId = await _uploadToServer(imageData, activityType, siteSchId, false);
       if (newServerId != null) {
         // Update server_id in SQLite
         await _updateServerId(uniqueId, newServerId);
@@ -212,21 +255,14 @@ class ImageUploadService {
   /// 3. Download image using server ID
   Future<String?> downloadImageUsingServerId(String serverId) async {
     try {
-      Logger.debugLog('📥 Downloading image with server ID: $serverId');
-      
       // Download image from server first
       final imageData = await _downloadFromServer(serverId);
-      if (imageData == null) {
-        Logger.errorLog('❌ Failed to download image from server');
-        return null;
-      }
-      
+
       // Check if record with this server_id already exists
       final existingRecord = await _getRecordByServerId(serverId);
       if (existingRecord != null) {
         // Update existing record with new image data
         await _updateImageData(existingRecord['unique_id'], imageData);
-        Logger.debugLog('✅ Image updated for existing server ID: $serverId with unique ID: ${existingRecord['unique_id']}');
         return existingRecord['unique_id'];
       } else {
         // Create new record
@@ -272,7 +308,7 @@ class ImageUploadService {
   /// Save image to SQLite
   Future<void> _saveImageToSQLite({
     required String uniqueId,
-    required String imageData,
+    required String? imageData,
     required String? serverId,
     required int createdAt,
     required int updatedAt,
@@ -355,7 +391,7 @@ class ImageUploadService {
   }
 
   /// Update image data for existing record
-  Future<void> _updateImageData(String uniqueId, String imageData) async {
+  Future<void> _updateImageData(String uniqueId, String? imageData) async {
     final db = await database;
     await db.update(
       _tableName,
@@ -383,7 +419,7 @@ class ImageUploadService {
   }
 
   /// Upload image to server
-  Future<String?> _uploadToServer(String imageData, ImageActivityTypeEnum activityType, String siteSchId) async {
+  Future<String?> _uploadToServer(String imageData, ActivityTypeEnum activityType, String siteSchId, bool isSelfie) async {
     try {
       // Convert base64 string to bytes for file upload
       Uint8List imageBytes;
@@ -406,17 +442,29 @@ class ImageUploadService {
         tempFile.path,
         filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-      
-      // Upload to server
-      final response = await _apiService.post<Map<String, dynamic>>(
-        path: 'api/v1/mobile/uploads',
-        data: {
-          'imgFile': multipartFile,
-          'activityType': activityType.value,
-          'schId': siteSchId
-        },
-        useFormDataFormat: true,
-      );
+      final response;
+      if(isSelfie) {
+        response = await _apiService.post<Map<String, dynamic>>(
+          path: "api/v1/mobile/uploadsSelfie",
+          data: {
+            'selfie': multipartFile,
+            'imgId': '0',
+            'SchId': siteSchId,
+          },
+          useFormDataFormat: true,
+        );
+      } else {
+        // Upload to server
+        response = await _apiService.post<Map<String, dynamic>>(
+          path: 'api/v1/mobile/uploads',
+          data: {
+            'imgFile': multipartFile,
+            'activityType': activityType.value,
+            'schId': siteSchId
+          },
+          useFormDataFormat: true,
+        );
+      }
       
       // Clean up temp file
       if (await tempFile.exists()) {

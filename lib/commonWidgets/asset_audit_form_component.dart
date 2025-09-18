@@ -14,7 +14,7 @@ import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/bloc/asset_audit_cubit.dart';
 import 'package:app/bloc/asset_audit_get_image_cubit.dart';
 import 'package:app/services/image_upload_service.dart';
-import 'package:app/enum/image_activity_type_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/api_service.dart';
 import 'package:app/app_config.dart';
 
@@ -561,7 +561,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       // Upload using ImageUploadService
       final uniqueId = await _imageUploadService.uploadImage(
         base64Image,
-        ImageActivityTypeEnum.assetAudit,
+        ActivityTypeEnum.assetAudit,
         widget.siteAuditSchId,
       );
 

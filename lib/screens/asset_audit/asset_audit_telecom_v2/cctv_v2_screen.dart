@@ -17,6 +17,8 @@ import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
+import '../../../services/service_locator.dart';
+
 class CCTVV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
@@ -58,7 +60,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
   @override
   void initState() {
     super.initState();
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
     _loadData();
     
     // Add listeners for form changes
@@ -90,9 +92,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
 
       Logger.debugLog('🔄 Surveillance V2: Loading data for site ${widget.siteAuditSchId}');
       
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 

@@ -1,7 +1,7 @@
 import 'package:app/models/asset_audit_post_model.dart';
 import 'package:app/services/api_service.dart';
 import 'package:app/services/image_upload_service.dart';
-import 'package:app/enum/image_activity_type_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/logger.dart';
 
@@ -75,7 +75,7 @@ class AssetAuditPostService {
         // This is a unique_id, get the server_id using ImageUploadService
         final serverIdWithCreatedTime = await _imageUploadService.getServerIdAndCreatedTime(
           photoId.toString(),
-          ImageActivityTypeEnum.assetAudit,
+          ActivityTypeEnum.assetAudit,
           updatedRequest['site_audit_sch_id'].toString(),
         );
         

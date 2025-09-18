@@ -22,7 +22,7 @@ import 'firebase_options.dart';
 import 'services/local_storage_db.dart';
 import 'database/asset_audit_database.dart';
 import 'utils/asset_audit_form_persistence_helper_sqlite.dart';
-import 'services/asset_audit/central_service_initializer.dart';
+import 'services/app_initialization_service.dart';
 import 'utils.dart';
 
 // Global config variable
@@ -57,15 +57,18 @@ Future<void> main() async {
   final globalLoadingCubit = GlobalLoadingCubit();
   globalConfig = AppConfig(baseUrl: _baseUrl!, loadingCubit: globalLoadingCubit);
   
+  // Initialize all services after globalConfig is set
+  print('🔧 Initializing all services...');
+  final success = await AppInitializationService.initializeApp(globalConfig!.apiService);
+  if (!success) {
+    throw Exception('Failed to initialize app services');
+  }
+  print('✅ All services initialized successfully');
+  
   // Initialize form persistence helper with API provider
   print('🔧 Initializing AssetAuditFormPersistenceHelperSQLite...');
   AssetAuditFormPersistenceHelperSQLite.initialize(globalConfig!.apiProvider);
   print('✅ AssetAuditFormPersistenceHelperSQLite initialized');
-  
-  // Initialize Central Asset Audit Service immediately
-  print('🔧 Initializing CentralAssetAuditServiceInitializer in main()...');
-  CentralAssetAuditServiceInitializer.initialize(globalConfig!.apiService);
-  print('✅ CentralAssetAuditServiceInitializer initialized in main()');
 
   // stripe
   // if (!kIsWeb) {
@@ -95,8 +98,6 @@ Future<void> init() async {
   await AssetAuditDatabase().database;
   // Initialize location permissions
   await _initializeLocationPermissions();
-  
-  // Central Asset Audit Service is already initialized in main()
   
   // Future.delayed(const Duration(seconds: 3));
   // FlutterNativeSplash.remove();

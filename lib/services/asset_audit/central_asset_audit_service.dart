@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:app/enum/image_activity_type_enum.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/sqlite/raw_api_data_model.dart';
 import '../../utils/logger.dart';
 import 'central_data_service.dart';
 import 'central_api_service.dart';
@@ -29,123 +29,141 @@ class CentralAssetAuditService {
     Logger.debugLog('✅ CentralAssetAuditService initialized');
   }
 
-  // ==================== MAIN ASSET AUDIT DATA ====================
-
-  /// Get complete asset audit data (SQLite first, then API)
-  Future<Map<String, dynamic>?> getAssetAuditData({
+  Future<bool> getDataFromApiAndSaveToSqlite({
     required String siteType,
     required String auditSchId,
     required String siteAuditSchId,
+    required double latitude,
+    required double longitude,
+    required ActivityTypeEnum activityType,
   }) async {
     if (!_initialized) {
       Logger.errorLog('❌ Service not initialized. Call initialize() first.');
-      return null;
+      return false;
     }
 
-    try {
-      // First try to get from SQLite
-      final rawApiData = await _dataService.getRawApiData(siteAuditSchId);
-      if (rawApiData != null) {
-        return rawApiData;
-      }
+    final sqliteData = await _dataService.getRawApiData(siteAuditSchId);
+    if(sqliteData != null && sqliteData.isDownloaded) {
+      return true;
+    }
 
-      // If not found in SQLite, fetch from API
-      Logger.debugLog('🌐 No cached data found, fetching from API');
-      final apiData = await _apiService.fetchAssetAuditData(
+    final apiData = await _apiService.fetchData(
+      siteType: siteType,
+      auditSchId: auditSchId,
+      siteAuditSchId: siteAuditSchId,
+      activityType: activityType
+    );
+    if(apiData == null) {
+      return false;
+    }
+    // Save to SQLite
+    final isSaved = await _saveDataToSQLite(
+        siteAuditSchId: siteAuditSchId,
         siteType: siteType,
         auditSchId: auditSchId,
-        siteAuditSchId: siteAuditSchId,
-      );
+        activityType: activityType,
+        latitude: latitude,
+        longitude: longitude,
+        isDownloaded: false,
+        apiData: apiData);
 
-      if (apiData != null) {
-        // Save to SQLite
-        await _saveDataToSQLite(siteAuditSchId, apiData);
-        
-        Logger.debugLog('✅ Asset audit data fetched and saved to SQLite');
-        return apiData;
-      } else {
-        Logger.errorLog('❌ Failed to fetch asset audit data from API');
-        return null;
-      }
-    } catch (e) {
-      Logger.errorLog('❌ Error getting asset audit data: $e');
+    return isSaved;
+  }
+
+  Future<RawApiDataModel?> getDataFromSqlite({
+    required String siteAuditSchId,
+  }) async {
+    final sqliteData = await _dataService.getRawApiData(siteAuditSchId);
+    if(sqliteData != null) {
+      return sqliteData;
+    } else {
       return null;
     }
   }
 
-  /// Get complete asset audit data (SQLite first, then API)
-  Future<Map<String, dynamic>?> getPmData({
-    required String siteType,
-    required String auditSchId,
+  Future<Map<String, dynamic>?> getActualDataFromSqlite({
     required String siteAuditSchId,
   }) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized. Call initialize() first.');
-      return null;
-    }
-
-    try {
-      // First try to get from SQLite
-      final rawApiData = await _dataService.getRawApiData(siteAuditSchId);
-      if (rawApiData != null) {
-        return rawApiData;
-      }
-
-      // If not found in SQLite, fetch from API
-      Logger.debugLog('🌐 No cached data found, fetching PM data from API');
-      final apiData = await _apiService.fetchPmData(
-        siteType: siteType,
-        auditSchId: auditSchId,
-        siteAuditSchId: siteAuditSchId,
-      );
-
-      if (apiData != null) {
-        // Debug logging for PM data structure
-        Logger.debugLog('🔍 PM API Response Structure:');
-        Logger.debugLog('  - Site Type: $siteType');
-        Logger.debugLog('  - API Data keys: ${apiData.keys.toList()}');
-        if (apiData['pageHeader'] != null) {
-          Logger.debugLog('  - PageHeader: ${apiData['pageHeader']}');
-        }
-        if (apiData['responseData'] != null) {
-          Logger.debugLog('  - ResponseData keys: ${(apiData['responseData'] as Map<String, dynamic>).keys.toList()}');
-        }
-        
-        // Save to SQLite
-        await _saveDataToSQLite(siteAuditSchId, apiData);
-
-        Logger.debugLog('✅ Asset audit data fetched and saved to SQLite');
-        return apiData;
-      } else {
-        Logger.errorLog('❌ Failed to fetch asset audit data from API');
-        return null;
-      }
-    } catch (e) {
-      Logger.errorLog('❌ Error getting asset audit data: $e');
+    final sqliteData = await _dataService.getRawApiData(siteAuditSchId);
+    if(sqliteData != null) {
+      return sqliteData.apiData;
+    } else {
       return null;
     }
   }
 
+  Future<bool> downloadData({
+    required String siteType,
+    required String auditSchId,
+    required String siteAuditSchId,
+    required double latitude,
+    required double longitude,
+    required ActivityTypeEnum activityType
+  }) async {
+    if (!_initialized) {
+      Logger.errorLog('❌ Service not initialized. Call initialize() first.');
+      return false;
+    }
 
+    final apiData = await _apiService.fetchData(
+      siteType: siteType,
+      auditSchId: auditSchId,
+      siteAuditSchId: siteAuditSchId,
+      activityType: activityType
+    );
+
+    if(apiData == null) {
+      return false;
+    }
+    // Save to SQLite
+    final isSaved = await _saveDataToSQLite(
+        siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+        activityType: activityType,
+        isDownloaded: true,
+        latitude: latitude,
+        longitude: longitude,
+        apiData: apiData);
+    return isSaved;
+  }
 
   /// Save asset audit data to SQLite
-  Future<void> _saveDataToSQLite(String siteAuditSchId, Map<String, dynamic> apiData) async {
+  Future<bool> _saveDataToSQLite(
+  {
+    required String siteType,
+    required String auditSchId,
+    required String siteAuditSchId,
+    required Map<String, dynamic> apiData,
+    required bool isDownloaded,
+    required double latitude,
+    required double longitude,
+    required ActivityTypeEnum activityType,
+  }) async {
     try {
       Logger.debugLog('💾 Starting to save asset audit data to SQLite');
       Logger.debugLog('💾 API data keys: ${apiData.keys.toList()}');
-      
+
       // Process images and replace server IDs with unique IDs
       final processedApiData = await _processImagesInApiData(apiData);
-      
+
       // Save the processed API response
-      await _dataService.saveRawApiData(
+      bool isSaved = await _dataService.saveRawApiData(
         siteAuditSchId: siteAuditSchId,
+        siteType: siteType,
+        auditSchId: auditSchId,
+        isDownloaded: isDownloaded,
+        activityType: activityType,
+        latitude: latitude,
+        longitude: longitude,
         apiData: processedApiData,
       );
-      
+
       Logger.debugLog('✅ Raw API data saved successfully to SQLite');
+      return isSaved;
     } catch (e) {
       Logger.errorLog('❌ Error saving asset audit data to SQLite: $e');
+      return false;
     }
   }
 
@@ -211,7 +229,6 @@ class CentralAssetAuditService {
   Future<String?> _downloadImageAndGetUniqueId(String serverId) async {
     try {
       Logger.debugLog('📥 Downloading image with server ID: $serverId');
-      
       final uniqueId = await _imageUploadService.downloadImageUsingServerId(serverId);
       
       if (uniqueId != null) {
@@ -242,7 +259,7 @@ class CentralAssetAuditService {
       Logger.debugLog('🔄 Updated data keys: ${updatedData.keys.toList()}');
 
       // Update the raw API data in SQLite
-      await _dataService.saveRawApiData(
+      await _dataService.updateRawApiData(
         siteAuditSchId: siteAuditSchId,
         apiData: updatedData,
       );
@@ -276,50 +293,11 @@ class CentralAssetAuditService {
     }
   }
 
-  /// Pick image
-  Future<File?> pickImage({ImageSource source = ImageSource.gallery}) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized');
-      return null;
-    }
-
-    try {
-      return await _pickImageFromCamera(source: source);
-    } catch (e) {
-      Logger.errorLog('❌ Error picking image: $e');
-      return null;
-    }
-  }
-
-  Future<File?> _pickImageFromCamera({ImageSource source = ImageSource.gallery}) async {
-    try {
-      Logger.debugLog('📷 Picking image from ${source == ImageSource.camera ? 'camera' : 'gallery'}');
-
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: source,
-        imageQuality: 80,
-        maxWidth: 1920,
-        maxHeight: 1080,
-      );
-
-      if (image != null) {
-        Logger.debugLog('✅ Image picked successfully: ${image.path}');
-        return File(image.path);
-      } else {
-        Logger.debugLog('❌ No image selected');
-        return null;
-      }
-    } catch (e) {
-      Logger.errorLog('❌ Error picking image: $e');
-      return null;
-    }
-  }
-
   /// Upload image
   Future<String?> uploadImage({
     required String siteAuditSchId,
     required File imageFile,
+    bool isSelfie = false,
   }) async {
     if (!_initialized) {
       Logger.errorLog('❌ Service not initialized');
@@ -330,13 +308,18 @@ class CentralAssetAuditService {
       // Read file as bytes and convert to base64 string
       final imageBytes = await imageFile.readAsBytes();
       final imageData = base64Encode(imageBytes);
-      
-      // Upload using ImageUploadService
-      return await _imageUploadService.uploadImage(
-        imageData, 
-        ImageActivityTypeEnum.assetAudit, 
-        siteAuditSchId
-      );
+
+      if(isSelfie) {
+        return await _imageUploadService.uploadSelfie(imageData, ActivityTypeEnum.assetAudit,
+            siteAuditSchId);
+      } else {
+        // Upload using ImageUploadService
+        return await _imageUploadService.uploadImage(
+            imageData,
+            ActivityTypeEnum.assetAudit,
+            siteAuditSchId
+        );
+      }
     } catch (e) {
       Logger.errorLog('❌ Error uploading image: $e');
       return null;
@@ -382,38 +365,18 @@ class CentralAssetAuditService {
     }
   }
 
-  /// Convert API response page header to expected format
-  Map<String, dynamic> _convertPageHeaderFromApi(Map<String, dynamic> apiPageHeader) {
-    try {
-      Logger.debugLog('🔄 Converting page header from API format');
-      Logger.debugLog('🔄 API page header keys: ${apiPageHeader.keys.toList()}');
-      Logger.debugLog('🔄 API page header data: $apiPageHeader');
-      
-      final converted = {
-        'siteType': apiPageHeader['site_domain_name'] ?? apiPageHeader['site_type'],
-        'auditSchId': apiPageHeader['audit_sch_id'],
-        'siteCode': apiPageHeader['site_code'],
-        'siteName': apiPageHeader['site_name'],
-        'clientName': apiPageHeader['client_name'],
-        'district': apiPageHeader['district'],
-        'solarState': apiPageHeader['solar_state'],
-        'solarDistrict': apiPageHeader['solar_district'],
-        'siteTypeName': apiPageHeader['site_type_name'],
-        'status': apiPageHeader['status'],
-        'auditDueDt': apiPageHeader['audit_due_dt'],
-        'makerSelfieImageId': apiPageHeader['maker_selfie_image_id'],
-      };
-      
-      Logger.debugLog('🔄 Converted page header: $converted');
-      return converted;
-    } catch (e) {
-      Logger.errorLog('❌ Error converting page header: $e');
-      Logger.errorLog('❌ API page header that caused error: $apiPageHeader');
-      rethrow;
-    }
-  }
-
-
   /// Check if service is initialized
   bool get isInitialized => _initialized;
+
+  /// Get service instance (guaranteed to be initialized)
+  static CentralAssetAuditService get instance {
+    final service = CentralAssetAuditService();
+    if (!service._initialized) {
+      throw StateError(
+        'CentralAssetAuditService not initialized! '
+        'Call ServiceLocator().initializeServices(apiService) first.'
+      );
+    }
+    return service;
+  }
 }

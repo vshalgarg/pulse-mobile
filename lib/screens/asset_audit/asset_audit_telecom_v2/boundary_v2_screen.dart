@@ -9,6 +9,7 @@ import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
@@ -61,7 +62,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
   @override
   void initState() {
     super.initState();
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
     _loadData();
     
     // Add listeners for form changes
@@ -91,9 +92,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
 
       Logger.debugLog('🔄 Boundary V2: Loading data for site ${widget.siteAuditSchId}');
       
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 

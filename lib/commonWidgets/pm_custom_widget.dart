@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
 import '../services/image_upload_service.dart';
-import '../enum/image_activity_type_enum.dart';
+import '../enum/activity_type_enum.dart';
 import '../app_config.dart';
 import 'custom_remark.dart';
 import 'custom_form_field.dart';
@@ -284,7 +284,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
             final imageData = await file.readAsBytes();
             final photoId = await imageUploadService.uploadImage(
               base64Encode(imageData),
-              ImageActivityTypeEnum.preventiveMaintenance,
+              ActivityTypeEnum.preventiveMaintenance,
               _currentItem['site_audit_sch_id']?.toString() ?? '',
             );
 

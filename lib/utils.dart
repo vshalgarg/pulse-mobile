@@ -48,13 +48,15 @@ class Utils {
   /// Returns format: 2025-09-12T15:25:00.000+00:00
   static String getCurrentDateTimeForAPICall() {
     final now = DateTime.now();
-    return now.toUtc().toIso8601String();
+    final formatter = DateFormat('dd-MM-yyyy HH:mm');
+    return formatter.format(now);
   }
 
   static String? getTmeFromMSForAPICall(int? milliseconds) {
     if(milliseconds == null) return null;
     final now = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-    return now.toUtc().toIso8601String();
+    final formatter = DateFormat('dd-MM-yyyy HH:mm');
+    return formatter.format(now);
   }
 
   static String toDateYYYYMMDD(DateTime dateTime) {

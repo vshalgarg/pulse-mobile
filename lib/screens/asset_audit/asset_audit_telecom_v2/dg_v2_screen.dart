@@ -11,12 +11,13 @@ import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
-import '../../../enum/image_activity_type_enum.dart';
+import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
 import 'dart:convert';
 import 'dart:io';
@@ -70,7 +71,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
   @override
   void initState() {
     super.initState();
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
     _loadData();
     
     // Add listeners for form changes
@@ -102,9 +103,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
 
       Logger.debugLog('🔄 DG V2: Loading data for site ${widget.siteAuditSchId}');
       
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
@@ -155,85 +154,10 @@ class _DGV2ScreenState extends State<DGV2Screen> {
 
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? '';
-    
-    // Load image data
-    _loadImageData(formData);
-    
+
     Logger.debugLog('📝 Initialized form controllers');
     if (mounted) {
       setState(() {});
-    }
-  }
-
-  Future<void> _loadImageData(Map<String, dynamic> formData) async {
-    try {
-      // Load DG photo
-      final dgImageId = formData['dgImageId']?.toString();
-      if (dgImageId != null && dgImageId.isNotEmpty) {
-        _dgPhotoId = dgImageId;
-        final dgImageData = await _service.getImageAsDataUrl(dgImageId);
-        if (dgImageData != null && mounted) {
-          setState(() {
-            _dgImageData = dgImageData;
-          });
-        }
-      }
-
-      // Load DG Make photo
-      final dgMakeImageId = formData['dgMakeImageId']?.toString();
-      if (dgMakeImageId != null && dgMakeImageId.isNotEmpty) {
-        _dgMakePhotoId = dgMakeImageId;
-        final dgMakeImageData = await _service.getImageAsDataUrl(dgMakeImageId);
-        if (dgMakeImageData != null && mounted) {
-          setState(() {
-            _dgMakeImageData = dgMakeImageData;
-          });
-        }
-      }
-    } catch (e) {
-      Logger.errorLog('❌ Error loading image data: $e');
-    }
-  }
-
-  Future<void> _uploadImage(String type, File imageFile) async {
-    try {
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      
-      final imageData = await imageFile.readAsBytes();
-      
-      final photoId = await imageUploadService.uploadImage(
-        base64Encode(imageData),
-        ImageActivityTypeEnum.assetAudit,
-        widget.siteAuditSchId,
-      );
-
-      if (photoId.isNotEmpty) {
-        setState(() {
-          switch (type) {
-            case 'dg':
-              _dgPhotoId = photoId;
-              _dgImageData = 'data:image/jpeg;base64,${base64Encode(imageData)}';
-              break;
-            case 'dgMake':
-              _dgMakePhotoId = photoId;
-              _dgMakeImageData = 'data:image/jpeg;base64,${base64Encode(imageData)}';
-              break;
-          }
-          _hasFormDataChanges = true;
-        });
-        Logger.debugLog('✅ Image uploaded with ID: $photoId');
-      }
-    } catch (e) {
-      Logger.errorLog('❌ Error uploading image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error uploading image: $e'),
-            backgroundColor: AppColors.errorColor,
-          ),
-        );
-      }
     }
   }
 
@@ -279,15 +203,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
       // Add DG assets
       final modifiedDGAssets = _displayFormData?['dgAssets'] as List<dynamic>? ?? [];
       modifiedAssetsWithAllProperties.addAll(_modifyData(finalDGAssets, modifiedDGAssets));
-      
-      // Add photo IDs to the data
-      if (_dgPhotoId != null) {
-        finalDGAssets.first['photo_id'] = _dgPhotoId;
-      }
-      
-      if (_dgMakePhotoId != null) {
-        finalDGAssets.first['photo_id'] = _dgMakePhotoId;
-      }
+
       modifiedAssetsWithAllProperties.add(finalDGAssets.first);
 
       // Update remarks
@@ -623,40 +539,12 @@ class _DGV2ScreenState extends State<DGV2Screen> {
         ),
         getHeight(15),
 
-        // Add Photo of DG
-        ImageUploadField(
-          label: "Add Photo of DG",
-          placeholder: "Add Photo",
-          isRequired: true,
-          onImageSelected: (file) {
-            if (file != null) {
-              _uploadImage('dg', file);
-            }
-          },
-          externalImageUrl: _dgImageData,
-        ),
-        getHeight(15),
-
         // DG Make (readonly)
         CustomFormField(
           label: "DG Make",
           initialValue: _displayFormData?['dgMake'] ?? 'N/A',
           isRequired: false,
           isEditable: false,
-        ),
-        getHeight(15),
-
-        // Add Photo of DG Make
-        ImageUploadField(
-          label: "Add Photo of DG Make",
-          placeholder: "Add Photo",
-          isRequired: true,
-          onImageSelected: (file) {
-            if (file != null) {
-              _uploadImage('dgMake', file);
-            }
-          },
-          externalImageUrl: _dgMakeImageData,
         ),
         getHeight(15),
 

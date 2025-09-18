@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,7 +23,7 @@ import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
-import '../../../enum/image_activity_type_enum.dart';
+import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
 
 class WMSV2Screen extends StatefulWidget {
@@ -63,7 +64,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
   @override
   void initState() {
     super.initState();
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
     _loadData();
     
     // Add listeners for form changes
@@ -95,9 +96,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
 
       Logger.debugLog('🔄 WMS V2: Loading data for site ${widget.siteAuditSchId}');
       
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 

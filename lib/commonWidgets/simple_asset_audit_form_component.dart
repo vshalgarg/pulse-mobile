@@ -6,7 +6,7 @@ import 'package:app/commonWidgets/qr_screen_form_field.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/services/image_upload_service.dart';
-import 'package:app/enum/image_activity_type_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils.dart';
 import 'package:flutter/material.dart';
@@ -83,7 +83,7 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
       
       final photoId = await imageUploadService.uploadImage(
         imageData,
-        ImageActivityTypeEnum.assetAudit,
+        ActivityTypeEnum.assetAudit,
         widget.siteAuditSchId,
       );
 

@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
+import '../../../services/service_locator.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
@@ -15,6 +16,7 @@ import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
 import '../../../models/asset_audit_model.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
@@ -75,7 +77,7 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
 
   void _initializeServices() {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for Site Info');
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
 
     // Check if service is initialized
     if (!CentralAssetAuditServiceInitializer.isInitialized) {
@@ -100,9 +102,7 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
       Logger.debugLog('🔄 Loading site info data for site ${widget.siteAuditSchId}');
 
       // Use the actual service to load data
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 

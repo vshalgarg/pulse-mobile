@@ -1,22 +1,17 @@
 import 'dart:io';
-import 'dart:convert';
-import 'package:app/screens/home_screen.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../utils/logger.dart';
-import 'spv_v2_screen.dart';
-import '../../../models/asset_audit_model.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 
@@ -69,17 +64,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
 
   void _initializeServices() {
     Logger.debugLog('🔧 Initializing Central Asset Audit service');
-    _service = CentralAssetAuditServiceInitializer.getService();
-
-    // Check if service is initialized
-    if (!CentralAssetAuditServiceInitializer.isInitialized) {
-      Logger.errorLog('❌ Central service not initialized!');
-      setState(() {
-        _errorMessage = 'Central service not initialized. Please restart the app.';
-        _isLoadingData = false;
-      });
-      return;
-    }
+    _service = ServiceLocator().centralAssetAuditService;
 
     Logger.debugLog('✅ Central Asset Audit service initialized successfully');
   }
@@ -94,18 +79,11 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
       Logger.debugLog('🔄 Loading asset audit data for site ${widget.siteAuditSchId}');
 
       // Use the actual service to load data
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        Logger.debugLog('📊 Received data from service');
-        Logger.debugLog('📊 Data keys: ${data.keys.toList()}');
-        Logger.debugLog('📊 Full data: $data');
-        Logger.debugLog('📊 Categories: ${data['categories']}');
-        Logger.debugLog('📊 SPV category: ${data['categories']?['SPV']}');
 
           // Extract page header data for form fields
           final pageHeaders = data['pageHeader'] as List<dynamic>?;
@@ -175,8 +153,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
       final imageData = await _service.getImageAsDataUrl(imageId);
 
       if (imageData != null) {
-        Logger.debugLog('✅ Image data received: ${imageData.length} characters');
-        Logger.debugLog('✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...');
         setState(() {
           _fetchedImageData = imageData;
         });
@@ -201,13 +177,10 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
         imageFile: _selectedImage!,
+        isSelfie: true
       );
 
-      final dbData = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
-        siteAuditSchId: widget.siteAuditSchId,
-      );
+      final dbData = _assetAuditData;
       if(dbData != null) {
         final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
         final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
@@ -231,6 +204,17 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
     } catch (e) {
       Logger.errorLog('❌ Error uploading selfie: $e');
       showCustomToast(context, 'Failed to upload selfie: $e');
+    }
+  }
+
+  Future<void> postCurrentScreenData() async {
+    try {
+      if(_assetAuditData != null) {
+        await _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId,
+            updatedData: _assetAuditData ?? {});
+      }
+      } catch(e) {
+
     }
   }
 
@@ -378,6 +362,9 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick:  () async {
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -468,11 +455,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           children: [
             Builder(
               builder: (context) {
-                Logger.imageLog('🏗️ Building ImageUploadField widget');
-                Logger.imageLog('fetchedImageData length: ${_fetchedImageData?.length ?? 0}');
-                Logger.imageLog('fetchedImageData preview: ${_fetchedImageData?.substring(0, _fetchedImageData!.length > 50 ? 50 : _fetchedImageData!.length) ?? 'null'}');
-                Logger.imageLog('uploadedPhotoPath: ${_selectedImage?.path}');
-                Logger.imageLog('uploadedImgId: $_uploadedImgId');
                 return ImageUploadField(
                   label: "Add a Selfie",
                   placeholder: "Selfie",
@@ -480,7 +462,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                   externalImageUrl: _fetchedImageData,
                   onImageSelected: (file) {
                     if (file != null) {
-                      debugPrint("Selected image path: ${file.path}");
                       setState(() {
                         _selectedImage = file;
                         _hasFormDataChanges = true;
@@ -574,6 +555,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           section: "Asset Audit",
           parentContext: context, // Use the outer context (screen context)
           onSaveAndExit: () async {
+            postCurrentScreenData();
           },
           onDiscard: () {
           },

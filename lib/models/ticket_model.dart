@@ -177,13 +177,6 @@ class TicketFilterParams extends Equatable {
   List<Object?> get props => [activityType, type, pageSize, pageNo];
 }
 
-// Activity type constants
-class ActivityType {
-  static const String assetAudit = 'AA';
-  static const String preventiveMaintenance = 'PM';
-  static const String energyReading = 'ER';
-}
-
 // Ticket type constants
 class TicketType {
   static const String all = 'ALL';

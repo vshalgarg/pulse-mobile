@@ -1,3 +1,4 @@
+import 'package:app/services/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../constants/app_colors.dart';
@@ -59,7 +60,7 @@ class _PMPageRenderState extends State<PMPageRender> {
         final apiService = AppConfig.of(context).apiService;
         CentralAssetAuditServiceInitializer.initialize(apiService);
       }
-      _service = CentralAssetAuditServiceInitializer.getService();
+      _service = ServiceLocator().centralAssetAuditService;
       print('✅ CentralAssetAuditService initialized successfully');
       
       // Initialize AssetAuditPostService

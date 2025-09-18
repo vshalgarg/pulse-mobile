@@ -1,8 +1,10 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/models/ticket_model.dart';
 import 'package:flutter/material.dart';
 
 class TicketCard extends StatelessWidget {
+  final Ticket ticket;
   final String ticketId;
   final String siteCode;
   final String siteId;
@@ -12,12 +14,14 @@ class TicketCard extends StatelessWidget {
   final String dueDate;
   final String statusText;
   final Color? statusColor;
+  final Future<bool> Function(Ticket) isDownloadedFunc;
   final VoidCallback? onDownloadTap;
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
 
   const TicketCard({
     super.key,
+    required this.ticket,
     required this.ticketId,
     required this.siteCode,
     required this.siteId,
@@ -26,6 +30,7 @@ class TicketCard extends StatelessWidget {
     required this.raisedOn,
     required this.dueDate,
     required this.statusText,
+    required this.isDownloadedFunc,
     this.statusColor,
     this.onDownloadTap,
     this.onDirectionTap,
@@ -159,12 +164,26 @@ class TicketCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.file_download_outlined,
-                      color: AppColors.downloadIconColor,
-                    ),
-                    onPressed: onDownloadTap,
+                  FutureBuilder<bool>(
+                    future: isDownloadedFunc(ticket),
+                    builder: (context, snapshot) {
+                      final isDownloaded = snapshot.data ?? false;
+                      return isDownloaded
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.check_circle,
+                                color: AppColors.primaryGreen,
+                              ),
+                              onPressed: null,
+                            )
+                          : IconButton(
+                              icon: const Icon(
+                                Icons.file_download_outlined,
+                                color: AppColors.downloadIconColor,
+                              ),
+                              onPressed: onDownloadTap,
+                            );
+                    },
                   ),
                 ],
               ),

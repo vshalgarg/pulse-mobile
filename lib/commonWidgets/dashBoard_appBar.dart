@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../constants/app_images.dart';
-import '../services/asset_audit/central_asset_audit_service.dart';
+import '../services/service_locator.dart';
 
 class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
   const DashBoardAppBar({super.key});
@@ -30,7 +30,7 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onTap: () async {
                   try {
                     // Clear all asset audit data
-                    await CentralAssetAuditService().clearAllData();
+                    await ServiceLocator().centralAssetAuditService.clearAllData();
                     
                     // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(

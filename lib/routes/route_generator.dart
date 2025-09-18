@@ -1,9 +1,6 @@
 import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:app/routes/routes.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/battery_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/ccu_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/extinguisher_screen.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom/site_info_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/site_info_v2_screen.dart';
 import 'package:app/screens/asset_audit_screen.dart';
 import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
@@ -45,18 +42,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return _push(const PasswordUpdatedScreen());
     case otpVerificationScreen:
       return _push(const EnterVerificationCodeScreen());
-    case assetAuditScreen:
-      return _push(const AssetAuditScreen());
-    // case correctiveMaintenanceScreen:
-    //   return _push(const CorrectiveMaintenanceScreen());
-    case pmScreen1:
-      final args = settings.arguments as Map<String, dynamic>?;
-      return _push(PmScreen1(
-        ticketType: PmTicketTypeEnum.fromString(args?['siteType']),
-        auditSchId: args?['auditSchId'] ?? '',
-        siteAuditSchId: args?['siteAuditSchId'] ?? '',
-        siteId: args?['siteId'],
-      ));
     case energyReadingScreen:
       return _push(const EnergyReadingScreen(
         siteType: "",
@@ -64,55 +49,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         siteAuditSchId: "",
         siteId: "",
       ));
-    case siteInfoScreen:
-      return _push(const SiteInfoScreen(
-        siteName: "",
-        siteTypeName: "",
-        indoorOutdoor: "",
-        ebNonEb: "",
-        op1Name: "",
-        op2Name: "",
-        siteType: "",
-        auditSchId: "",
-        siteAuditSchId: "",
-      ));
-    case ccuScreen:
-      return _push(const CCUScreen(
-        siteType: "",
-        auditSchId: "",
-        siteAuditSchId: "",
-      ));
-    case batteryScreen:
-      return _push(const BatteryScreen(
-        siteType: "",
-        auditSchId: "",
-        siteAuditSchId: "",
-      ));
-    case extinguisherScreen:
-      final args = settings.arguments as Map<String, dynamic>?;
-      return _push(ExtinguisherScreen(
-        extinguisherData: args?['extinguisherData'],
-        assetAuditData: args?['assetAuditData'],
-        showSuccessMessage: args?['showSuccessMessage'] ?? false,
-        siteType: args?['siteType'] ?? "",
-        auditSchId: args?['auditSchId'] ?? "",
-        siteAuditSchId: args?['siteAuditSchId'] ?? "",
-      ));
-    case solarPlateScreen:
-      // SolarPlatesScreen should only be accessed through asset audit flow with proper data
-      // This route is kept for backward compatibility but will show an error
-      return _push(
-        Scaffold(
-          appBar: AppBar(title: const Text("Error")),
-          body: const Center(
-            child: Text(
-              "Solar Plates screen should be accessed through the asset audit flow with proper data.",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
-            ),
-          ),
-        ),
-      );
     case ticketScreen:
       return _push(const TicketScreen(auditName: "", status: ""));
     case sqliteQueryScreen:

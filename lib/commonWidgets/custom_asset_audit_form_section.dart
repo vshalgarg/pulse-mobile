@@ -7,7 +7,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/services/image_upload_service.dart';
-import 'package:app/enum/image_activity_type_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
 import 'package:app/utils/logger.dart';
 
@@ -92,7 +92,7 @@ class _CustomAssetAuditFormSectionState extends State<CustomAssetAuditFormSectio
       // Upload image using ImageUploadService
       final uniqueId = await imageUploadService.uploadImage(
         await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
-        ImageActivityTypeEnum.assetAudit,
+        ActivityTypeEnum.assetAudit,
         widget.siteAuditSchId,
       );
       

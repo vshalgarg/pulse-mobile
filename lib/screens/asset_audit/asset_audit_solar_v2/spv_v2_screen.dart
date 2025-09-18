@@ -18,11 +18,10 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../utils/logger.dart';
 import '../../../models/asset_audit_model.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
-import '../../../services/asset_audit/central_asset_audit_service.dart';
+import '../../../services/service_locator.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
-import '../../../enum/image_activity_type_enum.dart';
+import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
 
 class SPVV2Screen extends StatefulWidget {
@@ -43,8 +42,6 @@ class SPVV2Screen extends StatefulWidget {
 
 class _SPVV2ScreenState extends State<SPVV2Screen> {
   String _screenName = 'SPV';
-  late CentralAssetAuditService _service;
-
   // Loading states
   bool _isLoadingData = true;
   String? _errorMessage;
@@ -63,25 +60,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
   @override
   void initState() {
     super.initState();
-    _initializeServices();
     _loadData();
-  }
-
-  void _initializeServices() {
-    Logger.debugLog('🔧 Initializing Central Asset Audit service for SPV V2');
-    _service = CentralAssetAuditServiceInitializer.getService();
-    
-    // Check if service is initialized
-    if (!CentralAssetAuditServiceInitializer.isInitialized) {
-      Logger.errorLog('❌ Central service not initialized!');
-      setState(() {
-        _errorMessage = 'Central service not initialized. Please restart the app.';
-        _isLoadingData = false;
-      });
-      return;
-    }
-    
-    Logger.debugLog('✅ Central Asset Audit service initialized successfully for SPV V2');
   }
 
   Future<void> _loadData() async {
@@ -93,7 +72,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
 
       Logger.debugLog('🔄 Loading SPV data for site ${widget.siteAuditSchId}');
 
-      final data = await _service.getAssetAuditData(siteType: widget.siteType, auditSchId: widget.auditSchId, siteAuditSchId: widget.siteAuditSchId);
+      final data = await ServiceLocator().centralAssetAuditService.getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
       if (data != null) {
         // Extract SPV items
         final spvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
@@ -230,7 +209,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       }
       
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      ServiceLocator().centralAssetAuditService.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
       // Prepare data for posting
       final postObject = [

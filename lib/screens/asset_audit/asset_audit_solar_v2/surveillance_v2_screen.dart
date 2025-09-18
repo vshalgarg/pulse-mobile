@@ -12,6 +12,7 @@ import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/asset_audit/central_service_initializer.dart';
 import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/image_upload_service.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +59,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
   @override
   void initState() {
     super.initState();
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
     _loadData();
     
     // Add listeners for form changes
@@ -90,9 +91,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
 
       Logger.debugLog('🔄 Surveillance V2: Loading data for site ${widget.siteAuditSchId}');
       
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 

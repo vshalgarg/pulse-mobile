@@ -13,6 +13,7 @@ import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
@@ -87,7 +88,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
   void _initializeServices() {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for CCU');
-    _service = CentralAssetAuditServiceInitializer.getService();
+    _service = ServiceLocator().centralAssetAuditService;
 
     // Check if service is initialized
     if (!CentralAssetAuditServiceInitializer.isInitialized) {
@@ -112,9 +113,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       Logger.debugLog('🔄 Loading CCU data for site ${widget.siteAuditSchId}');
 
       // Use the actual service to load data
-      final data = await _service.getAssetAuditData(
-        siteType: widget.siteType,
-        auditSchId: widget.auditSchId,
+      final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
@@ -726,3 +725,4 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     }
   }
 }
+                                                                                                                

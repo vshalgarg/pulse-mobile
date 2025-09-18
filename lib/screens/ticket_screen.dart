@@ -1,6 +1,12 @@
 
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/sqlite/raw_api_data_model.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/logger.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -14,9 +20,6 @@ import '../constants/constants_strings.dart';
 import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
-import 'asset_audit/asset_audit_solar_v2/asset_audit_solar_v2_screen.dart';
-import 'asset_audit/asset_audit_telecom_v2/asset_audit_telecom_v2_screen.dart';
-import '../services/asset_audit/central_service_initializer.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import '../commonWidgets/pm_page_render.dart';
 
@@ -35,44 +38,72 @@ class TicketScreen extends StatefulWidget {
 }
 
 class _TicketScreenState extends State<TicketScreen> {
-  late CentralAssetAuditService _service;
   late String _currentTicketType;
-  late String _currentActivityType;
+  late ActivityTypeEnum _currentActivityType;
+  final Set<int> _downloadedTicketIds = <int>{};
+  bool _isInitializingDownloadedTickets = false;
 
   @override
   void initState() {
     super.initState();
-    _service = CentralAssetAuditServiceInitializer.getService();
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
     _loadTickets();
+    
+    // Initialize downloaded tickets state after a short delay to ensure tickets are loaded
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        final currentState = context.read<TicketCubit>().state;
+        if (currentState is TicketSuccess && currentState.ticketResponse.tickets.isNotEmpty) {
+          _initializeDownloadedTickets(currentState.ticketResponse.tickets);
+        }
+      });
+    });
   }
 
   void _loadTickets() {
-    print("🔍 Loading tickets with parameters:");
-    print("   Activity Type: $_currentActivityType");
-    print("   Ticket Type: $_currentTicketType");
-    print("   Page Size: 50");
-    print("   Page No: 1");
-    
     context.read<TicketCubit>().getTickets(
-      activityType: _currentActivityType,
+      activityType: _currentActivityType.value,
       ticketType: _currentTicketType,
       pageSize: 50,
       pageNo: 1,
     );
   }
 
-  String _getActivityTypeFromAuditName(String auditName) {
+  void _initializeDownloadedTickets(List<Ticket> tickets) async {
+    // Prevent multiple initializations
+    if (_isInitializingDownloadedTickets) return;
+    _isInitializingDownloadedTickets = true;
+    
+    try {
+      bool hasChanges = false;
+      // Check which tickets are already downloaded and populate local state
+      for (final ticket in tickets) {
+        final isDownloaded = await _isTicketDownloaded(ticket);
+        if (isDownloaded && !_downloadedTicketIds.contains(ticket.ticketSchId)) {
+          _downloadedTicketIds.add(ticket.ticketSchId);
+          hasChanges = true;
+        }
+      }
+      // Only trigger UI update if there were actual changes
+      if (hasChanges && mounted) {
+        setState(() {});
+      }
+    } finally {
+      _isInitializingDownloadedTickets = false;
+    }
+  }
+
+  ActivityTypeEnum _getActivityTypeFromAuditName(String auditName) {
     switch (auditName) {
       case "Asset Audit":
-        return ActivityType.assetAudit;
+        return ActivityTypeEnum.assetAudit;
       case "PM":
-        return ActivityType.preventiveMaintenance;
+        return ActivityTypeEnum.preventiveMaintenance;
       case "ER":
-        return ActivityType.energyReading;
+        return ActivityTypeEnum.energyReading;
       default:
-        return ActivityType.assetAudit;
+        return ActivityTypeEnum.correctiveMaintenance;
     }
   }
 
@@ -111,337 +142,98 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
-  /// Navigate to Solar Asset Audit V2 with data fetching
-  Future<void> _navigateToSolarAssetAuditV2(Ticket? ticket) async {
+  Future<void> _navigateToWorkflow(Ticket? ticket) async {
     if (ticket == null) return;
 
     try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading asset audit data...'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // Initialize service if not already done
-      if (!CentralAssetAuditServiceInitializer.isInitialized) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Central Asset Audit service not initialized'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Get the service and fetch data
-      final service = CentralAssetAuditServiceInitializer.getService();
-      final data = await service.getAssetAuditData(
-        siteType: "Solar",
-        auditSchId: ticket.auditSchId?.toString() ?? "",
-        siteAuditSchId: ticket.ticketSchId.toString(),
-      );
-
-      // Close loading dialog
-      Navigator.pop(context);
-
-      if (data != null) {
-        // Navigate to the screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AssetAuditSolarV2Screen(
-              siteType: "Solar",
-              auditSchId: ticket.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket.ticketSchId.toString(),
-            ),
-          ),
-        );
-      } else {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load asset audit data'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      // Close loading dialog if still open
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  /// Navigate to Telecom Asset Audit V2 with data fetching
-  Future<void> _navigateToTelecomAssetAuditV2(Ticket? ticket) async {
-    if (ticket == null) return;
-
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading asset audit data...'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // Initialize service if not already done
-      if (!CentralAssetAuditServiceInitializer.isInitialized) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Central Asset Audit service not initialized'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Get the service and fetch data
-      final service = CentralAssetAuditServiceInitializer.getService();
-      final data = await service.getAssetAuditData(
-        siteType: "Telecom",
-        auditSchId: ticket.auditSchId?.toString() ?? "",
-        siteAuditSchId: ticket.ticketSchId.toString(),
-      );
-
-      // Close loading dialog
-      Navigator.pop(context);
-
-      if (data != null) {
-        // Navigate to the screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AssetAuditTelecomV2Screen(
-              siteType: "Telecom",
-              auditSchId: ticket.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket.ticketSchId.toString(),
-            ),
-          ),
-        );
-      } else {
-        // Show error message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load asset audit data'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
-      // Close loading dialog if still open
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  Future<void> _navigateToPmV2(Ticket? ticket) async {
-    if (ticket == null) return;
-
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Loading PM Data...'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      if (!CentralAssetAuditServiceInitializer.isInitialized) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Service not initialized. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
+      LoaderWidget.showLoader(context);
       // Determine site type - check if it's solar or telecom
-      final siteType = _getSiteTypeForPM(ticket);
-      print("🔍 PM Ticket Site Type: $siteType");
-
-      final service = CentralAssetAuditServiceInitializer.getService();
-      final data = await service.getPmData(
+      final siteType = ticket.siteDomainName ?? 'Solar';
+      Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
+      
+      // Use ServiceLocator - no initialization check needed!
+      final service = ServiceLocator().centralAssetAuditService;
+      final isAvailable = await service.getDataFromApiAndSaveToSqlite(
         siteType: siteType,
         auditSchId: ticket.auditSchId?.toString() ?? "",
         siteAuditSchId: ticket.ticketSchId.toString(),
+        latitude: ticket.latitude ?? 0,
+        longitude: ticket.longitude ?? 0,
+        activityType: _currentActivityType,
       );
-
-      Navigator.pop(context);
-
-      if (data != null) {
+      if(isAvailable == null || !isAvailable) {
+        Toastbar.showErrorToastbar("Failed to load data", context);
+        return;
+      }
+      final data = await service.getDataFromSqlite(siteAuditSchId: ticket.ticketSchId.toString());
+      if(data == null) {
+        Toastbar.showErrorToastbar("Failed to load data", context);
+        return;
+      }
+      if(_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PMPageRender(
-              pmData: data,
-            ),
+            builder: (context) =>
+                PMPageRender(
+                  pmData: data.apiData,
+                ),
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to load PM data. Please try again.'),
-            backgroundColor: Colors.red,
-          ),
+        AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
+          siteType: siteType,
+          auditSchId: ticket.auditSchId?.toString() ?? "",
+          siteAuditSchId: ticket.ticketSchId.toString(),
+          context: context,
         );
       }
     } catch (e) {
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error loading PM data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      Toastbar.showErrorToastbar("Failed to load data", context);
+    } finally {
+      LoaderWidget.hideLoader();
     }
-  }
-
-  /// Determine if a PM ticket is for Solar or Telecom based on ticket properties
-  String _getSiteTypeForPM(Ticket ticket) {
-    // Check siteDomainName first
-    if (ticket.siteDomainName != null && ticket.siteDomainName!.isNotEmpty) {
-      final domainName = ticket.siteDomainName!.toLowerCase();
-      if (domainName.contains('solar')) {
-        return 'Solar';
-      } else if (domainName.contains('telecom')) {
-        return 'Telecom';
-      }
-    }
-
-    // Check siteCode for solar indicators
-    if (ticket.siteCode != null && ticket.siteCode!.isNotEmpty) {
-      final siteCode = ticket.siteCode!.toLowerCase();
-      if (siteCode.contains('solar') || siteCode.contains('spv') || siteCode.contains('pv')) {
-        return 'Solar';
-      }
-    }
-
-    // Check operator/company name for solar indicators
-    if (ticket.operator != null && ticket.operator!.isNotEmpty) {
-      final operatorName = ticket.operator!.toLowerCase();
-      if (operatorName.contains('solar') || operatorName.contains('renewable') || operatorName.contains('energy')) {
-        return 'Solar';
-      }
-    }
-
-    // Check cluster for solar indicators
-    if (ticket.cluster != null && ticket.cluster!.isNotEmpty) {
-      final cluster = ticket.cluster!.toLowerCase();
-      if (cluster.contains('solar') || cluster.contains('spv') || cluster.contains('pv')) {
-        return 'Solar';
-      }
-    }
-
-    // Default to Telecom for backward compatibility
-    return 'Telecom';
   }
 
   void _navigateToAuditScreen(Ticket? ticket) {
-    if (widget.auditName == "Asset Audit") {
-      // Check site domain to determine which screen to navigate to
-      if (ticket?.siteDomainName == "Telecom") {
-        // Navigate to Telecom Asset Audit V2
-        _navigateToTelecomAssetAuditV2(ticket);
-      } else {
-        // Navigate to Solar Asset Audit V2
-        _navigateToSolarAssetAuditV2(ticket);
-      }
-    } else {
-      switch (widget.auditName) {
-        case "PM":
-          _navigateToPmV2(ticket);
-          break;
-        case "CM":
-          Navigator.pushNamed(context, correctiveMaintenanceScreen);
-          break;
-        case "ER":
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => EnergyReadingScreen(
-                siteType: ticket?.siteDomainName ?? "Telecom",
-                auditSchId: ticket?.auditSchId?.toString() ?? "",
-                siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
-                siteId: ticket?.ticketSchId.toString() ?? "0", // Using ticketSchId as siteId for now
-              ),
+    switch (_currentActivityType) {
+      case ActivityTypeEnum.assetAudit:
+        _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.preventiveMaintenance:
+        _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.correctiveMaintenance:
+        Navigator.pushNamed(context, correctiveMaintenanceScreen);
+        break;
+      case ActivityTypeEnum.energyReading:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EnergyReadingScreen(
+              siteType: ticket?.siteDomainName ?? "Telecom",
+              auditSchId: ticket?.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
+              siteId: ticket?.ticketSchId.toString() ?? "0", // Using ticketSchId as siteId for now
             ),
-          );
-          break;
-        default:
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('No specific audit screen for ${widget.auditName}'),
-              backgroundColor: AppColors.errorColor,
-            ),
-          );
-      }
+          ),
+        );
+        break;
+      default:
+        Toastbar.showErrorToastbar('No specific audit screen for ${widget.auditName}', context);
     }
+  }
+
+  Future<bool> _isTicketDownloaded(Ticket ticket) async{
+    // Check local state first (for recently downloaded tickets)
+    if (_downloadedTicketIds.contains(ticket.ticketSchId)) {
+      return true;
+    }
+    
+    // Check database for existing downloads
+    RawApiDataModel? data = await ServiceLocator().centralAssetAuditService.getDataFromSqlite(
+        siteAuditSchId: ticket.ticketSchId.toString());
+    return data != null && data.isDownloaded;
   }
 
   @override
@@ -566,12 +358,12 @@ class _TicketScreenState extends State<TicketScreen> {
             ? ticket.status! 
             : _getStatusFromTicketType(_currentTicketType);
         
-        // Debug logging to see actual status values
-        print("🔍 Ticket ${ticket.pvTicketId}: API status='${ticket.status}', final status='$statusText'");
+        // Debug logging removed to prevent loop
         
         return Padding(
           padding: EdgeInsets.only(bottom: index == ticketResponse.tickets.length - 1 ? 0 : 10),
           child: TicketCard(
+            ticket: ticket,
             ticketId: ticket.pvTicketId,
             siteCode: ticket.siteCode ?? 'N/A',
             siteId: ticket.cluster ?? 'N/A',
@@ -580,6 +372,7 @@ class _TicketScreenState extends State<TicketScreen> {
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
             statusText: statusText,
+            isDownloadedFunc: _isTicketDownloaded,
             onTap: () => _navigateToAuditScreen(ticket),
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
@@ -604,93 +397,46 @@ class _TicketScreenState extends State<TicketScreen> {
                 );
               }
             },
-            onDownloadTap: () {
-              _showClearDatabaseDialog();
+            onDownloadTap: () async {
+              try {
+                LoaderWidget.showLoader(context);
+                // Use ServiceLocator - no initialization check needed!
+                final service = ServiceLocator().centralAssetAuditService;
+                final isDownloaded = await service.downloadData(
+                  siteType: ticket.siteDomainName ?? 'Solar',
+                  auditSchId: ticket.auditSchId?.toString() ?? "",
+                  siteAuditSchId: ticket.ticketSchId.toString(),
+                  latitude: ticket.latitude ?? 0,
+                  longitude: ticket.longitude ?? 0,
+                  activityType: _currentActivityType,
+                );
+                
+                if (isDownloaded) {
+                  // Add to local state and trigger UI update
+                  setState(() {
+                    _downloadedTicketIds.add(ticket.ticketSchId);
+                  });
+                  
+                  // Re-initialize downloaded tickets state to ensure consistency
+                  final currentState = context.read<TicketCubit>().state;
+                  if (currentState is TicketSuccess) {
+                    _initializeDownloadedTickets(currentState.ticketResponse.tickets);
+                  }
+                  
+                  Toastbar.showSuccessToastbar(
+                      "Data downloaded successfully", context);
+                } else {
+                  Toastbar.showErrorToastbar(
+                      "Failed to download data, please try again", context);
+                }
+              } finally {
+                LoaderWidget.hideLoader();
+              }
             },
           ),
         );
       },
     );
-  }
-
-
-  void _showClearDatabaseDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Database'),
-        content: const Text(
-          'This will clear all cached data from the database. This action cannot be undone.\n\n'
-              'Do you want to continue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _clearDatabase();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear All Data'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _clearDatabase() async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Clearing database...'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // Clear the database
-      await _service.clearAllData();
-
-      // Close loading dialog
-      Navigator.pop(context);
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Database cleared successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      // Close loading dialog if still open
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error clearing database: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 
   Widget _buildErrorWidget(String errorMessage) {
