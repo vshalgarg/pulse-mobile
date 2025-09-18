@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:app/extensions/string_extension.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 
 import '../commonWidgets/custom_search_icon.dart';
@@ -9,7 +8,6 @@ import '../commonWidgets/notification_badge.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_methods.dart';
 import '../constants/image_strings.dart';
-import '../services/local_storage_constants.dart';
 import '../services/local_storage_db.dart';
 
 class CustomHomeScreenAppBar extends AppBar {

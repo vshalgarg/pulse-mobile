@@ -5,7 +5,6 @@ import '../models/asset_audit_model.dart';
 import '../bloc/selfie_upload_cubit.dart';
 import '../services/location_service.dart';
 import 'package:geolocator/geolocator.dart';
-import 'dart:io';
 import 'package:flutter/material.dart';
 
 class AssetAuditPostHelper {

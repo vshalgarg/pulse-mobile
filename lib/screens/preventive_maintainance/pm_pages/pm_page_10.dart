@@ -22,7 +22,6 @@ import '../../../enum/pm_ticket_type_enum.dart';
 import '../../../bloc/asset_audit_photo_upload_cubit.dart';
 import '../../../bloc/asset_audit_get_image_cubit.dart';
 import '../../home_screen.dart';
-import 'dart:io';
 import 'package:intl/intl.dart';
 
 class PmScreen10 extends StatefulWidget {

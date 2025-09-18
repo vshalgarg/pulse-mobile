@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/services/push_notification_api.dart';
@@ -7,12 +6,12 @@ import 'package:app/services/location_permission_service.dart';
 import 'package:app_links/app_links.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app_config.dart';
 import 'app_root.dart';

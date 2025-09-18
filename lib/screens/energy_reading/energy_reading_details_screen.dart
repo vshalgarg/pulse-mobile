@@ -1,9 +1,9 @@
+import 'dart:io';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/custom_file_upload.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/models/energy_reading_detail_model.dart';

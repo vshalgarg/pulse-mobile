@@ -1,5 +1,5 @@
-import 'package:app/constants/constants_methods.dart';
 import 'dart:io';
+import 'package:app/constants/constants_methods.dart';
 import 'package:dio/dio.dart';
 // Added for base64Encode
 

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
-import '../constants/constants_strings.dart';
 import '../constants/constants_methods.dart';
 import 'custom_buttons/arrow_botton.dart';
 

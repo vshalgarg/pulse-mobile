@@ -1,7 +1,7 @@
+import 'dart:io';
 import 'package:app/models/energy_reading_model.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'dart:io';
 
 import '../constants/constants_strings.dart';
 import '../repositories/energy_reading_repository.dart';

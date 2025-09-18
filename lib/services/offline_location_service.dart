@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 
 class OfflineLocationService {
   static const String _lastKnownLocationKey = 'last_known_location';

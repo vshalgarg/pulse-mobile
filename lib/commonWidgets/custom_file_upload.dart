@@ -1,7 +1,7 @@
+import 'dart:io';
 import 'package:app/constants/constants_methods.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter/material.dart';
-import 'dart:io';
 
 import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';

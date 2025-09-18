@@ -21,8 +21,6 @@ import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
 import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
-import 'dart:convert';
-import 'dart:io';
 
 class DGV2Screen extends StatefulWidget {
   final String siteAuditSchId;

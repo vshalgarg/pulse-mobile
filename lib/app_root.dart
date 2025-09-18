@@ -11,7 +11,6 @@ import 'package:app/bloc/asset_audit_cubit.dart';
 import 'package:app/bloc/energy_reading_cubit.dart';
 import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/bloc/selfie_upload_cubit.dart';
-import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
 import 'package:app/routes/route_generator.dart';

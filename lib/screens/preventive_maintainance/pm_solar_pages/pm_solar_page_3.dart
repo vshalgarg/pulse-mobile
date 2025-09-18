@@ -18,7 +18,6 @@ import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/screens/preventive_maintainance/pm_solar_pages/pm_solar_page_4.dart';
-import 'dart:io';
 import 'package:intl/intl.dart';
 
 import '../../../commonWidgets/custom_radio_options.dart';

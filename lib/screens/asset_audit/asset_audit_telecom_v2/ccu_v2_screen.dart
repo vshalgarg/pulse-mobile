@@ -561,11 +561,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
         // Rectifiers Details Section
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -577,7 +572,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              getHeight(15),
 
               AssetAuditFormComponent(
                 componentId: 'rectifier_component',
@@ -600,7 +594,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             ],
           ),
         ),
-        getHeight(20),
 
         // Total Count of MPPT
         CustomFormField(
@@ -613,11 +606,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
         // MPPT Details Section
         Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -629,7 +617,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              getHeight(15),
 
               AssetAuditFormComponent(
                 componentId: 'mppt_component',

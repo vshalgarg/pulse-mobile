@@ -1,31 +1,22 @@
-import 'dart:io';
-import 'dart:convert';
 import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
-import 'package:app/screens/home_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../utils/logger.dart';
-import '../../../models/asset_audit_model.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
-import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
 
 class DCDBV2Screen extends StatefulWidget {

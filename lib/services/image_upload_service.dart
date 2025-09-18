@@ -1,6 +1,6 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:convert';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils.dart';
 import 'package:sqflite/sqflite.dart';

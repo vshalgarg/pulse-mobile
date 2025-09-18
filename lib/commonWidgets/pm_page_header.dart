@@ -6,7 +6,6 @@ import '../constants/app_images.dart';
 import '../constants/constants_methods.dart';
 import 'custom_form_appbar.dart';
 import 'custom_buttons/arrow_botton.dart';
-import 'custom_dialogs/unsaved_changes_dialog.dart';
 import 'custom_form_field.dart';
 import '../utils/pm_navigation_helper.dart';
 
@@ -183,26 +182,6 @@ class PMPageHeader extends StatelessWidget {
     );
   }
 
-  void _showUnsavedChangesDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (context) => UnsavedChangesDialog(
-        message: 'You have unsaved changes. Do you want to save before leaving?',
-        onSaveAndExit: () async {
-          // Navigate back
-          Navigator.pop(context);
-        },
-        onDiscard: () {
-          Navigator.pop(context);
-          Navigator.pop(context);
-        },
-        siteAuditSchId: null, // You can pass siteAuditSchId if available
-        section: 'Preventive Maintenance',
-        parentContext: context,
-      ),
-    );
-  }
 
 
   String _formatDate(String? dateString) {

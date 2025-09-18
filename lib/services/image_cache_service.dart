@@ -1,5 +1,5 @@
-import 'dart:async';
 import 'dart:convert';
+import 'dart:async';
 import 'package:app/database/asset_audit_database.dart';
 import 'package:app/repositories/image_repository.dart';
 import 'package:app/services/api_provider.dart';

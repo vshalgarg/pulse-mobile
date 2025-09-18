@@ -12,7 +12,6 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../utils/logger.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 
 class AssetAuditSolarV2Screen extends StatefulWidget {
@@ -524,26 +523,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
     );
   }
 
-  bool _validateForm() {
-    setState(() {
-      _showValidationErrors = true;
-    });
-
-    final hasLocalPhoto = _selectedImage != null;
-    final hasServerImage = _uploadedImgId != null && _uploadedImgId!.isNotEmpty && _uploadedImgId != "0";
-    final hasImageData = _fetchedImageData != null && _fetchedImageData!.isNotEmpty;
-
-    if (!hasLocalPhoto && !hasServerImage && !hasImageData) {
-      Logger.debugLog('Photo validation failed - No photo uploaded');
-      showCustomToast(context, 'Please upload a selfie before proceeding');
-      return false;
-    } else {
-      Logger.debugLog('Photo validation passed');
-    }
-
-    Logger.debugLog('All validations passed!');
-    return true;
-  }
 
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
@@ -566,85 +545,4 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
     }
   }
 
-  void _showClearDatabaseDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Clear Database'),
-        content: const Text(
-          'This will clear all cached data from the database. This action cannot be undone.\n\n'
-          'Do you want to continue?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await _clearDatabase();
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear All Data'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _clearDatabase() async {
-    try {
-      // Show loading dialog
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: Card(
-            child: Padding(
-              padding: EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('Clearing database...'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
-
-      // Clear the database
-      await _service.clearAllData();
-
-      // Close loading dialog
-      Navigator.pop(context);
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Database cleared successfully'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Reload the data
-      await _loadData();
-    } catch (e) {
-      // Close loading dialog if still open
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
-
-      // Show error message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error clearing database: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
 }

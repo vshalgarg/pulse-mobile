@@ -1,6 +1,6 @@
+import 'dart:io';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/models/energy_reading_model.dart';
-import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../services/api_service.dart';
