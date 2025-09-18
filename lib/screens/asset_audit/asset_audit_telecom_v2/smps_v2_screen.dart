@@ -1,4 +1,6 @@
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
+import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -201,19 +203,19 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
 
       // Add SMPS Rectifiers
       final modifiedSMPSRectifiers = _displayFormData?['smpsRectifiers'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(_modifyData(finalSMPSRectifiers, modifiedSMPSRectifiers));
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalSMPSRectifiers, modifiedSMPSRectifiers));
 
       // Add SMPS Cabinet
       final modifiedSMPSCabinet = _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(_modifyData(finalSMPSCabinet, modifiedSMPSCabinet));
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalSMPSCabinet, modifiedSMPSCabinet));
 
       // Add ACDB assets
       final modifiedACDBAssets = _displayFormData?['acdbAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(_modifyData(finalACDBAssets, modifiedACDBAssets));
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalACDBAssets, modifiedACDBAssets));
 
       // Add LSPU assets
       final modifiedLSPUAssets = _displayFormData?['lspuAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(_modifyData(finalLSPUAssets, modifiedLSPUAssets));
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalLSPUAssets, modifiedLSPUAssets));
 
       // Update remarks
       final String remark = _remarksController.text;
@@ -256,29 +258,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       Logger.errorLog('❌ SMPS V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
-  }
-
-  static List<dynamic> _modifyData(List<dynamic> actualData, List<dynamic> modifiedData) {
-    List<dynamic> modifiedDataToReturn = [];
-    for(dynamic asset in actualData) {
-      try {
-        final assetSerialNo = asset['mfg_serial_no']?.toString();
-        final modifiedAsset = modifiedData.where((ass) =>
-        ass['qr_code_scanned'] ?
-        ass['nexgen_serial_no']?.toString() == assetSerialNo :
-        ass['mfg_serial_no']?.toString() == assetSerialNo
-        ).toList();
-        if(modifiedAsset.isNotEmpty) {
-          modifiedDataToReturn.add(modifiedAsset.first);
-        } else {
-          modifiedDataToReturn.add(asset);
-        }
-      } catch (e) {
-        Logger.errorLog('❌ Error in _modifyData: $e');
-        modifiedDataToReturn.add(asset);
-      }
-    }
-    return modifiedDataToReturn;
   }
 
   void _showUnsavedChangesDialog() {

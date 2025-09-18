@@ -4,6 +4,8 @@ import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
+import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
@@ -119,23 +121,9 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
   }
 
   // Custom validation function for SPV serial number
-  bool _validateSPVSerialNumber(String serialNumber, bool isQRCodeScanned) {
+  bool _validateSPVSerialNumber(String serialNumber, bool isQrCodeScanned) {
     final savedSpvItems = _displayFormData?['allAssets'] as List<dynamic>;
-    if (savedSpvItems.isEmpty) return false;
-    
-    // Check if serial number exists in SPV items
-    final isValid = savedSpvItems.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-    
-    Logger.debugLog('🔍 SPV Validation - Serial: $serialNumber, QR: $isQRCodeScanned, Valid: $isValid');
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedSpvItems, isQrCodeScanned);
   }
 
   // Callback when SPV item is saved
@@ -171,32 +159,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       
       Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
-      
-      // Update assets with modified data
-      for(dynamic asset in finalAssets) {
-        try {
-          final assetSerialNo = asset['mfg_serial_no']?.toString();
-          final modifiedAsset = modifiedAssets.where((ass) => 
-            ass['mfg_serial_no']?.toString() == assetSerialNo
-          ).firstOrNull;
-          
-          if (modifiedAsset != null) {
-            asset['qrCodeScanned'] = modifiedAsset['qr_code_scanned'];
-            asset['qrCodeScannedTs'] = modifiedAsset['qr_code_scanned_ts'];
-            asset['photoId'] = modifiedAsset['photo_id'];
-
-            
-            
-            asset['assetStatus'] = modifiedAsset['asset_status'];
-            modifiedAssetsWithAllProperties.add(asset);
-            Logger.debugLog('✅ Updated asset: $assetSerialNo');
-          } else {
-            Logger.debugLog('⚠️ No modified asset found for serial: $assetSerialNo');
-          }
-        } catch (e) {
-          Logger.errorLog('❌ Error updating asset: $e');
-        }
-      }
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalAssets, modifiedAssets));
       
       // Update remarks
       final String remark = _remarksController.text;

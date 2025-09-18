@@ -4,6 +4,8 @@ import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
+import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
@@ -172,19 +174,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
   // Validate Transformer serial number
   bool _validateTransformerSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final savedTransformerItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    if (savedTransformerItems.isEmpty) return false;
-
-    final isValid = savedTransformerItems.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedTransformerItems, isQRCodeScanned);
   }
 
   Future<void> postCurrentScreenData() async {
@@ -198,31 +188,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       
       Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
-      
-      // Update assets with modified data
-      for(dynamic asset in finalAssets) {
-        try {
-          final assetSerialNo = asset['mfg_serial_no']?.toString();
-          final modifiedAsset = modifiedAssets.where((ass) => 
-            ass['mfg_serial_no']?.toString() == assetSerialNo
-          ).firstOrNull;
-          
-          if (modifiedAsset != null) {
-            asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-            asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-            asset['photo_id'] = modifiedAsset['photo_id'];
-            asset['longitude'] = 'Tobechanged';
-            asset['latitude'] = 'Tobechanged';
-            asset['asset_status'] = modifiedAsset['asset_status'];
-            modifiedAssetsWithAllProperties.add(asset);
-            Logger.debugLog('✅ Updated asset: $assetSerialNo');
-          } else {
-            Logger.debugLog('⚠️ No modified asset found for serial: $assetSerialNo');
-          }
-        } catch (e) {
-          Logger.errorLog('❌ Error updating asset: $e');
-        }
-      }
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalAssets, modifiedAssets));
       
       // Update remarks
       final String remark = _remarksController.text;

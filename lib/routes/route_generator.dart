@@ -1,12 +1,8 @@
-import 'package:app/enum/pm_ticket_type_enum.dart';
 import 'package:app/routes/routes.dart';
-import 'package:app/screens/asset_audit/asset_audit_telecom_v2/site_info_v2_screen.dart';
-import 'package:app/screens/asset_audit_screen.dart';
 import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
-import 'package:app/screens/preventive_maintainance/pm_pages/pm_page_1.dart';
 import 'package:app/screens/reset_password_screen.dart';
 import 'package:app/screens/splash_screen.dart';
 import 'package:app/screens/ticket_screen.dart';

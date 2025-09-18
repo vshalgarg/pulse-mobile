@@ -2,6 +2,7 @@ import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
@@ -352,55 +353,19 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   // Custom validation function for Cabinet serial number
   bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final cabinets = _displayFormData?['cabinets'] as List<dynamic>?;
-    if (cabinets == null || cabinets.isEmpty) return false;
-
-    // Check if serial number exists in SPV items
-    final isValid = cabinets.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, cabinets, isQRCodeScanned);
   }
 
   // Custom validation function for Rectifier serial number
   bool _validateRectifierSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final allRectifiers = _displayFormData?['allRectifiers'] as List<dynamic>?;
-    if (allRectifiers == null || allRectifiers.isEmpty) return false;
-
-    // Check if serial number exists in SPV items
-    final isValid = allRectifiers.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, allRectifiers, isQRCodeScanned);
   }
 
   // Custom validation function for mppt serial number
   bool _validateMpptSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final allMppts = _displayFormData?['allMppts'] as List<dynamic>?;
-    if (allMppts == null || allMppts.isEmpty) return false;
-
-    // Check if serial number exists in SPV items
-    final isValid = allMppts.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, allMppts, isQRCodeScanned);
   }
 
   @override

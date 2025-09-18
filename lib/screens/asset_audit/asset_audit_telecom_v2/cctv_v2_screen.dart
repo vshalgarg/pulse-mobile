@@ -13,6 +13,8 @@ import 'package:app/services/asset_audit/central_service_initializer.dart';
 import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
+import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -157,19 +159,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
   // Validation method
   bool _validateCCTVSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final savedItems = _displayFormData?['cctvAllAssets'] as List<dynamic>? ?? [];
-    if (savedItems.isEmpty) return false;
-
-    final isValid = savedItems.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
   }
 
   Future<void> postCurrentScreenData() async {
@@ -185,7 +175,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
       
       // Add CCTV assets
       final modifiedCCTVAssets = _displayFormData?['cctvAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(_modifyData(finalCCTVAssets, modifiedCCTVAssets));
+      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalCCTVAssets, modifiedCCTVAssets));
 
       // Update remarks
       final String remark = _remarksController.text;
@@ -228,34 +218,6 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
       Logger.errorLog('❌ Surveillance V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
-  }
-
-  static List<dynamic> _modifyData(List<dynamic> actualData, List<dynamic> modifiedData) {
-    List<dynamic> modifiedDataToReturn = [];
-    for(dynamic asset in actualData) {
-      try {
-        final assetSerialNo = asset['mfg_serial_no']?.toString();
-        final modifiedAsset = modifiedData.where((ass) =>
-        ass['mfg_serial_no']?.toString() == assetSerialNo
-        ).firstOrNull;
-
-        if (modifiedAsset != null) {
-          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-          asset['photo_id'] = modifiedAsset['photo_id'];
-          asset['longitude'] = 'Tobechanged';
-          asset['latitude'] = 'Tobechanged';
-          asset['asset_status'] = modifiedAsset['asset_status'];
-          modifiedDataToReturn.add(asset);
-          Logger.debugLog('✅ Updated asset: $assetSerialNo');
-        } else {
-          Logger.debugLog('⚠️ No modified asset found for serial: $assetSerialNo');
-        }
-      } catch (e) {
-        Logger.errorLog('❌ Error updating asset: $e');
-      }
-    }
-    return modifiedDataToReturn;
   }
 
   void _showUnsavedChangesDialog() {

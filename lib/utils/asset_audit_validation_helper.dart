@@ -22,6 +22,23 @@ class AssetAuditValidationHelper {
     
     return false;
   }
+
+  static dynamic findItemWithSerialNumber(
+      String serialNumber,
+      List<dynamic>? assets,
+      bool isQrCodeScanned
+      ) {
+    if (assets == null || assets.isEmpty) return assets;
+    for(dynamic asset in assets) {
+      if (asset['mfg_serial_no']?.toString().toUpperCase() == serialNumber.toUpperCase()) {
+        return asset;
+      }
+      if(isQrCodeScanned && asset['nexgen_serial_no']?.toString().toUpperCase() == serialNumber.toUpperCase()) {
+        return asset;
+      }
+    }
+    return null;
+  }
   
   /// Validates manually entered serial number against mfg_serial_no
   /// Returns the matching asset item if found, null otherwise

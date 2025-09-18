@@ -1,8 +1,30 @@
 import 'dart:convert';
 
+import 'package:app/utils/asset_audit_validation_helper.dart';
+
 /// Utility class for data transformations between different naming conventions
 class DataTransformationHelper {
-  
+
+  static List<dynamic> modifyData(List<dynamic> actualData, List<dynamic> modifiedData) {
+    List<dynamic> modifiedDataToReturn = [];
+    for(dynamic data in modifiedData) {
+      final serialNo = data['mfg_serial_no']?.toString() ?? "";
+      final qrCodeScanned = data['qr_code_scanned']?.toString() == 'true';
+      if(serialNo.isNotEmpty) {
+        final asset = AssetAuditValidationHelper.findItemWithSerialNumber(serialNo, actualData, qrCodeScanned);
+        if(asset != null) {
+          asset['qr_code_scanned'] = data['qr_code_scanned'];
+          asset['qr_code_scanned_ts'] = data['qr_code_scanned_ts'];
+          asset['photo_id'] = data['photo_id'];
+          asset['asset_status'] = data['asset_status'];
+          modifiedDataToReturn.add(asset);
+        }
+      }
+    }
+    return modifiedDataToReturn;
+  }
+
+
   /// Converts snake_case keys to camelCase in a Map
   static Map<String, dynamic> snakeToCamelCase(Map<String, dynamic> data) {
     final Map<String, dynamic> result = {};
