@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../constants/app_images.dart';
+import '../services/asset_audit/central_asset_audit_service.dart';
 
 class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
   const DashBoardAppBar({super.key});
@@ -25,7 +26,31 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SvgPicture.asset(AppImages.pulseImg, fit: BoxFit.cover, width: 113, height: 40,),
+              GestureDetector(
+                onTap: () async {
+                  try {
+                    // Clear all asset audit data
+                    await CentralAssetAuditService().clearAllData();
+                    
+                    // Show success message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('All asset audit data cleared successfully!'),
+                        backgroundColor: AppColors.primaryGreen,
+                      ),
+                    );
+                  } catch (e) {
+                    // Show error message
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error clearing data: $e'),
+                        backgroundColor: AppColors.errorColor,
+                      ),
+                    );
+                  }
+                },
+                child: SvgPicture.asset(AppImages.pulseImg, fit: BoxFit.cover, width: 113, height: 40,),
+              ),
               const Spacer(),
               Stack(
                 clipBehavior: Clip.none,
