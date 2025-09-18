@@ -181,12 +181,13 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           ).firstOrNull;
           
           if (modifiedAsset != null) {
-            asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-            asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-            asset['photo_id'] = modifiedAsset['photo_id'];
-            asset['longitude'] = 'Tobechanged';
-            asset['latitude'] = 'Tobechanged';
-            asset['asset_status'] = modifiedAsset['asset_status'];
+            asset['qrCodeScanned'] = modifiedAsset['qr_code_scanned'];
+            asset['qrCodeScannedTs'] = modifiedAsset['qr_code_scanned_ts'];
+            asset['photoId'] = modifiedAsset['photo_id'];
+
+            
+            
+            asset['assetStatus'] = modifiedAsset['asset_status'];
             modifiedAssetsWithAllProperties.add(asset);
             Logger.debugLog('✅ Updated asset: $assetSerialNo');
           } else {
@@ -199,9 +200,11 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       
       // Update remarks
       final String remark = _remarksController.text;
+     
       if(remark.isNotEmpty && finalRemarks.isNotEmpty){
         try {
           finalRemarks.first['item_type_remark'] = remark;
+          
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
@@ -212,10 +215,21 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       ServiceLocator().centralAssetAuditService.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
       // Prepare data for posting
-      final postObject = [
+      final rawPostObject = [
         ...modifiedAssetsWithAllProperties,
         ...finalRemarks
       ];
+
+      // Add auditSchId: 0 to each item
+      final postObject = rawPostObject.map((item) {
+        if (item is Map<String, dynamic>) {
+          return {
+            ...item,
+           
+          };
+        }
+        return item;
+      }).toList();
 
       Logger.debugLog('📤 SPV V2: Prepared ${postObject.length} items for posting');
       

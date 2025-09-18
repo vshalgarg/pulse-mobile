@@ -18,8 +18,8 @@ class TestLocationDebug {
       print('LocationService result: $locationServiceResult');
       
       // Check if location data is valid
-      final lat = offlineLocation['latitude'];
-      final lng = offlineLocation['longitude'];
+      final lat = locationServiceResult?['latitude'];
+      final lng = locationServiceResult?['longitude'];
       
       if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
         print('✅ Location data is valid: Lat=$lat, Lng=$lng');
@@ -50,7 +50,7 @@ class TestLocationDebug {
       };
       
       print('Mock form data: $mockFormData');
-      print('Location data: Lat=${location['latitude']}, Lng=${location['longitude']}');
+      print('Location data: Lat=${location?['latitude']}, Lng=${location?['longitude']}');
       
     } catch (e) {
       print('❌ Error testing PM form helper: $e');

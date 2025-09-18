@@ -73,9 +73,10 @@ class AssetAuditRepository {
     try {
       print('AssetAuditRepository: Posting ${requests.length} asset audit items');
       
+      final requestsJsonList = await Future.wait(requests.map((request) => request.toJson()));
       final response = await _apiService.post<List<dynamic>>(
         path: '/api/v1/mobile/AssetAuditSiteResp',
-        data: requests.map((request) => request.toJson()).toList(),
+        data: requestsJsonList,
       );
 
       if (response.isSuccess && response.data != null) {

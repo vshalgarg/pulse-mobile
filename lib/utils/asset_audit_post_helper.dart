@@ -26,7 +26,9 @@ class AssetAuditPostHelper {
     final timestamp = _formatDateTime(now);
     
     // Get current location with offline support
+    print('🌍 AssetAuditPostHelper (convertSavedItemsToPostRequest): Getting current location...');
     final location = await LocationService.getCurrentLocationOffline();
+    print('🌍 AssetAuditPostHelper (convertSavedItemsToPostRequest): Location result: $location');
 
     // Get site info from assetAuditData
     final siteInfo = assetAuditData.pageHeader.isNotEmpty 
@@ -88,6 +90,13 @@ class AssetAuditPostHelper {
         // Handle photoTakenTs for remarks vs assets
         final String? photoTakenTs = _getPhotoTakenTsForRequest(item, timestamp);
         
+        // Debug logging for location values
+        print('🔍 AssetAuditPostHelper: Creating request for item ${i + 1}');
+        print('🔍 AssetAuditPostHelper: GPS location: ${location?['longitude']}, ${location?['latitude']}');
+        print('🔍 AssetAuditPostHelper: Item stored location: ${item['longitude']}, ${item['latitude']}');
+        print('🔍 AssetAuditPostHelper: Final longitude: ${location?['longitude'] ?? item['longitude']}');
+        print('🔍 AssetAuditPostHelper: Final latitude: ${location?['latitude'] ?? item['latitude']}');
+        
         final request = AssetAuditPostRequest(
           assetAuditSiteRespId: assetAuditSiteRespId, // Use ID from GET API response
           auditSchId: auditSchId != null ? int.parse(auditSchId) : 0,
@@ -101,8 +110,8 @@ class AssetAuditPostHelper {
           photoId: photoId, // Use uploaded photo ID
           photoTakenTs: photoTakenTs ?? timestamp,
           assetStatus: item['status'] ?? 'OK',
-          longitude: location['longitude'] ?? item['longitude'], // Use current location if available
-          latitude: location['latitude'] ?? item['latitude'], // Use current location if available
+          longitude: location?['longitude'] ?? item['longitude'], // Use current location if available
+          latitude: location?['latitude'] ?? item['latitude'], // Use current location if available
           itemTypeRemark: item['itemTypeRemark'] ?? item['remarks'],
           localAuditLogId: 0,
           localQrCodeScannedTs: timestamp,
@@ -150,7 +159,7 @@ class AssetAuditPostHelper {
     
     // Get current location with offline support
     final location = await LocationService.getCurrentLocationOffline();
-    print('AssetAuditPostHelper: Current location for single item - Lat: ${location['latitude']}, Lng: ${location['longitude']}');
+    print('AssetAuditPostHelper: Current location for single item - Lat: ${location?['latitude']}, Lng: ${location?['longitude']}');
     
     // Get site info from assetAuditData
     final siteInfo = assetAuditData.pageHeader.isNotEmpty 
@@ -191,8 +200,8 @@ class AssetAuditPostHelper {
       photoId: _getPhotoIdForRequest(savedItem), // Handle photoId properly for different record types
       photoTakenTs: photoTakenTs ?? timestamp,
       assetStatus: savedItem['status'] ?? 'OK',
-      longitude: location['longitude'] ?? savedItem['longitude'], // Use current location if available
-      latitude: location['latitude'] ?? savedItem['latitude'], // Use current location if available
+      longitude: location?['longitude'] ?? savedItem['longitude'], // Use current location if available
+      latitude: location?['latitude'] ?? savedItem['latitude'], // Use current location if available
       itemTypeRemark: savedItem['remarks'],
       localAuditLogId: 0,
       localQrCodeScannedTs: timestamp,

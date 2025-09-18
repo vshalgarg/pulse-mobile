@@ -1,3 +1,5 @@
+import '../services/location_service.dart';
+
 class AssetAuditPostRequest {
   final int? assetAuditSiteRespId;
   final int auditSchId;
@@ -48,7 +50,17 @@ class AssetAuditPostRequest {
     this.remarks,
   });
 
-  Map<String, dynamic> toJson() {
+  Future<Map<String, dynamic>> toJson() async {
+    print('🚀 AssetAuditPostRequest.toJson() - Method called!');
+    
+    // Get current location with offline support
+    final location = await LocationService.getCurrentLocationOffline();
+    
+    // Debug logging
+    print('🔍 AssetAuditPostRequest.toJson() - Location data: $location');
+    print('🔍 AssetAuditPostRequest.toJson() - Stored longitude: $longitude');
+    print('🔍 AssetAuditPostRequest.toJson() - Stored latitude: $latitude');
+    
     return {
       if (assetAuditSiteRespId != null) 'assetAuditSiteRespId': assetAuditSiteRespId,
       'auditSchId': auditSchId,
@@ -64,8 +76,9 @@ class AssetAuditPostRequest {
       // Only include photoTakenTs if it's not null
       if (photoTakenTs != null) 'photoTakenTs': photoTakenTs,
       'assetStatus': assetStatus,
-      if (longitude != null) 'longitude': longitude,
-      if (latitude != null) 'latitude': latitude,
+      // Use current location if available, otherwise fall back to stored values
+      'longitude': location?['longitude'] ?? longitude,
+      'latitude': location?['latitude'] ?? latitude,
       if (itemTypeRemark != null) 'itemTypeRemark': itemTypeRemark,
       'localAuditLogId': localAuditLogId,
       'localQrCodeScannedTs': localQrCodeScannedTs,
