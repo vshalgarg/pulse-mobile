@@ -7,6 +7,7 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/screens/sqlite_query_screen.dart';
+import 'package:app/screens/debug/log_viewer_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -33,16 +34,33 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          pushPage(context, const SQLiteQueryScreen());
-        },
-        backgroundColor: AppColors.auditColor,
-        child: const Icon(
-          Icons.storage,
-          color: Colors.white,
-        ),
-        tooltip: 'SQLite Query Executor',
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: () {
+              pushPage(context, const LogViewerScreen());
+            },
+            backgroundColor: Colors.orange,
+            child: const Icon(
+              Icons.description,
+              color: Colors.white,
+            ),
+            tooltip: 'Log Viewer',
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            onPressed: () {
+              pushPage(context, const SQLiteQueryScreen());
+            },
+            backgroundColor: AppColors.auditColor,
+            child: const Icon(
+              Icons.storage,
+              color: Colors.white,
+            ),
+            tooltip: 'SQLite Query Executor',
+          ),
+        ],
       ),
       body: BlocBuilder<DashboardCubit, DashboardState>(
         builder: (context, state) {

@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 
 class TicketResponse extends Equatable {
   final int pageNo;
@@ -77,7 +78,7 @@ class Ticket extends Equatable {
         try {
           return double.parse(value);
         } catch (e) {
-          print("⚠️ Warning: Could not parse '$value' to double: $e");
+          debugPrint("⚠️ Warning: Could not parse '$value' to double: $e");
           return null;
         }
       }
@@ -85,8 +86,8 @@ class Ticket extends Equatable {
     }
 
     // Debug logging for status field
-    print("🔍 Ticket.fromJson: Raw status field = '${json['status']}'");
-    print("🔍 Ticket.fromJson: Status field type = ${json['status'].runtimeType}");
+    debugPrint("🔍 Ticket.fromJson: Raw status field = '${json['status']}'");
+    debugPrint("🔍 Ticket.fromJson: Status field type = ${json['status'].runtimeType}");
     
     final ticket = Ticket(
       ticketSchId: int.tryParse(json['ticket_sch_id'].toString()) ?? 0,
@@ -104,7 +105,7 @@ class Ticket extends Equatable {
     );
     
     // Debug logging for final ticket object
-    print("🔍 Ticket.fromJson: Final ticket status = '${ticket.status}'");
+    debugPrint("🔍 Ticket.fromJson: Final ticket status = '${ticket.status}'");
     
     return ticket;
   }

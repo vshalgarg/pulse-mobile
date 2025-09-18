@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../models/ticket_model.dart';
 import 'api_service.dart';
 
@@ -46,10 +47,10 @@ class TicketService {
           // API returned the expected TicketResponse structure
           try {
             final ticketResponse = TicketResponse.fromJson(responseData);
-            print("✅ Successfully parsed TicketResponse");
+            debugPrint("✅ Successfully parsed TicketResponse");
             return ResponseResult.success(ticketResponse, response.statusCode);
           } catch (e) {
-            print("❌ Failed to parse TicketResponse: $e");
+            debugPrint("❌ Failed to parse TicketResponse: $e");
             return ResponseResult.error(
               errorMessage: 'Failed to parse TicketResponse: ${e.toString()}',
             );
@@ -60,7 +61,7 @@ class TicketService {
 
             final tickets = (responseData as List<dynamic>)
                 .map((ticket) {
-                  print("   Parsing ticket: $ticket");
+                  debugPrint("   Parsing ticket: $ticket");
                   return Ticket.fromJson(ticket);
                 })
                 .toList();
@@ -72,30 +73,30 @@ class TicketService {
               tickets: tickets,
             );
             
-            print("✅ Successfully converted list to TicketResponse with ${tickets.length} tickets");
+            debugPrint("✅ Successfully converted list to TicketResponse with ${tickets.length} tickets");
             return ResponseResult.success(ticketResponse, response.statusCode);
           } catch (e) {
-            print("❌ Failed to parse ticket list: $e");
-            print("   Stack trace: ${StackTrace.current}");
+            debugPrint("❌ Failed to parse ticket list: $e");
+            debugPrint("   Stack trace: ${StackTrace.current}");
             return ResponseResult.error(
               errorMessage: 'Failed to parse ticket list: ${e.toString()}',
             );
           }
         } else {
-          print("❌ Unexpected response format: ${responseData.runtimeType}");
+          debugPrint("❌ Unexpected response format: ${responseData.runtimeType}");
           return ResponseResult.error(
             errorMessage: 'Unexpected response format: ${responseData.runtimeType}',
           );
         }
       } else {
-        print("❌ API call failed with status: ${response.statusCode}");
+        debugPrint("❌ API call failed with status: ${response.statusCode}");
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${response.statusCode}',
           statusCode: response.statusCode,
         );
       }
     } catch (e) {
-      print("❌ Exception in getTickets: $e");
+      debugPrint("❌ Exception in getTickets: $e");
       return ResponseResult.error(
         errorMessage: 'Exception occurred: ${e.toString()}',
       );

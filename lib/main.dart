@@ -23,6 +23,7 @@ import 'database/asset_audit_database.dart';
 import 'utils/asset_audit_form_persistence_helper_sqlite.dart';
 import 'services/app_initialization_service.dart';
 import 'utils.dart';
+import 'utils/file_logger.dart';
 
 // Global config variable
 AppConfig? globalConfig;
@@ -56,13 +57,20 @@ Future<void> main() async {
   final globalLoadingCubit = GlobalLoadingCubit();
   globalConfig = AppConfig(baseUrl: _baseUrl!, loadingCubit: globalLoadingCubit);
   
+  // Initialize file logger
+  await FileLogger.initialize();
+  await FileLogger.info('App starting up');
+  
   // Initialize all services after globalConfig is set
   print('🔧 Initializing all services...');
+  await FileLogger.info('Initializing all services');
   final success = await AppInitializationService.initializeApp(globalConfig!.apiService);
   if (!success) {
+    await FileLogger.error('Failed to initialize app services');
     throw Exception('Failed to initialize app services');
   }
   print('✅ All services initialized successfully');
+  await FileLogger.info('All services initialized successfully');
   
   // Initialize form persistence helper with API provider
   print('🔧 Initializing AssetAuditFormPersistenceHelperSQLite...');

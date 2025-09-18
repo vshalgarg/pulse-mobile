@@ -1,6 +1,5 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../app_root.dart';
@@ -9,6 +8,7 @@ import 'local_storage_constants.dart';
 import 'local_storage_db.dart';
 import '../routes/routes.dart';
 import '../bloc/global_loading_cubit.dart';
+import '../utils/api_logger.dart';
 
 /// ApiProvider handles HTTP requests with Dio
 /// 
@@ -41,50 +41,53 @@ class ApiProvider {
 
     _dio.options = options;
     
-    // Add PrettyDioLogger for development (can be disabled in production)
-    _dio.interceptors.add(PrettyDioLogger(
-      requestHeader: true,
-      requestBody: true,
-      responseHeader: true,
-      responseBody: true,
-      error: true,
-      compact: false,
-      logPrint: (object) {
-        // Filter out base64 image data from logs to prevent log spam
-        String logMessage = object.toString();
-        
-        // Check if this log contains image data and filter it out
-        if (logMessage.contains('imageData') && logMessage.contains('base64')) {
-          // Replace base64 image data with a placeholder
-          logMessage = logMessage.replaceAllMapped(
-            RegExp(r'"imageData":\s*"[^"]*"'),
-            (match) => '"imageData": "[BASE64_IMAGE_DATA_REMOVED_FROM_LOGS]"',
-          );
-        }
-        
-        // Also filter out any other large base64 strings that might be images
-        if (logMessage.contains('data:image/')) {
-          logMessage = logMessage.replaceAllMapped(
-            RegExp(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+'),
-            (match) => 'data:image/jpeg;base64,[BASE64_IMAGE_DATA_REMOVED_FROM_LOGS]',
-          );
-        }
-        
-        // Filter out any other potential large base64 data
-        if (logMessage.length > 1000 && logMessage.contains('base64')) {
-          logMessage = logMessage.replaceAllMapped(
-            RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'),
-            (match) => '[LARGE_BASE64_DATA_REMOVED_FROM_LOGS]',
-          );
-        }
-        
-        print(logMessage);
-      },
-    ));
+    // // Add PrettyDioLogger for development (can be disabled in production)
+    // _dio.interceptors.add(PrettyDioLogger(
+    //   requestHeader: true,
+    //   requestBody: true,
+    //   responseHeader: true,
+    //   responseBody: true,
+    //   error: true,
+    //   compact: false,
+    //   logPrint: (object) {
+    //     // Filter out base64 image data from logs to prevent log spam
+    //     String logMessage = object.toString();
+    //
+    //     // Check if this log contains image data and filter it out
+    //     if (logMessage.contains('imageData') && logMessage.contains('base64')) {
+    //       // Replace base64 image data with a placeholder
+    //       logMessage = logMessage.replaceAllMapped(
+    //         RegExp(r'"imageData":\s*"[^"]*"'),
+    //         (match) => '"imageData": "[BASE64_IMAGE_DATA_REMOVED_FROM_LOGS]"',
+    //       );
+    //     }
+    //
+    //     // Also filter out any other large base64 strings that might be images
+    //     if (logMessage.contains('data:image/')) {
+    //       logMessage = logMessage.replaceAllMapped(
+    //         RegExp(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+'),
+    //         (match) => 'data:image/jpeg;base64,[BASE64_IMAGE_DATA_REMOVED_FROM_LOGS]',
+    //       );
+    //     }
+    //
+    //     // Filter out any other potential large base64 data
+    //     if (logMessage.length > 1000 && logMessage.contains('base64')) {
+    //       logMessage = logMessage.replaceAllMapped(
+    //         RegExp(r'[A-Za-z0-9+/]{100,}={0,2}'),
+    //         (match) => '[LARGE_BASE64_DATA_REMOVED_FROM_LOGS]',
+    //       );
+    //     }
+    //
+    //     print(logMessage);
+    //   },
+    // ));
 
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
+          // Log the request
+          ApiLogger.logRequest(options);
+          
           final isAuthEndpoint = options.path.contains('authenticate/login');
           
           if (!isAuthEndpoint) {
@@ -102,6 +105,9 @@ class ApiProvider {
           return handler.next(options);
         },
         onResponse: (response, handler) async {
+          // Log the response
+          ApiLogger.logResponse(response);
+          
           // Hide loading indicator
           if (_loadingCubit != null && _isLoadingShown) {
             _isLoadingShown = false;
@@ -110,6 +116,9 @@ class ApiProvider {
           return handler.next(response);
         },
         onError: (DioException e, handler) async {
+          // Log the error
+          ApiLogger.logError(e);
+          
           // Hide loading indicator on error
           if (_loadingCubit != null && _isLoadingShown) {
             _isLoadingShown = false;

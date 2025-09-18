@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import '../models/ticket_model.dart';
 import '../repositories/ticket_repository.dart';
 import 'ticket_state.dart';
@@ -17,11 +18,11 @@ class TicketCubit extends Cubit<TicketState> {
     int? pageNo,
   }) async {
     try {
-      print("🔍 TicketCubit: Fetching tickets with parameters:");
-      print("   Activity Type: $activityType");
-      print("   Ticket Type: $ticketType");
-      print("   Page Size: $pageSize");
-      print("   Page No: $pageNo");
+      debugPrint("🔍 TicketCubit: Fetching tickets with parameters:");
+      debugPrint("   Activity Type: $activityType");
+      debugPrint("   Ticket Type: $ticketType");
+      debugPrint("   Page Size: $pageSize");
+      debugPrint("   Page No: $pageNo");
       
       emit(const TicketLoading());
 
@@ -36,8 +37,8 @@ class TicketCubit extends Cubit<TicketState> {
 
       if (result.isSuccess) {
         final ticketResponse = result.data as TicketResponse;
-        print("🔍 TicketCubit: API call successful!");
-        print("   Total tickets received: ${ticketResponse.tickets.length}");
+        debugPrint("🔍 TicketCubit: API call successful!");
+        debugPrint("   Total tickets received: ${ticketResponse.tickets.length}");
 
         emit(TicketSuccess(
           ticketResponse: ticketResponse,
@@ -45,13 +46,13 @@ class TicketCubit extends Cubit<TicketState> {
           ticketType: ticketType,
         ));
       } else {
-        print("🔍 TicketCubit: API call failed!");
-        print("   Error: ${result.errorMessage}");
+        debugPrint("🔍 TicketCubit: API call failed!");
+        debugPrint("   Error: ${result.errorMessage}");
         emit(TicketFailure(errorMessage: result.errorMessage ?? 'Failed to fetch tickets'));
       }
     } catch (e) {
-      print("🔍 TicketCubit: Exception occurred!");
-      print("   Error: $e");
+      debugPrint("🔍 TicketCubit: Exception occurred!");
+      debugPrint("   Error: $e");
       emit(TicketFailure(errorMessage: e.toString()));
     }
   }
