@@ -3,38 +3,31 @@ import '../../../models/asset_audit_model.dart';
 class AssetAuditValidationHelper {
   /// Validates QR code scanned serial number against nexgen_serial_no
   /// Returns the matching asset item if found, null otherwise
-  static AssetItem? validateQRCodeSerialNumber(
-    String scannedSerialNumber,
-    CategoryData? categoryData,
+  static bool validateQRCodeSerialNumber(
+    String serialNumber,
+    List<dynamic>? assets,
+    bool isQrCodeScanned
   ) {
-    if (categoryData == null) return null;
+    if (assets == null || assets.isEmpty) return false;
     
     // Check in main assets
-    for (var item in categoryData.assets) {
-      if (item.nexgenSerialNo?.toLowerCase() == scannedSerialNumber.toLowerCase()) {
-        return item;
+    for (var item in assets) {
+      if (item['mfg_serial_no']?.toString().toUpperCase() == serialNumber.toUpperCase()) {
+        return true;
+      }
+      if(isQrCodeScanned && item['nexgen_serial_no']?.toString().toUpperCase() == serialNumber.toUpperCase()) {
+        return true;
       }
     }
     
-    // Check in subcategories
-    if (categoryData.subCategories != null) {
-      for (var subCategory in categoryData.subCategories!.values) {
-        for (var item in subCategory) {
-          if (item.nexgenSerialNo?.toLowerCase() == scannedSerialNumber.toLowerCase()) {
-            return item;
-          }
-        }
-      }
-    }
-    
-    return null;
+    return false;
   }
   
   /// Validates manually entered serial number against mfg_serial_no
   /// Returns the matching asset item if found, null otherwise
   static AssetItem? validateManualSerialNumber(
     String enteredSerialNumber,
-    CategoryData? categoryData,
+    dynamic categoryData,
   ) {
     if (categoryData == null) return null;
     

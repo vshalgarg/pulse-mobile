@@ -1,15 +1,10 @@
-import 'dart:io';
-import 'dart:convert';
-import 'package:app/screens/home_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
@@ -17,12 +12,9 @@ import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../utils/logger.dart';
-import '../../../models/asset_audit_model.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
-import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
 
 class ACDBV2Screen extends StatefulWidget {
@@ -164,19 +156,7 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
   // Validate ACDB serial number
   bool _validateACDBSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final savedACDBItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    if (savedACDBItems.isEmpty) return false;
-
-    final isValid = savedACDBItems.any((item) {
-      if (isQRCodeScanned) {
-        return item['nexgen_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      } else {
-        return item['mfg_serial_no']?.toString().toLowerCase() ==
-            serialNumber.toLowerCase();
-      }
-    });
-
-    return isValid;
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedACDBItems, isQRCodeScanned);
   }
 
   Future<void> postCurrentScreenData() async {

@@ -2,20 +2,15 @@ import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
 import 'package:app/utils.dart';
+import 'package:app/utils/uppercase_text_formatter.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:app/constants/app_colors.dart';
-import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/utils/image_compression_helper.dart';
-import 'package:app/utils/generic_photo_upload_helper.dart';
 import 'package:app/screens/qrScannerScreen.dart';
-import 'package:app/bloc/asset_audit_cubit.dart';
-import 'package:app/bloc/asset_audit_get_image_cubit.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
-import 'package:app/services/api_service.dart';
 import 'package:app/app_config.dart';
 
 /// Comprehensive Asset Audit Form Component
@@ -737,6 +732,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         // TextFormField (matching CustomInfoCard)
         TextFormField(
           controller: widget.serialController,
+          inputFormatters: [UpperCaseTextFormatter()],
           onChanged: (value) {
             setState(() {
               _isQRCodeScanned = false;
@@ -760,12 +756,15 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                     MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                   );
                   if (result != null && result is String) {
+                    final mfgSerialNumber = widget.initialSavedItems.where((item) => item['nexgen_serial_no'] == result)?.first?['mfg_serial_no'] ?? null;
+                    if(mfgSerialNumber != null) {
                       setState(() {
-                        widget.serialController.text = widget.initialSavedItems.where((item) => item['nexgen_serial_no'] == result)?.first['mfg_serial_no'] ?? '';
+                        widget.serialController.text = mfgSerialNumber.toString().toUpperCase();
                         _isQRCodeScanned = true;
                         qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
                         _showValidationErrors = false;
                       });
+                    }
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
