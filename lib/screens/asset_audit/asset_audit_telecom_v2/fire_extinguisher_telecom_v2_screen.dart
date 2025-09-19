@@ -258,7 +258,7 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Fire Extinguisher V2: Data posted successfully');

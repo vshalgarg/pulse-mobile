@@ -261,7 +261,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Battery V2: Data posted successfully');
@@ -616,7 +616,6 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             color: AppColors.white,
           ),
         ),
-        getHeight(15),
         
         // Battery Form Component
         AssetAuditFormComponent(

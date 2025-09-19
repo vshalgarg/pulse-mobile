@@ -251,7 +251,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ SMPS V2: Data posted successfully');

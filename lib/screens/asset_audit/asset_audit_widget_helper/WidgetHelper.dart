@@ -28,4 +28,32 @@ class WidgetHelper {
       onChanged: null,
     );
   }
+
+  static Widget buildRadioField({
+    required String label,
+    required bool isRequired,
+    required String initialSelectedValue,
+    required Function(String value) onChanged
+  }) {
+    return CustomOptionSelector(
+      label: label,
+      isRequired: isRequired,
+      options: [
+        OptionItem(
+          value: 'Yes',
+          label: 'Yes',
+          selectedIcon: Icons.radio_button_checked,
+          unselectedIcon: Icons.radio_button_unchecked,
+        ),
+        OptionItem(
+          value: 'No',
+          label: 'No',
+          selectedIcon: Icons.radio_button_checked,
+          unselectedIcon: Icons.radio_button_unchecked,
+        ),
+      ],
+      initialValue: initialSelectedValue,
+      onChanged: onChanged,
+    );
+  }
 }
