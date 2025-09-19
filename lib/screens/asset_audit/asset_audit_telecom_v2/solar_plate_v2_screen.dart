@@ -206,7 +206,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Solar Plate V2: Data posted successfully');

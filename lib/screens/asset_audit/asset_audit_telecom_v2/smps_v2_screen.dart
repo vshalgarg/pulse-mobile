@@ -112,6 +112,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           'smpsRectifiers': smpsRectifiers.where((obj) => obj['photo_id'] != null).toList(),
           'smpsRectifiersAllAssets': smpsRectifiers,
           'smpsCabinet': smpsCabinet.where((obj) => obj['photo_id'] != null).toList(),
+          'smpsCabinetAvailable' : smpsCabinet.isNotEmpty,
           'smpsCabinetAllAssets': smpsCabinet,
           'acdbAssets': acdbAssets.where((obj) => obj['photo_id'] != null).toList(),
           'acdbAllAssets': acdbAssets,
@@ -250,7 +251,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ SMPS V2: Data posted successfully');
@@ -368,28 +369,29 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                         ),
                         getHeight(15),
 
-                        // SMPS Cabinet Section
-                        AssetAuditFormComponent(
-                          componentId: 'smps_cabinet_component',
-                          serialLabel: "Cabinet - Serial Number *",
-                          serialHintText: "Cabinet Serial Number *",
-                          photoLabel: "Add Photo of Cabinet Serial Number",
-                          serialController: TextEditingController(),
-                          initialSavedItems: _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [],
-                          onItemSaved: _onSMPSCabinetItemSaved,
-                          onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
-                          },
-                          customValidator: _validateSMPSSerialNumber,
-                          customValidationErrorMessage: "Invalid SMPS Cabinet serial number. Please check and try again.",
-                          siteAuditSchId: widget.siteAuditSchId,
-                          showTable: true,
-                          tableTitle: "SMPS Cabinet",
-                        ),
-                        getHeight(20),
-
+                        if(_displayFormData?['smpsCabinetAvailable'] ?? false) ...[
+                          // SMPS Cabinet Section
+                          AssetAuditFormComponent(
+                            componentId: 'smps_cabinet_component',
+                            serialLabel: "Cabinet - Serial Number *",
+                            serialHintText: "Cabinet Serial Number *",
+                            photoLabel: "Add Photo of Cabinet Serial Number",
+                            serialController: TextEditingController(),
+                            initialSavedItems: _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [],
+                            onItemSaved: _onSMPSCabinetItemSaved,
+                            onStatusChanged: (status) {
+                              setState(() {
+                                _hasFormDataChanges = true;
+                              });
+                            },
+                            customValidator: _validateSMPSSerialNumber,
+                            customValidationErrorMessage: "Invalid SMPS Cabinet serial number. Please check and try again.",
+                            siteAuditSchId: widget.siteAuditSchId,
+                            showTable: true,
+                            tableTitle: "SMPS Cabinet",
+                          ),
+                          getHeight(20),
+                        ],
 
                         // Count of SMPS Rectifiers (readonly)
                         CustomFormField(

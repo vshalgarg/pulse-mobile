@@ -1,3 +1,4 @@
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -66,12 +67,6 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _batteryCabinetSerialController.addListener(_onFormChanged);
-    _cbmsSerialController.addListener(_onFormChanged);
-    _batterySerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
   }
 
   @override
@@ -127,6 +122,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           'capacity': batteryAssets.first?['capacity'],
           'batteryCabinetAssets': batteryCabinetAssets.where((obj) => obj['photo_id'] != null).toList(),
           'batteryCabinetAllAssets': batteryCabinetAssets,
+          'batteryCabinetAvailable': batteryCabinetAssets.isNotEmpty,
           'cbmsAssets': cbmsAssets.where((obj) => obj['photo_id'] != null).toList(),
           'cbmsAllAssets': cbmsAssets,
           'batteryAssets': batteryAssets.where((obj) => obj['photo_id'] != null).toList(),
@@ -162,6 +158,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -264,7 +261,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Battery V2: Data posted successfully');
@@ -527,16 +524,10 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // CBMS Availability
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "CBMS Available",
           isRequired: true,
-          groupValue: _displayFormData?['cbmsAvailable'] ?? "No",
-          onChanged: (value) {
-            setState(() {
-              _displayFormData?['cbmsAvailable'] = value;
-              _hasFormDataChanges = true;
-            });
-          },
+          initialSelectedValue: _displayFormData?['cbmsAvailable'] ?? "No",
         ),
         getHeight(15),
         
@@ -562,9 +553,6 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             initialSavedItems: _displayFormData?['cbmsAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onCbmsItemSaved,
             onStatusChanged: (status) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             customValidator: _validateCbmsSerialNumber,
             customValidationErrorMessage: "Invalid CBMS serial number. Please check and try again.",
@@ -574,6 +562,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           ),
           getHeight(20),
         ],
+        if(_displayFormData?['batteryCabinetAvailable'] || false) ...[
         const Text(
           "Battery Cabinet Details",
           style: TextStyle(
@@ -597,6 +586,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
              // Update the battery cabinet data
              if ((_displayFormData?['batteryCabinetAllAssets'] as List?)?.isNotEmpty == true) {
                final cabinet = (_displayFormData!['batteryCabinetAllAssets'] as List).first;
+               _validateBatteryCabinetSerialNumber(_batteryCabinetSerialController.text, isQRCodeScanned ?? false);
                cabinet['photo_id'] = photoId;
                cabinet['image_data'] = imageData;
                cabinet['qr_code_scanned'] = isQRCodeScanned;
@@ -607,7 +597,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
            siteAuditSchId: widget.siteAuditSchId,
          ),
         getHeight(20),
-
+        ],
         // Count of Battery Modules
         CustomFormField(
           label: "Count of Battery Modules",
@@ -640,9 +630,6 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           initialSavedItems: _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
           onItemSaved: _onBatteryItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateBatterySerialNumber,
           customValidationErrorMessage: "Invalid Battery serial number. Please check and try again.",

@@ -28,7 +28,7 @@ class AssetAuditPostService {
   Future<void> postAssetAuditDataWithPhotoReplacement({
     required List<dynamic> requests,
     bool isAssetAudit = true,
-    bool isLastPage = false
+    required bool isLastPage
   }) async {
     try {
       // Get current location with offline support

@@ -104,6 +104,14 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     Logger.debugLog('✅ Central Asset Audit service initialized successfully for CCU');
   }
 
+  void _onFormChanged() {
+    if (!_hasFormDataChanges) {
+      setState(() {
+        _hasFormDataChanges = true;
+      });
+    }
+  }
+
   Future<void> _loadData() async {
     try {
       setState(() {
@@ -133,6 +141,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             final cabinet = ccuCabinet.first as Map<String, dynamic>;
             formData['hybridCCUMake'] = cabinet['oem_name']?.toString() ?? "N/A";
             formData['cabinetSerial'] = cabinet['mfg_serial_no']?.toString() ?? "";
+            formData['ccuCabinetAvailable'] = true;
             _cabinetPhotoId = cabinet['photo_id']?.toString();
             if(_cabinetPhotoId != null) {
               _cabinetImageData =
@@ -141,6 +150,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             isQrCodeScanned = cabinet['qr_code_scanned'] as bool? ?? false;
             qrCodeScannedTs = cabinet['qr_code_scanned_ts']?.toString();
             formData['cabinets'] = ccuCabinet;
+          } else {
+            formData['ccuCabinetAvailable'] = false;
           }
 
           // Extract Rectifiers data
@@ -205,7 +216,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     _totalRectifierController.text = formData['totalRectifier']?.toString() ?? "";
     _totalMPPTController.text = formData['totalMPPT']?.toString() ?? "";
     _remarksController.text = formData['remarks']?.toString() ?? "";
-
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -227,6 +238,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   }
 
   void _onCabinetDataChanged(String? photoId, String? imageData, bool? isQRCodeScanned1, String? qrCodeScannedTs1) {
+    //Logger.debugLog("vishal ")
     setState(() {
       _cabinetPhotoId = photoId;
       _cabinetImageData = imageData;
@@ -255,7 +267,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         finalCabinet['asset_status']='OK';
         if(isQrCodeScanned ?? false) {
           finalCabinet['qr_code_scanned'] = true;
-          finalCabinet['qr_code_scanned_ts'] = false;
+          finalCabinet['qr_code_scanned_ts'] = qrCodeScannedTs;
         }
         modifiedAssetsWithAllProperties.add(finalCabinet);
       }
@@ -301,7 +313,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
 
       Logger.debugLog('✅ SPV V2: Data posted successfully');
@@ -537,21 +549,21 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-
-        // Cabinet Serial Number and Photo using SimpleAssetAuditFormComponent
-        SimpleAssetAuditFormComponent(
-          componentId: 'cabinet_component',
-          serialLabel: "Cabinet Serial Number",
-          serialHintText: "Cabinet Serial Number",
-          photoLabel: "Add Photo of Cabinet",
-          serialController: _cabinetSerialController,
-          initialPhotoId: _cabinetPhotoId,
-          initialImageData: _cabinetImageData,
-          onDataChanged: _onCabinetDataChanged,
-          siteAuditSchId: widget.siteAuditSchId,
-        ),
-        getHeight(20),
-
+        if(_displayFormData?['ccuCabinetAvailable'] ?? false) ...[
+          // Cabinet Serial Number and Photo using SimpleAssetAuditFormComponent
+          SimpleAssetAuditFormComponent(
+            componentId: 'cabinet_component',
+            serialLabel: "Cabinet Serial Number",
+            serialHintText: "Cabinet Serial Number",
+            photoLabel: "Add Photo of Cabinet",
+            serialController: _cabinetSerialController,
+            initialPhotoId: _cabinetPhotoId,
+            initialImageData: _cabinetImageData,
+            onDataChanged: _onCabinetDataChanged,
+            siteAuditSchId: widget.siteAuditSchId,
+          ),
+          getHeight(20),
+        ],
         // Total Count of Rectifier
         CustomFormField(
           label: "Total Count of Rectifier",

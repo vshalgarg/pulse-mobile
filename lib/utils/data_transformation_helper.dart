@@ -6,6 +6,9 @@ import 'package:app/utils/asset_audit_validation_helper.dart';
 class DataTransformationHelper {
 
   static List<dynamic> modifyData(List<dynamic> actualData, List<dynamic> modifiedData) {
+    if(modifiedData.isEmpty || actualData.isEmpty) {
+      return [];
+    }
     List<dynamic> modifiedDataToReturn = [];
     for(dynamic data in modifiedData) {
       final serialNo = data['mfg_serial_no']?.toString() ?? "";

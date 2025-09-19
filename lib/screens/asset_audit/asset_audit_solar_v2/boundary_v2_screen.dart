@@ -201,10 +201,6 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
         remarksData.first['item_type_remark'] = _remarksController.text.toString();
         modifiedData.add(remarksData);
       }
-
-
-
-
       // Collect all data to post
       final postObject = [...modifiedData];
 
