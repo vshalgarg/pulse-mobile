@@ -8,6 +8,7 @@ import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/screens/sqlite_query_screen.dart';
 import 'package:app/screens/debug/log_viewer_screen.dart';
+import 'package:app/utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    Utils.getCurrentDateTimeForAPICall();
     context.read<DashboardCubit>().getDashboardCount();
   }
 

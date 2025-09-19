@@ -23,15 +23,18 @@ class Utils {
   /// Returns format: 2025-09-12T15:25:00.000+00:00
   static String getCurrentDateTimeForAPICall() {
     final now = DateTime.now();
-    final formatter = DateFormat('dd-MM-yyyy HH:mm');
-    return formatter.format(now);
+    return _formatDataTimeForApiCall(now);
   }
 
   static String? getTmeFromMSForAPICall(int? milliseconds) {
     if(milliseconds == null) return null;
     final now = DateTime.fromMillisecondsSinceEpoch(milliseconds);
-    final formatter = DateFormat('dd-MM-yyyy HH:mm');
-    return formatter.format(now);
+    return _formatDataTimeForApiCall(now);
+  }
+
+  static String _formatDataTimeForApiCall(DateTime date) {
+    final formatter = DateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+    return formatter.format(date);
   }
 
   // Check if JWT token is expired

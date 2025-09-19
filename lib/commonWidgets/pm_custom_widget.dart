@@ -104,7 +104,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       
       if (imageData != null && mounted) {
         setState(() {
-          _imageData = 'data:image/jpeg;base64,$imageData';
+          _imageData = imageData.startsWith('data:image/')
+              ? imageData
+              : 'data:image/jpeg;base64,$imageData';
         });
         print('✅ Image loaded successfully for photoId: $photoId');
       } else {
@@ -291,7 +293,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
             if (photoId.isNotEmpty) {
               setState(() {
                 _currentItem['photo_id'] = photoId;
-                _imageData = 'data:image/jpeg;base64,${base64Encode(imageData)}';
+                _imageData = imageData.toString().startsWith('data:image/')
+                    ? imageData.toString()
+                    : 'data:image/jpeg;base64,$imageData';
               });
               
               _notifyValueChanged();

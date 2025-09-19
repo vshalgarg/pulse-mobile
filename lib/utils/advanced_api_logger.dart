@@ -234,9 +234,4 @@ class AdvancedApiLogger {
     if (!_isEnabled) return;
     debugPrint('⚠️ API: $message');
   }
-  
-  static void logError(String message) {
-    if (!_isEnabled) return;
-    debugPrint('❌ API: $message');
-  }
 }
