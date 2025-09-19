@@ -1,3 +1,4 @@
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -65,9 +66,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -105,11 +104,11 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
         final remarksData = boundaryItems['remarks'] as List<dynamic>;
         final assetsData = boundaryItems['assets'] as List<dynamic>;
 
-        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Boundary').first : null;
+        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['item_type'] == 'Boundary').first : null;
         final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
 
         final formData = <String, dynamic>{
-          'boundaryText': boundaryData['item_type']?.toString() ?? "N/A",
+          'boundaryText': boundaryData['record_type']?.toString() ?? "N/A",
           'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
         };
 
@@ -144,6 +143,8 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? "";
     Logger.debugLog('📝 Initialized form controllers');
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -483,10 +484,10 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Fencing/Boundary Available
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "Fencing/Boundary Available",
           isRequired: true,
-          groupValue: _fencingAvailable,
+          initialSelectedValue: _fencingAvailable,
         ),
         getHeight(15),
         
@@ -500,9 +501,6 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
             isInputEditable: false,
             inputInitialValue: _displayFormData?['boundaryText'] ?? "",
             onInputChanged: (value) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             photoLabel: "Add a Photo",
             isPhotoRequired: true,

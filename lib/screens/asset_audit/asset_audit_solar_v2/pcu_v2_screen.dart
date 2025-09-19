@@ -72,10 +72,7 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _inverterSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -156,6 +153,8 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -236,8 +235,7 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
 
   void _showUnsavedChangesDialog() {
     if (!_hasFormDataChanges) {
-      Navigator.pop(context);
-      return;
+     AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
 
     showDialog(
@@ -247,7 +245,9 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
         return UnsavedChangesDialog(
           parentContext: context, // Use the outer context (screen context)
           onSaveAndExit: () async {
-            await postCurrentScreenData();
+            if(_hasFormDataChanges) {
+              await postCurrentScreenData();
+            }
           },
           onDiscard: () {
           },
@@ -469,9 +469,6 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onInverterItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateInverterSerialNumber,
           customValidationErrorMessage: "Invalid Inverter serial number. Please check and try again.",

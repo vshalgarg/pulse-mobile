@@ -231,7 +231,9 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
         return UnsavedChangesDialog(
           parentContext: context, // Use the outer context (screen context)
           onSaveAndExit: () async {
-            await postCurrentScreenData();
+            if(_hasFormDataChanges) {
+              await postCurrentScreenData();
+            }
           },
           onDiscard: () {
           },

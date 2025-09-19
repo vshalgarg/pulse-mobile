@@ -195,6 +195,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
         imageFile: _selectedImage!,
+        isSelfie: true
       );
 
       final dbData = await _service.getActualDataFromSqlite(

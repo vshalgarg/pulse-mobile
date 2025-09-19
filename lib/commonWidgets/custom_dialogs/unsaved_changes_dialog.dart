@@ -199,7 +199,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12),
                     ),
-                    onPressed: (){},
+                    onPressed: (){_saveAndExit(context);},
                     child: const Text("Save & Exit",
                         style: TextStyle(color: Colors.white)),
                   ),

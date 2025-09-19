@@ -6,7 +6,7 @@ import '../constants/constants_strings.dart';
 class CustomOptionSelector extends StatefulWidget {
   final String? label;
   final List<OptionItem> options;
-  final Function(String value) onChanged;
+  final Function(String value)? onChanged;
   final String? initialValue;
   final bool isRequired;
 
@@ -14,7 +14,7 @@ class CustomOptionSelector extends StatefulWidget {
     super.key,
     this.label,
     required this.options,
-    required this.onChanged,
+    this.onChanged,
     this.initialValue,
     this.isRequired = false,
   });
@@ -75,8 +75,10 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
             final bool isSelected = option.value == selectedValue;
             return GestureDetector(
               onTap: () {
-                setState(() => selectedValue = option.value);
-                widget.onChanged(option.value);
+                if(widget.onChanged != null) {
+                  setState(() => selectedValue = option.value);
+                  widget.onChanged!(option.value);
+                }
               },
               child: Container(
                 margin: const EdgeInsets.only(right: 60),

@@ -67,10 +67,6 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _wmsSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
   }
 
   @override
@@ -148,6 +144,8 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -236,7 +234,9 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
           section: "Asset Audit",
           parentContext: context,
           onSaveAndExit: () async {
-            await postCurrentScreenData();
+            if(_hasFormDataChanges) {
+              await postCurrentScreenData();
+            }
           },
           onDiscard: () {
           },
@@ -440,9 +440,6 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onWMSItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateWMSSerialNumber,
           customValidationErrorMessage: "Invalid WMS serial number. Please check and try again.",

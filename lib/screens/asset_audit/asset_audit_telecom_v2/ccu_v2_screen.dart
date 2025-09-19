@@ -242,7 +242,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
       final finalCCuData = _assetAuditData?['responseData']?[AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')] as Map<String, dynamic>?;
       final modifiedAssetsWithAllProperties = [];
-      final finalCabinet = finalCCuData?['CCU Cabinet'].first ?? Map<String, dynamic>;
+      final finalCabinet = finalCCuData?['CCU Cabinet']?.first ?? Map<String, dynamic>;
       if(finalCabinet != null) {
         if(_cabinetSerialController.text.isEmpty || _cabinetPhotoId == null){
           throw new Exception("Please select cabinet serial number");
@@ -252,6 +252,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           throw new Exception("Please select cabinet serial number");
         }
         finalCabinet['photo_id'] = _cabinetPhotoId;
+        finalCabinet['asset_status']='OK';
         if(isQrCodeScanned ?? false) {
           finalCabinet['qr_code_scanned'] = true;
           finalCabinet['qr_code_scanned_ts'] = false;

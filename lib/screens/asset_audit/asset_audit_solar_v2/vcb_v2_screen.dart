@@ -67,10 +67,7 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _vcbSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -149,7 +146,7 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
-    Logger.debugLog('📝 Initialized remarks controller with: $remarks');
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -391,7 +388,9 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -452,9 +451,6 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onVCBItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateVCBSerialNumber,
           customValidationErrorMessage: "Invalid VCB serial number. Please check and try again.",
