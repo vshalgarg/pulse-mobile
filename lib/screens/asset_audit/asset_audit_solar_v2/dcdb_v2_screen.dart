@@ -59,10 +59,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _dcdbSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -140,6 +137,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -383,7 +381,9 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick:  () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -419,8 +419,6 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-
-        getHeight(15),
         
         // DCDB Form Component
         AssetAuditFormComponent(
@@ -432,9 +430,6 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onDCDBItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateDCDBSerialNumber,
           customValidationErrorMessage: "Invalid DCDB serial number. Please check and try again.",

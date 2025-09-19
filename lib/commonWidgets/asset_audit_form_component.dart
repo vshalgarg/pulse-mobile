@@ -756,15 +756,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                     MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                   );
                   if (result != null && result is String) {
-                    final mfgSerialNumber = widget.initialSavedItems.where((item) => item['nexgen_serial_no'] == result)?.first?['mfg_serial_no'] ?? null;
-                    if(mfgSerialNumber != null) {
-                      setState(() {
-                        widget.serialController.text = mfgSerialNumber.toString().toUpperCase();
-                        _isQRCodeScanned = true;
-                        qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
-                        _showValidationErrors = false;
-                      });
-                    }
+                    setState(() {
+                      widget.serialController.text = result.toUpperCase();
+                      _isQRCodeScanned = true;
+                      qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
+                      _showValidationErrors = false;
+                    });
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(

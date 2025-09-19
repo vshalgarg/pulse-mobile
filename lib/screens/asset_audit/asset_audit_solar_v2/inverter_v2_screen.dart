@@ -64,10 +64,6 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _inverterSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
   }
 
   @override
@@ -148,6 +144,8 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -391,7 +389,9 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick:  () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -419,7 +419,7 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         // Capacity of Inverter
         CustomFormField(
           label: "Capacity of Inverter",
@@ -447,7 +447,6 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
             color: AppColors.white,
           ),
         ),
-        getHeight(15),
         
         // Inverter Form Component
         AssetAuditFormComponent(
@@ -461,9 +460,6 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onInverterItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateInverterSerialNumber,
           customValidationErrorMessage: "Invalid Inverter serial number. Please check and try again.",
