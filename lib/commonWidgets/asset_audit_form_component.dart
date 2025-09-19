@@ -112,11 +112,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   String? _selectedPhotoPath;
   bool? _selectedStatus;
   bool _isQRCodeScanned = false;
+  
   bool _isUploading = false;
   String? qrCodeScannedTs = null;
   String? _uploadedImageId; // Photo ID from server
   String? _photoData; // Photo byte data or base64
   bool _hasNewPhotoSelected = false; // Track if user selected a new photo
+
+ 
   
   // Validation state
   bool _showValidationErrors = false;
@@ -137,6 +140,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     super.initState();
     // Initialize internal saved items list
     _savedItems = List<Map<String, dynamic>>.from(widget.initialSavedItems);
+
+    
     // Listen to serial controller changes to detect manual input vs scanning
     widget.serialController.addListener(_onSerialChanged);
     // Initialize image upload service
@@ -615,16 +620,17 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Starts editing an item
   void _startEditing(Map<String, dynamic> item) async {
-    print('🔍 Starting to edit item: ${item['serialNumber']}');
-    print('🔍 Item photo data: ${item['photo']}');
-    print('🔍 Item photoPath data: ${item['photoPath']}');
+
+    print('🔍 Starting to edit item: $item');
+
     
+ 
     setState(() {
       _isEditing = true;
       _editingItem = item;
       widget.serialController.text = item['mfg_serial_no'] ?? '';
       _selectedStatus = item['asset_status'] == 'OK' ? true : false;
-      _isQRCodeScanned = item['isQRCodeScanned'] == true;
+      _isQRCodeScanned = item['qr_code_scanned'];
       qrCodeScannedTs = item['isQRCodeScanned'] == true ? item['qrCodeScannedTs'] : null;
       _hasNewPhotoSelected = false; // Reset flag when starting to edit
     });
@@ -634,12 +640,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     final photoPath = item['photoPath']; // This is the local path or base64 data
     
     if (uniqueId != null && uniqueId.isNotEmpty) {
-      // Unique ID from ImageUploadService - fetch and display the image
-      print('🔍 Unique ID from ImageUploadService: $uniqueId');
+    
       _uploadedImageId = uniqueId; // Store the unique ID
       _photoData = null; // No local photo data
       await _fetchAndDisplayServerImage(uniqueId);
-      print('🔍 Preserved uploaded image ID: $_uploadedImageId');
+     
     } else if (photoPath != null && photoPath.isNotEmpty) {
       // Local photo path or base64 data
       print('🔍 Local photo path or base64: $photoPath');
@@ -756,15 +761,16 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                     MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                   );
                   if (result != null && result is String) {
-                    final mfgSerialNumber = widget.initialSavedItems.where((item) => item['nexgen_serial_no'] == result)?.first?['mfg_serial_no'] ?? null;
-                    if(mfgSerialNumber != null) {
+                    
+                    
                       setState(() {
-                        widget.serialController.text = mfgSerialNumber.toString().toUpperCase();
+
+                        widget.serialController.text = result.toUpperCase();
                         _isQRCodeScanned = true;
                         qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
                         _showValidationErrors = false;
                       });
-                    }
+                    
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
