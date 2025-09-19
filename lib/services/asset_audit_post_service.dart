@@ -198,6 +198,7 @@ class AssetAuditPostService {
         final errorMsg =
             response.errorMessage ?? 'Failed to post asset audit data';
         Logger.errorLog('❌ Asset Audit POST API Error: $errorMsg');
+        throw Exception(errorMsg);
       }
     } catch (e) {
       Logger.errorLog(

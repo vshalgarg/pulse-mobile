@@ -91,16 +91,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for CCU');
     _service = ServiceLocator().centralAssetAuditService;
 
-    // Check if service is initialized
-    if (!CentralAssetAuditServiceInitializer.isInitialized) {
-      Logger.errorLog('❌ Central service not initialized!');
-      setState(() {
-        _errorMessage = 'Central service not initialized. Please restart the app.';
-        _isLoadingData = false;
-      });
-      return;
-    }
-
     Logger.debugLog('✅ Central Asset Audit service initialized successfully for CCU');
   }
 
@@ -255,17 +245,15 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       final finalCCuData = _assetAuditData?['responseData']?[AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')] as Map<String, dynamic>?;
       final modifiedAssetsWithAllProperties = [];
       final finalCabinet = finalCCuData?['CCU Cabinet']?.first ?? Map<String, dynamic>;
-      if(finalCabinet != null) {
-        if(_cabinetSerialController.text.isEmpty || _cabinetPhotoId == null){
-          throw new Exception("Please select cabinet serial number");
-        }
-        bool isValid = _validateCabinetSerialNumber(_cabinetSerialController.text, isQrCodeScanned ?? false);
-        if(!isValid){
+      if(finalCabinet != null && _cabinetSerialController.text.isNotEmpty && _cabinetPhotoId != null) {
+        bool isValid = _validateCabinetSerialNumber(
+            _cabinetSerialController.text, isQrCodeScanned ?? false);
+        if (!isValid) {
           throw new Exception("Please select cabinet serial number");
         }
         finalCabinet['photo_id'] = _cabinetPhotoId;
-        finalCabinet['asset_status']='OK';
-        if(isQrCodeScanned ?? false) {
+        finalCabinet['asset_status'] = 'OK';
+        if (isQrCodeScanned ?? false) {
           finalCabinet['qr_code_scanned'] = true;
           finalCabinet['qr_code_scanned_ts'] = qrCodeScannedTs;
         }

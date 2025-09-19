@@ -99,6 +99,8 @@ class AssetAuditNavigationHelper {
     switch (page) {
       case 'GENERAL' : return 'pageHeader';
       case 'Site Info' : return 'pageHeader';
+      case 'Solar Plates' : return 'SPV';
+      case 'Fencing' : return 'Boundary';
       default:
         return page;
     }
@@ -345,7 +347,7 @@ class AssetAuditNavigationHelper {
         auditSchId: auditSchId,
       ));
       break;
-      case 'Boundary' : pushPage(context, BoundaryTelecomV2Screen(
+      case 'Fencing' : pushPage(context, BoundaryTelecomV2Screen(
         siteAuditSchId: siteAuditSchId,
         siteType: siteType,
         auditSchId: auditSchId,

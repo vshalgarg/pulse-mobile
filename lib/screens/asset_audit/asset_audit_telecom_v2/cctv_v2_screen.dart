@@ -8,6 +8,7 @@ import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/extensions/string_extension.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/asset_audit/central_service_initializer.dart';
@@ -256,74 +257,10 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
     }
   }
 
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-    required Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   void _onHooterValueChanged (String value) {
     setState(() {
       hooterAvailableValue = value;
+      _hasFormDataChanges = true;
     });
   }
 
@@ -496,7 +433,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           WidgetHelper.buildRadioField(
             label: "Hooter Available",
             isRequired: true,
-            initialSelectedValue: hooterAvailableValue ?? "No",
+            initialSelectedValue: hooterAvailableValue.capitalize() ?? "No",
             onChanged: _onHooterValueChanged,
           ),
           getHeight(15),

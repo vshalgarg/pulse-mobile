@@ -206,7 +206,7 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT'
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT'
       );
       
       Logger.debugLog('✅ ACDB V2: Data posted successfully');

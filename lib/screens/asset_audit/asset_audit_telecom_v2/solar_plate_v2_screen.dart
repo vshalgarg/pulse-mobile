@@ -62,9 +62,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -137,6 +135,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
 
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? '';
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized form controllers');
     if (mounted) {
       setState(() {});
@@ -146,7 +145,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
   // Callback methods for AssetAuditFormComponent
   void _onSolarPanelItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
-      _savedSolarPanels = items;
+      _displayFormData?['solarPanelAssets'] = items;
       _hasFormDataChanges = true;
     });
     Logger.debugLog('✅ Solar Panels updated: ${_savedSolarPanels.length} items');
@@ -408,9 +407,8 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
         // Solar Panel Make
         CustomFormField(
           label: "Solar Panel Make",
-          hintText: "IGE. Waree",
           initialValue: _displayFormData?['solarPanelMake'],
-          onChanged: (value) => _onFormChanged(),
+          isEditable: false,
           isRequired: true,
         ),
         getHeight(15),
@@ -447,9 +445,6 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           initialSavedItems: _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [],
           onItemSaved: _onSolarPanelItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateSolarPanelSerialNumber,
           customValidationErrorMessage: "Invalid Solar Panel serial number. Please check and try again.",

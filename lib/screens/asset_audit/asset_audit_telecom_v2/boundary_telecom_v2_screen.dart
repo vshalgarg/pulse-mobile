@@ -1,7 +1,10 @@
+import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_remark.dart';
@@ -9,9 +12,7 @@ import '../../../commonWidgets/custom_asset_audit_form_section.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
-import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
@@ -34,28 +35,28 @@ class BoundaryTelecomV2Screen extends StatefulWidget {
 }
 
 class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
-  final String _screenName = 'Boundary';
-  
+  final String _screenName = 'Fencing';
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
-  
-  
+
+
   // Photo IDs
   String? _fencingPhotoId;
   String? _overallSitePhotoId;
-  
+
   // Radio button values
   String _fencingAvailable = "No";
   String _overallSiteAvailable = "No";
@@ -66,9 +67,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -93,7 +92,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       });
 
       Logger.debugLog('🔄 Boundary V2: Loading data for site ${widget.siteAuditSchId}');
-      
+
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
@@ -106,11 +105,11 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
         final remarksData = boundaryItems['remarks'] as List<dynamic>;
         final assetsData = boundaryItems['assets'] as List<dynamic>;
 
-        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Boundary').first : null;
+        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] != null && data['record_type'] != 'Overall Site').first : null;
         final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
 
         final formData = <String, dynamic>{
-          'boundaryText': boundaryData['item_type']?.toString() ?? "N/A",
+          'boundaryText': boundaryData?['record_type']?.toString() ?? "",
           'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
         };
 
@@ -145,6 +144,8 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? "";
     Logger.debugLog('📝 Initialized form controllers');
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -185,26 +186,28 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       final remarksData = finalBoundaryItems['remarks'] as List<dynamic>;
       final assetsData = finalBoundaryItems['assets'] as List<dynamic>;
 
-      final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Boundary').first : null;
+      final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] != null && data['record_type'] != 'Overall Site').first : null;
       final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
 
-      if(_fencingAvailable == 'Yes' && _fencingPhotoId != null) {
-        boundaryData['photo_id'] = _fencingPhotoId;
-        modifiedData.add(boundaryData);
+      if(_fencingAvailable == 'Yes') {
+        if(_fencingPhotoId != null && _fencingStatus.isNotEmpty) {
+          boundaryData['photo_id'] = _fencingPhotoId;
+          boundaryData['asset_status'] = _fencingStatus;
+          modifiedData.add(boundaryData);
+        } else {
+          Toastbar.showErrorToastbar("Please select boundary photo and status", context);
+          return;
+        }
       }
 
       if(_overallSiteAvailable == 'Yes' && _overallSitePhotoId != null) {
         overallSiteData['photo_id'] = _overallSitePhotoId;
         modifiedData.add(overallSiteData);
       }
-      if(_remarksController.text.isNotEmpty) {
+      if(remarksData.isNotEmpty && _remarksController.text.isNotEmpty) {
         remarksData.first['item_type_remark'] = _remarksController.text.toString();
         modifiedData.add(remarksData);
       }
-
-
-
-
       // Collect all data to post
       final postObject = [...modifiedData];
 
@@ -218,15 +221,15 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
         apiService: apiService,
         imageUploadService: imageUploadService,
       );
-      
+
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
-      
+
       Logger.debugLog('✅ Boundary V2: Data posted successfully');
-      
+
     } catch (e) {
       Logger.errorLog('❌ Boundary V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -254,70 +257,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
     } else {
       AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
-  }
-
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 
   @override
@@ -382,7 +321,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -433,11 +372,11 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
                           if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
                           if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
                             Container(
@@ -457,7 +396,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom buttons using your specific format
                 AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
@@ -484,13 +423,13 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Fencing/Boundary Available
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "Fencing/Boundary Available",
           isRequired: true,
-          groupValue: _fencingAvailable,
+          initialSelectedValue: _fencingAvailable,
         ),
         getHeight(15),
-        
+
         // Fencing/Boundary Details Section (only show if available)
         if (_fencingAvailable == "Yes") ...[
           CustomAssetAuditFormSection(
@@ -501,9 +440,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
             isInputEditable: false,
             inputInitialValue: _displayFormData?['boundaryText'] ?? "",
             onInputChanged: (value) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             photoLabel: "Add a Photo",
             isPhotoRequired: true,
@@ -533,8 +469,8 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
           ),
           getHeight(15),
         ],
-        
-        
+
+
         // Remarks using CustomRemarksField
         CustomRemarksField(
           label: "Add Remarks",

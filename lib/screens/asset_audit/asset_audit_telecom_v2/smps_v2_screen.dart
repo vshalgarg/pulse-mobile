@@ -59,9 +59,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -147,6 +145,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? '';
     Logger.debugLog('📝 Initialized form controllers');
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -182,10 +182,24 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
   }
 
   // Validation methods
-  bool _validateSMPSSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    if (serialNumber.isEmpty) return false;
-    // For now, always return true - validation can be enhanced later
-    return true;
+  bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['smpsCabinetAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  }
+
+  bool _validateRectifierSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['smpsRectifiersAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  }
+
+  bool _validateAcdbSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['acdbAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  }
+
+  bool _validateLspuSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['lspuAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
   }
 
   Future<void> postCurrentScreenData() async {
@@ -380,11 +394,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                             initialSavedItems: _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [],
                             onItemSaved: _onSMPSCabinetItemSaved,
                             onStatusChanged: (status) {
-                              setState(() {
-                                _hasFormDataChanges = true;
-                              });
                             },
-                            customValidator: _validateSMPSSerialNumber,
+                            customValidator: _validateCabinetSerialNumber,
                             customValidationErrorMessage: "Invalid SMPS Cabinet serial number. Please check and try again.",
                             siteAuditSchId: widget.siteAuditSchId,
                             showTable: true,
@@ -412,11 +423,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           initialSavedItems: _displayFormData?['smpsRectifiers'] as List<dynamic>? ?? [],
                           onItemSaved: _onSMPSRectifierItemSaved,
                           onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
                           },
-                          customValidator: _validateSMPSSerialNumber,
+                          customValidator: _validateRectifierSerialNumber,
                           customValidationErrorMessage: "Invalid SMPS Rectifiers serial number. Please check and try again.",
                           siteAuditSchId: widget.siteAuditSchId,
                           showTable: true,
@@ -434,11 +442,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           initialSavedItems: _displayFormData?['acdbAssets'] as List<dynamic>? ?? [],
                           onItemSaved: _onACDBItemSaved,
                           onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
                           },
-                          customValidator: _validateSMPSSerialNumber,
+                          customValidator: _validateAcdbSerialNumber,
                           customValidationErrorMessage: "Invalid ACDB serial number. Please check and try again.",
                           siteAuditSchId: widget.siteAuditSchId,
                           showTable: true,
@@ -456,11 +461,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           initialSavedItems: _displayFormData?['lspuAssets'] as List<dynamic>? ?? [],
                           onItemSaved: _onLSPUItemSaved,
                           onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
                           },
-                          customValidator: _validateSMPSSerialNumber,
+                          customValidator: _validateLspuSerialNumber,
                           customValidationErrorMessage: "Invalid LSPU serial number. Please check and try again.",
                           siteAuditSchId: widget.siteAuditSchId,
                           showTable: true,
@@ -475,10 +477,10 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           controller: _remarksController,
                         ),
                                         getHeight(20),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                        ],
+                      ),
+                    ),
+                  ),
                   ),
 
                   // Bottom buttons using your specific format
