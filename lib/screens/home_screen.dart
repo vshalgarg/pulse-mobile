@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:app/app_config.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
 import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/commonWidgets/dashBoard_appBar.dart';
@@ -8,7 +10,13 @@ import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/screens/sqlite_query_screen.dart';
 import 'package:app/screens/debug/log_viewer_screen.dart';
+import 'package:app/services/image_upload_service.dart';
+import 'package:app/services/asset_audit_post_service.dart';
+import 'package:app/services/pending_requests_service.dart';
 import 'package:app/utils.dart';
+import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/data_transformation_helper.dart';
+import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -32,6 +40,167 @@ class _HomeScreenState extends State<HomeScreen> {
     context.read<DashboardCubit>().getDashboardCount();
   }
 
+  /// Syncs offline data by checking pending requests and posting them to the server
+  Future<void> _syncOfflineData() async {
+    try {
+      // Get pending requests
+      final pendingRequestsService = PendingRequestsService();
+      final pendingRequests = await pendingRequestsService.getPendingRequests();
+
+      int successCount = 0;
+      int failureCount = 0;
+
+      // Process each pending request
+      for (final request in pendingRequests) {
+        try {
+          await _processPendingRequest(request);
+          successCount++;
+          print('✅ Successfully synced request: ${request['request_id']}');
+        } catch (e) {
+          failureCount++;
+          print('❌ Failed to sync request ${request['request_id']}: $e');
+          Logger.errorLog(
+            '❌ HomeScreen: Failed to sync request ${request['request_id']}: $e',
+          );
+        }
+      }
+
+      // Show sync result
+      final message =
+          'Sync completed: $successCount successful, $failureCount failed';
+      print('📊 $message');
+      Logger.infoLog('📊 HomeScreen: $message');
+      _showSyncMessage(message);
+    } catch (e) {
+      print('❌ Error during sync: $e');
+      Logger.errorLog('❌ HomeScreen: Error during sync: $e');
+      _showSyncMessage('Sync failed: $e');
+    }
+  }
+
+  /// Processes a single pending request
+  Future<void> _processPendingRequest(Map<String, dynamic> request) async {
+    try {
+      final requestId = request['request_id'] as String;
+      final url = request['url'] as String;
+      final headersJson = request['headers'] as String?;
+      final requestDataJson = request['request_data'] as String;
+
+      List<dynamic> requestData;
+      try {
+        requestData = jsonDecode(requestDataJson);
+      } catch (e) {
+        throw Exception('Failed to parse request data: $e');
+      }
+
+      print('🔄 Processing request: $requestId');
+      print('📍 URL: $url');
+
+      // Parse headers
+      Map<String, String> headers = {};
+      if (headersJson != null && headersJson.isNotEmpty) {
+        try {
+          headers = Map<String, String>.from(jsonDecode(headersJson));
+        } catch (e) {
+          print('⚠️ Failed to parse headers: $e');
+          headers = {'Content-Type': 'application/json'};
+        }
+      } else {
+        headers = {'Content-Type': 'application/json'};
+      }
+
+      // Initialize AssetAuditPostService
+      final apiService = AppConfig.of(context).apiService;
+      final imageUploadService = ImageUploadService(apiService: apiService);
+      final postService = AssetAuditPostService(
+        apiService: apiService,
+        imageUploadService: imageUploadService,
+      );
+      // added offline sync code
+
+      List<Map<String, dynamic>> processedRequests = [];
+
+      for (int i = 0; i < requestData.length; i++) {
+        final processedRequest = await postService.processAssetAuditRequest(
+          requestDataJson[i],
+        );
+
+        // Add location data to each reques
+
+        // Add required fields
+        processedRequest['auditSchId'] = 0;
+        processedRequest['localCreatedDt'] =
+            Utils.getCurrentDateTimeForAPICall();
+        processedRequest['localModifiedDt'] =
+            Utils.getCurrentDateTimeForAPICall();
+
+        if (processedRequest['record_type'] == 'Remarks') {
+          processedRequest['asset_Status'] = 'ok';
+        }
+
+        processedRequests.add(processedRequest);
+      }
+
+      // Parse request data
+
+      // Convert to transformed requests (camelCase)
+      final transformedRequests =
+          DataTransformationHelper.transformAssetAuditData(processedRequests);
+      print('🔄 Data transformed to camelCase');
+
+      // Get API service from AppConfig
+
+      // Make the API call
+      print('📤 Making API call to: $url');
+      print('📤 Headers: $headers');
+      final response = await apiService.post<List<dynamic>>(
+        path: url,
+        data: transformedRequests,
+        headers: headers,
+      );
+
+      if (response.isSuccess) {
+        print('✅ API call successful for request: $requestId');
+
+        // Update request status to completed
+        final pendingRequestsService = PendingRequestsService();
+        await pendingRequestsService.updateRequestStatus(
+          requestId: requestId,
+          status: 'completed',
+        );
+
+        Logger.infoLog('✅ HomeScreen: Successfully synced request $requestId');
+      } else {
+        throw Exception('API call failed: ${response.errorMessage}');
+      }
+    } catch (e) {
+      print('❌ Error processing request ${request['request_id']}: $e');
+
+      // Update request status to failed and increment retry count
+      final pendingRequestsService = PendingRequestsService();
+      await pendingRequestsService.incrementRetryCount(
+        request['request_id'] as String,
+      );
+
+      throw e;
+    }
+  }
+
+  /// Shows sync message to user
+  void _showSyncMessage(String message) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: message.contains('successful')
+              ? Colors.green
+              : Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -41,13 +210,19 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           FloatingActionButton(
             onPressed: () {
+              _syncOfflineData();
+            },
+            backgroundColor: Colors.blue,
+            child: const Icon(Icons.sync, color: Colors.white),
+            tooltip: 'Sync Offline Data',
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            onPressed: () {
               pushPage(context, const LogViewerScreen());
             },
             backgroundColor: Colors.orange,
-            child: const Icon(
-              Icons.description,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.description, color: Colors.white),
             tooltip: 'Log Viewer',
           ),
           const SizedBox(height: 16),
@@ -56,10 +231,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pushPage(context, const SQLiteQueryScreen());
             },
             backgroundColor: AppColors.auditColor,
-            child: const Icon(
-              Icons.storage,
-              color: Colors.white,
-            ),
+            child: const Icon(Icons.storage, color: Colors.white),
             tooltip: 'SQLite Query Executor',
           ),
         ],
@@ -79,11 +251,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 top: 80,
                 left: 16,
                 right: 16,
-                child: SafeArea(
-                  child: userDetail(),
-                ),
+                child: SafeArea(child: userDetail()),
               ),
-              
+
               // Scrollable content below
               Positioned(
                 top: 200,
@@ -99,79 +269,81 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   child: state is DashboardLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(),
-                        )
+                      ? const Center(child: CircularProgressIndicator())
                       : state is DashboardFailure
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    'Failed to load dashboard data',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      color: Colors.red,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      context.read<DashboardCubit>().getDashboardCount();
-                                    },
-                                    child: Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: () async {
-                                context.read<DashboardCubit>().getDashboardCount();
-                              },
-                              child: SingleChildScrollView(
-                                physics: const ClampingScrollPhysics(),
-                                child: Container(
-                                  constraints: BoxConstraints(
-                                    minHeight: MediaQuery.of(context).size.height - 200,
-                                  ),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                  child: Column(
-                                    children: [
-                                      // Asset Audit Section - Only show if data exists
-                                      if (_hasAssetAuditData(state)) ...[
-                                        assetAudit(),
-                                        const SizedBox(height: 5),
-                                        assetAuditTicketStatus(state),
-                                        const SizedBox(height: 15),
-                                      ],
-                                      
-                                      // Preventive Maintenance Section - Only show if data exists
-                                      if (_hasPreventiveMaintenanceData(state)) ...[
-                                        pmAudit(),
-                                        const SizedBox(height: 5),
-                                        pmAuditTicketStatus(state),
-                                        const SizedBox(height: 15),
-                                      ],
-
-                                      // Corrective Maintenance Section - Always show
-                                      correctiveMaintenance(),
-                                      const SizedBox(height: 5),
-                                      correctiveMaintenanceTicketStatus(state),
-                                      const SizedBox(height: 15),
-                                      // Energy Reading Section - Always show
-                                      energyReading(),
-                                      const SizedBox(height: 5),
-                                      energyReadingTicketStatus(state),
-                                      const SizedBox(height: 15),
-                                      
-
-                                      
-                                      const SizedBox(height: 20),
-                                    ],
-                                  ),
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'Failed to load dashboard data',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.red,
                                 ),
                               ),
+                              const SizedBox(height: 10),
+                              ElevatedButton(
+                                onPressed: () {
+                                  context
+                                      .read<DashboardCubit>()
+                                      .getDashboardCount();
+                                },
+                                child: Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: () async {
+                            context.read<DashboardCubit>().getDashboardCount();
+                          },
+                          child: SingleChildScrollView(
+                            physics: const ClampingScrollPhysics(),
+                            child: Container(
+                              constraints: BoxConstraints(
+                                minHeight:
+                                    MediaQuery.of(context).size.height - 200,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              child: Column(
+                                children: [
+                                  // Asset Audit Section - Only show if data exists
+                                  if (_hasAssetAuditData(state)) ...[
+                                    assetAudit(),
+                                    const SizedBox(height: 5),
+                                    assetAuditTicketStatus(state),
+                                    const SizedBox(height: 15),
+                                  ],
+
+                                  // Preventive Maintenance Section - Only show if data exists
+                                  if (_hasPreventiveMaintenanceData(state)) ...[
+                                    pmAudit(),
+                                    const SizedBox(height: 5),
+                                    pmAuditTicketStatus(state),
+                                    const SizedBox(height: 15),
+                                  ],
+
+                                  // Corrective Maintenance Section - Always show
+                                  correctiveMaintenance(),
+                                  const SizedBox(height: 5),
+                                  correctiveMaintenanceTicketStatus(state),
+                                  const SizedBox(height: 15),
+                                  // Energy Reading Section - Always show
+                                  energyReading(),
+                                  const SizedBox(height: 5),
+                                  energyReadingTicketStatus(state),
+                                  const SizedBox(height: 15),
+
+                                  const SizedBox(height: 20),
+                                ],
+                              ),
                             ),
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -240,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     color: Colors.black,
                     fontFamily: fontFamilyInter,
-                    fontSize: 16
+                    fontSize: 16,
                   ),
                 ),
               ),
@@ -326,10 +498,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: allTicketsCount,
                 title: "All Tickets",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "Asset Audit",
-                    status: "All Tickets",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(
+                      auditName: "Asset Audit",
+                      status: "All Tickets",
+                    ),
+                  );
                   print("All Tickets clicked");
                 },
               ),
@@ -340,10 +515,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: inProgressCount,
                 title: "In Progress",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "Asset Audit",
-                    status: "In Progress",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(
+                      auditName: "Asset Audit",
+                      status: "In Progress",
+                    ),
+                  );
                   print("In Progress clicked");
                 },
               ),
@@ -358,10 +536,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: completedCount,
                 title: "Completed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "Asset Audit",
-                    status: "Completed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "Asset Audit", status: "Completed"),
+                  );
                   print("Completed clicked");
                 },
               ),
@@ -372,10 +550,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: closedCount,
                 title: "Closed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "Asset Audit",
-                    status: "Closed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "Asset Audit", status: "Closed"),
+                  );
                   print("Closed clicked");
                 },
               ),
@@ -390,10 +568,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: missedDeadlineCount,
                 title: "Missed DeadLine",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "Asset Audit",
-                    status: "Missed Deadline",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(
+                      auditName: "Asset Audit",
+                      status: "Missed Deadline",
+                    ),
+                  );
                   print("Missed Deadline clicked");
                 },
               ),
@@ -422,7 +603,7 @@ class _HomeScreenState extends State<HomeScreen> {
             case "All Tickets":
               allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
               break;
-            
+
             case "In Progress":
               inProgressCount = ticket.ticketCnt?.toString() ?? "0";
               break;
@@ -449,10 +630,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: allTicketsCount,
                 title: "All Tickets",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "PM",
-                    status: "All Tickets",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "PM", status: "All Tickets"),
+                  );
                   print("PM All Tickets clicked");
                 },
               ),
@@ -463,10 +644,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: inProgressCount,
                 title: "In Progress",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "PM",
-                    status: "In Progress",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "PM", status: "In Progress"),
+                  );
                   print("PM In Progress clicked");
                 },
               ),
@@ -481,10 +662,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: completedCount,
                 title: "Completed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "PM",
-                    status: "Completed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "PM", status: "Completed"),
+                  );
                   print("PM Completed clicked");
                 },
               ),
@@ -495,10 +676,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: closedCount,
                 title: "Closed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "PM",
-                    status: "Closed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "PM", status: "Closed"),
+                  );
                   print("PM Closed clicked");
                 },
               ),
@@ -513,10 +694,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: missedDeadlineCount,
                 title: "Missed DeadLine",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "PM",
-                    status: "Missed Deadline",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "PM", status: "Missed Deadline"),
+                  );
                   print("PM Missed Deadline clicked");
                 },
               ),
@@ -597,10 +778,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: allTicketsCount,
                 title: "All Tickets",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "ER",
-                    status: "All Tickets",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "ER", status: "All Tickets"),
+                  );
                   print("Energy Reading All Tickets clicked");
                 },
               ),
@@ -611,10 +792,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: dueCount,
                 title: "Due",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "ER",
-                    status: "Due",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "ER", status: "Due"),
+                  );
                   print("Energy Reading Due clicked");
                 },
               ),
@@ -629,10 +810,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: completedCount,
                 title: "Completed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "ER",
-                    status: "Completed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "ER", status: "Completed"),
+                  );
                   print("Energy Reading Completed clicked");
                 },
               ),
@@ -643,10 +824,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: closedCount,
                 title: "Closed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "ER",
-                    status: "Closed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "ER", status: "Closed"),
+                  );
                   print("Energy Reading Closed clicked");
                 },
               ),
@@ -661,10 +842,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: missedDeadlineCount,
                 title: "Missed DeadLine",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "ER",
-                    status: "Missed Deadline",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "ER", status: "Missed Deadline"),
+                  );
                   print("Energy Reading Missed Deadline clicked");
                 },
               ),
@@ -714,10 +895,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: allTicketsCount,
                 title: "All Tickets",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "CM",
-                    status: "All Tickets",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "CM", status: "All Tickets"),
+                  );
                   print("Corrective Maintenance All Tickets clicked");
                 },
               ),
@@ -728,10 +909,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: inProgressCount,
                 title: "In Progress",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "CM",
-                    status: "In Progress",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "CM", status: "In Progress"),
+                  );
                   print("Corrective Maintenance In Progress clicked");
                 },
               ),
@@ -746,10 +927,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: assignedToMeCount,
                 title: "Assigned to Me",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "CM",
-                    status: "Assigned to Me",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "CM", status: "Assigned to Me"),
+                  );
                   print("Corrective Maintenance Assigned to Me clicked");
                 },
               ),
@@ -760,10 +941,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 count: closedCount,
                 title: "Closed",
                 onTap: () {
-                  pushPage(context, TicketScreen(
-                    auditName: "CM",
-                    status: "Closed",
-                  ));
+                  pushPage(
+                    context,
+                    TicketScreen(auditName: "CM", status: "Closed"),
+                  );
                   print("Corrective Maintenance Closed clicked");
                 },
               ),
@@ -847,11 +1028,7 @@ class _HomeScreenState extends State<HomeScreen> {
             onPressed: () {
               // pushPage(context, CorrectiveMaintenanceScreen());
             },
-            icon: Icon(
-              Icons.add,
-              color: AppColors.white,
-              size: 24,
-            ),
+            icon: Icon(Icons.add, color: AppColors.white, size: 24),
             padding: EdgeInsets.zero,
             constraints: BoxConstraints(),
           ),

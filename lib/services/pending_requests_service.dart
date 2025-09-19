@@ -191,6 +191,11 @@ class PendingRequestsService {
     }
   }
 
+  /// Increment retry count for a request (public method)
+  Future<int> incrementRetryCount(String requestId) async {
+    return await _incrementRetryCount(requestId);
+  }
+
   /// Get request details for retry
   Future<Map<String, dynamic>?> getRequestForRetry(String requestId) async {
     try {
