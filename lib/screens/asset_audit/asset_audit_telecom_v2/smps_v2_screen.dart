@@ -250,6 +250,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ SMPS V2: Data posted successfully');

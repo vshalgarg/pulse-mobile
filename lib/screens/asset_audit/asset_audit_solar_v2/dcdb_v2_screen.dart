@@ -209,6 +209,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ DCDB V2: Data posted successfully');

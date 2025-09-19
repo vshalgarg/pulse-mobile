@@ -1,22 +1,22 @@
 import 'package:app/services/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import '../constants/app_images.dart';
-import '../constants/constants_strings.dart';
-import '../constants/constants_methods.dart';
-import '../constants/pm_constants.dart';
+import '../../constants/app_images.dart';
+import '../../constants/constants_strings.dart';
+import '../../constants/constants_methods.dart';
+import '../../constants/pm_constants.dart';
 import 'pm_page_widget.dart';
 import 'pm_page_header_solar.dart';
 import 'pm_page_header_telecom.dart';
-import 'custom_form_appbar.dart';
-import 'custom_dialogs/unsaved_changes_dialog.dart';
-import '../utils/pm_navigation_helper.dart';
-import '../utils/asset_audit_navigation_helper.dart';
-import '../services/asset_audit/central_asset_audit_service.dart';
-import '../services/asset_audit/central_service_initializer.dart';
-import '../services/asset_audit_post_service.dart';
-import '../services/image_upload_service.dart';
-import '../app_config.dart';
+import '../../commonWidgets/custom_form_appbar.dart';
+import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../utils/pm_navigation_helper.dart';
+import '../../utils/asset_audit_navigation_helper.dart';
+import '../../services/asset_audit/central_asset_audit_service.dart';
+import '../../services/asset_audit/central_service_initializer.dart';
+import '../../services/asset_audit_post_service.dart';
+import '../../services/image_upload_service.dart';
+import '../../app_config.dart';
 
 class PMPageRender extends StatefulWidget {
   final Map<String, dynamic> pmData;
@@ -294,7 +294,8 @@ class _PMPageRenderState extends State<PMPageRender> {
       // Post data with photo ID replacement
       await _postService!.postAssetAuditDataWithPhotoReplacement(
         requests: dataToPost,
-        isAssetAudit: false
+        isAssetAudit: false,
+        isLastPage: _isLastPage
       );
       print('✅ PM data posted successfully to API');
     } catch (e) {

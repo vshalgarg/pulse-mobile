@@ -222,6 +222,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Boundary V2: Data posted successfully');

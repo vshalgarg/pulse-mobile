@@ -264,6 +264,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Battery V2: Data posted successfully');

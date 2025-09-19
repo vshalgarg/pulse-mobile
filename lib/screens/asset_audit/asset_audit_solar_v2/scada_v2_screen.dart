@@ -228,6 +228,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
       );
 
       Logger.debugLog('✅ SCADA V2: Data posted successfully');

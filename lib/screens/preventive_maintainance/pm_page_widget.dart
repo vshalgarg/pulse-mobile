@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import '../constants/app_colors.dart';
-import '../constants/app_images.dart';
-import '../constants/constants_methods.dart';
-import '../constants/pm_constants.dart';
+import '../../constants/app_colors.dart';
+import '../../constants/app_images.dart';
+import '../../constants/constants_methods.dart';
+import '../../constants/pm_constants.dart';
 import 'pm_custom_widget.dart';
-import 'custom_pm_bottom_buttons.dart';
-import 'custom_form_appbar.dart';
-import 'custom_dialogs/unsaved_changes_dialog.dart';
+import '../../commonWidgets/custom_pm_bottom_buttons.dart';
+import '../../commonWidgets/custom_form_appbar.dart';
+import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 
 class PMPageWidget extends StatefulWidget {
   final List<Map<String, dynamic>> pmItems;

@@ -21,7 +21,7 @@ import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
 import 'energy_reading/energy_reading_screen.dart';
-import '../commonWidgets/pm_page_render.dart';
+import 'preventive_maintainance/pm_page_render.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;

@@ -27,7 +27,8 @@ class AssetAuditPostService {
   /// and adds photo_taken_ts using the images table's created_at timestamp
   Future<void> postAssetAuditDataWithPhotoReplacement({
     required List<dynamic> requests,
-    bool isAssetAudit = true
+    bool isAssetAudit = true,
+    bool isLastPage = false
   }) async {
     try {
       // Get current location with offline support
@@ -36,7 +37,6 @@ class AssetAuditPostService {
       try {
         // Try offline location first
         final location = await LocationService.getCurrentLocationOffline();
-
         if (location != null) {
           finalLocation = location;
         } else {
@@ -188,7 +188,7 @@ class AssetAuditPostService {
 
       // Post the processed requests to the API
       final response = await _apiService.post<List<dynamic>>(
-        path: isAssetAudit ? '/api/v1/mobile/AssetAuditSiteResp' : '/api/v1/mobile/PmResponse',
+        path: '${isAssetAudit ? '/api/v1/mobile/AssetAuditSiteResp' : '/api/v1/mobile/PmResponse'}?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}',
         data: transformedRequests,
       );
 

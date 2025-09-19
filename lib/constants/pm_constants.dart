@@ -5,18 +5,18 @@ class PMConstants {
 
   // Telecom readonly fields map using enum values
   static const Map<String, List<String>> telecomReadonlyFieldsMap = {
-    PMTelecomPagesConstants.battery: [
-      'Battery Make'
-    ],
-    PMTelecomPagesConstants.ccu: [
-      'CCU Make'
-    ],
-    PMTelecomPagesConstants.dg: [
-      'DG Make',
-    ],
-    PMTelecomPagesConstants.solar: [
-      'Solar Make'
-    ],
+    // PMTelecomPagesConstants.battery: [
+    //   'Battery Make'
+    // ],
+    // PMTelecomPagesConstants.ccu: [
+    //   'CCU Make'
+    // ],
+    // PMTelecomPagesConstants.dg: [
+    //   'DG Make',
+    // ],
+    // PMTelecomPagesConstants.solar: [
+    //   'Solar Make'
+    // ],
   };
 
   // Telecom PM Page Order Configuration

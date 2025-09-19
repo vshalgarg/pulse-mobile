@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
-import '../constants/constants_strings.dart';
-import '../services/image_upload_service.dart';
-import '../enum/activity_type_enum.dart';
-import '../app_config.dart';
-import 'custom_remark.dart';
-import 'custom_form_field.dart';
-import 'custom_form_dropdown.dart';
-import 'custom_radio_options.dart';
-import 'custom_image_upload_field.dart';
+import '../../constants/app_colors.dart';
+import '../../constants/constants_strings.dart';
+import '../../services/image_upload_service.dart';
+import '../../enum/activity_type_enum.dart';
+import '../../app_config.dart';
+import '../../commonWidgets/custom_remark.dart';
+import '../../commonWidgets/custom_form_field.dart';
+import '../../commonWidgets/custom_form_dropdown.dart';
+import '../../commonWidgets/custom_radio_options.dart';
+import '../../commonWidgets/custom_image_upload_field.dart';
 
 class PMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
@@ -75,7 +75,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     
     // Initialize radio value - convert 1/0 to Yes/No
     if (respTypes.contains('RADIO')) {
-      _selectedRadioValue = respValue;
+      _selectedRadioValue = respValue == null || respValue.isEmpty ? 'Yes' : respValue;
     }
     
     // Initialize text value

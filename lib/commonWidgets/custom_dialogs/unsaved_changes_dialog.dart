@@ -41,12 +41,7 @@ class UnsavedChangesDialog extends StatelessWidget {
             child: CircularProgressIndicator(),
           ),
         );
-        
-        await contextToUse.read<AuditScheduleStatusCubit>().updateStatus(
-          status: "IN-PROGRESS", // Change this to your desired status
-          siteAuditSchId: siteAuditSchId!,
-        );
-        
+
         // Close loading dialog
         if (Navigator.canPop(contextToUse)) {
           Navigator.of(contextToUse).pop();
@@ -204,7 +199,7 @@ class UnsavedChangesDialog extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 24, vertical: 12),
                     ),
-                    onPressed: (){_saveAndExit(context);},
+                    onPressed: (){},
                     child: const Text("Save & Exit",
                         style: TextStyle(color: Colors.white)),
                   ),
