@@ -1,4 +1,6 @@
+import 'package:app/commonWidgets/custom_radio_options.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -72,10 +74,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _transformerSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -156,6 +155,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -223,7 +223,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Transformer V2: Data posted successfully');
@@ -398,7 +398,9 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -418,18 +420,12 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+
         // Transformer Available
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "Transformer Available",
           isRequired: true,
-          groupValue: _displayFormData?['transformerAvailable'] ?? "Yes",
-
-          onChanged: (value) {
-            setState(() {
-              _displayFormData?['transformerAvailable'] = value;
-              _hasFormDataChanges = true;
-            });
-          },
+          initialSelectedValue: _displayFormData?['transformerAvailable'] ?? "Yes",
         ),
         getHeight(15),
         if(_displayFormData?['transformerAvailable'] == "Yes") ...[
@@ -477,9 +473,6 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
                 [],
             onItemSaved: _onTransformerItemSaved,
             onStatusChanged: (status) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             customValidator: _validateTransformerSerialNumber,
             customValidationErrorMessage: "Invalid Transformer serial number. Please check and try again.",
@@ -497,71 +490,6 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
             initialValue: _displayFormData?['remarks'] ?? '',
           ),
         ]
-      ],
-    );
-  }
-
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-    required Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }

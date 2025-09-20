@@ -29,7 +29,7 @@ class AssetAuditPostService {
   Future<void> postAssetAuditDataWithPhotoReplacement({
     required List<dynamic> requests,
     bool isAssetAudit = true,
-    bool isLastPage = false,
+    required bool isLastPage,
   }) async {
     try {
       // Get current location with offline support
@@ -183,16 +183,9 @@ class AssetAuditPostService {
           final errorMsg =
               response.errorMessage ?? 'Failed to post asset audit data';
           Logger.errorLog('❌ Asset Audit POST API Error: $errorMsg');
+          throw Exception(errorMsg);
         }
       } else {
-        Logger.infoLog(
-          '📵 AssetAuditPostService: No internet connection, saving request as pending',
-        );
-        print('📵 NO INTERNET CONNECTION - SAVING REQUEST AS PENDING');
-        print(
-          '🔍 OFFLINE PATH - transformedRequests length: ${requests.length}',
-        );
-
         // Save as pending request when offline
         final pendingRequestsService = PendingRequestsService();
         final requestId =

@@ -104,13 +104,6 @@ class ApiLogger {
       debugPrint('```json');
       debugPrint(jsonString);
       debugPrint('```');
-      
-      // Also print with indentation for readability
-      debugPrint('📦 Formatted JSON:');
-      final lines = jsonString.split('\n');
-      for (final line in lines) {
-        debugPrint('   $line');
-      }
     } catch (e) {
       debugPrint('   $data');
     }

@@ -1,3 +1,4 @@
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -67,12 +68,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _fireExtinguisherSerialController.addListener(_onFormChanged);
-    _floodLightSerialController.addListener(_onFormChanged);
-    _sandBucketSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
   }
 
   @override
@@ -160,6 +155,7 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -262,7 +258,7 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Fire Extinguisher V2: Data posted successfully');
@@ -294,71 +290,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
     } else {
       AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
-  }
-
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-    required Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 
   @override
@@ -527,16 +458,10 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Fire Extinguisher Available
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "Fire Extinguisher Available",
           isRequired: true,
-          groupValue: _displayFormData?['fireExtinguisherAvailable'] ?? "No",
-          onChanged: (value) {
-            setState(() {
-              _displayFormData?['fireExtinguisherAvailable'] = value;
-              _hasFormDataChanges = true;
-            });
-          },
+          initialSelectedValue: _displayFormData?['fireExtinguisherAvailable'] ?? "No",
         ),
         getHeight(15),
 
@@ -559,7 +484,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
               color: AppColors.white,
             ),
           ),
-          getHeight(15),
           
           // Fire Extinguisher Form Component
           AssetAuditFormComponent(
@@ -573,9 +497,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
             initialSavedItems: _displayFormData?['fireExtinguisherAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onFireExtinguisherItemSaved,
             onStatusChanged: (status) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             customValidator: _validateFireExtinguisherSerialNumber,
             customValidationErrorMessage: "Invalid Fire Extinguisher serial number. Please check and try again.",
@@ -587,16 +508,10 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
         ],
         
         // Flood Light Availability
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "Flood Light Availability",
           isRequired: true,
-          groupValue: _displayFormData?['floodLightAvailable'] ?? "No",
-          onChanged: (value) {
-            setState(() {
-              _displayFormData?['floodLightAvailable'] = value;
-              _hasFormDataChanges = true;
-            });
-          },
+          initialSelectedValue: _displayFormData?['floodLightAvailable'] ?? "No",
         ),
         getHeight(15),
         
@@ -622,9 +537,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
             initialSavedItems: _displayFormData?['floodLightAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onFloodLightItemSaved,
             onStatusChanged: (status) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             customValidator: _validateFloodLightSerialNumber,
             customValidationErrorMessage: "Invalid Flood Light serial number. Please check and try again.",
@@ -654,7 +566,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
               color: AppColors.white,
             ),
           ),
-          getHeight(15),
           
           // Sand Bucket Form Component
           AssetAuditFormComponent(
@@ -666,9 +577,6 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
             initialSavedItems: _displayFormData?['sandBucketAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onSandBucketItemSaved,
             onStatusChanged: (status) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             customValidator: _validateSandBucketSerialNumber,
             customValidationErrorMessage: "Invalid Sand Bucket serial number. Please check and try again.",

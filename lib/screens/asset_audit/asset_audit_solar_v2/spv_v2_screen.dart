@@ -64,6 +64,14 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
     _loadData();
   }
 
+  void _onFormChanged() {
+    if (!_hasFormDataChanges) {
+      setState(() {
+        _hasFormDataChanges = true;
+      });
+    }
+  }
+
   Future<void> _loadData() async {
     try {
       setState(() {
@@ -140,7 +148,8 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
-    
+
+    _remarksController.addListener(_onFormChanged);
     // Trigger a rebuild to ensure the UI updates
     if (mounted) {
       setState(() {});
@@ -206,7 +215,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ SPV V2: Data posted successfully');
@@ -359,7 +368,9 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick:  () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -413,9 +424,6 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onSPVItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateSPVSerialNumber,
           customValidationErrorMessage: "Invalid SPV serial number. Please check and try again.",

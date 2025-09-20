@@ -212,9 +212,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         await _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId,
             updatedData: _assetAuditData ?? {});
       }
-      } catch(e) {
-
-    }
+      } catch(e) {}
   }
 
   @override

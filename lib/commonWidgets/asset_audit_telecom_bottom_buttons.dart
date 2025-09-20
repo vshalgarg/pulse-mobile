@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 
@@ -60,7 +61,11 @@ class AssetAuditTelecomBottomButtons extends StatelessWidget {
               backgroundColor: AppColors.buttonColorBg,
               textColor: AppColors.buttonColorSite,
               onPressed: () async {
-                await onNextButtonClick();
+                try {
+                  await onNextButtonClick();
+                } catch(e){
+                  Toastbar.showErrorToastbar(e.toString(), context);
+                }
                 AssetAuditNavigationHelper.navigateToNextTelecomScreen(context, assetAuditData, screenName, siteAuditSchId, siteType, auditSchId);
               },
             ),

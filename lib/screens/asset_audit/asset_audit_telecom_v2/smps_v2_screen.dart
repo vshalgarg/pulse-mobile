@@ -59,9 +59,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -112,6 +110,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           'smpsRectifiers': smpsRectifiers.where((obj) => obj['photo_id'] != null).toList(),
           'smpsRectifiersAllAssets': smpsRectifiers,
           'smpsCabinet': smpsCabinet.where((obj) => obj['photo_id'] != null).toList(),
+          'smpsCabinetAvailable' : smpsCabinet.isNotEmpty,
           'smpsCabinetAllAssets': smpsCabinet,
           'acdbAssets': acdbAssets.where((obj) => obj['photo_id'] != null).toList(),
           'acdbAllAssets': acdbAssets,
@@ -146,6 +145,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? '';
     Logger.debugLog('📝 Initialized form controllers');
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -181,10 +182,24 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
   }
 
   // Validation methods
-  bool _validateSMPSSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    if (serialNumber.isEmpty) return false;
-    // For now, always return true - validation can be enhanced later
-    return true;
+  bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['smpsCabinetAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  }
+
+  bool _validateRectifierSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['smpsRectifiersAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  }
+
+  bool _validateAcdbSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['acdbAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  }
+
+  bool _validateLspuSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems = _displayFormData?['lspuAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
   }
 
   Future<void> postCurrentScreenData() async {
@@ -250,7 +265,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ SMPS V2: Data posted successfully');
@@ -368,28 +383,26 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                         ),
                         getHeight(15),
 
-                        // SMPS Cabinet Section
-                        AssetAuditFormComponent(
-                          componentId: 'smps_cabinet_component',
-                          serialLabel: "Cabinet - Serial Number *",
-                          serialHintText: "Cabinet Serial Number *",
-                          photoLabel: "Add Photo of Cabinet Serial Number",
-                          serialController: TextEditingController(),
-                          initialSavedItems: _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [],
-                          onItemSaved: _onSMPSCabinetItemSaved,
-                          onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
-                          },
-                          customValidator: _validateSMPSSerialNumber,
-                          customValidationErrorMessage: "Invalid SMPS Cabinet serial number. Please check and try again.",
-                          siteAuditSchId: widget.siteAuditSchId,
-                          showTable: true,
-                          tableTitle: "SMPS Cabinet",
-                        ),
-                        getHeight(20),
-
+                        if(_displayFormData?['smpsCabinetAvailable'] ?? false) ...[
+                          // SMPS Cabinet Section
+                          AssetAuditFormComponent(
+                            componentId: 'smps_cabinet_component',
+                            serialLabel: "Cabinet - Serial Number *",
+                            serialHintText: "Cabinet Serial Number *",
+                            photoLabel: "Add Photo of Cabinet Serial Number",
+                            serialController: TextEditingController(),
+                            initialSavedItems: _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [],
+                            onItemSaved: _onSMPSCabinetItemSaved,
+                            onStatusChanged: (status) {
+                            },
+                            customValidator: _validateCabinetSerialNumber,
+                            customValidationErrorMessage: "Invalid SMPS Cabinet serial number. Please check and try again.",
+                            siteAuditSchId: widget.siteAuditSchId,
+                            showTable: true,
+                            tableTitle: "SMPS Cabinet",
+                          ),
+                          getHeight(20),
+                        ],
 
                         // Count of SMPS Rectifiers (readonly)
                         CustomFormField(
@@ -410,11 +423,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           initialSavedItems: _displayFormData?['smpsRectifiers'] as List<dynamic>? ?? [],
                           onItemSaved: _onSMPSRectifierItemSaved,
                           onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
                           },
-                          customValidator: _validateSMPSSerialNumber,
+                          customValidator: _validateRectifierSerialNumber,
                           customValidationErrorMessage: "Invalid SMPS Rectifiers serial number. Please check and try again.",
                           siteAuditSchId: widget.siteAuditSchId,
                           showTable: true,
@@ -432,11 +442,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           initialSavedItems: _displayFormData?['acdbAssets'] as List<dynamic>? ?? [],
                           onItemSaved: _onACDBItemSaved,
                           onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
                           },
-                          customValidator: _validateSMPSSerialNumber,
+                          customValidator: _validateAcdbSerialNumber,
                           customValidationErrorMessage: "Invalid ACDB serial number. Please check and try again.",
                           siteAuditSchId: widget.siteAuditSchId,
                           showTable: true,
@@ -454,11 +461,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           initialSavedItems: _displayFormData?['lspuAssets'] as List<dynamic>? ?? [],
                           onItemSaved: _onLSPUItemSaved,
                           onStatusChanged: (status) {
-                            setState(() {
-                              _hasFormDataChanges = true;
-                            });
                           },
-                          customValidator: _validateSMPSSerialNumber,
+                          customValidator: _validateLspuSerialNumber,
                           customValidationErrorMessage: "Invalid LSPU serial number. Please check and try again.",
                           siteAuditSchId: widget.siteAuditSchId,
                           showTable: true,
@@ -473,10 +477,10 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                           controller: _remarksController,
                         ),
                                         getHeight(20),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                        ],
+                      ),
+                    ),
+                  ),
                   ),
 
                   // Bottom buttons using your specific format

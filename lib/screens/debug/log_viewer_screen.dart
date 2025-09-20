@@ -15,11 +15,18 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
   String _selectedLogContent = '';
   bool _isLoading = false;
   File? _selectedFile;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadLogFiles();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLogFiles() async {
@@ -57,6 +64,27 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         _selectedLogContent = content;
         _selectedFile = file;
         _isLoading = false;
+      });
+      
+      // Scroll to the end of the content after loading
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.delayed(const Duration(milliseconds: 200), () {
+          if (_scrollController.hasClients) {
+            // First try to jump to the end immediately
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            
+            // Then animate for smooth effect
+            Future.delayed(const Duration(milliseconds: 50), () {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  _scrollController.position.maxScrollExtent,
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeOut,
+                );
+              }
+            });
+          }
+        });
       });
     } catch (e) {
       setState(() {
@@ -277,6 +305,7 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
                                 child: Text('Select a log file to view its content'),
                               )
                             : SingleChildScrollView(
+                                controller: _scrollController,
                                 padding: const EdgeInsets.all(16.0),
                                 child: SelectableText(
                                   _selectedLogContent,

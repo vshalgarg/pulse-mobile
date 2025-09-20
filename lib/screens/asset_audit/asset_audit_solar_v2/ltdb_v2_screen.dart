@@ -72,10 +72,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _ltdbSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -154,6 +151,8 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -221,7 +220,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ LTDB V2: Data posted successfully');
@@ -396,7 +395,9 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    await postCurrentScreenData();
+                    if(_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
                   },
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
@@ -458,9 +459,6 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onLTDBItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateLTDBSerialNumber,
           customValidationErrorMessage: "Invalid LTDB serial number. Please check and try again.",

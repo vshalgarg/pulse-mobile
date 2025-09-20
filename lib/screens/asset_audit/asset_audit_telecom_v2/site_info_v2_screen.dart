@@ -78,16 +78,6 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for Site Info');
     _service = ServiceLocator().centralAssetAuditService;
 
-    // Check if service is initialized
-    if (!CentralAssetAuditServiceInitializer.isInitialized) {
-      Logger.errorLog('❌ Central service not initialized!');
-      setState(() {
-        _errorMessage = 'Central service not initialized. Please restart the app.';
-        _isLoadingData = false;
-      });
-      return;
-    }
-
     Logger.debugLog('✅ Central Asset Audit service initialized successfully for Site Info');
   }
 

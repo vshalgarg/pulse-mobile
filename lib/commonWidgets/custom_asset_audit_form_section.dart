@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app/services/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -72,13 +73,14 @@ class CustomAssetAuditFormSection extends StatefulWidget {
 class _CustomAssetAuditFormSectionState extends State<CustomAssetAuditFormSection> {
   String? _uploadedImgId;
   String? _selectedStatus;
-  
+  String? _selectedPhotoPath;
 
   @override
   void initState() {
     super.initState();
     _selectedStatus = widget.statusInitialValue ?? "Ok";
     _uploadedImgId = widget.uploadedImageId;
+    _fetchAndDisplayServerImage(widget.uploadedImageId ?? "");
   }
 
   Future<void> _onImageSelected(File imageFile) async {
@@ -137,6 +139,31 @@ class _CustomAssetAuditFormSectionState extends State<CustomAssetAuditFormSectio
     }
   }
 
+  // Fetches and displays server image for editing using ImageUploadService
+  Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
+    try {
+      // Use ImageUploadService to get image data
+      final imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
+
+      if (mounted && imageData != null && imageData.isNotEmpty) {
+        // Ensure the image data has proper data URL format
+        final finalImageData = imageData.startsWith('data:image/')
+            ? imageData
+            : 'data:image/jpeg;base64,$imageData';
+
+        setState(() {
+          _selectedPhotoPath = finalImageData; // Store as base64 data for display
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _selectedPhotoPath = uniqueId;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -191,7 +218,7 @@ class _CustomAssetAuditFormSectionState extends State<CustomAssetAuditFormSectio
                 _onImageSelected(file);
               }
             },
-            externalImageUrl: _uploadedImgId,
+            externalImageUrl: _selectedPhotoPath ?? ""
           ),
           getHeight(15),
         ],

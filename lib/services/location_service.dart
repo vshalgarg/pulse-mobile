@@ -6,7 +6,7 @@ import 'offline_location_service.dart';
 class LocationService {
   /// Get user's current location with offline support
   static Future<Map<String, String>?> getCurrentLocationOffline() async {
-    return await OfflineLocationService.getCurrentLocationOffline();
+  //  return await OfflineLocationService.getCurrentLocationOffline();
   }
 
   /// Get user's current location
@@ -51,7 +51,7 @@ class LocationService {
   }
   
   /// Open Google Maps with directions from current location to destination
-  static Future<void> openGoogleMapsDirections({
+  static Future<void> _openGoogleMapsDirections({
     required double destinationLat,
     required double destinationLng,
     String? destinationName,
@@ -130,7 +130,7 @@ class LocationService {
     String? siteName,
     required BuildContext context,
   }) async {
-    await openGoogleMapsDirections(
+    await _openGoogleMapsDirections(
       destinationLat: siteLat,
       destinationLng: siteLng,
       destinationName: siteName,

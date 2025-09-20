@@ -1,3 +1,4 @@
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -73,10 +74,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _serialNumberController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -155,6 +153,8 @@ class _DGV2ScreenState extends State<DGV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? '';
 
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized form controllers');
     if (mounted) {
       setState(() {});
@@ -227,7 +227,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ DG V2: Data posted successfully');
@@ -259,70 +259,6 @@ class _DGV2ScreenState extends State<DGV2Screen> {
     } else {
       AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
-  }
-
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 
   @override
@@ -491,55 +427,56 @@ class _DGV2ScreenState extends State<DGV2Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // DG Availability (readonly)
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "DG Availability",
           isRequired: true,
-          groupValue: _displayFormData?['dgAvailable'] ?? "No",
+          initialSelectedValue: _displayFormData?['dgAvailable'] ?? "No",
         ),
         getHeight(15),
 
-        // DG Make (readonly)
-        CustomFormField(
-          label: "DG Make",
-          initialValue: _displayFormData?['dgMake'] ?? 'N/A',
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
+        if(_displayFormData?['dgAvailable']?.toString() == "Yes") ...[
+          // DG Make (readonly)
+          CustomFormField(
+            label: "DG Make",
+            initialValue: _displayFormData?['dgMake'] ?? 'N/A',
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
 
-        // Count of DG Set (readonly)
-        CustomFormField(
-          label: "Count of DG Set",
-          initialValue: _displayFormData?['dgCount'] ?? '0',
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
+          // Count of DG Set (readonly)
+          CustomFormField(
+            label: "Count of DG Set",
+            initialValue: _displayFormData?['dgCount'] ?? '0',
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
 
-        // DG Details Section using AssetAuditFormComponent
-        AssetAuditFormComponent(
-          componentId: 'dg_component',
-          serialLabel: "DG - Serial Number *",
-          serialHintText: "DG Serial Number *",
-          photoLabel: "Add a Photo",
-          disabledFieldLabel: "Capacity",
-          disabledFieldValue: 'N/A',
-          serialController: _serialNumberController,
-          initialSavedItems: _displayFormData?['dgAssets'] as List<dynamic>? ?? [],
-          onItemSaved: _onDGItemSaved,
-          onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
-          customValidator: _validateDGSerialNumber,
-          customValidationErrorMessage: "Invalid DG serial number. Please check and try again.",
-          siteAuditSchId: widget.siteAuditSchId,
-          showTable: true,
-          tableTitle: "DG Items",
-        ),
-        getHeight(20),
-
+          // DG Details Section using AssetAuditFormComponent
+          AssetAuditFormComponent(
+            componentId: 'dg_component',
+            serialLabel: "DG - Serial Number *",
+            serialHintText: "DG Serial Number *",
+            photoLabel: "Add a Photo",
+            disabledFieldLabel: "Capacity",
+            disabledFieldValue: 'N/A',
+            serialController: _serialNumberController,
+            initialSavedItems: _displayFormData?['dgAssets'] as List<dynamic>? ?? [],
+            onItemSaved: _onDGItemSaved,
+            onStatusChanged: (status) {
+              setState(() {
+                _hasFormDataChanges = true;
+              });
+            },
+            customValidator: _validateDGSerialNumber,
+            customValidationErrorMessage: "Invalid DG serial number. Please check and try again.",
+            siteAuditSchId: widget.siteAuditSchId,
+            showTable: true,
+            tableTitle: "DG Items",
+          ),
+          getHeight(20),
+        ],
         // Add Remarks
         CustomRemarksField(
           label: "Add Remarks",

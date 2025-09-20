@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/constants_strings.dart';
@@ -243,24 +244,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   }
 
   Widget _buildRadioField() {
-    return CustomOptionSelector(
-      options: [
-        OptionItem(
-          value: 'Yes', 
-          label: 'Yes',
-          selectedIcon: Icons.radio_button_checked,
-          unselectedIcon: Icons.radio_button_unchecked,
-        ),
-        OptionItem(
-          value: 'No', 
-          label: 'No',
-          selectedIcon: Icons.radio_button_checked,
-          unselectedIcon: Icons.radio_button_unchecked,
-        ),
-      ],
-      initialValue: _selectedRadioValue,
-      onChanged: (value) => _onRadioChanged(value),
-    );
+    return WidgetHelper.buildRadioField(isRequired: true,
+        initialSelectedValue: _selectedRadioValue ?? 'Yes',
+        onChanged: _onRadioChanged);
   }
 
   Widget _buildTextField() {

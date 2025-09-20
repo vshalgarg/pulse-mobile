@@ -1,3 +1,4 @@
+import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -58,10 +59,6 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _acdbSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
   }
 
   @override
@@ -140,6 +137,8 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -207,7 +206,7 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT'
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT'
       );
       
       Logger.debugLog('✅ ACDB V2: Data posted successfully');
@@ -443,9 +442,6 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onACDBItemSaved,
           onStatusChanged: (status) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
           },
           customValidator: _validateACDBSerialNumber,
           customValidationErrorMessage: "Invalid ACDB serial number. Please check and try again.",
@@ -454,20 +450,15 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
           tableTitle: "ACDB Items",
         ),
         getHeight(15),
-        
+
         // Remarks
-        CustomFormField(
+        CustomRemarksField(
           label: "Add Remarks",
-          initialValue: "",
-          isRequired: false,
-          isEditable: true,
+          hintText: "Remarks",
           controller: _remarksController,
-          onChanged: (value) {
-            setState(() {
-              _hasFormDataChanges = true;
-            });
-          },
+          initialValue: _displayFormData?['remarks'] ?? '',
         ),
+        getHeight(15),
       ],
     );
   }

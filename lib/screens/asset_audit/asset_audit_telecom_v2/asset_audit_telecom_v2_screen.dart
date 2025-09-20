@@ -72,16 +72,6 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for Telecom');
     _service = ServiceLocator().centralAssetAuditService;
 
-    // Check if service is initialized
-    if (!CentralAssetAuditServiceInitializer.isInitialized) {
-      Logger.errorLog('❌ Central service not initialized!');
-      setState(() {
-        _errorMessage = 'Central service not initialized. Please restart the app.';
-        _isLoadingData = false;
-      });
-      return;
-    }
-
     Logger.debugLog('✅ Central Asset Audit service initialized successfully for Telecom');
   }
 
@@ -195,6 +185,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
         imageFile: _selectedImage!,
+        isSelfie: true
       );
 
       final dbData = await _service.getActualDataFromSqlite(

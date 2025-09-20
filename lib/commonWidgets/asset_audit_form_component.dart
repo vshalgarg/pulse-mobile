@@ -630,8 +630,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _editingItem = item;
       widget.serialController.text = item['mfg_serial_no'] ?? '';
       _selectedStatus = item['asset_status'] == 'OK' ? true : false;
-      _isQRCodeScanned = item['qr_code_scanned'];
-      qrCodeScannedTs = item['isQRCodeScanned'] == true ? item['qrCodeScannedTs'] : null;
+      _isQRCodeScanned = item['qr_code_scanned'] ?? false;
+      qrCodeScannedTs = item['qr_code_scanned'] == true ? item['qr_code_scanned_ts'] : null;
       _hasNewPhotoSelected = false; // Reset flag when starting to edit
     });
     
@@ -761,16 +761,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                     MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                   );
                   if (result != null && result is String) {
-                    
-                    
-                      setState(() {
-
-                        widget.serialController.text = result.toUpperCase();
-                        _isQRCodeScanned = true;
-                        qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
-                        _showValidationErrors = false;
-                      });
-                    
+                    setState(() {
+                      widget.serialController.text = result.toUpperCase();
+                      _isQRCodeScanned = true;
+                      qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
+                      _showValidationErrors = false;
+                    });
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(

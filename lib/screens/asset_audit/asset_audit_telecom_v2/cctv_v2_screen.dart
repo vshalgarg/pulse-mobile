@@ -8,6 +8,8 @@ import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/extensions/string_extension.dart';
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/asset_audit/central_service_initializer.dart';
 import 'package:app/services/asset_audit_post_service.dart';
@@ -59,15 +61,13 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
   // Section visibility states
   bool _showCCTVDetails = false;
 
+  String hooterAvailableValue = 'No';
+
   @override
   void initState() {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _cctvSerialController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
   }
 
   @override
@@ -104,13 +104,16 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
 
         // Parse CCTV data
         final cctvAssets = cctvItems['assets'] as List<dynamic>? ?? [];
+        final hooterAssets = cctvItems['Hooter'] as List<dynamic>? ?? [];
         final remarksData = cctvItems['remarks'] as List<dynamic>? ?? [];
 
         final formData = <String, dynamic>{
+          'hooterAvailable': hooterAssets.isNotEmpty,
           'cctvAvailable': cctvAssets.isNotEmpty ? "Yes" : "No",
           'cctvCount': cctvAssets.length.toString(),
           'cctvAssets': cctvAssets.where((obj) => obj['photo_id'] != null).toList(),
           'cctvAllAssets': cctvAssets,
+          'remarksAvailable': remarksData.isNotEmpty,
           'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
         };
 
@@ -118,6 +121,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           _isLoadingData = false;
           _assetAuditData = data;
           _displayFormData = formData;
+          hooterAvailableValue = hooterAssets.first?['asset_status']?.toString() ?? 'No';
           _showCCTVDetails = cctvAssets.isNotEmpty;
         });
 
@@ -142,6 +146,8 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     final remarks = formData['remarks'] ?? "";
     _remarksController.text = remarks;
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
     if (mounted) {
       setState(() {});
@@ -169,10 +175,17 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
       final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       final finalCCTVAssets = finalData['assets'] as List<dynamic>? ?? [];
+      final finalHooterData = finalData['Hooter'] as List<dynamic>? ?? [];
       
       // Collect modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
-      
+
+      //update hooter
+      if(finalHooterData.isNotEmpty) {
+        finalHooterData.first['asset_status'] = hooterAvailableValue;
+        modifiedAssetsWithAllProperties.add(finalHooterData.first);
+      }
+
       // Add CCTV assets
       final modifiedCCTVAssets = _displayFormData?['cctvAssets'] as List<dynamic>? ?? [];
       modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalCCTVAssets, modifiedCCTVAssets));
@@ -210,7 +223,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Surveillance V2: Data posted successfully');
@@ -244,69 +257,11 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
     }
   }
 
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-    required Function(String?) onChanged,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+  void _onHooterValueChanged (String value) {
+    setState(() {
+      hooterAvailableValue = value;
+      _hasFormDataChanges = true;
+    });
   }
 
   @override
@@ -474,17 +429,21 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if(_displayFormData?['hooterAvailable'] || false) ...[
+          WidgetHelper.buildRadioField(
+            label: "Hooter Available",
+            isRequired: true,
+            initialSelectedValue: hooterAvailableValue.capitalize() ?? "No",
+            onChanged: _onHooterValueChanged,
+          ),
+          getHeight(15),
+        ],
+
         // CCTV Available
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "CCTV Available",
           isRequired: true,
-          groupValue: _displayFormData?['cctvAvailable'] ?? "No",
-          onChanged: (value) {
-            setState(() {
-              _displayFormData?['cctvAvailable'] = value;
-              _hasFormDataChanges = true;
-            });
-          },
+          initialSelectedValue: _displayFormData?['cctvAvailable'] ?? "No",
         ),
         getHeight(15),
 
@@ -519,9 +478,6 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
             initialSavedItems: _displayFormData?['cctvAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onCCTVItemSaved,
             onStatusChanged: (status) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             customValidator: _validateCCTVSerialNumber,
             customValidationErrorMessage: "Invalid CCTV serial number. Please check and try again.",
@@ -531,13 +487,15 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           ),
           getHeight(15),
         ],
-        
-        // Remarks using CustomRemarksField
-        CustomRemarksField(
-          label: "Add Remarks",
-          hintText: "Remarks",
-          controller: _remarksController,
-        ),
+
+        if(_displayFormData?['remarksAvailable']! ?? false) ...[
+          // Remarks using CustomRemarksField
+          CustomRemarksField(
+            label: "Add Remarks",
+            hintText: "Remarks",
+            controller: _remarksController,
+          ),
+        ],
       ],
     );
   }

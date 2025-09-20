@@ -1,3 +1,4 @@
+import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -65,9 +66,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-    
-    // Add listeners for form changes
-    _remarksController.addListener(_onFormChanged);
+
   }
 
   @override
@@ -105,11 +104,11 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
         final remarksData = boundaryItems['remarks'] as List<dynamic>;
         final assetsData = boundaryItems['assets'] as List<dynamic>;
 
-        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Boundary').first : null;
+        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['item_type'] == 'Boundary').first : null;
         final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
 
         final formData = <String, dynamic>{
-          'boundaryText': boundaryData['item_type']?.toString() ?? "N/A",
+          'boundaryText': boundaryData['record_type']?.toString() ?? "N/A",
           'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
         };
 
@@ -144,6 +143,8 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
   void _initializeFormControllers(Map<String, dynamic> formData) {
     _remarksController.text = formData['remarks'] ?? "";
     Logger.debugLog('📝 Initialized form controllers');
+    // Add listeners for form changes
+    _remarksController.addListener(_onFormChanged);
     if (mounted) {
       setState(() {});
     }
@@ -200,10 +201,6 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
         remarksData.first['item_type_remark'] = _remarksController.text.toString();
         modifiedData.add(remarksData);
       }
-
-
-
-
       // Collect all data to post
       final postObject = [...modifiedData];
 
@@ -221,7 +218,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
       // Post data with photo ID replacement
       await postService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_displayFormData, _screenName) == 'SUBMIT',
+        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
       );
       
       Logger.debugLog('✅ Boundary V2: Data posted successfully');
@@ -253,70 +250,6 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
     } else {
       AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
-  }
-
-  Widget _buildRadioButtonField({
-    required String label,
-    required bool isRequired,
-    required String groupValue,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            if (isRequired)
-              const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
-              ),
-          ],
-        ),
-        getHeight(8),
-        Row(
-          children: [
-            Radio<String>(
-              value: "Yes",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "Yes",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: "No",
-              groupValue: groupValue,
-              onChanged: null,
-              activeColor: AppColors.primaryGreen,
-            ),
-            const Text(
-              "No",
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
   }
 
   @override
@@ -483,10 +416,10 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Fencing/Boundary Available
-        _buildRadioButtonField(
+        WidgetHelper.buildDisabledRadioField(
           label: "Fencing/Boundary Available",
           isRequired: true,
-          groupValue: _fencingAvailable,
+          initialSelectedValue: _fencingAvailable,
         ),
         getHeight(15),
         
@@ -500,9 +433,6 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
             isInputEditable: false,
             inputInitialValue: _displayFormData?['boundaryText'] ?? "",
             onInputChanged: (value) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
             },
             photoLabel: "Add a Photo",
             isPhotoRequired: true,
