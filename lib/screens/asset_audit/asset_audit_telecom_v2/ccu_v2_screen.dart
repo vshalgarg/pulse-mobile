@@ -276,108 +276,121 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   }
 
   Future<void> postCurrentScreenData() async {
-  try {
-    Logger.debugLog('📤 CCU V2: Starting postCurrentScreenData');
+    try {
+      Logger.debugLog('📤 CCU V2: Starting postCurrentScreenData');
 
-    final finalCCuData =
-        _assetAuditData?['responseData']?[AssetAuditNavigationHelper.dataValueForPage(
-              _screenName,
-              'TELECOM',
-            )] as Map<String, dynamic>?;
+      final finalCCuData =
+          _assetAuditData?['responseData']?[AssetAuditNavigationHelper.dataValueForPage(
+                _screenName,
+                'TELECOM',
+              )]
+              as Map<String, dynamic>?;
 
-    final modifiedAssetsWithAllProperties = <Map<String, dynamic>>[];
+      final modifiedAssetsWithAllProperties = <Map<String, dynamic>>[];
 
-    // ===== CCU Cabinet =====
-    final ccuCabinetList = finalCCuData?['CCU Cabinet'];
-    if (ccuCabinetList != null && ccuCabinetList is List && ccuCabinetList.isNotEmpty) {
-      for (var cabinet in ccuCabinetList) {
-        final cabinetMap = Map<String, dynamic>.from(cabinet);
+      // ===== CCU Cabinet =====
+      final ccuCabinetList = finalCCuData?['CCU Cabinet'];
+      if (ccuCabinetList != null &&
+          ccuCabinetList is List &&
+          ccuCabinetList.isNotEmpty) {
+        for (var cabinet in ccuCabinetList) {
+          final cabinetMap = Map<String, dynamic>.from(cabinet);
 
-        if (_cabinetSerialController.text.isNotEmpty && _cabinetPhotoId != null) {
-          bool isValid = _validateCabinetSerialNumber(
-            _cabinetSerialController.text,
-            isQrCodeScanned ?? false,
-          );
+          if (_cabinetSerialController.text.isNotEmpty &&
+              _cabinetPhotoId != null) {
+            bool isValid = _validateCabinetSerialNumber(
+              _cabinetSerialController.text,
+              isQrCodeScanned ?? false,
+            );
 
-          if (!isValid) {
-            throw Exception("Please select cabinet serial number");
+            if (!isValid) {
+              throw Exception("Please select cabinet serial number");
+            }
+
+            cabinetMap['photo_id'] = _cabinetPhotoId;
+            cabinetMap['asset_status'] = 'OK';
+
+            if (isQrCodeScanned ?? false) {
+              cabinetMap['qr_code_scanned'] = true;
+              cabinetMap['qr_code_scanned_ts'] = qrCodeScannedTs;
+            }
+
+            modifiedAssetsWithAllProperties.add(cabinetMap);
           }
-
-          cabinetMap['photo_id'] = _cabinetPhotoId;
-          cabinetMap['asset_status'] = 'OK';
-
-          if (isQrCodeScanned ?? false) {
-            cabinetMap['qr_code_scanned'] = true;
-            cabinetMap['qr_code_scanned_ts'] = qrCodeScannedTs;
-          }
-
-          modifiedAssetsWithAllProperties.add(cabinetMap);
         }
       }
-    }
 
-    // ===== CCU Rectifiers =====
-    final rectifierList = finalCCuData?['CCU Rectifiers'];
-    if (rectifierList != null && rectifierList is List && rectifierList.isNotEmpty) {
-      final modifiedRectifiers = _modifyData(rectifierList, _savedRectifiers) ?? [];
-      modifiedAssetsWithAllProperties.addAll(modifiedRectifiers.cast<Map<String, dynamic>>());
-    }
-
-    // ===== CCU MPPT =====
-    final mpptList = finalCCuData?['CCU MPPT'];
-    if (mpptList != null && mpptList is List && mpptList.isNotEmpty) {
-      final modifiedMppts = _modifyData(mpptList, _savedMPPTs) ?? [];
-      modifiedAssetsWithAllProperties.addAll(modifiedMppts.cast<Map<String, dynamic>>());
-    }
-
-    // ===== Remarks =====
-    final remarksList = finalCCuData?['Remarks'];
-    if (remarksList != null && remarksList is List && remarksList.isNotEmpty) {
-      final finalRemarks = Map<String, dynamic>.from(remarksList.first);
-      final String remark = _remarksController.text;
-      if (remark.isNotEmpty) {
-        finalRemarks['item_type_remark'] = remark;
-        modifiedAssetsWithAllProperties.add(finalRemarks);
+      // ===== CCU Rectifiers =====
+      final rectifierList = finalCCuData?['CCU Rectifiers'];
+      if (rectifierList != null &&
+          rectifierList is List &&
+          rectifierList.isNotEmpty) {
+        final modifiedRectifiers =
+            _modifyData(rectifierList, _savedRectifiers) ?? [];
+        modifiedAssetsWithAllProperties.addAll(
+          modifiedRectifiers.cast<Map<String, dynamic>>(),
+        );
       }
+
+      // ===== CCU MPPT =====
+      final mpptList = finalCCuData?['CCU MPPT'];
+      if (mpptList != null && mpptList is List && mpptList.isNotEmpty) {
+        final modifiedMppts = _modifyData(mpptList, _savedMPPTs) ?? [];
+        modifiedAssetsWithAllProperties.addAll(
+          modifiedMppts.cast<Map<String, dynamic>>(),
+        );
+      }
+
+      // ===== Remarks =====
+      final remarksList = finalCCuData?['Remarks'];
+      if (remarksList != null &&
+          remarksList is List &&
+          remarksList.isNotEmpty) {
+        final finalRemarks = Map<String, dynamic>.from(remarksList.first);
+        final String remark = _remarksController.text;
+        if (remark.isNotEmpty) {
+          finalRemarks['item_type_remark'] = remark;
+          modifiedAssetsWithAllProperties.add(finalRemarks);
+        }
+      }
+
+      // ===== Update local SQLite =====
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
+
+      // ===== Prepare data for posting =====
+      final postObject = [...modifiedAssetsWithAllProperties];
+
+      Logger.debugLog(
+        '📤 SPV V2: Prepared ${postObject.length} items for posting',
+      );
+
+      // ===== Post API =====
+      final apiService = AppConfig.of(context).apiService;
+      final imageUploadService = ImageUploadService(apiService: apiService);
+      final postService = AssetAuditPostService(
+        apiService: apiService,
+        imageUploadService: imageUploadService,
+      );
+
+      await postService.postAssetAuditDataWithPhotoReplacement(
+        requests: postObject,
+        isLastPage:
+            AssetAuditNavigationHelper.getTelecomNextScreenName(
+              _assetAuditData,
+              _screenName,
+            ) ==
+            'SUBMIT',
+      );
+
+      Logger.debugLog('✅ SPV V2: Data posted successfully');
+    } catch (e, s) {
+      Logger.errorLog('❌ CCU V2: Error in postCurrentScreenData: $e', s);
+      rethrow;
     }
-
-    // ===== Update local SQLite =====
-    _service.updateDataInSqlite(
-      siteAuditSchId: widget.siteAuditSchId,
-      updatedData: _assetAuditData ?? {},
-    );
-
-    // ===== Prepare data for posting =====
-    final postObject = [...modifiedAssetsWithAllProperties];
-
-    Logger.debugLog(
-      '📤 SPV V2: Prepared ${postObject.length} items for posting',
-    );
-
-    // ===== Post API =====
-    final apiService = AppConfig.of(context).apiService;
-    final imageUploadService = ImageUploadService(apiService: apiService);
-    final postService = AssetAuditPostService(
-      apiService: apiService,
-      imageUploadService: imageUploadService,
-    );
-
-    await postService.postAssetAuditDataWithPhotoReplacement(
-      requests: postObject,
-      isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(
-            _assetAuditData,
-            _screenName,
-          ) ==
-          'SUBMIT',
-    );
-
-    Logger.debugLog('✅ SPV V2: Data posted successfully');
-  } catch (e, s) {
-    Logger.errorLog('❌ CCU V2: Error in postCurrentScreenData: $e', s);
-    rethrow;
   }
-}
-
 
   // Future<void> postCurrentScreenData() async {
   //   try {
@@ -520,7 +533,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
   // Custom validation function for Cabinet serial number
   bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
-
     print("cabinets: ${_displayFormData?['cabinets']}");
     print("serialNumber: $serialNumber");
     print("isQRCodeScanned: $isQRCodeScanned");
@@ -739,51 +751,53 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           ),
           getHeight(20),
         ],
+
         // Total Count of Rectifier
-        CustomFormField(
-          label: "Total Count of Rectifier",
-          initialValue: _displayFormData?['totalRectifier'] ?? "0",
-          isRequired: false,
-          isEditable: false,
-        ),
-        getHeight(15),
-
-        // Rectifiers Details Section
-        Container(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                "Rectifiers Details",
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
-              AssetAuditFormComponent(
-                componentId: 'rectifier_component',
-                serialLabel: "Rectifier - Serial Number *",
-                serialHintText: "Rectifier Serial Number *",
-                photoLabel: "Add a Photo",
-                serialController: _rectifierSerialController,
-                initialSavedItems: _savedRectifiers,
-                onItemSaved: _onRectifierSaved,
-                onStatusChanged: (status) {
-                  setState(() {
-                    _hasFormDataChanges = true;
-                  });
-                },
-                customValidator: _validateRectifierSerialNumber,
-                siteAuditSchId: widget.siteAuditSchId,
-                showTable: true,
-                tableTitle: "Rectifiers",
-              ),
-            ],
+        if (_displayFormData?['totalRectifier'] != "0") ...[
+          CustomFormField(
+            label: "Total Count of Rectifier",
+            initialValue: _displayFormData?['totalRectifier'] ?? "0",
+            isRequired: false,
+            isEditable: false,
           ),
-        ),
+          getHeight(15),
 
+          // Rectifiers Details Section
+          Container(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Rectifiers Details",
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+
+                AssetAuditFormComponent(
+                  componentId: 'rectifier_component',
+                  serialLabel: "Rectifier - Serial Number *",
+                  serialHintText: "Rectifier Serial Number *",
+                  photoLabel: "Add a Photo",
+                  serialController: _rectifierSerialController,
+                  initialSavedItems: _savedRectifiers,
+                  onItemSaved: _onRectifierSaved,
+                  onStatusChanged: (status) {
+                    setState(() {
+                      _hasFormDataChanges = true;
+                    });
+                  },
+                  customValidator: _validateRectifierSerialNumber,
+                  siteAuditSchId: widget.siteAuditSchId,
+                  showTable: true,
+                  tableTitle: "Rectifiers",
+                ),
+              ],
+            ),
+          ),
+        ],
         // Total Count of MPPT
         if (_displayFormData?['totalMPPT'] != "0") ...[
           CustomFormField(

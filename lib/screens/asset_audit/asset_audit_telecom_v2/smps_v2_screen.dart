@@ -457,14 +457,16 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                 getHeight(15),
 
                                 // Count of SMPS (readonly)
-                                CustomFormField(
-                                  label: "Count of SMPS",
-                                  hintText:
-                                      _displayFormData?['smpsCount'] ?? "0",
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(15),
+                                if (_displayFormData?['smpsCount'] != "0") ...[
+                                  CustomFormField(
+                                    label: "Count of SMPS",
+                                    hintText:
+                                        _displayFormData?['smpsCount'] ?? "0",
+                                    isRequired: false,
+                                    isEditable: false,
+                                  ),
+                                  getHeight(15),
+                                ],
 
                                 if (_displayFormData?['smpsCabinetAvailable'] ??
                                     false) ...[
@@ -493,83 +495,92 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                   getHeight(20),
                                 ],
 
-                                // Count of SMPS Rectifiers (readonly)
-                                CustomFormField(
-                                  label: "Count of Rectifiers",
-                                  hintText:
-                                      _displayFormData?['smpsRectifiersCount'] ??
-                                      "0",
-                                  isRequired: false,
-                                  isEditable: false,
-                                ),
-                                getHeight(20),
+                                if (_displayFormData?['smpsRectifiersCount'] !=
+                                    "0") ...[
+                                  // Count of SMPS Rectifiers (readonly)
+                                  CustomFormField(
+                                    label: "Count of Rectifiers",
+                                    hintText:
+                                        _displayFormData?['smpsRectifiersCount'] ??
+                                        "0",
+                                    isRequired: false,
+                                    isEditable: false,
+                                  ),
+                                  getHeight(20),
 
-                                // SMPS Rectifiers Section
-                                AssetAuditFormComponent(
-                                  componentId: 'smps_rectifiers_component',
-                                  serialLabel: "Rectifier - Serial Number *",
-                                  serialHintText: "Rectifier Serial Number *",
-                                  photoLabel: "Add a Photo",
-                                  serialController: TextEditingController(),
-                                  initialSavedItems:
-                                      _displayFormData?['smpsRectifiers']
-                                          as List<dynamic>? ??
-                                      [],
-                                  onItemSaved: _onSMPSRectifierItemSaved,
-                                  onStatusChanged: (status) {},
-                                  customValidator:
-                                      _validateRectifierSerialNumber,
-                                  customValidationErrorMessage:
-                                      "Invalid SMPS Rectifiers serial number. Please check and try again.",
-                                  siteAuditSchId: widget.siteAuditSchId,
-                                  showTable: true,
-                                  tableTitle: "SMPS Rectifiers",
-                                ),
-                                getHeight(20),
+                                  // SMPS Rectifiers Section
+                                  AssetAuditFormComponent(
+                                    componentId: 'smps_rectifiers_component',
+                                    serialLabel: "Rectifier - Serial Number *",
+                                    serialHintText: "Rectifier Serial Number *",
+                                    photoLabel: "Add a Photo",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['smpsRectifiers']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onSMPSRectifierItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator:
+                                        _validateRectifierSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid SMPS Rectifiers serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "SMPS Rectifiers",
+                                  ),
+                                  getHeight(20),
+                                ],
 
                                 // ACDB Section
-                                AssetAuditFormComponent(
-                                  componentId: 'acdb_component',
-                                  serialLabel: "ACDB *",
-                                  serialHintText: "ACDB *",
-                                  photoLabel: "Add Photo of ACDB",
-                                  serialController: TextEditingController(),
-                                  initialSavedItems:
-                                      _displayFormData?['acdbAssets']
-                                          as List<dynamic>? ??
-                                      [],
-                                  onItemSaved: _onACDBItemSaved,
-                                  onStatusChanged: (status) {},
-                                  customValidator: _validateAcdbSerialNumber,
-                                  customValidationErrorMessage:
-                                      "Invalid ACDB serial number. Please check and try again.",
-                                  siteAuditSchId: widget.siteAuditSchId,
-                                  showTable: true,
-                                  tableTitle: "ACDB Items",
-                                ),
-                                getHeight(20),
+                                if (_displayFormData?['acdbAssetsCount'] !=
+                                    null) ...[
+                                  AssetAuditFormComponent(
+                                    componentId: 'acdb_component',
+                                    serialLabel: "ACDB *",
+                                    serialHintText: "ACDB *",
+                                    photoLabel: "Add Photo of ACDB",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['acdbAssets']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onACDBItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator: _validateAcdbSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid ACDB serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "ACDB Items",
+                                  ),
+                                  getHeight(20),
+                                ],
 
                                 // LSPU Section
-                                AssetAuditFormComponent(
-                                  componentId: 'lspu_component',
-                                  serialLabel: "LSPU *",
-                                  serialHintText: "LSPU *",
-                                  photoLabel: "Add Photo of LSPU",
-                                  serialController: TextEditingController(),
-                                  initialSavedItems:
-                                      _displayFormData?['lspuAssets']
-                                          as List<dynamic>? ??
-                                      [],
-                                  onItemSaved: _onLSPUItemSaved,
-                                  onStatusChanged: (status) {},
-                                  customValidator: _validateLspuSerialNumber,
-                                  customValidationErrorMessage:
-                                      "Invalid LSPU serial number. Please check and try again.",
-                                  siteAuditSchId: widget.siteAuditSchId,
-                                  showTable: true,
-                                  tableTitle: "LSPU Items",
-                                ),
-                                getHeight(20),
+                                if (_displayFormData?['lspuAssets'] !=
+                                    null) ...[
+                                  AssetAuditFormComponent(
+                                    componentId: 'lspu_component',
+                                    serialLabel: "LSPU *",
+                                    serialHintText: "LSPU *",
+                                    photoLabel: "Add Photo of LSPU",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['lspuAssets']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onLSPUItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator: _validateLspuSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid LSPU serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "LSPU Items",
+                                  ),
+                                  getHeight(20),
+                                ],
 
                                 // Add Remarks
                                 CustomRemarksField(
