@@ -32,7 +32,8 @@ class BoundaryTelecomV2Screen extends StatefulWidget {
   });
 
   @override
-  State<BoundaryTelecomV2Screen> createState() => _BoundaryTelecomV2ScreenState();
+  State<BoundaryTelecomV2Screen> createState() =>
+      _BoundaryTelecomV2ScreenState();
 }
 
 class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
@@ -53,7 +54,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   String? _errorMessage;
   bool _hasFormDataChanges = false;
 
-
   // Photo IDs
   String? _fencingPhotoId;
   String? _overallSitePhotoId;
@@ -68,7 +68,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-
   }
 
   @override
@@ -92,26 +91,49 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Boundary V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog(
+        '🔄 Boundary V2: Loading data for site ${widget.siteAuditSchId}',
+      );
 
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final boundaryItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
-        as Map<String, dynamic>? ?? {};
+        final boundaryItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'TELECOM',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
         // Parse Boundary data - it's an array
         final remarksData = boundaryItems['remarks'] as List<dynamic>;
         final assetsData = boundaryItems['assets'] as List<dynamic>;
 
-        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] != null && data['record_type'] != 'Overall Site').first : null;
-        final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
+        final boundaryDataList = assetsData.isNotEmpty
+            ? assetsData.where(
+                (data) =>
+                    data['record_type'] != null &&
+                    data['record_type'] != 'Overall Site',
+              )
+            : [];
+        final boundaryData = boundaryDataList.isNotEmpty
+            ? boundaryDataList.first
+            : null;
+        final overallSiteDataList = assetsData.isNotEmpty
+            ? assetsData.where((data) => data['record_type'] == 'Overall Site')
+            : [];
+        final overallSiteData = overallSiteDataList.isNotEmpty
+            ? overallSiteDataList.first
+            : null;
 
         final formData = <String, dynamic>{
           'boundaryText': boundaryData?['record_type']?.toString() ?? "",
-          'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
+          'remarks': remarksData.isNotEmpty
+              ? remarksData.first['item_type_remark']?.toString() ?? ""
+              : "",
         };
 
         setState(() {
@@ -120,8 +142,10 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
           _displayFormData = formData;
           _fencingAvailable = boundaryData != null ? 'Yes' : 'No';
           _overallSiteAvailable = overallSiteData != null ? 'Yes' : 'No';
-          _fencingPhotoId = boundaryData['photo_id']?.toString() ?? null;
-          _overallSitePhotoId = overallSiteData != null ? overallSiteData['photo_id']?.toString() : null;
+          _fencingPhotoId = boundaryData?['photo_id']?.toString() ?? null;
+          _overallSitePhotoId = overallSiteData != null
+              ? overallSiteData['photo_id']?.toString()
+              : null;
         });
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -176,44 +200,97 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   }
 
   Future<void> postCurrentScreenData() async {
+    print(
+      "postCurrentScreenData _assetAuditData : assetAuditData?['responseData']",
+    );
+
     try {
       Logger.debugLog('📤 Boundary V2: Starting postCurrentScreenData');
 
-      final finalBoundaryItems = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
-      as Map<String, dynamic>? ?? {};
+      final finalBoundaryItems =
+          _assetAuditData?['responseData']?[AssetAuditNavigationHelper.dataValueForPage(
+                _screenName,
+                'TELECOM',
+              )]
+              as Map<String, dynamic>? ??
+          {};
 
-      final modifiedData = [];
+      final modifiedData = <Map<String, dynamic>>[];
 
-      final remarksData = finalBoundaryItems['remarks'] as List<dynamic>;
-      final assetsData = finalBoundaryItems['assets'] as List<dynamic>;
+      final remarksData =
+          (finalBoundaryItems['remarks'] as List<dynamic>?) ?? [];
+      final assetsData = (finalBoundaryItems['assets'] as List<dynamic>?) ?? [];
 
-      final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] != null && data['record_type'] != 'Overall Site').first : null;
-      final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
+      print("finalBoundaryItems: $finalBoundaryItems");
 
-      if(_fencingAvailable == 'Yes') {
-        if(_fencingPhotoId != null && _fencingStatus.isNotEmpty) {
-          boundaryData['photo_id'] = _fencingPhotoId;
-          boundaryData['asset_status'] = _fencingStatus;
-          modifiedData.add(boundaryData);
+      // ===== Boundary Data =====
+      final boundaryDataList =
+          (assetsData.isNotEmpty
+                  ? assetsData.where(
+                      (data) =>
+                          data['record_type'] != null &&
+                          data['record_type'] != 'Overall Site',
+                    )
+                  : [])
+              .cast<Map<String, dynamic>>();
+
+      final boundaryData = boundaryDataList.isNotEmpty
+          ? boundaryDataList.first
+          : null;
+
+      // ===== Overall Site Data =====
+      final overallSiteDataList =
+          (assetsData.isNotEmpty
+                  ? assetsData.where(
+                      (data) => data['record_type'] == 'Overall Site',
+                    )
+                  : [])
+              .cast<Map<String, dynamic>>();
+
+      final overallSiteData = overallSiteDataList.isNotEmpty
+          ? overallSiteDataList.first
+          : null;
+
+      // ===== Boundary Update =====
+      if (_fencingAvailable == 'Yes') {
+        if (_fencingPhotoId != null && _fencingStatus.isNotEmpty) {
+          if (boundaryData != null) {
+            boundaryData['photo_id'] = _fencingPhotoId;
+            boundaryData['asset_status'] = _fencingStatus;
+            modifiedData.add(boundaryData);
+          }
         } else {
-          Toastbar.showErrorToastbar("Please select boundary photo and status", context);
+          Toastbar.showErrorToastbar(
+            "Please select boundary photo and status",
+            context,
+          );
           return;
         }
       }
 
-      if(_overallSiteAvailable == 'Yes' && _overallSitePhotoId != null) {
-        overallSiteData['photo_id'] = _overallSitePhotoId;
-        modifiedData.add(overallSiteData);
+      // ===== Overall Site Update =====
+      if (_overallSiteAvailable == 'Yes' && _overallSitePhotoId != null) {
+        if (overallSiteData != null) {
+          overallSiteData['photo_id'] = _overallSitePhotoId;
+          modifiedData.add(overallSiteData);
+        }
       }
-      if(remarksData.isNotEmpty && _remarksController.text.isNotEmpty) {
-        remarksData.first['item_type_remark'] = _remarksController.text.toString();
-        modifiedData.add(remarksData);
+
+      // ===== Remarks Update =====
+      if (remarksData.isNotEmpty && _remarksController.text.isNotEmpty) {
+        final remarksMap = Map<String, dynamic>.from(remarksData.first);
+        remarksMap['item_type_remark'] = _remarksController.text.toString();
+        modifiedData.add(remarksMap);
       }
-      // Collect all data to post
+
+      // ===== Collect All Data =====
       final postObject = [...modifiedData];
 
-      // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      // ===== Update Local SQLite =====
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
 
       // Post data with photo ID replacement
       await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
@@ -224,12 +301,111 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
 
 
       Logger.debugLog('✅ Boundary V2: Data posted successfully');
-
-    } catch (e) {
-      Logger.errorLog('❌ Boundary V2: Error in postCurrentScreenData: $e');
+    } catch (e, s) {
+      Logger.errorLog('❌ Boundary V2: Error in postCurrentScreenData: $e', s);
       rethrow;
     }
   }
+
+  // Future<void> postCurrentScreenData() async {
+  //   print(
+  //     "postCurrentScreenData _assetAuditData : assetAuditData?['responseData']",
+  //   );
+
+  //   try {
+  //     Logger.debugLog('📤 Boundary V2: Starting postCurrentScreenData');
+
+  //     final finalBoundaryItems =
+  //         _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+  //               _screenName,
+  //               'TELECOM',
+  //             )]
+  //             as Map<String, dynamic>? ??
+  //         {};
+
+  //     final modifiedData = [];
+
+  //     final remarksData = finalBoundaryItems['remarks'] as List<dynamic>;
+  //     final assetsData = finalBoundaryItems['assets'] as List<dynamic>;
+
+  //     print("finalBoundaryItems: $finalBoundaryItems");
+
+  //     final boundaryDataList = assetsData.isNotEmpty
+  //         ? assetsData.where(
+  //             (data) =>
+  //                 data['record_type'] != null &&
+  //                 data['record_type'] != 'Overall Site',
+  //           )
+  //         : [];
+  //     final boundaryData = boundaryDataList.isNotEmpty
+  //         ? boundaryDataList.first
+  //         : null;
+  //     final overallSiteDataList = assetsData.isNotEmpty
+  //         ? assetsData.where((data) => data['record_type'] == 'Overall Site')
+  //         : [];
+  //     final overallSiteData = overallSiteDataList.isNotEmpty
+  //         ? overallSiteDataList.first
+  //         : null;
+
+  //     print("finalBoundaryItems: $finalBoundaryItems");
+
+  //     if (_fencingAvailable == 'Yes') {
+  //       if (_fencingPhotoId != null && _fencingStatus.isNotEmpty) {
+  //         boundaryData['photo_id'] = _fencingPhotoId;
+  //         boundaryData['asset_status'] = _fencingStatus;
+  //         modifiedData.add(boundaryData);
+  //       } else {
+  //         Toastbar.showErrorToastbar(
+  //           "Please select boundary photo and status",
+  //           context,
+  //         );
+  //         return;
+  //       }
+  //     }
+
+  //     if (_overallSiteAvailable == 'Yes' && _overallSitePhotoId != null) {
+  //       overallSiteData['photo_id'] = _overallSitePhotoId;
+  //       modifiedData.add(overallSiteData);
+  //     }
+  //     if (remarksData.isNotEmpty && _remarksController.text.isNotEmpty) {
+  //       remarksData.first['item_type_remark'] = _remarksController.text
+  //           .toString();
+  //       modifiedData.add(remarksData);
+  //     }
+  //     // Collect all data to post
+  //     final postObject = [...modifiedData];
+
+  //     // Update local data
+  //     _service.updateDataInSqlite(
+  //       siteAuditSchId: widget.siteAuditSchId,
+  //       updatedData: _assetAuditData ?? {},
+  //     );
+
+  //     // Initialize AssetAuditPostService
+  //     final apiService = AppConfig.of(context).apiService;
+  //     final imageUploadService = ImageUploadService(apiService: apiService);
+  //     final postService = AssetAuditPostService(
+  //       apiService: apiService,
+  //       imageUploadService: imageUploadService,
+  //     );
+
+  //     // Post data with photo ID replacement
+  //     await postService.postAssetAuditDataWithPhotoReplacement(
+  //       requests: postObject,
+  //       isLastPage:
+  //           AssetAuditNavigationHelper.getTelecomNextScreenName(
+  //             _assetAuditData,
+  //             _screenName,
+  //           ) ==
+  //           'SUBMIT',
+  //     );
+
+  //     Logger.debugLog('✅ Boundary V2: Data posted successfully');
+  //   } catch (e) {
+  //     Logger.errorLog('❌ Boundary V2: Error in postCurrentScreenData: $e');
+  //     rethrow;
+  //   }
+  // }
 
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
@@ -241,12 +417,11 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
           section: "Asset Audit",
           parentContext: context,
           onSaveAndExit: () async {
-            if(_hasFormDataChanges) {
+            if (_hasFormDataChanges) {
               await postCurrentScreenData();
             }
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
@@ -369,11 +544,15 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
                             ),
 
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
 
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -434,8 +613,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
             inputHintText: "Fencing",
             isInputEditable: false,
             inputInitialValue: _displayFormData?['boundaryText'] ?? "",
-            onInputChanged: (value) {
-            },
+            onInputChanged: (value) {},
             photoLabel: "Add a Photo",
             isPhotoRequired: true,
             uploadedImageId: _fencingPhotoId,
@@ -449,7 +627,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
           ),
           getHeight(15),
         ],
-        if(_overallSiteAvailable == "Yes") ...[
+        if (_overallSiteAvailable == "Yes") ...[
           // Overall Site Photos Section
           CustomAssetAuditFormSection(
             sectionTitle: "Overall Site Photos",
@@ -464,7 +642,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
           ),
           getHeight(15),
         ],
-
 
         // Remarks using CustomRemarksField
         CustomRemarksField(

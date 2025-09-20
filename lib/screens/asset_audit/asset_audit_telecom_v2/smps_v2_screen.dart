@@ -57,7 +57,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-
   }
 
   @override
@@ -81,40 +80,63 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 SMPS V2: Loading data for site ${widget.siteAuditSchId}');
+      Logger.debugLog(
+        '🔄 SMPS V2: Loading data for site ${widget.siteAuditSchId}',
+      );
 
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final smpsItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
-            as Map<String, dynamic>? ?? {};
+        final smpsItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'TELECOM',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
-        // Parse different asset types
+        // Parse different asset type
+
         final smpsAssets = smpsItems['assets'] as List<dynamic>? ?? [];
-        final smpsRectifiers = smpsItems['SMPS Rectifiers'] as List<dynamic>? ?? [];
+        final smpsRectifiers =
+            smpsItems['SMPS Rectifiers'] as List<dynamic>? ?? [];
         final smpsCabinet = smpsItems['SMPS Cabinet'] as List<dynamic>? ?? [];
         final acdbAssets = smpsItems['ACDB'] as List<dynamic>? ?? [];
         final lspuAssets = smpsItems['LSPU'] as List<dynamic>? ?? [];
         final remarksData = smpsItems['remarks'] as List<dynamic>? ?? [];
 
         final formData = <String, dynamic>{
-          'smpsMake': smpsAssets.isNotEmpty ? smpsAssets.first['oem_name']?.toString() ?? 'N/A' : 'N/A',
+          'smpsMake': smpsAssets.isNotEmpty
+              ? smpsAssets.first['oem_name']?.toString() ?? 'N/A'
+              : 'N/A',
           'smpsCount': smpsAssets.length.toString(),
           'smpsRectifiersCount': smpsRectifiers.length.toString(),
-          'smpsAssets': smpsAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'smpsAssets': smpsAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'smpsAllAssets': smpsAssets,
-          'smpsRectifiers': smpsRectifiers.where((obj) => obj['photo_id'] != null).toList(),
+          'smpsRectifiers': smpsRectifiers
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'smpsRectifiersAllAssets': smpsRectifiers,
-          'smpsCabinet': smpsCabinet.where((obj) => obj['photo_id'] != null).toList(),
-          'smpsCabinetAvailable' : smpsCabinet.isNotEmpty,
+          'smpsCabinet': smpsCabinet
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
+          'smpsCabinetAvailable': smpsCabinet.isNotEmpty,
           'smpsCabinetAllAssets': smpsCabinet,
-          'acdbAssets': acdbAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'acdbAssets': acdbAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'acdbAllAssets': acdbAssets,
-          'lspuAssets': lspuAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'lspuAssets': lspuAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'lspuAllAssets': lspuAssets,
-          'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? '' : '',
+          'remarks': remarksData.isNotEmpty
+              ? remarksData.first['item_type_remark']?.toString() ?? ''
+              : '',
         };
 
         setState(() {
@@ -181,58 +203,111 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
 
   // Validation methods
   bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['smpsCabinetAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+    final savedItems =
+        _displayFormData?['smpsCabinetAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
-  bool _validateRectifierSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['smpsRectifiersAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  bool _validateRectifierSerialNumber(
+    String serialNumber,
+    bool isQRCodeScanned,
+  ) {
+    final savedItems =
+        _displayFormData?['smpsRectifiersAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   bool _validateAcdbSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['acdbAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+    final savedItems =
+        _displayFormData?['acdbAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   bool _validateLspuSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['lspuAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+    final savedItems =
+        _displayFormData?['lspuAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 SMPS V2: Starting postCurrentScreenData');
-      
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
+
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'TELECOM',
+          )];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      final finalSMPSRectifiers = finalData?['SMPS Rectifiers'] as List<dynamic>? ?? [];
-      final finalSMPSCabinet = finalData?['SMPS Cabinet'] as List<dynamic>? ?? [];
+      final finalSMPSRectifiers =
+          finalData?['SMPS Rectifiers'] as List<dynamic>? ?? [];
+      final finalSMPSCabinet =
+          finalData?['SMPS Cabinet'] as List<dynamic>? ?? [];
       final finalACDBAssets = finalData?['ACDB'] as List<dynamic>? ?? [];
       final finalLSPUAssets = finalData?['LSPU'] as List<dynamic>? ?? [];
-      
+
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
 
       // Add SMPS Rectifiers
-      final modifiedSMPSRectifiers = _displayFormData?['smpsRectifiers'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalSMPSRectifiers, modifiedSMPSRectifiers));
+      final modifiedSMPSRectifiers =
+          _displayFormData?['smpsRectifiers'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalSMPSRectifiers,
+          modifiedSMPSRectifiers,
+        ),
+      );
 
       // Add SMPS Cabinet
-      final modifiedSMPSCabinet = _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalSMPSCabinet, modifiedSMPSCabinet));
+      final modifiedSMPSCabinet =
+          _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalSMPSCabinet,
+          modifiedSMPSCabinet,
+        ),
+      );
 
       // Add ACDB assets
-      final modifiedACDBAssets = _displayFormData?['acdbAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalACDBAssets, modifiedACDBAssets));
+      final modifiedACDBAssets =
+          _displayFormData?['acdbAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalACDBAssets,
+          modifiedACDBAssets,
+        ),
+      );
 
       // Add LSPU assets
-      final modifiedLSPUAssets = _displayFormData?['lspuAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalLSPUAssets, modifiedLSPUAssets));
+      final modifiedLSPUAssets =
+          _displayFormData?['lspuAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalLSPUAssets,
+          modifiedLSPUAssets,
+        ),
+      );
 
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
           Logger.debugLog('✅ Updated remarks: $remark');
@@ -240,19 +315,21 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
 
       // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
 
-      Logger.debugLog('📤 SMPS V2: Prepared ${postObject.length} items for posting');
+      Logger.debugLog(
+        '📤 SMPS V2: Prepared ${postObject.length} items for posting',
+      );
 
-      // Post data with photo ID replacement
+
       await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
@@ -275,12 +352,11 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           section: "Asset Audit",
           parentContext: context,
           onSaveAndExit: () async {
-            if(_hasFormDataChanges) {
+            if (_hasFormDataChanges) {
               await postCurrentScreenData();
             }
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
@@ -299,199 +375,231 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           _showUnsavedChangesDialog();
         },
       ),
-        body: Stack(
-          children: [
-            // Background image
-            Positioned.fill(
-              child: SvgPicture.asset(
-                AppImages.home,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                height: double.infinity,
-              ),
+      body: Stack(
+        children: [
+          // Background image
+          Positioned.fill(
+            child: SvgPicture.asset(
+              AppImages.home,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
             ),
-            SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: _isLoadingData
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: AppColors.primaryGreen,
-                            ),
-                          )
-                        : _errorMessage != null
-                            ? Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      _errorMessage!,
-                                      style: const TextStyle(
-                                        color: AppColors.white,
-                                        fontSize: 16,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                    const SizedBox(height: 20),
-                                    ElevatedButton(
-                                      onPressed: _loadData,
-                                      child: const Text('Retry'),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : SingleChildScrollView(
-                                padding: EdgeInsets.only(
-                                  bottom: MediaQuery.of(context).viewInsets.bottom + 100,
-                                ),
-                                child: Container(
-                                  padding: const EdgeInsets.only(
-                                    left: 16,
-                                    right: 16,
-                                    top: 16,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                        // SMPS Make (readonly)
-                        CustomFormField(
-                          label: "SMPS Make",
-                          hintText: _displayFormData?['smpsMake'] ?? "N/A",
-                          isRequired: false,
-                          isEditable: false,
-                        ),
-                        getHeight(15),
-
-                        // Count of SMPS (readonly)
-                        CustomFormField(
-                          label: "Count of SMPS",
-                          hintText: _displayFormData?['smpsCount'] ?? "0",
-                          isRequired: false,
-                          isEditable: false,
-                        ),
-                        getHeight(15),
-
-                        if(_displayFormData?['smpsCabinetAvailable'] ?? false) ...[
-                          // SMPS Cabinet Section
-                          AssetAuditFormComponent(
-                            componentId: 'smps_cabinet_component',
-                            serialLabel: "Cabinet - Serial Number *",
-                            serialHintText: "Cabinet Serial Number *",
-                            photoLabel: "Add Photo of Cabinet Serial Number",
-                            serialController: TextEditingController(),
-                            initialSavedItems: _displayFormData?['smpsCabinet'] as List<dynamic>? ?? [],
-                            onItemSaved: _onSMPSCabinetItemSaved,
-                            onStatusChanged: (status) {
-                            },
-                            customValidator: _validateCabinetSerialNumber,
-                            customValidationErrorMessage: "Invalid SMPS Cabinet serial number. Please check and try again.",
-                            siteAuditSchId: widget.siteAuditSchId,
-                            showTable: true,
-                            tableTitle: "SMPS Cabinet",
+          ),
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(
+                  child: _isLoadingData
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryGreen,
                           ),
-                          getHeight(20),
-                        ],
+                        )
+                      : _errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _errorMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: _loadData,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                MediaQuery.of(context).viewInsets.bottom + 100,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.only(
+                              left: 16,
+                              right: 16,
+                              top: 16,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // SMPS Make (readonly)
+                                CustomFormField(
+                                  label: "SMPS Make",
+                                  hintText:
+                                      _displayFormData?['smpsMake'] ?? "N/A",
+                                  isRequired: false,
+                                  isEditable: false,
+                                ),
+                                getHeight(15),
 
-                        // Count of SMPS Rectifiers (readonly)
-                        CustomFormField(
-                          label: "Count of Rectifiers",
-                          hintText: _displayFormData?['smpsRectifiersCount'] ?? "0",
-                          isRequired: false,
-                          isEditable: false,
+                                // Count of SMPS (readonly)
+                                if (_displayFormData?['smpsCount'] != "0") ...[
+                                  CustomFormField(
+                                    label: "Count of SMPS",
+                                    hintText:
+                                        _displayFormData?['smpsCount'] ?? "0",
+                                    isRequired: false,
+                                    isEditable: false,
+                                  ),
+                                  getHeight(15),
+                                ],
+
+                                if (_displayFormData?['smpsCabinetAvailable'] ??
+                                    false) ...[
+                                  // SMPS Cabinet Section
+                                  AssetAuditFormComponent(
+                                    componentId: 'smps_cabinet_component',
+                                    serialLabel: "Cabinet - Serial Number *",
+                                    serialHintText: "Cabinet Serial Number *",
+                                    photoLabel:
+                                        "Add Photo of Cabinet Serial Number",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['smpsCabinet']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onSMPSCabinetItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator:
+                                        _validateCabinetSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid SMPS Cabinet serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "SMPS Cabinet",
+                                  ),
+                                  getHeight(20),
+                                ],
+
+                                if (_displayFormData?['smpsRectifiersCount'] !=
+                                    "0") ...[
+                                  // Count of SMPS Rectifiers (readonly)
+                                  CustomFormField(
+                                    label: "Count of Rectifiers",
+                                    hintText:
+                                        _displayFormData?['smpsRectifiersCount'] ??
+                                        "0",
+                                    isRequired: false,
+                                    isEditable: false,
+                                  ),
+                                  getHeight(20),
+
+                                  // SMPS Rectifiers Section
+                                  AssetAuditFormComponent(
+                                    componentId: 'smps_rectifiers_component',
+                                    serialLabel: "Rectifier - Serial Number *",
+                                    serialHintText: "Rectifier Serial Number *",
+                                    photoLabel: "Add a Photo",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['smpsRectifiers']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onSMPSRectifierItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator:
+                                        _validateRectifierSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid SMPS Rectifiers serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "SMPS Rectifiers",
+                                  ),
+                                  getHeight(20),
+                                ],
+
+                                // ACDB Section
+                                if (_displayFormData?['acdbAssetsCount'] !=
+                                    null) ...[
+                                  AssetAuditFormComponent(
+                                    componentId: 'acdb_component',
+                                    serialLabel: "ACDB *",
+                                    serialHintText: "ACDB *",
+                                    photoLabel: "Add Photo of ACDB",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['acdbAssets']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onACDBItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator: _validateAcdbSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid ACDB serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "ACDB Items",
+                                  ),
+                                  getHeight(20),
+                                ],
+
+                                // LSPU Section
+                                if (_displayFormData?['lspuAssets'] !=
+                                    null) ...[
+                                  AssetAuditFormComponent(
+                                    componentId: 'lspu_component',
+                                    serialLabel: "LSPU *",
+                                    serialHintText: "LSPU *",
+                                    photoLabel: "Add Photo of LSPU",
+                                    serialController: TextEditingController(),
+                                    initialSavedItems:
+                                        _displayFormData?['lspuAssets']
+                                            as List<dynamic>? ??
+                                        [],
+                                    onItemSaved: _onLSPUItemSaved,
+                                    onStatusChanged: (status) {},
+                                    customValidator: _validateLspuSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid LSPU serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "LSPU Items",
+                                  ),
+                                  getHeight(20),
+                                ],
+
+                                // Add Remarks
+                                CustomRemarksField(
+                                  label: "Add Remarks",
+                                  hintText: "Remarks",
+                                  controller: _remarksController,
+                                ),
+                                getHeight(20),
+                              ],
+                            ),
+                          ),
                         ),
-                        getHeight(20),
+                ),
 
-                        // SMPS Rectifiers Section
-                        AssetAuditFormComponent(
-                          componentId: 'smps_rectifiers_component',
-                          serialLabel: "Rectifier - Serial Number *",
-                          serialHintText: "Rectifier Serial Number *",
-                          photoLabel: "Add a Photo",
-                          serialController: TextEditingController(),
-                          initialSavedItems: _displayFormData?['smpsRectifiers'] as List<dynamic>? ?? [],
-                          onItemSaved: _onSMPSRectifierItemSaved,
-                          onStatusChanged: (status) {
-                          },
-                          customValidator: _validateRectifierSerialNumber,
-                          customValidationErrorMessage: "Invalid SMPS Rectifiers serial number. Please check and try again.",
-                          siteAuditSchId: widget.siteAuditSchId,
-                          showTable: true,
-                          tableTitle: "SMPS Rectifiers",
-                        ),
-                        getHeight(20),
-
-                        // ACDB Section
-                        AssetAuditFormComponent(
-                          componentId: 'acdb_component',
-                          serialLabel: "ACDB *",
-                          serialHintText: "ACDB *",
-                          photoLabel: "Add Photo of ACDB",
-                          serialController: TextEditingController(),
-                          initialSavedItems: _displayFormData?['acdbAssets'] as List<dynamic>? ?? [],
-                          onItemSaved: _onACDBItemSaved,
-                          onStatusChanged: (status) {
-                          },
-                          customValidator: _validateAcdbSerialNumber,
-                          customValidationErrorMessage: "Invalid ACDB serial number. Please check and try again.",
-                          siteAuditSchId: widget.siteAuditSchId,
-                          showTable: true,
-                          tableTitle: "ACDB Items",
-                        ),
-                        getHeight(20),
-
-                        // LSPU Section
-                        AssetAuditFormComponent(
-                          componentId: 'lspu_component',
-                          serialLabel: "LSPU *",
-                          serialHintText: "LSPU *",
-                          photoLabel: "Add Photo of LSPU",
-                          serialController: TextEditingController(),
-                          initialSavedItems: _displayFormData?['lspuAssets'] as List<dynamic>? ?? [],
-                          onItemSaved: _onLSPUItemSaved,
-                          onStatusChanged: (status) {
-                          },
-                          customValidator: _validateLspuSerialNumber,
-                          customValidationErrorMessage: "Invalid LSPU serial number. Please check and try again.",
-                          siteAuditSchId: widget.siteAuditSchId,
-                          showTable: true,
-                          tableTitle: "LSPU Items",
-                        ),
-                        getHeight(20),
-
-                        // Add Remarks
-                        CustomRemarksField(
-                          label: "Add Remarks",
-                          hintText: "Remarks",
-                          controller: _remarksController,
-                        ),
-                                        getHeight(20),
-                        ],
-                      ),
-                    ),
-                  ),
-                  ),
-
-                  // Bottom buttons using your specific format
-                  AssetAuditTelecomBottomButtons(
-                    isLoading: _isLoadingData,
-                    errorMessage: _errorMessage,
-                    onNextButtonClick: () async {
-                      if(_hasFormDataChanges) {
-                        await postCurrentScreenData();
-                      }
-                    },
-                    assetAuditData: _assetAuditData,
-                    auditSchId: widget.auditSchId,
-                    siteType: widget.siteType,
-                    siteAuditSchId: widget.siteAuditSchId,
-                    screenName: _screenName,
-                  ),
-                ],
-              ),
+                // Bottom buttons using your specific format
+                AssetAuditTelecomBottomButtons(
+                  isLoading: _isLoadingData,
+                  errorMessage: _errorMessage,
+                  onNextButtonClick: () async {
+                    if (_hasFormDataChanges) {
+                      await postCurrentScreenData();
+                    }
+                  },
+                  assetAuditData: _assetAuditData,
+                  auditSchId: widget.auditSchId,
+                  siteType: widget.siteType,
+                  siteAuditSchId: widget.siteAuditSchId,
+                  screenName: _screenName,
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
