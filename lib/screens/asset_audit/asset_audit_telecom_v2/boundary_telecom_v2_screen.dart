@@ -105,8 +105,10 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
         final remarksData = boundaryItems['remarks'] as List<dynamic>;
         final assetsData = boundaryItems['assets'] as List<dynamic>;
 
-        final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] != null && data['record_type'] != 'Overall Site').first : null;
-        final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
+        final boundaryDataList = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] != null && data['record_type'] != 'Overall Site') : [];
+        final boundaryData = boundaryDataList.isNotEmpty ? boundaryDataList.first : null;
+        final overallSiteDataList = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site') : [];
+        final overallSiteData = overallSiteDataList.isNotEmpty ? overallSiteDataList.first : null;
 
         final formData = <String, dynamic>{
           'boundaryText': boundaryData?['record_type']?.toString() ?? "",
@@ -119,7 +121,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
           _displayFormData = formData;
           _fencingAvailable = boundaryData != null ? 'Yes' : 'No';
           _overallSiteAvailable = overallSiteData != null ? 'Yes' : 'No';
-          _fencingPhotoId = boundaryData['photo_id']?.toString() ?? null;
+          _fencingPhotoId = boundaryData?['photo_id']?.toString() ?? null;
           _overallSitePhotoId = overallSiteData != null ? overallSiteData['photo_id']?.toString() : null;
         });
 

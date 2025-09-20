@@ -58,100 +58,111 @@ class PMPageHeaderSolar extends StatelessWidget {
                           ),
                         )
                       : errorMessage != null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    errorMessage!,
-                                    style: const TextStyle(
-                                      color: AppColors.white,
-                                      fontSize: 16,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  getHeight(20),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      // Retry logic can be added here
-                                    },
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                errorMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
+                                ),
+                                textAlign: TextAlign.center,
                               ),
-                            )
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // State (Solar)
-                                  CustomFormField(
-                                    label: 'State (Solar)',
-                                    initialValue: pageHeader?['circle']?.toString() ?? '',
-                                    isEditable: false,
-                                  ),
-                                  getHeight(16),
-                                  
-                                  // District (Solar)
-                                  CustomFormField(
-                                    label: 'District (Solar)',
-                                    initialValue: pageHeader?['cluster']?.toString() ?? '',
-                                    isEditable: false,
-                                  ),
-                                  getHeight(16),
-                                  
-                                  // Customer
-                                  CustomFormField(
-                                    label: 'Customer',
-                                    initialValue: pageHeader?['client_name']?.toString() ?? '',
-                                    isEditable: false,
-                                  ),
-                                  getHeight(16),
-                                  
-                                  // Site Id
-                                  CustomFormField(
-                                    label: 'Site Id',
-                                    initialValue: pageHeader?['site_code']?.toString() ?? '',
-                                    isEditable: false,
-                                  ),
-                                  getHeight(16),
-                                  
-                                  // Site Name
-                                  CustomFormField(
-                                    label: 'Site Name',
-                                    initialValue: pageHeader?['site_name']?.toString() ?? '',
-                                    isEditable: false,
-                                  ),
-                                  getHeight(16),
-                                  
-                                  // Site Type
-                                  CustomFormField(
-                                    label: 'Site Type',
-                                    initialValue: pageHeader?['site_type_name']?.toString() ?? '',
-                                    isEditable: false,
-                                  ),
-                                  getHeight(16),
-                                  
-                                  // Due Date of PM
-                                  CustomFormField(
-                                    label: 'Due Date of PM',
-                                    initialValue: _formatDate(pageHeader?['audit_due_dt']?.toString()),
-                                    isEditable: false,
-                                  ),
-                                ],
+                              getHeight(20),
+                              ElevatedButton(
+                                onPressed: () {
+                                  // Retry logic can be added here
+                                },
+                                child: const Text('Retry'),
                               ),
-                            ),
+                            ],
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // State (Solar)
+                              CustomFormField(
+                                label: 'State (Solar)',
+                                initialValue:
+                                    pageHeader?['circle']?.toString() ?? '',
+                                isEditable: false,
+                              ),
+                              getHeight(16),
+
+                              // District (Solar)
+                              CustomFormField(
+                                label: 'District (Solar)',
+                                initialValue:
+                                    pageHeader?['cluster']?.toString() ?? '',
+                                isEditable: false,
+                              ),
+                              getHeight(16),
+
+                              // Customer
+                              CustomFormField(
+                                label: 'Customer',
+                                initialValue:
+                                    pageHeader?['client_name']?.toString() ??
+                                    '',
+                                isEditable: false,
+                              ),
+                              getHeight(16),
+
+                              // Site Id
+                              CustomFormField(
+                                label: 'Site Id',
+                                initialValue:
+                                    pageHeader?['site_code']?.toString() ?? '',
+                                isEditable: false,
+                              ),
+                              getHeight(16),
+
+                              // Site Name
+                              CustomFormField(
+                                label: 'Site Name',
+                                initialValue:
+                                    pageHeader?['site_name']?.toString() ?? '',
+                                isEditable: false,
+                              ),
+                              getHeight(16),
+
+                              // Site Type
+                              CustomFormField(
+                                label: 'Site Type',
+                                initialValue:
+                                    pageHeader?['site_type_name']?.toString() ??
+                                    '',
+                                isEditable: false,
+                              ),
+                              getHeight(16),
+
+                              // Due Date of PM
+                              CustomFormField(
+                                label: 'Due Date of PM',
+                                initialValue: _formatDate(
+                                  pageHeader?['audit_due_dt']?.toString(),
+                                ),
+                                isEditable: false,
+                              ),
+                            ],
+                          ),
+                        ),
                 ),
                 // Bottom navigation
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                  ),
+                  decoration: const BoxDecoration(color: Colors.transparent),
                   child: ArrowButton(
-                    text: PMNavigationHelper.getNextScreenName(pmData, 'Site Info'),
+                    text: PMNavigationHelper.getNextScreenName(
+                      pmData,
+                      'Site Info',
+                    ),
                     isLeftArrow: false,
                     backgroundColor: AppColors.buttonColorBg,
                     textColor: AppColors.buttonColorSite,
@@ -168,7 +179,7 @@ class PMPageHeaderSolar extends StatelessWidget {
 
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return '';
-    
+
     try {
       final date = DateTime.parse(dateString);
       return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 
 import '../app_root.dart';
 import '../constants/constants_methods.dart';
@@ -11,7 +12,7 @@ import '../bloc/global_loading_cubit.dart';
 import '../utils/api_logger.dart';
 
 /// ApiProvider handles HTTP requests with Dio
-/// 
+///
 /// Features:
 /// - Automatic token injection for authenticated requests
 /// - Global loading indicator management
@@ -40,7 +41,7 @@ class ApiProvider {
     );
 
     _dio.options = options;
-    
+
     // // Add PrettyDioLogger for development (can be disabled in production)
     // _dio.interceptors.add(PrettyDioLogger(
     //   requestHeader: true,
@@ -87,27 +88,28 @@ class ApiProvider {
         onRequest: (options, handler) async {
           // Log the request
           ApiLogger.logRequest(options);
-          
+
           final isAuthEndpoint = options.path.contains('authenticate/login');
-          
+
           if (!isAuthEndpoint) {
             if (LocalStorageDB.getToken != null) {
-              options.headers['Authorization'] = 'Bearer ${LocalStorageDB.getToken}';
+              options.headers['Authorization'] =
+                  'Bearer ${LocalStorageDB.getToken}';
             }
           }
-          
+
           // Show loading indicator for non-auth endpoints
-          if (!isAuthEndpoint && _loadingCubit != null && !_isLoadingShown) {
-            _isLoadingShown = true;
-            _loadingCubit!.showLoading(message: 'Loading...');
-          }
-          
+          // if (!isAuthEndpoint && _loadingCubit != null && !_isLoadingShown) {
+          //   _isLoadingShown = true;
+          //   _loadingCubit!.showLoading(message: 'Loading...');
+          // }
+
           return handler.next(options);
         },
         onResponse: (response, handler) async {
           // Log the response
           ApiLogger.logResponse(response);
-          
+
           // Hide loading indicator
           if (_loadingCubit != null && _isLoadingShown) {
             _isLoadingShown = false;
@@ -117,14 +119,16 @@ class ApiProvider {
         },
         onError: (DioException e, handler) async {
           // Log the error
+
+          // Fluttertoast.showToast(msg: 'Error: ${e.response?.statusCode}');
           ApiLogger.logError(e);
-          
+
           // Hide loading indicator on error
           if (_loadingCubit != null && _isLoadingShown) {
             _isLoadingShown = false;
             _loadingCubit!.hideLoading();
           }
-          
+
           if (e.response?.statusCode == 401) {
             // Token is invalid or expired
             await _logoutUser();
