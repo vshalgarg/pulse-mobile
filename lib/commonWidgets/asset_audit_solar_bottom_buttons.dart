@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -38,33 +39,43 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: Row(
         children: [
           Expanded(
             child: ArrowButton(
-              text: AssetAuditNavigationHelper.getSolarPreviousScreenName(assetAuditData, screenName),
+              text: AssetAuditNavigationHelper.getSolarPreviousScreenName(
+                assetAuditData,
+                screenName,
+              ),
               isLeftArrow: true,
               backgroundColor: AppColors.buttonColorBackBg,
               textColor: AppColors.buttonColorTextBg,
               onPressed: () {
-                AssetAuditNavigationHelper.navigateToPreviousSolarScreen(context, assetAuditData, screenName, siteAuditSchId, siteType, auditSchId);
+                AssetAuditNavigationHelper.navigateToPreviousSolarScreen(
+                  context,
+                  assetAuditData,
+                  screenName,
+                  siteAuditSchId,
+                  siteType,
+                  auditSchId,
+                );
               },
             ),
           ),
           getWidth(14),
           Expanded(
             child: ArrowButton(
-              text: AssetAuditNavigationHelper.getSolarNextScreenName(assetAuditData, screenName),
+              text: AssetAuditNavigationHelper.getSolarNextScreenName(
+                assetAuditData,
+                screenName,
+              ),
               isLeftArrow: false,
               backgroundColor: AppColors.buttonColorBg,
               textColor: AppColors.buttonColorSite,
               onPressed: () async {
-                context.read<GlobalLoadingCubit>().showLoading(
-                  message: 'Loading...',
-                );
+                LoaderWidget.showLoader(context);
+
                 try {
                   await onNextButtonClick();
                   AssetAuditNavigationHelper.navigateToNextSolarScreen(
@@ -76,7 +87,7 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
                     auditSchId,
                   );
                 } finally {
-                  context.read<GlobalLoadingCubit>().hideLoading();
+                  LoaderWidget.hideLoader();
                 }
               },
             ),

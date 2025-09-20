@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/toastbar.dart';
@@ -75,9 +76,7 @@ class AssetAuditTelecomBottomButtons extends StatelessWidget {
               textColor: AppColors.buttonColorSite,
 
               onPressed: () async {
-                context.read<GlobalLoadingCubit>().showLoading(
-                  message: 'Loading...',
-                );
+                LoaderWidget.showLoader(context);
                 try {
                   await onNextButtonClick();
 
@@ -90,7 +89,7 @@ class AssetAuditTelecomBottomButtons extends StatelessWidget {
                     auditSchId,
                   );
                 } finally {
-                  context.read<GlobalLoadingCubit>().hideLoading();
+                  LoaderWidget.hideLoader();
                 }
               },
             ),

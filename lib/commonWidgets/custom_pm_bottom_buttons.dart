@@ -1,3 +1,4 @@
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_methods.dart';
@@ -31,9 +32,7 @@ class CustomPMBottomButtons extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: Row(
         children: [
           Expanded(
@@ -52,7 +51,16 @@ class CustomPMBottomButtons extends StatelessWidget {
               isLeftArrow: false,
               backgroundColor: AppColors.buttonColorBg,
               textColor: AppColors.buttonColorSite,
-              onPressed: onRightButtonPressed,
+
+              onPressed: () async {
+                LoaderWidget.showLoader(context);
+
+                try {
+                  onRightButtonPressed();
+                } finally {
+                  LoaderWidget.hideLoader();
+                }
+              },
             ),
           ),
         ],
