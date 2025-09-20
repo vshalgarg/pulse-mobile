@@ -23,6 +23,8 @@ import 'database/asset_audit_database.dart';
 import 'services/app_initialization_service.dart';
 import 'utils.dart';
 import 'utils/file_logger.dart';
+import 'services/log_push_service.dart';
+import 'services/log_push_config.dart';
 
 // Global config variable
 AppConfig? globalConfig;
@@ -70,6 +72,12 @@ Future<void> main() async {
   }
   print('✅ All services initialized successfully');
   await FileLogger.info('All services initialized successfully');
+  
+  // Start log push service if enabled
+  if (LogPushConfig.autoStartOnAppLaunch) {
+    await LogPushService.startLogPushing(globalConfig!.apiService);
+    await FileLogger.info('Log push service started');
+  }
   
   // Initialize form persistence helper with API provider
   print('🔧 Initializing AssetAuditFormPersistenceHelperSQLite...');

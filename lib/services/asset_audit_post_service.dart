@@ -83,7 +83,7 @@ class AssetAuditPostService {
       requestId: 'asset_audit_${DateTime.now().millisecondsSinceEpoch}',
       url: url,
       headers: {},
-      requestData: requests,
+      jsonEncodedRequestData: jsonEncode(requests),
     );
     if(isSaved) {
       Logger.infoLog("Data saved to DB successfully");
@@ -109,7 +109,7 @@ class AssetAuditPostService {
     try {
       List<dynamic> copiedRequests = jsonDecode(jsonEncode(requests));
       await _processRequestsForImages(copiedRequests);
-      await _postDataToApi(url, requests);
+      await _postDataToApi(url, copiedRequests);
       await ServiceLocator().pendingRequestService.deleteRequest(requestId);
     } catch(e) {
       Logger.errorLog(e.toString());

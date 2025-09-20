@@ -1,5 +1,7 @@
 import 'package:app/services/api_service.dart';
+import 'package:app/services/asset_audit/central_api_service.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/asset_audit/central_data_service.dart';
 import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/pending_requests_service.dart';
@@ -16,6 +18,8 @@ class ServiceLocator {
   late AssetAuditPostService _assetAuditPostService;
   late PendingRequestsService _pendingRequestsService;
   late ApiService _apiService;
+  late CentralAssetAuditDataService _centralAssetAuditDataService;
+  late CentralApiService _centralApiService;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
@@ -29,7 +33,6 @@ class ServiceLocator {
 
       // Initialize Central Asset Audit Service
       _centralAssetAuditService = CentralAssetAuditService();
-      _centralAssetAuditService.initialize(apiService);
 
       // Initialize Image Upload Service
       _imageUploadService = ImageUploadService(apiService: apiService);
@@ -39,6 +42,9 @@ class ServiceLocator {
       _apiService = apiService;
 
       _assetAuditPostService = AssetAuditPostService();
+
+      _centralAssetAuditDataService = CentralAssetAuditDataService();
+      _centralApiService = CentralApiService(apiService: apiService);
 
       _isInitialized = true;
       Logger.debugLog('✅ All services initialized successfully');
@@ -54,6 +60,11 @@ class ServiceLocator {
     _ensureInitialized();
     return _centralAssetAuditService;
   }
+  CentralAssetAuditDataService get centralAssetAuditDataService {
+    _ensureInitialized();
+    return _centralAssetAuditDataService;
+  }
+
 
   /// Get Image Upload Service (guaranteed to be initialized)
   ImageUploadService get imageUploadService {
@@ -64,6 +75,11 @@ class ServiceLocator {
   PendingRequestsService get pendingRequestService {
     _ensureInitialized();
     return _pendingRequestsService;
+  }
+
+  CentralApiService get centralApiService {
+    _ensureInitialized();
+    return _centralApiService;
   }
 
   AssetAuditPostService get assetAuditPostService {

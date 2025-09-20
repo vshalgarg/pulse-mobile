@@ -1,6 +1,7 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/ticket_model.dart';
+import 'package:app/utils.dart';
 import 'package:flutter/material.dart';
 
 class TicketCard extends StatelessWidget {
@@ -197,7 +198,7 @@ class TicketCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "Raised On : $raisedOn",
+                    "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w400,
@@ -209,7 +210,7 @@ class TicketCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "Due : $dueDate",
+                      "Due : ${Utils.formatDataForTicketCard(dueDate)}",
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,

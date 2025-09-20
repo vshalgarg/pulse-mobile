@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/sqlite/image_model.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:sqflite/sqflite.dart';
@@ -363,13 +364,24 @@ class ImageUploadService {
         tempFile.path,
         filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-      final response;
+      ResponseResult? response = null;
       if (isSelfie) {
-        response = await _apiService.post<Map<String, dynamic>>(
-          path: "api/v1/mobile/uploadsSelfie",
-          data: {'selfie': multipartFile, 'imgId': '0', 'SchId': siteSchId},
-          useFormDataFormat: true,
-        );
+        if(await ConnectivityHelper.isConnected()) {
+          response = await _apiService.post<Map<String, dynamic>>(
+            path: "api/v1/mobile/uploadsSelfie",
+            data: {'selfie': multipartFile, 'imgId': '0', 'SchId': siteSchId},
+            useFormDataFormat: true,
+          );
+        }
+        if(response == null || !response.isSuccess) {
+          await ServiceLocator().pendingRequestService.savePendingRequest(
+              requestId: 'IMAGE-{$DateTime.timestamp()}',
+              url: "api/v1/mobile/uploadsSelfie",
+              headers: {},
+              jsonEncodedRequestData: jsonEncode({'selfie': multipartFile,
+                'imgId': '0', 'SchId': siteSchId}),
+          );
+        }
       } else {
         // Upload to server
         response = await _apiService.post<Map<String, dynamic>>(
@@ -388,7 +400,7 @@ class ImageUploadService {
         await tempFile.delete();
       }
 
-      if (response.isSuccess && response.data != null) {
+      if (response != null && response.isSuccess && response.data != null) {
         Logger.debugLog('📤 API Response: ${response.data}');
 
         final photoId =
@@ -409,7 +421,7 @@ class ImageUploadService {
           return null;
         }
       } else {
-        Logger.errorLog('❌ Failed to upload image: ${response.errorMessage}');
+        Logger.errorLog('❌ Failed to upload image: ${response?.errorMessage}');
         return null;
       }
     } catch (e) {

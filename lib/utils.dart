@@ -37,6 +37,11 @@ class Utils {
     return formatter.format(date);
   }
 
+  static String formatDataForTicketCard(String date) {
+    final dateTime = DateFormat("yyyy-MM-dd").parse(date);
+    return DateFormat("dd-MMM-yy").format(dateTime);
+  }
+
   // Check if JWT token is expired
   static bool isTokenExpired(String? token) {
     if (token == null || token.isEmpty) return true;

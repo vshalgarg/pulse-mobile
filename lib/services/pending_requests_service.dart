@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../utils/logger.dart';
@@ -13,6 +14,8 @@ class PendingRequestsService {
 
   static Database? _database;
 
+  static final String _databaseName = 'pending_requests.db';
+
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
@@ -20,7 +23,7 @@ class PendingRequestsService {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'pending_requests.db');
+    String path = join(await getDatabasesPath(), _databaseName);
     return await openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
@@ -48,7 +51,7 @@ class PendingRequestsService {
     required String requestId,
     required String url,
     required Map<String, dynamic> headers,
-    required List<dynamic> requestData,
+    required String jsonEncodedRequestData,
   }) async {
     try {
       final db = await database;
@@ -57,7 +60,7 @@ class PendingRequestsService {
         'request_id': requestId,
         'url': url,
         'headers': jsonEncode(headers),
-        'request_data': jsonEncode(requestData),
+        'request_data': jsonEncodedRequestData,
         'created_at': DateTime.now().millisecondsSinceEpoch,
         'retry_count': 0,
         'status': 'pending',
@@ -193,6 +196,58 @@ class PendingRequestsService {
       return 0;
     }
   }
+
+  /// Clear all data
+  Future<void> clearAllData() async {
+    final db = await database;
+
+    await db.transaction((txn) async {
+      await txn.delete('pending_requests');
+    });
+
+    Logger.debugLog('✅ All data cleared');
+  }
+
+
+  /// Drop and recreate database with all tables
+  Future<void> dropAndRecreateDatabase() async {
+    try {
+      Logger.debugLog(
+        '🗑️ Dropping and recreating ImageUploadService database',
+      );
+
+      // Close existing database connection
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+
+      // Get database path
+      final databasesPath = await getDatabasesPath();
+      final path = join(databasesPath, _databaseName);
+
+      // Delete the database file
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        Logger.debugLog('🗑️ ImageUploadService database file deleted');
+      }
+
+      // Recreate database by calling _initDatabase
+      _database = await _initDatabase();
+      Logger.debugLog(
+        '✅ ImageUploadService database recreated with all tables',
+      );
+    } catch (e) {
+      Logger.errorLog(
+        '❌ Error dropping and recreating ImageUploadService database: $e',
+      );
+      // Reset database instance to force recreation on next access
+      _database = null;
+      rethrow;
+    }
+  }
+
 
   /// Increment retry count for a request (public method)
   Future<int> incrementRetryCount(String requestId) async {

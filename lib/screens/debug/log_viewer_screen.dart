@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../utils/file_logger.dart';
+import '../../services/log_push_service.dart';
+import '../../app_config.dart';
 
 class LogViewerScreen extends StatefulWidget {
   const LogViewerScreen({super.key});
@@ -138,6 +140,50 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
     }
   }
 
+  Future<void> _pushLogsNow() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final apiService = AppConfig.of(context).apiService;
+      await LogPushService.pushLogsNow(apiService);
+      _showSuccessSnackBar('Logs pushed to backend successfully');
+    } catch (e) {
+      _showErrorSnackBar('Failed to push logs: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showServiceStatus() {
+    final status = LogPushService.getServiceStatus();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Log Push Service Status'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Status: ${status['isRunning'] ? 'Running' : 'Stopped'}'),
+            Text('Push Interval: ${status['pushInterval']} seconds'),
+            Text('Max Log Size: ${(status['maxLogSize'] / 1024).toStringAsFixed(1)} KB'),
+            Text('Endpoint: ${status['endpoint']}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<bool?> _showConfirmDialog(String title, String message) async {
     return showDialog<bool>(
       context: context,
@@ -189,12 +235,24 @@ class _LogViewerScreenState extends State<LogViewerScreen> {
         title: const Text('Log Viewer'),
         actions: [
           IconButton(
+            onPressed: _pushLogsNow,
+            icon: const Icon(Icons.cloud_upload),
+            tooltip: 'Push logs to backend',
+          ),
+          IconButton(
+            onPressed: _showServiceStatus,
+            icon: const Icon(Icons.info_outline),
+            tooltip: 'Service status',
+          ),
+          IconButton(
             onPressed: _loadLogFiles,
             icon: const Icon(Icons.refresh),
+            tooltip: 'Refresh logs',
           ),
           IconButton(
             onPressed: _clearAllLogs,
             icon: const Icon(Icons.delete_forever),
+            tooltip: 'Clear all logs',
           ),
         ],
       ),

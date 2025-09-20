@@ -2,32 +2,13 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
+import 'package:app/services/service_locator.dart';
 import '../../utils/logger.dart';
 import 'central_data_service.dart';
 import 'central_api_service.dart';
 import '../image_upload_service.dart';
 
 class CentralAssetAuditService {
-  static final CentralAssetAuditService _instance = CentralAssetAuditService._internal();
-  factory CentralAssetAuditService() => _instance;
-  CentralAssetAuditService._internal();
-
-  late CentralAssetAuditDataService _dataService;
-  late CentralApiService _apiService;
-  late ImageUploadService _imageUploadService;
-  bool _initialized = false;
-
-  /// Initialize the service with API service
-  void initialize(dynamic apiService) {
-    if (_initialized) return;
-
-    _dataService = CentralAssetAuditDataService();
-    _apiService = CentralApiService(apiService: apiService);
-    _imageUploadService = ImageUploadService(apiService: apiService);
-
-    _initialized = true;
-    Logger.debugLog('✅ CentralAssetAuditService initialized');
-  }
 
   Future<bool> getDataFromApiAndSaveToSqlite({
     required String siteType,
@@ -37,17 +18,12 @@ class CentralAssetAuditService {
     required double longitude,
     required ActivityTypeEnum activityType,
   }) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized. Call initialize() first.');
-      return false;
-    }
-
-    final sqliteData = await _dataService.getRawApiData(siteAuditSchId);
+    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
     if(sqliteData != null && sqliteData.isDownloaded) {
       return true;
     }
 
-    final apiData = await _apiService.fetchData(
+    final apiData = await await ServiceLocator().centralApiService.fetchData(
       siteType: siteType,
       auditSchId: auditSchId,
       siteAuditSchId: siteAuditSchId,
@@ -73,7 +49,7 @@ class CentralAssetAuditService {
   Future<RawApiDataModel?> getDataFromSqlite({
     required String siteAuditSchId,
   }) async {
-    final sqliteData = await _dataService.getRawApiData(siteAuditSchId);
+    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
     if(sqliteData != null) {
       return sqliteData;
     } else {
@@ -84,7 +60,7 @@ class CentralAssetAuditService {
   Future<Map<String, dynamic>?> getActualDataFromSqlite({
     required String siteAuditSchId,
   }) async {
-    final sqliteData = await _dataService.getRawApiData(siteAuditSchId);
+    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
     if(sqliteData != null) {
       return sqliteData.apiData;
     } else {
@@ -100,12 +76,8 @@ class CentralAssetAuditService {
     required double longitude,
     required ActivityTypeEnum activityType
   }) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized. Call initialize() first.');
-      return false;
-    }
 
-    final apiData = await _apiService.fetchData(
+    final apiData = await ServiceLocator().centralApiService.fetchData(
       siteType: siteType,
       auditSchId: auditSchId,
       siteAuditSchId: siteAuditSchId,
@@ -148,7 +120,7 @@ class CentralAssetAuditService {
       final processedApiData = await _processImagesInApiData(apiData, activityType, siteAuditSchId);
 
       // Save the processed API response
-      bool isSaved = await _dataService.saveRawApiData(
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
         siteAuditSchId: siteAuditSchId,
         siteType: siteType,
         auditSchId: auditSchId,
@@ -229,7 +201,7 @@ class CentralAssetAuditService {
   Future<String?> _downloadImageAndGetUniqueId(String serverId, ActivityTypeEnum activityType, String schId) async {
     try {
       Logger.debugLog('📥 Downloading image with server ID: $serverId');
-      final uniqueId = await _imageUploadService.downloadImageUsingServerId(serverId, activityType, schId);
+      final uniqueId = await ServiceLocator().imageUploadService.downloadImageUsingServerId(serverId, activityType, schId);
       
       if (uniqueId != null) {
         Logger.debugLog('✅ Image downloaded successfully with unique ID: $uniqueId');
@@ -249,17 +221,12 @@ class CentralAssetAuditService {
     required String siteAuditSchId,
     required Map<String, dynamic> updatedData,
   }) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized');
-      return false;
-    }
-
     try {
       Logger.debugLog('🔄 Updating asset audit data for site $siteAuditSchId');
       Logger.debugLog('🔄 Updated data keys: ${updatedData.keys.toList()}');
 
       // Update the raw API data in SQLite
-      await _dataService.updateRawApiData(
+      await ServiceLocator().centralAssetAuditDataService.updateRawApiData(
         siteAuditSchId: siteAuditSchId,
         apiData: updatedData,
       );
@@ -276,13 +243,8 @@ class CentralAssetAuditService {
 
   /// Get image as data URL
   Future<String?> getImageAsDataUrl(String imageId) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized');
-      return null;
-    }
-
     try {
-      final imageData = await _imageUploadService.getImageUsingUniqueId(imageId);
+      final imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(imageId);
       if(imageData != null) {
         return imageData; // Already a base64 string
       }
@@ -300,18 +262,13 @@ class CentralAssetAuditService {
     required ActivityTypeEnum activityType,
     bool isSelfie = false,
   }) async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized');
-      return null;
-    }
-
     try {
       // Read file as bytes and convert to base64 string
       final imageBytes = await imageFile.readAsBytes();
       final imageData = base64Encode(imageBytes);
 
       // Upload using ImageUploadService
-      return await _imageUploadService.uploadImage(
+      return await ServiceLocator().imageUploadService.uploadImage(
           imageData,
           ActivityTypeEnum.assetAudit,
           isSelfie,
@@ -325,14 +282,10 @@ class CentralAssetAuditService {
 
   /// Clear all data
   Future<void> clearAllData() async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized');
-      return;
-    }
-
     try {
-      await _imageUploadService.clearAllImages();
-      await _dataService.clearAllData();
+      await ServiceLocator().imageUploadService.clearAllImages();
+      await ServiceLocator().centralAssetAuditDataService.clearAllData();
+      await ServiceLocator().pendingRequestService.clearAllData();
       Logger.debugLog('✅ All data cleared');
     } catch (e) {
       Logger.errorLog('❌ Error clearing all data: $e');
@@ -341,18 +294,15 @@ class CentralAssetAuditService {
 
   /// Drop and recreate all databases with all tables
   Future<void> dropAndRecreateAllDatabases() async {
-    if (!_initialized) {
-      Logger.errorLog('❌ Service not initialized');
-      return;
-    }
 
     try {
       Logger.debugLog('🗑️ Dropping and recreating all databases');
       
       // Drop and recreate both databases
       await Future.wait([
-        _dataService.dropAndRecreateDatabase(),
-        _imageUploadService.dropAndRecreateDatabase(),
+        ServiceLocator().centralAssetAuditDataService.dropAndRecreateDatabase(),
+        ServiceLocator().pendingRequestService.dropAndRecreateDatabase(),
+        ServiceLocator().imageUploadService.dropAndRecreateDatabase(),
       ]);
       
       Logger.debugLog('✅ All databases dropped and recreated successfully');
@@ -360,20 +310,5 @@ class CentralAssetAuditService {
       Logger.errorLog('❌ Error dropping and recreating databases: $e');
       rethrow;
     }
-  }
-
-  /// Check if service is initialized
-  bool get isInitialized => _initialized;
-
-  /// Get service instance (guaranteed to be initialized)
-  static CentralAssetAuditService get instance {
-    final service = CentralAssetAuditService();
-    if (!service._initialized) {
-      throw StateError(
-        'CentralAssetAuditService not initialized! '
-        'Call ServiceLocator().initializeServices(apiService) first.'
-      );
-    }
-    return service;
   }
 }

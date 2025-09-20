@@ -12,8 +12,6 @@ class CentralAssetAuditServiceInitializer {
     }
     
     print('🔧 Initializing CentralAssetAuditService...');
-    _service = CentralAssetAuditService();
-    _service!.initialize(apiService);
     _isInitialized = true;
     print('✅ CentralAssetAuditService initialization completed');
   }
