@@ -6,7 +6,8 @@ import 'image_upload_service.dart';
 import '../enum/activity_type_enum.dart';
 
 class PendingRequestsService {
-  static final PendingRequestsService _instance = PendingRequestsService._internal();
+  static final PendingRequestsService _instance =
+      PendingRequestsService._internal();
   factory PendingRequestsService() => _instance;
   PendingRequestsService._internal();
 
@@ -26,11 +27,7 @@ class PendingRequestsService {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), 'pending_requests.db');
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _onCreate,
-    );
+    return await openDatabase(path, version: 1, onCreate: _onCreate);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -49,7 +46,7 @@ class PendingRequestsService {
         error_message TEXT
       )
     ''');
-    
+
     Logger.debugLog('✅ PendingRequestsService: Database created successfully');
   }
 
@@ -62,7 +59,7 @@ class PendingRequestsService {
   }) async {
     try {
       final db = await database;
-      
+
       final pendingRequest = {
         'request_id': requestId,
         'url': url,
@@ -76,23 +73,26 @@ class PendingRequestsService {
       };
 
       await db.insert('pending_requests', pendingRequest);
-      
-      Logger.infoLog('💾 PendingRequestsService: Saved pending request with ID: $requestId');
+
+      Logger.infoLog(
+        '💾 PendingRequestsService: Saved pending request with ID: $requestId',
+      );
       Logger.infoLog('📝 Request URL: $url');
       Logger.infoLog('📝 Request Headers: ${headers.toString()}');
       Logger.infoLog('📝 Request Data: ${requestData.toString()}');
-      
+
       // Also print to console for immediate visibility
       print('💾 PENDING REQUEST SAVED: $requestId');
       print('📝 URL: $url');
       print('📝 Headers: ${headers.toString()}');
       print('📝 Data: ${requestData.toString()}');
-      
+
       // Log the complete table contents after saving
       await logPendingRequestsTable();
-      
     } catch (e) {
-      Logger.errorLog('❌ PendingRequestsService: Error saving pending request: $e');
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error saving pending request: $e',
+      );
       rethrow;
     }
   }
@@ -107,11 +107,15 @@ class PendingRequestsService {
         whereArgs: ['pending'],
         orderBy: 'created_at ASC',
       );
-      
-      Logger.debugLog('📋 PendingRequestsService: Retrieved ${result.length} pending requests');
+
+      Logger.debugLog(
+        '📋 PendingRequestsService: Retrieved ${result.length} pending requests',
+      );
       return result;
     } catch (e) {
-      Logger.errorLog('❌ PendingRequestsService: Error retrieving pending requests: $e');
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error retrieving pending requests: $e',
+      );
       return [];
     }
   }
@@ -124,30 +128,34 @@ class PendingRequestsService {
   }) async {
     try {
       final db = await database;
-      
+
       final updateData = {
         'status': status,
         'last_retry_at': DateTime.now().millisecondsSinceEpoch,
       };
-      
+
       if (errorMessage != null) {
         updateData['error_message'] = errorMessage;
       }
-      
+
       if (status == 'failed') {
         updateData['retry_count'] = await _incrementRetryCount(requestId);
       }
-      
+
       await db.update(
         'pending_requests',
         updateData,
         where: 'request_id = ?',
         whereArgs: [requestId],
       );
-      
-      Logger.debugLog('🔄 PendingRequestsService: Updated request $requestId status to $status');
+
+      Logger.debugLog(
+        '🔄 PendingRequestsService: Updated request $requestId status to $status',
+      );
     } catch (e) {
-      Logger.errorLog('❌ PendingRequestsService: Error updating request status: $e');
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error updating request status: $e',
+      );
     }
   }
 
@@ -160,7 +168,7 @@ class PendingRequestsService {
         where: 'request_id = ?',
         whereArgs: [requestId],
       );
-      
+
       Logger.debugLog('🗑️ PendingRequestsService: Deleted request $requestId');
     } catch (e) {
       Logger.errorLog('❌ PendingRequestsService: Error deleting request: $e');
@@ -177,24 +185,26 @@ class PendingRequestsService {
         where: 'request_id = ?',
         whereArgs: [requestId],
       );
-      
+
       if (result.isNotEmpty) {
         final currentCount = result.first['retry_count'] as int;
         final newCount = currentCount + 1;
-        
+
         await db.update(
           'pending_requests',
           {'retry_count': newCount},
           where: 'request_id = ?',
           whereArgs: [requestId],
         );
-        
+
         return newCount;
       }
-      
+
       return 0;
     } catch (e) {
-      Logger.errorLog('❌ PendingRequestsService: Error incrementing retry count: $e');
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error incrementing retry count: $e',
+      );
       return 0;
     }
   }
@@ -213,7 +223,7 @@ class PendingRequestsService {
         where: 'request_id = ? AND status = ?',
         whereArgs: [requestId, 'pending'],
       );
-      
+
       if (result.isNotEmpty) {
         final request = result.first;
         return {
@@ -223,10 +233,12 @@ class PendingRequestsService {
           'request_data': jsonDecode(request['request_data'] as String),
         };
       }
-      
+
       return null;
     } catch (e) {
-      Logger.errorLog('❌ PendingRequestsService: Error getting request for retry: $e');
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error getting request for retry: $e',
+      );
       return null;
     }
   }
@@ -235,11 +247,14 @@ class PendingRequestsService {
   Future<void> logPendingRequestsTable() async {
     try {
       final db = await database;
-      final result = await db.query('pending_requests', orderBy: 'created_at DESC');
-      
+      final result = await db.query(
+        'pending_requests',
+        orderBy: 'created_at DESC',
+      );
+
       print('📋 ===== PENDING REQUESTS TABLE =====');
       print('📊 Total Records: ${result.length}');
-      
+
       if (result.isEmpty) {
         print('📝 No pending requests found in the table');
       } else {
@@ -251,24 +266,33 @@ class PendingRequestsService {
           print('   URL: ${request['url']}');
           print('   Status: ${request['status']}');
           print('   Retry Count: ${request['retry_count']}');
-          print('   Created At: ${DateTime.fromMillisecondsSinceEpoch(request['created_at'] as int)}');
+          print(
+            '   Created At: ${DateTime.fromMillisecondsSinceEpoch(request['created_at'] as int)}',
+          );
           if (request['last_retry_at'] != null) {
-            print('   Last Retry: ${DateTime.fromMillisecondsSinceEpoch(request['last_retry_at'] as int)}');
+            print(
+              '   Last Retry: ${DateTime.fromMillisecondsSinceEpoch(request['last_retry_at'] as int)}',
+            );
           }
           if (request['error_message'] != null) {
             print('   Error: ${request['error_message']}');
           }
           print('   Headers: ${request['headers']}');
-          print('   Data Length: ${(request['request_data'] as String).length} characters');
+          print(
+            '   Data Length: ${(request['request_data'] as String).length} characters',
+          );
         }
       }
-      
+
       print('📋 ===== END PENDING REQUESTS TABLE =====');
-      
-      Logger.infoLog('📋 PendingRequestsService: Logged ${result.length} pending requests');
-      
+
+      Logger.infoLog(
+        '📋 PendingRequestsService: Logged ${result.length} pending requests',
+      );
     } catch (e) {
-      Logger.errorLog('❌ PendingRequestsService: Error logging pending requests table: $e');
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error logging pending requests table: $e',
+      );
       print('❌ ERROR LOGGING PENDING REQUESTS TABLE: $e');
     }
   }
@@ -277,32 +301,37 @@ class PendingRequestsService {
   Future<void> logTableInfo() async {
     try {
       final db = await database;
-      
+
       print('🗄️ ===== PENDING REQUESTS TABLE INFO =====');
-      
+
       // Get table info
-      final tableInfo = await db.rawQuery("PRAGMA table_info(pending_requests)");
+      final tableInfo = await db.rawQuery(
+        "PRAGMA table_info(pending_requests)",
+      );
       print('📊 Table Structure:');
       for (final column in tableInfo) {
-        print('   - ${column['name']}: ${column['type']} ${column['notnull'] == 1 ? 'NOT NULL' : ''}');
+        print(
+          '   - ${column['name']}: ${column['type']} ${column['notnull'] == 1 ? 'NOT NULL' : ''}',
+        );
       }
-      
+
       // Get row count
-      final countResult = await db.rawQuery("SELECT COUNT(*) as count FROM pending_requests");
+      final countResult = await db.rawQuery(
+        "SELECT COUNT(*) as count FROM pending_requests",
+      );
       final totalRows = countResult.first['count'] as int;
       print('📊 Total Rows: $totalRows');
-      
+
       // Get status breakdown
       final statusResult = await db.rawQuery(
-        "SELECT status, COUNT(*) as count FROM pending_requests GROUP BY status"
+        "SELECT status, COUNT(*) as count FROM pending_requests GROUP BY status",
       );
       print('📊 Status Breakdown:');
       for (final row in statusResult) {
         print('   - ${row['status']}: ${row['count']}');
       }
-      
+
       print('🗄️ ===== END TABLE INFO =====');
-      
     } catch (e) {
       Logger.errorLog('❌ PendingRequestsService: Error logging table info: $e');
       print('❌ ERROR LOGGING TABLE INFO: $e');
@@ -315,7 +344,7 @@ class PendingRequestsService {
     try {
       final db = await database;
       print('✅ Database connection successful');
-      
+
       // Test insert
       final testRequest = {
         'request_id': 'test_${DateTime.now().millisecondsSinceEpoch}',
@@ -328,136 +357,26 @@ class PendingRequestsService {
         'last_retry_at': null,
         'error_message': null,
       };
-      
+
       await db.insert('pending_requests', testRequest);
       print('✅ Test insert successful');
-      
+
       // Test query
       final result = await db.query('pending_requests');
       print('✅ Test query successful - Found ${result.length} records');
-      
+
       // Clean up test data
-      await db.delete('pending_requests', where: 'request_id LIKE ?', whereArgs: ['test_%']);
+      await db.delete(
+        'pending_requests',
+        where: 'request_id LIKE ?',
+        whereArgs: ['test_%'],
+      );
       print('✅ Test cleanup successful');
-      
     } catch (e) {
       print('❌ TEST FAILED: $e');
     }
     print('🧪 ===== END TEST =====');
   }
 
-
-    
-
   /// Process offline request by converting photo_id to server_id
-  Future<dynamic> postOfflineRequest(dynamic request) async {
-
-    dynamic requestData = {...request as Map<String, dynamic>};
-    try {
-      Logger.debugLog('🔄 Processing offline request with ${requestData.length} items');
-      
-      if (_imageUploadService == null) {
-        Logger.errorLog('❌ ImageUploadService not initialized');
-        throw Exception('ImageUploadService not initialized');
-      }
-
-      List<dynamic> processedData = [];
-      
-      for (int i = 0; i < requestData.length; i++) {
-        final jsonObject = requestData[i];
-        Logger.debugLog('🔍 Processing item ${i + 1}/${requestData.length}');
-        
-        // Create a copy of the JSON object to avoid modifying the original
-        Map<String, dynamic> processedObject = Map<String, dynamic>.from(jsonObject);
-        
-        // Check if this object has a photo_id
-        if (processedObject.containsKey('photo_id')) {
-          final photoId = processedObject['photo_id'] as String;
-          Logger.debugLog('📸 Found photo_id: $photoId');
-          
-          try {
-            // Check if this photo_id has a server_id in the database
-            final serverIdWithCreatedTime = await _imageUploadService!.getServerIdAndCreatedTime(
-              photoId,
-              ActivityTypeEnum.assetAudit, // Default activity type
-              '0', // Default siteSchId - you might want to pass this as parameter
-            );
-            
-            if (serverIdWithCreatedTime.isNotEmpty) {
-              final serverId = serverIdWithCreatedTime[0];
-              Logger.debugLog('✅ Found server_id: $serverId for photo_id: $photoId');
-              
-              // Replace photo_id with server_id
-              processedObject['photo_id'] = serverId;
-              
-              // If there's a created_time, add it to the object
-              if (serverIdWithCreatedTime.length > 1) {
-                final createdTime = serverIdWithCreatedTime[1];
-                processedObject['created_time'] = createdTime;
-                Logger.debugLog('⏰ Added created_time: $createdTime');
-              }
-            } else {
-              Logger.debugLog('⚠️ No server_id found for photo_id: $photoId');
-              
-              // Get image data from SQLite and upload it
-              final imageData = await _imageUploadService!.getImageUsingUniqueId(photoId);
-              
-              if (imageData != null) {
-                Logger.debugLog('📸 Found image data for photo_id: $photoId, size: ${imageData.length}');
-                
-                // Upload the image to get server_id
-                final newServerId = await _imageUploadService!.uploadImage(
-                  imageData,
-                  ActivityTypeEnum.assetAudit,
-                  '0', // Default siteSchId - you might want to pass this as parameter
-                );
-                
-                if (newServerId.isNotEmpty) {
-                  Logger.debugLog('✅ Successfully uploaded image, got server_id: $newServerId');
-                  
-                  // Now get the server_id and created_time from the database
-                  final updatedServerIdWithCreatedTime = await _imageUploadService!.getServerIdAndCreatedTime(
-                    photoId,
-                    ActivityTypeEnum.assetAudit,
-                    '0',
-                  );
-                  
-                  if (updatedServerIdWithCreatedTime.isNotEmpty) {
-                    final serverId = updatedServerIdWithCreatedTime[0];
-                    processedObject['photo_id'] = serverId;
-                    
-                    // Add created_time if available
-                    if (updatedServerIdWithCreatedTime.length > 1) {
-                      final createdTime = updatedServerIdWithCreatedTime[1];
-                      processedObject['created_time'] = createdTime;
-                    }
-                    
-                    Logger.debugLog('✅ Updated photo_id to server_id: $serverId');
-                  } else {
-                    Logger.errorLog('❌ Failed to get server_id after upload for photo_id: $photoId');
-                  }
-                } else {
-                  Logger.errorLog('❌ Failed to upload image for photo_id: $photoId');
-                }
-              } else {
-                Logger.errorLog('❌ No image data found for photo_id: $photoId');
-              }
-            }
-          } catch (e) {
-            Logger.errorLog('❌ Error processing photo_id $photoId: $e');
-            // Continue with the original photo_id if there's an error
-          }
-        }
-        
-        processedData.add(processedObject);
-      }
-      
-      Logger.debugLog('✅ Successfully processed ${processedData.length} items');
-      return processedData;
-      
-    } catch (e) {
-      Logger.errorLog('❌ Error in postOfflineRequest: $e');
-      rethrow;
-    }
-  }
 }

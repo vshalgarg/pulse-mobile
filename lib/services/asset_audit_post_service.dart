@@ -233,34 +233,22 @@ class AssetAuditPostService {
   /// Process a single asset audit request
   /// Replaces photo_id with server_id and adds photo_taken_ts
   Future<dynamic> processAssetAuditRequest(dynamic request) async {
-    print("🔄 processAssetAuditRequest STARTED");
-    print("🔄 Input request: $request");
-
     dynamic updatedRequest = {...request as Map<String, dynamic>};
-    print("🔄 Updated request created: $updatedRequest");
 
     try {
       // Check both snake_case and camelCase field names
       final photoId = updatedRequest['photo_id'] ?? updatedRequest['photoId'];
-      print("🔄 Photo ID found: $photoId");
 
       // If no photo_id or photo_id is null/empty, return the request as-is
       if (photoId == null || photoId.toString().isEmpty) {
-        print(
-          "📝 No photo_id to process for request: ${updatedRequest['nexgen_serial_no']}",
-        );
-        print("🔄 Returning request as-is: $updatedRequest");
         return updatedRequest;
       }
-      Logger.debugLog(
-        '🔍 Processing photo_id: $photoId for serial: ${updatedRequest['nexgen_serial_no']}',
-      );
 
       // Check if photo_id is a unique_id (starts with LOCAL_IMAGE_ID_)
       // Note: After camelCase transformation, this might be 'photoId' instead of 'photo_id'
       if (photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
         // This is a unique_id, get the server_id using ImageUploadService
-        print("🔄 Getting server ID for LOCAL_IMAGE_ID: $photoId");
+
         final serverIdWithCreatedTime = await _imageUploadService
             .getServerIdAndCreatedTime(
               photoId.toString(),

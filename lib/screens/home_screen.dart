@@ -126,7 +126,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
-
+      final imageUploadService = ImageUploadService(apiService: apiService);
+      final postService = AssetAuditPostService(
+        apiService: apiService,
+        imageUploadService: imageUploadService,
+      );
       // added offline sync code
 
       List<Map<String, dynamic>> processedRequests = [];
@@ -135,26 +139,9 @@ class _HomeScreenState extends State<HomeScreen> {
         print('🔄 About to call processAssetAuditRequest for item $i');
         print('🔄 Request data item: ${requestData[i]}');
 
-        final pendingRequestsService = PendingRequestsService();
-        final processedRequest = await pendingRequestsService
-            .postOfflineRequest(requestData[i]);
-
-        // final processedRequest = await postService.processAssetAuditRequest(
-        //   requestData[i],
-        // );
-
-        print('processedRequest:for ddebug $processedRequest');
-
-        processedRequest['auditSchId'] = 0;
-        processedRequest['localCreatedDt'] =
-            Utils.getCurrentDateTimeForAPICall();
-        processedRequest['localModifiedDt'] =
-            Utils.getCurrentDateTimeForAPICall();
-
-        if (processedRequest['record_type'] == 'Remarks') {
-          processedRequest['asset_Status'] = 'ok';
-        }
-
+        final processedRequest = await postService.processAssetAuditRequest(
+          requestData[i],
+        );
         processedRequests.add(processedRequest);
       }
 

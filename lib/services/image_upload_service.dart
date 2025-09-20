@@ -238,11 +238,7 @@ class ImageUploadService {
   }
 
   /// 2. Get server ID - Check SQLite first, upload if needed
-  Future<List<String>> getServerIdAndCreatedTime(
-    String uniqueId,
-    ActivityTypeEnum activityType,
-    String siteSchId,
-  ) async {
+  Future<List<String>> getServerIdAndCreatedTime(String uniqueId, ActivityTypeEnum activityType, String siteSchId) async {
     try {
       Logger.debugLog('🔍 Getting server ID for unique ID: $uniqueId');
       List<String> response = [];
@@ -251,53 +247,38 @@ class ImageUploadService {
       if (serverIdWithCreatedTime.isNotEmpty) {
         return serverIdWithCreatedTime;
       }
-
+      
       // Server ID not found, need to upload
-      Logger.debugLog(
-        '🌐 Server ID not found in SQLite, uploading image to server',
-      );
-      Logger.debugLog(
-        '🌐 Uploading for uniqueId: $uniqueId, activityType: ${activityType.value}, siteSchId: $siteSchId',
-      );
-
+      Logger.debugLog('🌐 Server ID not found in SQLite, uploading image to server');
+      Logger.debugLog('🌐 Uploading for uniqueId: $uniqueId, activityType: ${activityType.value}, siteSchId: $siteSchId');
+      
       // Get image data from SQLite
       final imageData = await _getImageDataFromSQLite(uniqueId);
       if (imageData == null) {
         Logger.errorLog('❌ Image data not found for unique ID: $uniqueId');
         return [];
       }
-
-      Logger.debugLog(
-        '📸 Image data found, size: ${imageData.length} characters',
-      );
-
+      
+      Logger.debugLog('📸 Image data found, size: ${imageData.length} characters');
+      
       // Upload to server
-      final newServerId = await _uploadToServer(
-        imageData,
-        activityType,
-        siteSchId,
-        false,
-      );
+      final newServerId = await _uploadToServer(imageData, activityType, siteSchId, false);
       if (newServerId != null) {
         Logger.debugLog('✅ Upload successful, got server ID: $newServerId');
-
+        
         // Update server_id in SQLite
         await _updateServerId(uniqueId, newServerId);
         Logger.debugLog('💾 Updated SQLite with server ID: $newServerId');
-
+        
         final serverIdWithCreatedTime = await _getServerIdFromSQLite(uniqueId);
         if (serverIdWithCreatedTime.isNotEmpty) {
           Logger.debugLog('✅ Retrieved from SQLite: $serverIdWithCreatedTime');
           return serverIdWithCreatedTime;
         } else {
-          Logger.errorLog(
-            '❌ Failed to retrieve server ID from SQLite after update',
-          );
+          Logger.errorLog('❌ Failed to retrieve server ID from SQLite after update');
         }
       } else {
-        Logger.errorLog(
-          '❌ Failed to upload image to server - newServerId is null',
-        );
+        Logger.errorLog('❌ Failed to upload image to server - newServerId is null');
       }
     } catch (e) {
       Logger.errorLog('❌ Error in getServerId: $e');
@@ -385,7 +366,7 @@ class ImageUploadService {
       print('🔍 Getting database instance...');
       final db = await database;
       print('🔍 Database instance obtained successfully');
-
+      
       Logger.debugLog('🔍 SQLite lookup for uniqueId: $uniqueId');
       print('🔍 SQLite lookup for uniqueId: $uniqueId');
 
@@ -415,15 +396,11 @@ class ImageUploadService {
         }
         int? createdTime = result.first['created_at'] as int?;
         print('🔍 Found created_at: $createdTime');
-        print(
-          '🔍 About to call Utils.getTmeFromMSForAPICall with: $createdTime',
-        );
+        print('🔍 About to call Utils.getTmeFromMSForAPICall with: $createdTime');
         String? createdTimeStr;
         try {
           createdTimeStr = Utils.getTmeFromMSForAPICall(createdTime);
-          print(
-            '🔍 Utils.getTmeFromMSForAPICall completed successfully: $createdTimeStr',
-          );
+          print('🔍 Utils.getTmeFromMSForAPICall completed successfully: $createdTimeStr');
         } catch (e) {
           print('❌ Exception in Utils.getTmeFromMSForAPICall: $e');
           createdTimeStr = null;
@@ -436,7 +413,7 @@ class ImageUploadService {
       } else {
         print('🔍 Result is empty, no records found');
       }
-
+      
       print('🔍 Returning response: $response');
       return response;
     } catch (e) {
