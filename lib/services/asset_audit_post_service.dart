@@ -42,7 +42,7 @@ class AssetAuditPostService {
       if(isConnected) {
         Logger.debugLog("User is connected to the internet, trying to post the data");
         try {
-          _processRequestsForImages(copiedRequests);
+          await _processRequestsForImages(copiedRequests);
           Logger.debugLog("data after processing images: $copiedRequests");
         } catch(e){
           Logger.errorLog("smjh nhi aa rha $e");

@@ -76,6 +76,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     // Initialize radio value - convert 1/0 to Yes/No
     if (respTypes.contains('RADIO')) {
       _selectedRadioValue = respValue == null || respValue.isEmpty ? 'Yes' : respValue;
+      if(respValue == null || respValue.isEmpty) {
+        _onRadioChanged('Yes');
+      }
     }
     
     // Initialize text value
