@@ -227,6 +227,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   }
 
   void _onCabinetDataChanged(String? photoId, String? imageData, bool? isQRCodeScanned1, String? qrCodeScannedTs1) {
+    print("_onCabinetDataChanged: for debugging $_onCabinetDataChanged");
+    print("QR Code Scanned: $isQRCodeScanned1, Timestamp: $qrCodeScannedTs1");
     setState(() {
       _cabinetPhotoId = photoId;
       _cabinetImageData = imageData;

@@ -233,22 +233,23 @@ class AssetAuditPostService {
   /// Process a single asset audit request
   /// Replaces photo_id with server_id and adds photo_taken_ts
   Future<dynamic> processAssetAuditRequest(dynamic request) async {
-    dynamic updatedRequest = {...request as Map<String, dynamic>};
-    try {
-      Logger.debugLog(
-        '🔍 _processAssetAuditRequest called with: ${updatedRequest.keys}',
-      );
-      Logger.debugLog('🔍 Request photo_id: ${updatedRequest['photo_id']}');
-      Logger.debugLog('🔍 Request photoId: ${updatedRequest['photoId']}');
+    print("🔄 processAssetAuditRequest STARTED");
+    print("🔄 Input request: $request");
 
+    dynamic updatedRequest = {...request as Map<String, dynamic>};
+    print("🔄 Updated request created: $updatedRequest");
+
+    try {
       // Check both snake_case and camelCase field names
       final photoId = updatedRequest['photo_id'] ?? updatedRequest['photoId'];
+      print("🔄 Photo ID found: $photoId");
 
-      // If no photo_id, return the request as-is
-      if (photoId == null) {
-        Logger.debugLog(
-          '📝 No photo_id to process for request: ${updatedRequest['nexgen_serial_no']}',
+      // If no photo_id or photo_id is null/empty, return the request as-is
+      if (photoId == null || photoId.toString().isEmpty) {
+        print(
+          "📝 No photo_id to process for request: ${updatedRequest['nexgen_serial_no']}",
         );
+        print("🔄 Returning request as-is: $updatedRequest");
         return updatedRequest;
       }
       Logger.debugLog(
@@ -259,23 +260,25 @@ class AssetAuditPostService {
       // Note: After camelCase transformation, this might be 'photoId' instead of 'photo_id'
       if (photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
         // This is a unique_id, get the server_id using ImageUploadService
+        print("🔄 Getting server ID for LOCAL_IMAGE_ID: $photoId");
         final serverIdWithCreatedTime = await _imageUploadService
             .getServerIdAndCreatedTime(
               photoId.toString(),
               ActivityTypeEnum.assetAudit,
               updatedRequest['site_audit_sch_id'].toString(),
             );
-        Logger.debugLog(
-          '🔍 Server ID response: $serverIdWithCreatedTime (length: ${serverIdWithCreatedTime.length})',
+        print(
+          "🔍 Server ID response: $serverIdWithCreatedTime (length: ${serverIdWithCreatedTime?.length ?? 0})",
         );
 
-        if (serverIdWithCreatedTime.isNotEmpty) {
+        if (serverIdWithCreatedTime != null &&
+            serverIdWithCreatedTime.isNotEmpty) {
           final serverId = serverIdWithCreatedTime.first;
           final timestamp = serverIdWithCreatedTime.length > 1
               ? serverIdWithCreatedTime.elementAt(1)
               : null;
 
-          Logger.debugLog(
+          print(
             '🔄 BEFORE replacement - photo_id: ${updatedRequest['photo_id']}, photoId: ${updatedRequest['photoId']}',
           );
 
@@ -287,25 +290,26 @@ class AssetAuditPostService {
             updatedRequest['photoTakenTs'] = timestamp;
           }
 
-          Logger.debugLog(
+          print(
             '✅ Successfully replaced LOCAL_IMAGE_ID with server_id: $serverId',
           );
-          Logger.debugLog(
+          print(
             '🔄 AFTER replacement - photo_id: ${updatedRequest['photo_id']}, photoId: ${updatedRequest['photoId']}',
           );
           if (timestamp != null) {
-            Logger.debugLog('📅 Photo taken timestamp: $timestamp');
+            print('📅 Photo taken timestamp: $timestamp');
           }
         } else {
-          Logger.errorLog(
-            '❌ FAILED to get server_id for LOCAL_IMAGE_ID: $photoId',
+          print("❌ FAILED to get server_id for LOCAL_IMAGE_ID: $photoId");
+          print(
+            "❌ This means the photo upload to api/v1/mobile/uploads failed!",
           );
-          Logger.errorLog(
+          print("❌ OR the server_id was not stored in SQLite properly!");
+          print('❌ FAILED to get server_id for LOCAL_IMAGE_ID: $photoId');
+          print(
             '❌ This means the photo upload to api/v1/mobile/uploads failed!',
           );
-          Logger.errorLog(
-            '❌ OR the server_id was not stored in SQLite properly!',
-          );
+          print('❌ OR the server_id was not stored in SQLite properly!');
           // Keep the original photo_id for now, but log the error
         }
       } else {
@@ -314,14 +318,16 @@ class AssetAuditPostService {
             updatedRequest['photo_taken_ts'].toString().isEmpty) {
           final currentTime = Utils.getCurrentDateTimeForAPICall();
           updatedRequest['photo_taken_ts'] = currentTime;
-          Logger.debugLog('📅 Added current timestamp for server_id: $photoId');
+          print('📅 Added current timestamp for server_id: $photoId');
         }
         return updatedRequest;
       }
     } catch (e) {
+      print("❌ Error processing asset audit request: $e");
       Logger.errorLog('❌ Error processing asset audit request: $e');
       return request;
     }
+    print("✅ processAssetAuditRequest COMPLETED - returning: $updatedRequest");
     return updatedRequest;
   }
 }

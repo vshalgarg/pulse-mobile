@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../utils/logger.dart';
+import 'image_upload_service.dart';
+import '../enum/activity_type_enum.dart';
 
 class PendingRequestsService {
   static final PendingRequestsService _instance = PendingRequestsService._internal();
@@ -9,6 +11,12 @@ class PendingRequestsService {
   PendingRequestsService._internal();
 
   static Database? _database;
+  ImageUploadService? _imageUploadService;
+
+  /// Set the ImageUploadService instance
+  void setImageUploadService(ImageUploadService imageUploadService) {
+    _imageUploadService = imageUploadService;
+  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -336,5 +344,120 @@ class PendingRequestsService {
       print('❌ TEST FAILED: $e');
     }
     print('🧪 ===== END TEST =====');
+  }
+
+
+    
+
+  /// Process offline request by converting photo_id to server_id
+  Future<dynamic> postOfflineRequest(dynamic request) async {
+
+    dynamic requestData = {...request as Map<String, dynamic>};
+    try {
+      Logger.debugLog('🔄 Processing offline request with ${requestData.length} items');
+      
+      if (_imageUploadService == null) {
+        Logger.errorLog('❌ ImageUploadService not initialized');
+        throw Exception('ImageUploadService not initialized');
+      }
+
+      List<dynamic> processedData = [];
+      
+      for (int i = 0; i < requestData.length; i++) {
+        final jsonObject = requestData[i];
+        Logger.debugLog('🔍 Processing item ${i + 1}/${requestData.length}');
+        
+        // Create a copy of the JSON object to avoid modifying the original
+        Map<String, dynamic> processedObject = Map<String, dynamic>.from(jsonObject);
+        
+        // Check if this object has a photo_id
+        if (processedObject.containsKey('photo_id')) {
+          final photoId = processedObject['photo_id'] as String;
+          Logger.debugLog('📸 Found photo_id: $photoId');
+          
+          try {
+            // Check if this photo_id has a server_id in the database
+            final serverIdWithCreatedTime = await _imageUploadService!.getServerIdAndCreatedTime(
+              photoId,
+              ActivityTypeEnum.assetAudit, // Default activity type
+              '0', // Default siteSchId - you might want to pass this as parameter
+            );
+            
+            if (serverIdWithCreatedTime.isNotEmpty) {
+              final serverId = serverIdWithCreatedTime[0];
+              Logger.debugLog('✅ Found server_id: $serverId for photo_id: $photoId');
+              
+              // Replace photo_id with server_id
+              processedObject['photo_id'] = serverId;
+              
+              // If there's a created_time, add it to the object
+              if (serverIdWithCreatedTime.length > 1) {
+                final createdTime = serverIdWithCreatedTime[1];
+                processedObject['created_time'] = createdTime;
+                Logger.debugLog('⏰ Added created_time: $createdTime');
+              }
+            } else {
+              Logger.debugLog('⚠️ No server_id found for photo_id: $photoId');
+              
+              // Get image data from SQLite and upload it
+              final imageData = await _imageUploadService!.getImageUsingUniqueId(photoId);
+              
+              if (imageData != null) {
+                Logger.debugLog('📸 Found image data for photo_id: $photoId, size: ${imageData.length}');
+                
+                // Upload the image to get server_id
+                final newServerId = await _imageUploadService!.uploadImage(
+                  imageData,
+                  ActivityTypeEnum.assetAudit,
+                  '0', // Default siteSchId - you might want to pass this as parameter
+                );
+                
+                if (newServerId.isNotEmpty) {
+                  Logger.debugLog('✅ Successfully uploaded image, got server_id: $newServerId');
+                  
+                  // Now get the server_id and created_time from the database
+                  final updatedServerIdWithCreatedTime = await _imageUploadService!.getServerIdAndCreatedTime(
+                    photoId,
+                    ActivityTypeEnum.assetAudit,
+                    '0',
+                  );
+                  
+                  if (updatedServerIdWithCreatedTime.isNotEmpty) {
+                    final serverId = updatedServerIdWithCreatedTime[0];
+                    processedObject['photo_id'] = serverId;
+                    
+                    // Add created_time if available
+                    if (updatedServerIdWithCreatedTime.length > 1) {
+                      final createdTime = updatedServerIdWithCreatedTime[1];
+                      processedObject['created_time'] = createdTime;
+                    }
+                    
+                    Logger.debugLog('✅ Updated photo_id to server_id: $serverId');
+                  } else {
+                    Logger.errorLog('❌ Failed to get server_id after upload for photo_id: $photoId');
+                  }
+                } else {
+                  Logger.errorLog('❌ Failed to upload image for photo_id: $photoId');
+                }
+              } else {
+                Logger.errorLog('❌ No image data found for photo_id: $photoId');
+              }
+            }
+          } catch (e) {
+            Logger.errorLog('❌ Error processing photo_id $photoId: $e');
+            // Continue with the original photo_id if there's an error
+          }
+        }
+        
+        processedData.add(processedObject);
+      }
+      
+      Logger.debugLog('✅ Successfully processed ${processedData.length} items');
+      return processedData;
+      
+    } catch (e) {
+      Logger.errorLog('❌ Error in postOfflineRequest: $e');
+      rethrow;
+    }
   }
 }

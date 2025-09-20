@@ -126,6 +126,8 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
             });
             // Notify parent about the QR scan
             widget.onDataChanged?.call(_currentPhotoId, _currentImageData, _isQRCodeScanned, _qrCodeScannedTs);
+
+            print("_qrCodeScannedTs: for debugging $_qrCodeScannedTs");
           },
         ),
         getHeight(15),

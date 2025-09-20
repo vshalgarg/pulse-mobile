@@ -43,9 +43,24 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Syncs offline data by checking pending requests and posting them to the server
   Future<void> _syncOfflineData() async {
     try {
+      print('🔄 Starting offline data sync...');
+      Logger.infoLog('🔄 HomeScreen: Starting offline data sync');
+
       // Get pending requests
       final pendingRequestsService = PendingRequestsService();
       final pendingRequests = await pendingRequestsService.getPendingRequests();
+
+      print('📋 Found ${pendingRequests.length} pending requests');
+      Logger.infoLog(
+        '📋 HomeScreen: Found ${pendingRequests.length} pending requests',
+      );
+
+      if (pendingRequests.isEmpty) {
+        print('ℹ️ No pending requests found');
+        Logger.infoLog('ℹ️ HomeScreen: No pending requests found');
+        _showSyncMessage('No pending requests to sync');
+        return;
+      }
 
       int successCount = 0;
       int failureCount = 0;
@@ -111,23 +126,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
+
       // added offline sync code
 
       List<Map<String, dynamic>> processedRequests = [];
 
       for (int i = 0; i < requestData.length; i++) {
-        final processedRequest = await postService.processAssetAuditRequest(
-          requestDataJson[i],
-        );
+        print('🔄 About to call processAssetAuditRequest for item $i');
+        print('🔄 Request data item: ${requestData[i]}');
 
-        // Add location data to each reques
+        final pendingRequestsService = PendingRequestsService();
+        final processedRequest = await pendingRequestsService
+            .postOfflineRequest(requestData[i]);
 
-        // Add required fields
+        // final processedRequest = await postService.processAssetAuditRequest(
+        //   requestData[i],
+        // );
+
+        print('processedRequest:for ddebug $processedRequest');
+
         processedRequest['auditSchId'] = 0;
         processedRequest['localCreatedDt'] =
             Utils.getCurrentDateTimeForAPICall();
