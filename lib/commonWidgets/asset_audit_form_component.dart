@@ -562,6 +562,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       final uniqueId = await _imageUploadService.uploadImage(
         base64Image,
         ActivityTypeEnum.assetAudit,
+        false,
         widget.siteAuditSchId,
       );
 

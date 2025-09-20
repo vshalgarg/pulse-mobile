@@ -178,21 +178,12 @@ class _MMSV2ScreenState extends State<MMSV2Screen> {
       ];
 
       Logger.debugLog('📤 MMS V2: Prepared ${postObject.length} items for posting');
-      
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
-      
       Logger.debugLog('✅ MMS V2: Data posted successfully');
       
     } catch (e) {

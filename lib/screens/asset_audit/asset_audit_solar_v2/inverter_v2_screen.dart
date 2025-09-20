@@ -1,5 +1,6 @@
 import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -201,21 +202,12 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
       ];
 
       Logger.debugLog('📤 Inverter V2: Prepared ${postObject.length} items for posting');
-      
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
-      
       Logger.debugLog('✅ Inverter V2: Data posted successfully');
       
     } catch (e) {

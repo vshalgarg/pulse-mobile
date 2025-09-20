@@ -12,12 +12,6 @@ class PendingRequestsService {
   PendingRequestsService._internal();
 
   static Database? _database;
-  ImageUploadService? _imageUploadService;
-
-  /// Set the ImageUploadService instance
-  void setImageUploadService(ImageUploadService imageUploadService) {
-    _imageUploadService = imageUploadService;
-  }
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -46,12 +40,11 @@ class PendingRequestsService {
         error_message TEXT
       )
     ''');
-
     Logger.debugLog('✅ PendingRequestsService: Database created successfully');
   }
 
   /// Save a pending request to the database
-  Future<void> savePendingRequest({
+  Future<bool> savePendingRequest({
     required String requestId,
     required String url,
     required Map<String, dynamic> headers,
@@ -72,26 +65,18 @@ class PendingRequestsService {
         'error_message': null,
       };
 
-      await db.insert('pending_requests', pendingRequest);
+      int result = await db.insert('pending_requests', pendingRequest);
 
-      Logger.infoLog(
-        '💾 PendingRequestsService: Saved pending request with ID: $requestId',
-      );
-      Logger.infoLog('📝 Request URL: $url');
-      Logger.infoLog('📝 Request Headers: ${headers.toString()}');
-      Logger.infoLog('📝 Request Data: ${requestData.toString()}');
-
-      // Also print to console for immediate visibility
-      print('💾 PENDING REQUEST SAVED: $requestId');
-      print('📝 URL: $url');
-      print('📝 Headers: ${headers.toString()}');
-      print('📝 Data: ${requestData.toString()}');
-
-      // Log the complete table contents after saving
-      await logPendingRequestsTable();
+      if (result > 0) {
+        Logger.debugLog('Pending post data saved for requestId $requestId');
+        return true;
+      } else {
+        Logger.debugLog('⚠️ Pending post data could not be saved for requestId $requestId');
+        return false;
+      }
     } catch (e) {
       Logger.errorLog(
-        '❌ PendingRequestsService: Error saving pending request: $e',
+        'PendingRequestsService: Error saving pending request: $e',
       );
       rethrow;
     }

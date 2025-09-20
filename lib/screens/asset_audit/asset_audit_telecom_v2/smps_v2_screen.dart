@@ -1,3 +1,4 @@
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -14,10 +15,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
-import '../../../services/asset_audit_post_service.dart';
-import '../../../services/image_upload_service.dart';
 import '../../../app_config.dart';
 
 class SMPSV2Screen extends StatefulWidget {
@@ -253,25 +251,16 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       ];
 
       Logger.debugLog('📤 SMPS V2: Prepared ${postObject.length} items for posting');
-      
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
+
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
-      
-      Logger.debugLog('✅ SMPS V2: Data posted successfully');
-      
+      Logger.debugLog('SMPS V2: Data posted successfully');
     } catch (e) {
-      Logger.errorLog('❌ SMPS V2: Error in postCurrentScreenData: $e');
+      Logger.errorLog('SMPS V2: Error in postCurrentScreenData: $e');
       rethrow;
     }
   }

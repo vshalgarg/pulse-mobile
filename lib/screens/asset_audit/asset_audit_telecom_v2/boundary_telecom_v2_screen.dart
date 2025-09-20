@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -214,19 +215,13 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       // Update local data
       _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
+
 
       Logger.debugLog('✅ Boundary V2: Data posted successfully');
 

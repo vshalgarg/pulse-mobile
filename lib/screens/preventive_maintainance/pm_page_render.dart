@@ -1,4 +1,7 @@
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../constants/app_images.dart';
@@ -12,11 +15,6 @@ import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../utils/pm_navigation_helper.dart';
 import '../../utils/asset_audit_navigation_helper.dart';
-import '../../services/asset_audit/central_asset_audit_service.dart';
-import '../../services/asset_audit/central_service_initializer.dart';
-import '../../services/asset_audit_post_service.dart';
-import '../../services/image_upload_service.dart';
-import '../../app_config.dart';
 
 class PMPageRender extends StatefulWidget {
   final Map<String, dynamic> pmData;
@@ -40,81 +38,19 @@ class _PMPageRenderState extends State<PMPageRender> {
   int _currentPageIndex = 0;
   late List<String> _availablePages;
   late Map<String, dynamic> _pmData;
-  CentralAssetAuditService? _service;
-  AssetAuditPostService? _postService;
 
   @override
   void initState() {
     super.initState();
     _pmData = Map<String, dynamic>.from(widget.pmData);
-    _initializeServices();
     _initializeAvailablePages();
   }
 
-  void _initializeServices() {
-    try {
-      // Initialize CentralAssetAuditService if not already initialized
-      if (!CentralAssetAuditServiceInitializer.isInitialized) {
-        final apiService = AppConfig.of(context).apiService;
-        CentralAssetAuditServiceInitializer.initialize(apiService);
-      }
-      _service = ServiceLocator().centralAssetAuditService;
-      print('✅ CentralAssetAuditService initialized successfully');
-      
-      // Initialize AssetAuditPostService
-      _initializePostService();
-    } catch (e) {
-      print('❌ Error initializing services: $e');
-    }
-  }
-
-  void _initializePostService() {
-    try {
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      _postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      print('✅ AssetAuditPostService initialized successfully');
-    } catch (e) {
-      print('❌ Error initializing AssetAuditPostService: $e');
-    }
-  }
 
   void _initializeAvailablePages() {
     // Use navigation helper to get available screens
     _availablePages = PMNavigationHelper.getAvailableScreens(_pmData);
-    
-    // Debug logging
-    print('🔍 PM Data Structure:');
-    print('  - Full PM Data: $_pmData');
-    print('  - pageHeader: ${_pmData['pageHeader']}');
-    print('  - responseData: ${_pmData['responseData']}');
-    print('  - responseData keys: ${_pmData['responseData']?.keys.toList()}');
-    print('  - Available pages: $_availablePages');
-    print('  - Page count: ${_availablePages.length}');
-    
-    // Additional debug for solar detection
-    if (_availablePages.isEmpty) {
-      print('❌ No available pages found!');
-      print('  - This might be a solar PM with different data structure');
-      print('  - Checking if this is a solar PM...');
-      
-      // Check if this looks like solar PM data
-      final responseData = _pmData['responseData'] as Map<String, dynamic>? ?? {};
-      final pageHeader = _pmData['pageHeader'] as List?;
-      
-      print('  - ResponseData keys: ${responseData.keys.toList()}');
-      print('  - PageHeader: $pageHeader');
-      
-      if (pageHeader != null && pageHeader.isNotEmpty) {
-        final firstHeader = pageHeader.first as Map<String, dynamic>?;
-        print('  - First header: $firstHeader');
-        print('  - Site type: ${firstHeader?['site_type_name']}');
-      }
-    }
+
   }
 
   String get _currentPageName => _availablePages[_currentPageIndex];
@@ -157,7 +93,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   
   /// Build the appropriate site info page based on PM type
   Widget _buildSiteInfoPage() {
-    print('🔍 Building Site Info Page - Is Solar PM: $_isSolarPM');
+    print('Building Site Info Page - Is Solar PM: $_isSolarPM');
     
     if (_isSolarPM) {
       return PMPageHeaderSolar(
@@ -218,9 +154,6 @@ class _PMPageRenderState extends State<PMPageRender> {
   }
 
   void _onNextPage() async {
-    print('🔄 _onNextPage called - _isLastPage: $_isLastPage, _currentPageIndex: $_currentPageIndex, _availablePages.length: ${_availablePages.length}');
-    print('🔄 Current page: $_currentPageName, isFirstPage: $_isFirstPage, isLastPage: $_isLastPage');
-    
     // Update data in SQLite before navigating to next page (except for Site Info page)
     if (!_isFirstPage) {
       await _updateDataInSqliteAndCallApi();
@@ -230,7 +163,7 @@ class _PMPageRenderState extends State<PMPageRender> {
     if (!_isLastPage) {
       setState(() {
         _currentPageIndex++;
-        print('✅ Page index updated to: $_currentPageIndex');
+        Logger.debugLog('Page index updated to: $_currentPageIndex');
       });
       _clearWidgetState();
     }
@@ -238,17 +171,7 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   Future<void> _updateDataInSqliteAndCallApi() async {
     try {
-      // Ensure service is initialized
-      if (_service == null) {
-        print('⚠️ Service not initialized, initializing now...');
-        _initializeServices();
-      }
-      
-      if (_service == null) {
-        print('❌ Failed to initialize service');
-        return;
-      }
-      
+
       // Get siteAuditSchId from PM data
       final siteAuditSchId = _pmData['pageHeader']?[0]?['site_audit_sch_id']?.toString();
       
@@ -256,15 +179,12 @@ class _PMPageRenderState extends State<PMPageRender> {
         print('🔄 Updating PM data in SQLite for site: $siteAuditSchId');
         final dataToPost = _pmData['responseData'][_currentPageName];
         // Update data in SQLite
-        final success = await _service!.updateDataInSqlite(
+        final success = await ServiceLocator().centralAssetAuditService.updateDataInSqlite(
           siteAuditSchId: siteAuditSchId,
           updatedData: _pmData,
         );
         
         if (success) {
-          print('✅ PM data updated successfully in SQLite');
-          
-          // Post data to API with photo replacement
           await _postPmDataToApi(dataToPost);
         } else {
           print('❌ Failed to update PM data in SQLite');
@@ -279,27 +199,18 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   Future<void> _postPmDataToApi(final dataToPost) async {
     try {
-      if (_postService == null) {
-        print('⚠️ Post service not initialized, initializing now...');
-        _initializePostService();
+      if(await ConnectivityHelper.isConnected()) {
+        // Post data with photo ID replacement
+        await ServiceLocator().assetAuditPostService
+            .postAssetAuditDataWithPhotoReplacement(
+            requests: dataToPost,
+            activityType: ActivityTypeEnum.preventiveMaintenance,
+            isLastPage: _isLastPage
+        );
+        Logger.infoLog('PM data posted successfully to API');
       }
-      
-      if (_postService == null) {
-        print('❌ Failed to initialize post service');
-        return;
-      }
-      
-      print('🔄 Posting PM data to API');
-      
-      // Post data with photo ID replacement
-      await _postService!.postAssetAuditDataWithPhotoReplacement(
-        requests: dataToPost,
-        isAssetAudit: false,
-        isLastPage: _isLastPage
-      );
-      print('✅ PM data posted successfully to API');
     } catch (e) {
-      print('❌ Error posting PM data to API: $e');
+      Logger.errorLog('Error posting PM data to API: $e');
     }
   }
 

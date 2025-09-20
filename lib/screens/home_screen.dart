@@ -13,10 +13,12 @@ import 'package:app/screens/debug/log_viewer_screen.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/pending_requests_service.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -36,172 +38,50 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    Utils.getCurrentDateTimeForAPICall();
     context.read<DashboardCubit>().getDashboardCount();
   }
 
   /// Syncs offline data by checking pending requests and posting them to the server
   Future<void> _syncOfflineData() async {
     try {
-      print('🔄 Starting offline data sync...');
       Logger.infoLog('🔄 HomeScreen: Starting offline data sync');
 
       // Get pending requests
-      final pendingRequestsService = PendingRequestsService();
+      final pendingRequestsService = ServiceLocator().pendingRequestService;
       final pendingRequests = await pendingRequestsService.getPendingRequests();
 
-      print('📋 Found ${pendingRequests.length} pending requests');
       Logger.infoLog(
-        '📋 HomeScreen: Found ${pendingRequests.length} pending requests',
+        'HomeScreen: Found ${pendingRequests.length} pending requests',
       );
 
       if (pendingRequests.isEmpty) {
-        print('ℹ️ No pending requests found');
-        Logger.infoLog('ℹ️ HomeScreen: No pending requests found');
-        _showSyncMessage('No pending requests to sync');
+        Logger.infoLog('HomeScreen: No pending requests found');
+        Toastbar.showInfoToastbar('No pending requests to sync', context);
         return;
       }
-
       int successCount = 0;
-      int failureCount = 0;
-
+      int totalCount = pendingRequests.length;
       // Process each pending request
       for (final request in pendingRequests) {
         try {
-          await _processPendingRequest(request);
+          await ServiceLocator().assetAuditPostService.syncRequestsWhenUserComesOnline(
+              request['url'], jsonDecode(request['request_data']), request['request_id']);
           successCount++;
-          print('✅ Successfully synced request: ${request['request_id']}');
         } catch (e) {
-          failureCount++;
-          print('❌ Failed to sync request ${request['request_id']}: $e');
           Logger.errorLog(
-            '❌ HomeScreen: Failed to sync request ${request['request_id']}: $e',
+            'HomeScreen: Failed to sync request ${request['request_id']}: $e',
           );
         }
       }
 
       // Show sync result
       final message =
-          'Sync completed: $successCount successful, $failureCount failed';
-      print('📊 $message');
-      Logger.infoLog('📊 HomeScreen: $message');
-      _showSyncMessage(message);
+          'Sync completed: $successCount successful, out of $totalCount';
+      Logger.infoLog('HomeScreen: $message');
+      Toastbar.showSuccessToastbar(message, context);
     } catch (e) {
-      print('❌ Error during sync: $e');
-      Logger.errorLog('❌ HomeScreen: Error during sync: $e');
-      _showSyncMessage('Sync failed: $e');
-    }
-  }
-
-  /// Processes a single pending request
-  Future<void> _processPendingRequest(Map<String, dynamic> request) async {
-    try {
-      final requestId = request['request_id'] as String;
-      final url = request['url'] as String;
-      final headersJson = request['headers'] as String?;
-      final requestDataJson = request['request_data'] as String;
-
-      List<dynamic> requestData;
-      try {
-        requestData = jsonDecode(requestDataJson);
-      } catch (e) {
-        throw Exception('Failed to parse request data: $e');
-      }
-
-      print('🔄 Processing request: $requestId');
-      print('📍 URL: $url');
-
-      // Parse headers
-      Map<String, String> headers = {};
-      if (headersJson != null && headersJson.isNotEmpty) {
-        try {
-          headers = Map<String, String>.from(jsonDecode(headersJson));
-        } catch (e) {
-          print('⚠️ Failed to parse headers: $e');
-          headers = {'Content-Type': 'application/json'};
-        }
-      } else {
-        headers = {'Content-Type': 'application/json'};
-      }
-
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      // added offline sync code
-
-      List<Map<String, dynamic>> processedRequests = [];
-
-      for (int i = 0; i < requestData.length; i++) {
-        print('🔄 About to call processAssetAuditRequest for item $i');
-        print('🔄 Request data item: ${requestData[i]}');
-
-        final processedRequest = await postService.processAssetAuditRequest(
-          requestData[i],
-        );
-        processedRequests.add(processedRequest);
-      }
-
-      // Parse request data
-
-      // Convert to transformed requests (camelCase)
-      final transformedRequests =
-          DataTransformationHelper.transformAssetAuditData(processedRequests);
-      print('🔄 Data transformed to camelCase');
-
-      // Get API service from AppConfig
-
-      // Make the API call
-      print('📤 Making API call to: $url');
-      print('📤 Headers: $headers');
-      final response = await apiService.post<List<dynamic>>(
-        path: url,
-        data: transformedRequests,
-        headers: headers,
-      );
-
-      if (response.isSuccess) {
-        print('✅ API call successful for request: $requestId');
-
-        // Update request status to completed
-        final pendingRequestsService = PendingRequestsService();
-        await pendingRequestsService.updateRequestStatus(
-          requestId: requestId,
-          status: 'completed',
-        );
-
-        Logger.infoLog('✅ HomeScreen: Successfully synced request $requestId');
-      } else {
-        throw Exception('API call failed: ${response.errorMessage}');
-      }
-    } catch (e) {
-      print('❌ Error processing request ${request['request_id']}: $e');
-
-      // Update request status to failed and increment retry count
-      final pendingRequestsService = PendingRequestsService();
-      await pendingRequestsService.incrementRetryCount(
-        request['request_id'] as String,
-      );
-
-      throw e;
-    }
-  }
-
-  /// Shows sync message to user
-  void _showSyncMessage(String message) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: message.contains('successful')
-              ? Colors.green
-              : Colors.orange,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+      Logger.errorLog('HomeScreen: Error during sync: $e');
+      Toastbar.showErrorToastbar('Sync failed: $e', context);
     }
   }
 

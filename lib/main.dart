@@ -20,7 +20,6 @@ import 'bloc/global_loading_cubit.dart';
 import 'firebase_options.dart';
 import 'services/local_storage_db.dart';
 import 'database/asset_audit_database.dart';
-import 'utils/asset_audit_form_persistence_helper_sqlite.dart';
 import 'services/app_initialization_service.dart';
 import 'utils.dart';
 import 'utils/file_logger.dart';
@@ -74,7 +73,6 @@ Future<void> main() async {
   
   // Initialize form persistence helper with API provider
   print('🔧 Initializing AssetAuditFormPersistenceHelperSQLite...');
-  AssetAuditFormPersistenceHelperSQLite.initialize(globalConfig!.apiProvider);
   print('✅ AssetAuditFormPersistenceHelperSQLite initialized');
 
   // stripe

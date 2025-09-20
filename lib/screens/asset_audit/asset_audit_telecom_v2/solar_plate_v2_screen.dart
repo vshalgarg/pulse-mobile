@@ -1,3 +1,4 @@
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -197,15 +198,12 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
+
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
       
       Logger.debugLog('✅ Solar Plate V2: Data posted successfully');

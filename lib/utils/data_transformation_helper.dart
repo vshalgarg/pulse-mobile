@@ -27,52 +27,24 @@ class DataTransformationHelper {
     return modifiedDataToReturn;
   }
 
-
-  /// Converts snake_case keys to camelCase in a Map
-  static Map<String, dynamic> snakeToCamelCase(Map<String, dynamic> data) {
-    final Map<String, dynamic> result = {};
-    
-    data.forEach((key, value) {
-      final String camelKey = _snakeToCamel(key);
-      
-      if (value is Map<String, dynamic>) {
-        // Recursively convert nested maps
-        result[camelKey] = snakeToCamelCase(value);
-      } else if (value is List) {
-        // Convert each item in the list
-        result[camelKey] = value.map((item) {
-          if (item is Map<String, dynamic>) {
-            return snakeToCamelCase(item);
-          }
-          return item;
-        }).toList();
-      } else {
-        // Keep primitive values as is
-        result[camelKey] = value;
-      }
+  static Map<String, dynamic> convertKeysToCamelCase(Map<String, dynamic> json) {
+    return json.map((key, value) {
+      final newKey = _snakeToCamel(key);
+        return MapEntry(newKey, value);
     });
-    
-    return result;
   }
-  
-  /// Converts a single snake_case string to camelCase
-  static String _snakeToCamel(String snakeCase) {
-    if (snakeCase.isEmpty) return snakeCase;
-    
-    final List<String> parts = snakeCase.split('_');
-    if (parts.length == 1) return snakeCase;
-    
-    final String firstPart = parts[0].toLowerCase();
-    final String remainingParts = parts
-        .skip(1)
-        .map((part) => part.isNotEmpty 
-            ? part[0].toUpperCase() + part.substring(1).toLowerCase()
-            : part)
-        .join('');
-    
-    return firstPart + remainingParts;
+
+  static String _snakeToCamel(String snake) {
+    return snake.replaceAllMapped(
+      RegExp(r'_([a-z])'),
+          (match) => match.group(1)!.toUpperCase(),
+    );
   }
-  
+
+  static List<dynamic> convertListToCamelCase(List<dynamic> data) {
+    return data.map((e) => convertKeysToCamelCase(e)).toList();
+  }
+
   /// Converts camelCase keys to snake_case in a Map
   static Map<String, dynamic> camelToSnakeCase(Map<String, dynamic> data) {
     final Map<String, dynamic> result = {};
@@ -122,19 +94,7 @@ class DataTransformationHelper {
     
     return result.toString();
   }
-  
-  /// Transforms a list of asset audit data from snake_case to camelCase
-  static List<Map<String, dynamic>> transformAssetAuditData(
-    List<dynamic> dataList
-  ) {
-    return dataList.map((item) {
-      if (item is Map<String, dynamic>) {
-        return snakeToCamelCase(item);
-      }
-      return item as Map<String, dynamic>;
-    }).toList();
-  }
-  
+
   /// Debug method to print transformation results
   static void debugTransformation(
     String label,

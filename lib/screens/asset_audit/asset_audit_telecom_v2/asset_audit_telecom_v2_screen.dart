@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -185,7 +186,8 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
         imageFile: _selectedImage!,
-        isSelfie: true
+        isSelfie: true,
+        activityType: ActivityTypeEnum.assetAudit,
       );
 
       final dbData = await _service.getActualDataFromSqlite(

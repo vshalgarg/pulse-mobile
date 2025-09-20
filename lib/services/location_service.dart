@@ -1,52 +1,46 @@
+import 'package:app/constants/exception_constants.dart';
+import 'package:app/models/location_model.dart';
+import 'package:app/utils/logger.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
-import 'offline_location_service.dart';
 
 class LocationService {
-  /// Get user's current location with offline support
-  static Future<Map<String, String>?> getCurrentLocationOffline() async {
-  //  return await OfflineLocationService.getCurrentLocationOffline();
-  }
-
+  
   /// Get user's current location
-  static Future<Position?> getCurrentLocation() async {
+  static Future<LocationModel> getCurrentLocation() async {
     try {
-      // Check location permission
-      LocationPermission permission = await Geolocator.checkPermission();
-      
+      bool serviceEnabled;
+      LocationPermission permission;
+
+      // Check if location services are enabled
+      serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
+      }
+
+      // Check permission
+      permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          print('Location permission denied');
-          return null;
+          throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
         }
       }
-      
+
       if (permission == LocationPermission.deniedForever) {
-        print('Location permission permanently denied');
-        return null;
+        throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
       }
-      
-      // Check if location services are enabled
-      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        print('Location services are disabled');
-        return null;
-      }
-      
-      // Get current position
-      Position position = await Geolocator.getCurrentPosition(
+
+      // Get location (works offline if GPS is on)
+      final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
       );
-      
-      print('Current location: ${position.latitude}, ${position.longitude}');
-      return position;
-      
+      Logger.infoLog("user's location fetched: $position");
+      return LocationModel(latitude: position.latitude, longitude: position.longitude);
     } catch (e) {
-      print('Error getting current location: $e');
-      return null;
+      throw Exception(e);
     }
   }
   
@@ -58,27 +52,10 @@ class LocationService {
     required BuildContext context,
   }) async {
     try {
-      // Show loading message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Getting your current location...'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-      
+      Logger.infoLog("Getting user's location");
+      Toastbar.showInfoToastbar('Getting your current location...', context);
       // Get current location
-      Position? currentPosition = await getCurrentLocation();
-      
-      if (currentPosition == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not get your current location. Please check location permissions.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-      
+      LocationModel currentPosition = await getCurrentLocation();
       // Build Google Maps URL
       String url;
       if (destinationName != null) {
@@ -89,37 +66,19 @@ class LocationService {
         url = 'https://www.google.com/maps/dir/?api=1&origin=${currentPosition.latitude},${currentPosition.longitude}&destination=${destinationLat},${destinationLng}&travelmode=driving';
       }
       
-      print('Opening Google Maps URL: $url');
+      Logger.infoLog('Opening Google Maps URL: $url');
       
       // Launch URL
       final Uri uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-        
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Opening Google Maps with directions...'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        Toastbar.showSuccessToastbar("Redirecting to google maps", context);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not open Google Maps. Please install Google Maps app.'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        Toastbar.showErrorToastbar('Could not open Google Maps. Please install Google Maps app.', context);
       }
-      
     } catch (e) {
-      print('Error opening Google Maps: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error opening directions: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      Logger.errorLog('Error opening Google Maps: $e');
+      Toastbar.showErrorToastbar(e.toString(), context);
     }
   }
   

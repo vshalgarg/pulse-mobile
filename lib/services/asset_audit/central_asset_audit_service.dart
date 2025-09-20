@@ -145,7 +145,7 @@ class CentralAssetAuditService {
       Logger.debugLog('💾 API data keys: ${apiData.keys.toList()}');
 
       // Process images and replace server IDs with unique IDs
-      final processedApiData = await _processImagesInApiData(apiData);
+      final processedApiData = await _processImagesInApiData(apiData, activityType, siteAuditSchId);
 
       // Save the processed API response
       bool isSaved = await _dataService.saveRawApiData(
@@ -168,26 +168,26 @@ class CentralAssetAuditService {
   }
 
   /// Process images in API data by downloading and replacing server IDs with unique IDs
-  Future<Map<String, dynamic>> _processImagesInApiData(Map<String, dynamic> apiData) async {
+  Future<Map<String, dynamic>> _processImagesInApiData(Map<String, dynamic> apiData, ActivityTypeEnum activityType, String siteAuditSchId) async {
     try {
-      Logger.debugLog('🖼️ Processing images in API data');
+      Logger.debugLog('Processing images in API data');
       
       // Create a deep copy of the API data to avoid modifying the original
       final processedData = Map<String, dynamic>.from(apiData);
       
       // Process the entire object recursively
-      await _processObjectRecursively(processedData);
+      await _processObjectRecursively(processedData, activityType, siteAuditSchId);
       
-      Logger.debugLog('✅ Images processed successfully');
+      Logger.debugLog('Images processed successfully');
       return processedData;
     } catch (e) {
-      Logger.errorLog('❌ Error processing images in API data: $e');
+      Logger.errorLog('Error processing images in API data: $e');
       return apiData; // Return original data if processing fails
     }
   }
 
   /// Recursively process an object to find and replace image server IDs
-  Future<void> _processObjectRecursively(dynamic obj) async {
+  Future<void> _processObjectRecursively(dynamic obj, ActivityTypeEnum activityType, String siteAuditSchId) async {
     if (obj == null) return;
     
     if (obj is Map<String, dynamic>) {
@@ -203,7 +203,7 @@ class CentralAssetAuditService {
             Logger.debugLog('🖼️ Found $key: $serverId');
             
             // Download image and get unique ID
-            final uniqueId = await _downloadImageAndGetUniqueId(serverId);
+            final uniqueId = await _downloadImageAndGetUniqueId(serverId, activityType, siteAuditSchId);
             if (uniqueId != null) {
               // Replace server ID with unique ID
               obj[key] = uniqueId;
@@ -214,22 +214,22 @@ class CentralAssetAuditService {
           }
         } else {
           // Recursively process nested objects
-          await _processObjectRecursively(value);
+          await _processObjectRecursively(value, activityType, siteAuditSchId);
         }
       }
     } else if (obj is List) {
       // Process each item in the list
       for (final item in obj) {
-        await _processObjectRecursively(item);
+        await _processObjectRecursively(item, activityType, siteAuditSchId);
       }
     }
   }
 
   /// Download image using server ID and return unique ID
-  Future<String?> _downloadImageAndGetUniqueId(String serverId) async {
+  Future<String?> _downloadImageAndGetUniqueId(String serverId, ActivityTypeEnum activityType, String schId) async {
     try {
       Logger.debugLog('📥 Downloading image with server ID: $serverId');
-      final uniqueId = await _imageUploadService.downloadImageUsingServerId(serverId);
+      final uniqueId = await _imageUploadService.downloadImageUsingServerId(serverId, activityType, schId);
       
       if (uniqueId != null) {
         Logger.debugLog('✅ Image downloaded successfully with unique ID: $uniqueId');
@@ -297,6 +297,7 @@ class CentralAssetAuditService {
   Future<String?> uploadImage({
     required String siteAuditSchId,
     required File imageFile,
+    required ActivityTypeEnum activityType,
     bool isSelfie = false,
   }) async {
     if (!_initialized) {
@@ -309,17 +310,13 @@ class CentralAssetAuditService {
       final imageBytes = await imageFile.readAsBytes();
       final imageData = base64Encode(imageBytes);
 
-      if(isSelfie) {
-        return await _imageUploadService.uploadSelfie(imageData, ActivityTypeEnum.assetAudit,
-            siteAuditSchId);
-      } else {
-        // Upload using ImageUploadService
-        return await _imageUploadService.uploadImage(
-            imageData,
-            ActivityTypeEnum.assetAudit,
-            siteAuditSchId
-        );
-      }
+      // Upload using ImageUploadService
+      return await _imageUploadService.uploadImage(
+          imageData,
+          ActivityTypeEnum.assetAudit,
+          isSelfie,
+          siteAuditSchId
+      );
     } catch (e) {
       Logger.errorLog('❌ Error uploading image: $e');
       return null;

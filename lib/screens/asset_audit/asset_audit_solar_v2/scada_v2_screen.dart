@@ -215,21 +215,12 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
       Logger.debugLog(
         '📤 SCADA V2: Prepared ${postObject.length} items for posting',
       );
-
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-
-      // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+// Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
-
       Logger.debugLog('✅ SCADA V2: Data posted successfully');
     } catch (e) {
       Logger.errorLog('❌ SCADA V2: Error in postCurrentScreenData: $e');

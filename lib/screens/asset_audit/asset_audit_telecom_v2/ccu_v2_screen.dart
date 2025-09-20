@@ -1,5 +1,6 @@
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -289,18 +290,11 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
       Logger.debugLog('📤 SPV V2: Prepared ${postObject.length} items for posting');
 
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
 
       Logger.debugLog('✅ SPV V2: Data posted successfully');

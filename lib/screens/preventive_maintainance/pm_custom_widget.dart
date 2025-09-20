@@ -10,7 +10,6 @@ import '../../app_config.dart';
 import '../../commonWidgets/custom_remark.dart';
 import '../../commonWidgets/custom_form_field.dart';
 import '../../commonWidgets/custom_form_dropdown.dart';
-import '../../commonWidgets/custom_radio_options.dart';
 import '../../commonWidgets/custom_image_upload_field.dart';
 
 class PMCustomWidget extends StatefulWidget {
@@ -273,6 +272,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
             final photoId = await imageUploadService.uploadImage(
               base64Encode(imageData),
               ActivityTypeEnum.preventiveMaintenance,
+              false,
               _currentItem['site_audit_sch_id']?.toString() ?? '',
             );
 

@@ -1,314 +1,182 @@
-import 'package:app/enum/ImageActivityTypeEnum.dart';
-import 'package:app/services/api_service.dart';
-import 'package:app/services/image_upload_service.dart';
+import 'dart:convert';
+
+import 'package:app/models/location_model.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/location_service.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/connectivity_helper.dart';
-import 'package:app/services/pending_requests_service.dart';
-import 'package:geolocator/geolocator.dart';
 
 /// Service for posting asset audit data with photo ID replacement
 /// This service handles replacing local unique_id photo IDs with server_id
 /// and adding photo_taken_ts using the images table's created_at timestamp
 class AssetAuditPostService {
-  final ApiService _apiService;
-  final ImageUploadService _imageUploadService;
-
-  AssetAuditPostService({
-    required ApiService apiService,
-    required ImageUploadService imageUploadService,
-  }) : _apiService = apiService,
-       _imageUploadService = imageUploadService;
 
   /// Post asset audit data with photo ID replacement
   /// This method replaces all photo_id values with server_id from images table
   /// and adds photo_taken_ts using the images table's created_at timestamp
   Future<void> postAssetAuditDataWithPhotoReplacement({
     required List<dynamic> requests,
-    bool isAssetAudit = true,
+    required ActivityTypeEnum activityType,
     required bool isLastPage,
   }) async {
     try {
       // Get current location with offline support
-      Map<String, String>? finalLocation;
+      LocationModel finalLocation;
 
       try {
-        // Try offline location first
-        final location = await LocationService.getCurrentLocationOffline();
-        if (location != null) {
-          finalLocation = location;
-        } else {
-          // Try fresh GPS location
-          final freshLocation = await LocationService.getCurrentLocation();
-
-          if (freshLocation != null) {
-            finalLocation = {
-              'latitude': freshLocation.latitude.toString(),
-              'longitude': freshLocation.longitude.toString(),
-            };
-          } else {}
-        }
+        finalLocation = await LocationService.getCurrentLocation();
       } catch (e) {
-        Logger.debugLog('❌ AssetAuditPostService: Error getting location: $e');
-      }
-
-      // Final check - if still no location, try direct geolocator
-      if (finalLocation == null) {
-        try {
-          // Check permissions
-          LocationPermission permission = await Geolocator.checkPermission();
-          if (permission == LocationPermission.denied) {
-            permission = await Geolocator.requestPermission();
-          }
-
-          if (permission == LocationPermission.deniedForever) {
-            Logger.debugLog(
-              '❌ AssetAuditPostService: Location permission permanently denied',
-            );
-          } else if (permission == LocationPermission.denied) {
-            Logger.debugLog(
-              '❌ AssetAuditPostService: Location permission denied',
-            );
-          } else {
-            // Check if location services are enabled
-            bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-            Logger.debugLog(
-              '🔍 AssetAuditPostService: Location service enabled: $serviceEnabled',
-            );
-
-            if (serviceEnabled) {
-              // Try to get current position
-              Position position = await Geolocator.getCurrentPosition(
-                desiredAccuracy: LocationAccuracy.high,
-                timeLimit: Duration(seconds: 10),
-              );
-
-              finalLocation = {
-                'latitude': position.latitude.toString(),
-                'longitude': position.longitude.toString(),
-              };
-              Logger.debugLog(
-                '✅ AssetAuditPostService: Direct geolocator success: $finalLocation',
-              );
-            } else {
-              Logger.debugLog(
-                '❌ AssetAuditPostService: Location services disabled',
-              );
-            }
-          }
-        } catch (e) {
-          Logger.debugLog(
-            '❌ AssetAuditPostService: Direct geolocator error: $e',
-          );
-        }
-      }
-
-      // Final final check
-      if (finalLocation == null) {
-        Logger.debugLog(
-          '❌ AssetAuditPostService: No location available at all!',
-        );
-      } else {
-        Logger.debugLog(
-          '✅ AssetAuditPostService: Final location: $finalLocation',
-        );
+        Logger.infoLog('Error getting location: $e');
+        rethrow;
       }
 
       // Check internet connectivity
       final isConnected = await ConnectivityHelper.isConnected();
-      print(
-        '🌐 CONNECTIVITY CHECK: ${isConnected ? "CONNECTED" : "DISCONNECTED"}',
-      );
+      Logger.infoLog("user is connected to internet: $isConnected");
 
-      // Process each request to replace photo IDs and add timestamps
-
-      List<Map<String, dynamic>> processedRequests = [];
-
-      if (isConnected) {
-        for (int i = 0; i < requests.length; i++) {
-          final processedRequest = await processAssetAuditRequest(requests[i]);
-
-          // Add location data to each request
-          final finalLongitude =
-              finalLocation?['longitude'] ??
-              processedRequest['longitude']?.toString();
-          final finalLatitude =
-              finalLocation?['latitude'] ??
-              processedRequest['latitude']?.toString();
-
-          if (finalLocation != null) {
-            processedRequest['longitude'] = finalLongitude;
-            processedRequest['latitude'] = finalLatitude;
-          }
-
-          // Add required fields
-          processedRequest['auditSchId'] = 0;
-          processedRequest['localCreatedDt'] =
-              Utils.getCurrentDateTimeForAPICall();
-          processedRequest['localModifiedDt'] =
-              Utils.getCurrentDateTimeForAPICall();
-
-          if (processedRequest['record_type'] == 'Remarks') {
-            processedRequest['asset_Status'] = 'ok';
-          }
-
-          processedRequests.add(processedRequest);
-        }
-
-        final transformedRequests =
-            DataTransformationHelper.transformAssetAuditData(processedRequests);
-
-        Logger.debugLog(
-          '🔄 AssetAuditPostService: Data transformed to camelCase before API call | '
-          'transformedRequests: ${transformedRequests.toString()} | '
-          'isConnected: $isConnected',
-        );
-
-        print('🌐 PROCEEDING WITH API CALL');
-
-        // Post the processed requests to the API
-        final response = await _apiService.post<List<dynamic>>(
-          path: isAssetAudit
-              ? '/api/v1/mobile/AssetAuditSiteResp'
-              : '/api/v1/mobile/PmResponse',
-          data: transformedRequests,
-        );
-
-        if (response.isSuccess && response.data != null) {
-          Logger.infoLog("Data posted successfully");
-        } else {
-          final errorMsg =
-              response.errorMessage ?? 'Failed to post asset audit data';
-          Logger.errorLog('❌ Asset Audit POST API Error: $errorMsg');
-          throw Exception(errorMsg);
+      //create deep copy of requests so that actual data preserves
+      List<dynamic> copiedRequests = jsonDecode(jsonEncode(requests));
+      if(isConnected) {
+        Logger.debugLog("User is connected to the internet, trying to post the data");
+        try {
+          _processRequestsForImages(copiedRequests);
+          Logger.debugLog("data after processing images: $copiedRequests");
+        } catch(e){
+          Logger.errorLog("smjh nhi aa rha $e");
         }
       } else {
-        // Save as pending request when offline
-        final pendingRequestsService = PendingRequestsService();
-        final requestId =
-            'asset_audit_${DateTime.now().millisecondsSinceEpoch}';
-        final apiUrl = isAssetAudit
-            ? '/api/v1/mobile/AssetAuditSiteResp'
-            : '/api/v1/mobile/PmResponse';
-        final headers = {'Content-Type': 'application/json'};
-
-        try {
-          await pendingRequestsService.savePendingRequest(
-            requestId: requestId,
-            url: apiUrl,
-            headers: headers,
-            requestData: requests,
-          );
-
-          Logger.infoLog(
-            '💾 AssetAuditPostService: Request saved as pending with ID: $requestId',
-          );
-          print('✅ REQUEST SAVED AS PENDING WITH ID: $requestId');
-          print('📝 Data Length: ${requests.length} items');
-        } catch (e) {
-          Logger.errorLog(
-            '❌ AssetAuditPostService: Error saving pending request: $e',
-          );
-          print('❌ ERROR SAVING PENDING REQUEST: $e');
-        }
+        Logger.debugLog("User is not connected to the internet, saving data locally");
       }
+      _updateMetadataInRequest(copiedRequests, finalLocation);
+      _postRequestsIfConnectedOrSaveToSqlite(copiedRequests, isConnected, activityType, isLastPage);
     } catch (e) {
       Logger.errorLog(
-        '❌ AssetAuditPostService: Exception while posting data: $e',
+        'AssetAuditPostService: Exception while posting data: $e',
       );
       rethrow;
+    }
+  }
+  
+  void _postRequestsIfConnectedOrSaveToSqlite(List<dynamic> requests, bool isConnected,
+      ActivityTypeEnum activityType, bool isLastPage) async {
+    String url = '/api/v1/mobile/';
+    switch(activityType) {
+      case ActivityTypeEnum.assetAudit : url += 'AssetAuditSiteResp';
+        break;
+      case ActivityTypeEnum.preventiveMaintenance : url += 'PmResponse';
+        break;
+      default: url += 'AssetAuditSiteResp';
+      break;
+    }
+    url += '?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}';
+    if(isConnected) {
+      try {
+        await _postDataToApi(url, requests);
+        return;
+      } catch(e){}
+    }
+    Logger.infoLog("User is not connected to the internet, saving data in local db");
+    bool isSaved = await ServiceLocator().pendingRequestService.savePendingRequest(
+      requestId: 'asset_audit_${DateTime.now().millisecondsSinceEpoch}',
+      url: url,
+      headers: {},
+      requestData: requests,
+    );
+    if(isSaved) {
+      Logger.infoLog("Data saved to DB successfully");
+    } else {
+      throw Exception('Failed to save data to database');
+    }
+  }
+
+  Future<void> _postDataToApi(String url, List<dynamic> requests) async {
+    Logger.infoLog("User is connected to internet, posting data to API");
+    final response = await ServiceLocator().apiService.post<List<dynamic>>(
+      path: url,
+      data: DataTransformationHelper.convertListToCamelCase(requests),
+    );
+    if (response.isSuccess && response.data != null) {
+      Logger.infoLog("Data posted successfully");
+    } else {
+      throw Exception((response.errorMessage ?? 'Unknown error from server'));
+    }
+  }
+
+  Future<void> syncRequestsWhenUserComesOnline(String url, List<dynamic> requests, String requestId) async {
+    try {
+      List<dynamic> copiedRequests = jsonDecode(jsonEncode(requests));
+      await _processRequestsForImages(copiedRequests);
+      await _postDataToApi(url, requests);
+      await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+    } catch(e) {
+      Logger.errorLog(e.toString());
+    }
+  }
+
+  void _updateMetadataInRequest(List<dynamic> requests, LocationModel location) {
+    final time = Utils.getCurrentDateTimeForAPICall();
+    for(final request in requests) {
+      request['localCreatedDt'] = time;
+      request['localModifiedDt'] = time;
+      request['longitude'] = location.longitude;
+      request['latitude'] = location.latitude;
+    }
+  }
+
+  Future<void> _processRequestsForImages(List<dynamic> requests) async {
+    for(dynamic request in requests) {
+      await _processRequestForImages(request);
     }
   }
 
   /// Process a single asset audit request
   /// Replaces photo_id with server_id and adds photo_taken_ts
-  Future<dynamic> processAssetAuditRequest(dynamic request) async {
-    dynamic updatedRequest = {...request as Map<String, dynamic>};
-
+  Future<dynamic> _processRequestForImages(dynamic request) async {
+    Logger.infoLog("Processing request for images: $request" );
     try {
       // Check both snake_case and camelCase field names
-      final photoId = updatedRequest['photo_id'] ?? updatedRequest['photoId'];
+      final photoId = request['photo_id'] ?? request['photoId'];
 
       // If no photo_id or photo_id is null/empty, return the request as-is
       if (photoId == null || photoId.toString().isEmpty) {
-        return updatedRequest;
+        return request;
       }
 
       // Check if photo_id is a unique_id (starts with LOCAL_IMAGE_ID_)
-      // Note: After camelCase transformation, this might be 'photoId' instead of 'photo_id'
       if (photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
         // This is a unique_id, get the server_id using ImageUploadService
 
-        final serverIdWithCreatedTime = await _imageUploadService
-            .getServerIdAndCreatedTime(
+        final imageModel = await ServiceLocator().imageUploadService
+            .getServerIdFromUniqueIdTryUploading(
               photoId.toString(),
-              ActivityTypeEnum.assetAudit,
-              updatedRequest['site_audit_sch_id'].toString(),
             );
-        print(
-          "🔍 Server ID response: $serverIdWithCreatedTime (length: ${serverIdWithCreatedTime?.length ?? 0})",
-        );
-
-        if (serverIdWithCreatedTime != null &&
-            serverIdWithCreatedTime.isNotEmpty) {
-          final serverId = serverIdWithCreatedTime.first;
-          final timestamp = serverIdWithCreatedTime.length > 1
-              ? serverIdWithCreatedTime.elementAt(1)
-              : null;
-
-          print(
-            '🔄 BEFORE replacement - photo_id: ${updatedRequest['photo_id']}, photoId: ${updatedRequest['photoId']}',
-          );
-
-          // Update both snake_case and camelCase field names
-          updatedRequest['photo_id'] = serverId;
-          updatedRequest['photoId'] = serverId;
+        if (imageModel != null) {
+          final serverId = imageModel.serverId;
+          final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
+          request['photo_id'] = serverId;
           if (timestamp != null) {
-            updatedRequest['photo_taken_ts'] = timestamp;
-            updatedRequest['photoTakenTs'] = timestamp;
-          }
-
-          print(
-            '✅ Successfully replaced LOCAL_IMAGE_ID with server_id: $serverId',
-          );
-          print(
-            '🔄 AFTER replacement - photo_id: ${updatedRequest['photo_id']}, photoId: ${updatedRequest['photoId']}',
-          );
-          if (timestamp != null) {
-            print('📅 Photo taken timestamp: $timestamp');
+            request['photo_taken_ts'] = timestamp;
           }
         } else {
-          print("❌ FAILED to get server_id for LOCAL_IMAGE_ID: $photoId");
-          print(
-            "❌ This means the photo upload to api/v1/mobile/uploads failed!",
-          );
-          print("❌ OR the server_id was not stored in SQLite properly!");
-          print('❌ FAILED to get server_id for LOCAL_IMAGE_ID: $photoId');
-          print(
-            '❌ This means the photo upload to api/v1/mobile/uploads failed!',
-          );
-          print('❌ OR the server_id was not stored in SQLite properly!');
-          // Keep the original photo_id for now, but log the error
+          Logger.debugLog("FAILED to get server_id for LOCAL_IMAGE_ID: $photoId");
         }
       } else {
         // This is already a server_id, just add photo_taken_ts if not present
-        if (updatedRequest['photo_taken_ts'] == null ||
-            updatedRequest['photo_taken_ts'].toString().isEmpty) {
+        if (request['photo_taken_ts'] == null ||
+            request['photo_taken_ts'].toString().isEmpty) {
           final currentTime = Utils.getCurrentDateTimeForAPICall();
-          updatedRequest['photo_taken_ts'] = currentTime;
-          print('📅 Added current timestamp for server_id: $photoId');
+          request['photo_taken_ts'] = currentTime;
         }
-        return updatedRequest;
+        return request;
       }
     } catch (e) {
-      print("❌ Error processing asset audit request: $e");
-      Logger.errorLog('❌ Error processing asset audit request: $e');
+      Logger.errorLog("Error processing asset audit request: $e");
       return request;
     }
-    print("✅ processAssetAuditRequest COMPLETED - returning: $updatedRequest");
-    return updatedRequest;
+    Logger.infoLog("processAssetAuditRequest COMPLETED - returning: $request");
+    return request;
   }
 }

@@ -8,6 +8,7 @@ import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/asset_audit/central_service_initializer.dart';
@@ -198,19 +199,12 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
       ];
 
       Logger.debugLog('📤 Surveillance V2: Prepared ${postObject.length} items for posting');
-      
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
+
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
       
       Logger.debugLog('✅ Surveillance V2: Data posted successfully');

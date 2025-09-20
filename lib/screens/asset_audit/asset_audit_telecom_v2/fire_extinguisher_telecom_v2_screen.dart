@@ -1,3 +1,4 @@
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -246,19 +247,12 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
       ];
 
       Logger.debugLog('📤 Fire Extinguisher V2: Prepared ${postObject.length} items for posting');
-      
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
+
       // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
       
       Logger.debugLog('✅ Fire Extinguisher V2: Data posted successfully');

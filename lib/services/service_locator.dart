@@ -1,5 +1,8 @@
+import 'package:app/services/api_service.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/image_upload_service.dart';
+import 'package:app/services/pending_requests_service.dart';
 import 'package:app/utils/logger.dart';
 
 class ServiceLocator {
@@ -10,6 +13,9 @@ class ServiceLocator {
   bool _isInitialized = false;
   late CentralAssetAuditService _centralAssetAuditService;
   late ImageUploadService _imageUploadService;
+  late AssetAuditPostService _assetAuditPostService;
+  late PendingRequestsService _pendingRequestsService;
+  late ApiService _apiService;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
@@ -27,6 +33,12 @@ class ServiceLocator {
 
       // Initialize Image Upload Service
       _imageUploadService = ImageUploadService(apiService: apiService);
+
+      _pendingRequestsService = PendingRequestsService();
+
+      _apiService = apiService;
+
+      _assetAuditPostService = AssetAuditPostService();
 
       _isInitialized = true;
       Logger.debugLog('✅ All services initialized successfully');
@@ -47,6 +59,21 @@ class ServiceLocator {
   ImageUploadService get imageUploadService {
     _ensureInitialized();
     return _imageUploadService;
+  }
+
+  PendingRequestsService get pendingRequestService {
+    _ensureInitialized();
+    return _pendingRequestsService;
+  }
+
+  AssetAuditPostService get assetAuditPostService {
+    _ensureInitialized();
+    return _assetAuditPostService;
+  }
+
+  ApiService get apiService {
+    _ensureInitialized();
+    return _apiService;
   }
 
   /// Check if services are initialized

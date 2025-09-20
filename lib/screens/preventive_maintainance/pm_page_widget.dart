@@ -199,11 +199,12 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   /// Handle right button press with validation
   void _handleRightButtonPress() {
     // Validate all fields
-    if (!_validateAllFields()) {
-      final errors = _getValidationErrors();
-      _showValidationErrorDialog(errors);
-      return;
-    }
+    //TODO vishal enable validation by uncommenting this
+    // if (!_validateAllFields()) {
+    //   final errors = _getValidationErrors();
+    //   _showValidationErrorDialog(errors);
+    //   return;
+    // }
     
     // If validation passes, proceed with the original callback
     widget.onRightButtonPressed();

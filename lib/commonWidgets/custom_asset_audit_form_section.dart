@@ -95,6 +95,7 @@ class _CustomAssetAuditFormSectionState extends State<CustomAssetAuditFormSectio
       final uniqueId = await imageUploadService.uploadImage(
         await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
         ActivityTypeEnum.assetAudit,
+        false,
         widget.siteAuditSchId,
       );
       

@@ -1,3 +1,4 @@
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -206,21 +207,12 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
 
       // Update local data
       _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
-
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-      final postService = AssetAuditPostService(
-        apiService: apiService,
-        imageUploadService: imageUploadService,
-      );
-      
-      // Post data with photo ID replacement
-      await postService.postAssetAuditDataWithPhotoReplacement(
+// Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
         isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
+        activityType: ActivityTypeEnum.assetAudit,
       );
-      
       Logger.debugLog('✅ Boundary V2: Data posted successfully');
       
     } catch (e) {

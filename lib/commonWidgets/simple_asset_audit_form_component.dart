@@ -84,6 +84,7 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
       final photoId = await imageUploadService.uploadImage(
         imageData,
         ActivityTypeEnum.assetAudit,
+        false,
         widget.siteAuditSchId,
       );
 

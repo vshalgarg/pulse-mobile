@@ -21,4 +21,13 @@ class Toastbar {
       ),
     );
   }
+
+  static showInfoToastbar(String message, BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.productDetailsBackgroundColor,
+      ),
+    );
+  }
 }

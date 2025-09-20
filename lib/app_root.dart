@@ -7,7 +7,6 @@ import 'package:app/bloc/reset_password_cubit.dart';
 import 'package:app/bloc/demo_bloc_cubit.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
 import 'package:app/bloc/ticket_cubit.dart';
-import 'package:app/bloc/asset_audit_cubit.dart';
 import 'package:app/bloc/energy_reading_cubit.dart';
 import 'package:app/bloc/energy_reading_detail_cubit.dart';
 import 'package:app/bloc/selfie_upload_cubit.dart';
@@ -23,8 +22,6 @@ import 'package:provider/provider.dart';
 
 import 'app_config.dart';
 import 'bloc/asset_audit_photo_upload_cubit.dart';
-import 'bloc/asset_audit_get_image_cubit.dart';
-import 'bloc/pm_bloc/pm_cubit.dart';
 import 'bloc/audit_schedule_status_cubit.dart';
 import 'repositories/audit_schedule_repository.dart';
 import 'l10n/l10n.dart';
@@ -51,13 +48,10 @@ class AppRoot extends StatelessWidget {
         BlocProvider(create: (context) => ResetPasswordCubit(config.authRepository)),
         BlocProvider(create: (context) => DashboardCubit(config.dashboardRepository)),
         BlocProvider(create: (context) => TicketCubit(ticketRepository: config.ticketRepository)),
-        BlocProvider(create: (context) => AssetAuditCubit(repository: config.assetAuditRepository)),
         BlocProvider(create: (context) => EnergyReadingCubit(config.energyReadingRepository)),
         BlocProvider(create: (context) => EnergyReadingDetailCubit(config.energyReadingDetailRepository)),
         BlocProvider(create: (context) => SelfieUploadCubit(config.selfieUploadRepository)),
         BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(config.assetAuditPhotoUploadRepository)),
-        BlocProvider(create: (context) => AssetAuditGetImageCubit(config.imageRepository)),
-        BlocProvider(create: (context) => PmCubit(repository: config.pmRepository)),
         BlocProvider(create: (context) => AuditScheduleStatusCubit(config.auditScheduleRepository)),
       ],
       child: MultiProvider(

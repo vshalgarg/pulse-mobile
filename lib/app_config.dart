@@ -1,11 +1,9 @@
-import 'package:app/bloc/pm_bloc/pm_cubit.dart';
 import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
 import 'package:app/repositories/pm_repository.dart';
 import 'package:app/repositories/ticket_repository.dart';
-import 'package:app/repositories/asset_audit_repository.dart';
 import 'package:app/repositories/energy_reading_repository.dart';
 import 'package:app/repositories/energy_reading_detail_repository.dart';
 import 'package:app/repositories/selfie_upload_repository.dart';
@@ -22,7 +20,6 @@ import 'bloc/demo_bloc_cubit.dart';
 import 'bloc/login_bloc/auth_cubit.dart';
 import 'bloc/dashboard_cubit.dart';
 import 'bloc/ticket_cubit.dart';
-import 'bloc/asset_audit_cubit.dart';
 import 'bloc/energy_reading_cubit.dart';
 import 'bloc/energy_reading_detail_cubit.dart';
 import 'bloc/selfie_upload_cubit.dart';
@@ -40,7 +37,6 @@ class AppConfig {
   late final AuthRepository authRepository;
   late final DashboardRepository dashboardRepository;
   late final TicketRepository ticketRepository;
-  late final AssetAuditRepository assetAuditRepository;
   late final EnergyReadingRepository energyReadingRepository;
   late final EnergyReadingDetailRepository energyReadingDetailRepository;
   late final SelfieUploadRepository selfieUploadRepository;
@@ -54,12 +50,10 @@ class AppConfig {
   late final AuthCubit authCubit;
   late final DashboardCubit dashboardCubit;
   late final TicketCubit ticketCubit;
-  late final AssetAuditCubit assetAuditCubit;
   late final EnergyReadingCubit energyReadingCubit;
   late final EnergyReadingDetailCubit energyReadingDetailCubit;
   late final SelfieUploadCubit selfieUploadCubit;
   late final AssetAuditPhotoUploadCubit assetAuditPhotoUploadCubit;
-  late final PmCubit pmCubit;
 
   AppConfig({required String baseUrl, required GlobalLoadingCubit loadingCubit}) 
       : globalLoadingCubit = loadingCubit {
@@ -77,8 +71,7 @@ class AppConfig {
     authRepository = AuthRepository(apiService);
     dashboardRepository = DashboardRepository(apiService);
     ticketRepository = TicketRepository(ticketService: ticketService);
-    assetAuditRepository = AssetAuditRepository(apiService: apiService);
-    
+
     // Initialize user details service
     UserDetailsService.instance.initialize(apiService);
     energyReadingRepository = EnergyReadingRepository(apiService);
@@ -93,12 +86,10 @@ class AppConfig {
     authCubit = AuthCubit(authRepository);
     dashboardCubit = DashboardCubit(dashboardRepository);
     ticketCubit = TicketCubit(ticketRepository: ticketRepository);
-    assetAuditCubit = AssetAuditCubit(repository: assetAuditRepository);
     energyReadingCubit = EnergyReadingCubit(energyReadingRepository);
     energyReadingDetailCubit = EnergyReadingDetailCubit(energyReadingDetailRepository);
     selfieUploadCubit = SelfieUploadCubit(selfieUploadRepository);
     assetAuditPhotoUploadCubit = AssetAuditPhotoUploadCubit(assetAuditPhotoUploadRepository);
-    pmCubit = PmCubit(repository: pmRepository);
   }
 
   static AppConfig of(BuildContext context) {

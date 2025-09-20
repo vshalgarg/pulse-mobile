@@ -1,24 +1,14 @@
-import 'dart:io';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
-import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
-import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../services/service_locator.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
-import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
-import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
-import '../../../models/asset_audit_model.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 
 class SiteInfoV2Screen extends StatefulWidget {
@@ -50,15 +40,6 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
   final TextEditingController _ebNonEbController = TextEditingController();
   final TextEditingController _operator1Controller = TextEditingController();
   final TextEditingController _operator2Controller = TextEditingController();
-
-  // Form data
-  bool _hasFormDataChanges = false;
-  bool _showValidationErrors = false;
-
-  // Image data
-  String? _uploadedImgId;
-  String? _fetchedImageData;
-  File? _selectedImage;
 
   // Asset audit data
   Map<String, dynamic>? _assetAuditData;
@@ -353,46 +334,7 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
     );
   }
 
-  bool _validateForm() {
-    setState(() {
-      _showValidationErrors = true;
-    });
-
-    final hasLocalPhoto = _selectedImage != null;
-    final hasServerImage = _uploadedImgId != null && _uploadedImgId!.isNotEmpty && _uploadedImgId != "0";
-    final hasImageData = _fetchedImageData != null && _fetchedImageData!.isNotEmpty;
-
-    if (!hasLocalPhoto && !hasServerImage && !hasImageData) {
-      Logger.debugLog('Photo validation failed - No photo uploaded');
-      showCustomToast(context, 'Please upload a selfie before proceeding');
-      return false;
-    } else {
-      Logger.debugLog('Photo validation passed');
-    }
-
-    Logger.debugLog('All validations passed!');
-    return true;
-  }
-
   void _showUnsavedChangesDialog() {
-    if (_hasFormDataChanges) {
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (dialogContext) => UnsavedChangesDialog(
-          siteAuditSchId: widget.siteAuditSchId,
-          section: "Asset Audit",
-          parentContext: context, // Use the outer context (screen context)
-          onSaveAndExit: () async {
-            // Handle save and exit
-          },
-          onDiscard: () {
-            // Handle discard
-          },
-        ),
-      );
-    } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
-    }
+    AssetAuditNavigationHelper.navigateToHomeScreen(context);
   }
 }
