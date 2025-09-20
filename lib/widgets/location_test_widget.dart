@@ -129,7 +129,7 @@ class _LocationTestWidgetState extends State<LocationTestWidget> {
                       Text('Location Service: ${_permissionStatus!['locationServiceEnabled']}'),
                       Text('Has Any Permission: ${_permissionStatus!['hasAnyPermission']}'),
                     ] else
-                      const Text('Loading...'),
+                      const Text(' Loading...'),
                   ],
                 ),
               ),

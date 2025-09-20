@@ -2,7 +2,9 @@ import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/app_colors.dart';
+import '../../bloc/global_loading_cubit.dart';
 
 class AssetAuditSolarBottomButtons extends StatelessWidget {
   final Future<void> Function() onNextButtonClick;
@@ -36,32 +38,57 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-      ),
+      decoration: const BoxDecoration(color: Colors.transparent),
       child: Row(
         children: [
           Expanded(
             child: ArrowButton(
-              text: AssetAuditNavigationHelper.getSolarPreviousScreenName(assetAuditData, screenName),
+              text: AssetAuditNavigationHelper.getSolarPreviousScreenName(
+                assetAuditData,
+                screenName,
+              ),
               isLeftArrow: true,
               backgroundColor: AppColors.buttonColorBackBg,
               textColor: AppColors.buttonColorTextBg,
               onPressed: () {
-                AssetAuditNavigationHelper.navigateToPreviousSolarScreen(context, assetAuditData, screenName, siteAuditSchId, siteType, auditSchId);
+                AssetAuditNavigationHelper.navigateToPreviousSolarScreen(
+                  context,
+                  assetAuditData,
+                  screenName,
+                  siteAuditSchId,
+                  siteType,
+                  auditSchId,
+                );
               },
             ),
           ),
           getWidth(14),
           Expanded(
             child: ArrowButton(
-              text: AssetAuditNavigationHelper.getSolarNextScreenName(assetAuditData, screenName),
+              text: AssetAuditNavigationHelper.getSolarNextScreenName(
+                assetAuditData,
+                screenName,
+              ),
               isLeftArrow: false,
               backgroundColor: AppColors.buttonColorBg,
               textColor: AppColors.buttonColorSite,
               onPressed: () async {
-                await onNextButtonClick();
-                AssetAuditNavigationHelper.navigateToNextSolarScreen(context, assetAuditData, screenName, siteAuditSchId, siteType, auditSchId);
+                context.read<GlobalLoadingCubit>().showLoading(
+                  message: 'Processing data...',
+                );
+                try {
+                  await onNextButtonClick();
+                  AssetAuditNavigationHelper.navigateToNextSolarScreen(
+                    context,
+                    assetAuditData,
+                    screenName,
+                    siteAuditSchId,
+                    siteType,
+                    auditSchId,
+                  );
+                } finally {
+                  context.read<GlobalLoadingCubit>().hideLoading();
+                }
               },
             ),
           ),
