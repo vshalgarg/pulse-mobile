@@ -54,7 +54,6 @@ class CustomPMBottomButtons extends StatelessWidget {
 
               onPressed: () async {
                 LoaderWidget.showLoader(context);
-
                 try {
                   onRightButtonPressed();
                 } finally {
