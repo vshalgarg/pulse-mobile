@@ -137,11 +137,13 @@ class _PMPageRenderState extends State<PMPageRender> {
   bool get _isLastPage => _currentPageIndex == _availablePages.length - 1;
 
   void _onPageDataChanged(List<Map<String, dynamic>> updatedData) {
-    setState(() {
-      _pmData['responseData'][_currentDataKey] = updatedData;
-    });
-    // Call the optional callback if provided
-    widget.onDataChanged?.call(_pmData);
+    if (mounted) {
+      setState(() {
+        _pmData['responseData'][_currentDataKey] = updatedData;
+      });
+      // Call the optional callback if provided
+      widget.onDataChanged?.call(_pmData);
+    }
   }
 
   void _onPreviousPage() {
@@ -155,6 +157,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   }
 
   Future<void> _onNextPage() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
@@ -166,7 +169,7 @@ class _PMPageRenderState extends State<PMPageRender> {
       }
       
       // Navigate to next page if not on last page
-      if (!_isLastPage) {
+      if (!_isLastPage && mounted) {
         setState(() {
           _currentPageIndex++;
           Logger.debugLog('Page index updated to: $_currentPageIndex');
@@ -174,9 +177,11 @@ class _PMPageRenderState extends State<PMPageRender> {
         _clearWidgetState();
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -253,6 +258,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   }
 
   Future<void> _onSubmit() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
@@ -274,9 +280,11 @@ class _PMPageRenderState extends State<PMPageRender> {
         AssetAuditNavigationHelper.navigateToHomeScreen(context);
       }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
