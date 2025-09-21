@@ -8,7 +8,7 @@ class CustomPMBottomButtons extends StatelessWidget {
   final String leftButtonText;
   final String rightButtonText;
   final VoidCallback onLeftButtonPressed;
-  final VoidCallback onRightButtonPressed;
+  final Future<void> Function() onRightButtonPressed;
   final bool isLoading;
   final String? errorMessage;
 
@@ -24,44 +24,72 @@ class CustomPMBottomButtons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Don't show buttons if loading or has error
-    if (isLoading || errorMessage != null) {
-      return const SizedBox.shrink();
-    }
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(color: Colors.transparent),
-      child: Row(
+      child: Stack(
         children: [
-          Expanded(
-            child: ArrowButton(
-              text: leftButtonText,
-              isLeftArrow: true,
-              backgroundColor: AppColors.buttonColorBackBg,
-              textColor: AppColors.buttonColorTextBg,
-              onPressed: onLeftButtonPressed,
-            ),
+          // Show buttons normally
+          Row(
+            children: [
+              Expanded(
+                child: ArrowButton(
+                  text: leftButtonText,
+                  isLeftArrow: true,
+                  backgroundColor: AppColors.buttonColorBackBg,
+                  textColor: AppColors.buttonColorTextBg,
+                  onPressed: isLoading ? null : onLeftButtonPressed, // Disable when loading
+                ),
+              ),
+              getWidth(14),
+              Expanded(
+                child: ArrowButton(
+                  text: rightButtonText,
+                  isLeftArrow: false,
+                  backgroundColor: AppColors.buttonColorBg,
+                  textColor: AppColors.buttonColorSite,
+                  onPressed: isLoading ? null : () async {
+                    LoaderWidget.showLoader(context);
+                    try {
+                      await onRightButtonPressed();
+                    } finally {
+                      LoaderWidget.hideLoader();
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
-          getWidth(14),
-          Expanded(
-            child: ArrowButton(
-              text: rightButtonText,
-              isLeftArrow: false,
-              backgroundColor: AppColors.buttonColorBg,
-              textColor: AppColors.buttonColorSite,
 
-              onPressed: () async {
-                LoaderWidget.showLoader(context);
-                try {
-                  onRightButtonPressed();
-                } finally {
-                  LoaderWidget.hideLoader();
-                }
-              },
+          // Show error message if present
+          if (errorMessage != null)
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: AppColors.errorColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: AppColors.errorColor,
+                    width: 1,
+                  ),
+                ),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      errorMessage!,
+                      style: TextStyle(
+                        color: AppColors.errorColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
         ],
       ),
     );
