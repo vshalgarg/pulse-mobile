@@ -64,8 +64,12 @@ class _HomeScreenState extends State<HomeScreen> {
       // Process each pending request
       for (final request in pendingRequests) {
         try {
-          await ServiceLocator().assetAuditPostService.syncRequestsWhenUserComesOnline(
-              request['url'], jsonDecode(request['request_data']), request['request_id']);
+          await ServiceLocator().assetAuditPostService
+              .syncRequestsWhenUserComesOnline(
+                request['url'],
+                jsonDecode(request['request_data']),
+                request['request_id'],
+              );
           successCount++;
         } catch (e) {
           Logger.errorLog(

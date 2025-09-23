@@ -1,4 +1,3 @@
-
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -49,12 +48,13 @@ class _TicketScreenState extends State<TicketScreen> {
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
     _loadTickets();
-    
+
     // Initialize downloaded tickets state after a short delay to ensure tickets are loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 500), () {
         final currentState = context.read<TicketCubit>().state;
-        if (currentState is TicketSuccess && currentState.ticketResponse.tickets.isNotEmpty) {
+        if (currentState is TicketSuccess &&
+            currentState.ticketResponse.tickets.isNotEmpty) {
           _initializeDownloadedTickets(currentState.ticketResponse.tickets);
         }
       });
@@ -74,13 +74,14 @@ class _TicketScreenState extends State<TicketScreen> {
     // Prevent multiple initializations
     if (_isInitializingDownloadedTickets) return;
     _isInitializingDownloadedTickets = true;
-    
+
     try {
       bool hasChanges = false;
       // Check which tickets are already downloaded and populate local state
       for (final ticket in tickets) {
         final isDownloaded = await _isTicketDownloaded(ticket);
-        if (isDownloaded && !_downloadedTicketIds.contains(ticket.ticketSchId)) {
+        if (isDownloaded &&
+            !_downloadedTicketIds.contains(ticket.ticketSchId)) {
           _downloadedTicketIds.add(ticket.ticketSchId);
           hasChanges = true;
         }
@@ -150,7 +151,7 @@ class _TicketScreenState extends State<TicketScreen> {
       // Determine site type - check if it's solar or telecom
       final siteType = ticket.siteDomainName ?? 'Solar';
       Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
-      
+
       // Use ServiceLocator - no initialization check needed!
       final service = ServiceLocator().centralAssetAuditService;
       final isAvailable = await service.getDataFromApiAndSaveToSqlite(
@@ -161,23 +162,36 @@ class _TicketScreenState extends State<TicketScreen> {
         longitude: ticket.longitude ?? 0,
         activityType: _currentActivityType,
       );
-      if(isAvailable == null || !isAvailable) {
+      if (isAvailable == null || !isAvailable) {
         Toastbar.showErrorToastbar("Failed to load data", context);
         return;
       }
-      final data = await service.getDataFromSqlite(siteAuditSchId: ticket.ticketSchId.toString());
-      if(data == null) {
+      final data = await service.getDataFromSqlite(
+        siteAuditSchId: ticket.ticketSchId.toString(),
+      );
+      if (data == null) {
         Toastbar.showErrorToastbar("Failed to load data", context);
         return;
       }
-      if(_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
+      if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                PMPageRender(
-                  pmData: data.apiData,
-                ),
+            builder: (context) => PMPageRender(pmData: data.apiData),
+          ),
+        );
+      } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => EnergyReadingScreen(
+              siteType: ticket?.siteDomainName ?? "Telecom",
+              auditSchId: ticket?.auditSchId?.toString() ?? "",
+              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
+              siteId:
+                  ticket?.ticketSchId.toString() ??
+                  "0", // Using ticketSchId as siteId for now
+            ),
           ),
         );
       } else {
@@ -207,32 +221,25 @@ class _TicketScreenState extends State<TicketScreen> {
         Navigator.pushNamed(context, correctiveMaintenanceScreen);
         break;
       case ActivityTypeEnum.energyReading:
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EnergyReadingScreen(
-              siteType: ticket?.siteDomainName ?? "Telecom",
-              auditSchId: ticket?.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket?.ticketSchId.toString() ?? "",
-              siteId: ticket?.ticketSchId.toString() ?? "0", // Using ticketSchId as siteId for now
-            ),
-          ),
-        );
+        _navigateToWorkflow(ticket);
         break;
       default:
-        Toastbar.showErrorToastbar('No specific audit screen for ${widget.auditName}', context);
+        Toastbar.showErrorToastbar(
+          'No specific audit screen for ${widget.auditName}',
+          context,
+        );
     }
   }
 
-  Future<bool> _isTicketDownloaded(Ticket ticket) async{
+  Future<bool> _isTicketDownloaded(Ticket ticket) async {
     // Check local state first (for recently downloaded tickets)
     if (_downloadedTicketIds.contains(ticket.ticketSchId)) {
       return true;
     }
-    
+
     // Check database for existing downloads
-    RawApiDataModel? data = await ServiceLocator().centralAssetAuditService.getDataFromSqlite(
-        siteAuditSchId: ticket.ticketSchId.toString());
+    RawApiDataModel? data = await ServiceLocator().centralAssetAuditService
+        .getDataFromSqlite(siteAuditSchId: ticket.ticketSchId.toString());
     return data != null && data.isDownloaded;
   }
 
@@ -354,14 +361,16 @@ class _TicketScreenState extends State<TicketScreen> {
       itemBuilder: (context, index) {
         final ticket = ticketResponse.tickets[index];
         // Use dynamic status from ticket data, fallback to filter-based status only if no status available
-        final statusText = ticket.status?.isNotEmpty == true 
-            ? ticket.status! 
+        final statusText = ticket.status?.isNotEmpty == true
+            ? ticket.status!
             : _getStatusFromTicketType(_currentTicketType);
-        
+
         // Debug logging removed to prevent loop
-        
+
         return Padding(
-          padding: EdgeInsets.only(bottom: index == ticketResponse.tickets.length - 1 ? 0 : 10),
+          padding: EdgeInsets.only(
+            bottom: index == ticketResponse.tickets.length - 1 ? 0 : 10,
+          ),
           child: TicketCard(
             ticket: ticket,
             ticketId: ticket.pvTicketId,
@@ -376,8 +385,10 @@ class _TicketScreenState extends State<TicketScreen> {
             onTap: () => _navigateToAuditScreen(ticket),
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
-                print("Opening Google Maps for ${ticket.pvTicketId} at ${ticket.longitude}, ${ticket.latitude}");
-                
+                print(
+                  "Opening Google Maps for ${ticket.pvTicketId} at ${ticket.longitude}, ${ticket.latitude}",
+                );
+
                 // Open Google Maps with directions to the site
                 LocationService.openDirectionsToSite(
                   siteLat: ticket.latitude!,
@@ -387,11 +398,13 @@ class _TicketScreenState extends State<TicketScreen> {
                 );
               } else {
                 print("No coordinates available for ${ticket.pvTicketId}");
-                
+
                 // Show a message to the user
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('No location coordinates available for this site'),
+                    content: Text(
+                      'No location coordinates available for this site',
+                    ),
                     backgroundColor: AppColors.errorColor,
                   ),
                 );
@@ -410,24 +423,30 @@ class _TicketScreenState extends State<TicketScreen> {
                   longitude: ticket.longitude ?? 0,
                   activityType: _currentActivityType,
                 );
-                
+
                 if (isDownloaded) {
                   // Add to local state and trigger UI update
                   setState(() {
                     _downloadedTicketIds.add(ticket.ticketSchId);
                   });
-                  
+
                   // Re-initialize downloaded tickets state to ensure consistency
                   final currentState = context.read<TicketCubit>().state;
                   if (currentState is TicketSuccess) {
-                    _initializeDownloadedTickets(currentState.ticketResponse.tickets);
+                    _initializeDownloadedTickets(
+                      currentState.ticketResponse.tickets,
+                    );
                   }
-                  
+
                   Toastbar.showSuccessToastbar(
-                      "Data downloaded successfully", context);
+                    "Data downloaded successfully",
+                    context,
+                  );
                 } else {
                   Toastbar.showErrorToastbar(
-                      "Failed to download data, please try again", context);
+                    "Failed to download data, please try again",
+                    context,
+                  );
                 }
               } finally {
                 LoaderWidget.hideLoader();
@@ -466,7 +485,7 @@ class _TicketScreenState extends State<TicketScreen> {
               style: TextStyle(
                 color: Colors.white.withOpacity(0.7),
                 fontSize: 14,
-                fontFamily: fontFamilyMontserrat
+                fontFamily: fontFamilyMontserrat,
               ),
               textAlign: TextAlign.center,
             ),
@@ -476,10 +495,7 @@ class _TicketScreenState extends State<TicketScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryGreen,
               ),
-              child: const Text(
-                'Retry',
-                style: TextStyle(color: Colors.white),
-              ),
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),
