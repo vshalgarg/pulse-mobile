@@ -28,7 +28,8 @@ class AssetAuditSolarV2Screen extends StatefulWidget {
   });
 
   @override
-  State<AssetAuditSolarV2Screen> createState() => _AssetAuditSolarV2ScreenState();
+  State<AssetAuditSolarV2Screen> createState() =>
+      _AssetAuditSolarV2ScreenState();
 }
 
 class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
@@ -76,7 +77,9 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Loading asset audit data for site ${widget.siteAuditSchId}');
+      Logger.debugLog(
+        '🔄 Loading asset audit data for site ${widget.siteAuditSchId}',
+      );
 
       // Use the actual service to load data
       final data = await _service.getActualDataFromSqlite(
@@ -84,19 +87,23 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
       );
 
       if (data != null) {
-
-          // Extract page header data for form fields
-          final pageHeaders = data['pageHeader'] as List<dynamic>?;
-          final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
-          final formData = <String, String>{};
+        // Extract page header data for form fields
+        final pageHeaders = data['pageHeader'] as List<dynamic>?;
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>
+            : null;
+        final formData = <String, String>{};
 
         if (pageHeader != null) {
           formData['state'] = pageHeader['solar_state']?.toString() ?? "N/A";
-          formData['district'] = pageHeader['solar_district']?.toString() ?? "N/A";
-          formData['clientName'] = pageHeader['client_name']?.toString() ?? "N/A";
+          formData['district'] =
+              pageHeader['solar_district']?.toString() ?? "N/A";
+          formData['clientName'] =
+              pageHeader['client_name']?.toString() ?? "N/A";
           formData['siteCode'] = pageHeader['site_code']?.toString() ?? "N/A";
           formData['siteName'] = pageHeader['site_name']?.toString() ?? "N/A";
-          formData['siteType'] = pageHeader['site_type_name']?.toString() ?? "N/A";
+          formData['siteType'] =
+              pageHeader['site_type_name']?.toString() ?? "N/A";
           formData['status'] = pageHeader['status']?.toString() ?? "N/A";
 
           // Format audit due date
@@ -105,7 +112,8 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           if (auditDueDt != null && auditDueDt.isNotEmpty) {
             try {
               final dateTime = DateTime.parse(auditDueDt);
-              formattedAuditDueDate = "${dateTime.day.toString().padLeft(2, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.year}";
+              formattedAuditDueDate =
+                  "${dateTime.day.toString().padLeft(2, '0')}-${dateTime.month.toString().padLeft(2, '0')}-${dateTime.year}";
             } catch (e) {
               formattedAuditDueDate = auditDueDt;
             }
@@ -117,15 +125,19 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
 
         setState(() {
           _isLoadingData = false;
-          _assetAuditData = data; // Store the full asset audit data for SPV navigation
-          _displayFormData = formData; // Store the extracted form data for display
+          _assetAuditData =
+              data; // Store the full asset audit data for SPV navigation
+          _displayFormData =
+              formData; // Store the extracted form data for display
         });
         Logger.debugLog('✅ Asset audit data loaded successfully');
         Logger.debugLog('📊 Form data: $formData');
 
         // Load image if we have an image ID from the page header
         if (pageHeader != null && pageHeader['maker_selfie_image_id'] != null) {
-          Logger.debugLog('🖼️ Found makerSelfieImageId: ${pageHeader['maker_selfie_image_id']}');
+          Logger.debugLog(
+            '🖼️ Found makerSelfieImageId: ${pageHeader['maker_selfie_image_id']}',
+          );
           await _loadImage(pageHeader['maker_selfie_image_id'].toString());
         } else {
           Logger.debugLog('⚠️ No makerSelfieImageId found in page header');
@@ -136,7 +148,9 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           _isLoadingData = false;
           _errorMessage = 'No data available for this site';
         });
-        Logger.errorLog('❌ No data available for site ${widget.siteAuditSchId}');
+        Logger.errorLog(
+          '❌ No data available for site ${widget.siteAuditSchId}',
+        );
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading data: $e');
@@ -182,12 +196,13 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
       );
 
       final dbData = _assetAuditData;
-      if(dbData != null) {
+      if (dbData != null) {
         final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
-        final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
-        if(pageHeader != null) {
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>
+            : null;
+        if (pageHeader != null) {
           pageHeader['maker_selfie_image_id'] = imgId;
-
         }
       }
       if (imgId != null) {
@@ -210,11 +225,13 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
 
   Future<void> postCurrentScreenData() async {
     try {
-      if(_assetAuditData != null) {
-        await _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId,
-            updatedData: _assetAuditData ?? {});
+      if (_assetAuditData != null) {
+        await _service.updateDataInSqlite(
+          siteAuditSchId: widget.siteAuditSchId,
+          updatedData: _assetAuditData ?? {},
+        );
       }
-      } catch(e) {}
+    } catch (e) {}
   }
 
   @override
@@ -360,8 +377,8 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                 AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
-                  onNextButtonClick:  () async {
-                    if(_hasFormDataChanges) {
+                  onNextButtonClick: () async {
+                    if (_hasFormDataChanges) {
                       await postCurrentScreenData();
                     }
                   },
@@ -371,7 +388,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: 'GENERAL',
                 ),
-
               ],
             ),
           ),
@@ -492,10 +508,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                 decoration: BoxDecoration(
                   color: AppColors.errorColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: AppColors.errorColor,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.errorColor, width: 1),
                 ),
                 child: Row(
                   children: [
@@ -523,7 +536,6 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
     );
   }
 
-
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
       showDialog(
@@ -536,13 +548,11 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           onSaveAndExit: () async {
             postCurrentScreenData();
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
       AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
   }
-
 }

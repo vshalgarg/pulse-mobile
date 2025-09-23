@@ -42,7 +42,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     super.initState();
     _currentItem = Map<String, dynamic>.from(widget.pmItem);
     _initializeValues();
-    
+
     // Add listener for remarks controller
     _remarksController.addListener(() {
       _onRemarksChanged(_remarksController.text);
@@ -59,7 +59,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   void _initializeValues() {
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
-    
+
     // Handle resp_type as array or string
     List<String> respTypes = [];
     if (respTypeList is List) {
@@ -67,27 +67,29 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     } else if (respTypeList is String) {
       respTypes = respTypeList.split(",");
     }
-    
+
     // Initialize dropdown value - convert numeric to string
     if (respTypes.contains('DROPDOWN')) {
       _selectedDropdownValue = respValue;
     }
-    
+
     // Initialize radio value - convert 1/0 to Yes/No
     if (respTypes.contains('RADIO')) {
-      _selectedRadioValue = respValue == null || respValue.isEmpty ? 'Yes' : respValue;
-      if(respValue == null || respValue.isEmpty) {
+      _selectedRadioValue = respValue == null || respValue.isEmpty
+          ? 'Yes'
+          : respValue;
+      if (respValue == null || respValue.isEmpty) {
         _onRadioChanged('Yes');
       }
     }
-    
+
     // Initialize text value
     _textValue = respValue?.toString();
     _textController.text = _textValue ?? '';
-    
+
     // Initialize remarks value
     _remarksController.text = respValue?.toString() ?? '';
-    
+
     // Load image data if photo_id exists
     if (_currentItem['photo_id'] != null) {
       _loadImageFromPhotoId(_currentItem['photo_id'].toString());
@@ -97,14 +99,14 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   Future<void> _loadImageFromPhotoId(String photoId) async {
     try {
       if (photoId.isEmpty) return;
-      
+
       // Initialize ImageUploadService
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
-      
+
       // Get image data using the photoId
       final imageData = await imageUploadService.getImageUsingUniqueId(photoId);
-      
+
       if (imageData != null && mounted) {
         setState(() {
           _imageData = imageData.startsWith('data:image/')
@@ -134,7 +136,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   bool validateForm() {
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
-    
+
     // Handle resp_type as array or string
     List<String> respTypes = [];
     if (respTypeList is List) {
@@ -142,24 +144,28 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     } else if (respTypeList is String) {
       respTypes = respTypeList.split(",");
     }
-    
+
     // Check if any required field is empty
-    if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+    if (respTypes.contains('DROPDOWN') &&
+        (respValue == null || respValue.toString().isEmpty)) {
       return false;
     }
-    
-    if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+
+    if (respTypes.contains('RADIO') &&
+        (respValue == null || respValue.toString().isEmpty)) {
       return false;
     }
-    
-    if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+
+    if (respTypes.contains('TEXT') &&
+        (respValue == null || respValue.toString().trim().isEmpty)) {
       return false;
     }
-    
-    if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+
+    if (respTypes.contains('IMG') &&
+        (respValue == null || respValue.toString().isEmpty)) {
       return false;
     }
-    
+
     return true;
   }
 
@@ -167,8 +173,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   String? getValidationError() {
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
-    final checklistDesc = _currentItem['checklist_desc']?.toString() ?? 'This field';
-    
+    final checklistDesc =
+        _currentItem['checklist_desc']?.toString() ?? 'This field';
+
     // Handle resp_type as array or string
     List<String> respTypes = [];
     if (respTypeList is List) {
@@ -176,24 +183,28 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     } else if (respTypeList is String) {
       respTypes = respTypeList.split(",");
     }
-    
+
     // Check if any required field is empty
-    if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+    if (respTypes.contains('DROPDOWN') &&
+        (respValue == null || respValue.toString().isEmpty)) {
       return '$checklistDesc is required';
     }
-    
-    if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+
+    if (respTypes.contains('RADIO') &&
+        (respValue == null || respValue.toString().isEmpty)) {
       return '$checklistDesc is required';
     }
-    
-    if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+
+    if (respTypes.contains('TEXT') &&
+        (respValue == null || respValue.toString().trim().isEmpty)) {
       return '$checklistDesc is required';
     }
-    
-    if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+
+    if (respTypes.contains('IMG') &&
+        (respValue == null || respValue.toString().isEmpty)) {
       return '$checklistDesc is required';
     }
-    
+
     return null;
   }
 
@@ -246,9 +257,11 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   }
 
   Widget _buildRadioField() {
-    return WidgetHelper.buildRadioField(isRequired: true,
-        initialSelectedValue: _selectedRadioValue ?? 'Yes',
-        onChanged: _onRadioChanged);
+    return WidgetHelper.buildRadioField(
+      isRequired: true,
+      initialSelectedValue: _selectedRadioValue ?? 'Yes',
+      onChanged: _onRadioChanged,
+    );
   }
 
   Widget _buildTextField() {
@@ -269,8 +282,10 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
         if (file != null) {
           try {
             final apiService = AppConfig.of(context).apiService;
-            final imageUploadService = ImageUploadService(apiService: apiService);
-            
+            final imageUploadService = ImageUploadService(
+              apiService: apiService,
+            );
+
             final imageData = await file.readAsBytes();
             final photoId = await imageUploadService.uploadImage(
               base64Encode(imageData),
@@ -286,9 +301,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
                     ? imageData.toString()
                     : 'data:image/jpeg;base64,$imageData';
               });
-              
+
               _notifyValueChanged();
-              
+
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -376,7 +391,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isReadonly = widget.readonlyFields.contains(_currentItem['checklist_desc']?.toString());
+    final isReadonly = widget.readonlyFields.contains(
+      _currentItem['checklist_desc']?.toString(),
+    );
     final respTypeList = _currentItem['resp_type'];
     final checklistDesc = _currentItem['checklist_desc']?.toString() ?? '';
 
@@ -411,15 +428,12 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
               ),
               const Text(
                 " *",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.red,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.red),
               ),
-            ]
+            ],
           ),
           const SizedBox(height: 8),
-          
+
           // Field based on resp_type
           if (isReadonly)
             CustomFormField(
@@ -427,7 +441,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
               isRequired: true,
               isEditable: false,
             )
-          else if (checklistDesc.toLowerCase().contains('rectification remarks'))
+          else if (checklistDesc.toLowerCase().contains(
+            'rectification remarks',
+          ))
             _buildRemarksField()
           else
             _buildFieldByType(respTypes),

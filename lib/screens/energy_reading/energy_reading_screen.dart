@@ -1,18 +1,15 @@
+import 'package:app/commonWidgets/custom_form_appbar.dart';
+import 'package:app/commonWidgets/custom_form_field.dart';
+import 'package:app/constants/app_colors.dart';
+import 'package:app/constants/app_images.dart';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/screens/energy_reading/energy_reading_details_screen.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
-import '../../bloc/energy_reading_cubit.dart';
-import '../../models/energy_reading_model.dart';
-import '../../commonWidgets/custom_form_appbar.dart';
-import '../../commonWidgets/custom_form_field.dart';
-import '../../constants/app_colors.dart';
-import '../../constants/app_images.dart';
-import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import '../../commonWidgets/custom_dialogs/success_dialog.dart';
+import 'energy_reading_details_screen.dart';
 
 class EnergyReadingScreen extends StatefulWidget {
   final String siteType;
@@ -33,249 +30,170 @@ class EnergyReadingScreen extends StatefulWidget {
 }
 
 class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
-  String? selectedStatus;
-  String? selectedBatteryStatus;
-  bool hasUnsavedChanges = false;
+  bool _isLoadingData = true;
+  String? _errorMessage;
   bool isSubmitting = false;
-  EnergyReadingData? energyReadingData;
+
+  Map<String, dynamic>? _displayFormData;
 
   @override
   void initState() {
     super.initState();
-    _loadEnergyReadingData();
+    _loadData();
   }
 
-  void _loadEnergyReadingData() {
-    context.read<EnergyReadingCubit>().getEnergyReadingData(
-      siteType: widget.siteType,
-      auditSchId: widget.auditSchId,
-      siteAuditSchId: widget.siteAuditSchId,
-    );
-  }
-
-  void _onFormChanged() {
-    setState(() {
-      hasUnsavedChanges = selectedStatus != null || selectedBatteryStatus != null;
-    });
-  }
-
-  Future<void> _saveAndExit() async {
-    if (_hasAnyDataToSave()) {
+  Future<void> _loadData() async {
+    try {
       setState(() {
-        isSubmitting = true;
+        _isLoadingData = true;
+        _errorMessage = null;
       });
 
-      showCustomToast(context, 'Saving');
-      await Future.delayed(const Duration(milliseconds: 1000));
+      Logger.debugLog(
+        '🔄 Loading Site Audit data for site ${widget.siteAuditSchId}',
+      );
 
+      final data = await ServiceLocator().centralAssetAuditService
+          .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
+
+      print("data: ER $data");
+
+      if (data != null) {
+        final formData = <String, String>{};
+        formData['circle'] = data['circle']?.toString() ?? "N/A";
+        formData['cluster'] = data['cluster']?.toString() ?? "N/A";
+        formData['district'] = data['district']?.toString() ?? "N/A";
+        formData['clientName'] = data['client_name']?.toString() ?? "N/A";
+        formData['siteCode'] = data['site_code']?.toString() ?? "N/A";
+        formData['siteName'] = data['site_name']?.toString() ?? "N/A";
+        formData['siteType'] = data['site_type_name']?.toString() ?? "N/A";
+        formData['siteId'] = data['site_id']?.toString() ?? "N/A";
+        formData['indoorOutdoor'] = data['indoor_outdoor']?.toString() ?? "N/A";
+        formData['ebNonEb'] = data['eb_non_eb']?.toString() ?? "N/A";
+        formData['operator1'] = data['op1_name']?.toString() ?? "N/A";
+        formData['operator2'] = data['op2_name']?.toString() ?? "N/A";
+        formData['auditDueDate'] = data['audit_due_dt']?.toString() ?? "N/A";
+        formData['siteDomainName'] =
+            data['site_domain_name']?.toString() ?? "N/A";
+        formData['status'] = data['status']?.toString() ?? "N/A";
+
+
+        print("formData: $formData");
+
+        setState(() {
+          _isLoadingData = false;
+          _displayFormData = formData;
+        });
+
+        Logger.debugLog("✅ Site Audit Data loaded: $formData");
+      } else {
+        setState(() {
+          _isLoadingData = false;
+          _errorMessage = 'No Site Audit data available for this site';
+        });
+        Logger.errorLog(
+          '❌ No Site Audit data available for site ${widget.siteAuditSchId}',
+        );
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading Site Audit data: $e');
       setState(() {
-        isSubmitting = false;
+        _isLoadingData = false;
+        _errorMessage = 'Failed to load Site Audit data: $e';
       });
     }
-
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        barrierColor: Colors.black54,
-        builder: (context) => SuccessDialog(
-          ticketId: "ER-${DateTime.now().millisecondsSinceEpoch}",
-          message: "Energy Reading data has been saved!",
-          onDone: () {
-            Navigator.of(context).pop();
-            Navigator.of(context).pushNamedAndRemoveUntil(
-              '/homeScreen',
-                  (route) => false,
-            );
-          },
-        ),
-      );
-    }
   }
 
-  bool _hasAnyDataToSave() {
-    return selectedStatus != null || selectedBatteryStatus != null;
-  }
-
-  Widget _buildView(EnergyReadingState state) {
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: SvgPicture.asset(
-            AppImages.home,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: double.infinity,
-          ),
-        ),
-        SafeArea(
-          bottom: false, // Allow content to extend to bottom for button
-          child: _buildContent(state),
-        ),
-        if (isSubmitting)
-          Container(
-            color: Colors.black.withOpacity(0.3),
-            child: const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildContent(EnergyReadingState state) {
-    if (state.runtimeType == EnergyReadingLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primaryGreen,
-        ),
-      );
-    }
-
-    if (state.runtimeType == EnergyReadingSuccess) {
-      final successState = state as EnergyReadingSuccess;
-      final data = successState.energyReadingResponse.data.isNotEmpty
-          ? successState.energyReadingResponse.data.first
-          : null;
-
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      resizeToAvoidBottomInset: true,
+      appBar: CustomFormAppbar(
+        title: "Energy Reading",
+        onClose: () => Navigator.of(context).pop(),
+      ),
+      body: Stack(
         children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-              child: IntrinsicHeight(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomFormField(
-                      label: "Circle",
-                      initialValue: data?.circle ?? '',
-                      isRequired: false,
-                      isEditable: false,
-                    ),
-                    getHeight(15),
-                    CustomFormField(
-                      label: "Cluster",
-                      initialValue: data?.cluster ?? '',
-                      isRequired: false,
-                      isEditable: false,
-                    ),
-                    getHeight(15),
-                    CustomFormField(
-                      label: "District",
-                      initialValue: data?.district ?? 'N/A',
-                      isRequired: false,
-                      isEditable: false,
-                    ),
-                    getHeight(15),
-                    CustomFormField(
-                      label: "Customer",
-                      initialValue: data?.clientName ?? '',
-                      isRequired: false,
-                      isEditable: false,
-                    ),
-                    getHeight(15),
-                    CustomFormField(
-                      label: "Site Id",
-                      initialValue: data?.siteCode ?? '',
-                      isRequired: false,
-                      isEditable: false,
-                    ),
-                    getHeight(15),
-                    CustomFormField(
-                      label: "Site Name",
-                      initialValue: data?.siteName ?? '',
-                      isRequired: false,
-                      isEditable: false,
-                    ),
-                    getHeight(15),
-                  ],
-                ),
-              ),
+          // Background
+          Positioned.fill(
+            child: SvgPicture.asset(
+              AppImages.home,
+              fit: BoxFit.cover,
+              width: double.infinity,
+              height: double.infinity,
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+          SafeArea(
+            child: Column(
               children: [
                 Expanded(
-                  child: ArrowButton(
-                    text: "Energy Reading",
-                    isLeftArrow: false,
-                    backgroundColor: AppColors.buttonColorBg,
-                    textColor: AppColors.buttonColorSite,
-                    onPressed: isSubmitting
-                        ? null
-                        : () {
-                      pushPage(
-                        context,
-                        EnergyDetailScreen(
-                          auditSchId: widget.auditSchId,
-                          siteAuditSchId: widget.siteAuditSchId,
-                          siteId: widget.siteId,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).viewInsets.bottom + 100,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_isLoadingData) _buildLoading(),
+                          if (_errorMessage != null && !_isLoadingData)
+                            _buildError(),
+                          if (!_isLoadingData && _errorMessage == null)
+                            _buildFormFields(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ArrowButton(
+                          text: "Energy Detail",
+                          isLeftArrow: false,
+                          backgroundColor: AppColors.buttonColorBg,
+                          textColor: AppColors.buttonColorSite,
+                          onPressed: isSubmitting
+                              ? null
+                              : () {
+                                  pushPage(
+                                    context,
+                                    EnergyReadingDetailScreen(
+                                      auditSchId: widget.auditSchId,
+                                      siteAuditSchId: widget.siteAuditSchId,
+                                      siteType: widget.siteType,
+                                      siteId: _displayFormData?['siteId'] ?? "0",
+                                    ),
+                                  );
+                                },
                         ),
-                      );
-                    },
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
         ],
-      );
-    }
-
-    if (state.runtimeType == EnergyReadingFailure) {
-      final failureState = state as EnergyReadingFailure;
-      return _buildErrorWidget(failureState.errorMessage);
-    }
-
-    return const SizedBox.shrink();
+      ),
+    );
   }
 
-  Widget _buildErrorWidget(String errorMessage) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
+  Widget _buildLoading() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: const Center(
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(
-              Icons.error_outline,
-              color: AppColors.errorColor,
-              size: 64,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Error loading data',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
+            CircularProgressIndicator(color: AppColors.primaryGreen),
+            SizedBox(height: 16),
             Text(
-              errorMessage,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadEnergyReadingData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryGreen,
-              ),
-              child: const Text(
-                'Retry',
-                style: TextStyle(color: Colors.white),
-              ),
+              'Loading site data...',
+              style: TextStyle(color: AppColors.white, fontSize: 16),
             ),
           ],
         ),
@@ -283,66 +201,98 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return BlocConsumer<EnergyReadingCubit, EnergyReadingState>(
-      listener: (context, state) {
-        if (state.runtimeType == EnergyReadingFailure) {
-          final failureState = state as EnergyReadingFailure;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(failureState.errorMessage),
-              backgroundColor: AppColors.errorColor,
-            ),
-          );
-        }
-      },
-      builder: (context, state) {
-        return PopScope(
-          canPop: !hasUnsavedChanges,
-          onPopInvoked: (didPop) async {
-            if (didPop) return;
-            if (hasUnsavedChanges) {
-              showDialog(
-                context: context,
-                barrierDismissible: true,
-                builder: (context) => UnsavedChangesDialog(
-                  message: "Do you want to save the current data and exit, or discard all changes?",
-                  onSaveAndExit: _saveAndExit,
-                  onDiscard: () {
-                    Navigator.of(context).pop();
-                  },
+  Widget _buildError() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.errorColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.errorColor, width: 1),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, color: AppColors.errorColor, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Failed to load site data',
+                  style: TextStyle(
+                    color: AppColors.errorColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              );
-            }
-          },
-          child: Scaffold(
-            extendBodyBehindAppBar: true,
-            resizeToAvoidBottomInset: true, // Allow resizing for keyboard
-            appBar: CustomFormAppbar(
-              title: "Energy Reading",
-              onClose: () async {
-                if (hasUnsavedChanges) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => UnsavedChangesDialog(
-                      message: "Do you want to save the current data and exit, or discard all changes?",
-                      onSaveAndExit: _saveAndExit,
-                      onDiscard: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  );
-                } else {
-                  Navigator.pop(context);
-                }
-              },
-            ),
-            body: _buildView(state),
+              ),
+            ],
           ),
-        );
-      },
+          const SizedBox(height: 8),
+          Text(
+            _errorMessage!,
+            style: const TextStyle(color: AppColors.errorColor, fontSize: 14),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+            onPressed: _loadData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.errorColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            ),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFormFields() {
+    return Column(
+      children: [
+        CustomFormField(
+          label: "Circle",
+          initialValue: _displayFormData?['circle'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Cluster",
+          initialValue: _displayFormData?['cluster'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "District",
+          initialValue: _displayFormData?['district'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Customer",
+          initialValue: _displayFormData?['clientName'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Site Code",
+          initialValue: _displayFormData?['siteCode'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Site Name",
+          initialValue: _displayFormData?['siteName'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+      ],
     );
   }
 }
