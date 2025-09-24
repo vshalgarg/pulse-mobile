@@ -46,16 +46,14 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onFormChanged() {
-    setState(() {
-    });
+    setState(() {});
   }
-
 
   void _loadSavedCredentials() {
     if (LocalStorageDB.getRememberMe) {
       final savedUsername = LocalStorageDB.getUsername;
       final savedPassword = LocalStorageDB.getPassword;
-      
+
       if (savedUsername != null && savedPassword != null) {
         mobileController.text = savedUsername;
         passwordController.text = savedPassword;
@@ -99,13 +97,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: SingleChildScrollView(
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
-                            minHeight: MediaQuery.of(context).size.height - 
-                                       MediaQuery.of(context).padding.top - 
-                                       MediaQuery.of(context).padding.bottom,
+                            minHeight:
+                                MediaQuery.of(context).size.height -
+                                MediaQuery.of(context).padding.top -
+                                MediaQuery.of(context).padding.bottom,
                           ),
                           child: IntrinsicHeight(
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                              ),
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -143,7 +144,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                     text: "LOGIN",
                                     color: AppColors.primaryGreen,
                                     width: 200,
-                                    onPressed: state is AuthLoading ? () {} : _submitForm,
+                                    onPressed: state is AuthLoading
+                                        ? () {}
+                                        : _submitForm,
                                   ),
                                 ],
                               ),
@@ -176,7 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (value == null || value.isEmpty) {
       return 'Please enter your password';
     }
-    
+
     return null;
   }
 
@@ -191,10 +194,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget pulseContainer() {
-    return SvgPicture.asset(AppImages.pulseImg, fit: BoxFit.cover);
+    return Image.asset(AppImages.pulseImg);
+
+    
   }
 
-  Widget mobileNumberField() { // Changed from emailField
+  Widget mobileNumberField() {
+    // Changed from emailField
     return Column(
       children: [
         Row(
@@ -266,9 +272,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
-            CustomTextButton(title: "Forgot Password?", onButtonPressed: () {
-              pushPage(context, ForgotPasswordScreen());
-            }),
+            CustomTextButton(
+              title: "Forgot Password?",
+              onButtonPressed: () {
+                pushPage(context, ForgotPasswordScreen());
+              },
+            ),
           ],
         ),
         TextFormFieldWidget(
