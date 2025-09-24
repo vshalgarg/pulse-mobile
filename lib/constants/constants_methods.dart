@@ -22,8 +22,10 @@ const assetLottieAnimation = "assets/lottie/";
 const emailPattern =
     r'^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,3}))$';
 
-const passwordPattern = r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#$%×[;/^&*()=+,.?":{}|<>_~`-]).{8,}$';
-const passwordSecondPattern = r'^(?=.*[A-Z])(?=.*[!@#$%^&*()_+])[A-Za-z\d!@#$%^&*()_+]{6,}$';
+const passwordPattern =
+    r'^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[!@#$%×[;/^&*()=+,.?":{}|<>_~`-]).{8,}$';
+const passwordSecondPattern =
+    r'^(?=.*[A-Z])(?=.*[!@#$%^&*()_+])[A-Za-z\d!@#$%^&*()_+]{6,}$';
 final kNumericExp = RegExp('(?=.*?[0-9])');
 final kSpecialCharReg = RegExp(r'[!@#$%×;/^&*()=+,.?":{}|<>_~`-]');
 final kLowerExp = RegExp('(?=.*?[a-z])');
@@ -72,12 +74,8 @@ kTextStyle({
   );
 }
 
-kRoundedShape([
-  double radius = 10,
-]) =>
-    RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(radius),
-    );
+kRoundedShape([double radius = 10]) =>
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius));
 
 const kCircularProgressIndicator = Center(child: CircularProgressIndicator());
 
@@ -97,10 +95,7 @@ Widget callToast(String message) {
       borderRadius: BorderRadius.circular(25.0),
       color: AppColors.primaryGreen,
     ),
-    child: CustomTextWidget(
-      message,
-      color: Colors.white,
-    ),
+    child: CustomTextWidget(message, color: Colors.white),
   );
 }
 
@@ -115,12 +110,25 @@ Future pushPage(BuildContext context, Widget widgetName) {
   );
 }
 
-Future pushNamedPage(BuildContext context, String routeName, {Object? arguments}) {
+Future pushNamedPage(
+  BuildContext context,
+  String routeName, {
+  Object? arguments,
+}) {
   return Navigator.pushNamed(context, routeName, arguments: arguments);
 }
 
-Future pushNamedAndRemoveUntil(BuildContext context, String newRouteName, {Object? arguments}) {
-  return Navigator.pushNamedAndRemoveUntil(context, newRouteName, arguments: arguments, (route) => false);
+Future pushNamedAndRemoveUntil(
+  BuildContext context,
+  String newRouteName, {
+  Object? arguments,
+}) {
+  return Navigator.pushNamedAndRemoveUntil(
+    context,
+    newRouteName,
+    arguments: arguments,
+    (route) => false,
+  );
 }
 
 Future pushReplacementNamedPage(BuildContext context, String routeName) {
@@ -135,7 +143,11 @@ Future pushReplacementPage(BuildContext context, Widget widgetName) {
 }
 
 Future pushAndRemoveUntilPage(BuildContext context, Widget widgetName) {
-  return Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => widgetName), (route) => false);
+  return Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (context) => widgetName),
+    (route) => false,
+  );
 }
 
 // check dark theme is on/off
@@ -169,7 +181,11 @@ Future<void> launchUrl(String url) async {
   }
 }
 
-void showSnackBar(BuildContext context, String msg, {Color backgroundColor = AppColors.themeColorMustard}) {
+void showSnackBar(
+  BuildContext context,
+  String msg, {
+  Color backgroundColor = AppColors.themeColorMustard,
+}) {
   ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
@@ -182,7 +198,10 @@ void showSnackBar(BuildContext context, String msg, {Color backgroundColor = App
   );
 }
 
-splashGradientDecoration({BorderRadiusGeometry? borderRadius, BuildContext? context}) {
+splashGradientDecoration({
+  BorderRadiusGeometry? borderRadius,
+  BuildContext? context,
+}) {
   return BoxDecoration(
     gradient: LinearGradient(
       colors: [

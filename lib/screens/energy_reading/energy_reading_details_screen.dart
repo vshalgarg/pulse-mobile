@@ -301,6 +301,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _meterNoController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'EB Meter No',
         ),
         getHeight(15),
         CustomFormField(
@@ -308,6 +310,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebMeterReadingController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'EB Meter Reading',
         ),
         getHeight(15),
         CustomFormField(
@@ -315,6 +319,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _consumerNoController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Consumer No',
         ),
         getHeight(15),
         CustomFormField(
@@ -322,12 +328,16 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKwhInSebMeterController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'EB KWH in SEB Meter',
         ),
         CustomFormField(
           label: "EB KVH in SEB Meter",
           controller: _ebKvaInSebMeterController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'EB KVH in SEB Meter',
         ),
 
         getHeight(15),
@@ -336,6 +346,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKwhInCcuController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'EB KWH in CCU',
         ),
         getHeight(15),
         CustomFormField(
@@ -343,6 +355,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKvhInCcuController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'EB KVH in CCU',
         ),
         getHeight(15),
         CustomFormField(
@@ -350,6 +364,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _voltageController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Voltage',
         ),
         getHeight(15),
         CustomFormField(
@@ -357,6 +373,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _loadController,
           isRequired: true,
           isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Load (Amps)',
         ),
         getHeight(15),
 
