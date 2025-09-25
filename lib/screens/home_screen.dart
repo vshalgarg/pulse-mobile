@@ -252,8 +252,11 @@ class _HomeScreenState extends State<HomeScreen> {
               future: UserNameUtils.getUserDisplayNameEnhanced(),
               builder: (context, snapshot) {
                 final displayName = snapshot.data ?? 'User';
+                // Get only the first word of the display name
+
+                final firstName = displayName.split(' ').first;
                 return Text(
-                  'Hello $displayName,',
+                  'Hello $firstName,',
                   style: TextStyle(
                     fontSize: AppSizes.twentyFour,
                     fontFamily: dmSans,
@@ -914,7 +917,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: IconButton(
             onPressed: () {
-                pushPage(context, TicketScreen(auditName: "CM", status: ""));
+              pushPage(context, TicketScreen(auditName: "CM", status: ""));
             },
             icon: Icon(Icons.add, color: AppColors.white, size: 24),
             padding: EdgeInsets.zero,
