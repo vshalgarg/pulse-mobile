@@ -312,30 +312,6 @@ class CentralAssetAuditService {
     }
   }
 
-  /// Download PDF report for a ticket
-  Future<String?> downloadPdfReport({
-    required String ticketId,
-    required String ticketSchId,
-    required ActivityTypeEnum activityType,
-  }) async {
-    try {
-      Logger.debugLog('📄 Starting PDF download for ticket: $ticketId');
 
-      // Only allow PDF download for preventive maintenance
-      if (activityType != ActivityTypeEnum.preventiveMaintenance) {
-        Logger.errorLog('❌ PDF report not available for activity type: $activityType');
-        return null;
-      }
-
-      // Use CentralApiService to download PDF
-      return await ServiceLocator().centralApiService.downloadPdfReport(
-        ticketId: ticketId,
-        ticketSchId: ticketSchId,
-        activityType: activityType,
-      );
-    } catch (e) {
-      Logger.errorLog('❌ Error downloading PDF: $e');
-      return null;
-    }
-  }
+  
 }

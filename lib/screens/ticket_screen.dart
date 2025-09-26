@@ -515,11 +515,19 @@ class _TicketScreenState extends State<TicketScreen> {
   Future<void> _downloadReport(Ticket ticket) async {
     print("downloading pdf report for ${ticket.pvTicketId}");
 
+    if (_currentActivityType != ActivityTypeEnum.preventiveMaintenance) {
+      Toastbar.showErrorToastbar(
+        'PDF report not available for this activity type',
+        context,
+      );
+      return;
+    }
+
     try {
       LoaderWidget.showLoader(context);
 
       // Use CentralApiService to download PDF
-      final service = ServiceLocator().centralAssetAuditService;
+      final service = ServiceLocator().centralApiService;
       final filePath = await service.downloadPdfReport(
         ticketId: ticket.pvTicketId,
         ticketSchId: ticket.ticketSchId.toString(),

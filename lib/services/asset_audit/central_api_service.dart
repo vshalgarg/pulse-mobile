@@ -83,8 +83,7 @@ class CentralApiService {
 
       if (response.isSuccess && response.data != null) {
         final Map<String, dynamic> parsedData =
-          response.data!.first as Map<String, dynamic>;
-      
+            response.data!.first as Map<String, dynamic>;
 
         Logger.debugLog('🌐 ER data fetched successfully: ${response.data}');
         return parsedData;
@@ -98,9 +97,8 @@ class CentralApiService {
     }
   }
 
-
   /// Fetch complete asset audit data
-  
+
   /// Fetch complete pm data
   Future<Map<String, dynamic>?> fetchPmData({
     required String siteType,
@@ -135,48 +133,46 @@ class CentralApiService {
     required String ticketSchId,
     required ActivityTypeEnum activityType,
   }) async {
-    try {
-      Logger.debugLog('📄 Starting PDF download for ticket: $ticketId');
+  
+      try {
+        Logger.debugLog('📄 Starting PDF download for ticket: $activityType');
 
-      // Only allow PDF download for preventive maintenance
-      if (activityType != ActivityTypeEnum.preventiveMaintenance) {
-        Logger.errorLog('❌ PDF report not available for activity type: $activityType');
+        // Only allow PDF download for preventive maintenance
+
+        // Get user ID from local storage
+        final userId = LocalStorageDB.getUserId ?? '0';
+        Logger.debugLog('Retrieved userId from storage: $userId');
+
+        // Build report URL
+        final reportUrl =
+            '$reportBaseUrl/run?' +
+            '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
+            'rp_login_userid=$userId&' +
+            'rp_tenant=$userId&' +
+            'rp_sch_id=$ticketSchId&' +
+            '__format=pdf';
+
+        Logger.debugLog('Report URL: $reportUrl');
+
+        final fileName = 'PM-Report-$ticketId';
+
+        // Download the PDF
+        final filePath = await PdfDownloadService.downloadPdf(
+          reportUrl: reportUrl,
+          fileName: fileName,
+        );
+
+        if (filePath != null) {
+          Logger.debugLog('✅ PDF downloaded successfully to: $filePath');
+          return filePath;
+        } else {
+          Logger.errorLog('❌ Failed to download PDF');
+          return null;
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error downloading PDF: $e');
         return null;
       }
-
-      // Get user ID from local storage
-      final userId = LocalStorageDB.getUserId ?? '0';
-      Logger.debugLog('Retrieved userId from storage: $userId');
-
-      // Build report URL
-      final reportUrl =
-          '$reportBaseUrl/run?' +
-          '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
-          'rp_login_userid=$userId&' +
-          'rp_tenant=$userId&' +
-          'rp_sch_id=$ticketSchId&' +
-          '__format=pdf';
-
-      Logger.debugLog('Report URL: $reportUrl');
-
-      final fileName = 'PM-Report-$ticketId';
-
-      // Download the PDF
-      final filePath = await PdfDownloadService.downloadPdf(
-        reportUrl: reportUrl,
-        fileName: fileName,
-      );
-
-      if (filePath != null) {
-        Logger.debugLog('✅ PDF downloaded successfully to: $filePath');
-        return filePath;
-      } else {
-        Logger.errorLog('❌ Failed to download PDF');
-        return null;
-      }
-    } catch (e) {
-      Logger.errorLog('❌ Error downloading PDF: $e');
-      return null;
-    }
+    
   }
 }
