@@ -66,6 +66,7 @@ class UserDetailsService {
         // Save fullName to local storage
         if (userDetails.fullName != null && userDetails.fullName!.isNotEmpty) {
           await LocalStorageDB.saveFullName(userDetails.fullName!);
+          await LocalStorageDB.saveUserId(userDetails.userId!);
           print('UserDetailsService: FullName saved to local storage: ${userDetails.fullName}');
         } else {
           print('UserDetailsService: No fullName found in API response');

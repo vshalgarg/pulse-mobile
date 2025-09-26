@@ -100,6 +100,10 @@ class LocalStorageDB {
     );
   }
 
+  static Future<void> saveUserId(String user_id) async {
+    await LocalStorageService.setString(LocalStorageConstants.userId, user_id);
+  }
+
   static String? get getFullName =>
       LocalStorageService.getString(LocalStorageConstants.fullName);
 
