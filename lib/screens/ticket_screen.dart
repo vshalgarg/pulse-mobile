@@ -1,5 +1,6 @@
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/local_storage_db.dart';
@@ -531,7 +532,7 @@ class _TicketScreenState extends State<TicketScreen> {
         print('Retrieved userId from storage: $userId');
 
         final reportUrl =
-            'https://pulsereports.premiumfreshers.com/run?' +
+            '$reportBaseUrl/run?' +
             '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
             'rp_login_userid=$userId&' +
             'rp_tenant=$userId&' +
