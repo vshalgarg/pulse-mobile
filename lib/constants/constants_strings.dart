@@ -8,6 +8,9 @@ const String kPermissionDeniedForeverMessage = 'Permission denied forever.';
 const String kPermissionGrantedMessage = 'Permission granted.';
 const String kRupeeSymbol = "₹";
 
+// Report service base URL
+const String reportBaseUrl = "https://pulsereports.premiumfreshers.com";
+
 const String somethingWentWrong = "Something went wrong.";
 const String noRecordFound = "No Record Found.";
 const String signUp = "Sign Up";

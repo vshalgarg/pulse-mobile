@@ -9,9 +9,9 @@ class AppImages {
   static const String loginBackground = '${_basePath}Login.svg';
   static const String home = '${_basePath}Home.svg';
   static const String welcomeBg = '${_basePath}welcomeBg.svg';
-  static const String appIcon = '${_basePath}app_icon.png';
+  static const String closedappIcon = '${_basePath}app_icon.png';
 
-  static const String pulseImg = '${_basePath}pluseimg.svg';
+  static const String pulseImg = '${_basePath}logo.png';
   static const String tickIcon = '${_basePath}Vector.svg';
   static const String allTicket = '${_basePath}allticket.svg';
   static const String completed = '${_basePath}comp.svg';
@@ -19,7 +19,6 @@ class AppImages {
   static const String missed = '${_basePath}miss.svg';
   static const String closed = '${_basePath}close.svg';
   static const String trash = '${_basePath}trash.svg';
-
 
   static const String whiteSplash = '${_basePath}white_splash.png';
   static const String welcomeBgPng = '${_basePath}Welcomescreen.png';
