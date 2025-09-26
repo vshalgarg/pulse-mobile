@@ -57,33 +57,32 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 if (widget.label != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    widget.label ?? '',
+            child: RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: widget.label ?? '',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
                       fontFamily: fontFamilyMontserrat,
                     ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 2,
                   ),
-                ),
-                if (widget.isRequired)
-                  const Text(
-                    " *",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.errorColor,
-                      fontFamily: fontFamilyMontserrat,
+                  if (widget.isRequired)
+                    const TextSpan(
+                      text: " *",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.red,
+                        fontFamily: fontFamilyMontserrat,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
           ),
         const SizedBox(height: 3),

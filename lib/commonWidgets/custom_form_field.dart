@@ -62,32 +62,32 @@ class CustomFormField extends StatelessWidget {
       children: [
         // Label with optional *
         if (label != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label ?? '',
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: label ?? '',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: Colors.white,
                     fontFamily: fontFamilyMontserrat,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
-              ),
-              if (isRequired)
-                const Text(
-                  " *",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.errorColor,
-                    fontFamily: fontFamilyMontserrat,
+                if (isRequired)
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ],
         const SizedBox(height: 5),

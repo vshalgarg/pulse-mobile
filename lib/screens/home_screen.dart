@@ -26,6 +26,7 @@ import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../utils/user_name_utils.dart';
+import '../screens/corrective_maintainece/cm_create.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -914,7 +915,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: IconButton(
             onPressed: () {
-              // pushPage(context, CorrectiveMaintenanceScreen());
+               pushPage(context, CorrectiveMaintenanceScreen(
+                 siteId: 'Hello',
+                 siteName: 'lokesh',
+                 circleState: 'Default Circle',
+                 clusterDistrict: 'Default District',
+                 customer: 'Default Customer',
+                 responsibleParty: 'Default Party',
+                 assignedTo: 'Default Assignee',
+                 priority: 'Medium',
+                 natureOfFailure: 'Default Failure'
+               ));
             },
             icon: Icon(Icons.add, color: AppColors.white, size: 24),
             padding: EdgeInsets.zero,
