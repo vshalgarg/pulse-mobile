@@ -1,5 +1,6 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,6 +15,7 @@ class CustomFormField extends StatelessWidget {
   final String? Function(String?)? validator;
   final List<TextInputFormatter>? inputFormatters;
   final TextInputType? keyboardType;
+  final int? maxDecimalDigits;
 
   const CustomFormField({
     super.key,
@@ -27,50 +29,65 @@ class CustomFormField extends StatelessWidget {
     this.validator,
     this.inputFormatters,
     this.keyboardType,
+    this.maxDecimalDigits,
   });
+
+  TextInputFormatter? _getDecimalInputFormatter() {
+    if (keyboardType == TextInputType.numberWithOptions(decimal: true) &&
+        maxDecimalDigits != null) {
+      return FilteringTextInputFormatter.allow(
+        RegExp(r'^\d*\.?\d{0,' + maxDecimalDigits.toString() + r'}$'),
+      );
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
     final TextEditingController textController =
         controller ?? TextEditingController(text: initialValue ?? "");
-    
+
     // Update controller text when initialValue changes
     if (controller == null && initialValue != null) {
       textController.text = initialValue!;
     }
 
-    return
-      Column(
+    final List<TextInputFormatter> finalInputFormatters = [
+      if (inputFormatters != null) ...inputFormatters!,
+      if (_getDecimalInputFormatter() != null) _getDecimalInputFormatter()!,
+    ];
+
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with optional *
-        if(label != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label ?? '',
+        if (label != null) ...[
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: label ?? '',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: Colors.white,
                     fontFamily: fontFamilyMontserrat,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
-              ),
-              if (isRequired)
-                const Text(
-                  " *",
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.errorColor,
-                    fontFamily: fontFamilyMontserrat,
+                if (isRequired)
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ],
         const SizedBox(height: 5),
@@ -83,7 +100,9 @@ class CustomFormField extends StatelessWidget {
           inputFormatters: inputFormatters,
           decoration: InputDecoration(
             filled: true,
-            fillColor: isEditable ? Colors.white : AppColors.borderColorE0E0E0, // Grey when not editable
+            fillColor: isEditable
+                ? Colors.white
+                : AppColors.borderColorE0E0E0, // Grey when not editable
             contentPadding: const EdgeInsets.symmetric(
               vertical: 8,
               horizontal: 16,
@@ -97,21 +116,26 @@ class CustomFormField extends StatelessWidget {
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
               fontSize: 16,
-              color: AppColors.color555555.withOpacity(0.6), // Slightly transparent for hint
+              color: AppColors.color555555.withOpacity(
+                0.6,
+              ), // Slightly transparent for hint
             ),
           ),
           style: TextStyle(
             fontWeight: FontWeight.w400,
-              fontFamily: fontFamilyMontserrat,
-              fontSize: 16,
-              color: AppColors.color555555
+            fontFamily: fontFamilyMontserrat,
+            fontSize: 16,
+            color: AppColors.color555555,
           ),
-          validator: validator ?? (value) {
-            if (isRequired && (value == null || value.isEmpty)) {
-              return "$label is required";
-            }
-            return null;
-          },
+          validator:
+              validator ??
+              (value) {
+                if (isRequired && (value == null || value.isEmpty)) {
+                  return "$label is required";
+                }
+                return null;
+              },
+
           onFieldSubmitted: (value) {
             // Trigger validation
           },
@@ -121,7 +145,6 @@ class CustomFormField extends StatelessWidget {
     );
   }
 }
-
 
 // CustomFormField(
 // label: "Circle",

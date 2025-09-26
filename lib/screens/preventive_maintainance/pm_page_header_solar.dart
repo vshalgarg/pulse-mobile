@@ -12,7 +12,7 @@ import 'package:app/utils/asset_audit_navigation_helper.dart';
 class PMPageHeaderSolar extends StatelessWidget {
   final Map<String, dynamic>? pageHeader;
   final Map<String, dynamic>? pmData;
-  final VoidCallback onNext;
+  final Future<void> Function() onNext;
   final VoidCallback? onClose;
   final bool isLoading;
   final String? errorMessage;
@@ -166,7 +166,9 @@ class PMPageHeaderSolar extends StatelessWidget {
                     isLeftArrow: false,
                     backgroundColor: AppColors.buttonColorBg,
                     textColor: AppColors.buttonColorSite,
-                    onPressed: isLoading ? null : onNext,
+                    onPressed: isLoading ? null : () async {
+                      await onNext();
+                    },
                   ),
                 ),
               ],
