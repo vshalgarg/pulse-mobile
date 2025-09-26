@@ -162,14 +162,17 @@ class TicketCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       company,
-                      style: const TextStyle(fontSize: 14, color: AppColors.black),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.black,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  
+
                   // Add document icon for completed/closed tickets
-                  if (statusText.toLowerCase() == 'completed' || 
+                  if (statusText.toLowerCase() == 'completed' ||
                       statusText.toLowerCase() == 'closed')
                     IconButton(
                       icon: const Icon(
@@ -180,7 +183,7 @@ class TicketCard extends StatelessWidget {
                       onPressed: onPdfDownloadTap,
                       tooltip: 'Download PDF Report',
                     ),
-                  
+
                   // Keep existing download/check icon
                   FutureBuilder<bool>(
                     future: isDownloadedFunc(ticket),
