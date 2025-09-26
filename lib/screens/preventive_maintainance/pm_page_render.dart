@@ -38,6 +38,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   int _currentPageIndex = 0;
   late List<String> _availablePages;
   late Map<String, dynamic> _pmData;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -101,7 +102,7 @@ class _PMPageRenderState extends State<PMPageRender> {
         pmData: _pmData,
         onNext: _onNextPage,
         onClose: () => Navigator.pop(context),
-        isLoading: widget.isLoading,
+        isLoading: _isLoading,
         errorMessage: widget.errorMessage,
       );
     } else {
@@ -110,7 +111,7 @@ class _PMPageRenderState extends State<PMPageRender> {
         pmData: _pmData,
         onNext: _onNextPage,
         onClose: () => Navigator.pop(context),
-        isLoading: widget.isLoading,
+        isLoading: _isLoading,
         errorMessage: widget.errorMessage,
       );
     }
@@ -136,11 +137,13 @@ class _PMPageRenderState extends State<PMPageRender> {
   bool get _isLastPage => _currentPageIndex == _availablePages.length - 1;
 
   void _onPageDataChanged(List<Map<String, dynamic>> updatedData) {
-    setState(() {
-      _pmData['responseData'][_currentDataKey] = updatedData;
-    });
-    // Call the optional callback if provided
-    widget.onDataChanged?.call(_pmData);
+    if (mounted) {
+      setState(() {
+        _pmData['responseData'][_currentDataKey] = updatedData;
+      });
+      // Call the optional callback if provided
+      widget.onDataChanged?.call(_pmData);
+    }
   }
 
   void _onPreviousPage() {
@@ -153,19 +156,32 @@ class _PMPageRenderState extends State<PMPageRender> {
     }
   }
 
-  void _onNextPage() async {
-    // Update data in SQLite before navigating to next page (except for Site Info page)
-    if (!_isFirstPage) {
-      await _updateDataInSqliteAndCallApi();
-    }
+  Future<void> _onNextPage() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
     
-    // Navigate to next page if not on last page
-    if (!_isLastPage) {
-      setState(() {
-        _currentPageIndex++;
-        Logger.debugLog('Page index updated to: $_currentPageIndex');
-      });
-      _clearWidgetState();
+    try {
+      // Update data in SQLite before navigating to next page (except for Site Info page)
+      if (!_isFirstPage) {
+        await _updateDataInSqliteAndCallApi();
+      }
+      
+      // Navigate to next page if not on last page
+      if (!_isLastPage && mounted) {
+        setState(() {
+          _currentPageIndex++;
+          Logger.debugLog('Page index updated to: $_currentPageIndex');
+        });
+        _clearWidgetState();
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -231,28 +247,45 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   void _onSave() {
     // Handle save action internally
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PM Data Saved'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PM Data Saved'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
   }
 
-  void _onSubmit() async {
-    // Update data in SQLite and post to API
-    await _updateDataInSqliteAndCallApi();
+  Future<void> _onSubmit() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+    });
     
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('PM Data Submitted'),
-        backgroundColor: Colors.green,
-      ),
-    );
-    
-    // Navigate to home screen
-    AssetAuditNavigationHelper.navigateToHomeScreen(context);
+    try {
+      // Update data in SQLite and post to API
+      await _updateDataInSqliteAndCallApi();
+      
+      // Show success message and navigate to home screen
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PM Data Submitted'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // Navigate to home screen
+        AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _showUnsavedChangesDialog() {
@@ -356,7 +389,7 @@ class _PMPageRenderState extends State<PMPageRender> {
         onLeftButtonPressed: _isFirstPage ? _onSave : _onPreviousPage,
         onRightButtonPressed: _isLastPage ? _onSubmit : _onNextPage,
         onDataChanged: _onPageDataChanged,
-        isLoading: widget.isLoading,
+        isLoading: _isLoading,
         errorMessage: widget.errorMessage,
       ),
     );

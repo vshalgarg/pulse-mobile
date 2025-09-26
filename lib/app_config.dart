@@ -2,7 +2,6 @@ import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
-import 'package:app/repositories/pm_repository.dart';
 import 'package:app/repositories/ticket_repository.dart';
 import 'package:app/repositories/energy_reading_repository.dart';
 import 'package:app/repositories/energy_reading_detail_repository.dart';
@@ -42,7 +41,6 @@ class AppConfig {
   late final SelfieUploadRepository selfieUploadRepository;
   late final AssetAuditPhotoUploadRepository assetAuditPhotoUploadRepository;
   late final ImageRepository imageRepository;
-  late final PmRepository pmRepository;
   late final AuditScheduleRepository auditScheduleRepository;
 
   // Cubits
@@ -79,7 +77,6 @@ class AppConfig {
     selfieUploadRepository = SelfieUploadRepository(apiService);
     assetAuditPhotoUploadRepository = AssetAuditPhotoUploadRepository(apiService);
     imageRepository = ImageRepository(apiProvider);
-    pmRepository = PmRepository(apiService: apiService);
 
     // Initialize cubits
     demoBlocCubit = DemoBlocCubit(askRepository);

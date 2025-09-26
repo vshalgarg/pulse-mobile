@@ -16,7 +16,7 @@ class PMPageWidget extends StatefulWidget {
   final String leftButtonText;
   final String rightButtonText;
   final VoidCallback onLeftButtonPressed;
-  final VoidCallback onRightButtonPressed;
+  final Future<void> Function() onRightButtonPressed;
   final Function(List<Map<String, dynamic>>) onDataChanged;
   final bool isLoading;
   final String? errorMessage;
@@ -43,7 +43,7 @@ class PMPageWidget extends StatefulWidget {
     required String leftButtonText,
     required String rightButtonText,
     required VoidCallback onLeftButtonPressed,
-    required VoidCallback onRightButtonPressed,
+    required Future<void> Function() onRightButtonPressed,
     required Function(List<Map<String, dynamic>>) onDataChanged,
     bool isLoading = false,
     String? errorMessage,
@@ -78,13 +78,18 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   }
 
   void _onItemChanged(int index, Map<String, dynamic> updatedItem) {
-    setState(() {
-      _pmItems[index] = updatedItem;
-      _hasChanges = true;
+    // Defer setState to next frame to avoid calling it during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _pmItems[index] = updatedItem;
+          _hasChanges = true;
+        });
+        
+        // Notify parent about data changes
+        widget.onDataChanged(_pmItems);
+      }
     });
-    
-    // Notify parent about data changes
-    widget.onDataChanged(_pmItems);
   }
 
   /// Validate all form fields
@@ -197,7 +202,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   }
 
   /// Handle right button press with validation
-  void _handleRightButtonPress() {
+  Future<void> _handleRightButtonPress() async {
     // Validate all fields
     //TODO vishal enable validation by uncommenting this
     // if (!_validateAllFields()) {
@@ -207,7 +212,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     // }
     
     // If validation passes, proceed with the original callback
-    widget.onRightButtonPressed();
+    await widget.onRightButtonPressed();
   }
 
   void _sortItemsByOrder() {
@@ -251,13 +256,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
             child: Column(
               children: [
                 Expanded(
-                  child: widget.isLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primaryGreen,
-                          ),
-                        )
-                      : widget.errorMessage != null
+                  child: widget.errorMessage != null
                           ? Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -328,7 +327,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                     rightButtonText: widget.rightButtonText,
                     onLeftButtonPressed: widget.onLeftButtonPressed,
                     onRightButtonPressed: _handleRightButtonPress,
-                    isLoading: widget.isLoading,
+                    isLoading: false, // Always false since we use LoaderWidget.showLoader()
                     errorMessage: widget.errorMessage,
                   ),
                 ),

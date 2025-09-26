@@ -25,14 +25,7 @@ class CustomFormAppbar extends StatelessWidget implements PreferredSizeWidget {
       toolbarHeight: 100, // Increased height for better touch area
       flexibleSpace: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black54,
-              Colors.transparent,
-            ],
-          ),
+          color: Color(0xFF1565C0), // Dark blue background
         ),
         child: SafeArea(
           child: Padding(
