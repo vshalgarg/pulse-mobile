@@ -3,12 +3,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
-import 'package:app/services/local_storage_db.dart';
-import 'package:app/services/local_storage_service.dart';
-import 'package:app/services/local_storage_constants.dart';
 import 'package:app/services/service_locator.dart';
-import 'package:app/services/pdf_download_service.dart';
-import 'package:app/services/user_details_service.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
@@ -21,7 +16,6 @@ import '../bloc/ticket_state.dart';
 import '../commonWidgets/ticket_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
-import '../constants/constants_strings.dart';
 import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
@@ -395,7 +389,7 @@ class _TicketScreenState extends State<TicketScreen> {
             dueDate: ticket.dueDt,
             statusText: statusText,
             isDownloadedFunc: _isTicketDownloaded,
-            onPdfDownloadTap: () => _downloadPdfReport(ticket),
+            onPdfDownloadTap: () => _downloadReport(ticket),
             onTap: () => _navigateToAuditScreen(ticket),
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
@@ -518,86 +512,63 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   // download pdf report
-
-  Future<void> _downloadPdfReport(Ticket ticket) async {
+  Future<void> _downloadReport(Ticket ticket) async {
     print("downloading pdf report for ${ticket.pvTicketId}");
 
-    if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
-      try {
-        LoaderWidget.showLoader(context);
+    try {
+      LoaderWidget.showLoader(context);
 
-        // Build dynamic URL with ticket parameters
-        // Note: You may need to get the actual user ID from your auth service
-        final userId = LocalStorageDB.getUserId ?? '0';
-        print('Retrieved userId from storage: $userId');
-
-        final reportUrl =
-            '$reportBaseUrl/run?' +
-            '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
-            'rp_login_userid=$userId&' +
-            'rp_tenant=$userId&' +
-            'rp_sch_id=${ticket.ticketSchId}&' +
-            '__format=pdf';
-
-        print("reportUrl: $reportUrl");
-
-        final fileName = 'PM_Report_${ticket.pvTicketId}';
-
-        final filePath = await PdfDownloadService.downloadPdf(
-          reportUrl: reportUrl,
-          fileName: fileName,
-        );
-
-        if (filePath != null) {
-          // Check if it's in public Downloads or app storage
-          String locationMessage;
-          if (filePath.contains('/Download/')) {
-            locationMessage =
-                'PDF saved to Downloads folder! Open file manager → Downloads to view';
-          } else {
-            locationMessage =
-                'PDF saved to app storage. Check Android → data → com.rapadit.flutter_template_rad → files → Downloads';
-          }
-
-          Toastbar.showSuccessToastbar(locationMessage, context);
-          print('PDF saved to: $filePath');
-
-          // Show additional info about file location
-          Future.delayed(const Duration(seconds: 2), () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('File saved to: $filePath'),
-                duration: const Duration(seconds: 3),
-                action: SnackBarAction(label: 'OK', onPressed: () {}),
-              ),
-            );
-          });
-        } else {
-          Toastbar.showErrorToastbar('Failed to download PDF', context);
-        }
-      } catch (e) {
-        print('PDF Download Error: $e');
-        String errorMessage = 'Error downloading PDF';
-
-        if (e.toString().contains('Storage permission denied')) {
-          errorMessage =
-              'Storage permission denied. Please grant storage permission in app settings.';
-        } else if (e.toString().contains('Network')) {
-          errorMessage =
-              'Network error. Please check your internet connection.';
-        } else if (e.toString().contains('404')) {
-          errorMessage = 'PDF report not found. Please try again later.';
-        }
-
-        Toastbar.showErrorToastbar(errorMessage, context);
-      } finally {
-        LoaderWidget.hideLoader();
-      }
-    } else {
-      Toastbar.showErrorToastbar(
-        'PDF report not available for this activity type',
-        context,
+      // Use CentralApiService to download PDF
+      final service = ServiceLocator().centralAssetAuditService;
+      final filePath = await service.downloadPdfReport(
+        ticketId: ticket.pvTicketId,
+        ticketSchId: ticket.ticketSchId.toString(),
+        activityType: _currentActivityType,
       );
+
+      if (filePath != null) {
+        // Check if it's in public Downloads or app storage
+        String locationMessage;
+        if (filePath.contains('/Download/')) {
+          locationMessage =
+              'PDF saved to Downloads folder! Open file manager → Downloads to view';
+        } else {
+          locationMessage =
+              'PDF saved to app storage. Check Android → data → com.rapadit.flutter_template_rad → files → Downloads';
+        }
+
+        Toastbar.showSuccessToastbar(locationMessage, context);
+        print('PDF saved to: $filePath');
+
+        // Show additional info about file location
+        Future.delayed(const Duration(seconds: 2), () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('File saved to: $filePath'),
+              duration: const Duration(seconds: 3),
+              action: SnackBarAction(label: 'OK', onPressed: () {}),
+            ),
+          );
+        });
+      } else {
+        Toastbar.showErrorToastbar('Failed to download PDF', context);
+      }
+    } catch (e) {
+      print('PDF Download Error: $e');
+      String errorMessage = 'Error downloading PDF';
+
+      if (e.toString().contains('Storage permission denied')) {
+        errorMessage =
+            'Storage permission denied. Please grant storage permission in app settings.';
+      } else if (e.toString().contains('Network')) {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (e.toString().contains('404')) {
+        errorMessage = 'PDF report not found. Please try again later.';
+      }
+
+      Toastbar.showErrorToastbar(errorMessage, context);
+    } finally {
+      LoaderWidget.hideLoader();
     }
   }
 }

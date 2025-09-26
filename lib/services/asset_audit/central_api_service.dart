@@ -1,5 +1,7 @@
 import 'package:app/enum/activity_type_enum.dart';
-import 'package:dio/dio.dart';
+import 'package:app/constants/constants_strings.dart';
+import 'package:app/services/local_storage_db.dart';
+import 'package:app/services/pdf_download_service.dart';
 import '../api_service.dart';
 import '../../utils/logger.dart';
 
@@ -123,6 +125,57 @@ class CentralApiService {
       }
     } catch (e) {
       Logger.errorLog('❌ Error fetching asset audit data: $e');
+      return null;
+    }
+  }
+
+  /// Download PDF report for a ticket
+  Future<String?> downloadPdfReport({
+    required String ticketId,
+    required String ticketSchId,
+    required ActivityTypeEnum activityType,
+  }) async {
+    try {
+      Logger.debugLog('📄 Starting PDF download for ticket: $ticketId');
+
+      // Only allow PDF download for preventive maintenance
+      if (activityType != ActivityTypeEnum.preventiveMaintenance) {
+        Logger.errorLog('❌ PDF report not available for activity type: $activityType');
+        return null;
+      }
+
+      // Get user ID from local storage
+      final userId = LocalStorageDB.getUserId ?? '0';
+      Logger.debugLog('Retrieved userId from storage: $userId');
+
+      // Build report URL
+      final reportUrl =
+          '$reportBaseUrl/run?' +
+          '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
+          'rp_login_userid=$userId&' +
+          'rp_tenant=$userId&' +
+          'rp_sch_id=$ticketSchId&' +
+          '__format=pdf';
+
+      Logger.debugLog('Report URL: $reportUrl');
+
+      final fileName = 'PM-Report-$ticketId';
+
+      // Download the PDF
+      final filePath = await PdfDownloadService.downloadPdf(
+        reportUrl: reportUrl,
+        fileName: fileName,
+      );
+
+      if (filePath != null) {
+        Logger.debugLog('✅ PDF downloaded successfully to: $filePath');
+        return filePath;
+      } else {
+        Logger.errorLog('❌ Failed to download PDF');
+        return null;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading PDF: $e');
       return null;
     }
   }
