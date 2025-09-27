@@ -1,6 +1,7 @@
 import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/screens/welcome_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -44,14 +45,14 @@ class _SplashScreenState extends State<SplashScreen>
 
     if (authCubit.isLoggedIn) {
       // User is already logged in, go to home screen
-      pushReplacementPage(context, const HomeScreen());
+      pushReplacementPage(context, const PulseDashboard());
     } else if (authCubit.getRememberMe) {
       // Try auto-login if remember me is enabled
       await authCubit.autoLogin();
 
       // Check if auto-login was successful
       if (authCubit.isLoggedIn) {
-        pushReplacementPage(context, const HomeScreen());
+        pushReplacementPage(context, const PulseDashboard());
       } else {
         pushReplacementPage(context, const WelcomeScreen());
       }
