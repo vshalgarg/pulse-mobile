@@ -8,6 +8,7 @@ import 'package:app/utils/user_name_utils.dart';
 import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/login_screen.dart';
+import 'package:app/screens/home_screen.dart';
 
 class PulseDashboard extends StatefulWidget {
   const PulseDashboard({Key? key}) : super(key: key);
@@ -328,7 +329,12 @@ class _PulseDashboardState extends State<PulseDashboard> {
   }
 
   void _navigateToTask(String taskName) {
-    Toastbar.showSuccessToastbar('Navigating to $taskName', context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HomeScreen(selectedActivity: taskName),
+      ),
+    );
   }
 
   void _navigateToMyTickets() {

@@ -28,7 +28,9 @@ import '../constants/app_images.dart';
 import '../utils/user_name_utils.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String? selectedActivity;
+
+  const HomeScreen({super.key, this.selectedActivity});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -133,18 +135,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
               ),
 
-              const DashBoardAppBar(),
+              // const DashBoardAppBar(),
 
-              Positioned(
-                top: 80,
-                left: 16,
-                right: 16,
-                child: SafeArea(child: userDetail()),
-              ),
+              // Positioned(
+              //   top: 80,
+              //   left: 16,
+              //   right: 16,
+              //   child: SafeArea(child: userDetail()),
+              // ),
 
               // Scrollable content below
               Positioned(
-                top: 200,
+                // top: 200,
+                top: 80,
                 left: 0,
                 right: 0,
                 bottom: 0,
@@ -200,7 +203,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Column(
                                 children: [
                                   // Asset Audit Section - Only show if data exists
-                                  if (_hasAssetAuditData(state)) ...[
+                                  if (_hasAssetAuditData(state) &&
+                                      widget.selectedActivity ==
+                                          "Asset Audit") ...[
                                     assetAudit(),
                                     const SizedBox(height: 5),
                                     assetAuditTicketStatus(state),
@@ -208,7 +213,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
 
                                   // Preventive Maintenance Section - Only show if data exists
-                                  if (_hasPreventiveMaintenanceData(state)) ...[
+                                  if (_hasPreventiveMaintenanceData(state) &&
+                                      widget.selectedActivity ==
+                                          "Preventive Maintenance") ...[
                                     pmAudit(),
                                     const SizedBox(height: 5),
                                     pmAuditTicketStatus(state),
@@ -216,17 +223,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ],
 
                                   // Corrective Maintenance Section - Always show
-                                  correctiveMaintenance(),
-                                  const SizedBox(height: 5),
-                                  correctiveMaintenanceTicketStatus(state),
-                                  const SizedBox(height: 15),
+                                  if (widget.selectedActivity ==
+                                      "Corrective Maintenance") ...[
+                                    correctiveMaintenance(),
+                                    const SizedBox(height: 5),
+                                    correctiveMaintenanceTicketStatus(state),
+                                    const SizedBox(height: 15),
+                                  ],
                                   // Energy Reading Section - Always show
-                                  energyReading(),
-                                  const SizedBox(height: 5),
-                                  energyReadingTicketStatus(state),
-                                  const SizedBox(height: 15),
+                                  if (widget.selectedActivity ==
+                                      "Energy Reading") ...[
+                                    energyReading(),
+                                    const SizedBox(height: 5),
+                                    energyReadingTicketStatus(state),
+                                    const SizedBox(height: 15),
 
-                                  const SizedBox(height: 20),
+                                    const SizedBox(height: 20),
+                                  ],
                                 ],
                               ),
                             ),
