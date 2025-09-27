@@ -169,6 +169,7 @@ class CentralApiService {
       final filePath = await PdfDownloadService.downloadPdf(
         reportUrl: reportUrl,
         fileName: fileName,
+         token: token,
       );
 
       if (filePath != null) {

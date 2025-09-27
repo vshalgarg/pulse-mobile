@@ -20,6 +20,13 @@ class AppImages {
   static const String closed = '${_basePath}close.svg';
   static const String trash = '${_basePath}trash.svg';
 
+  static const String assetAudit = '${_basePath}assetaudit.svg';
+  static const String preventiveMaintenance = '${_basePath}pm.svg';
+  static const String correctiveMaintenance = '${_basePath}cm.svg';
+  static const String energyReading = '${_basePath}er.svg';
+  static const String inspection = '${_basePath}inspection.svg';
+  static const String siteaccess = '${_basePath}siteaccess.svg';
+
   static const String whiteSplash = '${_basePath}white_splash.png';
   static const String welcomeBgPng = '${_basePath}Welcomescreen.png';
   static const String userPlaceholder = '${_basePath}user_placeholder.png';

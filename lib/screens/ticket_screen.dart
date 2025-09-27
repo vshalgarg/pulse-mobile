@@ -430,6 +430,7 @@ class _TicketScreenState extends State<TicketScreen> {
                   latitude: ticket.latitude ?? 0,
                   longitude: ticket.longitude ?? 0,
                   activityType: _currentActivityType,
+
                 );
 
                 if (isDownloaded) {
