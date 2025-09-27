@@ -239,10 +239,7 @@ class AuthCubit extends Cubit<AuthState> {
       print("AuthCubit: Force clearing all data");
 
       // Clear authentication data
-      await LocalStorageDB.clearAllCredentials();
-
-      // Clear all downloaded tickets and app data
-      await LocalStorageDB.clearAllData(); // This clears ALL local storage
+      await LocalStorageDB.logout();
 
       // Clear SQLite databases and other services
       await ServiceLocator().centralAssetAuditService.clearAllData();

@@ -7,7 +7,8 @@ class UserNameUtils {
     // First try to get fullName from local storage
     final fullName = LocalStorageDB.getFullName;
     if (fullName != null && fullName.isNotEmpty) {
-      return fullName;
+       final firstName = fullName.split(' ').first;
+      return firstName;
     }
 
     // Fallback to firstName

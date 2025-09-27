@@ -77,7 +77,9 @@ class AppColors {
   static const Color validationViewBackgroundColorGreen = Color(0xFFE6EDE9);
   static const Color validationViewBackgroundColorRed = Color(0xFFFBECEC);
   static const Color privacyPolicyandTermsandConditionGray = Color(0xFF818181);
-  static const Color createProfileButtonDisabelBackgroundColor = Color(0xFFECECEC);
+  static const Color createProfileButtonDisabelBackgroundColor = Color(
+    0xFFECECEC,
+  );
   static const Color textGreyColor = Color(0xFFA1A1A1);
   static const Color disabledGreyColor = Color(0xFFF7F7F7);
   static const Color headingdarkGreyColor = Color(0xFF1B1B1B);
@@ -265,13 +267,12 @@ class AppColors {
   static const Color listTileBorderColor = Color(0xFF303030);
   static const Color imageBorder = Color(0x3F000000);
   static const Color filterDividerColor = Color(0xFF8E8E8E);
-  static const selectedCarousalColor  = Color(0xFFBABABA);
-  static const buyButton  = Color(0xFF694040);
+  static const selectedCarousalColor = Color(0xFFBABABA);
+  static const buyButton = Color(0xFF694040);
   static const Color notificationIconBorder = Color(0xFF7E7371);
 
-
   //pulse colors
-// White & Black
+  // White & Black
   static const Color white1 = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 
@@ -333,13 +334,7 @@ class AppColors {
   static const Color pendingColor = Color(0xFFF5CB00);
   static const Color missedLineColor = Color(0xFFB24343);
   static const Color assignedColor = Color(0xFF8A38F5);
-  // static const Color transparent1Color = Color(0XFFFFFF40);
-
-
-
-
-
-
-
-
+  static const Color dashboardTextColor = Color(0xFF00373E);
+  static const Color dashboardIconBoxColor = Color(0xFFE3FFF5);
+  static const Color isComingSoonColor = Color.fromARGB(255, 225, 64, 64);
 }

@@ -3,6 +3,7 @@ import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/screens/reset_password_screen.dart';
 import 'package:app/screens/splash_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
@@ -29,7 +30,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case welcomeScreen:
       return _push(const WelcomeScreen());
     case homeScreen:
-      return _push(const HomeScreen());
+      return _push(const PulseDashboard());
+
+    // return _push(const HomeScreen());
     case forgotPasswordScreen:
       return _push(const ForgotPasswordScreen());
     case resetPasswordScreen:
@@ -39,12 +42,14 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case otpVerificationScreen:
       return _push(const EnterVerificationCodeScreen());
     case energyReadingScreen:
-      return _push(const EnergyReadingScreen(
-        siteType: "",
-        auditSchId: "",
-        siteAuditSchId: "",
-        siteId: "",
-      ));
+      return _push(
+        const EnergyReadingScreen(
+          siteType: "",
+          auditSchId: "",
+          siteAuditSchId: "",
+          siteId: "",
+        ),
+      );
     case ticketScreen:
       return _push(const TicketScreen(auditName: "", status: ""));
     case sqliteQueryScreen:
@@ -54,12 +59,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text("ERROR"),
-            ),
-            body: const Center(
-              child: Text("Page not found!"),
-            ),
+            appBar: AppBar(title: const Text("ERROR")),
+            body: const Center(child: Text("Page not found!")),
           );
         },
       );
@@ -71,9 +72,8 @@ PageRoute _push(
   Widget widget, {
   RouteSettings? settings,
   bool fullScreenDialog = false,
-}) =>
-    MaterialPageRoute(
-      builder: (context) => widget,
-      fullscreenDialog: fullScreenDialog,
-    );
+}) => MaterialPageRoute(
+  builder: (context) => widget,
+  fullscreenDialog: fullScreenDialog,
+);
 // }

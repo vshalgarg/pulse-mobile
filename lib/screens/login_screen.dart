@@ -6,6 +6,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
@@ -71,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
         listener: (context, state) {
           if (state is AuthSuccess) {
             // showCustomToast(context, '');
-            pushReplacementPage(context, HomeScreen());
+            pushReplacementPage(context, PulseDashboard());
           } else if (state is AuthFailure) {
             showCustomToast(context, state.errorMessage);
           }
