@@ -91,10 +91,55 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  PreferredSizeWidget _buildCustomAppBar() {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      flexibleSpace: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(left: 10, top: 20, right: 0),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_sharp,
+                  color: AppColors.backgroundColorapp,
+                  size: 25,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                alignment: Alignment.centerLeft,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  widget.selectedActivity ?? "",
+                  style: const TextStyle(
+                    color: AppColors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: poppins,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      appBar: _buildCustomAppBar(),
+      extendBodyBehindAppBar: true,
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -134,26 +179,13 @@ class _HomeScreenState extends State<HomeScreen> {
               Positioned.fill(
                 child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
               ),
-
-              // const DashBoardAppBar(),
-
-              // Positioned(
-              //   top: 80,
-              //   left: 16,
-              //   right: 16,
-              //   child: SafeArea(child: userDetail()),
-              // ),
-
-              // Scrollable content below
               Positioned(
-                // top: 200,
-                top: 80,
+                top: 100,
                 left: 0,
                 right: 0,
                 bottom: 0,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: AppColors.green7,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(10),
                       topRight: Radius.circular(10),
@@ -206,7 +238,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   if (_hasAssetAuditData(state) &&
                                       widget.selectedActivity ==
                                           "Asset Audit") ...[
-                                    assetAudit(),
                                     const SizedBox(height: 5),
                                     assetAuditTicketStatus(state),
                                     const SizedBox(height: 15),
@@ -216,7 +247,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   if (_hasPreventiveMaintenanceData(state) &&
                                       widget.selectedActivity ==
                                           "Preventive Maintenance") ...[
-                                    pmAudit(),
                                     const SizedBox(height: 5),
                                     pmAuditTicketStatus(state),
                                     const SizedBox(height: 15),
@@ -225,7 +255,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   // Corrective Maintenance Section - Always show
                                   if (widget.selectedActivity ==
                                       "Corrective Maintenance") ...[
-                                    correctiveMaintenance(),
                                     const SizedBox(height: 5),
                                     correctiveMaintenanceTicketStatus(state),
                                     const SizedBox(height: 15),
@@ -233,7 +262,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   // Energy Reading Section - Always show
                                   if (widget.selectedActivity ==
                                       "Energy Reading") ...[
-                                    energyReading(),
                                     const SizedBox(height: 5),
                                     energyReadingTicketStatus(state),
                                     const SizedBox(height: 15),
@@ -250,107 +278,6 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget userDetail() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            FutureBuilder<String>(
-              future: UserNameUtils.getUserDisplayNameEnhanced(),
-              builder: (context, snapshot) {
-                final displayName = snapshot.data ?? 'User';
-
-                return Text(
-                  'Hello $displayName,',
-                  style: TextStyle(
-                    fontSize: AppSizes.twentyFour,
-                    fontFamily: dmSans,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.white,
-                  ),
-                );
-              },
-            ),
-            Text(
-              'Here\'s a quick look at your tasks.',
-              style: TextStyle(
-                fontSize: AppSizes.sixteen,
-                fontFamily: dmSans,
-                fontWeight: FontWeight.w400,
-                color: AppColors.white,
-              ),
-            ),
-          ],
-        ),
-
-        // Profile image with popup
-        PopupMenuButton<int>(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          offset: const Offset(0, 50),
-          color: Colors.white,
-          onSelected: (value) async {
-            if (value == 1) {
-              // Clear all authentication data before navigating to login
-              await context.read<AuthCubit>().forceClearAllData();
-              pushReplacementPage(context, LoginScreen());
-            }
-          },
-          itemBuilder: (context) => [
-            PopupMenuItem(
-              value: 1,
-              child: SizedBox(
-                width: 130,
-                height: 20,
-                child: Text(
-                  "Log Out",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontFamily: fontFamilyInter,
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-            ),
-          ],
-          child: const CircleAvatar(
-            radius: 20,
-            backgroundImage: AssetImage(AppImages.userPlaceholder),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget assetAudit() {
-    return Container(
-      height: 45,
-      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.auditColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(5),
-          bottomRight: Radius.circular(5),
-        ),
-      ),
-      child: Text(
-        "Asset Audit",
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 18,
-          fontFamily: dmSans,
-          color: AppColors.white,
-        ),
       ),
     );
   }
@@ -612,33 +539,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // PM AUDIT------------
-  Widget pmAudit() {
-    return Container(
-      height: 45,
-      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.auditColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(5),
-          bottomRight: Radius.circular(5),
-        ),
-      ),
-      child: Text(
-        "Preventive Maintenance",
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 18,
-          fontFamily: dmSans,
-          color: AppColors.white,
-        ),
-      ),
-    );
-  }
-
   Widget energyReadingTicketStatus(DashboardState state) {
     String allTicketsCount = "0";
     String dueCount = "0";
@@ -854,87 +754,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 5),
-      ],
-    );
-  }
-
-  // Energy Reading---------------
-  Widget energyReading() {
-    return Container(
-      height: 45,
-      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: AppColors.auditColor,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(10),
-          topRight: Radius.circular(10),
-          bottomLeft: Radius.circular(5),
-          bottomRight: Radius.circular(5),
-        ),
-      ),
-      child: Text(
-        "Energy Reading",
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 18,
-          fontFamily: dmSans,
-          color: AppColors.white,
-        ),
-      ),
-    );
-  }
-
-  // Corrective Maintenance---------------
-  Widget correctiveMaintenance() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 45,
-            padding: EdgeInsets.symmetric(vertical: 10, horizontal: 15),
-            decoration: BoxDecoration(
-              color: AppColors.auditColor,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(5),
-                bottomLeft: Radius.circular(5),
-                bottomRight: Radius.circular(5),
-              ),
-            ),
-            child: Text(
-              "Corrective Maintenance",
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-                fontFamily: dmSans,
-                color: AppColors.white,
-              ),
-            ),
-          ),
-        ),
-        getWidth(8), // Distance between containers
-        Container(
-          height: 45,
-          width: 45,
-          decoration: BoxDecoration(
-            color: AppColors.auditColor,
-            borderRadius: BorderRadius.only(
-              topRight: Radius.circular(10),
-              topLeft: Radius.circular(5),
-              bottomRight: Radius.circular(5),
-              bottomLeft: Radius.circular(5),
-            ),
-          ),
-          child: IconButton(
-            onPressed: () {
-              pushPage(context, TicketScreen(auditName: "CM", status: ""));
-            },
-            icon: Icon(Icons.add, color: AppColors.white, size: 24),
-            padding: EdgeInsets.zero,
-            constraints: BoxConstraints(),
-          ),
-        ),
       ],
     );
   }

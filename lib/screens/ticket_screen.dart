@@ -330,9 +330,21 @@ class _TicketScreenState extends State<TicketScreen> {
       automaticallyImplyLeading: false,
       flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 12, right: 10),
+          padding: const EdgeInsets.only(left: 10, top: 12, right: 0),
           child: Row(
             children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_sharp,
+                  color: AppColors.backgroundColorapp,
+                  size: 25,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                alignment: Alignment.centerLeft,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   "${widget.auditName} - ${widget.status}",
@@ -344,14 +356,6 @@ class _TicketScreenState extends State<TicketScreen> {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  color: AppColors.errorColor,
-                  size: 30,
-                ),
-                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -430,7 +434,6 @@ class _TicketScreenState extends State<TicketScreen> {
                   latitude: ticket.latitude ?? 0,
                   longitude: ticket.longitude ?? 0,
                   activityType: _currentActivityType,
-
                 );
 
                 if (isDownloaded) {
