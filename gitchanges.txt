@@ -1,0 +1,656 @@
+commit 3bb2db349d63bb13a1f979eb68da2b13966de085
+Author: guptadeepanshi <deepanshigupta@neepanlok.com>
+Date:   Sat Sep 27 12:29:45 2025 +0530
+
+    PDf download formatted and get used
+
+diff --git a/lib/screens/ticket_screen.dart b/lib/screens/ticket_screen.dart
+index 58c7e31..c78e314 100644
+--- a/lib/screens/ticket_screen.dart
++++ b/lib/screens/ticket_screen.dart
+@@ -515,11 +515,22 @@ class _TicketScreenState extends State<TicketScreen> {
+   Future<void> _downloadReport(Ticket ticket) async {
+     print("downloading pdf report for ${ticket.pvTicketId}");
+ 
++    print('Current Activity Type: $_currentActivityType');
++
++    if (_currentActivityType.value != 'PM' &&
++        _currentActivityType.value != 'AA') {
++      Toastbar.showErrorToastbar(
++        'PDF report not available for this activity type',
++        context,
++      );
++      return;
++    }
++
+     try {
+       LoaderWidget.showLoader(context);
+ 
+       // Use CentralApiService to download PDF
+-      final service = ServiceLocator().centralAssetAuditService;
++      final service = ServiceLocator().centralApiService;
+       final filePath = await service.downloadPdfReport(
+         ticketId: ticket.pvTicketId,
+         ticketSchId: ticket.ticketSchId.toString(),
+diff --git a/lib/services/asset_audit/central_api_service.dart b/lib/services/asset_audit/central_api_service.dart
+index 0fd95e8..8ec500d 100644
+--- a/lib/services/asset_audit/central_api_service.dart
++++ b/lib/services/asset_audit/central_api_service.dart
+@@ -1,5 +1,4 @@
+ import 'package:app/enum/activity_type_enum.dart';
+-import 'package:app/constants/constants_strings.dart';
+ import 'package:app/services/local_storage_db.dart';
+ import 'package:app/services/pdf_download_service.dart';
+ import '../api_service.dart';
+@@ -83,8 +82,7 @@ class CentralApiService {
+ 
+       if (response.isSuccess && response.data != null) {
+         final Map<String, dynamic> parsedData =
+-          response.data!.first as Map<String, dynamic>;
+-      
++            response.data!.first as Map<String, dynamic>;
+ 
+         Logger.debugLog('🌐 ER data fetched successfully: ${response.data}');
+         return parsedData;
+@@ -98,9 +96,8 @@ class CentralApiService {
+     }
+   }
+ 
+-
+   /// Fetch complete asset audit data
+-  
++
+   /// Fetch complete pm data
+   Future<Map<String, dynamic>?> fetchPmData({
+     required String siteType,
+@@ -138,33 +135,43 @@ class CentralApiService {
+     try {
+       Logger.debugLog('📄 Starting PDF download for ticket: $ticketId');
+ 
++      final reportPath = activityType == ActivityTypeEnum.preventiveMaintenance
++          ? 'OnM/Preventive_Maintenance.rptdesign'
++          : 'OnM/Asset_Audit.rptdesign';
++
++      print('Report Path: $reportPath');
++
+       // Only allow PDF download for preventive maintenance
+-      if (activityType != ActivityTypeEnum.preventiveMaintenance) {
+-        Logger.errorLog('❌ PDF report not available for activity type: $activityType');
+-        return null;
+-      }
+ 
+-      // Get user ID from local storage
++      // Get user ID and token from local storage
+       final userId = LocalStorageDB.getUserId ?? '0';
++      final token = LocalStorageDB.getToken;
+       Logger.debugLog('Retrieved userId from storage: $userId');
+ 
+-      // Build report URL
++      if (token == null) {
++        Logger.errorLog('❌ No authentication token found');
++        return null;
++      }
++
++      // Build report URL with query parameters for GET request
+       final reportUrl =
+-          '$reportBaseUrl/run?' +
+-          '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
+-          'rp_login_userid=$userId&' +
++          'https://pulseapi.premiumfreshers.com/reports/generate?' +
++          'reportPath=$reportPath&' +
+           'rp_tenant=$userId&' +
+           'rp_sch_id=$ticketSchId&' +
+-          '__format=pdf';
++          'rp_login_userid=$userId';
+ 
+-      Logger.debugLog('Report URL: $reportUrl');
++      print('Report URL: $reportUrl');
+ 
+-      final fileName = 'PM-Report-$ticketId';
++      final fileName = activityType == ActivityTypeEnum.preventiveMaintenance
++          ? 'PM-Report-$ticketId'
++          : 'AA-Report-$ticketId';
+ 
+-      // Download the PDF
++      // Download the PDF using GET request
+       final filePath = await PdfDownloadService.downloadPdf(
+         reportUrl: reportUrl,
+         fileName: fileName,
++        token: token,
+       );
+ 
+       if (filePath != null) {
+diff --git a/lib/services/asset_audit/central_asset_audit_service.dart b/lib/services/asset_audit/central_asset_audit_service.dart
+index 8125eb4..2ca4937 100644
+--- a/lib/services/asset_audit/central_asset_audit_service.dart
++++ b/lib/services/asset_audit/central_asset_audit_service.dart
+@@ -9,7 +9,6 @@ import 'central_api_service.dart';
+ import '../image_upload_service.dart';
+ 
+ class CentralAssetAuditService {
+-
+   Future<bool> getDataFromApiAndSaveToSqlite({
+     required String siteType,
+     required String auditSchId,
+@@ -18,8 +17,9 @@ class CentralAssetAuditService {
+     required double longitude,
+     required ActivityTypeEnum activityType,
+   }) async {
+-    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
+-    if(sqliteData != null && sqliteData.isDownloaded) {
++    final sqliteData = await ServiceLocator().centralAssetAuditDataService
++        .getRawApiData(siteAuditSchId);
++    if (sqliteData != null && sqliteData.isDownloaded) {
+       return true;
+     }
+ 
+@@ -27,21 +27,22 @@ class CentralAssetAuditService {
+       siteType: siteType,
+       auditSchId: auditSchId,
+       siteAuditSchId: siteAuditSchId,
+-      activityType: activityType
++      activityType: activityType,
+     );
+-    if(apiData == null) {
++    if (apiData == null) {
+       return false;
+     }
+     // Save to SQLite
+     final isSaved = await _saveDataToSQLite(
+-        siteAuditSchId: siteAuditSchId,
+-        siteType: siteType,
+-        auditSchId: auditSchId,
+-        activityType: activityType,
+-        latitude: latitude,
+-        longitude: longitude,
+-        isDownloaded: false,
+-        apiData: apiData);
++      siteAuditSchId: siteAuditSchId,
++      siteType: siteType,
++      auditSchId: auditSchId,
++      activityType: activityType,
++      latitude: latitude,
++      longitude: longitude,
++      isDownloaded: false,
++      apiData: apiData,
++    );
+ 
+     return isSaved;
+   }
+@@ -49,8 +50,9 @@ class CentralAssetAuditService {
+   Future<RawApiDataModel?> getDataFromSqlite({
+     required String siteAuditSchId,
+   }) async {
+-    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
+-    if(sqliteData != null) {
++    final sqliteData = await ServiceLocator().centralAssetAuditDataService
++        .getRawApiData(siteAuditSchId);
++    if (sqliteData != null) {
+       return sqliteData;
+     } else {
+       return null;
+@@ -60,8 +62,9 @@ class CentralAssetAuditService {
+   Future<Map<String, dynamic>?> getActualDataFromSqlite({
+     required String siteAuditSchId,
+   }) async {
+-    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
+-    if(sqliteData != null) {
++    final sqliteData = await ServiceLocator().centralAssetAuditDataService
++        .getRawApiData(siteAuditSchId);
++    if (sqliteData != null) {
+       return sqliteData.apiData;
+     } else {
+       return null;
+@@ -74,35 +77,34 @@ class CentralAssetAuditService {
+     required String siteAuditSchId,
+     required double latitude,
+     required double longitude,
+-    required ActivityTypeEnum activityType
++    required ActivityTypeEnum activityType,
+   }) async {
+-
+     final apiData = await ServiceLocator().centralApiService.fetchData(
+       siteType: siteType,
+       auditSchId: auditSchId,
+       siteAuditSchId: siteAuditSchId,
+-      activityType: activityType
++      activityType: activityType,
+     );
+ 
+-    if(apiData == null) {
++    if (apiData == null) {
+       return false;
+     }
+     // Save to SQLite
+     final isSaved = await _saveDataToSQLite(
+-        siteAuditSchId: siteAuditSchId,
+-        siteType: siteType,
+-        auditSchId: auditSchId,
+-        activityType: activityType,
+-        isDownloaded: true,
+-        latitude: latitude,
+-        longitude: longitude,
+-        apiData: apiData);
++      siteAuditSchId: siteAuditSchId,
++      siteType: siteType,
++      auditSchId: auditSchId,
++      activityType: activityType,
++      isDownloaded: true,
++      latitude: latitude,
++      longitude: longitude,
++      apiData: apiData,
++    );
+     return isSaved;
+   }
+ 
+   /// Save asset audit data to SQLite
+-  Future<bool> _saveDataToSQLite(
+-  {
++  Future<bool> _saveDataToSQLite({
+     required String siteType,
+     required String auditSchId,
+     required String siteAuditSchId,
+@@ -117,19 +119,24 @@ class CentralAssetAuditService {
+       Logger.debugLog('💾 API data keys: ${apiData.keys.toList()}');
+ 
+       // Process images and replace server IDs with unique IDs
+-      final processedApiData = await _processImagesInApiData(apiData, activityType, siteAuditSchId);
++      final processedApiData = await _processImagesInApiData(
++        apiData,
++        activityType,
++        siteAuditSchId,
++      );
+ 
+       // Save the processed API response
+-      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
+-        siteAuditSchId: siteAuditSchId,
+-        siteType: siteType,
+-        auditSchId: auditSchId,
+-        isDownloaded: isDownloaded,
+-        activityType: activityType,
+-        latitude: latitude,
+-        longitude: longitude,
+-        apiData: processedApiData,
+-      );
++      bool isSaved = await ServiceLocator().centralAssetAuditDataService
++          .saveRawApiData(
++            siteAuditSchId: siteAuditSchId,
++            siteType: siteType,
++            auditSchId: auditSchId,
++            isDownloaded: isDownloaded,
++            activityType: activityType,
++            latitude: latitude,
++            longitude: longitude,
++            apiData: processedApiData,
++          );
+ 
+       Logger.debugLog('✅ Raw API data saved successfully to SQLite');
+       return isSaved;
+@@ -140,16 +147,24 @@ class CentralAssetAuditService {
+   }
+ 
+   /// Process images in API data by downloading and replacing server IDs with unique IDs
+-  Future<Map<String, dynamic>> _processImagesInApiData(Map<String, dynamic> apiData, ActivityTypeEnum activityType, String siteAuditSchId) async {
++  Future<Map<String, dynamic>> _processImagesInApiData(
++    Map<String, dynamic> apiData,
++    ActivityTypeEnum activityType,
++    String siteAuditSchId,
++  ) async {
+     try {
+       Logger.debugLog('Processing images in API data');
+-      
++
+       // Create a deep copy of the API data to avoid modifying the original
+       final processedData = Map<String, dynamic>.from(apiData);
+-      
++
+       // Process the entire object recursively
+-      await _processObjectRecursively(processedData, activityType, siteAuditSchId);
+-      
++      await _processObjectRecursively(
++        processedData,
++        activityType,
++        siteAuditSchId,
++      );
++
+       Logger.debugLog('Images processed successfully');
+       return processedData;
+     } catch (e) {
+@@ -159,27 +174,38 @@ class CentralAssetAuditService {
+   }
+ 
+   /// Recursively process an object to find and replace image server IDs
+-  Future<void> _processObjectRecursively(dynamic obj, ActivityTypeEnum activityType, String siteAuditSchId) async {
++  Future<void> _processObjectRecursively(
++    dynamic obj,
++    ActivityTypeEnum activityType,
++    String siteAuditSchId,
++  ) async {
+     if (obj == null) return;
+-    
++
+     if (obj is Map<String, dynamic>) {
+       // Process each key-value pair in the map
+       for (final entry in obj.entries) {
+         final key = entry.key;
+         final value = entry.value;
+-        
++
+         // Check if this is a photo_id or maker_selfie_image_id field
+-        if ((key == 'photo_id' || key == 'maker_selfie_image_id') && value != null) {
++        if ((key == 'photo_id' || key == 'maker_selfie_image_id') &&
++            value != null) {
+           final serverId = value.toString();
+           if (serverId.isNotEmpty) {
+             Logger.debugLog('🖼️ Found $key: $serverId');
+-            
++
+             // Download image and get unique ID
+-            final uniqueId = await _downloadImageAndGetUniqueId(serverId, activityType, siteAuditSchId);
++            final uniqueId = await _downloadImageAndGetUniqueId(
++              serverId,
++              activityType,
++              siteAuditSchId,
++            );
+             if (uniqueId != null) {
+               // Replace server ID with unique ID
+               obj[key] = uniqueId;
+-              Logger.debugLog('✅ Replaced $key $serverId with unique ID: $uniqueId');
++              Logger.debugLog(
++                '✅ Replaced $key $serverId with unique ID: $uniqueId',
++              );
+             } else {
+               Logger.errorLog('❌ Failed to download image for $key: $serverId');
+             }
+@@ -198,13 +224,20 @@ class CentralAssetAuditService {
+   }
+ 
+   /// Download image using server ID and return unique ID
+-  Future<String?> _downloadImageAndGetUniqueId(String serverId, ActivityTypeEnum activityType, String schId) async {
++  Future<String?> _downloadImageAndGetUniqueId(
++    String serverId,
++    ActivityTypeEnum activityType,
++    String schId,
++  ) async {
+     try {
+       Logger.debugLog('📥 Downloading image with server ID: $serverId');
+-      final uniqueId = await ServiceLocator().imageUploadService.downloadImageUsingServerId(serverId, activityType, schId);
+-      
++      final uniqueId = await ServiceLocator().imageUploadService
++          .downloadImageUsingServerId(serverId, activityType, schId);
++
+       if (uniqueId != null) {
+-        Logger.debugLog('✅ Image downloaded successfully with unique ID: $uniqueId');
++        Logger.debugLog(
++          '✅ Image downloaded successfully with unique ID: $uniqueId',
++        );
+         return uniqueId;
+       } else {
+         Logger.errorLog('❌ Failed to download image with server ID: $serverId');
+@@ -230,7 +263,7 @@ class CentralAssetAuditService {
+         siteAuditSchId: siteAuditSchId,
+         apiData: updatedData,
+       );
+-      
++
+       Logger.debugLog('✅ Asset audit data updated successfully');
+       return true;
+     } catch (e) {
+@@ -244,8 +277,9 @@ class CentralAssetAuditService {
+   /// Get image as data URL
+   Future<String?> getImageAsDataUrl(String imageId) async {
+     try {
+-      final imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(imageId);
+-      if(imageData != null) {
++      final imageData = await ServiceLocator().imageUploadService
++          .getImageUsingUniqueId(imageId);
++      if (imageData != null) {
+         return imageData; // Already a base64 string
+       }
+       return null;
+@@ -269,10 +303,10 @@ class CentralAssetAuditService {
+ 
+       // Upload using ImageUploadService
+       return await ServiceLocator().imageUploadService.uploadImage(
+-          imageData,
+-          ActivityTypeEnum.assetAudit,
+-          isSelfie,
+-          siteAuditSchId
++        imageData,
++        ActivityTypeEnum.assetAudit,
++        isSelfie,
++        siteAuditSchId,
+       );
+     } catch (e) {
+       Logger.errorLog('❌ Error uploading image: $e');
+@@ -294,48 +328,20 @@ class CentralAssetAuditService {
+ 
+   /// Drop and recreate all databases with all tables
+   Future<void> dropAndRecreateAllDatabases() async {
+-
+     try {
+       Logger.debugLog('🗑️ Dropping and recreating all databases');
+-      
++
+       // Drop and recreate both databases
+       await Future.wait([
+         ServiceLocator().centralAssetAuditDataService.dropAndRecreateDatabase(),
+         ServiceLocator().pendingRequestService.dropAndRecreateDatabase(),
+         ServiceLocator().imageUploadService.dropAndRecreateDatabase(),
+       ]);
+-      
++
+       Logger.debugLog('✅ All databases dropped and recreated successfully');
+     } catch (e) {
+       Logger.errorLog('❌ Error dropping and recreating databases: $e');
+       rethrow;
+     }
+   }
+-
+-  /// Download PDF report for a ticket
+-  Future<String?> downloadPdfReport({
+-    required String ticketId,
+-    required String ticketSchId,
+-    required ActivityTypeEnum activityType,
+-  }) async {
+-    try {
+-      Logger.debugLog('📄 Starting PDF download for ticket: $ticketId');
+-
+-      // Only allow PDF download for preventive maintenance
+-      if (activityType != ActivityTypeEnum.preventiveMaintenance) {
+-        Logger.errorLog('❌ PDF report not available for activity type: $activityType');
+-        return null;
+-      }
+-
+-      // Use CentralApiService to download PDF
+-      return await ServiceLocator().centralApiService.downloadPdfReport(
+-        ticketId: ticketId,
+-        ticketSchId: ticketSchId,
+-        activityType: activityType,
+-      );
+-    } catch (e) {
+-      Logger.errorLog('❌ Error downloading PDF: $e');
+-      return null;
+-    }
+-  }
+ }
+diff --git a/lib/services/pdf_download_service.dart b/lib/services/pdf_download_service.dart
+index 5038e39..bfd496a 100644
+--- a/lib/services/pdf_download_service.dart
++++ b/lib/services/pdf_download_service.dart
+@@ -10,6 +10,7 @@ class PdfDownloadService {
+   static Future<String?> downloadPdf({
+     required String reportUrl,
+     required String fileName,
++    String? token,
+   }) async {
+     try {
+       // Request storage permission for public Downloads access
+@@ -108,14 +109,22 @@ class PdfDownloadService {
+       final filePath = '${downloadsPath.path}/$fileName.pdf';
+       print('Downloading PDF to: $filePath');
+ 
++      // Prepare headers
++      final headers = <String, String>{
++        'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
++      };
++      
++      // Add Authorization header if token is provided
++      if (token != null && token.isNotEmpty) {
++        headers['Authorization'] = 'Bearer $token';
++      }
++
+       // Download the PDF with proper headers
+       await _dio.download(
+         reportUrl, 
+         filePath,
+         options: Options(
+-          headers: {
+-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
+-          },
++          headers: headers,
+         ),
+       );
+ 
+@@ -126,4 +135,140 @@ class PdfDownloadService {
+       return null;
+     }
+   }
++
++  static Future<String?> downloadPdfWithFormData({
++    required String url,
++    required Map<String, String> formData,
++    required String fileName,
++    required String token,
++  }) async {
++    try {
++      // Request storage permission for public Downloads access
++      PermissionStatus permissionStatus;
++      if (Platform.isAndroid) {
++        // Check Android version and request appropriate permissions
++        final androidInfo = await DeviceInfoPlugin().androidInfo;
++        print('Android SDK: ${androidInfo.version.sdkInt}');
++        
++        if (androidInfo.version.sdkInt >= 30) {
++          // Android 11+ - request manage external storage for public Downloads access
++          permissionStatus = await Permission.manageExternalStorage.request();
++          print('Manage external storage status: $permissionStatus');
++          
++          if (permissionStatus != PermissionStatus.granted) {
++            // Fallback to storage permission
++            permissionStatus = await Permission.storage.request();
++            print('Storage permission status: $permissionStatus');
++          }
++        } else {
++          // Android 10 and below - use storage permission
++          permissionStatus = await Permission.storage.request();
++          print('Storage permission status: $permissionStatus');
++        }
++      } else {
++        permissionStatus = await Permission.storage.request();
++      }
++      
++      if (permissionStatus != PermissionStatus.granted) {
++        print('Storage permission denied, will try to use app documents directory');
++      }
++
++      // Get public Downloads directory using Environment.getExternalStoragePublicDirectory
++      Directory downloadsPath;
++      try {
++        if (Platform.isAndroid) {
++          // Use the proper method to get public Downloads directory
++          final externalStorage = await getExternalStorageDirectory();
++          if (externalStorage != null) {
++            // Get the root of external storage (remove the app-specific path)
++            final rootPath = externalStorage.path.split('/Android')[0];
++            downloadsPath = Directory('$rootPath/Download');
++            print('Trying public Downloads: ${downloadsPath.path}');
++            
++            // Test if we can write to public Downloads
++            try {
++              if (!await downloadsPath.exists()) {
++                await downloadsPath.create(recursive: true);
++              }
++              // Test write access
++              final testFile = File('${downloadsPath.path}/test_write.tmp');
++              await testFile.writeAsString('test');
++              await testFile.delete();
++              print('Successfully using public Downloads: ${downloadsPath.path}');
++            } catch (e) {
++              print('Cannot write to public Downloads, trying alternative path: $e');
++              // Try alternative public Downloads path
++              downloadsPath = Directory('/storage/emulated/0/Download');
++              print('Trying alternative public Downloads: ${downloadsPath.path}');
++              
++              try {
++                if (!await downloadsPath.exists()) {
++                  await downloadsPath.create(recursive: true);
++                }
++                // Test write access
++                final testFile = File('${downloadsPath.path}/test_write.tmp');
++                await testFile.writeAsString('test');
++                await testFile.delete();
++                print('Successfully using alternative public Downloads: ${downloadsPath.path}');
++              } catch (e2) {
++                print('Cannot write to alternative public Downloads, using app storage: $e2');
++                // Final fallback to app's external storage
++                downloadsPath = Directory('${externalStorage.path}/Downloads');
++                print('Using app external storage Downloads: ${downloadsPath.path}');
++              }
++            }
++          } else {
++            throw Exception('Could not access external storage');
++          }
++        } else {
++          // For iOS, use documents directory
++          downloadsPath = await getApplicationDocumentsDirectory();
++        }
++      } catch (e) {
++        print('Error getting Downloads directory: $e');
++        // Final fallback to app documents directory
++        downloadsPath = await getApplicationDocumentsDirectory();
++        print('Using fallback directory: ${downloadsPath.path}');
++      }
++
++      // Create downloads folder if it doesn't exist
++      if (!await downloadsPath.exists()) {
++        await downloadsPath.create(recursive: true);
++      }
++
++      final filePath = '${downloadsPath.path}/$fileName.pdf';
++      print('Downloading PDF to: $filePath');
++
++      // Create FormData for the POST request
++      final dioFormData = FormData.fromMap(formData);
++
++      // Download the PDF with POST request and proper headers
++      await _dio.post(
++        url,
++        data: dioFormData,
++        options: Options(
++          headers: {
++            'Authorization': 'Bearer $token',
++            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
++          },
++          responseType: ResponseType.bytes,
++        ),
++        onReceiveProgress: (received, total) {
++          if (total != -1) {
++            print('Download progress: ${(received / total * 100).toStringAsFixed(0)}%');
++          }
++        },
++      ).then((response) async {
++        // Save the response bytes to file
++        final file = File(filePath);
++        await file.writeAsBytes(response.data);
++        print('PDF downloaded successfully to: $filePath');
++      });
++
++      return filePath;
++    } catch (e) {
++      print('Error downloading PDF with form data: $e');
++      return null;
++    }
++  }
+ }
+\ No newline at end of file

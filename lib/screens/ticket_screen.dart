@@ -515,7 +515,8 @@ class _TicketScreenState extends State<TicketScreen> {
   Future<void> _downloadReport(Ticket ticket) async {
     print("downloading pdf report for ${ticket.pvTicketId}");
 
-    if (_currentActivityType != ActivityTypeEnum.preventiveMaintenance) {
+    if (_currentActivityType != ActivityTypeEnum.preventiveMaintenance &&
+        _currentActivityType != ActivityTypeEnum.assetAudit) {
       Toastbar.showErrorToastbar(
         'PDF report not available for this activity type',
         context,
