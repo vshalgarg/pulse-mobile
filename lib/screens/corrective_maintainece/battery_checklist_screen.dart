@@ -1,575 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_dropdown.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
-import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/generic_dropdown.dart';
 import '../../../constants/app_colors.dart';
-import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
+import '../../../models/cm_checklist_model.dart';
 
-class BatteryChecklistScreen extends StatefulWidget {
-  final String siteId;
-  final String siteName;
-
-  const BatteryChecklistScreen({
-    super.key,
-    required this.siteId,
-    required this.siteName,
-  });
-
-  @override
-  State<BatteryChecklistScreen> createState() => _BatteryChecklistScreenState();
-}
-
-class _BatteryChecklistScreenState extends State<BatteryChecklistScreen> {
-  bool _isLoadingData = false;
-  String? _errorMessage;
-
-  // Controllers for text fields
-  final TextEditingController _ratingController = TextEditingController();
-  final TextEditingController _makeController = TextEditingController();
-  final TextEditingController _noOfNotOkBatteriesController = TextEditingController();
-  final TextEditingController _batterySerialController = TextEditingController();
-  final TextEditingController _socController = TextEditingController();
-  final TextEditingController _sohController = TextEditingController();
-
-  // Dropdown selections
-  String? _selectedCbmsStatus;
-  String? _selectedBatteryPosTerminal;
-  String? _selectedBatteryNegTerminal;
-
-  // Saved batteries list
-  List<Map<String, dynamic>> _savedBatteries = [];
-
-  bool _hasFormDataChanges = false;
-
-  // Dropdown options
-  final List<String> _cbmsStatusOptions = ['Select', 'Ok', 'Not Ok', 'Faulty'];
-  final List<String> _terminalOptions = ['Select', 'Ok', 'Not Ok', 'Faulty'];
-
-  @override
-  void initState() {
-    super.initState();
-    
-    // Pre-fill with sample data
-    _ratingController.text = "1500 KW";
-    _makeController.text = "Eicher";
-    _noOfNotOkBatteriesController.text = "8";
-    _socController.text = "97";
-    _sohController.text = "100";
-  }
-
-  @override
-  void dispose() {
-    _ratingController.dispose();
-    _makeController.dispose();
-    _noOfNotOkBatteriesController.dispose();
-    _batterySerialController.dispose();
-    _socController.dispose();
-    _sohController.dispose();
-    super.dispose();
-  }
-
-  void _onFormChanged() {
-    setState(() {
-      _hasFormDataChanges = true;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      resizeToAvoidBottomInset: true,
-      appBar: CustomFormAppbar(
-        title: 'Battery Checklist',
-        onClose: () => _showUnsavedChangesDialog(),
-      ),
-      body: Stack(
-        children: [
-          // Background
-          Positioned.fill(
-            child: SvgPicture.asset(
-              AppImages.home,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 100,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_isLoadingData)
-                            const Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primaryGreen,
-                              ),
-                            ),
-                          if (_errorMessage != null)
-                            Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: AppColors.errorColor),
-                            ),
-                          if (!_isLoadingData && _errorMessage == null)
-                            _buildFormFields(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Bottom Button
-                ArrowButton(
-                  text: "Submit",
-                  isLeftArrow: false,
-                  backgroundColor: AppColors.buttonColorBg,
-                  textColor: AppColors.buttonColorSite,
-                  onPressed: _validateAndSubmit,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormFields() {
-    return Column(
-      children: [
-        // General Battery Information
-        CustomFormField(
-          label: "Rating",
-          controller: _ratingController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Make",
-          controller: _makeController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "No of Not OK Batteries",
-          controller: _noOfNotOkBatteriesController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Battery Serial Number and SOC/SOH Section
-        _buildBatterySection(),
-        getHeight(15),
-        
-        // CBMS Status Dropdown
-        CustomDropdown(
-          label: "CBMS Status",
-          items: _cbmsStatusOptions,
-          initialValue: _selectedCbmsStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedCbmsStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Battery Terminal Dropdowns
-        CustomDropdown(
-          label: "Battery +ve Terminal",
-          items: _terminalOptions,
-          initialValue: _selectedBatteryPosTerminal,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedBatteryPosTerminal = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomDropdown(
-          label: "Battery -ve Terminal",
-          items: _terminalOptions,
-          initialValue: _selectedBatteryNegTerminal,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedBatteryNegTerminal = value;
-              _onFormChanged();
-            });
-          },
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBatterySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Battery Serial Number
-        _buildSerialNumberField(),
-        getHeight(15),
-        
-        // SOC field
-        CustomFormField(
-          label: "SOC",
-          controller: _socController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // SOH field
-        CustomFormField(
-          label: "SOH",
-          controller: _sohController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Save Button
-        Container(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _onSaveBatteryPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5678BA),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              "Save",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Montserrat',
-              ),
-            ),
-          ),
-        ),
-        getHeight(15),
-        
-        // Saved Items Table
-        if (_savedBatteries.isNotEmpty) _buildSavedItemsTable(),
-      ],
-    );
-  }
-
-  Widget _buildSerialNumberField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label with asterisk
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: "Battery - Serial Number",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: 'Montserrat',
-                  fontSize: 16,
-                  color: AppColors.white,
-                ),
-              ),
-              const TextSpan(
-                text: " *",
-                style: TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: 'Montserrat',
-                  fontSize: 16,
-                  color: AppColors.errorColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        
-        // Text field with QR scanner icon
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-          ),
-          child: TextFormField(
-            controller: _batterySerialController,
-            onChanged: (value) => _onFormChanged(),
-            decoration: InputDecoration(
-              hintText: "Battery Serial Number",
-              hintStyle: TextStyle(
-                color: Colors.grey.withOpacity(0.7),
-                fontFamily: 'Montserrat',
-                fontSize: 16,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-              suffixIcon: GestureDetector(
-                onTap: _onQRScanPressed,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.qr_code_scanner,
-                    color: AppColors.primaryGreen,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              fontSize: 16,
-              color: Colors.black,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSavedItemsTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          // Table Header
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    "Serial Number",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "Scanned",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "SOC",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "SOH",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "Edit",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Table Rows
-          ..._savedBatteries.map((item) => Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.grey.withOpacity(0.3)),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    item['serialNumber'] ?? '',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Icon(
-                    Icons.check_circle,
-                    color: Colors.green,
-                    size: 20,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    item['soc'] ?? '',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    item['soh'] ?? '',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _onEditBattery(item),
-                    child: Icon(
-                      Icons.edit,
-                      color: AppColors.primaryGreen,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
-        ],
-      ),
-    );
-  }
-
-  void _onQRScanPressed() {
-    // TODO: Implement QR scanner functionality
-    showCustomToast(context, "QR Scanner functionality to be implemented");
-  }
-
-  void _onSaveBatteryPressed() {
-    if (_batterySerialController.text.isEmpty || 
-        _socController.text.isEmpty || 
-        _sohController.text.isEmpty) {
-      showCustomToast(context, "Please fill all required fields");
-      return;
-    }
-
-    // Add to saved items
-    final newItem = {
-      'serialNumber': _batterySerialController.text,
-      'soc': _socController.text,
-      'soh': _sohController.text,
-      'scanned': true,
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-    };
-
-    setState(() {
-      _savedBatteries.add(newItem);
-    });
-
-    // Clear fields
-    _batterySerialController.clear();
-    _socController.clear();
-    _sohController.clear();
-
-    showCustomToast(context, "Battery Saved Successfully ✅");
-  }
-
-  void _onEditBattery(Map<String, dynamic> item) {
-    // TODO: Implement edit functionality
-    showCustomToast(context, "Edit functionality to be implemented");
-  }
-
-  void _validateAndSubmit() {
-    if (_ratingController.text.isEmpty || 
-        _makeController.text.isEmpty || 
-        _noOfNotOkBatteriesController.text.isEmpty) {
-      showCustomToast(context, "Please fill all required fields");
-      return;
-    }
-
-    // TODO: Call your API with JSON payload
-    showCustomToast(context, "Battery Form Submitted Successfully ✅");
-  }
-
-  void _showUnsavedChangesDialog() {
-    if (_hasFormDataChanges) {
-      showDialog(
-        context: context,
-        builder: (ctx) => UnsavedChangesDialog(
-          siteAuditSchId: widget.siteId,
-          section: "Battery Checklist",
-          parentContext: context,
-          onSaveAndExit: () async {},
-          onDiscard: () {},
-        ),
-      );
-    } else {
-      Navigator.pop(context);
-    }
-  }
-
-  Future<void> postCurrentScreenData() async {}
-}
-
-// Widget for inline display in cm_create.dart
 class BatteryChecklistSection extends StatefulWidget {
   final VoidCallback onFormChanged;
+  final int? entityId;
 
   const BatteryChecklistSection({
     super.key,
     required this.onFormChanged,
+    this.entityId,
   });
 
   @override
@@ -578,59 +22,390 @@ class BatteryChecklistSection extends StatefulWidget {
 
 class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
   bool _isExpanded = false;
+  bool _isLoading = false;
+  String? _errorMessage;
   
-  // Controllers for text fields
-  final TextEditingController _ratingController = TextEditingController();
-  final TextEditingController _makeController = TextEditingController();
-  final TextEditingController _noOfNotOkBatteriesController = TextEditingController();
-  final TextEditingController _batterySerialController = TextEditingController();
-  final TextEditingController _socController = TextEditingController();
-  final TextEditingController _sohController = TextEditingController();
-
-  // Dropdown selections
-  String? _selectedCbmsStatus;
-  String? _selectedBatteryPosTerminal;
-  String? _selectedBatteryNegTerminal;
-
-  // Saved batteries list
-  List<Map<String, dynamic>> _savedBatteries = [];
-
-  // Dropdown options
-  final List<String> _cbmsStatusOptions = ['Select', 'Ok', 'Not Ok', 'Faulty'];
-  final List<String> _terminalOptions = ['Select', 'Ok', 'Not Ok', 'Faulty'];
+  List<CMChecklistItem> _checklistItems = [];
+  Map<int, TextEditingController> _textControllers = {};
+  Map<int, String?> _dropdownValues = {};
+  Map<int, List<Map<String, dynamic>>> _dynamicData = {};
 
   @override
   void initState() {
     super.initState();
-    
-    // Pre-fill with sample data
-    _ratingController.text = "1500 KW";
-    _makeController.text = "Eicher";
-    _noOfNotOkBatteriesController.text = "8";
-    _socController.text = "97";
-    _sohController.text = "100";
+    _initializeControllers();
+    // Load checklist data automatically if entityId is available
+    if (widget.entityId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadChecklistData();
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(BatteryChecklistSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear error message when entityId changes, but don't auto-expand
+    if (oldWidget.entityId != widget.entityId) {
+      if (widget.entityId != null) {
+        print('🔄 [BatteryChecklist] EntityId changed to ${widget.entityId}, clearing errors');
+        setState(() {
+          _errorMessage = null;
+        });
+        // If already expanded, reload data
+        if (_isExpanded) {
+          _loadChecklistData();
+        }
+      } else {
+        print('🔄 [BatteryChecklist] EntityId is null, collapsing section');
+        setState(() {
+          _isExpanded = false;
+          _errorMessage = null;
+        });
+      }
+    }
+  }
+
+  void _initializeControllers() {
+    _textControllers = {};
+    _dropdownValues = {};
+    _dynamicData = {};
   }
 
   @override
   void dispose() {
-    _ratingController.dispose();
-    _makeController.dispose();
-    _noOfNotOkBatteriesController.dispose();
-    _batterySerialController.dispose();
-    _socController.dispose();
-    _sohController.dispose();
+    for (var controller in _textControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  void _onFormChanged() {
-    widget.onFormChanged();
+  Future<void> _loadChecklistData() async {
+    if (widget.entityId == null) {
+      print('⚠️ [BatteryChecklist] entityId is null, cannot load data');
+      setState(() {
+        _errorMessage = 'Please select a site first';
+      });
+      return;
+    }
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      print('🔄 [BatteryChecklist] Loading checklist data for entityId: ${widget.entityId}');
+      
+      final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
+        widget.entityId!,
+        'BATTERY',
+      );
+
+      print('🔍 [BatteryChecklist] Response received: ${response.data}');
+      final batteryItems = response.getBatteryChecklist();
+      print('📋 [BatteryChecklist] Battery items count: ${batteryItems.length}');
+      
+      // Debug: Check the type of items being returned
+      if (batteryItems.isNotEmpty) {
+        print('🔍 [BatteryChecklist] First item type: ${batteryItems.first.runtimeType}');
+        print('🔍 [BatteryChecklist] First item: ${batteryItems.first}');
+      }
+      
+      setState(() {
+        _checklistItems = batteryItems;
+        
+        // Initialize controllers with default values to match the image
+        for (var item in batteryItems) {
+          // Safety check: Ensure item is a CMChecklistItem
+          if (item is! CMChecklistItem) {
+            print('❌ [BatteryChecklist] Invalid item type: ${item.runtimeType}');
+            continue;
+          }
+          
+          if (item.respType == 'TEXT') {
+            String defaultValue = '';
+            
+            // Only set default values for SOC and SOH (child items), not for main fields
+            // Main fields like Make, Rating, No. of Not OK Batteries should be empty for user input
+            if (item.checklistDesc.toLowerCase().contains('soc')) {
+              defaultValue = '97';
+            } else if (item.checklistDesc.toLowerCase().contains('soh')) {
+              defaultValue = '100';
+            }
+            // Make, Rating, No. of Not OK Batteries will have empty defaultValue = ''
+            
+            _textControllers[item.cmCheckListMstId] = TextEditingController(text: defaultValue);
+            print('🔄 [BatteryChecklist] Initialized ${item.checklistDesc} with value: "${defaultValue.isEmpty ? "empty" : defaultValue}"');
+          } else if (item.respType == 'DROPDOWN' || item.respType == 'DYNAMIC_DROPDOWN') {
+            _dropdownValues[item.cmCheckListMstId] = null;
+          }
+          
+          // Handle child items for dynamic dropdowns
+          if (item.childitemData.isNotEmpty) {
+            _dynamicData[item.cmCheckListMstId] = [];
+            // Initialize child item controllers with default values
+            for (var childItem in item.childitemData) {
+              // Safety check: Ensure childItem is a CMChecklistItem
+              if (childItem is! CMChecklistItem) {
+                print('❌ [BatteryChecklist] Invalid child item type: ${childItem.runtimeType}');
+                continue;
+              }
+              
+              if (childItem.respType == 'TEXT') {
+                String childDefaultValue = '';
+                // Only set default values for SOC and SOH child items
+                if (childItem.checklistDesc.toLowerCase().contains('soc')) {
+                  childDefaultValue = '97';
+                } else if (childItem.checklistDesc.toLowerCase().contains('soh')) {
+                  childDefaultValue = '100';
+                }
+                // Other child items will have empty defaultValue = ''
+                
+                _textControllers[childItem.cmCheckListMstId] = TextEditingController(text: childDefaultValue);
+                print('🔄 [BatteryChecklist] Initialized child ${childItem.checklistDesc} with value: "${childDefaultValue.isEmpty ? "empty" : childDefaultValue}"');
+              }
+            }
+          }
+        }
+        
+        _isLoading = false;
+      });
+
+      print('✅ [BatteryChecklist] Loaded ${batteryItems.length} checklist items');
+      widget.onFormChanged();
+
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load checklist data: $e';
+        _isLoading = false;
+      });
+      print('❌ [BatteryChecklist] Error loading data: $e');
+    }
   }
 
   void _toggleExpansion() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
+    if (_isExpanded) {
+      setState(() {
+        _isExpanded = false;
+      });
+    } else {
+      setState(() {
+        _isExpanded = true;
+      });
+      _loadChecklistData();
+    }
   }
+
+  Widget _buildChecklistItem(CMChecklistItem item) {
+    if (item.checklistDesc.isEmpty) return const SizedBox.shrink();
+    
+    switch (item.respType) {
+      case 'TEXT':
+        return _buildTextField(item);
+      case 'DROPDOWN':
+        return _buildDropdownField(item);
+      case 'DYNAMIC_DROPDOWN':
+        return _buildDynamicDropdownField(item);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildTextField(CMChecklistItem item) {
+    final controller = _textControllers[item.cmCheckListMstId] ?? TextEditingController();
+    
+    return CustomFormField(
+      label: item.checklistDesc,
+      controller: controller,
+      isRequired: item.isMandatory,
+      onChanged: (_) => widget.onFormChanged(),
+    );
+  }
+
+  Widget _buildDropdownField(CMChecklistItem item) {
+    final currentValue = _dropdownValues[item.cmCheckListMstId];
+    final options = item.radioOptions ?? {'OK': 'OK', 'Not OK': 'Not OK'};
+    final optionList = options.values.toList();
+
+    return GenericDropdown<String>(
+      label: item.checklistDesc,
+      items: optionList,
+      initialValue: currentValue,
+      onChanged: (value) {
+        setState(() {
+          _dropdownValues[item.cmCheckListMstId] = value;
+        });
+        widget.onFormChanged();
+      },
+      hintText: "Select",
+      isRequired: item.isMandatory,
+    );
+  }
+
+  Widget _buildDynamicDropdownField(CMChecklistItem item) {
+    // For Battery field, show backend-driven data instead of dropdown selection
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Battery Serial Number Field (Backend-driven)
+        Container(
+          margin: const EdgeInsets.only(bottom: 15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              RichText(
+                text: TextSpan(
+                  children: [
+                    TextSpan(
+                      text: "Battery - Serial Number",
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+                    ),
+                    const TextSpan(
+                      text: " *",
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        child: Text(
+                          "Battery Serial Number", // Backend data will be displayed here
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: Icon(
+                        Icons.qr_code_scanner,
+                        color: Colors.grey[600],
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        // SOC Field (Backend-driven)
+        _buildBackendTextField("SOC", "97", item.cmCheckListMstId, 'soc'),
+        const SizedBox(height: 15),
+        
+        // SOH Field (Backend-driven)
+        _buildBackendTextField("SOH", "100", item.cmCheckListMstId, 'soh'),
+        const SizedBox(height: 15),
+        
+        // Save Button
+        Container(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () => _saveBatteryData(item.cmCheckListMstId),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF5678BA),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text("Save"),
+          ),
+        ),
+        const SizedBox(height: 15),
+        
+        // Scanned Battery List Header
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: const Row(
+            children: [
+              Expanded(child: Text("Serial Number", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              Expanded(child: Text("Scanned", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              Expanded(child: Text("SOC", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              Expanded(child: Text("SOH", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              Expanded(child: Text("Edit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackendTextField(String label, String defaultValue, int parentId, String fieldType) {
+    final controller = TextEditingController(text: defaultValue);
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: label,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+              ),
+              const TextSpan(
+                text: " *",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            child: TextField(
+              controller: controller,
+              style: const TextStyle(fontSize: 16),
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                hintText: "",
+              ),
+              onChanged: (value) {
+                // Store the value for backend sync
+                widget.onFormChanged();
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _saveBatteryData(int parentId) {
+    // This will be called when Save button is pressed
+    // Data will be sent to backend
+    print('🔄 [BatteryChecklist] Saving battery data for parent: $parentId');
+    widget.onFormChanged();
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -642,110 +417,87 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Accordion Header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF00695C), // Dark teal background
+              color: const Color(0xFF00695C),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  "Battery",
+                  "Battery Checklist",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-                IconButton(
-                  onPressed: _toggleExpansion,
-                  icon: Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    if (_isLoading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    IconButton(
+                      onPressed: _toggleExpansion,
+                      icon: Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           
-          // Accordion Content
           if (_isExpanded)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // General Battery Information
-                  CustomFormField(
-                    label: "Rating",
-                    controller: _ratingController,
-                    isRequired: true,
-                    onChanged: (value) => _onFormChanged(),
-                  ),
-                  getHeight(15),
-                  
-                  CustomFormField(
-                    label: "Make",
-                    controller: _makeController,
-                    isRequired: true,
-                    onChanged: (value) => _onFormChanged(),
-                  ),
-                  getHeight(15),
-                  
-                  CustomFormField(
-                    label: "No of Not OK Batteries",
-                    controller: _noOfNotOkBatteriesController,
-                    isRequired: true,
-                    onChanged: (value) => _onFormChanged(),
-                  ),
-                  getHeight(15),
-                  
-                  // Battery Serial Number and SOC/SOH Section
-                  _buildBatterySection(),
-                  getHeight(15),
-                  
-                  // CBMS Status Dropdown
-                  CustomDropdown(
-                    label: "CBMS Status",
-                    items: _cbmsStatusOptions,
-                    initialValue: _selectedCbmsStatus,
-                    isRequired: true,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedCbmsStatus = value;
-                        _onFormChanged();
-                      });
-                    },
-                  ),
-                  getHeight(15),
-                  
-                  // Battery Terminal Dropdowns
-                  CustomDropdown(
-                    label: "Battery +ve Terminal",
-                    items: _terminalOptions,
-                    initialValue: _selectedBatteryPosTerminal,
-                    isRequired: true,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedBatteryPosTerminal = value;
-                        _onFormChanged();
-                      });
-                    },
-                  ),
-                  getHeight(15),
-                  
-                  CustomDropdown(
-                    label: "Battery -ve Terminal",
-                    items: _terminalOptions,
-                    initialValue: _selectedBatteryNegTerminal,
-                    isRequired: true,
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedBatteryNegTerminal = value;
-                        _onFormChanged();
-                      });
-                    },
-                  ),
+                  if (_isLoading)
+                    const Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(color: AppColors.primaryGreen),
+                          SizedBox(height: 16),
+                          Text('Loading Battery checklist...', style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    ),
+
+                  if (_errorMessage != null)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.errorColor),
+                      ),
+                      child: Text(_errorMessage!, style: TextStyle(color: AppColors.errorColor)),
+                    ),
+
+                  if (!_isLoading && _errorMessage == null) ...[
+                    if (_checklistItems.isEmpty)
+                      const Text(
+                        'No checklist items found for Battery',
+                        style: TextStyle(color: Colors.white),
+                      )
+                    else
+                      ..._checklistItems.map((item) {
+                        return Column(
+                          children: [
+                            _buildChecklistItem(item),
+                            getHeight(15),
+                          ],
+                        );
+                      }).toList(),
+                  ],
                 ],
               ),
             ),
@@ -754,310 +506,39 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
     );
   }
 
-  Widget _buildBatterySection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Battery Serial Number
-        _buildSerialNumberField(),
-        getHeight(15),
-        
-        // SOC field
-        CustomFormField(
-          label: "SOC",
-          controller: _socController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // SOH field
-        CustomFormField(
-          label: "SOH",
-          controller: _sohController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Save Button
-        Container(
-          width: double.infinity,
-          child: ElevatedButton(
-            onPressed: _onSaveBatteryPressed,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF5678BA),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: const Text(
-              "Save",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                fontFamily: 'Montserrat',
-              ),
-            ),
-          ),
-        ),
-        getHeight(15),
-        
-        // Saved Items Table
-        if (_savedBatteries.isNotEmpty) _buildSavedItemsTable(),
-      ],
-    );
-  }
-
-  Widget _buildSerialNumberField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label with asterisk
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: "Battery - Serial Number",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: 'Montserrat',
-                  fontSize: 16,
-                  color: AppColors.white,
-                ),
-              ),
-              const TextSpan(
-                text: " *",
-                style: TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: 'Montserrat',
-                  fontSize: 16,
-                  color: AppColors.errorColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 6),
-        
-        // Text field with QR scanner icon
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-          ),
-          child: TextFormField(
-            controller: _batterySerialController,
-            onChanged: (value) => _onFormChanged(),
-            decoration: InputDecoration(
-              hintText: "Battery Serial Number",
-              hintStyle: TextStyle(
-                color: Colors.grey.withOpacity(0.7),
-                fontFamily: 'Montserrat',
-                fontSize: 16,
-              ),
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-              suffixIcon: GestureDetector(
-                onTap: _onQRScanPressed,
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.qr_code_scanner,
-                    color: AppColors.primaryGreen,
-                    size: 20,
-                  ),
-                ),
-              ),
-            ),
-            style: const TextStyle(
-              fontFamily: 'Montserrat',
-              fontSize: 16,
-              color: Colors.black,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSavedItemsTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-      ),
-      child: Column(
-        children: [
-          // Table Header
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey.withOpacity(0.1),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    "Serial Number",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "Scanned",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "SOC",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "SOH",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    "Edit",
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Table Rows
-          ..._savedBatteries.map((item) => Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Colors.grey.withOpacity(0.3)),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    item['serialNumber'] ?? '',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Icon(
-                    Icons.check_circle,
-                    color: Colors.green,
-                    size: 20,
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    item['soc'] ?? '',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    item['soh'] ?? '',
-                    style: const TextStyle(
-                      fontFamily: 'Montserrat',
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _onEditBattery(item),
-                    child: Icon(
-                      Icons.edit,
-                      color: AppColors.primaryGreen,
-                      size: 20,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          )).toList(),
-        ],
-      ),
-    );
-  }
-
-  void _onQRScanPressed() {
-    // TODO: Implement QR scanner functionality
-    showCustomToast(context, "QR Scanner functionality to be implemented");
-  }
-
-  void _onSaveBatteryPressed() {
-    if (_batterySerialController.text.isEmpty || 
-        _socController.text.isEmpty || 
-        _sohController.text.isEmpty) {
-      showCustomToast(context, "Please fill all required fields");
-      return;
+  Map<String, dynamic> getChecklistData() {
+    final data = <String, dynamic>{};
+    
+    // Text fields
+    for (var item in _checklistItems) {
+      if (item.respType == 'TEXT') {
+        final controller = _textControllers[item.cmCheckListMstId];
+        data[item.checklistDesc] = controller?.text ?? '';
+      } else if (item.respType == 'DROPDOWN') {
+        data[item.checklistDesc] = _dropdownValues[item.cmCheckListMstId];
+      } else if (item.respType == 'DYNAMIC_DROPDOWN') {
+        data[item.checklistDesc] = _dynamicData[item.cmCheckListMstId] ?? [];
+      }
     }
-
-    // Add to saved items
-    final newItem = {
-      'serialNumber': _batterySerialController.text,
-      'soc': _socController.text,
-      'soh': _sohController.text,
-      'scanned': true,
-      'id': DateTime.now().millisecondsSinceEpoch.toString(),
-    };
-
-    setState(() {
-      _savedBatteries.add(newItem);
-    });
-
-    // Clear fields
-    _batterySerialController.clear();
-    _socController.clear();
-    _sohController.clear();
-
-    showCustomToast(context, "Battery Saved Successfully ✅");
+    
+    return data;
   }
 
-  void _onEditBattery(Map<String, dynamic> item) {
-    // TODO: Implement edit functionality
-    showCustomToast(context, "Edit functionality to be implemented");
+  bool validateChecklist() {
+    for (var item in _checklistItems) {
+      if (item.isMandatory) {
+        if (item.respType == 'TEXT') {
+          final controller = _textControllers[item.cmCheckListMstId];
+          if (controller == null || controller.text.isEmpty) {
+            return false;
+          }
+        } else if (item.respType == 'DROPDOWN' || item.respType == 'DYNAMIC_DROPDOWN') {
+          if (_dropdownValues[item.cmCheckListMstId] == null) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
   }
 }

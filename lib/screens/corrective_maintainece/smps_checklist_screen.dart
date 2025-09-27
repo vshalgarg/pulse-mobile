@@ -1,508 +1,19 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_dropdown.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
-import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/generic_dropdown.dart';
 import '../../../constants/app_colors.dart';
-import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
+import '../../../models/cm_checklist_model.dart';
 
-class SMPSChecklistScreen extends StatefulWidget {
-  final String siteId;
-  final String siteName;
-
-  const SMPSChecklistScreen({
-    super.key,
-    required this.siteId,
-    required this.siteName,
-  });
-
-  @override
-  State<SMPSChecklistScreen> createState() => _SMPSChecklistScreenState();
-}
-
-class _SMPSChecklistScreenState extends State<SMPSChecklistScreen> {
-  bool _isLoadingData = false;
-  String? _errorMessage;
-
-  // Controllers for text fields
-  final TextEditingController _makeController = TextEditingController();
-  final TextEditingController _ratingController = TextEditingController();
-  final TextEditingController _countFaultyRectifiersController = TextEditingController();
-  final TextEditingController _countNotOkRectifierBackplaneController = TextEditingController();
-  final TextEditingController _countNotOkRectifierMcbController = TextEditingController();
-  final TextEditingController _countNotOkMpptController = TextEditingController();
-  final TextEditingController _countNotOkMpptMcbController = TextEditingController();
-  final TextEditingController _countNotOkMpptBackplaneController = TextEditingController();
-
-  // Dropdown selections
-  String? _selectedControllerStatus;
-  String? _selectedRectifierModuleStatus;
-  String? _selectedFaultyRectifier;
-  String? _selectedRectifierMcbStatus;
-  String? _selectedRectifierBackplaneStatus;
-  String? _selectedMpptStatus;
-  String? _selectedFaultyMppt;
-  String? _selectedMpptMcbStatus;
-  String? _selectedCClassSpdStatus;
-  String? _selectedLvdStatus;
-  String? _selectedFuseStatus;
-  String? _selectedMpptBackplaneStatus;
-
-  bool _hasFormDataChanges = false;
-
-  // Dynamic options based on count
-  List<String> _faultyRectifierOptions = [];
-  List<String> _faultyMpptOptions = [];
-
-  @override
-  void initState() {
-    super.initState();
-    _countFaultyRectifiersController.addListener(_updateFaultyRectifierOptions);
-    _countNotOkMpptController.addListener(_updateFaultyMpptOptions);
-    
-    // Pre-fill with sample data
-    _makeController.text = "Eicher";
-    _ratingController.text = "1500 KW";
-    _countFaultyRectifiersController.text = "0";
-    _countNotOkRectifierBackplaneController.text = "0";
-    _countNotOkRectifierMcbController.text = "0";
-    _countNotOkMpptController.text = "0";
-    _countNotOkMpptMcbController.text = "0";
-    _countNotOkMpptBackplaneController.text = "0";
-    
-    _updateFaultyRectifierOptions();
-    _updateFaultyMpptOptions();
-  }
-
-  @override
-  void dispose() {
-    _countFaultyRectifiersController.removeListener(_updateFaultyRectifierOptions);
-    _countNotOkMpptController.removeListener(_updateFaultyMpptOptions);
-    _makeController.dispose();
-    _ratingController.dispose();
-    _countFaultyRectifiersController.dispose();
-    _countNotOkRectifierBackplaneController.dispose();
-    _countNotOkRectifierMcbController.dispose();
-    _countNotOkMpptController.dispose();
-    _countNotOkMpptMcbController.dispose();
-    _countNotOkMpptBackplaneController.dispose();
-    super.dispose();
-  }
-
-  void _updateFaultyRectifierOptions() {
-    final count = int.tryParse(_countFaultyRectifiersController.text) ?? 0;
-    // Sample serial numbers - in real app, these would come from API
-    final sampleSerialNumbers = [
-      'SRN-2378',
-      'SRN-1463', 
-      'SRN-9075',
-      'SRN-4521',
-      'SRN-7890',
-      'SRN-3456',
-      'SRN-9012',
-      'SRN-5678',
-      'SRN-1234',
-      'SRN-8901'
-    ];
-    
-    _faultyRectifierOptions = count > 0 
-        ? sampleSerialNumbers.take(count).toList()
-        : ['Select'];
-    setState(() {});
-  }
-
-  void _updateFaultyMpptOptions() {
-    final count = int.tryParse(_countNotOkMpptController.text) ?? 0;
-    // Sample MPPT serial numbers - in real app, these would come from API
-    final sampleMpptSerialNumbers = [
-      'MPPT-001',
-      'MPPT-002', 
-      'MPPT-003',
-      'MPPT-004',
-      'MPPT-005',
-      'MPPT-006',
-      'MPPT-007',
-      'MPPT-008',
-      'MPPT-009',
-      'MPPT-010'
-    ];
-    
-    _faultyMpptOptions = count > 0 
-        ? sampleMpptSerialNumbers.take(count).toList()
-        : ['Select'];
-    setState(() {});
-  }
-
-  void _onFormChanged() {
-    setState(() {
-      _hasFormDataChanges = true;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBodyBehindAppBar: true,
-      resizeToAvoidBottomInset: true,
-      appBar: CustomFormAppbar(
-        title: 'SMPS Checklist',
-        onClose: () => _showUnsavedChangesDialog(),
-      ),
-      body: Stack(
-        children: [
-          // Background
-          Positioned.fill(
-            child: SvgPicture.asset(
-              AppImages.home,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-            ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 100,
-                    ),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (_isLoadingData)
-                            const Center(
-                              child: CircularProgressIndicator(
-                                color: AppColors.primaryGreen,
-                              ),
-                            ),
-                          if (_errorMessage != null)
-                            Text(
-                              _errorMessage!,
-                              style: const TextStyle(color: AppColors.errorColor),
-                            ),
-                          if (!_isLoadingData && _errorMessage == null)
-                            _buildFormFields(),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Bottom Button
-                ArrowButton(
-                  text: "Submit",
-                  isLeftArrow: false,
-                  backgroundColor: AppColors.buttonColorBg,
-                  textColor: AppColors.buttonColorSite,
-                  onPressed: _validateAndSubmit,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFormFields() {
-    return Column(
-      children: [
-        // Basic Information
-        CustomFormField(
-          label: "Rating",
-          controller: _ratingController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Make",
-          controller: _makeController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Controller Status Dropdown
-        CustomDropdown(
-          label: "Controller Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedControllerStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedControllerStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Rectifier Module Status Dropdown
-        CustomDropdown(
-          label: "Rectifier Module Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedRectifierModuleStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedRectifierModuleStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK Rectifier Module",
-          controller: _countFaultyRectifiersController,
-          isRequired: true,
-          onChanged: (value) {
-            _updateFaultyRectifierOptions();
-            _onFormChanged();
-          },
-        ),
-        getHeight(15),
-        
-        // S No of Faulty Rectifier Dropdown
-        CustomDropdown(
-          label: "S No of Faulty Rectifiers",
-          items: _faultyRectifierOptions,
-          initialValue: _selectedFaultyRectifier,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedFaultyRectifier = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Rectifier MCB Status Dropdown
-        CustomDropdown(
-          label: "Rectifier MCB Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedRectifierMcbStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedRectifierMcbStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK Rectifier MCB",
-          controller: _countNotOkRectifierMcbController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Rectifier Backplane Status Dropdown
-        CustomDropdown(
-          label: "Rectifier Backplane Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedRectifierBackplaneStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedRectifierBackplaneStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // S No of Faulty MPPT Dropdown
-        CustomDropdown(
-          label: "S No of Faulty MPPT",
-          items: _faultyMpptOptions,
-          initialValue: _selectedFaultyMppt,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedFaultyMppt = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK Rectifier Backplane",
-          controller: _countNotOkRectifierBackplaneController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // MPPT Status Dropdown
-        CustomDropdown(
-          label: "MPPT Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedMpptStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedMpptStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK MPPT",
-          controller: _countNotOkMpptController,
-          isRequired: true,
-          onChanged: (value) {
-            _updateFaultyMpptOptions();
-            _onFormChanged();
-          },
-        ),
-        getHeight(15),
-        
-        // MPPT MCB Status Dropdown
-        CustomDropdown(
-          label: "MPPT MCB Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedMpptMcbStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedMpptMcbStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // C Class SPD Status Dropdown
-        CustomDropdown(
-          label: "C Class SPD Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedCClassSpdStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedCClassSpdStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // LVD Status Dropdown
-        CustomDropdown(
-          label: "LVD Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedLvdStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedLvdStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Fuse Status Dropdown
-        CustomDropdown(
-          label: "Fuse Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedFuseStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedFuseStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK MPPT MCB",
-          controller: _countNotOkMpptMcbController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // MPPT Backplane Status Dropdown
-        CustomDropdown(
-          label: "MPPT Backplane Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedMpptBackplaneStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedMpptBackplaneStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK MPPT Backplane",
-          controller: _countNotOkMpptBackplaneController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-      ],
-    );
-  }
-
-  void _validateAndSubmit() {
-    if (_ratingController.text.isEmpty || _makeController.text.isEmpty) {
-      showCustomToast(context, "Please fill all required fields");
-      return;
-    }
-
-    // TODO: Call your API with JSON payload
-    showCustomToast(context, "SMPS Form Submitted Successfully ✅");
-  }
-
-  void _showUnsavedChangesDialog() {
-    if (_hasFormDataChanges) {
-      showDialog(
-        context: context,
-        builder: (ctx) => UnsavedChangesDialog(
-          siteAuditSchId: widget.siteId,
-          section: "SMPS Checklist",
-          parentContext: context,
-          onSaveAndExit: () async {},
-          onDiscard: () {},
-        ),
-      );
-    } else {
-      Navigator.pop(context);
-    }
-  }
-
-  Future<void> postCurrentScreenData() async {}
-}
-
-// Widget for inline display in cm_create.dart
 class SMPSChecklistSection extends StatefulWidget {
   final VoidCallback onFormChanged;
+  final int? entityId;
 
   const SMPSChecklistSection({
     super.key,
     required this.onFormChanged,
+    this.entityId,
   });
 
   @override
@@ -511,122 +22,346 @@ class SMPSChecklistSection extends StatefulWidget {
 
 class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
   bool _isExpanded = false;
+  bool _isLoading = false;
+  String? _errorMessage;
   
-  // Controllers for text fields
-  final TextEditingController _makeController = TextEditingController();
-  final TextEditingController _ratingController = TextEditingController();
-  final TextEditingController _countFaultyRectifiersController = TextEditingController();
-  final TextEditingController _countNotOkRectifierBackplaneController = TextEditingController();
-  final TextEditingController _countNotOkRectifierMcbController = TextEditingController();
-  final TextEditingController _countNotOkMpptController = TextEditingController();
-  final TextEditingController _countNotOkMpptMcbController = TextEditingController();
-  final TextEditingController _countNotOkMpptBackplaneController = TextEditingController();
-
-  // Dropdown selections
-  String? _selectedControllerStatus;
-  String? _selectedRectifierModuleStatus;
-  String? _selectedFaultyRectifier;
-  String? _selectedRectifierMcbStatus;
-  String? _selectedRectifierBackplaneStatus;
-  String? _selectedMpptStatus;
-  String? _selectedFaultyMppt;
-  String? _selectedMpptMcbStatus;
-  String? _selectedCClassSpdStatus;
-  String? _selectedLvdStatus;
-  String? _selectedFuseStatus;
-  String? _selectedMpptBackplaneStatus;
-
-  // Dynamic options based on count
-  List<String> _faultyRectifierOptions = [];
-  List<String> _faultyMpptOptions = [];
+  List<CMChecklistItem> _checklistItems = [];
+  Map<int, TextEditingController> _textControllers = {};
+  Map<int, String?> _dropdownValues = {};
+  Map<int, List<Map<String, dynamic>>> _dynamicData = {};
 
   @override
   void initState() {
     super.initState();
-    _countFaultyRectifiersController.addListener(_updateFaultyRectifierOptions);
-    _countNotOkMpptController.addListener(_updateFaultyMpptOptions);
+    _initializeControllers();
     
-    // Pre-fill with sample data
-    _makeController.text = "Eicher";
-    _ratingController.text = "1500 KW";
-    _countFaultyRectifiersController.text = "0";
-    _countNotOkRectifierBackplaneController.text = "0";
-    _countNotOkRectifierMcbController.text = "0";
-    _countNotOkMpptController.text = "0";
-    _countNotOkMpptMcbController.text = "0";
-    _countNotOkMpptBackplaneController.text = "0";
+    print('🔄 [SMPS Checklist] initState called. EntityId: ${widget.entityId}');
+    print('🔄 [SMPS Checklist] EntityId type: ${widget.entityId.runtimeType}');
+    print('🔄 [SMPS Checklist] EntityId is null: ${widget.entityId == null}');
     
-    _updateFaultyRectifierOptions();
-    _updateFaultyMpptOptions();
+    // Set initial state based on entityId
+    if (widget.entityId == null) {
+      setState(() {
+        _errorMessage = 'Please select a site first';
+        _isExpanded = false;
+      });
+      print('🔄 [SMPS Checklist] Initialized with no entityId - collapsed');
+    } else {
+      setState(() {
+        _isExpanded = false; // Always start collapsed
+        _errorMessage = null;
+      });
+      print('🔄 [SMPS Checklist] Initialized with entityId: ${widget.entityId} - collapsed');
+    }
+  }
+
+  void _initializeControllers() {
+    _textControllers = {};
+    _dropdownValues = {};
+    _dynamicData = {};
+  }
+
+  @override
+  void didUpdateWidget(SMPSChecklistSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    print('🔄 [SMPS Checklist] didUpdateWidget called');
+    print('🔄 [SMPS Checklist] Old entityId: ${oldWidget.entityId}');
+    print('🔄 [SMPS Checklist] New entityId: ${widget.entityId}');
+    
+    // If entityId changed, reload data
+    if (oldWidget.entityId != widget.entityId) {
+      print('🔄 [SMPS Checklist] EntityId changed from ${oldWidget.entityId} to ${widget.entityId}');
+      if (widget.entityId != null && _isExpanded) {
+        print('🔄 [SMPS Checklist] EntityId available and expanded - loading data');
+        _loadChecklistData();
+      } else if (widget.entityId == null) {
+        print('🔄 [SMPS Checklist] EntityId became null - clearing data');
+        // Clear data if entityId becomes null
+        setState(() {
+          _checklistItems = [];
+          _errorMessage = 'Please select a site first';
+          _isExpanded = false;
+        });
+      } else {
+        print('🔄 [SMPS Checklist] EntityId available but not expanded - clearing error');
+        // Clear error message if entityId is now available
+        setState(() {
+          _errorMessage = null;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    _countFaultyRectifiersController.removeListener(_updateFaultyRectifierOptions);
-    _countNotOkMpptController.removeListener(_updateFaultyMpptOptions);
-    _makeController.dispose();
-    _ratingController.dispose();
-    _countFaultyRectifiersController.dispose();
-    _countNotOkRectifierBackplaneController.dispose();
-    _countNotOkRectifierMcbController.dispose();
-    _countNotOkMpptController.dispose();
-    _countNotOkMpptMcbController.dispose();
-    _countNotOkMpptBackplaneController.dispose();
+    for (var controller in _textControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  void _updateFaultyRectifierOptions() {
-    final count = int.tryParse(_countFaultyRectifiersController.text) ?? 0;
-    // Sample serial numbers - in real app, these would come from API
-    final sampleSerialNumbers = [
-      'SRN-2378',
-      'SRN-1463', 
-      'SRN-9075',
-      'SRN-4521',
-      'SRN-7890',
-      'SRN-3456',
-      'SRN-9012',
-      'SRN-5678',
-      'SRN-1234',
-      'SRN-8901'
-    ];
-    
-    _faultyRectifierOptions = count > 0 
-        ? sampleSerialNumbers.take(count).toList()
-        : ['Select'];
-    setState(() {});
-  }
+  Future<void> _loadChecklistData() async {
+    if (widget.entityId == null) {
+      print('⚠️ [SMPS Checklist] entityId is null, cannot load data');
+      setState(() {
+        _errorMessage = 'Please select a site first';
+      });
+      return;
+    }
 
-  void _updateFaultyMpptOptions() {
-    final count = int.tryParse(_countNotOkMpptController.text) ?? 0;
-    // Sample MPPT serial numbers - in real app, these would come from API
-    final sampleMpptSerialNumbers = [
-      'MPPT-001',
-      'MPPT-002', 
-      'MPPT-003',
-      'MPPT-004',
-      'MPPT-005',
-      'MPPT-006',
-      'MPPT-007',
-      'MPPT-008',
-      'MPPT-009',
-      'MPPT-010'
-    ];
-    
-    _faultyMpptOptions = count > 0 
-        ? sampleMpptSerialNumbers.take(count).toList()
-        : ['Select'];
-    setState(() {});
-  }
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
 
-  void _onFormChanged() {
-    widget.onFormChanged();
+      print('🔄 [SMPS Checklist] Loading checklist data for entityId: ${widget.entityId}');
+      
+      final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
+        widget.entityId!,
+        'SMPS',
+      );
+
+      final smpsItems = response.getSMPSChecklist();
+      
+      // Debug: Check what we received
+      print('📋 [SMPS Checklist] Received ${smpsItems.length} SMPS items');
+      for (var item in smpsItems) {
+        print('🔍 [SMPS Checklist] Item: ${item.checklistDesc} | Type: ${item.respType} | Mandatory: ${item.isMandatory}');
+      }
+      
+      setState(() {
+        _checklistItems = smpsItems;
+        
+        // Initialize controllers based on response type
+        for (var item in smpsItems) {
+          if (item.respType == 'TEXT') {
+            // Make and Rating fields should be empty for user input
+            String defaultValue = '';
+            if (item.checklistDesc.toLowerCase() == 'make' || 
+                item.checklistDesc.toLowerCase() == 'rating') {
+              defaultValue = ''; // Empty for user input
+            }
+            _textControllers[item.cmCheckListMstId] = TextEditingController(text: defaultValue);
+            print('🔄 [SMPS Checklist] Initialized ${item.checklistDesc} with value: "${defaultValue.isEmpty ? "empty" : defaultValue}"');
+          } else if (item.respType == 'DROPDOWN' || 
+                     item.respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+                     item.respType == 'DYNAMIC_DROPDOWN') {
+            _dropdownValues[item.cmCheckListMstId] = null;
+          }
+          
+          // Handle dynamic dropdowns for rectifiers and MPPTs
+          if (item.respType == 'MULTI_DYNAMIC_DROPDOWN') {
+            _dynamicData[item.cmCheckListMstId] = [];
+          }
+        }
+        
+        _isLoading = false;
+      });
+
+      print('✅ [SMPS Checklist] Loaded ${smpsItems.length} checklist items');
+      widget.onFormChanged();
+
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load checklist data: $e';
+        _isLoading = false;
+      });
+      print('❌ [SMPS Checklist] Error loading data: $e');
+    }
   }
 
   void _toggleExpansion() {
+    print('🔄 [SMPS Checklist] Toggle expansion clicked. Current state: $_isExpanded');
+    if (_isExpanded) {
+      setState(() {
+        _isExpanded = false;
+      });
+      print('🔄 [SMPS Checklist] Collapsed section');
+    } else {
+      if (widget.entityId == null) {
+        setState(() {
+          _errorMessage = 'Please select a site first';
+          _isExpanded = false;
+        });
+        print('⚠️ [SMPS Checklist] Cannot expand - no entityId');
+        return;
+      }
+      setState(() {
+        _isExpanded = true;
+        _errorMessage = null; // Clear any previous error
+      });
+      print('🔄 [SMPS Checklist] Expanded section');
+      // Only load data if we don't have any checklist items yet
+      if (_checklistItems.isEmpty) {
+        print('🔄 [SMPS Checklist] Loading data for first time');
+        _loadChecklistData();
+      } else {
+        print('🔄 [SMPS Checklist] Data already loaded, skipping API call');
+      }
+    }
+  }
+
+  Widget _buildChecklistItem(CMChecklistItem item) {
+    if (item.checklistDesc.isEmpty) return const SizedBox.shrink();
+    
+    switch (item.respType) {
+      case 'TEXT':
+        return _buildTextField(item);
+      case 'DROPDOWN':
+        return _buildDropdownField(item);
+      case 'MULTI_DYNAMIC_DROPDOWN':
+        return _buildMultiDynamicDropdownField(item);
+      default:
+        return _buildTextField(item); // Fallback for unknown types
+    }
+  }
+
+  Widget _buildTextField(CMChecklistItem item) {
+    final controller = _textControllers[item.cmCheckListMstId] ?? TextEditingController();
+    
+    return CustomFormField(
+      label: item.checklistDesc,
+      controller: controller,
+      isRequired: item.isMandatory,
+      onChanged: (_) => widget.onFormChanged(),
+    );
+  }
+
+  Widget _buildDropdownField(CMChecklistItem item) {
+    final currentValue = _dropdownValues[item.cmCheckListMstId];
+    final options = item.radioOptions ?? {'OK': 'OK', 'Not OK': 'Not OK'};
+    final optionList = options.values.toList();
+
+    return GenericDropdown<String>(
+      label: item.checklistDesc,
+      items: optionList,
+      initialValue: currentValue,
+      onChanged: (value) {
+        setState(() {
+          _dropdownValues[item.cmCheckListMstId] = value;
+        });
+        widget.onFormChanged();
+      },
+      hintText: "Select",
+      isRequired: item.isMandatory,
+    );
+  }
+
+  Widget _buildMultiDynamicDropdownField(CMChecklistItem item) {
+    final currentItems = _dynamicData[item.cmCheckListMstId] ?? [];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.checklistDesc,
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: Colors.white,
+          ),
+        ),
+        const SizedBox(height: 8),
+        
+        // Display current items
+        if (currentItems.isNotEmpty) ...[
+          ...currentItems.map((rectifier) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Serial: ${rectifier['serial'] ?? 'N/A'}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _removeDynamicItem(item.cmCheckListMstId, rectifier['id']),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 10),
+        ],
+        
+        // Add new item section
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TextFormField(
+                  decoration: InputDecoration(
+                    hintText: 'Enter ${item.checklistDesc}',
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  onChanged: (value) {
+                    // Store temporary value
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            ElevatedButton(
+              onPressed: () => _addDynamicItem(item.cmCheckListMstId, item.checklistDesc),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF5678BA),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+        
+        if (item.isMandatory)
+          const Padding(
+            padding: EdgeInsets.only(top: 4),
+            child: Text(
+              '* Required',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  void _addDynamicItem(int parentId, String itemType) {
+    // In real app, this would get data from API or user input
+    final newItem = {
+      'id': DateTime.now().millisecondsSinceEpoch,
+      'serial': '${itemType.split(' ').last}-${DateTime.now().millisecondsSinceEpoch}',
+      'type': itemType,
+    };
+    
     setState(() {
-      _isExpanded = !_isExpanded;
+      if (_dynamicData[parentId] == null) {
+        _dynamicData[parentId] = [newItem];
+      } else {
+        _dynamicData[parentId]!.add(newItem);
+      }
     });
+    widget.onFormChanged();
+  }
+
+  void _removeDynamicItem(int parentId, dynamic itemId) {
+    setState(() {
+      _dynamicData[parentId]?.removeWhere((item) => item['id'] == itemId);
+    });
+    widget.onFormChanged();
   }
 
   @override
@@ -639,12 +374,11 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Accordion Header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF00695C), // Dark teal background
+              color: const Color(0xFF00695C),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -654,279 +388,118 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
                   "SMPS",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-                IconButton(
-                  onPressed: _toggleExpansion,
-                  icon: Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    if (_isLoading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    IconButton(
+                      onPressed: _toggleExpansion,
+                      icon: Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           
-          // Accordion Content
           if (_isExpanded)
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-        
-        // Basic Information
-        CustomFormField(
-          label: "Rating",
-          controller: _ratingController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Make",
-          controller: _makeController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Controller Status Dropdown
-        CustomDropdown(
-          label: "Controller Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedControllerStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedControllerStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Rectifier Module Status Dropdown
-        CustomDropdown(
-          label: "Rectifier Module Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedRectifierModuleStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedRectifierModuleStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK Rectifier Module",
-          controller: _countFaultyRectifiersController,
-          isRequired: true,
-          onChanged: (value) {
-            _updateFaultyRectifierOptions();
-            _onFormChanged();
-          },
-        ),
-        getHeight(15),
-        
-        // S No of Faulty Rectifier Dropdown
-        CustomDropdown(
-          label: "S No of Faulty Rectifiers",
-          items: _faultyRectifierOptions,
-          initialValue: _selectedFaultyRectifier,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedFaultyRectifier = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Rectifier MCB Status Dropdown
-        CustomDropdown(
-          label: "Rectifier MCB Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedRectifierMcbStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedRectifierMcbStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK Rectifier MCB",
-          controller: _countNotOkRectifierMcbController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // Rectifier Backplane Status Dropdown
-        CustomDropdown(
-          label: "Rectifier Backplane Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedRectifierBackplaneStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedRectifierBackplaneStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // S No of Faulty MPPT Dropdown
-        CustomDropdown(
-          label: "S No of Faulty MPPT",
-          items: _faultyMpptOptions,
-          initialValue: _selectedFaultyMppt,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedFaultyMppt = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK Rectifier Backplane",
-          controller: _countNotOkRectifierBackplaneController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // MPPT Status Dropdown
-        CustomDropdown(
-          label: "MPPT Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedMpptStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedMpptStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK MPPT",
-          controller: _countNotOkMpptController,
-          isRequired: true,
-          onChanged: (value) {
-            _updateFaultyMpptOptions();
-            _onFormChanged();
-          },
-        ),
-        getHeight(15),
-        
-        // MPPT MCB Status Dropdown
-        CustomDropdown(
-          label: "MPPT MCB Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedMpptMcbStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedMpptMcbStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // C Class SPD Status Dropdown
-        CustomDropdown(
-          label: "C Class SPD Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedCClassSpdStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedCClassSpdStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // LVD Status Dropdown
-        CustomDropdown(
-          label: "LVD Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedLvdStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedLvdStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        // Fuse Status Dropdown
-        CustomDropdown(
-          label: "Fuse Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedFuseStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedFuseStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK MPPT MCB",
-          controller: _countNotOkMpptMcbController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
-        getHeight(15),
-        
-        // MPPT Backplane Status Dropdown
-        CustomDropdown(
-          label: "MPPT Backplane Status",
-          items: const ['Select', 'Ok', 'Not Ok', 'Faulty'],
-          initialValue: _selectedMpptBackplaneStatus,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              _selectedMpptBackplaneStatus = value;
-              _onFormChanged();
-            });
-          },
-        ),
-        getHeight(15),
-        
-        CustomFormField(
-          label: "Count of Not OK MPPT Backplane",
-          controller: _countNotOkMpptBackplaneController,
-          isRequired: true,
-          onChanged: (value) => _onFormChanged(),
-        ),
+                  if (_isLoading)
+                    const Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(color: AppColors.primaryGreen),
+                          SizedBox(height: 16),
+                          Text('Loading SMPS checklist...', style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    ),
+
+                  if (_errorMessage != null)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.errorColor),
+                      ),
+                      child: Text(_errorMessage!, style: TextStyle(color: AppColors.errorColor)),
+                    ),
+
+                  if (!_isLoading && _errorMessage == null) ...[
+                    if (_checklistItems.isEmpty)
+                      const Text(
+                        'No checklist items found for SMPS',
+                        style: TextStyle(color: Colors.white),
+                      )
+                    else
+                      ..._checklistItems.map((item) {
+                        return Column(
+                          children: [
+                            _buildChecklistItem(item),
+                            getHeight(15),
+                          ],
+                        );
+                      }).toList(),
+                  ],
                 ],
               ),
             ),
         ],
       ),
     );
+  }
+
+  Map<String, dynamic> getChecklistData() {
+    final data = <String, dynamic>{};
+    
+    // Text fields
+    for (var item in _checklistItems) {
+      if (item.respType == 'TEXT') {
+        final controller = _textControllers[item.cmCheckListMstId];
+        data[item.checklistDesc] = controller?.text ?? '';
+      } else if (item.respType == 'DROPDOWN') {
+        data[item.checklistDesc] = _dropdownValues[item.cmCheckListMstId];
+      } else if (item.respType == 'MULTI_DYNAMIC_DROPDOWN') {
+        data[item.checklistDesc] = _dynamicData[item.cmCheckListMstId] ?? [];
+      }
+    }
+    
+    return data;
+  }
+
+  bool validateChecklist() {
+    for (var item in _checklistItems) {
+      if (item.isMandatory) {
+        if (item.respType == 'TEXT') {
+          final controller = _textControllers[item.cmCheckListMstId];
+          if (controller == null || controller.text.isEmpty) {
+            return false;
+          }
+        } else if (item.respType == 'DROPDOWN') {
+          if (_dropdownValues[item.cmCheckListMstId] == null) {
+            return false;
+          }
+        } else if (item.respType == 'MULTI_DYNAMIC_DROPDOWN') {
+          if (_dynamicData[item.cmCheckListMstId]?.isEmpty ?? true) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
   }
 }

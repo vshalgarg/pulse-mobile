@@ -915,17 +915,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: IconButton(
             onPressed: () {
-               pushPage(context, CorrectiveMaintenanceScreen(
-                 siteId: 'Hello',
-                 siteName: 'lokesh',
-                 circleState: 'Default Circle',
-                 clusterDistrict: 'Default District',
-                 customer: 'Default Customer',
-                 responsibleParty: 'Default Party',
-                 assignedTo: 'Default Assignee',
-                 priority: 'Medium',
-                 natureOfFailure: 'Default Failure'
-               ));
+               pushPage(context, CorrectiveMaintenanceScreen());
             },
             icon: Icon(Icons.add, color: AppColors.white, size: 24),
             padding: EdgeInsets.zero,

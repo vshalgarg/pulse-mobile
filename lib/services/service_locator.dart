@@ -6,6 +6,8 @@ import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/pending_requests_service.dart';
 import 'package:app/utils/logger.dart';
+import 'package:app/repositories/cm_repository.dart';
+import 'package:app/repositories/cm_checklist_repository.dart';
 
 class ServiceLocator {
   static final ServiceLocator _instance = ServiceLocator._internal();
@@ -20,6 +22,8 @@ class ServiceLocator {
   late ApiService _apiService;
   late CentralAssetAuditDataService _centralAssetAuditDataService;
   late CentralApiService _centralApiService;
+  late CMRepository _cmRepository;
+  late CMChecklistRepository _cmChecklistRepository;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
@@ -45,6 +49,8 @@ class ServiceLocator {
 
       _centralAssetAuditDataService = CentralAssetAuditDataService();
       _centralApiService = CentralApiService(apiService: apiService);
+      _cmRepository = CMRepository(apiService);
+      _cmChecklistRepository = CMChecklistRepository(apiService);
 
       _isInitialized = true;
       Logger.debugLog('✅ All services initialized successfully');
@@ -90,6 +96,18 @@ class ServiceLocator {
   ApiService get apiService {
     _ensureInitialized();
     return _apiService;
+  }
+
+  /// Get CM Repository (guaranteed to be initialized)
+  CMRepository get cmRepository {
+    _ensureInitialized();
+    return _cmRepository;
+  }
+  
+  /// Get CM Checklist Repository (guaranteed to be initialized)
+  CMChecklistRepository get cmChecklistRepository {
+    _ensureInitialized();
+    return _cmChecklistRepository;
   }
 
   /// Check if services are initialized

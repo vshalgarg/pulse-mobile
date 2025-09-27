@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/constants_methods.dart';
+import '../../../services/service_locator.dart';
+import '../../../models/cm_checklist_model.dart';
+import '../../../services/api_service.dart';
 
 class DGChecklistSection extends StatefulWidget {
   final VoidCallback onFormChanged;
+  final int? entityId;
 
   const DGChecklistSection({
     super.key,
     required this.onFormChanged,
+    this.entityId,
   });
 
   @override
@@ -16,60 +21,300 @@ class DGChecklistSection extends StatefulWidget {
 }
 
 class _DGChecklistSectionState extends State<DGChecklistSection> {
-  bool _isExpanded = false;
-  final TextEditingController _makeController = TextEditingController();
-  final TextEditingController _ratingController = TextEditingController();
-  final TextEditingController _phaseController = TextEditingController();
-
-  String? _canopyCleanliness;
-  String? _amfFunctioning;
-  String? _earthingConnection;
-  String? _loadBalancing;
-  String? _exhaustFan;
-  String? _batteryGravity;
-  String? _chargingAlternator;
-  String? _wiringHarness;
-  String? _fuelPipe;
-  String? _fuelTank;
-  String? _batteryTerminal;
-  String? _fuelLevel;
-  String? _fuelFilter;
-  String? _fuelLeakage;
-  String? _radiatorPressureCap;
-  String? _radiatorFin;
-  String? _radiatorHose;
-  String? _coolantLevel;
-  String? _coolantLeakage;
-  String? _fanBelt;
-  String? _lubeOilLevel;
-  String? _oilLeakage;
-  String? _lubeOilFilter;
-  String? _airCleaner;
-  String? _hose;
-  String? _hoseClamp;
+  bool _isExpanded = false; // Start collapsed
+  bool _isLoading = false;
+  String? _errorMessage;
+  
+  List<CMChecklistItem> _checklistItems = [];
+  Map<int, TextEditingController> _textControllers = {};
+  Map<int, String?> _radioValues = {};
 
   @override
   void initState() {
     super.initState();
-    _makeController.text = "Eicher";
-    _ratingController.text = "1500 KW";
-    _phaseController.text = "3";
+    _initializeControllers();
+    // Load checklist data automatically if entityId is available
+    if (widget.entityId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _loadChecklistData();
+      });
+    } else {
+      // If no entityId, collapse the section
+      _isExpanded = false;
+    }
   }
 
   @override
+  void didUpdateWidget(DGChecklistSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Clear error message when entityId changes, but don't auto-expand
+    if (oldWidget.entityId != widget.entityId) {
+      if (widget.entityId != null) {
+        print('🔄 [DGChecklist] EntityId changed to ${widget.entityId}, clearing errors');
+        setState(() {
+          _errorMessage = null;
+        });
+        // If already expanded, reload data
+        if (_isExpanded) {
+          _loadChecklistData();
+        }
+      } else {
+        print('🔄 [DGChecklist] EntityId is null, collapsing section');
+        setState(() {
+          _isExpanded = false;
+          _errorMessage = null;
+        });
+      }
+    }
+  }
+
+  void _initializeControllers() {
+    _textControllers = {};
+    _radioValues = {};
+  }
+
+
+  @override
   void dispose() {
-    _makeController.dispose();
-    _ratingController.dispose();
-    _phaseController.dispose();
+    for (var controller in _textControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  void _onFormChanged() => widget.onFormChanged();
+  Future<void> _loadChecklistData() async {
+    if (widget.entityId == null) {
+      print('⚠️ [DGChecklist] entityId is null, cannot load data');
+      setState(() {
+        _errorMessage = 'Please select a site first';
+      });
+      return;
+    }
+
+    try {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+
+      print('🔄 [DGChecklist] Loading checklist data for entityId: ${widget.entityId}');
+      
+      // Check if ServiceLocator is initialized
+      if (!ServiceLocator().isInitialized) {
+        print('❌ [DGChecklist] ServiceLocator not initialized');
+        throw Exception('ServiceLocator not initialized. Please restart the app.');
+      }
+      
+      print('✅ [DGChecklist] ServiceLocator is initialized');
+      
+      CMChecklistResponse response;
+      try {
+        response = await ServiceLocator().cmChecklistRepository.getChecklistData(
+          widget.entityId!,
+          'DG',
+        );
+      } catch (e) {
+        print('⚠️ [DGChecklist] ServiceLocator method failed, trying direct API call: $e');
+        
+        // Fallback: Use ApiService directly
+        final apiService = ServiceLocator().apiService;
+        final apiResponse = await apiService.get<Map<String, dynamic>>(
+          path: '/api/v1/mobile/correctiveMaintenance/checkListDtlForMobile/${widget.entityId}/DG',
+        );
+        
+        if (apiResponse.isSuccess && apiResponse.data != null) {
+          response = CMChecklistResponse.fromJson(apiResponse.data!);
+        } else {
+          throw Exception('API call failed: ${apiResponse.errorMessage}');
+        }
+      }
+
+      print('🔍 [DGChecklist] Response received: ${response.data}');
+      final allDgItems = response.getDGChecklist();
+      // Filter out items with empty descriptions
+      final dgItems = allDgItems.where((item) => item.checklistDesc.trim().isNotEmpty).toList();
+      print('📋 [DGChecklist] DG items count: ${dgItems.length} (filtered from ${allDgItems.length})');
+      
+      if (dgItems.isNotEmpty) {
+        print('📝 [DGChecklist] First item: ${dgItems.first.checklistDesc} (${dgItems.first.respType})');
+      }
+      
+      
+      setState(() {
+        _checklistItems = dgItems;
+        
+        // Initialize controllers with default values
+        for (var item in dgItems) {
+          if (item.respType == 'TEXT') {
+            String defaultValue = '';
+            
+            // Set default values based on field names
+            if (item.checklistDesc.toLowerCase().contains('rating')) {
+              defaultValue = '1500 KW';
+            } else if (item.checklistDesc.toLowerCase().contains('phase')) {
+              defaultValue = '3';
+            } else if (item.checklistDesc.toLowerCase().contains('make')) {
+              defaultValue = 'Eicher';
+            }
+            
+            _textControllers[item.cmCheckListMstId] = TextEditingController(text: defaultValue);
+            print('🔄 [DGChecklist] Initialized ${item.checklistDesc} with value: "$defaultValue"');
+          } else if (item.respType == 'RADIO') {
+            // Set default radio values to match the image
+            String defaultValue = 'OK'; // Default to "OK" for all radio buttons
+            
+            // Special case for DG Canopy Cleanliness - should be "Auto" if available, otherwise "OK"
+            if (item.checklistDesc.toLowerCase().contains('canopy')) {
+              final options = item.radioOptions ?? {};
+              if (options.containsKey('AUTO')) {
+                defaultValue = 'AUTO';
+              } else {
+                defaultValue = 'OK';
+              }
+            }
+            
+            _radioValues[item.cmCheckListMstId] = defaultValue;
+            print('🔄 [DGChecklist] Initialized ${item.checklistDesc} radio with default: "$defaultValue"');
+          }
+        }
+        
+        _isLoading = false;
+      });
+
+      print('✅ [DGChecklist] Loaded ${dgItems.length} checklist items');
+      widget.onFormChanged();
+
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Failed to load checklist data: $e';
+        _isLoading = false;
+      });
+      print('❌ [DGChecklist] Error loading data: $e');
+    }
+  }
 
   void _toggleExpansion() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
+    print('🔄 [DGChecklist] Toggle expansion called. Current state: $_isExpanded');
+    print('🔄 [DGChecklist] EntityId: ${widget.entityId}');
+    
+    if (_isExpanded) {
+      setState(() {
+        _isExpanded = false;
+      });
+      print('🔄 [DGChecklist] Collapsed section');
+    } else {
+      if (widget.entityId == null) {
+        print('⚠️ [DGChecklist] Cannot expand - no site selected');
+        // Show error message
+        setState(() {
+          _errorMessage = 'Please select a site first';
+          _isExpanded = true; // Show error message
+        });
+        return;
+      }
+      setState(() {
+        _isExpanded = true;
+        _errorMessage = null; // Clear any previous errors
+      });
+      print('🔄 [DGChecklist] Expanded section, loading data...');
+      _loadChecklistData();
+    }
+  }
+
+  Widget _buildChecklistItem(CMChecklistItem item) {
+    if (item.checklistDesc.isEmpty) return const SizedBox.shrink();
+    
+    switch (item.respType) {
+      case 'TEXT':
+        return _buildTextField(item);
+      case 'RADIO':
+        return _buildRadioField(item);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildTextField(CMChecklistItem item) {
+    final controller = _textControllers[item.cmCheckListMstId] ?? TextEditingController();
+    
+    return CustomFormField(
+      label: item.checklistDesc,
+      controller: controller,
+      isRequired: item.isMandatory,
+      onChanged: (_) => widget.onFormChanged(),
+    );
+  }
+
+  Widget _buildRadioField(CMChecklistItem item) {
+    final currentValue = _radioValues[item.cmCheckListMstId];
+    final options = item.radioOptions ?? {'OK': 'OK', 'Not OK': 'Not OK'};
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: item.checklistDesc,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
+              ),
+              if (item.isMandatory)
+                const TextSpan(
+                  text: " *",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red,
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        // Use Row instead of Wrap for horizontal layout
+        Row(
+          children: options.entries.map((entry) {
+            return Expanded(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Radio<String>(
+                    value: entry.key,
+                    groupValue: currentValue,
+                    onChanged: (value) {
+                      setState(() {
+                        _radioValues[item.cmCheckListMstId] = value;
+                      });
+                      widget.onFormChanged();
+                    },
+                    activeColor: const Color(0xFF1976D2), // Bright blue for selected
+                    fillColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
+                      if (states.contains(MaterialState.selected)) {
+                        return const Color(0xFF1976D2); // Bright blue when selected
+                      }
+                      return Colors.white; // White when not selected
+                    }),
+                    overlayColor: MaterialStateProperty.resolveWith<Color>((Set<MaterialState> states) {
+                      return Colors.white.withOpacity(0.1); // Subtle overlay
+                    }),
+                  ),
+                  Text(
+                    entry.value, 
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(width: 8), // Add spacing between radio buttons
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12), // Add spacing after each radio group
+      ],
+    );
   }
 
   @override
@@ -82,12 +327,11 @@ class _DGChecklistSectionState extends State<DGChecklistSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Accordion Header
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF00695C), // Dark teal background
+              color: const Color(0xFF00695C),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -97,422 +341,123 @@ class _DGChecklistSectionState extends State<DGChecklistSection> {
                   "DG",
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
-                IconButton(
-                  onPressed: _toggleExpansion,
-                  icon: Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.white,
-                  ),
+                Row(
+                  children: [
+                    if (_isLoading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                    IconButton(
+                      onPressed: _toggleExpansion,
+                      icon: Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           
-          // Accordion Content
           if (_isExpanded)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    const Color(0xFF00695C), // Dark teal at top
+                    const Color(0xFF00897B), // Lighter teal at bottom
+                  ],
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                  if (_isLoading)
+                    const Center(
+                      child: Column(
+                        children: [
+                          CircularProgressIndicator(color: AppColors.primaryGreen),
+                          SizedBox(height: 16),
+                          Text('Loading DG checklist...', style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                    ),
 
-                  // Rating, Phase, Make
-                  CustomFormField(
-                    label: "Rating",
-                    controller: _ratingController,
-                    isRequired: true,
-                    onChanged: (_) => _onFormChanged(),
-                  ),
-                  getHeight(15),
-                  CustomFormField(
-                    label: "Phase (in case of DG)",
-                    controller: _phaseController,
-                    isRequired: true,
-                    onChanged: (_) => _onFormChanged(),
-                  ),
-                  getHeight(15),
-                  CustomFormField(
-                    label: "Make",
-                    controller: _makeController,
-                    isRequired: true,
-                    onChanged: (_) => _onFormChanged(),
-                  ),
-                  getHeight(20),
+                  if (_errorMessage != null)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.errorColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppColors.errorColor),
+                      ),
+                      child: Text(_errorMessage!, style: TextStyle(color: AppColors.errorColor)),
+                    ),
 
-                  // DG Canopy Cleanliness
-                  _buildChecklistItem("DG Canopy cleanliness", _canopyCleanliness, (v) {
-                    setState(() {
-                      _canopyCleanliness = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // AMF Functioning
-                  _buildAMFChecklistItem("AMF Functioning", _amfFunctioning, (v) {
-                    setState(() {
-                      _amfFunctioning = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Earthing Connection
-                  _buildChecklistItem("Earthing Connection", _earthingConnection, (v) {
-                    setState(() {
-                      _earthingConnection = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Load Balancing
-                  _buildChecklistItem("Load Balancing in all 3 phases", _loadBalancing, (v) {
-                    setState(() {
-                      _loadBalancing = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Exhaust Fan
-                  _buildChecklistItem("Exhaust Fan", _exhaustFan, (v) {
-                    setState(() {
-                      _exhaustFan = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // DG Battery Gravity
-                  _buildChecklistItem("DG Battery gravity", _batteryGravity, (v) {
-                    setState(() {
-                      _batteryGravity = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Charging Alternator
-                  _buildChecklistItem("Charging Alternator", _chargingAlternator, (v) {
-                    setState(() {
-                      _chargingAlternator = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Wiring Harness Condition
-                  _buildChecklistItem("Wiring Harness Condition", _wiringHarness, (v) {
-                    setState(() {
-                      _wiringHarness = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Fuel Pipe
-                  _buildChecklistItem("Fuel Pipe", _fuelPipe, (v) {
-                    setState(() {
-                      _fuelPipe = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Fuel Tank
-                  _buildChecklistItem("Fuel Tank", _fuelTank, (v) {
-                    setState(() {
-                      _fuelTank = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // DG Battery Terminal
-                  _buildChecklistItem("DG Battery Terminal", _batteryTerminal, (v) {
-                    setState(() {
-                      _batteryTerminal = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Fuel Level
-                  _buildChecklistItem("Fuel Level", _fuelLevel, (v) {
-                    setState(() {
-                      _fuelLevel = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Fuel Filter
-                  _buildChecklistItem("Fuel filter", _fuelFilter, (v) {
-                    setState(() {
-                      _fuelFilter = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Fuel Leakage
-                  _buildChecklistItem("Fuel Leakage", _fuelLeakage, (v) {
-                    setState(() {
-                      _fuelLeakage = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Radiator pressure cap
-                  _buildChecklistItem("Radiator pressure cap", _radiatorPressureCap, (v) {
-                    setState(() {
-                      _radiatorPressureCap = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Radiator fin
-                  _buildChecklistItem("Radiator fin", _radiatorFin, (v) {
-                    setState(() {
-                      _radiatorFin = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Radiator Hose
-                  _buildChecklistItem("Radiator Hose", _radiatorHose, (v) {
-                    setState(() {
-                      _radiatorHose = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Coolant level
-                  _buildChecklistItem("Coolant level", _coolantLevel, (v) {
-                    setState(() {
-                      _coolantLevel = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Coolant leakage
-                  _buildChecklistItem("Coolant leakage", _coolantLeakage, (v) {
-                    setState(() {
-                      _coolantLeakage = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Fan Belt
-                  _buildChecklistItem("Fan Belt", _fanBelt, (v) {
-                    setState(() {
-                      _fanBelt = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Lube Oil Level
-                  _buildChecklistItem("Lube Oil Level", _lubeOilLevel, (v) {
-                    setState(() {
-                      _lubeOilLevel = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Oil leakage
-                  _buildChecklistItem("Oil leakage", _oilLeakage, (v) {
-                    setState(() {
-                      _oilLeakage = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Lube Oil filter
-                  _buildChecklistItem("Lube Oil filter", _lubeOilFilter, (v) {
-                    setState(() {
-                      _lubeOilFilter = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Air Cleaner
-                  _buildChecklistItem("Air Cleaner", _airCleaner, (v) {
-                    setState(() {
-                      _airCleaner = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Hose
-                  _buildChecklistItem("Hose", _hose, (v) {
-                    setState(() {
-                      _hose = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
-
-                  // Hose Clamp
-                  _buildChecklistItem("Hose Clamp", _hoseClamp, (v) {
-                    setState(() {
-                      _hoseClamp = v;
-                      _onFormChanged();
-                    });
-                  }),
-                  getHeight(15),
+                  if (!_isLoading && _errorMessage == null) ...[
+                    if (_checklistItems.isEmpty)
+                      const Text(
+                        'No checklist items found for DG',
+                        style: TextStyle(color: Colors.white),
+                      )
+                    else
+                      ..._checklistItems.map((item) {
+                        return Column(
+                          children: [
+                            _buildChecklistItem(item),
+                            getHeight(15),
+                          ],
+                        );
+                      }).toList(),
+                  ],
                 ],
               ),
             ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildChecklistItem(String label, String? selectedValue, Function(String?) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: label.replaceAll(' *', ''), // Remove the asterisk from the label text
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
-              ),
-              const TextSpan(
-                text: " *",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Radio<String>(
-              value: 'Ok',
-              groupValue: selectedValue,
-              onChanged: onChanged,
-              activeColor: Colors.white,
-              fillColor: MaterialStateProperty.all(Colors.white),
-            ),
-            const Text('Ok', style: TextStyle(color: Colors.white)),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: 'Not Ok',
-              groupValue: selectedValue,
-              onChanged: onChanged,
-              activeColor: Colors.white,
-              fillColor: MaterialStateProperty.all(Colors.white),
-            ),
-            const Text('Not Ok', style: TextStyle(color: Colors.white)),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAMFChecklistItem(String label, String? selectedValue, Function(String?) onChanged) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: label.replaceAll(' *', ''), // Remove the asterisk from the label text
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.white),
-              ),
-              const TextSpan(
-                text: " *",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Radio<String>(
-              value: 'Auto',
-              groupValue: selectedValue,
-              onChanged: onChanged,
-              activeColor: Colors.white,
-              fillColor: MaterialStateProperty.all(Colors.white),
-            ),
-            const Text('Auto', style: TextStyle(color: Colors.white)),
-            const SizedBox(width: 20),
-            Radio<String>(
-              value: 'Manual',
-              groupValue: selectedValue,
-              onChanged: onChanged,
-              activeColor: Colors.white,
-              fillColor: MaterialStateProperty.all(Colors.white),
-            ),
-            const Text('Manual', style: TextStyle(color: Colors.white)),
-          ],
-        ),
-      ],
-    );
-  }
-
   Map<String, dynamic> getChecklistData() {
-    return {
-      'rating': _ratingController.text,
-      'phase': _phaseController.text,
-      'make': _makeController.text,
-      'canopyCleanliness': _canopyCleanliness,
-      'amfFunctioning': _amfFunctioning,
-      'earthingConnection': _earthingConnection,
-      'loadBalancing': _loadBalancing,
-      'exhaustFan': _exhaustFan,
-      'batteryGravity': _batteryGravity,
-      'chargingAlternator': _chargingAlternator,
-      'wiringHarness': _wiringHarness,
-      'fuelPipe': _fuelPipe,
-      'fuelTank': _fuelTank,
-      'batteryTerminal': _batteryTerminal,
-      'fuelLevel': _fuelLevel,
-      'fuelFilter': _fuelFilter,
-      'fuelLeakage': _fuelLeakage,
-      'radiatorPressureCap': _radiatorPressureCap,
-      'radiatorFin': _radiatorFin,
-      'radiatorHose': _radiatorHose,
-      'coolantLevel': _coolantLevel,
-      'coolantLeakage': _coolantLeakage,
-      'fanBelt': _fanBelt,
-      'lubeOilLevel': _lubeOilLevel,
-      'oilLeakage': _oilLeakage,
-      'lubeOilFilter': _lubeOilFilter,
-      'airCleaner': _airCleaner,
-      'hose': _hose,
-      'hoseClamp': _hoseClamp,
-    };
+    final data = <String, dynamic>{};
+    
+    for (var item in _checklistItems) {
+      if (item.respType == 'TEXT') {
+        final controller = _textControllers[item.cmCheckListMstId];
+        data[item.checklistDesc] = controller?.text ?? '';
+      } else if (item.respType == 'RADIO') {
+        data[item.checklistDesc] = _radioValues[item.cmCheckListMstId];
+      }
+    }
+    
+    return data;
   }
 
-  bool validateDGChecklist() {
-    return _ratingController.text.isNotEmpty &&
-        _phaseController.text.isNotEmpty &&
-        _makeController.text.isNotEmpty;
+  bool validateChecklist() {
+    for (var item in _checklistItems) {
+      if (item.isMandatory) {
+        if (item.respType == 'TEXT') {
+          final controller = _textControllers[item.cmCheckListMstId];
+          if (controller == null || controller.text.isEmpty) {
+            return false;
+          }
+        } else if (item.respType == 'RADIO') {
+          if (_radioValues[item.cmCheckListMstId] == null) {
+            return false;
+          }
+        }
+      }
+    }
+    return true;
   }
 }
