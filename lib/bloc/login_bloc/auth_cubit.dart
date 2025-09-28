@@ -1,3 +1,4 @@
+import 'package:app/services/service_locator.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -24,32 +25,34 @@ class AuthCubit extends Cubit<AuthState> {
     bool rememberMe = false, // Added rememberMe parameter
   }) async {
     if (state is AuthLoading) return;
-    
+
     print("AuthCubit: Starting login process for username: $username");
     emit(AuthLoading());
-    
+
     try {
       final result = await authRepository.login(
         username: username,
         password: password,
       );
 
-      print("AuthCubit: Login result - isSuccess: ${result.isSuccess}, errorMessage: ${result.errorMessage}");
+      print(
+        "AuthCubit: Login result - isSuccess: ${result.isSuccess}, errorMessage: ${result.errorMessage}",
+      );
 
       if (result.isSuccess && result.data != null) {
         print("AuthCubit: Login successful, saving tokens to storage");
         // Save tokens to local storage
         await _saveTokensToStorage(result.data!);
-        
+
         // Save user credentials if remember me is checked
         if (rememberMe) {
           await _saveUserCredentials(username, password);
         }
-        
+
         // Fetch user details and save fullName
         print("AuthCubit: Fetching user details...");
         await _fetchAndSaveUserDetails();
-        
+
         print("AuthCubit: Emitting AuthSuccess state");
         emit(AuthSuccess(result.data!));
       } else {
@@ -67,23 +70,32 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       // Save access token
       await LocalStorageDB.saveToken(authData.token);
-      
+
       // Save token expiry if available
       if (authData.tokenExpiry != null) {
         await LocalStorageDB.saveTokenExpiry(authData.tokenExpiry!);
       }
-      
+
       // Save user ID if available
       if (authData.userId != null) {
-        await LocalStorageService.setString(LocalStorageConstants.userId, authData.userId!);
+        await LocalStorageService.setString(
+          LocalStorageConstants.userId,
+          authData.userId!,
+        );
       }
-      
+
       // Save user info if available
       if (authData.firstName != null) {
-        await LocalStorageService.setString(LocalStorageConstants.firstName, authData.firstName!);
+        await LocalStorageService.setString(
+          LocalStorageConstants.firstName,
+          authData.firstName!,
+        );
       }
       if (authData.email != null) {
-        await LocalStorageService.setString(LocalStorageConstants.email, authData.email!);
+        await LocalStorageService.setString(
+          LocalStorageConstants.email,
+          authData.email!,
+        );
       }
     } catch (e) {
       // Handle storage error
@@ -107,13 +119,13 @@ class AuthCubit extends Cubit<AuthState> {
   Future<void> logout() async {
     try {
       print("AuthCubit: Starting logout process");
-      
+
       // Clear user details
       await UserDetailsService.instance.clearUserDetails();
-      
+
       // Clear authentication data
       await LocalStorageDB.logout();
-      
+
       print("AuthCubit: Logout completed, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {
@@ -125,13 +137,15 @@ class AuthCubit extends Cubit<AuthState> {
   // Check if user is logged in
   bool get isLoggedIn {
     final token = LocalStorageDB.getToken;
-    print("AuthCubit: Checking if user is logged in - token: ${token != null ? '${token.substring(0, 20)}...' : 'null'}");
-    
+    print(
+      "AuthCubit: Checking if user is logged in - token: ${token != null ? '${token.substring(0, 20)}...' : 'null'}",
+    );
+
     if (token == null || token.isEmpty) {
       print("AuthCubit: No token found - user not logged in");
       return false;
     }
-    
+
     // Check if token is expired
     if (Utils.isTokenExpired(token)) {
       print("AuthCubit: Token is expired - clearing token and logging out");
@@ -139,7 +153,7 @@ class AuthCubit extends Cubit<AuthState> {
       logout();
       return false;
     }
-    
+
     print("AuthCubit: User is logged in with valid token");
     return true;
   }
@@ -150,15 +164,15 @@ class AuthCubit extends Cubit<AuthState> {
   // Auto login with stored credentials
   Future<void> autoLogin() async {
     if (state is AuthLoading) return;
-    
+
     final username = LocalStorageDB.getUsername;
     final password = LocalStorageDB.getPassword;
     final rememberMe = LocalStorageDB.getRememberMe;
-    
+
     // Only auto-login if remember me is enabled and credentials exist
     if (rememberMe && username != null && password != null) {
       emit(AuthLoading());
-      
+
       final result = await authRepository.login(
         username: username,
         password: password,
@@ -167,11 +181,11 @@ class AuthCubit extends Cubit<AuthState> {
       if (result.isSuccess && result.data != null) {
         // Save tokens to local storage
         await _saveTokensToStorage(result.data!);
-        
+
         // Fetch user details and save fullName
         print("AuthCubit: Auto-login - Fetching user details...");
         await _fetchAndSaveUserDetails();
-        
+
         emit(AuthSuccess(result.data!));
       } else {
         // Auto-login failed, clear stored credentials
@@ -187,7 +201,7 @@ class AuthCubit extends Cubit<AuthState> {
   bool get isTokenValid {
     final token = LocalStorageDB.getToken;
     if (token == null || token.isEmpty) return false;
-    
+
     return !Utils.isTokenExpired(token);
   }
 
@@ -205,7 +219,9 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final userDetails = await UserDetailsService.instance.getUserDetails();
       if (userDetails != null && userDetails.fullName != null) {
-        print("AuthCubit: User details fetched successfully, fullName: ${userDetails.fullName}");
+        print(
+          "AuthCubit: User details fetched successfully, fullName: ${userDetails.fullName}",
+        );
       } else {
         print("AuthCubit: Failed to fetch user details or fullName is null");
       }
@@ -218,11 +234,19 @@ class AuthCubit extends Cubit<AuthState> {
   // Get stored password
   String? get getStoredPassword => LocalStorageDB.getPassword;
 
-  // Force clear all data (for manual logout)
   Future<void> forceClearAllData() async {
     try {
       print("AuthCubit: Force clearing all data");
+
+      // Clear authentication data
       await LocalStorageDB.clearAllCredentials();
+
+      // Clear all downloaded tickets and app data
+      await LocalStorageDB.clearAllData(); // This clears ALL local storage
+
+      // Clear SQLite databases and other services
+      await ServiceLocator().centralAssetAuditService.clearAllData();
+
       print("AuthCubit: All data cleared, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {

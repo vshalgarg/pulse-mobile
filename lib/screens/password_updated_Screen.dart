@@ -80,6 +80,6 @@ class _PasswordUpdatedScreenState extends State<PasswordUpdatedScreen> {
   }
 
   Widget pulseContainer() {
-    return SvgPicture.asset(AppImages.pulseImg, fit: BoxFit.cover);
+    return Image.asset(AppImages.pulseImg);
   }
 }

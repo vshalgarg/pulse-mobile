@@ -19,6 +19,7 @@ class TicketCard extends StatelessWidget {
   final VoidCallback? onDownloadTap;
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
+  final VoidCallback? onPdfDownloadTap;
 
   const TicketCard({
     super.key,
@@ -36,6 +37,7 @@ class TicketCard extends StatelessWidget {
     this.onDownloadTap,
     this.onDirectionTap,
     this.onTap,
+    this.onPdfDownloadTap,
   });
 
   // Method to get status color based on status text
@@ -165,6 +167,21 @@ class TicketCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  
+                  // Add document icon for completed/closed tickets
+                  if (statusText.toLowerCase() == 'completed' || 
+                      statusText.toLowerCase() == 'closed')
+                    IconButton(
+                      icon: const Icon(
+                        Icons.description,
+                        color: Colors.blue,
+                        size: 24,
+                      ),
+                      onPressed: onPdfDownloadTap,
+                      tooltip: 'Download PDF Report',
+                    ),
+                  
+                  // Keep existing download/check icon
                   FutureBuilder<bool>(
                     future: isDownloadedFunc(ticket),
                     builder: (context, snapshot) {

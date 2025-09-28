@@ -16,7 +16,8 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
   @override
@@ -26,7 +27,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-    
+
     // Start the animation after the first frame is rendered
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -48,10 +49,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(
-              AppImages.welcomeBgPng,
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset(AppImages.welcomeBgPng, fit: BoxFit.cover),
           ),
 
           // Content
@@ -64,9 +62,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
-                  child: SvgPicture.asset(
-                    AppImages.pulseImg
-                  ),
+                  child: Image.asset(AppImages.pulseImg),
                   // Container(
                   //   height: 50,
                   //   margin: const EdgeInsets.only(bottom: 30),

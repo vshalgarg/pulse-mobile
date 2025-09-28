@@ -22,7 +22,7 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: false,
       flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 12, ),
+          padding: const EdgeInsets.only(left: 16, top: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -30,12 +30,15 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onTap: () async {
                   try {
                     // Clear all asset audit data
-                    await ServiceLocator().centralAssetAuditService.clearAllData();
-                    
+                    await ServiceLocator().centralAssetAuditService
+                        .clearAllData();
+
                     // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('All asset audit data cleared successfully!'),
+                        content: Text(
+                          'All asset audit data cleared successfully!',
+                        ),
                         backgroundColor: AppColors.primaryGreen,
                       ),
                     );
@@ -49,15 +52,23 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                     );
                   }
                 },
-                child: SvgPicture.asset(AppImages.pulseImg, fit: BoxFit.cover, width: 113, height: 40,),
+                child: Image.asset(
+                  AppImages.pulseImg,
+                  fit: BoxFit.cover,
+                  width: 113,
+                  height: 40,
+                ),
               ),
               const Spacer(),
               Stack(
                 clipBehavior: Clip.none,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.notifications,
-                        color: AppColors.bellColor, size: 35),
+                    icon: const Icon(
+                      Icons.notifications,
+                      color: AppColors.bellColor,
+                      size: 35,
+                    ),
                     onPressed: () {},
                   ),
                   Positioned(
@@ -66,7 +77,7 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                     child: Container(
                       padding: const EdgeInsets.all(4),
                       decoration: const BoxDecoration(
-                        color:AppColors.errorColor,
+                        color: AppColors.errorColor,
                         shape: BoxShape.circle,
                       ),
                       child: const Text(
@@ -82,7 +93,6 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ],
               ),
               const SizedBox(width: 10),
-
             ],
           ),
         ),

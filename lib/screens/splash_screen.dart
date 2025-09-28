@@ -14,7 +14,8 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
@@ -26,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         statusBarIconBrightness: Brightness.dark,
       ),
     );
-    
+
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
@@ -38,16 +39,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   void _checkAuthenticationStatus() async {
     // Wait for animation to complete
     await Future.delayed(const Duration(seconds: 3));
-    
+
     final authCubit = context.read<AuthCubit>();
-    
+
     if (authCubit.isLoggedIn) {
       // User is already logged in, go to home screen
       pushReplacementPage(context, const HomeScreen());
     } else if (authCubit.getRememberMe) {
       // Try auto-login if remember me is enabled
       await authCubit.autoLogin();
-      
+
       // Check if auto-login was successful
       if (authCubit.isLoggedIn) {
         pushReplacementPage(context, const HomeScreen());
