@@ -1,12 +1,11 @@
 import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
-import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/pulse_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/bloc/audit_schedule_status_cubit.dart';
 
-class UnsavedChangesDialog extends StatelessWidget {
+class UnsavedChangesDialog extends StatefulWidget {
   final String? message;
   final Future<void> Function() onSaveAndExit;
   final VoidCallback onDiscard;
@@ -24,28 +23,34 @@ class UnsavedChangesDialog extends StatelessWidget {
     this.parentContext,
   });
 
+  @override
+  State<UnsavedChangesDialog> createState() => _UnsavedChangesDialogState();
+}
+
+class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
+  bool _isLoading = false;
+
   void _saveAndExit(BuildContext context) async {
-    // Close the dialog first
-    Navigator.of(context).pop();
-    await onSaveAndExit();
-    // Use parentContext if available, otherwise use the dialog context
-    final contextToUse = parentContext ?? context;
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
+      await widget.onSaveAndExit();
+      
+      // Use parentContext if available, otherwise use the dialog context
+      final contextToUse = widget.parentContext ?? context;
+      
+      // Close the loading dialog first
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Close the UnsavedChangesDialog before showing success/error dialog
+      Navigator.of(context).pop();
+      
       // Call the API to update audit schedule status if siteAuditSchId is provided
-      if (siteAuditSchId != null && siteAuditSchId!.isNotEmpty) {
-        // Show loading dialog
-        showDialog(
-          context: contextToUse,
-          barrierDismissible: false,
-          builder: (context) =>
-              const Center(child: CircularProgressIndicator()),
-        );
-
-        // Close loading dialog
-        if (Navigator.canPop(contextToUse)) {
-          Navigator.of(contextToUse).pop();
-        }
+      if (widget.siteAuditSchId != null && widget.siteAuditSchId!.isNotEmpty) {
 
         // Get the current state after the API call
         final currentState = contextToUse
@@ -61,37 +66,41 @@ class UnsavedChangesDialog extends StatelessWidget {
           // Fallback if state is not what we expect
           _showSuccessDialogWithMessage(
             contextToUse,
-            section! +
-                " for Site (ID: ${siteAuditSchId}) has been recorded and saved.",
+            (widget.section ?? "Data") +
+                " for Site (ID: ${widget.siteAuditSchId}) has been recorded and saved.",
           );
         }
       } else {
         // Fallback message if no siteAuditSchId provided
         _showSuccessDialogWithMessage(
           contextToUse,
-          section! +
-              " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.",
+          (widget.section ?? "Data") +
+              " for Site (ID: ${widget.siteAuditSchId ?? 'Unknown'}) has been recorded and saved.",
         );
       }
     } catch (e) {
-      // Close loading dialog if it's open
-      if (Navigator.canPop(contextToUse)) {
-        Navigator.of(contextToUse).pop();
-      }
+      // Close the loading dialog first
+      setState(() {
+        _isLoading = false;
+      });
+      
+      // Close the UnsavedChangesDialog before showing success dialog
+      Navigator.of(context).pop();
+      
       // Fallback message if API call fails
       _showSuccessDialogWithMessage(
-        contextToUse,
-        section! +
-            " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.",
+        widget.parentContext ?? context,
+        (widget.section ?? "Data") +
+            " for Site (ID: ${widget.siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.",
       );
     }
   }
 
   void _showSuccessDialogWithMessage(BuildContext context, String message) {
     // Use parentContext for navigation, fallback to context if parentContext is null
-    final navigationContext = parentContext ?? context;
+    final navigationContext = widget.parentContext ?? context;
 
-    print('DEBUG: parentContext is null: ${parentContext == null}');
+    print('DEBUG: parentContext is null: ${widget.parentContext == null}');
     print('DEBUG: Using navigationContext: ${navigationContext.runtimeType}');
 
     showDialog(
@@ -99,7 +108,7 @@ class UnsavedChangesDialog extends StatelessWidget {
       barrierDismissible: false,
       barrierColor: Colors.black54,
       builder: (dialogContext) => SuccessDialog(
-        ticketId: siteAuditSchId!,
+        ticketId: widget.siteAuditSchId ?? '',
         message: message,
         onDone: () {
           print('DEBUG: Success dialog onDone called');
@@ -120,7 +129,7 @@ class UnsavedChangesDialog extends StatelessWidget {
 
   void _showErrorDialog(BuildContext context, String errorMessage) {
     // Use parentContext for navigation, fallback to context if parentContext is null
-    final navigationContext = parentContext ?? context;
+    final navigationContext = widget.parentContext ?? context;
 
     showDialog(
       context: context,
@@ -152,17 +161,21 @@ class UnsavedChangesDialog extends StatelessWidget {
     Navigator.of(context).pop();
 
     // Use parentContext if available, otherwise use the dialog context
-    final contextToUse = parentContext ?? context;
+    final contextToUse = widget.parentContext ?? context;
 
     Navigator.pushReplacement(
       contextToUse,
       MaterialPageRoute(builder: (context) => PulseDashboard()),
     );
-    onDiscard();
+    widget.onDiscard();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.all(20),

@@ -283,10 +283,10 @@ class _PMPageRenderState extends State<PMPageRender> {
       return Scaffold(
         extendBodyBehindAppBar: true,
         resizeToAvoidBottomInset: true,
-        appBar: CustomFormAppbar(
-          title: 'Preventive Maintenance',
-          onClose: () => _showUnsavedChangesDialog(),
-        ),
+        // appBar: CustomFormAppbar(
+        //   title: 'Preventive Maintenance',
+        //   onClose: () => _showUnsavedChangesDialog(),
+        // ),
         body: Stack(
           children: [
             // Background image
@@ -348,6 +348,7 @@ class _PMPageRenderState extends State<PMPageRender> {
     return Container(
       key: ValueKey('pm_page_${_currentPageName}_$_currentPageIndex'),
       child: PMPageWidget.forSection(
+        siteAuditSchId: _pageHeader?['site_audit_sch_id']?.toString() ?? '',
         pmItems: _currentPageData,
         sectionName: _currentPageName,
         pageTitle: 'Preventive Maintenance',
