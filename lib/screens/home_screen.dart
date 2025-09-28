@@ -143,6 +143,19 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          // this will appear only if the user is a CM
+          if (widget.selectedActivity == "Corrective Maintenance") ...[
+            FloatingActionButton(
+              onPressed: () {
+                _syncOfflineData();
+              },
+              backgroundColor: AppColors.bellColor,
+              child: const Icon(Icons.add, color: Colors.white),
+              tooltip: 'Add CM',
+            ),
+            const SizedBox(height: 16),
+          ],
+
           FloatingActionButton(
             onPressed: () {
               _syncOfflineData();
