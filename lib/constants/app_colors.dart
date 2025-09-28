@@ -7,6 +7,8 @@ class AppColors {
   static const Color primaryGreen = Color(0xFF54B790);
   static const Color primaryBlue = Color(0xFF00172F);
 
+
+
   // Text Colors
   static const Color textWhite = Colors.white;
   static const Color textWhite70 = Colors.white70;
@@ -336,5 +338,10 @@ class AppColors {
   static const Color assignedColor = Color(0xFF8A38F5);
   static const Color dashboardTextColor = Color(0xFF00373E);
   static const Color dashboardIconBoxColor = Color(0xFFE3FFF5);
+  static const Color cmPlusButton = Color.fromARGB(0, 243, 227, 82);
   static const Color isComingSoonColor = Color.fromARGB(255, 225, 64, 64);
+
+  static const Color myTickets = Color(0xFFC7FFE9);
+  static const Color myTicketsSelected = Color(0xFF009663);
+
 }

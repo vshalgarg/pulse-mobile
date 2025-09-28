@@ -161,6 +161,13 @@ class _TicketScreenState extends State<TicketScreen> {
         latitude: ticket.latitude ?? 0,
         longitude: ticket.longitude ?? 0,
         activityType: _currentActivityType,
+        pvTicketId: ticket.pvTicketId,
+        siteCode: ticket.siteCode ?? "",
+        cluster: ticket.cluster ?? "",
+        operator: ticket.operator ?? "",
+        raisedDt: ticket.raisedDt,
+        dueDt: ticket.dueDt,
+        status: ticket.status ?? "",
       );
       if (!isAvailable) {
         Toastbar.showErrorToastbar("Failed to load data", context);
@@ -431,6 +438,13 @@ class _TicketScreenState extends State<TicketScreen> {
                   siteType: ticket.siteDomainName ?? 'Solar',
                   auditSchId: ticket.auditSchId?.toString() ?? "",
                   siteAuditSchId: ticket.ticketSchId.toString(),
+                  pvTicketId: ticket.pvTicketId,
+                  siteCode: ticket.siteCode ?? "",
+                  cluster: ticket.cluster ?? "",
+                  operator: ticket.operator ?? "",
+                  raisedDt: ticket.raisedDt,
+                  dueDt: ticket.dueDt,
+                  status: ticket.status ?? "",
                   latitude: ticket.latitude ?? 0,
                   longitude: ticket.longitude ?? 0,
                   activityType: _currentActivityType,

@@ -5,6 +5,13 @@ class RawApiDataModel {
   final String siteType;
   final String auditSchId;
   final ActivityTypeEnum activityType;
+  final String pvTicketId;
+  final String siteCode;
+  final String cluster;
+  final String operator;
+  final String raisedDt;
+  final String dueDt;
+  final String status;
   final bool isDownloaded;
   final double latitude;
   final double longitude;
@@ -15,6 +22,13 @@ class RawApiDataModel {
     required this.siteType,
     required this.auditSchId,
     required this.activityType,
+    required this.pvTicketId,
+    required this.siteCode,
+    required this.cluster,
+    required this.operator,
+    required this.raisedDt,
+    required this.dueDt,
+    required this.status,
     required this.isDownloaded,
     required this.latitude,
     required this.longitude,
@@ -28,6 +42,13 @@ class RawApiDataModel {
       siteType: map['site_type'] as String,
       auditSchId: map['audit_sch_id'] as String,
       activityType: ActivityTypeEnum.fromString(map['activity_type'] as String),
+      pvTicketId: map['pv_ticket_id'] as String,
+      siteCode: map['site_code'] as String,
+      cluster: map['cluster'] as String,
+      operator: map['operator'] as String,
+      raisedDt: map['raised_dt'] as String,
+      dueDt: map['due_dt'] as String,
+      status: map['status'] as String,
       isDownloaded: (map['is_downloaded'] as int) == 1,
       latitude: (map['latitude'] as num).toDouble(),
       longitude: (map['longitude'] as num).toDouble(),
@@ -42,6 +63,13 @@ class RawApiDataModel {
       'site_type': siteType,
       'audit_sch_id': auditSchId,
       'activity_type': activityType.value,
+      'pv_ticket_id': pvTicketId,
+      'site_code': siteCode,
+      'cluster': cluster,
+      'operator': operator,
+      'raised_dt': raisedDt,
+      'due_dt': dueDt,
+      'status': status,
       'is_downloaded': isDownloaded ? 1 : 0,
       'latitude': latitude,
       'longitude': longitude,

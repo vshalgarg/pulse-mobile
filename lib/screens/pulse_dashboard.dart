@@ -9,6 +9,7 @@ import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/my_tickets.dart';
 
 class PulseDashboard extends StatefulWidget {
   const PulseDashboard({Key? key}) : super(key: key);
@@ -338,7 +339,12 @@ class _PulseDashboardState extends State<PulseDashboard> {
   }
 
   void _navigateToMyTickets() {
-    Toastbar.showSuccessToastbar('Navigating to My Tickets', context);
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MyTicketsScreen(),
+      ),
+    );
   }
 
   void _handleLogout() {

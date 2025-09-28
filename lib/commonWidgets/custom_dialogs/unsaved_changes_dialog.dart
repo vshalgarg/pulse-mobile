@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/bloc/audit_schedule_status_cubit.dart';
@@ -29,7 +30,7 @@ class UnsavedChangesDialog extends StatelessWidget {
     await onSaveAndExit();
     // Use parentContext if available, otherwise use the dialog context
     final contextToUse = parentContext ?? context;
-    
+
     try {
       // Call the API to update audit schedule status if siteAuditSchId is provided
       if (siteAuditSchId != null && siteAuditSchId!.isNotEmpty) {
@@ -37,18 +38,19 @@ class UnsavedChangesDialog extends StatelessWidget {
         showDialog(
           context: contextToUse,
           barrierDismissible: false,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
         );
 
         // Close loading dialog
         if (Navigator.canPop(contextToUse)) {
           Navigator.of(contextToUse).pop();
         }
-        
+
         // Get the current state after the API call
-        final currentState = contextToUse.read<AuditScheduleStatusCubit>().state;
+        final currentState = contextToUse
+            .read<AuditScheduleStatusCubit>()
+            .state;
         if (currentState is AuditScheduleStatusSuccess) {
           // Use the API response message in the success dialog
           _showSuccessDialogWithMessage(contextToUse, currentState.message);
@@ -57,11 +59,19 @@ class UnsavedChangesDialog extends StatelessWidget {
           _showErrorDialog(contextToUse, currentState.error);
         } else {
           // Fallback if state is not what we expect
-          _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId}) has been recorded and saved.");
+          _showSuccessDialogWithMessage(
+            contextToUse,
+            section! +
+                " for Site (ID: ${siteAuditSchId}) has been recorded and saved.",
+          );
         }
       } else {
         // Fallback message if no siteAuditSchId provided
-        _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.");
+        _showSuccessDialogWithMessage(
+          contextToUse,
+          section! +
+              " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved.",
+        );
       }
     } catch (e) {
       // Close loading dialog if it's open
@@ -69,7 +79,11 @@ class UnsavedChangesDialog extends StatelessWidget {
         Navigator.of(contextToUse).pop();
       }
       // Fallback message if API call fails
-      _showSuccessDialogWithMessage(contextToUse, section! + " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.");
+      _showSuccessDialogWithMessage(
+        contextToUse,
+        section! +
+            " for Site (ID: ${siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.",
+      );
     }
   }
 
@@ -89,14 +103,14 @@ class UnsavedChangesDialog extends StatelessWidget {
         message: message,
         onDone: () {
           print('DEBUG: Success dialog onDone called');
-          Navigator.of(dialogContext).pop(); // Close the success dialog using dialog context
+          Navigator.of(
+            dialogContext,
+          ).pop(); // Close the success dialog using dialog context
           print('DEBUG: About to navigate to home screen');
           // Navigate to home screen using the navigation context
           Navigator.pushReplacement(
             navigationContext,
-            MaterialPageRoute(
-                builder: (context) => HomeScreen()
-            ),
+            MaterialPageRoute(builder: (context) => PulseDashboard()),
           );
           print('DEBUG: Navigation completed');
         },
@@ -117,13 +131,13 @@ class UnsavedChangesDialog extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(dialogContext).pop(); // Close the error dialog using dialog context
+              Navigator.of(
+                dialogContext,
+              ).pop(); // Close the error dialog using dialog context
               // Navigate to home screen using the navigation context
               Navigator.pushReplacement(
                 navigationContext,
-                MaterialPageRoute(
-                    builder: (context) => HomeScreen()
-                ),
+                MaterialPageRoute(builder: (context) => PulseDashboard()),
               );
             },
             child: const Text('OK'),
@@ -133,28 +147,24 @@ class UnsavedChangesDialog extends StatelessWidget {
     );
   }
 
-    void _onDiscard(BuildContext context) async {
-      // Close the dialog first
-      Navigator.of(context).pop();
-      
-      // Use parentContext if available, otherwise use the dialog context
-      final contextToUse = parentContext ?? context;
-      
-      Navigator.pushReplacement(
-        contextToUse,
-        MaterialPageRoute(
-            builder: (context) => HomeScreen()
-        ),
-      );
-      onDiscard();
-    }
+  void _onDiscard(BuildContext context) async {
+    // Close the dialog first
+    Navigator.of(context).pop();
+
+    // Use parentContext if available, otherwise use the dialog context
+    final contextToUse = parentContext ?? context;
+
+    Navigator.pushReplacement(
+      contextToUse,
+      MaterialPageRoute(builder: (context) => PulseDashboard()),
+    );
+    onDiscard();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.all(20),
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -192,16 +202,22 @@ class UnsavedChangesDialog extends StatelessWidget {
                 children: [
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor:AppColors.doneColor,
+                      backgroundColor: AppColors.doneColor,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
-                    onPressed: (){_saveAndExit(context);},
-                    child: const Text("Save & Exit",
-                        style: TextStyle(color: Colors.white)),
+                    onPressed: () {
+                      _saveAndExit(context);
+                    },
+                    child: const Text(
+                      "Save & Exit",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   ElevatedButton(
@@ -211,11 +227,17 @@ class UnsavedChangesDialog extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
                     ),
-                    onPressed: (){_onDiscard(context);},
-                    child: const Text("Discard",
-                        style: TextStyle(color: Colors.white)),
+                    onPressed: () {
+                      _onDiscard(context);
+                    },
+                    child: const Text(
+                      "Discard",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ],
               ),
@@ -243,16 +265,11 @@ class UnsavedChangesDialog extends StatelessWidget {
                     color: AppColors.heartColor,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.close, 
-                    color: Colors.white, 
-                    size: 20,
-                  ),
+                  child: const Icon(Icons.close, color: Colors.white, size: 20),
                 ),
               ),
             ),
           ),
-
         ],
       ),
     );
