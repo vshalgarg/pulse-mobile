@@ -53,15 +53,7 @@ class CustomPMBottomButtons extends StatelessWidget {
               textColor: AppColors.buttonColorSite,
 
               onPressed: () async {
-                LoaderWidget.showLoader(context);
-               
-
-                try {
-                   onRightButtonPressed();
-                } finally {
-                  LoaderWidget.hideLoader();
-                  
-                }
+                onRightButtonPressed();
               },
             ),
           ),

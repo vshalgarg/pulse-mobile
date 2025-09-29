@@ -39,6 +39,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   int _currentPageIndex = 0;
   late List<String> _availablePages;
   late Map<String, dynamic> _pmData;
+  bool _hasChanges = false;
 
   @override
   void initState() {
@@ -170,6 +171,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   }) {
     setState(() {
       _pmData['responseData'][_currentDataKey] = updatedData;
+      _hasChanges = true; // Mark that changes have been made
     });
     // Call the optional callback if provided
     widget.onDataChanged?.call(_pmData);
@@ -185,20 +187,35 @@ class _PMPageRenderState extends State<PMPageRender> {
     }
   }
 
-  void _onNextPage() async {
+  void _onNextPage({bool hasChanges = false}) async {
     // Update data in SQLite before navigating to next page (except for Site Info page)
-    if (!_isFirstPage) {
-      await _updateDataInSqliteAndCallApi();
-    }
+    LoaderWidget.showLoader(context);
 
-    // Navigate to next page if not on last page
-    if (!_isLastPage) {
-      setState(() {
-        _currentPageIndex++;
-        Logger.debugLog('Page index updated to: $_currentPageIndex');
-      });
-      _clearWidgetState();
+    try {
+      // Only update if page has changes
+      if (!_isFirstPage && hasChanges) {
+        await _updateDataInSqliteAndCallApi();
+      }
+
+      // Navigate to next page if not on last page
+      if (!_isLastPage) {
+        setState(() {
+          _currentPageIndex++;
+          Logger.debugLog('Page index updated to: $_currentPageIndex');
+        });
+        _clearWidgetState();
+      }
+    } finally {
+      // Hide loader
+      LoaderWidget.hideLoader();
     }
+  }
+
+  // Wrapper method to pass hasChanges parameter
+  void _onNextPageWrapper() {
+    _onNextPage(hasChanges: _hasChanges);
+    // Reset changes flag after navigation
+    _hasChanges = false;
   }
 
   Future<void> submitDataWhenExit() async {
@@ -267,6 +284,8 @@ class _PMPageRenderState extends State<PMPageRender> {
     // Force widget recreation by updating a state variable
     // This ensures all form fields and widgets are cleared
     print('🧹 Clearing widget state for page: $_currentPageName');
+    // Reset changes flag when clearing widget state
+    _hasChanges = false;
   }
 
   // Helper methods for getting page names
@@ -404,13 +423,14 @@ class _PMPageRenderState extends State<PMPageRender> {
         leftButtonText: _isFirstPage ? 'Save' : _getPreviousPageName(),
         rightButtonText: _isLastPage ? 'Submit' : _getNextPageName(),
         onLeftButtonPressed: _isFirstPage ? _onSave : _onPreviousPage,
-        onRightButtonPressed: _isLastPage ? _onSubmit : _onNextPage,
+        onRightButtonPressed: _isLastPage ? _onSubmit : _onNextPageWrapper,
         onDataChanged: (data) =>
             _onPageDataChanged(data, shouldUpdateApi: true),
         isLoading: widget.isLoading,
         errorMessage: widget.errorMessage,
         submitDataWhenExit: submitDataWhenExit,
-        siteAuditSchId: _pmData['pageHeader']?[0]?['site_audit_sch_id']?.toString() ?? '',
+        siteAuditSchId:
+            _pmData['pageHeader']?[0]?['site_audit_sch_id']?.toString() ?? '',
       ),
     );
   }
