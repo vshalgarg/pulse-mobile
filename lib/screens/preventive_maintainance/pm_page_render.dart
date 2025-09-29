@@ -5,6 +5,7 @@ import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import '../../constants/app_images.dart';
 import '../../constants/constants_strings.dart';
 import '../../constants/constants_methods.dart';
@@ -265,16 +266,15 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   Future<void> _postPmDataToApi(final dataToPost) async {
     try {
-      if (await ConnectivityHelper.isConnected()) {
-        // Post data with photo ID replacement
-        await ServiceLocator().assetAuditPostService
-            .postAssetAuditDataWithPhotoReplacement(
-              requests: dataToPost,
-              activityType: ActivityTypeEnum.preventiveMaintenance,
-              isLastPage: _isLastPage,
-            );
-        Logger.infoLog('PM data posted successfully to API');
-      }
+      Logger.infoLog('PM data posting to API');
+      // Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: dataToPost,
+            activityType: ActivityTypeEnum.preventiveMaintenance,
+            isLastPage: _isLastPage,
+          );
+      Logger.infoLog('PM data posted successfully to API');
     } catch (e) {
       Logger.errorLog('Error posting PM data to API: $e');
     }
