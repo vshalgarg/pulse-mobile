@@ -22,8 +22,8 @@ class CustomSubmitButtonV2 extends StatelessWidget {
       child: ElevatedButton(
         onPressed: isLoading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primaryGreen,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.cmSubmitButtonColor,
+          foregroundColor: AppColors.buttonColorSite,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),

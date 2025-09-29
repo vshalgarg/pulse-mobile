@@ -1,6 +1,6 @@
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:flutter/material.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/generic_dropdown.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
@@ -95,12 +95,11 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
 
       print('🔄 [CCUChecklist] Loading checklist data for entityId: ${widget.entityId}');
       
-      final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
-        widget.entityId!,
-        'CCU',
-      );
+      // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
+      //   widget.entityId!,
+      // );
 
-      final ccuItems = response.getCCUChecklist();
+      final List<CMChecklistItem> ccuItems = [];
       
       // Debug: Check what we received
       print('📋 [CCUChecklist] Received ${ccuItems.length} CCU items');
@@ -186,7 +185,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
     final options = item.radioOptions ?? {'OK': 'OK', 'Not OK': 'Not OK'};
     final optionList = options.values.toList();
 
-    return GenericDropdown<String>(
+    return CustomDropdown(
       label: item.checklistDesc,
       items: optionList,
       initialValue: currentValue,
@@ -196,7 +195,6 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
         });
         widget.onFormChanged();
       },
-      hintText: "Select",
       isRequired: item.isMandatory,
     );
   }
@@ -205,6 +203,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
     final currentItems = _dynamicData[item.cmCheckListMstId] ?? [];
     
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -324,6 +323,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -368,6 +368,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isLoading)
                     const Center(

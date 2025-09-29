@@ -1,6 +1,6 @@
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:flutter/material.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/generic_dropdown.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
@@ -95,15 +95,12 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         _errorMessage = null;
       });
 
-      print('🔄 [BatteryChecklist] Loading checklist data for entityId: ${widget.entityId}');
-      
-      final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
-        widget.entityId!,
-        'BATTERY',
-      );
 
-      print('🔍 [BatteryChecklist] Response received: ${response.data}');
-      final batteryItems = response.getBatteryChecklist();
+      // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
+      //   widget.entityId!,
+      // );
+
+      final List<CMChecklistItem> batteryItems = [];
       print('📋 [BatteryChecklist] Battery items count: ${batteryItems.length}');
       
       // Debug: Check the type of items being returned
@@ -228,7 +225,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
     final options = item.radioOptions ?? {'OK': 'OK', 'Not OK': 'Not OK'};
     final optionList = options.values.toList();
 
-    return GenericDropdown<String>(
+    return CustomDropdown(
       label: item.checklistDesc,
       items: optionList,
       initialValue: currentValue,
@@ -238,7 +235,6 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         });
         widget.onFormChanged();
       },
-      hintText: "Select",
       isRequired: item.isMandatory,
     );
   }
@@ -246,12 +242,14 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
   Widget _buildDynamicDropdownField(CMChecklistItem item) {
     // For Battery field, show backend-driven data instead of dropdown selection
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Battery Serial Number Field (Backend-driven)
         Container(
           margin: const EdgeInsets.only(bottom: 15),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               RichText(
@@ -352,6 +350,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
     final controller = TextEditingController(text: defaultValue);
     
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         RichText(
@@ -415,6 +414,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -459,6 +459,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isLoading)
                     const Center(

@@ -12,6 +12,8 @@ class CustomFileUploadNew extends StatelessWidget {
   final bool isRequired;
   final String? acceptedFileTypes;
   final String? maxSizeText;
+  final List<File> uploadedFiles;
+  final Function(File) onFileDeleted;
 
   const CustomFileUploadNew({
     super.key,
@@ -22,6 +24,8 @@ class CustomFileUploadNew extends StatelessWidget {
     this.isRequired = false,
     this.acceptedFileTypes,
     this.maxSizeText,
+    this.uploadedFiles = const [],
+    required this.onFileDeleted,
   });
 
   Future<void> _pickFile(BuildContext context) async {
@@ -125,9 +129,10 @@ class CustomFileUploadNew extends StatelessWidget {
                     ),
                   )
                 : Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
                           Icons.upload_file,
@@ -174,7 +179,82 @@ class CustomFileUploadNew extends StatelessWidget {
           ),
         ),
         
+        // Uploaded Files List
+        if (uploadedFiles.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...uploadedFiles.map((file) => _buildUploadedFileItem(file)).toList(),
+        ],
+        
       ],
     );
+  }
+
+  Widget _buildUploadedFileItem(File file) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _getFileIcon(file.path),
+            size: 20,
+            color: AppColors.color555555,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _getFileName(file.path),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: AppColors.color555555,
+                fontFamily: fontFamilyMontserrat,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => onFileDeleted(file),
+            child: Icon(
+              Icons.delete_outline,
+              size: 20,
+              color: Colors.red.shade400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _getFileIcon(String path) {
+    final extension = path.split('.').last.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return Icons.image;
+      case 'txt':
+        return Icons.text_snippet;
+      default:
+        return Icons.insert_drive_file;
+    }
   }
 }

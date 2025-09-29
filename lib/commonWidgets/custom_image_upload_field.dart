@@ -200,10 +200,6 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
   @override
   Widget build(BuildContext context) {
-    Logger.imageLog('=== ImageUploadField build called ===');
-    Logger.imageLog('selectedImage: ${_selectedImage?.path}');
-    Logger.imageLog('externalImageUrl length: ${widget.externalImageUrl?.length ?? 0}');
-    Logger.imageLog('externalImageUrl preview: ${widget.externalImageUrl != null && widget.externalImageUrl!.length > 50 ? widget.externalImageUrl!.substring(0, 50) + "..." : widget.externalImageUrl}');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

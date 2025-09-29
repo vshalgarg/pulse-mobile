@@ -62,7 +62,7 @@ class AssetAuditPostService {
         );
         print("User is not connected to the internet, saving data locally");
       }
-      _updateMetadataInRequest(copiedRequests, finalLocation);
+      DataTransformationHelper.updateMetadataInRequest(copiedRequests, finalLocation);
       _postRequestsIfConnectedOrSaveToSqlite(
         copiedRequests,
         isConnected,
@@ -156,19 +156,6 @@ class AssetAuditPostService {
       await ServiceLocator().pendingRequestService.deleteRequest(requestId);
     } catch (e) {
       Logger.errorLog(e.toString());
-    }
-  }
-
-  void _updateMetadataInRequest(
-    List<dynamic> requests,
-    LocationModel location,
-  ) {
-    final time = Utils.getCurrentDateTimeForAPICall();
-    for (final request in requests) {
-      request['localCreatedDt'] = time;
-      request['localModifiedDt'] = time;
-      request['longitude'] = location.longitude;
-      request['latitude'] = location.latitude;
     }
   }
 

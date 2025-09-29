@@ -3,27 +3,31 @@ import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
 
-class CustomOptionSelector extends StatefulWidget {
+class CustomRadioButton extends StatefulWidget {
   final String? label;
   final List<OptionItem> options;
   final Function(String value)? onChanged;
   final String? initialValue;
   final bool isRequired;
+  final double horizontalSpacing;
+  final double iconTextSpacing;
 
-  const CustomOptionSelector({
+  const CustomRadioButton({
     super.key,
     this.label,
     required this.options,
     this.onChanged,
     this.initialValue,
     this.isRequired = false,
+    this.horizontalSpacing = 60.0,
+    this.iconTextSpacing = 15.0,
   });
 
   @override
-  State<CustomOptionSelector> createState() => _CustomOptionSelectorState();
+  State<CustomRadioButton> createState() => _CustomRadioButtonState();
 }
 
-class _CustomOptionSelectorState extends State<CustomOptionSelector> {
+class _CustomRadioButtonState extends State<CustomRadioButton> {
   String? selectedValue;
 
   @override
@@ -41,17 +45,13 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
         if(widget.label != null) ...[
           Row(
             children: [
-              Expanded(
-                child: Text(
-                  widget.label ?? '',
-                  style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w100,
-                      color: Colors.white,
-                      fontFamily: fontFamilyMontserrat
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
+              Text(
+                widget.label ?? '',
+                style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w100,
+                    color: Colors.white,
+                    fontFamily: fontFamilyMontserrat
                 ),
               ),
               if (widget.isRequired)
@@ -69,9 +69,11 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
         ],
         const SizedBox(height: 5),
 
-        // Options Row
-        Row(
-          children: widget.options.map((option) {
+        // Options Row - Horizontally Scrollable
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: widget.options.map((option) {
             final bool isSelected = option.value == selectedValue;
             return GestureDetector(
               onTap: () {
@@ -81,7 +83,7 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
                 }
               },
               child: Container(
-                margin: const EdgeInsets.only(right: 60),
+                margin: EdgeInsets.only(right: widget.horizontalSpacing),
                 child: Row(
                   children: [
                     // Custom circle or icon
@@ -89,7 +91,7 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
                         ? Icon(option.selectedIcon, color: AppColors.bulletIcon, size: 28)
                         : Icon(option.unselectedIcon, color: AppColors.bulletIcon, size: 28),
 
-                    const SizedBox(width: 15),
+                    SizedBox(width: widget.iconTextSpacing),
 
                     Text(
                       option.label,
@@ -105,6 +107,7 @@ class _CustomOptionSelectorState extends State<CustomOptionSelector> {
               ),
             );
           }).toList(),
+          ),
         ),
 
         // // Validation
@@ -136,8 +139,8 @@ class OptionItem {
   OptionItem({
     required this.value,
     required this.label,
-    required this.selectedIcon,
-    required this.unselectedIcon,
+    this.selectedIcon = Icons.radio_button_checked,
+    this.unselectedIcon = Icons.radio_button_unchecked,
   });
 }
 

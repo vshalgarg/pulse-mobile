@@ -4,9 +4,6 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import '../../utils/logger.dart';
-import 'central_data_service.dart';
-import 'central_api_service.dart';
-import '../image_upload_service.dart';
 
 class CentralAssetAuditService {
 

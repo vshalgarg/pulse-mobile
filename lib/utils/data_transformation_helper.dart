@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:app/models/location_model.dart';
+import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 
 /// Utility class for data transformations between different naming conventions
@@ -70,6 +72,19 @@ class DataTransformationHelper {
     });
     
     return result;
+  }
+
+  static void updateMetadataInRequest(
+      List<dynamic> requests,
+      LocationModel location,
+      ) {
+    final time = Utils.getCurrentDateTimeForAPICall();
+    for (final request in requests) {
+      request['localCreatedDt'] = time;
+      request['localModifiedDt'] = time;
+      request['longitude'] = location.longitude;
+      request['latitude'] = location.latitude;
+    }
   }
   
   /// Converts a single camelCase string to snake_case

@@ -1,6 +1,6 @@
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:flutter/material.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/generic_dropdown.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
@@ -118,12 +118,11 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
 
       print('🔄 [SMPS Checklist] Loading checklist data for entityId: ${widget.entityId}');
       
-      final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
-        widget.entityId!,
-        'SMPS',
-      );
+      // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
+      //   widget.entityId!,
+      // );
 
-      final smpsItems = response.getSMPSChecklist();
+      final List<CMChecklistItem> smpsItems = [];
       
       // Debug: Check what we received
       print('📋 [SMPS Checklist] Received ${smpsItems.length} SMPS items');
@@ -234,7 +233,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
     final options = item.radioOptions ?? {'OK': 'OK', 'Not OK': 'Not OK'};
     final optionList = options.values.toList();
 
-    return GenericDropdown<String>(
+    return CustomDropdown(
       label: item.checklistDesc,
       items: optionList,
       initialValue: currentValue,
@@ -244,7 +243,6 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
         });
         widget.onFormChanged();
       },
-      hintText: "Select",
       isRequired: item.isMandatory,
     );
   }
@@ -253,6 +251,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
     final currentItems = _dynamicData[item.cmCheckListMstId] ?? [];
     
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -372,6 +371,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -416,6 +416,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isLoading)
                     const Center(

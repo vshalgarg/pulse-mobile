@@ -35,6 +35,13 @@ class ApiLogger {
       _printJsonData(options.data);
     }
     
+    // Generate and print curl command
+    final curlCommand = _generateCurlCommand(options);
+    debugPrint('🌐 CURL Command:');
+    debugPrint('```bash');
+    debugPrint(curlCommand);
+    debugPrint('```');
+    
     debugPrint('${'=' * 80}\n');
     
     // Also log to file
@@ -161,6 +168,65 @@ class ApiLogger {
     return filtered;
   }
   
+  static String _generateCurlCommand(RequestOptions options) {
+    final buffer = StringBuffer();
+    
+    // Add curl command
+    buffer.write('curl -X ${options.method.toUpperCase()}');
+    
+    // Add URL
+    buffer.write(' "${options.uri}"');
+    
+    // Add headers
+    options.headers.forEach((key, value) {
+      buffer.write(' \\\n  -H "$key: $value"');
+    });
+    
+    // Add query parameters
+    if (options.queryParameters.isNotEmpty) {
+      final queryString = options.queryParameters.entries
+          .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
+          .join('&');
+      buffer.write(' \\\n  -G --data-urlencode "$queryString"');
+    }
+    
+    // Add request body
+    if (options.data != null) {
+      if (options.data is FormData) {
+        // Handle FormData specially
+        final formData = options.data as FormData;
+        
+        // Add form fields
+        formData.fields.forEach((field) {
+          buffer.write(' \\\n  --form-data "${field.key}=${field.value}"');
+        });
+        
+        // Add files
+        formData.files.forEach((file) {
+          buffer.write(' \\\n  --form-data "${file.key}=@${file.value.filename}"');
+        });
+      } else {
+        String bodyData;
+        if (options.data is String) {
+          bodyData = options.data as String;
+        } else {
+          try {
+            bodyData = const JsonEncoder.withIndent('').convert(options.data);
+          } catch (e) {
+            bodyData = options.data.toString();
+          }
+        }
+        
+        // Filter out large base64 data for curl command
+        bodyData = _filterImageData(bodyData);
+        
+        buffer.write(' \\\n  -d \'$bodyData\'');
+      }
+    }
+    
+    return buffer.toString();
+  }
+  
   static void logSimple(String message) {
     debugPrint('🔍 API: $message');
   }
@@ -175,15 +241,26 @@ class ApiLogger {
   
   // File logging methods
   static void _logRequestToFile(RequestOptions options) {
+    // Handle FormData specially for file logging
+    dynamic bodyData = options.data;
+    if (options.data is FormData) {
+      final formData = options.data as FormData;
+      bodyData = {
+        'type': 'FormData',
+        'fields': formData.fields.map((e) => {'key': e.key, 'value': e.value}).toList(),
+        'files': formData.files.map((e) => {'key': e.key, 'filename': e.value.filename}).toList(),
+      };
+    }
+    
     final data = {
       'method': options.method,
       'url': options.uri.toString(),
       'headers': options.headers,
       'queryParameters': options.queryParameters,
-      'body': options.data,
+      'body': bodyData,
     };
     FileLogger.logApiRequest(options.method, options.uri.toString(), 
-        headers: options.headers, body: options.data);
+        headers: options.headers, body: bodyData);
   }
   
   static void _logResponseToFile(Response response) {

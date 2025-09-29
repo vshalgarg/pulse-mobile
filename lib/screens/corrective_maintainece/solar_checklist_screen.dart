@@ -1,8 +1,8 @@
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_dropdown.dart';
 import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
@@ -118,6 +118,7 @@ class _SolarChecklistScreenState extends State<SolarChecklistScreen> {
           ),
           SafeArea(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Expanded(
                   child: SingleChildScrollView(
@@ -127,6 +128,7 @@ class _SolarChecklistScreenState extends State<SolarChecklistScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(16),
                       child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           if (_isLoadingData)
@@ -166,6 +168,7 @@ class _SolarChecklistScreenState extends State<SolarChecklistScreen> {
 
   Widget _buildFormFields() {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // General Solar Panel Information
         CustomFormField(
@@ -644,7 +647,7 @@ class _SolarChecklistScreenState extends State<SolarChecklistScreen> {
   }
 }
 
-// Widget for inline display in cm_create.dart
+// Widget for inline display in corrective_maintenance_screen.dart
 class SolarChecklistSection extends StatefulWidget {
   final VoidCallback onFormChanged;
 
@@ -738,6 +741,7 @@ class _SolarChecklistSectionState extends State<SolarChecklistSection> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Accordion Header
@@ -771,6 +775,7 @@ class _SolarChecklistSectionState extends State<SolarChecklistSection> {
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // General Solar Panel Information

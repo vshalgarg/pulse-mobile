@@ -9,6 +9,8 @@ class CustomDropdown extends StatefulWidget {
   final List<String> items;
   final String? initialValue;
   final ValueChanged<String?> onChanged;
+  final bool isDisabled;
+  final bool isRequired;
 
   const CustomDropdown({
     super.key,
@@ -16,6 +18,8 @@ class CustomDropdown extends StatefulWidget {
     required this.items,
     this.initialValue,
     required this.onChanged,
+    this.isDisabled = false,
+    this.isRequired = false,
   });
 
   @override
@@ -41,12 +45,12 @@ class _CustomDropdownState extends State<CustomDropdown> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.label != null)
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label!,
+        if (widget.label != null) ...[
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: widget.label ?? '',
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -54,19 +58,33 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     fontFamily: fontFamilyMontserrat,
                   ),
                 ),
-              ),
-            ],
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+              ],
+            ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
+        ],
+        const SizedBox(height: 5),
         const SizedBox(height: 5),
         DropdownButtonHideUnderline(
           child: DropdownButton2<String>(
             isExpanded: true,
-            hint: const Text(
-              'Select',
+            hint: Text(
+              widget.isDisabled ? 'Field disabled' : 'Select',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: AppColors.color555555,
+                color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
                 fontFamily: fontFamilyMontserrat,
               ),
             ),
@@ -83,7 +101,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 widget.items.contains(selectedValue))
                 ? selectedValue
                 : null,
-            onChanged: (value) {
+            onChanged: widget.isDisabled ? null : (value) {
               setState(() {
                 selectedValue = value;
               });
@@ -100,15 +118,22 @@ class _CustomDropdownState extends State<CustomDropdown> {
             buttonStyleData: ButtonStyleData(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
+                border: Border.all(
+                  color: widget.isDisabled ? Colors.grey.shade300 : Colors.grey,
+                ),
                 borderRadius: BorderRadius.circular(5),
-                color: Colors.white,
+                color: widget.isDisabled ? Colors.grey.shade100 : Colors.white,
               ),
             ),
-            iconStyleData: const IconStyleData(
-              icon: Icon(Icons.keyboard_arrow_down),
-              openMenuIcon: Icon(Icons.keyboard_arrow_up),
-              iconEnabledColor: AppColors.color555555,
+            iconStyleData: IconStyleData(
+              icon: Icon(
+                widget.isDisabled ? Icons.lock_outline : Icons.keyboard_arrow_down,
+                color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
+              ),
+              openMenuIcon: Icon(
+                Icons.keyboard_arrow_up,
+                color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
+              ),
             ),
           ),
         ),
@@ -127,4 +152,5 @@ class _CustomDropdownState extends State<CustomDropdown> {
 // hasUnsavedChanges = true;
 // });
 // },
+// ),
 // ),

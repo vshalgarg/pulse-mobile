@@ -6,6 +6,7 @@ import 'package:app/commonWidgets/dashBoard_appBar.dart';
 import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/screens/sqlite_query_screen.dart';
@@ -26,7 +27,10 @@ import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../utils/user_name_utils.dart';
-import '../screens/corrective_maintainece/cm_create.dart';
+import '../screens/corrective_maintainece/corrective_maintenance_screen.dart';
+import '../models/cm_site_model.dart';
+import '../services/service_locator.dart';
+import '../commonWidgets/loader_widget.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,6 +44,28 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     context.read<DashboardCubit>().getDashboardCount();
+  }
+
+  /// Loads sites data for corrective maintenance
+  Future<void> _loadSitesAndNavigateToCM() async {
+    try {
+      LoaderWidget.showLoader(context);
+      final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+      
+      if (mounted) {
+        LoaderWidget.hideLoader();
+        // Navigate to corrective maintenance screen with sites data
+        pushPage(context, CorrectiveMaintenanceScreen(
+          mode: CMScreenModeEnum.create,
+          preloadedSites: sites,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        LoaderWidget.hideLoader();
+        Toastbar.showErrorToastbar('Failed to load sites: $e', context);
+      }
+    }
   }
 
   /// Syncs offline data by checking pending requests and posting them to the server
@@ -98,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           FloatingActionButton(
+            heroTag: "sync_fab",
             onPressed: () {
               _syncOfflineData();
             },
@@ -107,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
+            heroTag: "log_viewer_fab",
             onPressed: () {
               pushPage(context, const LogViewerScreen());
             },
@@ -116,6 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
+            heroTag: "sqlite_fab",
             onPressed: () {
               pushPage(context, const SQLiteQueryScreen());
             },
@@ -918,7 +947,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           child: IconButton(
             onPressed: () {
-               pushPage(context, CorrectiveMaintenanceScreen());
+              _loadSitesAndNavigateToCM();
             },
             icon: Icon(Icons.add, color: AppColors.white, size: 24),
             padding: EdgeInsets.zero,

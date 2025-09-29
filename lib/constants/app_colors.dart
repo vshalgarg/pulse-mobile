@@ -333,6 +333,7 @@ class AppColors {
   static const Color pendingColor = Color(0xFFF5CB00);
   static const Color missedLineColor = Color(0xFFB24343);
   static const Color assignedColor = Color(0xFF8A38F5);
+  static const Color cmSubmitButtonColor = Color(0xFFDAF0E7);
   // static const Color transparent1Color = Color(0XFFFFFF40);
 
 

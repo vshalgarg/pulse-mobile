@@ -1,3 +1,9 @@
+import 'dart:io';
+
+import 'package:app/utils/data_transformation_helper.dart';
+import 'package:app/utils/logger.dart';
+import 'package:dio/dio.dart';
+
 import '../models/cm_site_model.dart';
 import '../services/api_service.dart';
 
@@ -8,76 +14,105 @@ class CMRepository {
 
   Future<List<CMSite>> getCMSitesDropdown() async {
     try {
-      print('🌐 [CMRepository] Starting CM Sites Dropdown API call...');
-      print('🌐 [CMRepository] API Path: /api/v1/mobile/cm/CmSitesDropdown');
-      print('🌐 [CMRepository] Base URL: ${_apiService.baseUrl}');
-      
       final response = await _apiService.get<List<dynamic>>(
         path: '/api/v1/mobile/cm/CmSitesDropdown',
       );
 
-      print('🔍 [CMRepository] Raw API Response:');
-      print('   - Status Code: ${response.statusCode}');
-      print('   - Is Success: ${response.isSuccess}');
-      print('   - Error Message: ${response.errorMessage}');
-      print('   - Data Type: ${response.data.runtimeType}');
-      print('   - Data: ${response.data}');
-
       if (response.isSuccess && response.data != null) {
-        print('✅ [CMRepository] API call successful, processing data...');
-        
+
         // Check if data is a list
         if (response.data is List) {
           final List<dynamic> rawData = response.data!;
-          print('📊 [CMRepository] Raw data count: ${rawData.length}');
-          
-          // Log first few items for debugging
-          if (rawData.isNotEmpty) {
-            print('📋 [CMRepository] First item structure:');
-            print('   - Type: ${rawData.first.runtimeType}');
-            print('   - Content: ${rawData.first}');
-            
-            // Check if it's a Map and has expected fields
-            if (rawData.first is Map<String, dynamic>) {
-              final Map<String, dynamic> firstItem = rawData.first;
-              print('🔍 [CMRepository] First item fields:');
-              firstItem.forEach((key, value) {
-                print('   - $key: $value (${value.runtimeType})');
-              });
-            }
-          }
-          
           final sites = rawData.map((siteJson) {
-            print('🔄 [CMRepository] Parsing site: $siteJson');
             try {
               final site = CMSite.fromJson(siteJson);
-              print('✅ [CMRepository] Parsed site: ${site.siteName} (ID: ${site.siteId})');
               return site;
             } catch (e) {
-              print('❌ [CMRepository] Error parsing site $siteJson: $e');
+              Logger.errorLog('[CMRepository] Error parsing site $siteJson: $e');
               rethrow;
             }
           }).toList();
-          
-          print('✅ [CMRepository] Successfully parsed ${sites.length} sites');
-          print('📝 [CMRepository] Site names: ${sites.map((s) => s.siteName).toList()}');
+          Logger.infoLog('[CMRepository] Site names: ${sites.map((s) => s.siteName).toList()}');
           return sites;
         } else {
-          print('❌ [CMRepository] Expected List but got ${response.data.runtimeType}');
+          Logger.errorLog('[CMRepository] Expected List but got ${response.data.runtimeType}');
           throw Exception('Invalid response format: expected List but got ${response.data.runtimeType}');
         }
       } else {
-        print('❌ [CMRepository] API call failed:');
-        print('   - Success: ${response.isSuccess}');
-        print('   - Error: ${response.errorMessage}');
-        print('   - Status Code: ${response.statusCode}');
+        Logger.errorLog('[CMRepository] API call failed: - Success: ${response.isSuccess} - Error: ${response.errorMessage} - Status Code: ${response.statusCode}');
         throw Exception('Failed to load sites: ${response.errorMessage}');
       }
     } catch (e) {
-      print('❌ [CMRepository] Exception occurred: $e');
-      print('❌ [CMRepository] Exception type: ${e.runtimeType}');
-      print('❌ [CMRepository] Stack trace: ${StackTrace.current}');
+      Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
       throw Exception('Failed to load sites: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getChecklistData(int entityId) async {
+    try {
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/mobile/correctiveMaintenance/checkListDtlForMobile/$entityId/ALL',
+      );
+      if (response.isSuccess && response.data != null) {
+        return response.data?['data'] as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to load checklist data: ${response.errorMessage}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> createCorrectiveMaintenance(Map<String, dynamic> requestData) async {
+    try {
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: '/api/v1/mobile/correctiveMaintenance',
+        data: requestData,
+      );
+      if(response.isSuccess && response.data != null) {
+        Logger.debugLog("response from creating cm: $response");
+        return response.data?['data'];
+      } else {
+        throw Exception("Error while saving data");
+      }
+    } catch(e) {
+      Logger.errorLog("Exception while creating corrective maintenance $e");
+      rethrow;
+    }
+  }
+
+  Future<void> saveCustomerPhotoAndAttachments(String cmSiteReqId, File customerPhoto,
+      File uploadedAttachment) async {
+    try {
+      final customerPhotoMultipartFile = await MultipartFile.fromFile(
+        customerPhoto.path,
+        filename: customerPhoto.path.split('/').last,
+      );
+
+      final uploadedAttachmentMultipartFile = await MultipartFile.fromFile(
+        uploadedAttachment.path,
+        filename: uploadedAttachment.path.split('/').last,
+      );
+
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: 'api/v1/mobile/correctiveMaintenance/upload',
+        data: {
+          'customerPhoto': customerPhotoMultipartFile,
+          'attachment': uploadedAttachmentMultipartFile,
+          'cmId': cmSiteReqId,
+        },
+        useFormDataFormat: true,
+      );
+      if(response.isSuccess && response.data != null) {
+        Logger.debugLog("response from uploading customer photo: $response");
+        //return response.data?['data'];
+      } else {
+        throw Exception("Error while saving data");
+      }
+    } catch(e) {
+      Logger.errorLog("Exception while uploading customer photo and attachments $e");
+      rethrow;
     }
   }
 }
