@@ -20,11 +20,11 @@ class PMPageWidget extends StatefulWidget {
   final Function(List<Map<String, dynamic>>) onDataChanged;
   final bool isLoading;
   final String? errorMessage;
-  final String? siteAuditSchId;
+  final Future<void> Function() submitDataWhenExit;
+  final String siteAuditSchId;
 
   const PMPageWidget({
     super.key,
-    this.siteAuditSchId,
     required this.pmItems,
     required this.readonlyFields,
     required this.pageTitle,
@@ -35,11 +35,12 @@ class PMPageWidget extends StatefulWidget {
     required this.onDataChanged,
     this.isLoading = false,
     this.errorMessage,
+    required this.submitDataWhenExit,
+    required this.siteAuditSchId,
   });
 
   // Convenience constructor that automatically determines readonly fields
   factory PMPageWidget.forSection({
-    required String siteAuditSchId,
     required List<Map<String, dynamic>> pmItems,
     required String sectionName,
     required String pageTitle,
@@ -51,9 +52,10 @@ class PMPageWidget extends StatefulWidget {
     bool isLoading = false,
     String? errorMessage,
     List<String>? customReadonlyFields,
+    required Future<void> Function() submitDataWhenExit,
+    required String siteAuditSchId,
   }) {
     return PMPageWidget(
-      siteAuditSchId: siteAuditSchId,
       pmItems: pmItems,
       readonlyFields:
           customReadonlyFields ??
@@ -66,6 +68,8 @@ class PMPageWidget extends StatefulWidget {
       onDataChanged: onDataChanged,
       isLoading: isLoading,
       errorMessage: errorMessage,
+      submitDataWhenExit: submitDataWhenExit,
+      siteAuditSchId: siteAuditSchId,
     );
   }
 
@@ -83,15 +87,30 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     _pmItems = List<Map<String, dynamic>>.from(widget.pmItems);
   }
 
-  void _onItemChanged(int index, Map<String, dynamic> updatedItem) {
-    setState(() {
-      _pmItems[index] = updatedItem;
-      _hasChanges = true;
-    });
+  @override
+  void dispose() {
+    // Clean up resources
+    super.dispose();
+  }
 
-    // Notify parent about data changes after the current build is complete
+  void _onItemChanged(int index, Map<String, dynamic> updatedItem) {
+    if (!mounted) return;
+
+    // Validate index bounds
+    if (index < 0 || index >= _pmItems.length) return;
+
+    // Update the item first
+    _pmItems[index] = updatedItem;
+    _hasChanges = true;
+
+    // Use addPostFrameCallback to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        setState(() {
+          // State is already updated above, just trigger rebuild
+        });
+        
+        // Notify parent about data changes
         widget.onDataChanged(_pmItems);
       }
     });
@@ -374,14 +393,17 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         siteAuditSchId: widget.siteAuditSchId,
         onSaveAndExit: () async {
           // Save data and then navigate back
-          widget.onDataChanged(_pmItems);
+          await widget.submitDataWhenExit();
+          
+          if (mounted) {
+            widget.onDataChanged(_pmItems);
+          }
           Navigator.pop(context);
         },
         onDiscard: () {
           Navigator.pop(context);
           Navigator.pop(context);
         },
-        // You can pass siteAuditSchId if available
         section: widget.pageTitle,
         parentContext: context,
       ),
