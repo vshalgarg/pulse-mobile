@@ -72,6 +72,25 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
     _dynamicData = {};
   }
 
+  // Helper method to get field names from childItemsData
+  Map<String, String> _getFieldNamesFromChildItems(CMChecklistItem item) {
+    final childItems = item.childitemData;
+    final fieldNames = <String, String>{};
+    
+    for (var childItem in childItems) {
+      if (childItem is Map<String, dynamic>) {
+        final fieldName = childItem['checklist_desc']?.toString() ?? '';
+        final impactedItemValueMap = childItem['impacted_item_value_map']?.toString() ?? '';
+        
+        if (fieldName.isNotEmpty && impactedItemValueMap.isNotEmpty) {
+          fieldNames[fieldName] = impactedItemValueMap;
+        }
+      }
+    }
+    
+    return fieldNames;
+  }
+
   @override
   void dispose() {
     for (var controller in _textControllers.values) {
@@ -123,12 +142,16 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
           if (item.respType == 'TEXT') {
             String defaultValue = '';
             
-            // Only set default values for SOC and SOH (child items), not for main fields
-            // Main fields like Make, Rating, No. of Not OK Batteries should be empty for user input
-            if (item.checklistDesc.toLowerCase().contains('soc')) {
-              defaultValue = '97';
-            } else if (item.checklistDesc.toLowerCase().contains('soh')) {
-              defaultValue = '100';
+            // Set default values based on field names from impacted_item_value_map
+            // This will work for any field that has a corresponding impacted_item_value_map
+            final fieldNames = _getFieldNamesFromChildItems(item);
+            if (fieldNames.containsKey(item.checklistDesc)) {
+              // Set default values based on field type or name
+              if (item.checklistDesc.toLowerCase().contains('soc')) {
+                defaultValue = '97';
+              } else if (item.checklistDesc.toLowerCase().contains('soh')) {
+                defaultValue = '100';
+              }
             }
             // Make, Rating, No. of Not OK Batteries will have empty defaultValue = ''
             
@@ -151,7 +174,8 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
               
               if (childItem.respType == 'TEXT') {
                 String childDefaultValue = '';
-                // Only set default values for SOC and SOH child items
+                
+                // Set default values based on field names from impacted_item_value_map
                 if (childItem.checklistDesc.toLowerCase().contains('soc')) {
                   childDefaultValue = '97';
                 } else if (childItem.checklistDesc.toLowerCase().contains('soh')) {
@@ -306,12 +330,26 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
           ),
         ),
         
-        // SOC Field (Backend-driven)
-        _buildBackendTextField("SOC", "97", item.cmCheckListMstId, 'soc'),
-        const SizedBox(height: 15),
-        
-        // SOH Field (Backend-driven)
-        _buildBackendTextField("SOH", "100", item.cmCheckListMstId, 'soh'),
+        // Dynamic fields based on childItemsData
+        ..._getFieldNamesFromChildItems(item).entries.map((entry) {
+          final fieldName = entry.key;
+          final fieldKey = entry.value;
+          String defaultValue = '';
+          
+          // Set default values based on field type
+          if (fieldName.toLowerCase().contains('soc')) {
+            defaultValue = '97';
+          } else if (fieldName.toLowerCase().contains('soh')) {
+            defaultValue = '100';
+          }
+          
+          return Column(
+            children: [
+              _buildBackendTextField(fieldName, defaultValue, item.cmCheckListMstId, fieldKey),
+              const SizedBox(height: 15),
+            ],
+          );
+        }).toList(),
         const SizedBox(height: 15),
         
         // Save Button
@@ -332,13 +370,14 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         // Scanned Battery List Header
         Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
-          child: const Row(
+          child: Row(
             children: [
-              Expanded(child: Text("Serial Number", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
-              Expanded(child: Text("Scanned", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
-              Expanded(child: Text("SOC", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
-              Expanded(child: Text("SOH", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
-              Expanded(child: Text("Edit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              const Expanded(child: Text("Serial Number", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              const Expanded(child: Text("Scanned", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              ..._getFieldNamesFromChildItems(item).keys.map((fieldName) => 
+                Expanded(child: Text(fieldName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)))
+              ).toList(),
+              const Expanded(child: Text("Edit", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
             ],
           ),
         ),

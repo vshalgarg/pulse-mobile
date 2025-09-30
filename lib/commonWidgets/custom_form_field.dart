@@ -145,10 +145,3 @@ class CustomFormField extends StatelessWidget {
     );
   }
 }
-
-// CustomFormField(
-// label: "Circle",
-// initialValue: "Haryana", // pre-filled
-// isRequired: true,
-// isEditable: false, // fixed value
-// ),

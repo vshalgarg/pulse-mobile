@@ -227,7 +227,7 @@ class _CorrectiveMaintenanceScreenState
           ChecklistPreviewWidget(
             key: ValueKey('checklist_${_selectedEquipmentType}_${_selectedSite?.entityId}'),
             equipmentType: _selectedEquipmentType,
-            checklistData: _checklistData,
+            checklistItemsByApi: _checklistData[_selectedEquipmentType],
             entityId: _selectedSite?.entityId.toString(),
             onChecklistDataChanged: (List<dynamic> updatedData) {
               setState(() {
@@ -241,6 +241,7 @@ class _CorrectiveMaintenanceScreenState
                 _impactedItemList = impactedItems;
               });
             },
+            originalCmImpactedItemMap: _checklistData['siteDeployedItems'] ?? {},
           ),
       ],
     );

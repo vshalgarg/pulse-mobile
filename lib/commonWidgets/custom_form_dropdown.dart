@@ -84,7 +84,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
+                color: widget.isDisabled ? AppColors.borderColorE0E0E0 : AppColors.color555555,
                 fontFamily: fontFamilyMontserrat,
               ),
             ),

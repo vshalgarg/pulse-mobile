@@ -68,7 +68,7 @@ class CMRepository {
     try {
 
       final response = await _apiService.get<Map<String, dynamic>>(
-        path: '/api/v1/mobile/correctiveMaintenance/$cmTicketId',
+        path: '/api/v1/mobile/correctiveMaintenanceForMobile/$cmTicketId',
       );
       if (response.isSuccess && response.data != null) {
         return response.data?['data'] as Map<String, dynamic>;
@@ -117,6 +117,36 @@ class CMRepository {
           'customerPhoto': customerPhotoMultipartFile,
           'attachment': uploadedAttachmentMultipartFile,
           'cmId': cmSiteReqId,
+        },
+        useFormDataFormat: true,
+      );
+      if(response.isSuccess && response.data != null) {
+        Logger.debugLog("response from uploading customer photo: $response");
+        //return response.data?['data'];
+      } else {
+        throw Exception("Error while saving data");
+      }
+    } catch(e) {
+      Logger.errorLog("Exception while uploading customer photo and attachments $e");
+      rethrow;
+    }
+  }
+
+  Future<void> saveRemarks(String cmSiteReqId, String remark, String status, File attachment) async {
+    try {
+      final uploadedAttachmentMultipartFile = await MultipartFile.fromFile(
+        attachment.path,
+        filename: attachment.path.split('/').last,
+      );
+
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: 'api/v1/mobile/correctiveMaintenance/upload',
+        data: {
+          'cmRemarksFile': uploadedAttachmentMultipartFile,
+          'cmId': cmSiteReqId,
+          'cmRemark': remark,
+          'cmStatus': status,
+          'cmRemarksId': 0,
         },
         useFormDataFormat: true,
       );

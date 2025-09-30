@@ -3,6 +3,7 @@ import 'dart:convert';
 class CMChecklistItem {
   final String checklistDesc;
   final String? respTypeValueMap;
+  final String? impactedItemValueMap;
   final int itemTypeId;
   final String respType;
   final String itemType;
@@ -16,6 +17,7 @@ class CMChecklistItem {
   CMChecklistItem({
     required this.checklistDesc,
     this.respTypeValueMap,
+    this.impactedItemValueMap,
     required this.itemTypeId,
     required this.respType,
     required this.itemType,
@@ -62,6 +64,7 @@ class CMChecklistItem {
     return CMChecklistItem(
       checklistDesc: checklistDesc,
       respTypeValueMap: respTypeValueMap.isNotEmpty ? respTypeValueMap : null,
+      impactedItemValueMap: json['impacted_item_value_map']?.toString(),
       itemTypeId: json['item_type_id'] ?? 0,
       respType: respType,
       itemType: json['item_type'] ?? '',

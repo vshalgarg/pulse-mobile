@@ -16,18 +16,18 @@ class CMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
   final List<String> readonlyFields;
   final Function(Map<String, dynamic>) onValueChanged;
-  final Map<String, dynamic> completeData;
   final Function(List<Map<String, dynamic>>) onImpactedItemListChanged;
   final List<Map<String,dynamic>> cmImpactedItemList;
+  final Map<String, dynamic> originalCmImpactedItemMap;
 
   const CMCustomWidget({
     super.key,
     required this.pmItem,
     required this.readonlyFields,
     required this.onValueChanged,
-    required this.completeData,
     required this.onImpactedItemListChanged,
     required this.cmImpactedItemList,
+    required this.originalCmImpactedItemMap,
   });
 
   @override
@@ -122,6 +122,23 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _dynamicDropdownData = widget.cmImpactedItemList.map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
+  // Helper method to get field names from childItemsData
+  Map<String, String> _getFieldNamesFromChildItems() {
+    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    final fieldNames = <String, String>{};
+    
+    for (var childItem in childItems) {
+      final fieldName = childItem['checklist_desc']?.toString() ?? '';
+      final impactedItemValueMap = childItem['impacted_item_value_map']?.toString() ?? '';
+      
+      if (fieldName.isNotEmpty && impactedItemValueMap.isNotEmpty) {
+        fieldNames[fieldName] = impactedItemValueMap;
+      }
+    }
+    
+    return fieldNames;
+  }
+
   void _notifyValueChanged() {
     widget.onValueChanged(_currentItem);
   }
@@ -163,7 +180,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   void _validateAndSetSerialNumber(String serialNo, bool isQrCodeScanned) {
-    final siteDeployedItems = widget.completeData['siteDeployedItems'] as Map<String, dynamic>? ?? {};
+    final siteDeployedItems = widget.originalCmImpactedItemMap as Map<String, dynamic>? ?? {};
     final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
     final deployedItems = siteDeployedItems[subItemType] as List<dynamic>? ?? [];
 
@@ -205,19 +222,27 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       }
     }
 
-    // Create data entry
+    // Get dynamic field names from childItemsData
+    final fieldNames = _getFieldNamesFromChildItems();
+    
+    // Create data entry with dynamic field names
     final dataEntry = {
       "cmImpactedItemId": 0,
       "itemInstanceId": _selectedItemData!['item_instance_id'],
       "mfgSerialNo": _selectedItemData!['mfg_serial_no'],
       "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
       "cmItemType": _selectedItemData!['item_type'],
-      "soc": _childFieldControllers['SOC']?.text ?? '',
-      "soh": _childFieldControllers['SOH']?.text ?? '',
-      "outputVoltage": 0,
       "isActive": true,
       "remarks": ""
     };
+    
+    // Add dynamic fields based on impacted_item_value_map
+    for (var entry in fieldNames.entries) {
+      final fieldName = entry.key;
+      final fieldKey = entry.value;
+      final controller = _childFieldControllers[fieldName];
+      dataEntry[fieldKey] = controller?.text ?? '';
+    }
 
     setState(() {
       if(_dynamicDropdownData.any((d) => d['mfgSerialNo'] == dataEntry['mfgSerialNo'])){
@@ -238,10 +263,18 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
 
   void _editDynamicDropdownItem(int index) {
     final item = _dynamicDropdownData[index];
+    final fieldNames = _getFieldNamesFromChildItems();
+    
     setState(() {
       _serialNumberController.text = item['mfgSerialNo']?.toString() ?? '';
-      _childFieldControllers['SOC']?.text = item['soc']?.toString() ?? '';
-      _childFieldControllers['SOH']?.text = item['soh']?.toString() ?? '';
+      
+      // Set values for dynamic fields based on impacted_item_value_map
+      for (var entry in fieldNames.entries) {
+        final fieldName = entry.key;
+        final fieldKey = entry.value;
+        final controller = _childFieldControllers[fieldName];
+        controller?.text = item[fieldKey]?.toString() ?? '';
+      }
     });
   }
 
@@ -372,7 +405,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   Widget _buildDynamicDropdownField() {
     final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
     
-    return Column(
+    return
+      Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE6F5EF).withOpacity(0.3)
+        ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+        child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Serial Number field with QR scanner
@@ -397,7 +437,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               isRequired: isMandatory,
             ),
           );
-        }).toList(),
+        }),
         
         // Save button
         Align(
@@ -414,9 +454,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         ),
         
         const SizedBox(height: 16),
-        
+
         // Data table
-        if (_dynamicDropdownData.isNotEmpty) ...[
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -439,13 +478,16 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     children: [
                       Expanded(flex: 2, child: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold))),
                       Expanded(child: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(child: Text('SOC', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(child: Text('SOH', style: TextStyle(fontWeight: FontWeight.bold))),
+                      ..._getFieldNamesFromChildItems().keys.map((fieldName) => 
+                        Expanded(child: Text(fieldName, style: TextStyle(fontWeight: FontWeight.bold)))
+                      ),
                       Expanded(child: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold))),
                     ],
                   ),
                 ),
                 // Table rows
+
+    if (_dynamicDropdownData.isNotEmpty) ...[
                 ..._dynamicDropdownData.asMap().entries.map((entry) {
                   final index = entry.key;
                   final item = entry.value;
@@ -464,12 +506,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                         Expanded(
                           child: Text(item['isScanned'] == true ? 'Yes' : 'No'),
                         ),
-                        Expanded(
-                          child: Text(item['soc']?.toString() ?? ''),
-                        ),
-                        Expanded(
-                          child: Text(item['soh']?.toString() ?? ''),
-                        ),
+                        ..._getFieldNamesFromChildItems().entries.map((entry) {
+                          final fieldKey = entry.value;
+                          return Expanded(
+                            child: Text(item[fieldKey]?.toString() ?? ''),
+                          );
+                        }),
                         Expanded(
                           child: IconButton(
                             icon: const Icon(Icons.edit, size: 20),
@@ -479,13 +521,15 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
+    ],
               ],
             ),
           ),
         ],
-      ],
-    );
+    ),
+          ),
+      );
   }
 
   Widget _buildFieldByType(String respType) {

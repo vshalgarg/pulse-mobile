@@ -195,7 +195,7 @@ class ImageUploadService {
   Future<String?> downloadImageUsingServerId(String serverId, ActivityTypeEnum activityType, String schId) async {
     try {
       // Download image from server first
-      final imageData = await _downloadFromServer(serverId);
+      final imageData = await downloadFromServer(serverId);
 
       // Check if record with this server_id already exists
       final existingRecord = await getImagesByServerId(serverId);
@@ -431,7 +431,7 @@ class ImageUploadService {
   }
 
   /// Download image from server
-  Future<String?> _downloadFromServer(String serverId) async {
+  Future<String?> downloadFromServer(String serverId) async {
     try {
       final response = await _apiService.get<List<dynamic>>(
         path: '/api/v1/mobile/allImageList?imgIds=$serverId',

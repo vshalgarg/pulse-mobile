@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:device_info_plus/device_info_plus.dart';
@@ -6,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -89,5 +91,31 @@ class Utils {
       print('Error getting token expiration: $e');
       return null;
     }
+  }
+
+  static Future<File?> buildImageFromBytesData(String byteData) async {
+    try {
+      final parts = byteData.split(',');
+      if (parts.length == 2 && parts[1].isNotEmpty) {
+        final base64Data = parts[1];
+        final bytes = base64Decode(base64Data);
+
+        // Get temporary directory
+        final tempDir = await getTemporaryDirectory();
+        
+        // Create a unique filename
+        final timestamp = DateTime.now().millisecondsSinceEpoch;
+        final fileName = 'image_$timestamp.jpg';
+        final file = File('${tempDir.path}/$fileName');
+        
+        // Write bytes to file
+        await file.writeAsBytes(bytes);
+        
+        return file;
+      }
+    } catch (e) {
+      print('Error creating file from bytes data: $e');
+    }
+    return null;
   }
 }

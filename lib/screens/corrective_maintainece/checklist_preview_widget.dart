@@ -4,20 +4,22 @@ import 'cm_custom_widget.dart';
 
 class ChecklistPreviewWidget extends StatefulWidget {
   final String equipmentType;
-  final Map<String, dynamic> checklistData;
+  final List<dynamic> checklistItemsByApi;
   final String? entityId;
   final Function(List<dynamic>)? onChecklistDataChanged;
   final Function (List<Map<String, dynamic>>) onImpactedItemListChanged;
   final List<Map<String, dynamic>> cmImpactedItemList;
+  final Map<String, dynamic> originalCmImpactedItemMap;
 
   const ChecklistPreviewWidget({
     super.key,
     required this.equipmentType,
-    required this.checklistData,
+    required this.checklistItemsByApi,
     this.entityId,
     this.onChecklistDataChanged,
     required this.onImpactedItemListChanged,
     required this.cmImpactedItemList,
+    required this.originalCmImpactedItemMap,
   });
 
   @override
@@ -38,7 +40,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
   void didUpdateWidget(ChecklistPreviewWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Re-initialize if checklistData has changed
-    if (oldWidget.checklistData != widget.checklistData || oldWidget.equipmentType != widget.equipmentType) {
+    if (oldWidget.checklistItemsByApi != widget.checklistItemsByApi || oldWidget.equipmentType != widget.equipmentType) {
       setState(() {
         _initializeChecklistData();
       });
@@ -48,7 +50,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
 
   void _initializeChecklistData() {
     try {
-      final data = widget.checklistData[widget.equipmentType] as List<dynamic>? ?? [];
+      final data = widget.checklistItemsByApi;
 
       // Convert the data to the format expected by pm_custom_widget
       _checklistItems = data.map((item) {
@@ -62,7 +64,6 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
               final valueMap = jsonDecode(valueMapStr) as Map<String, dynamic>;
               pmItem['resp_type_value_map'] = valueMap;
             } catch (e) {
-              print('Error parsing resp_type_value_map: $e');
               // Set default values if parsing fails
               if (pmItem['resp_type'] == 'RADIO') {
                 pmItem['resp_type_value_map'] = {"OK": "OK", "Not OK": "Not OK"};
@@ -181,7 +182,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
                                 _onItemChanged(index, updatedItem);
                               },
                               onImpactedItemListChanged: widget.onImpactedItemListChanged,
-                              completeData: widget.checklistData,
+                              originalCmImpactedItemMap: widget.originalCmImpactedItemMap,
                               cmImpactedItemList: widget.cmImpactedItemList,
                             ),
                           );
