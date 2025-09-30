@@ -20,7 +20,7 @@ class CentralAssetAuditService {
       return true;
     }
 
-    final apiData = await await ServiceLocator().centralApiService.fetchData(
+    final apiData = await ServiceLocator().centralApiService.fetchData(
       siteType: siteType,
       auditSchId: auditSchId,
       siteAuditSchId: siteAuditSchId,

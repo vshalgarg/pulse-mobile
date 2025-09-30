@@ -124,7 +124,7 @@ class _CorrectiveMaintenanceScreenState
 
     try {
       final checklistData = await ServiceLocator().cmRepository
-          .getChecklistData(selectedSite.entityId);
+          .getChecklistData(2485);
       setState(() {
         _checklistData = checklistData;
       });

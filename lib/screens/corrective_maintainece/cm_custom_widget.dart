@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:app/commonWidgets/custom_radio_options.dart';
+import 'package:app/commonWidgets/qr_screen_form_field.dart';
+import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
@@ -35,6 +37,12 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   String? _imageData;
   final TextEditingController _textController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  
+  // Dynamic dropdown specific variables
+  List<Map<String, dynamic>> _dynamicDropdownData = [];
+  final TextEditingController _serialNumberController = TextEditingController();
+  final Map<String, TextEditingController> _childFieldControllers = {};
+  Map<String, dynamic>? _selectedItemData;
 
   @override
   void initState() {
@@ -52,6 +60,8 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   void dispose() {
     _textController.dispose();
     _remarksController.dispose();
+    _serialNumberController.dispose();
+    _childFieldControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
   }
 
@@ -76,20 +86,25 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     // Initialize remarks value
     _remarksController.text = respValue?.toString() ?? '';
 
-    // Load image data if photo_id exists
-    if (_currentItem['photo_id'] != null) {
-      _loadImageFromPhotoId(_currentItem['photo_id'].toString());
+    // Initialize dynamic dropdown
+    if (respType == 'DYNAMIC_DROPDOWN') {
+      _initializeDynamicDropdown();
     }
   }
 
-  Future<void> _loadImageFromPhotoId(String photoId) async {
-    try {
-      if (photoId.isEmpty) return;
-      // TODO: Implement image loading logic
-      print('Loading image for photoId: $photoId');
-    } catch (e) {
-      print('Error loading image for photoId $photoId: $e');
+  void _initializeDynamicDropdown() {
+    // Initialize child field controllers
+    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    for (var childItem in childItems) {
+      final fieldName = childItem['checklist_desc']?.toString() ?? '';
+      if (fieldName.isNotEmpty) {
+        _childFieldControllers[fieldName] = TextEditingController();
+      }
     }
+    
+    // Initialize dynamic dropdown data from current item
+    final existingData = _currentItem['dynamicDropdownData'] as List<dynamic>? ?? [];
+    _dynamicDropdownData = existingData.map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
   void _notifyValueChanged() {
@@ -125,6 +140,129 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       _currentItem['resp'] = value;
     });
     _notifyValueChanged();
+  }
+
+  // Dynamic dropdown methods
+  void _onQRScanned(String scannedCode) {
+    // Find matching item in siteDeployedItems
+    final siteDeployedItems = _currentItem['siteDeployedItems'] as Map<String, dynamic>? ?? {};
+    final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
+    final deployedItems = siteDeployedItems[subItemType] as List<dynamic>? ?? [];
+    
+    Map<String, dynamic>? matchingItem = AssetAuditValidationHelper.findItemWithSerialNumber(scannedCode, deployedItems, true);
+    if (matchingItem != null) {
+      setState(() {
+        _selectedItemData = Map<String, dynamic>.from(matchingItem ?? {});
+        _serialNumberController.text = matchingItem?['mfg_serial_no']?.toString() ?? '';
+      });
+    } else {
+      Toastbar.showErrorToastbar('Serial number is invalid', context);
+    }
+  }
+
+  void _saveDynamicDropdownData() {
+    if (_selectedItemData == null) {
+      Toastbar.showErrorToastbar('Please scan a valid serial number first', context);
+      return;
+    }
+
+    // Validate child fields
+    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    for (var childItem in childItems) {
+      final fieldName = childItem['checklist_desc']?.toString() ?? '';
+      final isMandatory = childItem['is_mandatory'] == true;
+      final controller = _childFieldControllers[fieldName];
+      
+      if (isMandatory && (controller?.text.isEmpty ?? true)) {
+        Toastbar.showErrorToastbar('Please fill all mandatory fields', context);
+        return;
+      }
+    }
+
+    // Create data entry
+    final dataEntry = {
+      "cmImpactedItemId": 0,
+      "itemInstanceId": _selectedItemData!['item_instance_id'],
+      "mfgSerialNo": _selectedItemData!['mfg_serial_no'],
+      "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
+      "isScanned": true,
+      "cmItemType": _selectedItemData!['item_type'],
+      "soc": _childFieldControllers['SOC']?.text ?? '',
+      "soh": _childFieldControllers['SOH']?.text ?? '',
+      "outputVoltage": 0,
+      "isActive": true,
+      "remarks": ""
+    };
+
+    setState(() {
+      _dynamicDropdownData.add(dataEntry);
+      _currentItem['dynamicDropdownData'] = _dynamicDropdownData;
+    });
+
+    // Clear form
+    _serialNumberController.clear();
+    _childFieldControllers.values.forEach((controller) => controller.clear());
+    _selectedItemData = null;
+
+    _notifyValueChanged();
+    Toastbar.showSuccessToastbar('Data saved successfully', context);
+  }
+
+  void _editDynamicDropdownItem(int index) {
+    final item = _dynamicDropdownData[index];
+    setState(() {
+      _serialNumberController.text = item['mfgSerialNo']?.toString() ?? '';
+      _childFieldControllers['SOC']?.text = item['soc']?.toString() ?? '';
+      _childFieldControllers['SOH']?.text = item['soh']?.toString() ?? '';
+    });
+  }
+
+  void _updateDynamicDropdownItem(int index) {
+    if (_selectedItemData == null) {
+      Toastbar.showErrorToastbar('Please scan a valid serial number first', context);
+      return;
+    }
+
+    // Validate child fields
+    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    for (var childItem in childItems) {
+      final fieldName = childItem['checklist_desc']?.toString() ?? '';
+      final isMandatory = childItem['is_mandatory'] == true;
+      final controller = _childFieldControllers[fieldName];
+      
+      if (isMandatory && (controller?.text.isEmpty ?? true)) {
+        Toastbar.showErrorToastbar('Please fill all mandatory fields', context);
+        return;
+      }
+    }
+
+    // Update data entry
+    final updatedEntry = {
+      "cmImpactedItemId": _dynamicDropdownData[index]['cmImpactedItemId'],
+      "itemInstanceId": _selectedItemData!['item_instance_id'],
+      "mfgSerialNo": _selectedItemData!['mfg_serial_no'],
+      "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
+      "isScanned": true,
+      "cmItemType": _selectedItemData!['item_type'],
+      "soc": _childFieldControllers['SOC']?.text ?? '',
+      "soh": _childFieldControllers['SOH']?.text ?? '',
+      "outputVoltage": 0,
+      "isActive": true,
+      "remarks": ""
+    };
+
+    setState(() {
+      _dynamicDropdownData[index] = updatedEntry;
+      _currentItem['dynamicDropdownData'] = _dynamicDropdownData;
+    });
+
+    // Clear form
+    _serialNumberController.clear();
+    _childFieldControllers.values.forEach((controller) => controller.clear());
+    _selectedItemData = null;
+
+    _notifyValueChanged();
+    Toastbar.showSuccessToastbar('Data updated successfully', context);
   }
 
   Widget _buildDropdownField() {
@@ -250,6 +388,125 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     );
   }
 
+  Widget _buildDynamicDropdownField() {
+    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Serial Number field with QR scanner
+        SerialNumberField(
+          label: 'Battery - Serial Number',
+          controller: _serialNumberController,
+          onQRScanned: _onQRScanned,
+        ),
+        const SizedBox(height: 16),
+        
+        // Child fields (SOC, SOH, etc.)
+        ...childItems.map((childItem) {
+          final fieldName = childItem['checklist_desc']?.toString() ?? '';
+          final isMandatory = childItem['is_mandatory'] == true;
+          final controller = _childFieldControllers[fieldName];
+          
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: CustomFormField(
+              label: fieldName,
+              controller: controller,
+              isRequired: isMandatory,
+            ),
+          );
+        }).toList(),
+        
+        // Save button
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            onPressed: _saveDynamicDropdownData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+            child: const Text('Save'),
+          ),
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Data table
+        if (_dynamicDropdownData.isNotEmpty) ...[
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Column(
+              children: [
+                // Table header
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(8),
+                      topRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(flex: 2, child: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('SOC', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('SOH', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Expanded(child: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                  ),
+                ),
+                // Table rows
+                ..._dynamicDropdownData.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  
+                  return Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: Text(item['mfgSerialNo']?.toString() ?? ''),
+                        ),
+                        Expanded(
+                          child: Text(item['isScanned'] == true ? 'Yes' : 'No'),
+                        ),
+                        Expanded(
+                          child: Text(item['soc']?.toString() ?? ''),
+                        ),
+                        Expanded(
+                          child: Text(item['soh']?.toString() ?? ''),
+                        ),
+                        Expanded(
+                          child: IconButton(
+                            icon: const Icon(Icons.edit, size: 20),
+                            onPressed: () => _editDynamicDropdownItem(index),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildFieldByType(String respType) {
     switch (respType) {
       case 'DROPDOWN':
@@ -262,6 +519,8 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
         return _buildImageField();
       case 'REMARKS':
         return _buildRemarksField();
+      case 'DYNAMIC_DROPDOWN':
+        return _buildDynamicDropdownField();
       default:
         return Container(
           decoration: BoxDecoration(

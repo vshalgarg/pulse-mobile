@@ -64,6 +64,22 @@ class CMRepository {
     }
   }
 
+  Future<Map<String, dynamic>> getCmTicketData(int cmTicketId) async {
+    try {
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/mobile/correctiveMaintenance/correctiveMaintenance/$cmTicketId',
+      );
+      if (response.isSuccess && response.data != null) {
+        return response.data?['data'] as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to load checklist data: ${response.errorMessage}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> createCorrectiveMaintenance(Map<String, dynamic> requestData) async {
     try {
       final response = await _apiService.post<Map<String, dynamic>>(
