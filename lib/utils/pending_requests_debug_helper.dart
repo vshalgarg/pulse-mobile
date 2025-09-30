@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:app/services/pending_requests_service.dart';
 
 /// Helper class to debug pending requests functionality
@@ -30,7 +31,7 @@ class PendingRequestsDebugHelper {
         requestId: 'manual_test_${DateTime.now().millisecondsSinceEpoch}',
         url: '/test/manual/endpoint',
         headers: {'Content-Type': 'application/json'},
-        requestData: [{'test': 'manual_data', 'timestamp': DateTime.now().toIso8601String()}],
+        jsonEncodedRequestData: jsonEncode([{'test': 'manual_data', 'timestamp': DateTime.now().toIso8601String()}]),
       );
       print('✅ Test request added successfully');
     } catch (e) {

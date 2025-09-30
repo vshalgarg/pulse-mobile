@@ -96,7 +96,7 @@ index 0fd95e8..8ec500d 100644
 -          '$reportBaseUrl/run?' +
 -          '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
 -          'rp_login_userid=$userId&' +
-+          'https://pulseapi.premiumfreshers.com/reports/generate?' +
++          'https://pulseapi.nexgeninfra.com/reports/generate?' +
 +          'reportPath=$reportPath&' +
            'rp_tenant=$userId&' +
            'rp_sch_id=$ticketSchId&' +

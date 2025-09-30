@@ -186,21 +186,24 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
       final remarksData = finalBoundaryItems['remarks'] as List<dynamic>;
       final assetsData = finalBoundaryItems['assets'] as List<dynamic>;
 
-      final boundaryData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Boundary').first : null;
-      final overallSiteData = assetsData.isNotEmpty ?assetsData.where((data) => data['record_type'] == 'Overall Site').first : null;
+      final boundaryDataList = assetsData.where((data) => data['record_type'] == 'Boundary').toList();
+      final overallSiteDataList = assetsData.where((data) => data['record_type'] == 'Overall Site').toList();
+      
+      final boundaryData = boundaryDataList.isNotEmpty ? boundaryDataList.first : null;
+      final overallSiteData = overallSiteDataList.isNotEmpty ? overallSiteDataList.first : null;
 
-      if(_fencingAvailable == 'Yes' && _fencingPhotoId != null) {
+      if(_fencingAvailable == 'Yes' && _fencingPhotoId != null && boundaryData != null) {
         boundaryData['photo_id'] = _fencingPhotoId;
         modifiedData.add(boundaryData);
       }
 
-      if(_overallSiteAvailable == 'Yes' && _overallSitePhotoId != null) {
+      if(_overallSiteAvailable == 'Yes' && _overallSitePhotoId != null && overallSiteData != null) {
         overallSiteData['photo_id'] = _overallSitePhotoId;
         modifiedData.add(overallSiteData);
       }
-      if(_remarksController.text.isNotEmpty) {
+      if(_remarksController.text.isNotEmpty && remarksData.isNotEmpty) {
         remarksData.first['item_type_remark'] = _remarksController.text.toString();
-        modifiedData.add(remarksData);
+        modifiedData.add(remarksData.first);
       }
       // Collect all data to post
       final postObject = [...modifiedData];
@@ -436,6 +439,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
             onStatusChanged: _onFencingStatusChanged,
             siteAuditSchId: widget.siteAuditSchId,
             showStatus: true,
+            activityType: ActivityTypeEnum.assetAudit,
           ),
           getHeight(15),
         ],

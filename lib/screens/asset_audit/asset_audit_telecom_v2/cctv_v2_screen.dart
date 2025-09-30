@@ -122,7 +122,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           _isLoadingData = false;
           _assetAuditData = data;
           _displayFormData = formData;
-          hooterAvailableValue = hooterAssets.first?['asset_status']?.toString() ?? 'No';
+          hooterAvailableValue = hooterAssets.isNotEmpty ? (hooterAssets.first?['asset_status']?.toString() ?? 'No') : 'No';
           _showCCTVDetails = cctvAssets.isNotEmpty;
         });
 
@@ -175,8 +175,8 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
       
       final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      final finalCCTVAssets = finalData['assets'] as List<dynamic>? ?? [];
-      final finalHooterData = finalData['Hooter'] as List<dynamic>? ?? [];
+      final finalCCTVAssets = finalData?['assets'] as List<dynamic>? ?? [];
+      final finalHooterData = finalData?['Hooter'] as List<dynamic>? ?? [];
       
       // Collect modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];

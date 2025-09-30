@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/custom_asset_audit_form_section.dart';
+import 'package:app/commonWidgets/custom_er_form.dart';
 import 'package:app/commonWidgets/custom_radio_options.dart';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
@@ -444,7 +445,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _meterNoController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           hintText: 'EB Meter No',
         ),
         getHeight(15),
@@ -462,7 +463,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _consumerNoController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           hintText: 'Consumer No',
         ),
         getHeight(15),
@@ -544,7 +545,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         ),
         getHeight(15),
 
-        CustomAssetAuditFormSection(
+        CustomErForm(
           sectionTitle: "Energy Reading",
           showTitle: false,
           isInputEditable: false,

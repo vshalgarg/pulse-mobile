@@ -153,7 +153,7 @@ class CentralApiService {
       }
 
       final reportUrl =
-          'https://pulseapi.premiumfreshers.com/reports/generate?' +
+          'https://pulseapi.nexgeninfra.com//reports/generate?' +
           'reportPath=$reportPath&' +
           'rp_tenant=$userId&' +
           'rp_sch_id=$ticketSchId&' +
@@ -169,7 +169,7 @@ class CentralApiService {
       final filePath = await PdfDownloadService.downloadPdf(
         reportUrl: reportUrl,
         fileName: fileName,
-         token: token,
+        token: token,
       );
 
       if (filePath != null) {

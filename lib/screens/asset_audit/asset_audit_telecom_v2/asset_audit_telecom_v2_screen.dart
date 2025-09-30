@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
@@ -198,11 +201,19 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
   Future<void> _uploadSelfie() async {
     try {
       if (_selectedImage == null) {
-        showCustomToast(context, 'Please select an image first');
+        Toastbar.showErrorToastbar('Please select an image first', context);
         return;
       }
 
-      // Use the actual service to upload selfie
+      final isConnected = await ConnectivityHelper.isConnected();
+
+      // if (!isConnected) {
+      //   // No internet connection - save to local database
+      //   await _saveSelfieToLocalDB();
+      //   return;
+      // }
+
+      // Internet connected - upload to server
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
         imageFile: _selectedImage!,
@@ -222,6 +233,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           pageHeader['maker_selfie_image_id'] = imgId;
         }
       }
+
       if (imgId != null) {
         setState(() {
           _uploadedImgId = imgId;
@@ -237,6 +249,54 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
     } catch (e) {
       Logger.errorLog('❌ Error uploading selfie: $e');
       showCustomToast(context, 'Failed to upload selfie: $e');
+    }
+  }
+
+  Future<void> _saveSelfieToLocalDB() async {
+    try {
+      // Create selfie data for local storage
+      final selfieData = {
+        "siteAuditSchId": widget.siteAuditSchId,
+        "auditSchId": widget.auditSchId,
+        "siteType": widget.siteType,
+        "imageType": "selfie",
+        "imageFile": _selectedImage,
+        "uploadedAt": DateTime.now().toIso8601String(),
+        "isPending": true,
+      };
+
+      // Save to pending requests database
+      final url = '/api/v1/mobile/AssetAuditSiteResp?status=IN-PROGRESS';
+      final requestId =
+          'selfie_upload_${DateTime.now().millisecondsSinceEpoch}';
+
+      bool isSaved = await ServiceLocator().pendingRequestService
+          .savePendingRequest(
+            requestId: requestId,
+            url: url,
+            headers: {},
+            jsonEncodedRequestData: jsonEncode([selfieData]),
+          );
+
+      if (isSaved) {
+        Logger.infoLog("Selfie data saved to DB successfully");
+        print("Selfie data saved to DB successfully");
+
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+
+        Toastbar.showSuccessToastbar(
+          "Selfie saved offline. Will upload when connected.",
+          context,
+        );
+        Logger.debugLog('✅ Selfie saved offline with requestId: $requestId');
+      } else {
+        throw Exception('Failed to save selfie data to database');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error saving selfie to local DB: $e');
+      showCustomToast(context, 'Failed to save selfie offline: $e');
     }
   }
 
@@ -430,7 +490,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         CustomFormField(
           label: "Site Id",
           initialValue: _displayFormData?['siteCode'] ?? "N/A",
@@ -475,6 +535,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                         _hasFormDataChanges = true;
                       });
                       // Upload selfie to server
+
                       _uploadSelfie();
                     } else {
                       setState(() {

@@ -9,8 +9,6 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/toastbar.dart';
-import 'package:flutter/material.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 
 /// Service for posting asset audit data with photo ID replacement
 /// This service handles replacing local unique_id photo IDs with server_id
@@ -125,8 +123,8 @@ class AssetAuditPostService {
 
       Toastbar.showSuccessToastWithoutContext("Data saved to DB successfully");
     } else {
-      throw Exception('Failed to save data to database');
       print("Failed to save data to database");
+      throw Exception('Failed to save data to database');
     }
   }
 
@@ -178,12 +176,34 @@ class AssetAuditPostService {
     }
   }
 
-  /// Process a single asset audit request
   /// Replaces photo_id with server_id and adds photo_taken_ts
   Future<dynamic> _processRequestForImages(dynamic request) async {
     Logger.infoLog("Processing request for images: $request");
-    print("Processing request for images: $request");
+    
     try {
+      // Check if request is a List, if so, process each item
+      if (request is List) {
+        for (int i = 0; i < request.length; i++) {
+          request[i] = await _processSingleRequest(request[i]);
+        }
+        return request;
+      }
+      
+      // Process single request
+      return await _processSingleRequest(request);
+    } catch (e) {
+      Logger.errorLog("Error processing asset audit request: $e");
+      return request;
+    }
+  }
+
+  Future<dynamic> _processSingleRequest(dynamic request) async {
+    try {
+      // Check if request is a Map
+      if (request is! Map) {
+        return request; // Not a Map, return as-is
+      }
+
       // Check both snake_case and camelCase field names
       String? photoId = "";
 
@@ -236,8 +256,8 @@ class AssetAuditPostService {
         return request;
       }
     } catch (e) {
-      Logger.errorLog("Error processing asset audit request: $e");
-      print("Error processing asset audit request: $e");
+      Logger.errorLog("Error processing single request: $e");
+      print("Error processing single request: $e");
       return request;
     }
     Logger.infoLog("processAssetAuditRequest COMPLETED - returning: $request");
