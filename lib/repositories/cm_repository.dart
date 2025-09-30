@@ -68,7 +68,7 @@ class CMRepository {
     try {
 
       final response = await _apiService.get<Map<String, dynamic>>(
-        path: '/api/v1/mobile/correctiveMaintenance/correctiveMaintenance/$cmTicketId',
+        path: '/api/v1/mobile/correctiveMaintenance/$cmTicketId',
       );
       if (response.isSuccess && response.data != null) {
         return response.data?['data'] as Map<String, dynamic>;

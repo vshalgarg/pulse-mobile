@@ -16,12 +16,18 @@ class CMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
   final List<String> readonlyFields;
   final Function(Map<String, dynamic>) onValueChanged;
+  final Map<String, dynamic> completeData;
+  final Function(List<Map<String, dynamic>>) onImpactedItemListChanged;
+  final List<Map<String,dynamic>> cmImpactedItemList;
 
   const CMCustomWidget({
     super.key,
     required this.pmItem,
     required this.readonlyFields,
     required this.onValueChanged,
+    required this.completeData,
+    required this.onImpactedItemListChanged,
+    required this.cmImpactedItemList,
   });
 
   @override
@@ -52,9 +58,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Add listener for remarks controller
     _remarksController.addListener(() {
       _onRemarksChanged(_remarksController.text);
-    });
-    _serialNumberController.addListener(() {
-     _onSerialNumberFieldChanged(_serialNumberController.text);
     });
   }
 
@@ -115,10 +118,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         _childFieldControllers[fieldName] = TextEditingController();
       }
     }
-    
-    // Initialize dynamic dropdown data from current item
-    final existingData = _currentItem['dynamicDropdownData'] as List<dynamic>? ?? [];
-    _dynamicDropdownData = existingData.map((item) => Map<String, dynamic>.from(item)).toList();
+
+    _dynamicDropdownData = widget.cmImpactedItemList.map((item) => Map<String, dynamic>.from(item)).toList();
   }
 
   void _notifyValueChanged() {
@@ -156,17 +157,13 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _notifyValueChanged();
   }
 
-  void _onSerialNumberFieldChanged(String value) {
-    _validateAndSetSerialNumber(value, false);
-  }
-
   // Dynamic dropdown methods
   void _onQRScanned(String scannedCode) {
     _validateAndSetSerialNumber(scannedCode, true);
   }
 
   void _validateAndSetSerialNumber(String serialNo, bool isQrCodeScanned) {
-    final siteDeployedItems = _currentItem['siteDeployedItems'] as Map<String, dynamic>? ?? {};
+    final siteDeployedItems = widget.completeData['siteDeployedItems'] as Map<String, dynamic>? ?? {};
     final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
     final deployedItems = siteDeployedItems[subItemType] as List<dynamic>? ?? [];
 
@@ -177,14 +174,22 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         _serialNumberController.text = matchingItem['mfg_serial_no']?.toString() ?? '';
       });
     } else {
-      Toastbar.showErrorToastbar('Serial number is invalid', context);
+      if(isQrCodeScanned) {
+        Toastbar.showErrorToastbar('Serial number is invalid', context);
+      }
     }
   }
 
   void _saveDynamicDropdownData() {
     if (_selectedItemData == null) {
+      if(_serialNumberController.text.isNotEmpty) {
+        _validateAndSetSerialNumber(_serialNumberController.text, false);
+      }
+      if(_selectedItemData == null) {
       Toastbar.showErrorToastbar('Please scan a valid serial number', context);
       return;
+
+      }
     }
 
     // Validate child fields
@@ -215,9 +220,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     };
 
     setState(() {
+      if(_dynamicDropdownData.any((d) => d['mfgSerialNo'] == dataEntry['mfgSerialNo'])){
+        _dynamicDropdownData.removeWhere((d) => d['mfgSerialNo'] == dataEntry['mfgSerialNo']);
+      }
       _dynamicDropdownData.add(dataEntry);
-      _currentItem['dynamicDropdownData'] = _dynamicDropdownData;
     });
+    widget.onImpactedItemListChanged.call(_dynamicDropdownData);
 
     // Clear form
     _serialNumberController.clear();

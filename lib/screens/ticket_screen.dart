@@ -2,7 +2,9 @@ import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
+import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/logger.dart';
@@ -224,7 +226,7 @@ class _TicketScreenState extends State<TicketScreen> {
 
     switch (_currentActivityType) {
       case ActivityTypeEnum.correctiveMaintenance:
-        Navigator.pushNamed(context, correctiveMaintenanceScreen);
+        _navigateToCmWorkflow(ticket);
         break;
      default:
         _navigateToWorkflow(ticket);
@@ -233,65 +235,21 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _navigateToCmWorkflow(Ticket ticket) async {
-    // try {
-    //   LoaderWidget.showLoader(context);
-    //   // Determine site type - check if it's solar or telecom
-    //   final siteType = ticket.siteDomainName ?? 'Solar';
-    //   Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
-    //
-    //   // Use ServiceLocator - no initialization check needed!
-    //   final service = ServiceLocator().cmRepository;
-    //   final isAvailable = await service.getDataFromApiAndSaveToSqlite(
-    //     siteType: siteType,
-    //     auditSchId: ticket.auditSchId?.toString() ?? "",
-    //     siteAuditSchId: ticket.ticketSchId.toString(),
-    //     latitude: ticket.latitude ?? 0,
-    //     longitude: ticket.longitude ?? 0,
-    //     activityType: _currentActivityType,
-    //   );
-    //   if (!isAvailable) {
-    //     Toastbar.showErrorToastbar("Failed to load data", context);
-    //     return;
-    //   }
-    //   final data = await service.getDataFromSqlite(
-    //     siteAuditSchId: ticket.ticketSchId.toString(),
-    //   );
-    //   if (data == null) {
-    //     Toastbar.showErrorToastbar("Failed to load data", context);
-    //     return;
-    //   }
-    //   if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
-    //     Navigator.push(
-    //       context,
-    //       MaterialPageRoute(
-    //         builder: (context) => PMPageRender(pmData: data.apiData),
-    //       ),
-    //     );
-    //   } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
-    //     Navigator.push(
-    //       context,
-    //       MaterialPageRoute(
-    //         builder: (context) => EnergyReadingScreen(
-    //           siteType: ticket.siteDomainName ?? "Telecom",
-    //           auditSchId: ticket.auditSchId?.toString() ?? "",
-    //           siteAuditSchId: ticket.ticketSchId.toString(),
-    //           siteId: ticket.ticketSchId.toString(),
-    //         ),
-    //       ),
-    //     );
-    //   } else {
-    //     AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
-    //       siteType: siteType,
-    //       auditSchId: ticket.auditSchId?.toString() ?? "",
-    //       siteAuditSchId: ticket.ticketSchId.toString(),
-    //       context: context,
-    //     );
-    //   }
-    // } catch (e) {
-    //   Toastbar.showErrorToastbar("Failed to load data", context);
-    // } finally {
-    //   LoaderWidget.hideLoader();
-    // }
+    try {
+      LoaderWidget.showLoader(context);
+      // Determine site type - check if it's solar or telecom
+      final siteType = ticket.siteDomainName ?? 'Solar';
+      Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
+      final data = await ServiceLocator().cmRepository.getCmTicketData(ticket.ticketSchId);
+      pushPage(context, CorrectiveMaintenanceScreen(
+        mode: CMScreenModeEnum.edit,
+        preloadedSiteData: data,
+      ));
+    } catch (e) {
+      Toastbar.showErrorToastbar("Failed to load data", context);
+    } finally {
+      LoaderWidget.hideLoader();
+    }
   }
 
   Future<bool> _isTicketDownloaded(Ticket ticket) async {

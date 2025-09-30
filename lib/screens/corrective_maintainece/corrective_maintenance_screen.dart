@@ -31,11 +31,13 @@ import '../../../models/cm_site_model.dart';
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
   final List<CMSite>? preloadedSites;
+  final Map<String, dynamic>? preloadedSiteData;
 
   const CorrectiveMaintenanceScreen({
     super.key,
     required this.mode,
     this.preloadedSites,
+    this.preloadedSiteData,
   });
 
   @override
@@ -82,6 +84,7 @@ class _CorrectiveMaintenanceScreenState
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
   Map<String, dynamic> _checklistData = {};
+  List<Map<String, dynamic>> _impactedItemList = [];
 
   bool _hasFormDataChanges = false;
 
@@ -89,7 +92,34 @@ class _CorrectiveMaintenanceScreenState
   void initState() {
     super.initState();
     // Use preloaded sites if available, otherwise load them
-    _siteOptions = widget.preloadedSites!;
+    if(widget.preloadedSites != null) {
+      _siteOptions = widget.preloadedSites!;
+    } {
+      Map<String, dynamic> preloadedSite = widget.preloadedSiteData!;
+      CMSite site = new CMSite(
+          siteId: preloadedSite['siteId'],
+          entityId: 0,
+          siteCode: "",
+          siteName: "",
+          clusterDistrictId: 0,
+          clusterDistrictName: "",
+          circleStateId: 0,
+          circleStateName: "",
+          self: "",
+          selfId: 0);
+      _siteOptions = [site];
+      controllers['site_id']!.text = preloadedSite['siteId'];
+      controllers['responsible_party']!.text = preloadedSite['siteId'];
+      controllers['assigned_to']!.text = preloadedSite['siteId'];
+      controllers['oem_ticket_id']!.text = preloadedSite['siteId'];
+      controllers['nature_of_failure']!.text = preloadedSite['siteId'];
+      controllers['action_taken']!.text = preloadedSite['siteId'];
+      controllers['rca']!.text = preloadedSite['siteId'];
+      controllers['customer_name']!.text = preloadedSite['siteId'];
+      controllers['contact_no']!.text = preloadedSite['siteId'];
+      controllers['customer_remarks']!.text = preloadedSite['siteId'];
+      controllers['problem_summary']!.text = preloadedSite['siteId'];
+    }
   }
 
   void _initializeTicketControllers(CMSite site) {
@@ -203,6 +233,12 @@ class _CorrectiveMaintenanceScreenState
               setState(() {
                 _onFormChanged();
                 _checklistData[_selectedEquipmentType] = updatedData;
+              });
+            },
+            cmImpactedItemList: _impactedItemList,
+            onImpactedItemListChanged: (List<Map<String, dynamic>> impactedItems) {
+              setState(() {
+                _impactedItemList = impactedItems;
               });
             },
           ),
@@ -477,40 +513,52 @@ class _CorrectiveMaintenanceScreenState
   }
 
   void _submitFormData() async {
-    Logger.debugLog("vishal printing $_checklistData");
-    final requestData = <String, dynamic>{};
-    for(var entry in controllers.entries) {
-      requestData[entry.key] = entry.value.text;
-    }
-    if (controllers['responsible_party']!.text == 'OEM') {
-      requestData['assigned_to'] = _selectedSite!.oemId;
-    } else if (controllers['responsible_party']!.text == 'Self') {
-      requestData['assigned_to'] = _selectedSite!.selfId;
-    }
-    requestData['cm_site_req_id'] = 0;
-    requestData['cm_impacted_item_list'] = [];
-    final selectedCheckListData = _checklistData[_selectedEquipmentType];
-    LocationModel finalLocation;
+    try {
+      LoaderWidget.showLoader(context);
+      Logger.debugLog("vishal printing $_checklistData");
+      final requestData = <String, dynamic>{};
+      for (var entry in controllers.entries) {
+        requestData[entry.key] = entry.value.text;
+      }
+      if (controllers['responsible_party']!.text == 'OEM') {
+        requestData['assigned_to'] = _selectedSite!.oemId;
+      } else if (controllers['responsible_party']!.text == 'Self') {
+        requestData['assigned_to'] = _selectedSite!.selfId;
+      }
+      requestData['cm_site_req_id'] = 0;
+      requestData['cm_impacted_item_list'] = _impactedItemList;
+      final selectedCheckListData = _checklistData[_selectedEquipmentType];
+      LocationModel finalLocation;
 
-    try {
-      finalLocation = await LocationService.getCurrentLocation();
-      DataTransformationHelper.updateMetadataInRequest(selectedCheckListData, finalLocation);
-    } catch (e) {
-      Logger.infoLog('Error getting location: $e');
-      Toastbar.showErrorToastbar(ExceptionConstants.UNABLE_TO_GET_LOCATION, context);
-      return;
-    }
-    requestData['cm_check_list_site_resp_list'] = DataTransformationHelper.convertListToCamelCase(selectedCheckListData);
-    Logger.infoLog("requestData: $requestData");
-    try {
-      Map<String, dynamic> processedData = DataTransformationHelper.convertKeysToCamelCase(requestData);
-      Map<String, dynamic> response = await ServiceLocator().cmRepository.createCorrectiveMaintenance(processedData);
-      String cmSiteReqId = response['cmSiteReqId'].toString();
-      await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(cmSiteReqId, customerPhoto!, _uploadedAttachments.first);
-      Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-    } catch(e) {
-      Logger.errorLog(e.toString());
-      Toastbar.showErrorToastbar("Failed to save the form", context);
+      try {
+        finalLocation = await LocationService.getCurrentLocation();
+        DataTransformationHelper.updateMetadataInRequest(
+            selectedCheckListData, finalLocation);
+      } catch (e) {
+        Logger.infoLog('Error getting location: $e');
+        Toastbar.showErrorToastbar(
+            ExceptionConstants.UNABLE_TO_GET_LOCATION, context);
+        return;
+      }
+      requestData['cm_check_list_site_resp_list'] =
+          DataTransformationHelper.convertListToCamelCase(
+              selectedCheckListData);
+      Logger.infoLog("requestData: $requestData");
+      try {
+        Map<String, dynamic> processedData = DataTransformationHelper
+            .convertKeysToCamelCase(requestData);
+        Map<String, dynamic> response = await ServiceLocator().cmRepository
+            .createCorrectiveMaintenance(processedData);
+        String cmSiteReqId = response['cmSiteReqId'].toString();
+        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+            cmSiteReqId, customerPhoto!, _uploadedAttachments.first);
+        Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+      } catch (e) {
+        Logger.errorLog(e.toString());
+        Toastbar.showErrorToastbar("Failed to save the form", context);
+      }
+    } finally {
+      LoaderWidget.hideLoader();
     }
 
   }

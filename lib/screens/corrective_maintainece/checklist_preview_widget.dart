@@ -7,6 +7,8 @@ class ChecklistPreviewWidget extends StatefulWidget {
   final Map<String, dynamic> checklistData;
   final String? entityId;
   final Function(List<dynamic>)? onChecklistDataChanged;
+  final Function (List<Map<String, dynamic>>) onImpactedItemListChanged;
+  final List<Map<String, dynamic>> cmImpactedItemList;
 
   const ChecklistPreviewWidget({
     super.key,
@@ -14,6 +16,8 @@ class ChecklistPreviewWidget extends StatefulWidget {
     required this.checklistData,
     this.entityId,
     this.onChecklistDataChanged,
+    required this.onImpactedItemListChanged,
+    required this.cmImpactedItemList,
   });
 
   @override
@@ -45,11 +49,11 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
   void _initializeChecklistData() {
     try {
       final data = widget.checklistData[widget.equipmentType] as List<dynamic>? ?? [];
-      
+
       // Convert the data to the format expected by pm_custom_widget
       _checklistItems = data.map((item) {
         final Map<String, dynamic> pmItem = Map<String, dynamic>.from(item);
-        
+
         // Parse resp_type_value_map for radio and dropdown options
         if (pmItem['resp_type'] == 'RADIO' || pmItem['resp_type'] == 'DROPDOWN') {
           final valueMapStr = pmItem['resp_type_value_map']?.toString();
@@ -68,21 +72,21 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
             }
           }
         }
-        
+
         // Add required fields for pm_custom_widget compatibility
         pmItem['pm_check_list_site_resp_id'] = pmItem['item_type_id'] ?? DateTime.now().millisecondsSinceEpoch;
         pmItem['site_audit_sch_id'] = widget.entityId;
-        
+
         return pmItem;
       }).toList();
-      
+
       // Sort by cl_order
       _checklistItems.sort((a, b) {
         final orderA = a['cl_order'] as int? ?? 0;
         final orderB = b['cl_order'] as int? ?? 0;
         return orderA.compareTo(orderB);
       });
-      
+
     } catch (e) {
     }
   }
@@ -147,7 +151,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
               ],
             ),
           ),
-          
+
           // Content
           if (_isExpanded)
             Container(
@@ -166,7 +170,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
                         ..._checklistItems.asMap().entries.map((entry) {
                           final index = entry.key;
                           final checklistItem = entry.value;
-                          
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
                             child: CMCustomWidget(
@@ -176,6 +180,9 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
                               onValueChanged: (updatedItem) {
                                 _onItemChanged(index, updatedItem);
                               },
+                              onImpactedItemListChanged: widget.onImpactedItemListChanged,
+                              completeData: widget.checklistData,
+                              cmImpactedItemList: widget.cmImpactedItemList,
                             ),
                           );
                         }).toList(),
