@@ -192,9 +192,9 @@ class _CorrectiveMaintenanceScreenState
           ),
           const SizedBox(height: 8),
         ],
-        
+
         if (_selectedEquipmentType.isNotEmpty)
-            ChecklistPreviewWidget(
+          ChecklistPreviewWidget(
             key: ValueKey('checklist_${_selectedEquipmentType}_${_selectedSite?.entityId}'),
             equipmentType: _selectedEquipmentType,
             checklistData: _checklistData,
@@ -272,16 +272,16 @@ class _CorrectiveMaintenanceScreenState
       mainAxisSize: MainAxisSize.min,
       children: [
         CustomDropdown(
-          label: "Site Name",
-          items: _siteOptions.map((o) => o.siteName).toList(),
-          initialValue: _selectedSite?.siteName ?? '',
-          onChanged: (selectedSiteName) async {
-            if(selectedSiteName != null) {
-              await _onSiteSelected(_siteOptions.firstWhere((o) => o.siteName == selectedSiteName));
-            }
-          },
-          isRequired: true,
-          isDisabled: widget.mode != CMScreenModeEnum.create
+            label: "Site Name",
+            items: _siteOptions.map((o) => o.siteName).toList(),
+            initialValue: _selectedSite?.siteName ?? '',
+            onChanged: (selectedSiteName) async {
+              if(selectedSiteName != null) {
+                await _onSiteSelected(_siteOptions.firstWhere((o) => o.siteName == selectedSiteName));
+              }
+            },
+            isRequired: true,
+            isDisabled: widget.mode != CMScreenModeEnum.create
         ),
         getHeight(15),
 
@@ -314,17 +314,17 @@ class _CorrectiveMaintenanceScreenState
         getHeight(15),
 
         CustomDropdown(
-          label: "Responsible Party",
-          items: _responsiblePartyOptions,
-          initialValue: controllers['responsible_party']!.text,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              controllers['responsible_party']!.text = value ?? "";
-              _onFormChanged();
-            });
-          },
-          isDisabled: widget.mode != CMScreenModeEnum.create
+            label: "Responsible Party",
+            items: _responsiblePartyOptions,
+            initialValue: controllers['responsible_party']!.text,
+            isRequired: true,
+            onChanged: (value) {
+              setState(() {
+                controllers['responsible_party']!.text = value ?? "";
+                _onFormChanged();
+              });
+            },
+            isDisabled: widget.mode != CMScreenModeEnum.create
         ),
         getHeight(15),
 
@@ -345,17 +345,17 @@ class _CorrectiveMaintenanceScreenState
         getHeight(15),
 
         CustomDropdown(
-          label: "Priority",
-          items: _priorityOptions,
-          initialValue: controllers['priority']!.text,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              controllers['priority']!.text = value ?? "";
-              _onFormChanged();
-            });
-          },
-          isDisabled: widget.mode != CMScreenModeEnum.create
+            label: "Priority",
+            items: _priorityOptions,
+            initialValue: controllers['priority']!.text,
+            isRequired: true,
+            onChanged: (value) {
+              setState(() {
+                controllers['priority']!.text = value ?? "";
+                _onFormChanged();
+              });
+            },
+            isDisabled: widget.mode != CMScreenModeEnum.create
         ),
         getHeight(15),
 
@@ -363,17 +363,17 @@ class _CorrectiveMaintenanceScreenState
         getHeight(15),
 
         CustomDropdown(
-          label: "Nature of Failure",
-          items: _natureOfFailureOptions,
-          initialValue: controllers['nature_of_failure']!.text,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              controllers['nature_of_failure']!.text = value ?? "";
-              _onFormChanged();
-            });
-          },
-          isDisabled: widget.mode == CMScreenModeEnum.view
+            label: "Nature of Failure",
+            items: _natureOfFailureOptions,
+            initialValue: controllers['nature_of_failure']!.text,
+            isRequired: true,
+            onChanged: (value) {
+              setState(() {
+                controllers['nature_of_failure']!.text = value ?? "";
+                _onFormChanged();
+              });
+            },
+            isDisabled: widget.mode == CMScreenModeEnum.view
         ),
         getHeight(15),
 
