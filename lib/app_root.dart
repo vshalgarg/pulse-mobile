@@ -60,14 +60,12 @@ class AppRoot extends StatelessWidget {
           Provider<AuditScheduleRepository>.value(value: config.auditScheduleRepository),
           ChangeNotifierProvider(create: (context) => LocaleProvider()),
           ChangeNotifierProvider(create: (context) => ThemeProvider()),
-          // ChangeNotifierProvider(create: (context) => ProviderDemoProvider(config.cartItemService)),
         ],
         builder: (context, child) {
           final localeProvider = Provider.of<LocaleProvider>(context);
           final themeProvider = Provider.of<ThemeProvider>(context);
           return initMaterialApp(localeProvider, themeProvider);
         },
-        // child: initMaterialApp(),
       ),
     );
   }
@@ -77,35 +75,35 @@ class AppRoot extends StatelessWidget {
       onTap: () {
         FocusManager.instance.primaryFocus?.unfocus();
       },
-      child: MaterialApp(
-        title: 'Nexgen',
-        scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {
-          PointerDeviceKind.mouse,
-          PointerDeviceKind.touch,
-          PointerDeviceKind.stylus,
-          PointerDeviceKind.unknown
-        }),
-        localizationsDelegates: const [
-          // AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: L10n.all,
-        locale: localeProvider!.locale,
-        debugShowCheckedModeBanner: false,
-        navigatorKey: navigatorKey,
-        builder: (context, child) {
-          return FToastBuilder()(
-            context,
-            GlobalLoadingOverlay(child: child!),
-          );
-        },
-        themeMode: ThemeMode.system,
-        theme: MyThemes.lightThemeMustard,
-        // home: const CartScreen(),
-        // initialRoute: homeScreen,
-        onGenerateRoute: (settings) => generateRoute(settings),
+      child: WillPopScope(
+        onWillPop: () async => false, // Disable Android back button
+        child: MaterialApp(
+          title: 'Nexgen',
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {
+            PointerDeviceKind.mouse,
+            PointerDeviceKind.touch,
+            PointerDeviceKind.stylus,
+            PointerDeviceKind.unknown
+          }),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: L10n.all,
+          locale: localeProvider!.locale,
+          builder: (context, child) {
+            return FToastBuilder()(
+              context,
+              GlobalLoadingOverlay(child: child!),
+            );
+          },
+          themeMode: ThemeMode.system,
+          theme: MyThemes.lightThemeMustard,
+          onGenerateRoute: generateRoute, // 🚀 uses _noSwipeRoute inside
+        ),
       ),
     );
   }

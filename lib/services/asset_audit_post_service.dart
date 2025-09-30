@@ -8,6 +8,8 @@ import 'package:app/utils.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/toastbar.dart';
+import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
 /// Service for posting asset audit data with photo ID replacement
@@ -31,15 +33,15 @@ class AssetAuditPostService {
       } catch (e) {
         Logger.infoLog('Error getting location: $e');
         print("Error getting location: $e");
+        Toastbar.showErrorWithoutContext(
+          "Please enable your location first to proceed further.",
+        );
+
         rethrow;
       }
-
-      print("finalLocation: $finalLocation");
-
       // Check internet connectivity
       final isConnected = await ConnectivityHelper.isConnected();
       Logger.infoLog("user is connected to internet: $isConnected");
-      print("user is connected to internet: $isConnected");
 
       //create deep copy of requests so that actual data preserves
       List<dynamic> copiedRequests = jsonDecode(jsonEncode(requests));
@@ -47,20 +49,17 @@ class AssetAuditPostService {
         Logger.debugLog(
           "User is connected to the internet, trying to post the data",
         );
-        print("User is connected to the internet, trying to post the data");
+
         try {
           await _processRequestsForImages(copiedRequests);
           Logger.debugLog("data after processing images: $copiedRequests");
-          print("data after processing images: $copiedRequests");
         } catch (e) {
           Logger.errorLog("error in processing images: $e");
-          print("error in processing images: $e");
         }
       } else {
         Logger.debugLog(
           "User is not connected to the internet, saving data locally",
         );
-        print("User is not connected to the internet, saving data locally");
       }
       _updateMetadataInRequest(copiedRequests, finalLocation);
       _postRequestsIfConnectedOrSaveToSqlite(
@@ -124,7 +123,7 @@ class AssetAuditPostService {
       Logger.infoLog("Data saved to DB successfully");
       print("Data saved to DB successfully");
 
-      Fluttertoast.showToast(msg: "Data saved to DB successfully");
+      Toastbar.showSuccessToastWithoutContext("Data saved to DB successfully");
     } else {
       throw Exception('Failed to save data to database');
       print("Failed to save data to database");
@@ -138,6 +137,7 @@ class AssetAuditPostService {
       data: DataTransformationHelper.convertListToCamelCase(requests),
     );
     if (response.isSuccess && response.data != null) {
+      Toastbar.showSuccessToastWithoutContext("Data posted successfully");
       Logger.infoLog("Data posted successfully");
     } else {
       throw Exception((response.errorMessage ?? 'Unknown error from server'));

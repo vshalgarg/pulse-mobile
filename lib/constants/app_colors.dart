@@ -339,7 +339,7 @@ class AppColors {
   static const Color dashboardTextColor = Color(0xFF00373E);
   static const Color dashboardIconBoxColor = Color(0xFFE3FFF5);
   static const Color cmPlusButton = Color.fromARGB(0, 243, 227, 82);
-  static const Color isComingSoonColor = Color.fromARGB(255, 225, 64, 64);
+  static const Color isComingSoonColor = Color(0xFFFF5247);
 
   static const Color myTickets = Color(0xFFC7FFE9);
   static const Color myTicketsSelected = Color(0xFF009663);

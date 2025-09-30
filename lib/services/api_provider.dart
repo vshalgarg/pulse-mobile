@@ -118,9 +118,7 @@ class ApiProvider {
           return handler.next(response);
         },
         onError: (DioException e, handler) async {
-          // Log the error
-
-          // Fluttertoast.showToast(msg: 'Error: ${e.response?.statusCode}');
+         
           ApiLogger.logError(e);
 
           // Hide loading indicator on error

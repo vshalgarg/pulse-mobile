@@ -62,33 +62,26 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Center(
-                  child: Image.asset(AppImages.pulseImg),
-                  // Container(
-                  //   height: 50,
-                  //   margin: const EdgeInsets.only(bottom: 30),
-                  //   child: Lottie.asset(
-                  //     'assets/lottie/pulse.json',
-                  //     controller: _controller,
-                  //     onLoaded: (composition) {
-                  //       _controller
-                  //         ..duration = composition.duration
-                  //         ..forward();
-                  //     },
-                  //     fit: BoxFit.contain,
-                  //     repeat: true,
-                  //     animate: true,
-                  //   ),
-                  // ),
-                ),
-                const Text(
-                  "Managing Telecom, Decommission,\nInstallation & Warehouses",
-                  style: TextStyle(
-                    color: AppColors.textColorWelcome,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: poppins,
+                  child: Image.asset(
+                    AppImages.pulseImg,
+                    width: 159,
+                    height: 55,
                   ),
-                  textAlign: TextAlign.center,
+                ),
+
+                getHeight(10),
+                SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    "Managing Telecom, Decommission,\nInstallation & Warehouses",
+                    style: TextStyle(
+                      color: AppColors.textColorWelcome,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: poppins,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
                 getHeight(50),
                 _buildTickRow("Capture & submit site data."),
@@ -115,22 +108,26 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   }
 
   Widget _buildTickRow(String text) {
-    return Row(
-      children: [
-        SvgPicture.asset(AppImages.tickIcon),
-        getWidth(10),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: AppColors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w400,
-              fontFamily: poppins,
-            ),
+
+    return Container(
+  margin: const EdgeInsets.only(left: 20),
+  child: Row(
+    children: [
+      SvgPicture.asset(AppImages.tickIcon),
+      getWidth(10),
+      Expanded(
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.white,
+            fontSize: 17,
+            fontWeight: FontWeight.w400,
+            fontFamily: poppins,
           ),
         ),
-      ],
-    );
-  }
+      ),
+    ],
+  ),
+);
+      }
 }

@@ -1,13 +1,17 @@
 import 'package:app/commonWidgets/custom_asset_audit_form_section.dart';
 import 'package:app/commonWidgets/custom_radio_options.dart';
+import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/screens/pulse_dashboard.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
-import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -15,6 +19,7 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/custom_dropdown.dart';
 import '../../../constants/app_images.dart';
+import '../../../constants/app_colors.dart';
 
 class EnergyReadingDetailScreen extends StatefulWidget {
   final String siteAuditSchId;
@@ -36,7 +41,6 @@ class EnergyReadingDetailScreen extends StatefulWidget {
 }
 
 class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
-  final String _screenName = 'ENERGY_READING';
   bool _hasFormDataChanges = false;
 
   String? _ERImageID;
@@ -129,13 +133,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       await ServiceLocator().assetAuditPostService
           .postAssetAuditDataWithPhotoReplacement(
             requests: [energyReading],
-
-            isLastPage:
-                AssetAuditNavigationHelper.getSolarNextScreenName(
-                  null,
-                  _screenName,
-                ) ==
-                'SUBMIT',
+            isLastPage: true,
             activityType: ActivityTypeEnum.energyReading,
           );
 
@@ -144,6 +142,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     } catch (e) {
       Logger.errorLog("❌ Error posting Energy Reading: $e");
       print("❌ Error posting Energy Reading: $e");
+      // Re-throw the error so it can be caught by the calling method
+      rethrow;
     }
   }
 
@@ -182,6 +182,94 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     super.dispose();
   }
 
+  bool _validateFormFields() {
+    // Check dropdown selections
+    if (_selectedStatus == null || _selectedStatus!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Status is required", context);
+      return false;
+    }
+
+    if (_selectedMeterType == null || _selectedMeterType!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Type is required", context);
+      return false;
+    }
+
+    if (_selectedConnectionType == null || _selectedConnectionType!.isEmpty) {
+      Toastbar.showErrorToastbar("Connection Type is required", context);
+      return false;
+    }
+
+    if (_selectedEbConnectionType == null ||
+        _selectedEbConnectionType!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Connection Type is required", context);
+      return false;
+    }
+
+    // Check text fields
+    if (_meterNoController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter No is required", context);
+      return false;
+    }
+
+    if (_ebMeterReadingController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Reading is required", context);
+      return false;
+    }
+
+    if (_consumerNoController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Consumer No is required", context);
+      return false;
+    }
+
+    if (_ebKwhInSebMeterController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KWH in SEB Meter is required", context);
+      return false;
+    }
+
+    if (_ebKvaInSebMeterController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KVH in SEB Meter is required", context);
+      return false;
+    }
+
+    if (_ebKwhInCcuController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KWH in CCU is required", context);
+      return false;
+    }
+
+    if (_ebKvhInCcuController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KVH in CCU is required", context);
+      return false;
+    }
+
+    if (_voltageController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Voltage is required", context);
+      return false;
+    }
+
+    if (_loadController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Load (Amps) is required", context);
+      return false;
+    }
+
+    if (_selectedBatteryStatus == null || _selectedBatteryStatus!.isEmpty) {
+      Toastbar.showErrorToastbar(
+        "Any Major Hazardous Punch Point is required",
+        context,
+      );
+      return false;
+    }
+
+    // Check if photo is selected
+    if (_ERImageID == null || _ERImageID!.isEmpty) {
+      Toastbar.showErrorToastbar("Energy Reading photo is required", context);
+      return false;
+    }
+
+     
+
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -215,19 +303,74 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                     ),
                   ),
                 ),
-                AssetAuditSolarBottomButtons(
-                  isLoading: false,
-                  errorMessage: null,
-                  onNextButtonClick: () async {
-                    if (_hasFormDataChanges) {
-                      await postCurrentScreenData();
-                    }
-                  },
-                  assetAuditData: null,
-                  auditSchId: widget.auditSchId,
-                  siteType: widget.siteType,
-                  siteAuditSchId: widget.siteAuditSchId,
-                  screenName: _screenName,
+                // Bottom buttons matching AssetAuditTelecomBottomButtons design
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(color: Colors.transparent),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ArrowButton(
+                          text: "Back",
+                          isLeftArrow: true,
+                          backgroundColor: AppColors.buttonColorBackBg,
+                          textColor: AppColors.buttonColorTextBg,
+                          onPressed: () {
+                            AssetAuditNavigationHelper.navigateToHomeScreen(
+                              context,
+                            );
+                          },
+                        ),
+                      ),
+                      getWidth(14),
+                      Expanded(
+                        child: ArrowButton(
+                          text: "Submit",
+                          isLeftArrow: false,
+                          backgroundColor: AppColors.buttonColorBg,
+                          textColor: AppColors.buttonColorSite,
+                          onPressed: () async {
+                            // Validate form fields first
+                            if (!_validateFormFields()) {
+                              return; // Stop execution if validation fails
+                            }
+
+                            if (_hasFormDataChanges) {
+                              LoaderWidget.showLoader(context);
+                              bool dataSavedSuccessfully = false;
+                              
+                              try {
+                                await postCurrentScreenData();
+                                dataSavedSuccessfully = true;
+                              } catch (e) {
+                                Toastbar.showErrorToastbar(
+                                  "Error saving data: $e",
+                                  context,
+                                );
+                                // Don't navigate on error - stay on current screen
+                                return;
+                              } finally {
+                                LoaderWidget.hideLoader();
+                              }
+                              
+                              // Only navigate if data was saved successfully
+                              if (dataSavedSuccessfully) {
+                                AssetAuditNavigationHelper.navigateToHomeScreen(
+                                  context,
+                                );
+                              }
+                            } else {
+                              // No changes, just navigate
+                              AssetAuditNavigationHelper.navigateToHomeScreen(
+                                context,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

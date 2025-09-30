@@ -111,20 +111,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text(
-                                    "LOGIN TO",
-                                    style: TextStyle(
-                                      color: AppColors.textWhite,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: poppins,
-                                    ),
-                                  ),
                                   const SizedBox(height: 10),
                                   pulseContainer(),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 30),
                                   Text(
-                                    "Empowering energy and connectivity — securely and sustainably.",
+                                    "Empowering connectivity and energy — securely and sustainably.",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: AppColors.textWhite70,
@@ -134,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       fontStyle: FontStyle.italic,
                                     ),
                                   ),
-                                  const SizedBox(height: 30),
+                                  const SizedBox(height: 60),
                                   mobileNumberField(),
                                   const SizedBox(height: 10),
                                   passwordField(),
@@ -195,9 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget pulseContainer() {
-    return Image.asset(AppImages.pulseImg);
-
-    
+    return Image.asset(AppImages.pulseImg, width: 159, height: 55);
   }
 
   Widget mobileNumberField() {

@@ -29,22 +29,16 @@ import 'services/log_push_config.dart';
 // Global config variable
 AppConfig? globalConfig;
 
+
+
+
 // prod main file
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
-  // SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-  //   // systemNavigationBarColor: Color(0xFF000000),
-  //   // systemNavigationBarIconBrightness: Brightness.light,
-  //   // systemNavigationBarDividerColor: null,
-  //   statusBarColor: AppColors.whiteColor,
-  //   statusBarIconBrightness: Brightness.light,
-  //   statusBarBrightness: Brightness.light,
-  // )
-  // );
-  // for loading data before running application
+
   await init();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
@@ -79,18 +73,6 @@ Future<void> main() async {
     await FileLogger.info('Log push service started');
   }
   
-  // Initialize form persistence helper with API provider
-  print('🔧 Initializing AssetAuditFormPersistenceHelperSQLite...');
-  print('✅ AssetAuditFormPersistenceHelperSQLite initialized');
-
-  // stripe
-  // if (!kIsWeb) {
-  //   Stripe.publishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY']!;
-  //   Stripe.merchantIdentifier = 'merchant.flutter.stripe.test';
-  //   Stripe.urlScheme = 'flutterstripe';
-  //   await Stripe.instance.applySettings();
-  // }
-
   HttpOverrides.global = MyHttpOverrides();
   Bloc.observer = GlobalBlocObserver();
   

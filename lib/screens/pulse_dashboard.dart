@@ -167,7 +167,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Hello ${UserNameUtils.getUserDisplayName()},',
+            'Hello ${UserNameUtils.getUserDisplayName()}, ',
 
             style: const TextStyle(
               fontSize: 24,
@@ -178,8 +178,20 @@ class _PulseDashboardState extends State<PulseDashboard> {
           const SizedBox(height: 8),
           const Text(
             "Here's a quick look at your tasks.",
+
             style: TextStyle(
               fontSize: 16,
+              color: Colors.white,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+
+          const SizedBox(height: 5),
+          const Text(
+            "Version 0.0.1",
+
+            style: TextStyle(
+              fontSize: 8,
               color: Colors.white,
               fontWeight: FontWeight.w400,
             ),
@@ -237,6 +249,25 @@ class _PulseDashboardState extends State<PulseDashboard> {
               iconPath: AppImages.inspection,
               label: 'General Inspection',
               onTap: () => _navigateToTask('General Inspection'),
+              isComingSoon: true,
+            ),
+
+            _buildTaskCard(
+              iconPath: AppImages.project,
+              label: 'Project',
+              onTap: () => _navigateToTask('Project'),
+              isComingSoon: true,
+            ),
+            _buildTaskCard(
+              iconPath: AppImages.warehouse,
+              label: 'Warehouse',
+              onTap: () => _navigateToTask('Warehouse'),
+              isComingSoon: true,
+            ),
+            _buildTaskCard(
+              iconPath: AppImages.theft,
+              label: 'Theft',
+              onTap: () => _navigateToTask('Theft'),
               isComingSoon: true,
             ),
           ],
@@ -341,9 +372,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
   void _navigateToMyTickets() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const MyTicketsScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const MyTicketsScreen()),
     );
   }
 
