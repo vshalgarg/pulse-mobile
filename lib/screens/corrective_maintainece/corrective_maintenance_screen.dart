@@ -11,6 +11,7 @@ import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/corrective_maintainece/checklist_preview_widget.dart';
 import 'package:app/services/location_service.dart';
+import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
@@ -70,19 +71,26 @@ class _CorrectiveMaintenanceScreenState
   final TextEditingController _clusterDistrictController = TextEditingController();
   final TextEditingController _customerController = TextEditingController();
 
+  final TextEditingController _statusController = TextEditingController();
+  final TextEditingController _remarksController = TextEditingController();
+
   // 👇 Dropdown selections
   CMSite? _selectedSite;
   String _selectedEquipmentType = "DG";
 
+  int? cmSiteReqId;
+
   File? customerPhoto;
   String customerPhotoByteData = "";
   final List<File> _uploadedAttachments = [];
+  final List<File> _remarksAttachments = [];
 
   // 👇 Dropdown options
   List<CMSite> _siteOptions = [];
   final List<String> _priorityOptions = ['Critical', 'Non Critical'];
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
+  final List<String> _statusOptions = ['Open', 'In Progress', 'Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
 
@@ -94,47 +102,90 @@ class _CorrectiveMaintenanceScreenState
     // Use preloaded sites if available, otherwise load them
     if(widget.preloadedSites != null) {
       _siteOptions = widget.preloadedSites!;
-    } {
+    } else {
       Map<String, dynamic> preloadedSite = widget.preloadedSiteData!;
-      CMSite site = new CMSite(
-          siteId: preloadedSite['siteId'],
-          entityId: 0,
-          siteCode: "",
-          siteName: "",
+      cmSiteReqId = preloadedSite['cm_site_req_id'];
+      CMSite site = CMSite(
+          siteId: preloadedSite['site_id'],
+          entityId: preloadedSite['entity_id'],
+          siteCode: preloadedSite['site_code'],
+          siteName: preloadedSite['site_name'],
           clusterDistrictId: 0,
-          clusterDistrictName: "",
+          clusterDistrictName: preloadedSite['site_code'],
           circleStateId: 0,
-          circleStateName: "",
-          self: "",
-          selfId: 0);
+          circleStateName: preloadedSite['site_code'],
+          self: preloadedSite['site_code'],
+          selfId: preloadedSite['assigned_to']);
       _siteOptions = [site];
-      controllers['site_id']!.text = preloadedSite['siteId'];
-      controllers['responsible_party']!.text = preloadedSite['siteId'];
-      controllers['assigned_to']!.text = preloadedSite['siteId'];
-      controllers['oem_ticket_id']!.text = preloadedSite['siteId'];
-      controllers['nature_of_failure']!.text = preloadedSite['siteId'];
-      controllers['action_taken']!.text = preloadedSite['siteId'];
-      controllers['rca']!.text = preloadedSite['siteId'];
-      controllers['customer_name']!.text = preloadedSite['siteId'];
-      controllers['contact_no']!.text = preloadedSite['siteId'];
-      controllers['customer_remarks']!.text = preloadedSite['siteId'];
-      controllers['problem_summary']!.text = preloadedSite['siteId'];
+      _initializeTicketControllers(preloadedSite);
+      _onSiteSelected(site);
     }
   }
 
-  void _initializeTicketControllers(CMSite site) {
-//TODO initialise default values
+  void _loadImages(Map<String, dynamic> preloadedSite) async {
+    if(preloadedSite['customer_photo_id'] != null) {
+      String? customerPhotoByteDataLocal = await ServiceLocator()
+          .imageUploadService
+          .downloadFromServer(preloadedSite['customer_photo_id'].toString());
 
+      if (customerPhotoByteDataLocal != null) {
+        setState(() {
+          customerPhotoByteData = customerPhotoByteDataLocal;
+        });
+      }
+    }
+    if(preloadedSite['customer_attachment_id'] != null) {
+      String? attachmentByteData = await ServiceLocator().imageUploadService
+          .downloadFromServer(
+          preloadedSite['customer_attachment_id'].toString());
+
+      if (attachmentByteData != null) {
+        File? imageFile = await Utils.buildImageFromBytesData(
+            attachmentByteData);
+        if (imageFile != null) {
+          setState(() {
+            _uploadedAttachments.add(imageFile);
+          });
+        }
+      }
+    }
+  }
+
+  void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
+    controllers['responsible_party']!.text = preloadedSite['responsible_party'];
+    controllers['assigned_to']!.text = preloadedSite['responsible_party'];
+    controllers['priority']!.text = preloadedSite['priority'];
+    controllers['oem_ticket_id']!.text = preloadedSite['oem_ticket_id'];
+    controllers['nature_of_failure']!.text = preloadedSite['nature_of_failure'];
+    controllers['action_taken']!.text = preloadedSite['action_taken'];
+    controllers['rca']!.text = preloadedSite['rca'];
+    controllers['customer_name']!.text = preloadedSite['customer_name'];
+    controllers['contact_no']!.text = preloadedSite['contact_no'];
+    controllers['customer_remarks']!.text = preloadedSite['customer_remarks'];
+    controllers['problem_summary']!.text = preloadedSite['problem_summary'];
+    setState(() {
+      if(preloadedSite['is_dg']!= null && preloadedSite['is_dg'] == true) {
+        _selectedEquipmentType = 'DG';
+      } else if(preloadedSite['is_battery']!= null && preloadedSite['is_battery'] == true) {
+        _selectedEquipmentType = 'Battery';
+      } else if(preloadedSite['is_ccu']!= null && preloadedSite['is_ccu'] == true) {
+        _selectedEquipmentType = 'CCU';
+      } else if(preloadedSite['is_smps']!= null && preloadedSite['is_smps'] == true) {
+        _selectedEquipmentType = 'SMPS';
+      } else if(preloadedSite['is_solar']!= null && preloadedSite['is_solar'] == true) {
+        _selectedEquipmentType = 'Solar';
+      }
+    });
+    _loadImages(preloadedSite);
+    _statusController.text = 'Open';
+    controllers['responsible_party']!.addListener(_updateAssignedToField);
     for (var value in controllers.values) {
       value.addListener(_onFormChanged);
     }
-    controllers['responsible_party']!.addListener(_updateAssignedToField);
-
   }
 
   // 👇 Jab user site select kare
   Future<void> _onSiteSelected(CMSite? selectedSite) async {
-    LoaderWidget.showLoader(context);
     if (selectedSite == null) {
       return;
     }
@@ -152,12 +203,18 @@ class _CorrectiveMaintenanceScreenState
     _customerController.text = selectedSite.clientName ?? 'N/A';
 
     try {
-      final checklistData = await ServiceLocator().cmRepository
-          .getChecklistData(2485);
-      setState(() {
-        _checklistData = checklistData;
-      });
-      _initializeTicketControllers(selectedSite);
+
+      LoaderWidget.showLoader(context);
+      if (widget.mode == CMScreenModeEnum.create) {
+        final checklistData = await ServiceLocator().cmRepository
+            .getChecklistData(2485);
+        setState(() {
+          _checklistData = checklistData;
+        });
+      }
+      for (var value in controllers.values) {
+        value.addListener(_onFormChanged);
+      }
     } catch (e) {
       Logger.errorLog("exception in loading checklist $e");
       Toastbar.showErrorToastbar("Error while loading checklist", context);
@@ -197,53 +254,72 @@ class _CorrectiveMaintenanceScreenState
   }
 
   Widget _buildEquipmentTypeRadioButtons() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if(widget.mode == CMScreenModeEnum.create) ...[
-          CustomRadioButton(
-            options: [
-              OptionItem(label: "DG", value: "DG"),
-              OptionItem(label: "Battery", value: "BATTERY"),
-              OptionItem(label: "CCU", value: "CCU"),
-              OptionItem(label: "SMPS", value: "SMPS"),
-              OptionItem(label: "SOLAR", value: "SOLAR"),
-            ],
-            horizontalSpacing: 20,
-            iconTextSpacing: 5,
-            initialValue: _selectedEquipmentType,
-            onChanged: (value) {
-              setState(() {
-                _selectedEquipmentType = value;
-                _hasFormDataChanges = true;
-              });
-            },
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
-          const SizedBox(height: 8),
         ],
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if(widget.mode == CMScreenModeEnum.create) ...[
+            CustomRadioButton(
+              options: [
+                OptionItem(label: "DG", value: "DG"),
+                OptionItem(label: "Battery", value: "BATTERY"),
+                OptionItem(label: "CCU", value: "CCU"),
+                OptionItem(label: "SMPS", value: "SMPS"),
+                OptionItem(label: "SOLAR", value: "SOLAR"),
+              ],
+              horizontalSpacing: 20,
+              iconTextSpacing: 5,
+              initialValue: _selectedEquipmentType,
+              onChanged: (value) {
+                setState(() {
+                  _selectedEquipmentType = value;
+                  _hasFormDataChanges = true;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
 
-        if (_selectedEquipmentType.isNotEmpty)
-          ChecklistPreviewWidget(
-            key: ValueKey('checklist_${_selectedEquipmentType}_${_selectedSite?.entityId}'),
-            equipmentType: _selectedEquipmentType,
-            checklistItemsByApi: _checklistData[_selectedEquipmentType],
-            entityId: _selectedSite?.entityId.toString(),
-            onChecklistDataChanged: (List<dynamic> updatedData) {
-              setState(() {
-                _onFormChanged();
-                _checklistData[_selectedEquipmentType] = updatedData;
-              });
-            },
-            cmImpactedItemList: _impactedItemList,
-            onImpactedItemListChanged: (List<Map<String, dynamic>> impactedItems) {
-              setState(() {
-                _impactedItemList = impactedItems;
-              });
-            },
-            originalCmImpactedItemMap: _checklistData['siteDeployedItems'] ?? {},
-          ),
-      ],
+          if (_selectedEquipmentType.isNotEmpty)
+            ChecklistPreviewWidget(
+              key: ValueKey('checklist_${_selectedEquipmentType}_${_selectedSite
+                  ?.entityId}'),
+              equipmentType: _selectedEquipmentType,
+              checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
+              entityId: _selectedSite?.entityId.toString(),
+              onChecklistDataChanged: (List<dynamic> updatedData) {
+                setState(() {
+                  _onFormChanged();
+                  _checklistData[_selectedEquipmentType] = updatedData;
+                });
+              },
+              cmImpactedItemList: _impactedItemList ?? [],
+              onImpactedItemListChanged: (
+                  List<Map<String, dynamic>> impactedItems) {
+                setState(() {
+                  _impactedItemList = impactedItems;
+                });
+              },
+              originalCmImpactedItemMap: _checklistData['siteDeployedItems'] ??
+                  {},
+            ),
+        ],
+      ),
     );
   }
 
@@ -500,6 +576,50 @@ class _CorrectiveMaintenanceScreenState
           acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
         ),
         getHeight(30),
+        if(widget.mode == CMScreenModeEnum.edit) ...[
+          CustomDropdown(
+            label: "Status",
+            items: _statusOptions,
+            initialValue: _statusController.text,
+            isRequired: true,
+            onChanged: (value) {
+              setState(() {
+                _statusController.text = value ?? "";
+                _onFormChanged();
+              });
+            },
+          ),
+          getHeight(15),
+          CustomRemarksField(
+            label: "Remarks",
+            hintText: "Enter remarks",
+            controller: _remarksController,
+          ),
+          getHeight(15),
+          CustomFileUploadNew(
+            label: "Attachments",
+            placeholder: "Upload File",
+            uploadedFiles: _remarksAttachments,
+            onFileSelected: (File? file) {
+              if (file != null) {
+                setState(() {
+                  _remarksAttachments.clear();
+                  _remarksAttachments.add(file);
+                });
+              }
+            },
+            onFileDeleted: (File file) {
+              // Handle file deletion
+              setState(() {
+                _remarksAttachments.remove(file);
+              });
+            },
+            isRequired: true,
+            maxSizeText: "(Max Size: 2MB)",
+            acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
+          ),
+          getHeight(30),
+        ],
 
         CustomSubmitButtonV2(
           text: "Submit",
@@ -510,7 +630,66 @@ class _CorrectiveMaintenanceScreenState
   }
 
   void _validateAndSubmit() async {
-    _submitFormData();
+    if(widget.mode == CMScreenModeEnum.create) {
+      _submitFormData();
+    } else if(widget.mode == CMScreenModeEnum.edit) {
+      _editFormData();
+    }
+  }
+
+  void _editFormData() async {
+    try {
+      LoaderWidget.showLoader(context);
+      if(cmSiteReqId == null) {
+        return;
+      }
+      final requestData = <String, dynamic>{};
+      requestData['cm_site_req_id'] = cmSiteReqId;
+      for (var entry in controllers.entries) {
+        requestData[entry.key] = entry.value.text;
+      }
+      if (controllers['responsible_party']!.text == 'OEM') {
+        requestData['assigned_to'] = _selectedSite!.oemId;
+      } else if (controllers['responsible_party']!.text == 'Self') {
+        requestData['assigned_to'] = _selectedSite!.selfId;
+      }
+      requestData['cm_impacted_item_list'] = DataTransformationHelper
+          .convertListToCamelCase(_impactedItemList);
+      final selectedCheckListData = _checklistData[_selectedEquipmentType];
+      LocationModel finalLocation;
+
+      if(selectedCheckListData != null) {
+        try {
+          finalLocation = await LocationService.getCurrentLocation();
+          DataTransformationHelper.updateMetadataInRequest(
+              selectedCheckListData, finalLocation);
+        } catch (e) {
+          Logger.infoLog('Error getting location: $e');
+          Toastbar.showErrorToastbar(
+              ExceptionConstants.UNABLE_TO_GET_LOCATION, context);
+          return;
+        }
+        requestData['cm_check_list_site_resp_list'] =
+            DataTransformationHelper.convertListToCamelCase(
+                selectedCheckListData);
+      }
+      Logger.infoLog("requestData: $requestData");
+      try {
+        Map<String, dynamic> processedData = DataTransformationHelper
+            .convertKeysToCamelCase(requestData);
+        Map<String, dynamic> response = await ServiceLocator().cmRepository
+            .createCorrectiveMaintenance(processedData);
+        String cmSiteReqId = response['cmSiteReqId'].toString();
+        await ServiceLocator().cmRepository.saveRemarks(
+            cmSiteReqId, _remarksController.text, _statusController.text, _remarksAttachments.first);
+        Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+      } catch (e) {
+        Logger.errorLog(e.toString());
+        Toastbar.showErrorToastbar("Failed to save the form", context);
+      }
+    } finally {
+      LoaderWidget.hideLoader();
+    }
   }
 
   void _submitFormData() async {
@@ -527,7 +706,8 @@ class _CorrectiveMaintenanceScreenState
         requestData['assigned_to'] = _selectedSite!.selfId;
       }
       requestData['cm_site_req_id'] = 0;
-      requestData['cm_impacted_item_list'] = _impactedItemList;
+      requestData['cm_impacted_item_list'] = DataTransformationHelper
+          .convertListToCamelCase(_impactedItemList);
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel finalLocation;
 

@@ -462,68 +462,49 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: Colors.grey.shade300),
             ),
-            child: Column(
-              children: [
-                // Table header
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(8),
-                      topRight: Radius.circular(8),
-                    ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 20,
+                horizontalMargin: 12,
+                columns: [
+                  DataColumn(
+                    label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(flex: 2, child: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Expanded(child: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold))),
-                      ..._getFieldNamesFromChildItems().keys.map((fieldName) => 
-                        Expanded(child: Text(fieldName, style: TextStyle(fontWeight: FontWeight.bold)))
-                      ),
-                      Expanded(child: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
+                  DataColumn(
+                    label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                ),
-                // Table rows
-
-    if (_dynamicDropdownData.isNotEmpty) ...[
-                ..._dynamicDropdownData.asMap().entries.map((entry) {
+                  ..._getFieldNamesFromChildItems().keys.map((fieldName) => 
+                    DataColumn(
+                      label: Text(fieldName, style: TextStyle(fontWeight: FontWeight.bold)),
+                    )
+                  ),
+                  DataColumn(
+                    label: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ],
+                rows: _dynamicDropdownData.asMap().entries.map((entry) {
                   final index = entry.key;
                   final item = entry.value;
                   
-                  return Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      border: Border(top: BorderSide(color: Colors.grey.shade200)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: Text(item['mfgSerialNo']?.toString() ?? ''),
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(item['mfgSerialNo']?.toString() ?? '')),
+                      DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
+                      ..._getFieldNamesFromChildItems().entries.map((entry) {
+                        final fieldKey = entry.value;
+                        return DataCell(Text(item[fieldKey]?.toString() ?? ''));
+                      }).toList(),
+                      DataCell(
+                        IconButton(
+                          icon: const Icon(Icons.edit, size: 20),
+                          onPressed: () => _editDynamicDropdownItem(index),
                         ),
-                        Expanded(
-                          child: Text(item['isScanned'] == true ? 'Yes' : 'No'),
-                        ),
-                        ..._getFieldNamesFromChildItems().entries.map((entry) {
-                          final fieldKey = entry.value;
-                          return Expanded(
-                            child: Text(item[fieldKey]?.toString() ?? ''),
-                          );
-                        }),
-                        Expanded(
-                          child: IconButton(
-                            icon: const Icon(Icons.edit, size: 20),
-                            onPressed: () => _editDynamicDropdownItem(index),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   );
-                }),
-    ],
-              ],
+                }).toList(),
+              ),
             ),
           ),
         ],
