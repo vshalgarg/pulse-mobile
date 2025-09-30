@@ -233,65 +233,65 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _navigateToCmWorkflow(Ticket ticket) async {
-    try {
-      LoaderWidget.showLoader(context);
-      // Determine site type - check if it's solar or telecom
-      final siteType = ticket.siteDomainName ?? 'Solar';
-      Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
-
-      // Use ServiceLocator - no initialization check needed!
-      final service = ServiceLocator().cmRepository;
-      final isAvailable = await service.getDataFromApiAndSaveToSqlite(
-        siteType: siteType,
-        auditSchId: ticket.auditSchId?.toString() ?? "",
-        siteAuditSchId: ticket.ticketSchId.toString(),
-        latitude: ticket.latitude ?? 0,
-        longitude: ticket.longitude ?? 0,
-        activityType: _currentActivityType,
-      );
-      if (!isAvailable) {
-        Toastbar.showErrorToastbar("Failed to load data", context);
-        return;
-      }
-      final data = await service.getDataFromSqlite(
-        siteAuditSchId: ticket.ticketSchId.toString(),
-      );
-      if (data == null) {
-        Toastbar.showErrorToastbar("Failed to load data", context);
-        return;
-      }
-      if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PMPageRender(pmData: data.apiData),
-          ),
-        );
-      } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => EnergyReadingScreen(
-              siteType: ticket.siteDomainName ?? "Telecom",
-              auditSchId: ticket.auditSchId?.toString() ?? "",
-              siteAuditSchId: ticket.ticketSchId.toString(),
-              siteId: ticket.ticketSchId.toString(),
-            ),
-          ),
-        );
-      } else {
-        AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
-          siteType: siteType,
-          auditSchId: ticket.auditSchId?.toString() ?? "",
-          siteAuditSchId: ticket.ticketSchId.toString(),
-          context: context,
-        );
-      }
-    } catch (e) {
-      Toastbar.showErrorToastbar("Failed to load data", context);
-    } finally {
-      LoaderWidget.hideLoader();
-    }
+    // try {
+    //   LoaderWidget.showLoader(context);
+    //   // Determine site type - check if it's solar or telecom
+    //   final siteType = ticket.siteDomainName ?? 'Solar';
+    //   Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
+    //
+    //   // Use ServiceLocator - no initialization check needed!
+    //   final service = ServiceLocator().cmRepository;
+    //   final isAvailable = await service.getDataFromApiAndSaveToSqlite(
+    //     siteType: siteType,
+    //     auditSchId: ticket.auditSchId?.toString() ?? "",
+    //     siteAuditSchId: ticket.ticketSchId.toString(),
+    //     latitude: ticket.latitude ?? 0,
+    //     longitude: ticket.longitude ?? 0,
+    //     activityType: _currentActivityType,
+    //   );
+    //   if (!isAvailable) {
+    //     Toastbar.showErrorToastbar("Failed to load data", context);
+    //     return;
+    //   }
+    //   final data = await service.getDataFromSqlite(
+    //     siteAuditSchId: ticket.ticketSchId.toString(),
+    //   );
+    //   if (data == null) {
+    //     Toastbar.showErrorToastbar("Failed to load data", context);
+    //     return;
+    //   }
+    //   if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
+    //     Navigator.push(
+    //       context,
+    //       MaterialPageRoute(
+    //         builder: (context) => PMPageRender(pmData: data.apiData),
+    //       ),
+    //     );
+    //   } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
+    //     Navigator.push(
+    //       context,
+    //       MaterialPageRoute(
+    //         builder: (context) => EnergyReadingScreen(
+    //           siteType: ticket.siteDomainName ?? "Telecom",
+    //           auditSchId: ticket.auditSchId?.toString() ?? "",
+    //           siteAuditSchId: ticket.ticketSchId.toString(),
+    //           siteId: ticket.ticketSchId.toString(),
+    //         ),
+    //       ),
+    //     );
+    //   } else {
+    //     AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
+    //       siteType: siteType,
+    //       auditSchId: ticket.auditSchId?.toString() ?? "",
+    //       siteAuditSchId: ticket.ticketSchId.toString(),
+    //       context: context,
+    //     );
+    //   }
+    // } catch (e) {
+    //   Toastbar.showErrorToastbar("Failed to load data", context);
+    // } finally {
+    //   LoaderWidget.hideLoader();
+    // }
   }
 
   Future<bool> _isTicketDownloaded(Ticket ticket) async {

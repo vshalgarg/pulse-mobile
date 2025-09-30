@@ -35,7 +35,9 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
     super.didUpdateWidget(oldWidget);
     // Re-initialize if checklistData has changed
     if (oldWidget.checklistData != widget.checklistData || oldWidget.equipmentType != widget.equipmentType) {
-      _initializeChecklistData();
+      setState(() {
+        _initializeChecklistData();
+      });
     }
   }
 
@@ -167,7 +169,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
                           
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
-                            child: PMCustomWidget(
+                            child: CMCustomWidget(
                               key: ValueKey('checklist_item_${checklistItem['item_type_id']}_$index'),
                               pmItem: checklistItem,
                               readonlyFields: [], // No readonly fields for corrective maintenance

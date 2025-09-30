@@ -300,7 +300,7 @@ class _CorrectiveChecklistScreenState extends State<CorrectiveChecklistScreen> {
                                   final index = entry.key;
                                   final checklistItem = entry.value;
                                   
-                                  return PMCustomWidget(
+                                  return CMCustomWidget(
                                     key: ValueKey('checklist_item_${checklistItem['item_type_id']}_$index'),
                                     pmItem: checklistItem,
                                     readonlyFields: [], // No readonly fields for corrective maintenance

@@ -10,15 +10,14 @@ import '../../constants/constants_strings.dart';
 import '../../commonWidgets/custom_remark.dart';
 import '../../commonWidgets/custom_form_field.dart';
 import '../../commonWidgets/custom_form_dropdown.dart';
-import '../../commonWidgets/custom_horizontal_radio_buttons.dart';
 import '../../commonWidgets/custom_image_upload_field.dart';
 
-class PMCustomWidget extends StatefulWidget {
+class CMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
   final List<String> readonlyFields;
   final Function(Map<String, dynamic>) onValueChanged;
 
-  const PMCustomWidget({
+  const CMCustomWidget({
     super.key,
     required this.pmItem,
     required this.readonlyFields,
@@ -26,10 +25,10 @@ class PMCustomWidget extends StatefulWidget {
   });
 
   @override
-  State<PMCustomWidget> createState() => _PMCustomWidgetState();
+  State<CMCustomWidget> createState() => _CMCustomWidgetState();
 }
 
-class _PMCustomWidgetState extends State<PMCustomWidget> {
+class _CMCustomWidgetState extends State<CMCustomWidget> {
   late Map<String, dynamic> _currentItem;
   String? _selectedDropdownValue;
   String? _selectedRadioValue;
@@ -54,6 +53,21 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     _remarksController.addListener(() {
       _onRemarksChanged(_remarksController.text);
     });
+    _serialNumberController.addListener(() {
+     _onSerialNumberFieldChanged(_serialNumberController.text);
+    });
+  }
+
+  @override
+  void didUpdateWidget(CMCustomWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Re-initialize if pmItem has changed
+    if (oldWidget.pmItem != widget.pmItem) {
+      setState(() {
+        _currentItem = Map<String, dynamic>.from(widget.pmItem);
+        _initializeValues();
+      });
+    }
   }
 
   @override
@@ -142,18 +156,25 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     _notifyValueChanged();
   }
 
+  void _onSerialNumberFieldChanged(String value) {
+    _validateAndSetSerialNumber(value, false);
+  }
+
   // Dynamic dropdown methods
   void _onQRScanned(String scannedCode) {
-    // Find matching item in siteDeployedItems
+    _validateAndSetSerialNumber(scannedCode, true);
+  }
+
+  void _validateAndSetSerialNumber(String serialNo, bool isQrCodeScanned) {
     final siteDeployedItems = _currentItem['siteDeployedItems'] as Map<String, dynamic>? ?? {};
     final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
     final deployedItems = siteDeployedItems[subItemType] as List<dynamic>? ?? [];
-    
-    Map<String, dynamic>? matchingItem = AssetAuditValidationHelper.findItemWithSerialNumber(scannedCode, deployedItems, true);
+
+    Map<String, dynamic>? matchingItem = AssetAuditValidationHelper.findItemWithSerialNumber(serialNo, deployedItems, isQrCodeScanned);
     if (matchingItem != null) {
       setState(() {
-        _selectedItemData = Map<String, dynamic>.from(matchingItem ?? {});
-        _serialNumberController.text = matchingItem?['mfg_serial_no']?.toString() ?? '';
+        _selectedItemData = Map<String, dynamic>.from(matchingItem);
+        _serialNumberController.text = matchingItem['mfg_serial_no']?.toString() ?? '';
       });
     } else {
       Toastbar.showErrorToastbar('Serial number is invalid', context);
@@ -162,7 +183,7 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
 
   void _saveDynamicDropdownData() {
     if (_selectedItemData == null) {
-      Toastbar.showErrorToastbar('Please scan a valid serial number first', context);
+      Toastbar.showErrorToastbar('Please scan a valid serial number', context);
       return;
     }
 
@@ -185,7 +206,6 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       "itemInstanceId": _selectedItemData!['item_instance_id'],
       "mfgSerialNo": _selectedItemData!['mfg_serial_no'],
       "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
-      "isScanned": true,
       "cmItemType": _selectedItemData!['item_type'],
       "soc": _childFieldControllers['SOC']?.text ?? '',
       "soh": _childFieldControllers['SOH']?.text ?? '',
@@ -217,53 +237,6 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     });
   }
 
-  void _updateDynamicDropdownItem(int index) {
-    if (_selectedItemData == null) {
-      Toastbar.showErrorToastbar('Please scan a valid serial number first', context);
-      return;
-    }
-
-    // Validate child fields
-    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
-    for (var childItem in childItems) {
-      final fieldName = childItem['checklist_desc']?.toString() ?? '';
-      final isMandatory = childItem['is_mandatory'] == true;
-      final controller = _childFieldControllers[fieldName];
-      
-      if (isMandatory && (controller?.text.isEmpty ?? true)) {
-        Toastbar.showErrorToastbar('Please fill all mandatory fields', context);
-        return;
-      }
-    }
-
-    // Update data entry
-    final updatedEntry = {
-      "cmImpactedItemId": _dynamicDropdownData[index]['cmImpactedItemId'],
-      "itemInstanceId": _selectedItemData!['item_instance_id'],
-      "mfgSerialNo": _selectedItemData!['mfg_serial_no'],
-      "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
-      "isScanned": true,
-      "cmItemType": _selectedItemData!['item_type'],
-      "soc": _childFieldControllers['SOC']?.text ?? '',
-      "soh": _childFieldControllers['SOH']?.text ?? '',
-      "outputVoltage": 0,
-      "isActive": true,
-      "remarks": ""
-    };
-
-    setState(() {
-      _dynamicDropdownData[index] = updatedEntry;
-      _currentItem['dynamicDropdownData'] = _dynamicDropdownData;
-    });
-
-    // Clear form
-    _serialNumberController.clear();
-    _childFieldControllers.values.forEach((controller) => controller.clear());
-    _selectedItemData = null;
-
-    _notifyValueChanged();
-    Toastbar.showSuccessToastbar('Data updated successfully', context);
-  }
 
   Widget _buildDropdownField() {
     // Parse resp_type_value_map to get dropdown options

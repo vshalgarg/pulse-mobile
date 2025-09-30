@@ -11,7 +11,6 @@ import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/corrective_maintainece/checklist_preview_widget.dart';
 import 'package:app/services/location_service.dart';
-import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
@@ -118,8 +117,8 @@ class _CorrectiveMaintenanceScreenState
     //Automatically baaki fields fill karo
     _siteCodeController.text = selectedSite.siteCode;
     controllers['site_id']!.text = selectedSite.siteId.toString();
-    _circleStateController.text = selectedSite.circleStateName ?? 'N/A';
-    _clusterDistrictController.text = selectedSite.clusterDistrictName ?? 'N/A';
+    _circleStateController.text = selectedSite.circleStateName;
+    _clusterDistrictController.text = selectedSite.clusterDistrictName;
     _customerController.text = selectedSite.clientName ?? 'N/A';
 
     try {
@@ -196,7 +195,8 @@ class _CorrectiveMaintenanceScreenState
         
         if (_selectedEquipmentType.isNotEmpty)
             ChecklistPreviewWidget(
-            equipmentType: _selectedEquipmentType ?? "",
+            key: ValueKey('checklist_${_selectedEquipmentType}_${_selectedSite?.entityId}'),
+            equipmentType: _selectedEquipmentType,
             checklistData: _checklistData,
             entityId: _selectedSite?.entityId.toString(),
             onChecklistDataChanged: (List<dynamic> updatedData) {

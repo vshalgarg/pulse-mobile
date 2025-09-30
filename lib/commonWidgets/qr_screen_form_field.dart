@@ -1,3 +1,4 @@
+import 'package:app/utils/uppercase_text_formatter.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
@@ -45,6 +46,10 @@ class SerialNumberField extends StatelessWidget {
         const SizedBox(height: 5),
         TextFormField(
           controller: controller,
+          inputFormatters: [UpperCaseTextFormatter()],
+          onChanged: (value) {
+
+          },
           decoration: InputDecoration(
             hintText: "Serial Number",
             hintStyle: TextStyle(
@@ -52,7 +57,6 @@ class SerialNumberField extends StatelessWidget {
               fontFamily: fontFamilyMontserrat,
               fontSize: 16,
               color: AppColors.color555555,
-
             ),
             suffixIcon: IconButton(
               icon: const Icon(Icons.qr_code_scanner),
