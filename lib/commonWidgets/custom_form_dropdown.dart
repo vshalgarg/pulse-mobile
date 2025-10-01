@@ -127,7 +127,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
             ),
             iconStyleData: IconStyleData(
               icon: Icon(
-                widget.isDisabled ? Icons.lock_outline : Icons.keyboard_arrow_down,
+                widget.isDisabled ? null: Icons.keyboard_arrow_down,
                 color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
               ),
               openMenuIcon: Icon(

@@ -242,7 +242,8 @@ class _TicketScreenState extends State<TicketScreen> {
       Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
       final data = await ServiceLocator().cmRepository.getCmTicketData(ticket.ticketSchId);
       pushPage(context, CorrectiveMaintenanceScreen(
-        mode: CMScreenModeEnum.edit,
+        mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED' ?
+          CMScreenModeEnum.view : CMScreenModeEnum.edit,
         preloadedSiteData: data,
       ));
     } catch (e) {

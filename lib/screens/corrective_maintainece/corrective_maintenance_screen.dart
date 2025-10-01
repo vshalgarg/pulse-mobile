@@ -10,7 +10,9 @@ import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/exception_constants.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/location_model.dart';
-import 'package:app/screens/corrective_maintainece/checklist_preview_widget.dart';
+import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
+import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
+import 'package:app/screens/corrective_maintainece/cm_custom_view_widget.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -285,8 +287,8 @@ class _CorrectiveMaintenanceScreenState
             const SizedBox(height: 8),
           ],
 
-          if (_selectedEquipmentType.isNotEmpty)
-            ChecklistPreviewWidget(
+          if (_selectedEquipmentType.isNotEmpty && widget.mode == CMScreenModeEnum.create)
+            ChecklistCreateWidget(
               key: ValueKey('checklist_${_selectedEquipmentType}_${_selectedSite
                   ?.entityId}'),
               equipmentType: _selectedEquipmentType,
@@ -322,6 +324,12 @@ class _CorrectiveMaintenanceScreenState
                   }
                 });
               },
+            ),
+          if(widget.mode != CMScreenModeEnum.create)
+            ChecklistCreateWidgetView(
+                equipmentType: _selectedEquipmentType,
+                checklistItemsByApi: widget.preloadedSiteData?['cm_check_list_site_resp_list'] ?? [],
+                originalCmImpactedItemMap: widget.preloadedSiteData?['cm_impacted_item_map_list'] ?? {},
             ),
         ],
     );

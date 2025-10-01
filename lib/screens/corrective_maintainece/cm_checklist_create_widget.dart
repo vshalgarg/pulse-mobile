@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'cm_custom_widget.dart';
 
-class ChecklistPreviewWidget extends StatefulWidget {
+class ChecklistCreateWidget extends StatefulWidget {
   final String equipmentType;
   final List<dynamic> checklistItemsByApi;
   final String? entityId;
@@ -12,7 +12,7 @@ class ChecklistPreviewWidget extends StatefulWidget {
   final Map<String, dynamic> originalCmImpactedItemMap;
   final Function(List<Map<String, dynamic>>, String) onMultiDynamicDropdownValueChanged;
 
-  const ChecklistPreviewWidget({
+  const ChecklistCreateWidget({
     super.key,
     required this.equipmentType,
     required this.checklistItemsByApi,
@@ -25,10 +25,10 @@ class ChecklistPreviewWidget extends StatefulWidget {
   });
 
   @override
-  State<ChecklistPreviewWidget> createState() => _ChecklistPreviewWidgetState();
+  State<ChecklistCreateWidget> createState() => _ChecklistCreateWidgetState();
 }
 
-class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
+class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
   late List<Map<String, dynamic>> _checklistItems;
   bool _isExpanded = false;
 
@@ -39,7 +39,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
   }
 
   @override
-  void didUpdateWidget(ChecklistPreviewWidget oldWidget) {
+  void didUpdateWidget(ChecklistCreateWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
     // Re-initialize if checklistData has changed
     if (oldWidget.checklistItemsByApi != widget.checklistItemsByApi || oldWidget.equipmentType != widget.equipmentType) {
