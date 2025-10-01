@@ -143,8 +143,10 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             final cabinet = ccuCabinet.first as Map<String, dynamic>;
             formData['hybridCCUMake'] =
                 cabinet['oem_name']?.toString() ?? "N/A";
+
             formData['cabinetSerial'] =
                 cabinet['mfg_serial_no']?.toString() ?? "";
+
             formData['ccuCabinetAvailable'] = true;
             _cabinetPhotoId = cabinet['photo_id']?.toString();
             if (_cabinetPhotoId != null) {
@@ -239,6 +241,11 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       _totalMPPTController.text = formData['totalMPPT'].toString();
     }
 
+    // Initialize cabinet serial number controller
+    if (_cabinetPhotoId!= null) {
+    _cabinetSerialController.text = formData['cabinetSerial']?.toString() ?? "";
+    }
+
     _remarksController.text = formData['remarks']?.toString() ?? "";
     _remarksController.addListener(_onFormChanged);
     if (mounted) {
@@ -316,6 +323,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
               cabinetMap['qr_code_scanned_ts'] = qrCodeScannedTs;
             }
 
+            cabinetMap['mfg_serial_no'] = _cabinetSerialController.text;
+
             modifiedAssetsWithAllProperties.add(cabinetMap);
           }
         }
@@ -326,8 +335,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       if (rectifierList != null &&
           rectifierList is List &&
           rectifierList.isNotEmpty) {
-        final modifiedRectifiers =
-            _modifyData(rectifierList, _savedRectifiers) ?? [];
+        final modifiedRectifiers = _modifyData(rectifierList, _savedRectifiers);
         modifiedAssetsWithAllProperties.addAll(
           modifiedRectifiers.cast<Map<String, dynamic>>(),
         );
@@ -336,7 +344,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       // ===== CCU MPPT =====
       final mpptList = finalCCuData?['CCU MPPT'];
       if (mpptList != null && mpptList is List && mpptList.isNotEmpty) {
-        final modifiedMppts = _modifyData(mpptList, _savedMPPTs) ?? [];
+        final modifiedMppts = _modifyData(mpptList, _savedMPPTs);
         modifiedAssetsWithAllProperties.addAll(
           modifiedMppts.cast<Map<String, dynamic>>(),
         );
@@ -355,18 +363,87 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         }
       }
 
-      // ===== Update local SQLite =====
+      // ===== Update _assetAuditData with modified data before saving =====
+      // Update CCU Cabinet data in _assetAuditData
+      if (ccuCabinetList != null &&
+          ccuCabinetList is List &&
+          ccuCabinetList.isNotEmpty) {
+        for (int i = 0; i < ccuCabinetList.length; i++) {
+          if (_cabinetSerialController.text.isNotEmpty &&
+              _cabinetPhotoId != null) {
+            ccuCabinetList[i]['mfg_serial_no'] = _cabinetSerialController.text;
+            ccuCabinetList[i]['photo_id'] = _cabinetPhotoId;
+            ccuCabinetList[i]['asset_status'] = 'OK';
+            if (isQrCodeScanned ?? false) {
+              ccuCabinetList[i]['qr_code_scanned'] = true;
+              ccuCabinetList[i]['qr_code_scanned_ts'] = qrCodeScannedTs;
+            }
+          }
+        }
+      }
+
+      // Update Rectifiers data in _assetAuditData
+      if (rectifierList != null && rectifierList is List) {
+        for (var asset in rectifierList) {
+          final assetSerialNo = asset['mfg_serial_no']?.toString();
+          final modifiedAsset = _savedRectifiers
+              .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+              .firstOrNull;
+
+          if (modifiedAsset != null) {
+            asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+            asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+            asset['photo_id'] = modifiedAsset['photo_id'];
+            asset['asset_status'] = modifiedAsset['asset_status'];
+          }
+        }
+      }
+
+      // Update MPPT data in _assetAuditData
+      if (mpptList != null && mpptList is List) {
+        for (var asset in mpptList) {
+          final assetSerialNo = asset['mfg_serial_no']?.toString();
+          final modifiedAsset = _savedMPPTs
+              .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+              .firstOrNull;
+
+          if (modifiedAsset != null) {
+            asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+            asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+            asset['photo_id'] = modifiedAsset['photo_id'];
+            asset['asset_status'] = modifiedAsset['asset_status'];
+          }
+        }
+      }
+
+      // Update Remarks in _assetAuditData
+      if (remarksList != null &&
+          remarksList is List &&
+          remarksList.isNotEmpty) {
+        final String remark = _remarksController.text;
+        if (remark.isNotEmpty) {
+          remarksList.first['item_type_remark'] = remark;
+        }
+      }
+
+      // ===== Update local SQLite with modified data =====
       _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
         updatedData: _assetAuditData ?? {},
       );
 
       final postObject = [...modifiedAssetsWithAllProperties];
-        await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
-      );
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getTelecomNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
 
       Logger.debugLog('✅ SPV V2: Data posted successfully');
     } catch (e, s) {
