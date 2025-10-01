@@ -14,6 +14,7 @@ class CustomFileUploadNew extends StatelessWidget {
   final String? maxSizeText;
   final List<File> uploadedFiles;
   final Function(File) onFileDeleted;
+  final bool isDisabled; // Add isDisabled parameter
 
   const CustomFileUploadNew({
     super.key,
@@ -26,6 +27,7 @@ class CustomFileUploadNew extends StatelessWidget {
     this.maxSizeText,
     this.uploadedFiles = const [],
     required this.onFileDeleted,
+    this.isDisabled = false, // Default value is false
   });
 
   Future<void> _pickFile(BuildContext context) async {
@@ -78,12 +80,12 @@ class CustomFileUploadNew extends StatelessWidget {
         
         // Upload box
         GestureDetector(
-          onTap: () => _pickFile(context),
+          onTap: isDisabled ? null : () => _pickFile(context),
           child: Container(
             width: double.infinity,
             height: 100,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: isDisabled ? Colors.grey.shade200 : Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: Colors.grey.shade300,
@@ -117,14 +119,15 @@ class CustomFileUploadNew extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () => onFileSelected(null),
-                          child: Icon(
-                            Icons.delete_outline,
-                            size: 18,
-                            color: Colors.red.shade400,
+                        if (!isDisabled)
+                          GestureDetector(
+                            onTap: () => onFileSelected(null),
+                            child: Icon(
+                              Icons.delete_outline,
+                              size: 18,
+                              color: Colors.red.shade400,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   )
@@ -222,14 +225,15 @@ class CustomFileUploadNew extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          GestureDetector(
-            onTap: () => onFileDeleted(file),
-            child: Icon(
-              Icons.delete_outline,
-              size: 20,
-              color: Colors.red.shade400,
+          if (!isDisabled)
+            GestureDetector(
+              onTap: () => onFileDeleted(file),
+              child: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Colors.red.shade400,
+              ),
             ),
-          ),
         ],
       ),
     );

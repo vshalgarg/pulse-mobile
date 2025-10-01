@@ -172,6 +172,10 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // For MULTI_DYNAMIC_DROPDOWN, return only the selected items array with dropdown ID
     if (_currentItem['resp_type'] == 'MULTI_DYNAMIC_DROPDOWN') {
       final dropdownId = '${_currentItem['cm_check_list_mst_id']}_${_currentItem['sub_item_type']}';
+      for (var item in _selectedMultiItems) {
+        item['resp_type'] = _currentItem['resp_type'];
+        item['sub_item_type'] = _currentItem['sub_item_type'];
+      }
       widget.onMultiDynamicDropdownValueChanged(_selectedMultiItems, dropdownId);
     } else {
       widget.onValueChanged(_currentItem);
@@ -203,10 +207,15 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   void _onRemarksChanged(String value) {
-    setState(() {
-      _currentItem['resp'] = value;
+    // Defer state update to avoid setState during build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _currentItem['resp'] = value;
+        });
+        _notifyValueChanged();
+      }
     });
-    _notifyValueChanged();
   }
 
   // Dynamic dropdown methods
@@ -582,29 +591,36 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           maxLines: 2,
         ),
             // Multi-select dropdown
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Text(
-                      _selectedMultiItems.isEmpty 
-                        ? 'Select ${_currentItem['checklist_desc']?.toString() ?? 'Items'}'
-                        : '${_selectedMultiItems.length} item(s) selected',
-                      style: const TextStyle(fontSize: 16),
+            InkWell(
+              onTap: () {
+                setState(() {
+                  _isMultiDropdownOpen = !_isMultiDropdownOpen;
+                });
+              },
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _selectedMultiItems.isEmpty 
+                          ? 'Select ${_currentItem['checklist_desc']?.toString() ?? 'Items'}'
+                          : '${_selectedMultiItems.length} item(s) selected',
+                        style: const TextStyle(fontSize: 16),
+                      ),
                     ),
-                  ),
-                  Icon(
-                    _isMultiDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                    color: Colors.grey.shade600,
-                  ),
-                ],
+                    Icon(
+                      _isMultiDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                      color: Colors.grey.shade600,
+                    ),
+                  ],
+                ),
               ),
             ),
             

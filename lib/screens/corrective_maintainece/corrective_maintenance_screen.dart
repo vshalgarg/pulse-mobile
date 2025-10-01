@@ -679,9 +679,10 @@ class _CorrectiveMaintenanceScreenState
             .convertKeysToCamelCase(requestData);
         Map<String, dynamic> response = await ServiceLocator().cmRepository
             .createCorrectiveMaintenance(processedData);
-        String cmSiteReqId = response['cmSiteReqId'].toString();
+        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+            cmSiteReqId!, customerPhoto, _uploadedAttachments.firstOrNull);
         await ServiceLocator().cmRepository.saveRemarks(
-            cmSiteReqId, _remarksController.text, _statusController.text, _remarksAttachments.first);
+            cmSiteReqId!, _remarksController.text, _statusController.text, _remarksAttachments.first);
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
       } catch (e) {
         Logger.errorLog(e.toString());
@@ -741,7 +742,7 @@ class _CorrectiveMaintenanceScreenState
             .convertKeysToCamelCase(requestData);
         Map<String, dynamic> response = await ServiceLocator().cmRepository
             .createCorrectiveMaintenance(processedData);
-        String cmSiteReqId = response['cmSiteReqId'].toString();
+        int cmSiteReqId = response['cmSiteReqId'];
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
             cmSiteReqId, customerPhoto!, _uploadedAttachments.first);
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);

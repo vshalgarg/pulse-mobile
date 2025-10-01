@@ -15,6 +15,7 @@ class ImageUploadField extends StatefulWidget {
   final bool isRequired;
   final Function(File?) onImageSelected;
   final String? externalImageUrl; // Add external image URL parameter
+  final bool isDisabled; // Add isDisabled parameter
 
   const ImageUploadField({
     super.key,
@@ -23,6 +24,7 @@ class ImageUploadField extends StatefulWidget {
     this.isRequired = false,
     required this.onImageSelected,
     this.externalImageUrl, // Add external image URL parameter
+    this.isDisabled = false, // Default value is false
   });
 
   @override
@@ -235,12 +237,12 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
         // Upload box
         GestureDetector(
-          onTap: _pickImage,
+          onTap: widget.isDisabled ? null : _pickImage,
           child: Container(
             width: double.infinity,
             height: 150,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: widget.isDisabled ? Colors.grey.shade200 : Colors.white,
               borderRadius: BorderRadius.circular(5),
               border: Border.all(color: Colors.grey.shade400),
             ),

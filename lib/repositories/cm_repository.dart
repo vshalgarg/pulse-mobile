@@ -98,15 +98,17 @@ class CMRepository {
     }
   }
 
-  Future<void> saveCustomerPhotoAndAttachments(String cmSiteReqId, File customerPhoto,
-      File uploadedAttachment) async {
+  Future<void> saveCustomerPhotoAndAttachments(int cmSiteReqId, File? customerPhoto,
+      File? uploadedAttachment) async {
     try {
-      final customerPhotoMultipartFile = await MultipartFile.fromFile(
+      final customerPhotoMultipartFile = customerPhoto == null ? null
+        : await MultipartFile.fromFile(
         customerPhoto.path,
         filename: customerPhoto.path.split('/').last,
       );
 
-      final uploadedAttachmentMultipartFile = await MultipartFile.fromFile(
+      final uploadedAttachmentMultipartFile = uploadedAttachment == null ? null
+          : await MultipartFile.fromFile(
         uploadedAttachment.path,
         filename: uploadedAttachment.path.split('/').last,
       );
@@ -132,7 +134,7 @@ class CMRepository {
     }
   }
 
-  Future<void> saveRemarks(String cmSiteReqId, String remark, String status, File attachment) async {
+  Future<void> saveRemarks(int cmSiteReqId, String remark, String status, File attachment) async {
     try {
       final uploadedAttachmentMultipartFile = await MultipartFile.fromFile(
         attachment.path,
