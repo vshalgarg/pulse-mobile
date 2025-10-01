@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:app/commonWidgets/cm_remarks_show_widget.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
@@ -131,6 +132,9 @@ class _CorrectiveMaintenanceScreenState
           .downloadFromServer(preloadedSite['customer_photo_id'].toString());
 
       if (customerPhotoByteDataLocal != null) {
+        File? imageFile = await Utils.buildImageFromBytesData(
+            customerPhotoByteDataLocal);
+       customerPhoto = imageFile;
         setState(() {
           customerPhotoByteData = customerPhotoByteDataLocal;
         });
@@ -534,6 +538,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Problem Summary",
           hintText: "Enter problem summary",
           controller: controllers['problem_summary']!,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(15),
 
@@ -549,7 +554,8 @@ class _CorrectiveMaintenanceScreenState
                 });
               }
             },
-            externalImageUrl: customerPhotoByteData
+            externalImageUrl: customerPhotoByteData,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(15),
 
@@ -574,6 +580,7 @@ class _CorrectiveMaintenanceScreenState
           isRequired: true,
           maxSizeText: "(Max Size: 2MB)",
           acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
+          isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(30),
         if(widget.mode == CMScreenModeEnum.edit) ...[
@@ -620,7 +627,8 @@ class _CorrectiveMaintenanceScreenState
           ),
           getHeight(30),
         ],
-
+        if(widget.mode != CMScreenModeEnum.create)
+          CMRemarksShowWidget(remarksList: widget.preloadedSiteData?['cm_remarks_list']),
         CustomSubmitButtonV2(
           text: "Submit",
           onPressed: _validateAndSubmit,
@@ -677,12 +685,15 @@ class _CorrectiveMaintenanceScreenState
       try {
         Map<String, dynamic> processedData = DataTransformationHelper
             .convertKeysToCamelCase(requestData);
-        Map<String, dynamic> response = await ServiceLocator().cmRepository
+        await ServiceLocator().cmRepository
             .createCorrectiveMaintenance(processedData);
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
             cmSiteReqId!, customerPhoto, _uploadedAttachments.firstOrNull);
-        await ServiceLocator().cmRepository.saveRemarks(
-            cmSiteReqId!, _remarksController.text, _statusController.text, _remarksAttachments.first);
+        if(_remarksAttachments.isNotEmpty) {
+          await ServiceLocator().cmRepository.saveRemarks(
+              cmSiteReqId!, _remarksController.text, _statusController.text,
+              _remarksAttachments.first);
+        }
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
       } catch (e) {
         Logger.errorLog(e.toString());

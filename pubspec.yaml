@@ -112,6 +112,7 @@ dependencies:
 
   # Image compression
   flutter_image_compress: ^2.3.0
+  dotted_line: ^3.2.3
 
 dev_dependencies:
   flutter_test:
