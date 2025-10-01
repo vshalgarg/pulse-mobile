@@ -100,6 +100,8 @@ class _CorrectiveMaintenanceScreenState
   void initState() {
     super.initState();
     // Use preloaded sites if available, otherwise load them
+
+    controllers['responsible_party']!.addListener(_updateAssignedToField);
     if(widget.preloadedSites != null) {
       _siteOptions = widget.preloadedSites!;
     } else {
@@ -111,10 +113,10 @@ class _CorrectiveMaintenanceScreenState
           siteCode: preloadedSite['site_code'],
           siteName: preloadedSite['site_name'],
           clusterDistrictId: 0,
-          clusterDistrictName: preloadedSite['site_code'],
+          clusterDistrictName: preloadedSite['cluster'],
           circleStateId: 0,
-          circleStateName: preloadedSite['site_code'],
-          self: preloadedSite['site_code'],
+          circleStateName: preloadedSite['circle'],
+          self: preloadedSite['assigned_to_name'],
           selfId: preloadedSite['assigned_to']);
       _siteOptions = [site];
       _initializeTicketControllers(preloadedSite);
@@ -153,7 +155,7 @@ class _CorrectiveMaintenanceScreenState
 
   void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
     controllers['responsible_party']!.text = preloadedSite['responsible_party'];
-    controllers['assigned_to']!.text = preloadedSite['responsible_party'];
+    controllers['assigned_to']!.text = preloadedSite['assigned_to_name'];
     controllers['priority']!.text = preloadedSite['priority'];
     controllers['oem_ticket_id']!.text = preloadedSite['oem_ticket_id'];
     controllers['nature_of_failure']!.text = preloadedSite['nature_of_failure'];
@@ -167,18 +169,17 @@ class _CorrectiveMaintenanceScreenState
       if(preloadedSite['is_dg']!= null && preloadedSite['is_dg'] == true) {
         _selectedEquipmentType = 'DG';
       } else if(preloadedSite['is_battery']!= null && preloadedSite['is_battery'] == true) {
-        _selectedEquipmentType = 'Battery';
+        _selectedEquipmentType = 'BATTERY';
       } else if(preloadedSite['is_ccu']!= null && preloadedSite['is_ccu'] == true) {
         _selectedEquipmentType = 'CCU';
       } else if(preloadedSite['is_smps']!= null && preloadedSite['is_smps'] == true) {
         _selectedEquipmentType = 'SMPS';
       } else if(preloadedSite['is_solar']!= null && preloadedSite['is_solar'] == true) {
-        _selectedEquipmentType = 'Solar';
+        _selectedEquipmentType = 'SOLAR';
       }
     });
     _loadImages(preloadedSite);
     _statusController.text = 'Open';
-    controllers['responsible_party']!.addListener(_updateAssignedToField);
     for (var value in controllers.values) {
       value.addListener(_onFormChanged);
     }
@@ -254,22 +255,7 @@ class _CorrectiveMaintenanceScreenState
   }
 
   Widget _buildEquipmentTypeRadioButtons() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
+    return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -317,9 +303,23 @@ class _CorrectiveMaintenanceScreenState
               },
               originalCmImpactedItemMap: _checklistData['siteDeployedItems'] ??
                   {},
+              onMultiDynamicDropdownValueChanged: (
+                  List<Map<String, dynamic>> impactedItems, String dropdownId) {
+                setState(() {
+                  // Remove existing items from this specific dropdown
+                  _impactedItemList.removeWhere((item) => 
+                    item['_dropdownId'] == dropdownId);
+                  
+                  // Add new items with dropdown identifier
+                  for (var item in impactedItems) {
+                    var newItem = Map<String, dynamic>.from(item);
+                    newItem['_dropdownId'] = dropdownId;
+                    _impactedItemList.add(newItem);
+                  }
+                });
+              },
             ),
         ],
-      ),
     );
   }
 
@@ -704,6 +704,17 @@ class _CorrectiveMaintenanceScreenState
         requestData['assigned_to'] = _selectedSite!.oemId;
       } else if (controllers['responsible_party']!.text == 'Self') {
         requestData['assigned_to'] = _selectedSite!.selfId;
+      }
+      if(_selectedEquipmentType == 'DG') {
+        requestData['isDg'] = true;
+      } else if(_selectedEquipmentType == 'BATTERY') {
+        requestData['isBattery'] = true;
+      } else if(_selectedEquipmentType == 'CCU') {
+        requestData['isCcu'] = true;
+      } else if(_selectedEquipmentType == 'SMPS') {
+        requestData['isSmps'] = true;
+      } else if(_selectedEquipmentType == 'SOLAR') {
+        requestData['isSolar'] = true;
       }
       requestData['cm_site_req_id'] = 0;
       requestData['cm_impacted_item_list'] = DataTransformationHelper

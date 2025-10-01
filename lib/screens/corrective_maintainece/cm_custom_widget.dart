@@ -19,6 +19,7 @@ class CMCustomWidget extends StatefulWidget {
   final Function(List<Map<String, dynamic>>) onImpactedItemListChanged;
   final List<Map<String,dynamic>> cmImpactedItemList;
   final Map<String, dynamic> originalCmImpactedItemMap;
+  final Function(List<Map<String, dynamic>>, String) onMultiDynamicDropdownValueChanged;
 
   const CMCustomWidget({
     super.key,
@@ -28,6 +29,7 @@ class CMCustomWidget extends StatefulWidget {
     required this.onImpactedItemListChanged,
     required this.cmImpactedItemList,
     required this.originalCmImpactedItemMap,
+    required this.onMultiDynamicDropdownValueChanged,
   });
 
   @override
@@ -48,6 +50,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   final TextEditingController _serialNumberController = TextEditingController();
   final Map<String, TextEditingController> _childFieldControllers = {};
   Map<String, dynamic>? _selectedItemData;
+  
+  // Multi dynamic dropdown specific variables
+  List<Map<String, dynamic>> _selectedMultiItems = [];
+  List<Map<String, dynamic>> _availableMultiOptions = [];
+  bool _isMultiDropdownOpen = false;
 
   @override
   void initState() {
@@ -107,6 +114,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     if (respType == 'DYNAMIC_DROPDOWN') {
       _initializeDynamicDropdown();
     }
+    
+    // Initialize multi dynamic dropdown
+    if (respType == 'MULTI_DYNAMIC_DROPDOWN') {
+      _initializeMultiDynamicDropdown();
+    }
   }
 
   void _initializeDynamicDropdown() {
@@ -120,6 +132,23 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     }
 
     _dynamicDropdownData = widget.cmImpactedItemList.map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
+  void _initializeMultiDynamicDropdown() {
+    // Get sub_item_type to filter options from originalCmImpactedItemMap
+    final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
+    
+    // Get available options from originalCmImpactedItemMap based on sub_item_type
+    if (widget.originalCmImpactedItemMap.containsKey(subItemType)) {
+      final options = widget.originalCmImpactedItemMap[subItemType] as List<dynamic>? ?? [];
+      _availableMultiOptions = options.map((item) => Map<String, dynamic>.from(item)).toList();
+    }
+    
+    // Initialize selected items from current response
+    final currentResp = _currentItem['resp'];
+    if (currentResp is List) {
+      _selectedMultiItems = currentResp.map((item) => Map<String, dynamic>.from(item)).toList();
+    }
   }
 
   // Helper method to get field names from childItemsData
@@ -140,7 +169,13 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   void _notifyValueChanged() {
-    widget.onValueChanged(_currentItem);
+    // For MULTI_DYNAMIC_DROPDOWN, return only the selected items array with dropdown ID
+    if (_currentItem['resp_type'] == 'MULTI_DYNAMIC_DROPDOWN') {
+      final dropdownId = '${_currentItem['cm_check_list_mst_id']}_${_currentItem['sub_item_type']}';
+      widget.onMultiDynamicDropdownValueChanged(_selectedMultiItems, dropdownId);
+    } else {
+      widget.onValueChanged(_currentItem);
+    }
   }
 
   void _onDropdownChanged(String? value) {
@@ -233,7 +268,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
       "cmItemType": _selectedItemData!['item_type'],
       "isActive": true,
-      "remarks": ""
+      "remarks": "",
+      "subItemType": _currentItem['sub_item_type'],
+      "respType": _currentItem['resp_type'],
     };
     
     // Add dynamic fields based on impacted_item_value_map
@@ -513,6 +550,158 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       );
   }
 
+  Widget _buildMultiDynamicDropdownField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        RichText(
+          text: TextSpan(
+            children: [
+              TextSpan(
+                text: _currentItem['checklist_desc']?.toString() ?? '',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontFamily: fontFamilyMontserrat,
+                ),
+              ),
+              if (_currentItem['is_mandatory'] == true)
+                const TextSpan(
+                  text: " *",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.red,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
+                ),
+            ],
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
+        ),
+            // Multi-select dropdown
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      _selectedMultiItems.isEmpty 
+                        ? 'Select ${_currentItem['checklist_desc']?.toString() ?? 'Items'}'
+                        : '${_selectedMultiItems.length} item(s) selected',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                  Icon(
+                    _isMultiDropdownOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    color: Colors.grey.shade600,
+                  ),
+                ],
+              ),
+            ),
+            
+            // Dropdown options
+            if (_isMultiDropdownOpen) ...[
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      spreadRadius: 1,
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: _availableMultiOptions.map((option) {
+                      final isSelected = _selectedMultiItems.any((selected) => 
+                        selected['item_instance_id'] == option['item_instance_id']
+                      );
+                      
+                      return CheckboxListTile(
+                        title: Text(option['mfg_serial_no']?.toString() ?? 'Unknown'),
+                        subtitle: Text(option['item_type']?.toString() ?? ''),
+                        value: isSelected,
+                        onChanged: (bool? value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedMultiItems.add(Map<String, dynamic>.from(option));
+                            } else {
+                              _selectedMultiItems.removeWhere((selected) => 
+                                selected['item_instance_id'] == option['item_instance_id']
+                              );
+                            }
+                            _onMultiSelectionChanged();
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+            
+            const SizedBox(height: 16),
+            
+            // Selected items display
+            if (_selectedMultiItems.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ..._selectedMultiItems.map((item) => Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        item['mfg_serial_no']?.toString() ?? 'Unknown',
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () {
+                        setState(() {
+                          _selectedMultiItems.removeWhere((selected) => 
+                            selected['item_instance_id'] == item['item_instance_id']
+                          );
+                          _onMultiSelectionChanged();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              )),
+            ],
+    ],
+      );
+  }
+
+  void _onMultiSelectionChanged() {
+    // Return selected multi items directly without storing in resp
+    _notifyValueChanged();
+  }
+
   Widget _buildFieldByType(String respType) {
     switch (respType) {
       case 'DROPDOWN':
@@ -527,6 +716,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         return _buildRemarksField();
       case 'DYNAMIC_DROPDOWN':
         return _buildDynamicDropdownField();
+      case 'MULTI_DYNAMIC_DROPDOWN':
+        return _buildMultiDynamicDropdownField();
       default:
         return Container(
           decoration: BoxDecoration(

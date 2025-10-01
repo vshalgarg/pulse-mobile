@@ -10,6 +10,7 @@ class ChecklistPreviewWidget extends StatefulWidget {
   final Function (List<Map<String, dynamic>>) onImpactedItemListChanged;
   final List<Map<String, dynamic>> cmImpactedItemList;
   final Map<String, dynamic> originalCmImpactedItemMap;
+  final Function(List<Map<String, dynamic>>, String) onMultiDynamicDropdownValueChanged;
 
   const ChecklistPreviewWidget({
     super.key,
@@ -20,6 +21,7 @@ class ChecklistPreviewWidget extends StatefulWidget {
     required this.onImpactedItemListChanged,
     required this.cmImpactedItemList,
     required this.originalCmImpactedItemMap,
+    required this.onMultiDynamicDropdownValueChanged,
   });
 
   @override
@@ -184,6 +186,7 @@ class _ChecklistPreviewWidgetState extends State<ChecklistPreviewWidget> {
                               onImpactedItemListChanged: widget.onImpactedItemListChanged,
                               originalCmImpactedItemMap: widget.originalCmImpactedItemMap,
                               cmImpactedItemList: widget.cmImpactedItemList,
+                              onMultiDynamicDropdownValueChanged: widget.onMultiDynamicDropdownValueChanged,
                             ),
                           );
                         }).toList(),

@@ -115,7 +115,7 @@ class CMRepository {
         path: 'api/v1/mobile/correctiveMaintenance/upload',
         data: {
           'customerPhoto': customerPhotoMultipartFile,
-          'attachment': uploadedAttachmentMultipartFile,
+          'attachments': uploadedAttachmentMultipartFile,
           'cmId': cmSiteReqId,
         },
         useFormDataFormat: true,
