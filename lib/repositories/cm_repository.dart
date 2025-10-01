@@ -142,13 +142,12 @@ class CMRepository {
       );
 
       final response = await _apiService.post<Map<String, dynamic>>(
-        path: 'api/v1/mobile/correctiveMaintenance/upload',
+        path: 'api/v1/mobile/cmRemarks/upload',
         data: {
           'cmRemarksFile': uploadedAttachmentMultipartFile,
           'cmId': cmSiteReqId,
           'cmRemark': remark,
           'cmStatus': status,
-          'cmRemarksId': 0,
         },
         useFormDataFormat: true,
       );
