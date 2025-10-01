@@ -205,14 +205,6 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         return;
       }
 
-      final isConnected = await ConnectivityHelper.isConnected();
-
-      // if (!isConnected) {
-      //   // No internet connection - save to local database
-      //   await _saveSelfieToLocalDB();
-      //   return;
-      // }
-
       // Internet connected - upload to server
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
@@ -221,6 +213,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         activityType: ActivityTypeEnum.assetAudit,
       );
 
+      // Update the database with the new image ID
       final dbData = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
@@ -231,6 +224,16 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
             : null;
         if (pageHeader != null) {
           pageHeader['maker_selfie_image_id'] = imgId;
+
+          // Save the updated data back to the database
+          await _service.updateDataInSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+            updatedData: dbData,
+          );
+
+          Logger.debugLog(
+            '✅ Updated maker_selfie_image_id in database: $imgId',
+          );
         }
       }
 
@@ -241,14 +244,11 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         });
 
         showCustomToast(context, 'Selfie uploaded successfully');
-        Logger.debugLog('✅ Selfie uploaded with ID: $imgId');
       } else {
         showCustomToast(context, 'Failed to upload selfie');
-        Logger.errorLog('❌ Failed to upload selfie');
       }
     } catch (e) {
       Logger.errorLog('❌ Error uploading selfie: $e');
-      showCustomToast(context, 'Failed to upload selfie: $e');
     }
   }
 
@@ -511,9 +511,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           children: [
             Builder(
               builder: (context) {
-                Logger.imageLog(
-                  '🏗️ Building ImageUploadField widget for Telecom',
-                );
+                Logger.imageLog('Building ImageUploadField widget for Telecom');
                 Logger.imageLog(
                   'fetchedImageData length: ${_fetchedImageData?.length ?? 0}',
                 );

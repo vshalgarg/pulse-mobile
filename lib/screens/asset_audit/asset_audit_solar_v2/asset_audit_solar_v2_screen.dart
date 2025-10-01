@@ -195,7 +195,10 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         activityType: ActivityTypeEnum.assetAudit,
       );
 
-      final dbData = _assetAuditData;
+      // Update the database with the new image ID
+      final dbData = await _service.getActualDataFromSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+      );
       if (dbData != null) {
         final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
         final pageHeader = pageHeaders?.isNotEmpty == true
@@ -203,6 +206,14 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
             : null;
         if (pageHeader != null) {
           pageHeader['maker_selfie_image_id'] = imgId;
+          
+          // Save the updated data back to the database
+          await _service.updateDataInSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+            updatedData: dbData,
+          );
+          
+          Logger.debugLog('✅ Updated maker_selfie_image_id in database: $imgId');
         }
       }
       if (imgId != null) {
