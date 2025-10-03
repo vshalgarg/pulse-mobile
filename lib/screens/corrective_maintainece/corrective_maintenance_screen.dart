@@ -703,6 +703,7 @@ class _CorrectiveMaintenanceScreenState
               _remarksAttachments.first);
         }
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+        AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
         Toastbar.showErrorToastbar("Failed to save the form", context);
@@ -765,6 +766,7 @@ class _CorrectiveMaintenanceScreenState
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
             cmSiteReqId, customerPhoto!, _uploadedAttachments.first);
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+        AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
         Toastbar.showErrorToastbar("Failed to save the form", context);

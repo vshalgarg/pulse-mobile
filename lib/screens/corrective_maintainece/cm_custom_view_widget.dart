@@ -147,14 +147,28 @@ class CMCustomWidgetView extends StatelessWidget {
   }
 
   Widget _buildDynamicDropdownField() {
-    final fieldNames = _getFieldNamesFromChildItems();
-    
-    // Get the data from pmItem['resp'] which should contain the selected items
+    // Get sub_item_type from pmItem
+    final subItemType = pmItem['sub_item_type']?.toString() ?? '';
+
+    // Get the list of items from originalCmImpactedItemMap using sub_item_type as key
     List<Map<String, dynamic>> selectedItems = [];
-    final respValue = pmItem['resp'];
-    if (respValue is List) {
-      selectedItems = respValue.map((item) => Map<String, dynamic>.from(item)).toList();
+    if (originalCmImpactedItemMap.containsKey(subItemType)) {
+      final items = originalCmImpactedItemMap[subItemType] as List<dynamic>? ?? [];
+      selectedItems = items.map((item) => Map<String, dynamic>.from(item)).toList();
     }
+    
+    // Get all unique keys from selectedItems, excluding null values
+    Set<String> allKeys = {};
+    for (var item in selectedItems) {
+      item.forEach((key, value) {
+        if (value != null && key != 'nexgen_serial_no') {
+          allKeys.add(key);
+        }
+      });
+    }
+
+    // Convert to list and sort for consistent display
+    List<String> columnKeys = allKeys.toList()..sort();
     
     return Container(
       decoration: BoxDecoration(
@@ -165,73 +179,49 @@ class CMCustomWidgetView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Serial Number field (read-only)
-            CustomFormField(
-              label: 'Battery - Serial Number',
-              initialValue: 'View Mode - Serial Number Display',
-              isRequired: false,
-              isEditable: false,
-            ),
-            const SizedBox(height: 16),
             
-            // Child fields (SOC, SOH, etc.) - read-only
-            ...fieldNames.entries.map((entry) {
-              final fieldName = entry.key;
-              final fieldKey = entry.value;
-              final value = pmItem[fieldKey]?.toString() ?? '';
-              
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: CustomFormField(
-                  label: fieldName,
-                  initialValue: value.isEmpty ? 'No value provided' : value,
-                  isRequired: false,
-                  isEditable: false,
-                ),
-              );
-            }),
-            
-            const SizedBox(height: 16),
+            // Child fields - show individual values for each selected item
 
             // Data table
             Container(
+              width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade300),
               ),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  columnSpacing: 20,
-                  horizontalMargin: 12,
-                  columns: [
-                    DataColumn(
-                      label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
+              child: selectedItems.isEmpty 
+                ? Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      'No data available for DYNAMIC_DROPDOWN',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
-                    DataColumn(
-                      label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    ...fieldNames.keys.map((fieldName) => 
-                      DataColumn(
-                        label: Text(fieldName, style: TextStyle(fontWeight: FontWeight.bold)),
-                      )
-                    ),
-                  ],
-                  rows: selectedItems.map((item) {
-                    return DataRow(
-                      cells: [
-                        DataCell(Text(item['mfg_serial_no']?.toString() ?? '')),
-                        DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
-                        ...fieldNames.entries.map((entry) {
-                          final fieldKey = entry.value;
-                          return DataCell(Text(item[fieldKey]?.toString() ?? ''));
-                        }).toList(),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
+                  )
+                : DataTable(
+                    columnSpacing: 20,
+                    horizontalMargin: 12,
+                    columns: [
+                      ...columnKeys.map((key) =>
+                        DataColumn(
+                          label: Text(key == 'mfg_serial_no' ? 'Serial Number' : key.toUpperCase(), style: TextStyle(fontWeight: FontWeight.bold)),
+                        )
+                      ),
+                    ],
+                    rows: selectedItems.map((item) {
+                      return DataRow(
+                        cells: [
+                          ...columnKeys.map((key) {
+                            final value = item[key]?.toString() ?? '';
+                            return DataCell(Text(value.isEmpty ? 'NA' : value));
+                          }),
+                        ],
+                      );
+                    }).toList(),
+                  ),
             ),
           ],
         ),

@@ -52,6 +52,7 @@ class _ChecklistCreateWidgetViewState extends State<ChecklistCreateWidgetView> {
       decoration: BoxDecoration(
         border: Border.all(color: Colors.grey.withOpacity(0.5)),
         borderRadius: BorderRadius.circular(8),
+          color: const Color(0xFFE6F5EF).withOpacity(0.2),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
