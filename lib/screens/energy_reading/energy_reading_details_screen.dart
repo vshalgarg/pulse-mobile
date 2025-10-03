@@ -1,12 +1,10 @@
-import 'package:app/commonWidgets/custom_asset_audit_form_section.dart';
 import 'package:app/commonWidgets/custom_er_form.dart';
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_radio_options.dart';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
-import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -18,7 +16,6 @@ import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
-import '../../../commonWidgets/custom_dropdown.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/app_colors.dart';
 
@@ -752,7 +749,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
 
         getHeight(15),
-        CustomOptionSelector(
+        CustomRadioButton(
           label: "Any Major Hazardous Punch Point",
           isRequired: true,
           options: _batteryStatusOptions
