@@ -153,7 +153,7 @@ class CentralApiService {
       }
 
       final reportUrl =
-          'https://pulseapi.nexgeninfra.com//reports/generate?' +
+          'https://pulseapi.premiumfreshers.com//reports/generate?' +
           'reportPath=$reportPath&' +
           'rp_tenant=$userId&' +
           'rp_sch_id=$ticketSchId&' +
