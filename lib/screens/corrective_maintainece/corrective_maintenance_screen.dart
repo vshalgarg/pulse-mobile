@@ -214,7 +214,7 @@ class _CorrectiveMaintenanceScreenState
       LoaderWidget.showLoader(context);
       if (widget.mode == CMScreenModeEnum.create) {
         final checklistData = await ServiceLocator().cmRepository
-            .getChecklistData(2485);
+            .getChecklistData(selectedSite.entityId);
         setState(() {
           _checklistData = checklistData;
         });
