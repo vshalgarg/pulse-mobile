@@ -511,7 +511,9 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           children: [
             Builder(
               builder: (context) {
-                Logger.imageLog('Building ImageUploadField widget for Telecom');
+                Logger.imageLog(
+                  '🏗️ Building ImageUploadField widget for Telecom',
+                );
                 Logger.imageLog(
                   'fetchedImageData length: ${_fetchedImageData?.length ?? 0}',
                 );

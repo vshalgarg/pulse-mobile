@@ -242,8 +242,9 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     }
 
     // Initialize cabinet serial number controller
-    if (_cabinetPhotoId!= null) {
-    _cabinetSerialController.text = formData['cabinetSerial']?.toString() ?? "";
+    if (_cabinetPhotoId != null) {
+      _cabinetSerialController.text =
+          formData['cabinetSerial']?.toString() ?? "";
     }
 
     _remarksController.text = formData['remarks']?.toString() ?? "";
@@ -597,11 +598,20 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     print("serialNumber: $serialNumber");
     print("isQRCodeScanned: $isQRCodeScanned");
     final cabinets = _displayFormData?['cabinets'] as List<dynamic>?;
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+
+    // Check if the serial number matches either nexgen_serial_no or mfg_serial_no
+    bool isValid = AssetAuditValidationHelper.validateQRCodeSerialNumber(
       serialNumber,
       cabinets,
       isQRCodeScanned,
     );
+
+    // If validation fails, show popup
+    if (!isValid && serialNumber.isNotEmpty) {
+      _showSerialNumberMismatchDialog(serialNumber);
+    }
+
+    return isValid;
   }
 
   // Custom validation function for Rectifier serial number
@@ -624,6 +634,70 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       serialNumber,
       allMppts,
       isQRCodeScanned,
+    );
+  }
+
+  // Show dialog when cabinet serial number doesn't match
+  void _showSerialNumberMismatchDialog(String enteredSerialNumber) {
+    final cabinets = _displayFormData?['cabinets'] as List<dynamic>?;
+    String expectedSerialNumbers = '';
+
+    if (cabinets != null && cabinets.isNotEmpty) {
+      final cabinet = cabinets.first as Map<String, dynamic>;
+      final nexgenSerial = cabinet['nexgen_serial_no']?.toString() ?? '';
+      final mfgSerial = cabinet['mfg_serial_no']?.toString() ?? '';
+
+      if (nexgenSerial.isNotEmpty && mfgSerial.isNotEmpty) {
+        expectedSerialNumbers =
+            'Expected serial numbers:\n• NexGen: $nexgenSerial\n• MFG: $mfgSerial';
+      } else if (nexgenSerial.isNotEmpty) {
+        expectedSerialNumbers =
+            'Expected serial number:\n• NexGen: $nexgenSerial';
+      } else if (mfgSerial.isNotEmpty) {
+        expectedSerialNumbers = 'Expected serial number:\n• MFG: $mfgSerial';
+      }
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: AppColors.errorColor,
+              size: 24,
+            ),
+            const SizedBox(width: 8),
+            const Text('Serial Number Mismatch'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'The entered cabinet serial number does not match the expected values.',
+              style: TextStyle(fontSize: 16, color: AppColors.black),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+            },
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: AppColors.primaryGreen,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
