@@ -3,9 +3,12 @@ import 'package:app/app_config.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
 import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/commonWidgets/dashBoard_appBar.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
+import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/screens/sqlite_query_screen.dart';
@@ -42,6 +45,29 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     context.read<DashboardCubit>().getDashboardCount();
   }
+
+  /// Loads sites data for corrective maintenance
+  Future<void> _loadSitesAndNavigateToCM() async {
+    try {
+      LoaderWidget.showLoader(context);
+      final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+
+      if (mounted) {
+        LoaderWidget.hideLoader();
+        // Navigate to corrective maintenance screen with sites data
+        pushPage(context, CorrectiveMaintenanceScreen(
+          mode: CMScreenModeEnum.create,
+          preloadedSites: sites,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        LoaderWidget.hideLoader();
+        Toastbar.showErrorToastbar('Failed to load sites: $e', context);
+      }
+    }
+  }
+
 
   /// Syncs offline data by checking pending requests and posting them to the server
   Future<void> _syncOfflineData() async {
@@ -147,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (widget.selectedActivity == "Corrective Maintenance") ...[
             FloatingActionButton(
               onPressed: () {
-                _syncOfflineData();
+                _loadSitesAndNavigateToCM();
               },
               backgroundColor: AppColors.bellColor,
               child: const Icon(Icons.add, color: Colors.white),

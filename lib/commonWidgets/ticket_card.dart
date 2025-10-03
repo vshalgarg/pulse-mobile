@@ -214,18 +214,22 @@ class TicketCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      fontFamily: fontFamilyMontserrat,
-                      color: AppColors.color555555,
+                  Expanded(
+                    flex: 1,
+                    child: Text(
+                      "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        fontFamily: fontFamilyMontserrat,
+                        color: AppColors.color555555,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
+                    flex: 1,
                     child: Text(
                       "Due : ${Utils.formatDataForTicketCard(dueDate)}",
                       style: const TextStyle(

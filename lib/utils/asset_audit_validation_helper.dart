@@ -28,7 +28,7 @@ class AssetAuditValidationHelper {
       List<dynamic>? assets,
       bool isQrCodeScanned
       ) {
-    if (assets == null || assets.isEmpty) return assets;
+    if (assets == null || assets.isEmpty) return null;
     for(dynamic asset in assets) {
       if (asset['mfg_serial_no']?.toString().toUpperCase() == serialNumber.toUpperCase()) {
         return asset;

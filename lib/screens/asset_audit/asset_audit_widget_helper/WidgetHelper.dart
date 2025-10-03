@@ -7,7 +7,7 @@ class WidgetHelper {
     required bool isRequired,
     required String initialSelectedValue,
   }) {
-    return CustomOptionSelector(
+    return CustomRadioButton(
       label: label,
       isRequired: isRequired,
       options: [
@@ -35,7 +35,7 @@ class WidgetHelper {
     required String initialSelectedValue,
     required Function(String value) onChanged
   }) {
-    return CustomOptionSelector(
+    return CustomRadioButton(
       label: label,
       isRequired: isRequired,
       options: [

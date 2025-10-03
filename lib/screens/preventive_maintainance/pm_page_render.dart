@@ -123,8 +123,6 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   /// Build the appropriate site info page based on PM type
   Widget _buildSiteInfoPage() {
-    print('Building Site Info Page - Is Solar PM: $_isSolarPM');
-
     if (_isSolarPM) {
       return PMPageHeaderSolar(
         pageHeader: _pageHeader,
@@ -188,13 +186,13 @@ class _PMPageRenderState extends State<PMPageRender> {
     }
   }
 
-  void _onNextPage({bool hasChanges = false}) async {
+  Future<void> _onNextPage() async {
     // Update data in SQLite before navigating to next page (except for Site Info page)
     LoaderWidget.showLoader(context);
 
     try {
       // Only update if page has changes
-      if (!_isFirstPage && hasChanges) {
+      if (!_isFirstPage && _hasChanges) {
         await _updateDataInSqliteAndCallApi();
       }
 
@@ -213,8 +211,8 @@ class _PMPageRenderState extends State<PMPageRender> {
   }
 
   // Wrapper method to pass hasChanges parameter
-  void _onNextPageWrapper() {
-    _onNextPage(hasChanges: _hasChanges);
+  Future<void> _onNextPageWrapper() async {
+    await _onNextPage();
     // Reset changes flag after navigation
     _hasChanges = false;
   }

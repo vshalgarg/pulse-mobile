@@ -9,6 +9,7 @@ class CustomRemarksField extends StatelessWidget {
   final TextEditingController controller;
   final int maxLines;
   final String? initialValue;
+  final bool isDisabled;
 
   const CustomRemarksField({
     super.key,
@@ -17,6 +18,7 @@ class CustomRemarksField extends StatelessWidget {
     required this.controller,
     this.initialValue,
     this.maxLines = 4,
+    this.isDisabled = false,
   });
 
   @override
@@ -40,6 +42,7 @@ class CustomRemarksField extends StatelessWidget {
         TextFormField(
           controller: controller,
           maxLines: maxLines,
+          readOnly: isDisabled,
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: const TextStyle(color: AppColors.color555555),

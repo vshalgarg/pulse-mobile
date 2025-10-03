@@ -24,16 +24,6 @@ class CustomFormAppbar extends StatelessWidget implements PreferredSizeWidget {
       automaticallyImplyLeading: false,
       toolbarHeight: 100, // Increased height for better touch area
       flexibleSpace: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black54,
-              Colors.transparent,
-            ],
-          ),
-        ),
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.only(left: 16, top: 20, right: 16, bottom: 10),
