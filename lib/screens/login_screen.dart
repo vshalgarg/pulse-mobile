@@ -6,6 +6,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
@@ -71,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
         listener: (context, state) {
           if (state is AuthSuccess) {
             // showCustomToast(context, '');
-            pushReplacementPage(context, HomeScreen());
+            pushReplacementPage(context, PulseDashboard());
           } else if (state is AuthFailure) {
             showCustomToast(context, state.errorMessage);
           }
@@ -110,20 +111,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const Text(
-                                    "LOGIN TO",
-                                    style: TextStyle(
-                                      color: AppColors.textWhite,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      fontFamily: poppins,
-                                    ),
-                                  ),
                                   const SizedBox(height: 10),
                                   pulseContainer(),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 30),
                                   Text(
-                                    "Empowering energy and connectivity — securely and sustainably.",
+                                    "Empowering connectivity and energy — securely and sustainably.",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: AppColors.textWhite70,
@@ -133,7 +125,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                       fontStyle: FontStyle.italic,
                                     ),
                                   ),
-                                  const SizedBox(height: 30),
+                                  const SizedBox(height: 60),
                                   mobileNumberField(),
                                   const SizedBox(height: 10),
                                   passwordField(),
@@ -194,9 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget pulseContainer() {
-    return Image.asset(AppImages.pulseImg);
-
-    
+    return Image.asset(AppImages.pulseImg, width: 159, height: 55);
   }
 
   Widget mobileNumberField() {

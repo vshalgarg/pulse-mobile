@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/svg.dart';
@@ -34,7 +37,8 @@ class AssetAuditTelecomV2Screen extends StatefulWidget {
   });
 
   @override
-  State<AssetAuditTelecomV2Screen> createState() => _AssetAuditTelecomV2ScreenState();
+  State<AssetAuditTelecomV2Screen> createState() =>
+      _AssetAuditTelecomV2ScreenState();
 }
 
 class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
@@ -73,7 +77,9 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
     Logger.debugLog('🔧 Initializing Central Asset Audit service for Telecom');
     _service = ServiceLocator().centralAssetAuditService;
 
-    Logger.debugLog('✅ Central Asset Audit service initialized successfully for Telecom');
+    Logger.debugLog(
+      '✅ Central Asset Audit service initialized successfully for Telecom',
+    );
   }
 
   Future<void> _loadData() async {
@@ -83,7 +89,9 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Loading telecom asset audit data for site ${widget.siteAuditSchId}');
+      Logger.debugLog(
+        '🔄 Loading telecom asset audit data for site ${widget.siteAuditSchId}',
+      );
 
       // Use the actual service to load data
       final data = await _service.getActualDataFromSqlite(
@@ -98,25 +106,30 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
 
         // Extract page header data for form fields
         final pageHeaders = data['pageHeader'] as List<dynamic>?;
-        final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>
+            : null;
         final formData = <String, String>{};
 
         if (pageHeader != null) {
           // Telecom specific fields
           formData['circle'] = pageHeader['circle']?.toString() ?? "N/A";
           formData['cluster'] = pageHeader['cluster']?.toString() ?? "N/A";
-          formData['indoorOutdoor'] = pageHeader['indoor_outdoor']?.toString() ?? "N/A";
+          formData['indoorOutdoor'] =
+              pageHeader['indoor_outdoor']?.toString() ?? "N/A";
           formData['ebNonEb'] = pageHeader['eb_non_eb']?.toString() ?? "N/A";
           formData['op1Name'] = pageHeader['op1_name']?.toString() ?? "N/A";
           formData['op2Name'] = pageHeader['op2_name']?.toString() ?? "N/A";
           formData['siteId'] = pageHeader['site_id']?.toString() ?? "N/A";
-          
+
           // Common fields
           formData['district'] = pageHeader['district']?.toString() ?? "N/A";
-          formData['clientName'] = pageHeader['client_name']?.toString() ?? "N/A";
+          formData['clientName'] =
+              pageHeader['client_name']?.toString() ?? "N/A";
           formData['siteCode'] = pageHeader['site_code']?.toString() ?? "N/A";
           formData['siteName'] = pageHeader['site_name']?.toString() ?? "N/A";
-          formData['siteType'] = pageHeader['site_type_name']?.toString() ?? "N/A";
+          formData['siteType'] =
+              pageHeader['site_type_name']?.toString() ?? "N/A";
           formData['status'] = pageHeader['status']?.toString() ?? "N/A";
         } else {
           Logger.errorLog('❌ No page header data found!');
@@ -124,15 +137,19 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
 
         setState(() {
           _isLoadingData = false;
-          _assetAuditData = data; // Store the full asset audit data for navigation
-          _displayFormData = formData; // Store the extracted form data for display
+          _assetAuditData =
+              data; // Store the full asset audit data for navigation
+          _displayFormData =
+              formData; // Store the extracted form data for display
         });
         Logger.debugLog('✅ Telecom asset audit data loaded successfully');
         Logger.debugLog('📊 Form data: $formData');
 
         // Load image if we have an image ID from the page header
         if (pageHeader != null && pageHeader['maker_selfie_image_id'] != null) {
-          Logger.debugLog('🖼️ Found makerSelfieImageId: ${pageHeader['maker_selfie_image_id']}');
+          Logger.debugLog(
+            '🖼️ Found makerSelfieImageId: ${pageHeader['maker_selfie_image_id']}',
+          );
           await _loadImage(pageHeader['maker_selfie_image_id'].toString());
         } else {
           Logger.debugLog('⚠️ No makerSelfieImageId found in page header');
@@ -143,7 +160,9 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           _isLoadingData = false;
           _errorMessage = 'No data available for this site';
         });
-        Logger.errorLog('❌ No data available for site ${widget.siteAuditSchId}');
+        Logger.errorLog(
+          '❌ No data available for site ${widget.siteAuditSchId}',
+        );
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading telecom data: $e');
@@ -160,8 +179,12 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       final imageData = await _service.getImageAsDataUrl(imageId);
 
       if (imageData != null) {
-        Logger.debugLog('✅ Image data received: ${imageData.length} characters');
-        Logger.debugLog('✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...');
+        Logger.debugLog(
+          '✅ Image data received: ${imageData.length} characters',
+        );
+        Logger.debugLog(
+          '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
+        );
         setState(() {
           _fetchedImageData = imageData;
         });
@@ -178,11 +201,11 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
   Future<void> _uploadSelfie() async {
     try {
       if (_selectedImage == null) {
-        showCustomToast(context, 'Please select an image first');
+        Toastbar.showErrorToastbar('Please select an image first', context);
         return;
       }
 
-      // Use the actual service to upload selfie
+      // Internet connected - upload to server
       final imgId = await _service.uploadImage(
         siteAuditSchId: widget.siteAuditSchId,
         imageFile: _selectedImage!,
@@ -190,16 +213,30 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         activityType: ActivityTypeEnum.assetAudit,
       );
 
+      // Update the database with the new image ID
       final dbData = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
-      if(dbData != null) {
+      if (dbData != null) {
         final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
-        final pageHeader = pageHeaders?.isNotEmpty == true ? pageHeaders!.first as Map<String, dynamic> : null;
-        if(pageHeader != null) {
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>
+            : null;
+        if (pageHeader != null) {
           pageHeader['maker_selfie_image_id'] = imgId;
+
+          // Save the updated data back to the database
+          await _service.updateDataInSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+            updatedData: dbData,
+          );
+
+          Logger.debugLog(
+            '✅ Updated maker_selfie_image_id in database: $imgId',
+          );
         }
       }
+
       if (imgId != null) {
         setState(() {
           _uploadedImgId = imgId;
@@ -207,14 +244,59 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         });
 
         showCustomToast(context, 'Selfie uploaded successfully');
-        Logger.debugLog('✅ Selfie uploaded with ID: $imgId');
       } else {
         showCustomToast(context, 'Failed to upload selfie');
-        Logger.errorLog('❌ Failed to upload selfie');
       }
     } catch (e) {
       Logger.errorLog('❌ Error uploading selfie: $e');
-      showCustomToast(context, 'Failed to upload selfie: $e');
+    }
+  }
+
+  Future<void> _saveSelfieToLocalDB() async {
+    try {
+      // Create selfie data for local storage
+      final selfieData = {
+        "siteAuditSchId": widget.siteAuditSchId,
+        "auditSchId": widget.auditSchId,
+        "siteType": widget.siteType,
+        "imageType": "selfie",
+        "imageFile": _selectedImage,
+        "uploadedAt": DateTime.now().toIso8601String(),
+        "isPending": true,
+      };
+
+      // Save to pending requests database
+      final url = '/api/v1/mobile/AssetAuditSiteResp?status=IN-PROGRESS';
+      final requestId =
+          'selfie_upload_${DateTime.now().millisecondsSinceEpoch}';
+
+      bool isSaved = await ServiceLocator().pendingRequestService
+          .savePendingRequest(
+            requestId: requestId,
+            url: url,
+            headers: {},
+            jsonEncodedRequestData: jsonEncode([selfieData]),
+          );
+
+      if (isSaved) {
+        Logger.infoLog("Selfie data saved to DB successfully");
+        print("Selfie data saved to DB successfully");
+
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+
+        Toastbar.showSuccessToastbar(
+          "Selfie saved offline. Will upload when connected.",
+          context,
+        );
+        Logger.debugLog('✅ Selfie saved offline with requestId: $requestId');
+      } else {
+        throw Exception('Failed to save selfie data to database');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error saving selfie to local DB: $e');
+      showCustomToast(context, 'Failed to save selfie offline: $e');
     }
   }
 
@@ -361,15 +443,13 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                 AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
-                  onNextButtonClick:  () async {
-                  },
+                  onNextButtonClick: () async {},
                   assetAuditData: _assetAuditData,
                   auditSchId: widget.auditSchId,
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
                 ),
-
               ],
             ),
           ),
@@ -410,9 +490,10 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
+
         CustomFormField(
           label: "Site Id",
-          initialValue: _displayFormData?['siteId'] ?? "N/A",
+          initialValue: _displayFormData?['siteCode'] ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
@@ -430,9 +511,15 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           children: [
             Builder(
               builder: (context) {
-                Logger.imageLog('🏗️ Building ImageUploadField widget for Telecom');
-                Logger.imageLog('fetchedImageData length: ${_fetchedImageData?.length ?? 0}');
-                Logger.imageLog('fetchedImageData preview: ${_fetchedImageData?.substring(0, _fetchedImageData!.length > 50 ? 50 : _fetchedImageData!.length) ?? 'null'}');
+                Logger.imageLog(
+                  '🏗️ Building ImageUploadField widget for Telecom',
+                );
+                Logger.imageLog(
+                  'fetchedImageData length: ${_fetchedImageData?.length ?? 0}',
+                );
+                Logger.imageLog(
+                  'fetchedImageData preview: ${_fetchedImageData?.substring(0, _fetchedImageData!.length > 50 ? 50 : _fetchedImageData!.length) ?? 'null'}',
+                );
                 Logger.imageLog('uploadedPhotoPath: ${_selectedImage?.path}');
                 Logger.imageLog('uploadedImgId: $_uploadedImgId');
                 return ImageUploadField(
@@ -448,6 +535,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                         _hasFormDataChanges = true;
                       });
                       // Upload selfie to server
+
                       _uploadSelfie();
                     } else {
                       setState(() {
@@ -474,10 +562,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                 decoration: BoxDecoration(
                   color: AppColors.errorColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: AppColors.errorColor,
-                    width: 1,
-                  ),
+                  border: Border.all(color: AppColors.errorColor, width: 1),
                 ),
                 child: Row(
                   children: [
@@ -511,8 +596,12 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
     });
 
     final hasLocalPhoto = _selectedImage != null;
-    final hasServerImage = _uploadedImgId != null && _uploadedImgId!.isNotEmpty && _uploadedImgId != "0";
-    final hasImageData = _fetchedImageData != null && _fetchedImageData!.isNotEmpty;
+    final hasServerImage =
+        _uploadedImgId != null &&
+        _uploadedImgId!.isNotEmpty &&
+        _uploadedImgId != "0";
+    final hasImageData =
+        _fetchedImageData != null && _fetchedImageData!.isNotEmpty;
 
     if (!hasLocalPhoto && !hasServerImage && !hasImageData) {
       Logger.debugLog('Photo validation failed - No photo uploaded');
@@ -535,10 +624,8 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
           parentContext: context, // Use the outer context (screen context)
-          onSaveAndExit: () async {
-          },
-          onDiscard: () {
-          },
+          onSaveAndExit: () async {},
+          onDiscard: () {},
         ),
       );
     } else {

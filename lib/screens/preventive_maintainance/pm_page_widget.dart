@@ -16,10 +16,12 @@ class PMPageWidget extends StatefulWidget {
   final String leftButtonText;
   final String rightButtonText;
   final VoidCallback onLeftButtonPressed;
-  final Future<void> Function() onRightButtonPressed;
+  final VoidCallback onRightButtonPressed;
   final Function(List<Map<String, dynamic>>) onDataChanged;
   final bool isLoading;
   final String? errorMessage;
+  final Future<void> Function() submitDataWhenExit;
+  final String siteAuditSchId;
 
   const PMPageWidget({
     super.key,
@@ -33,6 +35,8 @@ class PMPageWidget extends StatefulWidget {
     required this.onDataChanged,
     this.isLoading = false,
     this.errorMessage,
+    required this.submitDataWhenExit,
+    required this.siteAuditSchId,
   });
 
   // Convenience constructor that automatically determines readonly fields
@@ -43,15 +47,19 @@ class PMPageWidget extends StatefulWidget {
     required String leftButtonText,
     required String rightButtonText,
     required VoidCallback onLeftButtonPressed,
-    required Future<void> Function() onRightButtonPressed,
+    required VoidCallback onRightButtonPressed,
     required Function(List<Map<String, dynamic>>) onDataChanged,
     bool isLoading = false,
     String? errorMessage,
     List<String>? customReadonlyFields,
+    required Future<void> Function() submitDataWhenExit,
+    required String siteAuditSchId,
   }) {
     return PMPageWidget(
       pmItems: pmItems,
-      readonlyFields: customReadonlyFields ?? PMConstants.getReadonlyFieldsForSection(sectionName),
+      readonlyFields:
+          customReadonlyFields ??
+          PMConstants.getReadonlyFieldsForSection(sectionName),
       pageTitle: pageTitle,
       leftButtonText: leftButtonText,
       rightButtonText: rightButtonText,
@@ -60,6 +68,8 @@ class PMPageWidget extends StatefulWidget {
       onDataChanged: onDataChanged,
       isLoading: isLoading,
       errorMessage: errorMessage,
+      submitDataWhenExit: submitDataWhenExit,
+      siteAuditSchId: siteAuditSchId,
     );
   }
 
@@ -77,13 +87,27 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     _pmItems = List<Map<String, dynamic>>.from(widget.pmItems);
   }
 
+  @override
+  void dispose() {
+    // Clean up resources
+    super.dispose();
+  }
+
   void _onItemChanged(int index, Map<String, dynamic> updatedItem) {
-    // Defer setState to next frame to avoid calling it during build
+    if (!mounted) return;
+
+    // Validate index bounds
+    if (index < 0 || index >= _pmItems.length) return;
+
+    // Update the item first
+    _pmItems[index] = updatedItem;
+    _hasChanges = true;
+
+    // Use addPostFrameCallback to avoid setState during build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
-          _pmItems[index] = updatedItem;
-          _hasChanges = true;
+          // State is already updated above, just trigger rebuild
         });
         
         // Notify parent about data changes
@@ -95,11 +119,11 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   /// Validate all form fields
   bool _validateAllFields() {
     bool isValid = true;
-    
+
     for (final pmItem in _pmItems) {
       final respValue = pmItem['resp'];
       final respTypeList = pmItem['resp_type'];
-      
+
       // Handle resp_type as array or string
       List<String> respTypes = [];
       if (respTypeList is List) {
@@ -107,41 +131,46 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       } else if (respTypeList is String) {
         respTypes = respTypeList.split(",");
       }
-      
+
       // Check if any required field is empty
-      if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+      if (respTypes.contains('DROPDOWN') &&
+          (respValue == null || respValue.toString().isEmpty)) {
         isValid = false;
         break;
       }
-      
-      if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+
+      if (respTypes.contains('RADIO') &&
+          (respValue == null || respValue.toString().isEmpty)) {
         isValid = false;
         break;
       }
-      
-      if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+
+      if (respTypes.contains('TEXT') &&
+          (respValue == null || respValue.toString().trim().isEmpty)) {
         isValid = false;
         break;
       }
-      
-      if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+
+      if (respTypes.contains('IMG') &&
+          (respValue == null || respValue.toString().isEmpty)) {
         isValid = false;
         break;
       }
     }
-    
+
     return isValid;
   }
 
   /// Get validation error messages for all fields
   List<String> _getValidationErrors() {
     List<String> errors = [];
-    
+
     for (final pmItem in _pmItems) {
       final respValue = pmItem['resp'];
       final respTypeList = pmItem['resp_type'];
-      final checklistDesc = pmItem['checklist_desc']?.toString() ?? 'This field';
-      
+      final checklistDesc =
+          pmItem['checklist_desc']?.toString() ?? 'This field';
+
       // Handle resp_type as array or string
       List<String> respTypes = [];
       if (respTypeList is List) {
@@ -149,25 +178,29 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       } else if (respTypeList is String) {
         respTypes = respTypeList.split(",");
       }
-      
+
       // Check if any required field is empty
-      if (respTypes.contains('DROPDOWN') && (respValue == null || respValue.toString().isEmpty)) {
+      if (respTypes.contains('DROPDOWN') &&
+          (respValue == null || respValue.toString().isEmpty)) {
         errors.add('$checklistDesc is required');
       }
-      
-      if (respTypes.contains('RADIO') && (respValue == null || respValue.toString().isEmpty)) {
+
+      if (respTypes.contains('RADIO') &&
+          (respValue == null || respValue.toString().isEmpty)) {
         errors.add('$checklistDesc is required');
       }
-      
-      if (respTypes.contains('TEXT') && (respValue == null || respValue.toString().trim().isEmpty)) {
+
+      if (respTypes.contains('TEXT') &&
+          (respValue == null || respValue.toString().trim().isEmpty)) {
         errors.add('$checklistDesc is required');
       }
-      
-      if (respTypes.contains('IMG') && (respValue == null || respValue.toString().isEmpty)) {
+
+      if (respTypes.contains('IMG') &&
+          (respValue == null || respValue.toString().isEmpty)) {
         errors.add('$checklistDesc is required');
       }
     }
-    
+
     return errors;
   }
 
@@ -184,10 +217,14 @@ class _PMPageWidgetState extends State<PMPageWidget> {
             children: [
               const Text('Please fill in all required fields:'),
               const SizedBox(height: 16),
-              ...errors.map((error) => Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Text('• $error'),
-              )).toList(),
+              ...errors
+                  .map(
+                    (error) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text('• $error'),
+                    ),
+                  )
+                  .toList(),
             ],
           ),
           actions: [
@@ -202,7 +239,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   }
 
   /// Handle right button press with validation
-  Future<void> _handleRightButtonPress() async {
+  void _handleRightButtonPress() {
     // Validate all fields
     //TODO vishal enable validation by uncommenting this
     // if (!_validateAllFields()) {
@@ -210,9 +247,9 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     //   _showValidationErrorDialog(errors);
     //   return;
     // }
-    
+
     // If validation passes, proceed with the original callback
-    await widget.onRightButtonPressed();
+    widget.onRightButtonPressed();
   }
 
   void _sortItemsByOrder() {
@@ -256,78 +293,87 @@ class _PMPageWidgetState extends State<PMPageWidget> {
             child: Column(
               children: [
                 Expanded(
-                  child: widget.errorMessage != null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    widget.errorMessage!,
-                                    style: const TextStyle(
-                                      color: AppColors.white,
-                                      fontSize: 16,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      // Retry logic can be added here
-                                    },
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              padding: EdgeInsets.only(
-                                bottom: MediaQuery.of(context).viewInsets.bottom + 100,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.only(
-                                  top: 20,
-                                  left: 16,
-                                  right: 16,
-                                  bottom: 20,
+                  child: widget.isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: AppColors.primaryGreen,
+                          ),
+                        )
+                      : widget.errorMessage != null
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                widget.errorMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Render PM items
-                                    ..._pmItems.asMap().entries.map((entry) {
-                                      final index = entry.key;
-                                      final pmItem = entry.value;
-                                      
-                                      return PMCustomWidget(
-                                        key: ValueKey('pm_item_${pmItem['pm_check_list_site_resp_id']}_$index'),
-                                        pmItem: pmItem,
-                                        readonlyFields: widget.readonlyFields,
-                                        onValueChanged: (updatedItem) {
-                                          _onItemChanged(index, updatedItem);
-                                        },
-                                      );
-                                    }),
-                                    
-                                    // Add some bottom padding
-                                    getHeight(20),
-                                  ],
-                                ),
+                                textAlign: TextAlign.center,
                               ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: () {
+                                  // Retry logic can be added here
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                MediaQuery.of(context).viewInsets.bottom + 100,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.only(
+                              top: 20,
+                              left: 16,
+                              right: 16,
+                              bottom: 20,
                             ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Render PM items
+                                ..._pmItems.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final pmItem = entry.value;
+
+                                  return PMCustomWidget(
+                                    key: ValueKey(
+                                      'pm_item_${pmItem['pm_check_list_site_resp_id']}_$index',
+                                    ),
+                                    pmItem: pmItem,
+                                    readonlyFields: widget.readonlyFields,
+                                    onValueChanged: (updatedItem) {
+                                      if (mounted) {
+                                        _onItemChanged(index, updatedItem);
+                                      }
+                                    },
+                                  );
+                                }),
+
+                                // Add some bottom padding
+                                getHeight(20),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
                 // Bottom buttons - matching asset audit style
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Colors.transparent,
-                  ),
+                  decoration: const BoxDecoration(color: Colors.transparent),
                   child: CustomPMBottomButtons(
                     leftButtonText: widget.leftButtonText,
                     rightButtonText: widget.rightButtonText,
                     onLeftButtonPressed: widget.onLeftButtonPressed,
                     onRightButtonPressed: _handleRightButtonPress,
-                    isLoading: false, // Always false since we use LoaderWidget.showLoader()
+                    isLoading: widget.isLoading,
                     errorMessage: widget.errorMessage,
                   ),
                 ),
@@ -344,17 +390,20 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       context: context,
       barrierDismissible: true,
       builder: (context) => UnsavedChangesDialog(
-        message: 'You have unsaved changes. Do you want to save before leaving?',
+        siteAuditSchId: widget.siteAuditSchId,
         onSaveAndExit: () async {
           // Save data and then navigate back
-          widget.onDataChanged(_pmItems);
+          await widget.submitDataWhenExit();
+          
+          if (mounted) {
+            widget.onDataChanged(_pmItems);
+          }
           Navigator.pop(context);
         },
         onDiscard: () {
           Navigator.pop(context);
           Navigator.pop(context);
         },
-        siteAuditSchId: null, // You can pass siteAuditSchId if available
         section: widget.pageTitle,
         parentContext: context,
       ),

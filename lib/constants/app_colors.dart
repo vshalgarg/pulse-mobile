@@ -7,6 +7,8 @@ class AppColors {
   static const Color primaryGreen = Color(0xFF54B790);
   static const Color primaryBlue = Color(0xFF00172F);
 
+
+
   // Text Colors
   static const Color textWhite = Colors.white;
   static const Color textWhite70 = Colors.white70;
@@ -77,7 +79,9 @@ class AppColors {
   static const Color validationViewBackgroundColorGreen = Color(0xFFE6EDE9);
   static const Color validationViewBackgroundColorRed = Color(0xFFFBECEC);
   static const Color privacyPolicyandTermsandConditionGray = Color(0xFF818181);
-  static const Color createProfileButtonDisabelBackgroundColor = Color(0xFFECECEC);
+  static const Color createProfileButtonDisabelBackgroundColor = Color(
+    0xFFECECEC,
+  );
   static const Color textGreyColor = Color(0xFFA1A1A1);
   static const Color disabledGreyColor = Color(0xFFF7F7F7);
   static const Color headingdarkGreyColor = Color(0xFF1B1B1B);
@@ -265,13 +269,12 @@ class AppColors {
   static const Color listTileBorderColor = Color(0xFF303030);
   static const Color imageBorder = Color(0x3F000000);
   static const Color filterDividerColor = Color(0xFF8E8E8E);
-  static const selectedCarousalColor  = Color(0xFFBABABA);
-  static const buyButton  = Color(0xFF694040);
+  static const selectedCarousalColor = Color(0xFFBABABA);
+  static const buyButton = Color(0xFF694040);
   static const Color notificationIconBorder = Color(0xFF7E7371);
 
-
   //pulse colors
-// White & Black
+  // White & Black
   static const Color white1 = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 
@@ -334,13 +337,13 @@ class AppColors {
   static const Color missedLineColor = Color(0xFFB24343);
   static const Color assignedColor = Color(0xFF8A38F5);
   static const Color cmSubmitButtonColor = Color(0xFFDAF0E7);
-  // static const Color transparent1Color = Color(0XFFFFFF40);
 
+  static const Color dashboardTextColor = Color(0xFF00373E);
+  static const Color dashboardIconBoxColor = Color(0xFFE3FFF5);
+  static const Color cmPlusButton = Color.fromARGB(0, 243, 227, 82);
+  static const Color isComingSoonColor = Color(0xFFFF5247);
 
-
-
-
-
-
+  static const Color myTickets = Color(0xFFC7FFE9);
+  static const Color myTicketsSelected = Color(0xFF009663);
 
 }

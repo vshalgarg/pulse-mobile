@@ -163,6 +163,13 @@ class _TicketScreenState extends State<TicketScreen> {
         latitude: ticket.latitude ?? 0,
         longitude: ticket.longitude ?? 0,
         activityType: _currentActivityType,
+        pvTicketId: ticket.pvTicketId,
+        siteCode: ticket.siteCode ?? "",
+        cluster: ticket.cluster ?? "",
+        operator: ticket.operator ?? "",
+        raisedDt: ticket.raisedDt,
+        dueDt: ticket.dueDt,
+        status: ticket.status ?? "",
       );
       if (!isAvailable) {
         Toastbar.showErrorToastbar("Failed to load data", context);
@@ -214,9 +221,7 @@ class _TicketScreenState extends State<TicketScreen> {
 
     // Check if ticket status is completed, closed, or missed deadline
     final status = ticket.status?.toLowerCase() ?? '';
-    if (status == 'completed' ||
-        status == 'closed' ||
-        status == 'missed deadline') {
+    if (status == 'closed' || status == 'missed deadline') {
       Toastbar.showInfoToastbar(
         "Ticket can't be opened. Please download PDF.",
         context,
@@ -345,9 +350,21 @@ class _TicketScreenState extends State<TicketScreen> {
       automaticallyImplyLeading: false,
       flexibleSpace: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 12, right: 10),
+          padding: const EdgeInsets.only(left: 10, top: 12, right: 0),
           child: Row(
             children: [
+              IconButton(
+                icon: const Icon(
+                  Icons.arrow_back_sharp,
+                  color: AppColors.backgroundColorapp,
+                  size: 25,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                alignment: Alignment.centerLeft,
+              ),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   "${widget.auditName} - ${widget.status}",
@@ -359,14 +376,6 @@ class _TicketScreenState extends State<TicketScreen> {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  color: AppColors.errorColor,
-                  size: 30,
-                ),
-                onPressed: () => Navigator.of(context).pop(),
               ),
             ],
           ),
@@ -442,6 +451,13 @@ class _TicketScreenState extends State<TicketScreen> {
                   siteType: ticket.siteDomainName ?? 'Solar',
                   auditSchId: ticket.auditSchId?.toString() ?? "",
                   siteAuditSchId: ticket.ticketSchId.toString(),
+                  pvTicketId: ticket.pvTicketId,
+                  siteCode: ticket.siteCode ?? "",
+                  cluster: ticket.cluster ?? "",
+                  operator: ticket.operator ?? "",
+                  raisedDt: ticket.raisedDt,
+                  dueDt: ticket.dueDt,
+                  status: ticket.status ?? "",
                   latitude: ticket.latitude ?? 0,
                   longitude: ticket.longitude ?? 0,
                   activityType: _currentActivityType,
@@ -530,7 +546,8 @@ class _TicketScreenState extends State<TicketScreen> {
   Future<void> _downloadReport(Ticket ticket) async {
     print("downloading pdf report for ${ticket.pvTicketId}");
 
-    if (_currentActivityType != ActivityTypeEnum.preventiveMaintenance) {
+    if (_currentActivityType != ActivityTypeEnum.preventiveMaintenance &&
+        _currentActivityType != ActivityTypeEnum.assetAudit) {
       Toastbar.showErrorToastbar(
         'PDF report not available for this activity type',
         context,

@@ -133,46 +133,55 @@ class CentralApiService {
     required String ticketSchId,
     required ActivityTypeEnum activityType,
   }) async {
-  
-      try {
-        Logger.debugLog('📄 Starting PDF download for ticket: $activityType');
+    try {
+      Logger.debugLog('📄 Starting PDF download for ticket: $activityType');
 
-        // Only allow PDF download for preventive maintenance
+      final reportPath = activityType == ActivityTypeEnum.preventiveMaintenance
+          ? 'OnM/Preventive_Maintenance.rptdesign'
+          : 'OnM/Asset_Audit.rptdesign';
 
-        // Get user ID from local storage
-        final userId = LocalStorageDB.getUserId ?? '0';
-        Logger.debugLog('Retrieved userId from storage: $userId');
+      print('Report Path: $reportPath');
 
-        // Build report URL
-        final reportUrl =
-            '$reportBaseUrl/run?' +
-            '__report=./birt_reports/OnM/Preventive_Maintenance.rptdesign&' +
-            'rp_login_userid=$userId&' +
-            'rp_tenant=$userId&' +
-            'rp_sch_id=$ticketSchId&' +
-            '__format=pdf';
+      // Get user ID from local storage
+      final userId = LocalStorageDB.getUserId ?? '0';
+      final token = LocalStorageDB.getToken;
+      Logger.debugLog('Retrieved userId from storage: $userId');
 
-        Logger.debugLog('Report URL: $reportUrl');
-
-        final fileName = 'PM-Report-$ticketId';
-
-        // Download the PDF
-        final filePath = await PdfDownloadService.downloadPdf(
-          reportUrl: reportUrl,
-          fileName: fileName,
-        );
-
-        if (filePath != null) {
-          Logger.debugLog('✅ PDF downloaded successfully to: $filePath');
-          return filePath;
-        } else {
-          Logger.errorLog('❌ Failed to download PDF');
-          return null;
-        }
-      } catch (e) {
-        Logger.errorLog('❌ Error downloading PDF: $e');
+      if (token == null) {
+        Logger.errorLog('❌ No authentication token found');
         return null;
       }
-    
+
+      final reportUrl =
+          'https://pulseapi.premiumfreshers.com//reports/generate?' +
+          'reportPath=$reportPath&' +
+          'rp_tenant=$userId&' +
+          'rp_sch_id=$ticketSchId&' +
+          'rp_login_userid=$userId';
+
+      Logger.debugLog('Report URL: $reportUrl');
+
+      final fileName = activityType == ActivityTypeEnum.preventiveMaintenance
+          ? 'PM-Report-$ticketId'
+          : 'AA-Report-$ticketId';
+
+      // Download the PDF
+      final filePath = await PdfDownloadService.downloadPdf(
+        reportUrl: reportUrl,
+        fileName: fileName,
+        token: token,
+      );
+
+      if (filePath != null) {
+        Logger.debugLog('✅ PDF downloaded successfully to: $filePath');
+        return filePath;
+      } else {
+        Logger.errorLog('❌ Failed to download PDF');
+        return null;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading PDF: $e');
+      return null;
+    }
   }
 }

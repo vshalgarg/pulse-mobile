@@ -457,6 +457,9 @@ class LocalStorageDB {
     await LocalStorageService.remove(LocalStorageConstants.userId);
     await LocalStorageService.remove(LocalStorageConstants.firstName);
     await LocalStorageService.remove(LocalStorageConstants.email);
+
+
+    
     print("LocalStorageDB: All credentials cleared successfully");
   }
 

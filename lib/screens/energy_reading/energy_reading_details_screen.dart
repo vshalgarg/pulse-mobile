@@ -1,20 +1,26 @@
 import 'package:app/commonWidgets/custom_asset_audit_form_section.dart';
-import 'package:app/commonWidgets/custom_form_dropdown.dart';
+import 'package:app/commonWidgets/custom_er_form.dart';
 import 'package:app/commonWidgets/custom_radio_options.dart';
+import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
+import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/screens/pulse_dashboard.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
-import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
+import '../../../commonWidgets/custom_dropdown.dart';
 import '../../../constants/app_images.dart';
+import '../../../constants/app_colors.dart';
 
 class EnergyReadingDetailScreen extends StatefulWidget {
   final String siteAuditSchId;
@@ -36,10 +42,12 @@ class EnergyReadingDetailScreen extends StatefulWidget {
 }
 
 class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
-  final String _screenName = 'ENERGY_READING';
   bool _hasFormDataChanges = false;
+  bool _isLoadingData = true;
+  String? _errorMessage;
 
   String? _ERImageID;
+  Map<String, dynamic>? _energyReadingData;
 
   // Form controllers
   final TextEditingController _consumerNoController = TextEditingController();
@@ -72,17 +80,115 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Load data first, then add listeners
+    _loadData();
+  }
 
-    _consumerNoController.addListener(_onFormChanged);
-    _meterNoController.addListener(_onFormChanged);
-    _ebMeterReadingController.addListener(_onFormChanged);
-    _ebKwhInSebMeterController.addListener(_onFormChanged);
-    _ebKwhInCcuController.addListener(_onFormChanged);
-    _ebKvhInCcuController.addListener(_onFormChanged);
-    _voltageController.addListener(_onFormChanged);
-    _loadController.addListener(_onFormChanged);
-    _ebKvaInSebMeterController.addListener(_onFormChanged);
-    _remarksController.addListener(_onFormChanged);
+  Future<void> _loadData() async {
+    try {
+      setState(() {
+        _isLoadingData = true;
+        _errorMessage = null;
+      });
+
+      Logger.debugLog(
+        '🔄 Loading Energy Reading data for site ${widget.siteAuditSchId}',
+      );
+
+      // Load energy reading data from SQLite
+      final data = await ServiceLocator().centralAssetAuditService
+          .getActualDataFromSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+          );
+
+      if (data != null) {
+        Logger.debugLog('📊 Received Energy Reading data from SQLite');
+        Logger.debugLog('📊 Data keys: ${data.keys.toList()}');
+        Logger.debugLog('📊 Full data: $data');
+        print('🔍 DEBUG: Full data from SQLite: $data');
+
+        // Check if energy reading FORM data exists (user has filled the form before)
+        // The data could be at root level OR under 'energyReading' key
+        Map<String, dynamic>? erData;
+        
+        if (data['energyReading'] != null) {
+          erData = data['energyReading'] as Map<String, dynamic>;
+          Logger.debugLog('✅ Found energy reading data under energyReading key');
+          print('🔍 DEBUG: Found data under energyReading key: $erData');
+        } else if (data['consumerNo'] != null || data['ebMeterNo'] != null) {
+          // Data might be at root level
+          erData = data;
+          Logger.debugLog('✅ Found energy reading data at root level');
+          print('🔍 DEBUG: Found data at root level: $erData');
+        }
+        
+        if (erData != null) {
+          Logger.debugLog('✅ Initializing form with saved data: $erData');
+          print('🔍 DEBUG: Initializing form with: $erData');
+          
+          // Initialize all form fields with loaded data
+          _consumerNoController.text = erData['consumerNo']?.toString() ?? '';
+          _meterNoController.text = erData['ebMeterNo']?.toString() ?? '';
+          _ebMeterReadingController.text = erData['ebMeterReading']?.toString() ?? '';
+          _ebKwhInSebMeterController.text = erData['ebKwhInSebMeter']?.toString() ?? '';
+          _ebKwhInCcuController.text = erData['ebKwhInCcu']?.toString() ?? '';
+          _ebKvhInCcuController.text = erData['ebKvaInCcu']?.toString() ?? '';
+          _voltageController.text = erData['voltage']?.toString() ?? '';
+          _loadController.text = erData['load']?.toString() ?? '';
+          _ebKvaInSebMeterController.text = erData['ebKvaInSebMeter']?.toString() ?? '';
+          _remarksController.text = erData['remarks']?.toString() ?? '';
+          
+          // Initialize dropdowns
+          _selectedStatus = erData['ebMeterStatus']?.toString();
+          _selectedMeterType = erData['ebMeterType']?.toString();
+          _selectedConnectionType = erData['connectionType']?.toString();
+          _selectedEbConnectionType = erData['ebConnectionType']?.toString();
+          _selectedBatteryStatus = erData['anyMajorHazardousPunchPoint']?.toString();
+          
+          // Initialize image ID
+          _ERImageID = erData['ebAttachmentFileId']?.toString();
+          
+          Logger.debugLog('✅ Form fields initialized successfully');
+          print('🔍 DEBUG: Form initialized - ConsumerNo: ${_consumerNoController.text}, Status: $_selectedStatus');
+        } else {
+          Logger.debugLog('ℹ️ No existing energy reading form data found - fresh form');
+          print('🔍 DEBUG: No form data found - showing fresh form');
+        }
+        
+        setState(() {
+          _energyReadingData = data;
+          _isLoadingData = false;
+        });
+      } else {
+        setState(() {
+          _isLoadingData = false;
+          _errorMessage = 'No data available for this site';
+        });
+        Logger.errorLog(
+          '❌ No data available for site ${widget.siteAuditSchId}',
+        );
+      }
+
+      // Add listeners after loading data to avoid triggering change flag
+      _consumerNoController.addListener(_onFormChanged);
+      _meterNoController.addListener(_onFormChanged);
+      _ebMeterReadingController.addListener(_onFormChanged);
+      _ebKwhInSebMeterController.addListener(_onFormChanged);
+      _ebKwhInCcuController.addListener(_onFormChanged);
+      _ebKvhInCcuController.addListener(_onFormChanged);
+      _voltageController.addListener(_onFormChanged);
+      _loadController.addListener(_onFormChanged);
+      _ebKvaInSebMeterController.addListener(_onFormChanged);
+      _remarksController.addListener(_onFormChanged);
+
+    } catch (e) {
+      Logger.errorLog('❌ Error loading Energy Reading data: $e');
+      setState(() {
+        _isLoadingData = false;
+        _errorMessage = 'Failed to load data: $e';
+      });
+    }
   }
 
   void _onFormChanged() {
@@ -126,24 +232,59 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       Logger.debugLog("📤 EnergyReading: $energyReading");
       print("📤 EnergyReading: $energyReading");
 
+      // Get the current full data from SQLite or use existing
+      final updatedData = Map<String, dynamic>.from(_energyReadingData ?? {});
+      
+      print("🔍 DEBUG: Current _energyReadingData before save: $_energyReadingData");
+      
+      // Merge the energy reading form data into the existing structure
+      // Store under 'energyReading' key to keep it separate from site info
+      updatedData['energyReading'] = energyReading;
+      
+      // Also store at root level for backward compatibility
+      updatedData.addAll(energyReading);
+      
+      Logger.debugLog("💾 Saving Energy Reading data to SQLite...");
+      Logger.debugLog("💾 Updated data structure: ${updatedData.keys.toList()}");
+      print("🔍 DEBUG: Updated data structure keys: ${updatedData.keys.toList()}");
+      print("🔍 DEBUG: Updated data structure: $updatedData");
+      
+      // Update data in SQLite before posting to server
+      final success = await ServiceLocator().centralAssetAuditService
+          .updateDataInSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+            updatedData: updatedData,
+          );
+
+      if (success) {
+        Logger.debugLog("✅ Energy Reading data saved to SQLite successfully");
+        print("✅ Energy Reading data saved to SQLite successfully");
+        print("🔍 DEBUG: Data saved successfully, updating local state");
+        // Update local state with saved data
+        setState(() {
+          _energyReadingData = updatedData;
+        });
+      } else {
+        Logger.errorLog("⚠️ Failed to save Energy Reading data to SQLite");
+        print("⚠️ Failed to save Energy Reading data to SQLite");
+      }
+
+      // Post data to server
+      Logger.debugLog("📤 Posting Energy Reading data to server...");
       await ServiceLocator().assetAuditPostService
           .postAssetAuditDataWithPhotoReplacement(
             requests: [energyReading],
-
-            isLastPage:
-                AssetAuditNavigationHelper.getSolarNextScreenName(
-                  null,
-                  _screenName,
-                ) ==
-                'SUBMIT',
+            isLastPage: true,
             activityType: ActivityTypeEnum.energyReading,
           );
 
-      Logger.debugLog("✅ Energy Reading posted successfully");
+      Logger.debugLog("✅ Energy Reading posted to server successfully");
       print("✅ Energy Reading posted successfully");
     } catch (e) {
       Logger.errorLog("❌ Error posting Energy Reading: $e");
       print("❌ Error posting Energy Reading: $e");
+      // Re-throw the error so it can be caught by the calling method
+      rethrow;
     }
   }
 
@@ -182,6 +323,94 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     super.dispose();
   }
 
+  bool _validateFormFields() {
+    // Check dropdown selections
+    if (_selectedStatus == null || _selectedStatus!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Status is required", context);
+      return false;
+    }
+
+    if (_selectedMeterType == null || _selectedMeterType!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Type is required", context);
+      return false;
+    }
+
+    if (_selectedConnectionType == null || _selectedConnectionType!.isEmpty) {
+      Toastbar.showErrorToastbar("Connection Type is required", context);
+      return false;
+    }
+
+    if (_selectedEbConnectionType == null ||
+        _selectedEbConnectionType!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Connection Type is required", context);
+      return false;
+    }
+
+    // Check text fields
+    if (_meterNoController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter No is required", context);
+      return false;
+    }
+
+    if (_ebMeterReadingController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Reading is required", context);
+      return false;
+    }
+
+    if (_consumerNoController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Consumer No is required", context);
+      return false;
+    }
+
+    if (_ebKwhInSebMeterController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KWH in SEB Meter is required", context);
+      return false;
+    }
+
+    if (_ebKvaInSebMeterController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KVH in SEB Meter is required", context);
+      return false;
+    }
+
+    if (_ebKwhInCcuController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KWH in CCU is required", context);
+      return false;
+    }
+
+    if (_ebKvhInCcuController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KVH in CCU is required", context);
+      return false;
+    }
+
+    if (_voltageController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Voltage is required", context);
+      return false;
+    }
+
+    if (_loadController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Load (Amps) is required", context);
+      return false;
+    }
+
+    if (_selectedBatteryStatus == null || _selectedBatteryStatus!.isEmpty) {
+      Toastbar.showErrorToastbar(
+        "Any Major Hazardous Punch Point is required",
+        context,
+      );
+      return false;
+    }
+
+    // Check if photo is selected
+    if (_ERImageID == null || _ERImageID!.isEmpty) {
+      Toastbar.showErrorToastbar("Energy Reading photo is required", context);
+      return false;
+    }
+
+     
+
+    return true;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -202,7 +431,60 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
             ),
           ),
           SafeArea(
-            child: Column(
+            child: _isLoadingData
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          color: AppColors.primaryGreen,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Loading energy reading data...',
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : _errorMessage != null
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                color: AppColors.errorColor,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: _loadData,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primaryGreen,
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : Column(
               children: [
                 Expanded(
                   child: SingleChildScrollView(
@@ -215,19 +497,72 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                     ),
                   ),
                 ),
-                AssetAuditSolarBottomButtons(
-                  isLoading: false,
-                  errorMessage: null,
-                  onNextButtonClick: () async {
-                    if (_hasFormDataChanges) {
-                      await postCurrentScreenData();
-                    }
-                  },
-                  assetAuditData: null,
-                  auditSchId: widget.auditSchId,
-                  siteType: widget.siteType,
-                  siteAuditSchId: widget.siteAuditSchId,
-                  screenName: _screenName,
+                // Bottom buttons matching AssetAuditTelecomBottomButtons design
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: const BoxDecoration(color: Colors.transparent),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ArrowButton(
+                          text: "Back",
+                          isLeftArrow: true,
+                          backgroundColor: AppColors.buttonColorBackBg,
+                          textColor: AppColors.buttonColorTextBg,
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                        ),
+                      ),
+                      getWidth(14),
+                      Expanded(
+                        child: ArrowButton(
+                          text: "Submit",
+                          isLeftArrow: false,
+                          backgroundColor: AppColors.buttonColorBg,
+                          textColor: AppColors.buttonColorSite,
+                          onPressed: () async {
+                            // Validate form fields first
+                            if (!_validateFormFields()) {
+                              return; // Stop execution if validation fails
+                            }
+
+                            if (_hasFormDataChanges) {
+                              LoaderWidget.showLoader(context);
+                              bool dataSavedSuccessfully = false;
+                              
+                              try {
+                                await postCurrentScreenData();
+                                dataSavedSuccessfully = true;
+                              } catch (e) {
+                                Toastbar.showErrorToastbar(
+                                  "Error saving data: $e",
+                                  context,
+                                );
+                                // Don't navigate on error - stay on current screen
+                                return;
+                              } finally {
+                                LoaderWidget.hideLoader();
+                              }
+                              
+                              // Only navigate if data was saved successfully
+                              if (dataSavedSuccessfully) {
+                                AssetAuditNavigationHelper.navigateToHomeScreen(
+                                  context,
+                                );
+                              }
+                            } else {
+                              // No changes, just navigate
+                              AssetAuditNavigationHelper.navigateToHomeScreen(
+                                context,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -244,10 +579,47 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     });
   }
 
+  // Debug method to check what's in the database
+  Future<void> _debugCheckDatabase() async {
+    try {
+      final data = await ServiceLocator().centralAssetAuditService
+          .getActualDataFromSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+          );
+      
+      print("🔍 DEBUG CHECK: Current database data:");
+      print("🔍 DEBUG CHECK: Data is null: ${data == null}");
+      if (data != null) {
+        print("🔍 DEBUG CHECK: Keys: ${data.keys.toList()}");
+        print("🔍 DEBUG CHECK: Full data: $data");
+        print("🔍 DEBUG CHECK: Has energyReading key: ${data.containsKey('energyReading')}");
+        print("🔍 DEBUG CHECK: Has consumerNo key: ${data.containsKey('consumerNo')}");
+        if (data['energyReading'] != null) {
+          print("🔍 DEBUG CHECK: energyReading data: ${data['energyReading']}");
+        }
+      }
+    } catch (e) {
+      print("🔍 DEBUG CHECK ERROR: $e");
+    }
+  }
+
   Widget _buildFormFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Debug button - remove this after testing
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 16),
+          child: ElevatedButton(
+            onPressed: _debugCheckDatabase,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('🔍 DEBUG: Check Database'),
+          ),
+        ),
         CustomDropdown(
           label: "EB Meter Status",
           items: _meterStatusOptions,
@@ -301,12 +673,13 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _meterNoController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           hintText: 'EB Meter No',
         ),
         getHeight(15),
         CustomFormField(
           label: "EB Meter Reading",
+          
           controller: _ebMeterReadingController,
           isRequired: true,
           isEditable: true,
@@ -319,7 +692,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _consumerNoController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.number,
+          keyboardType: TextInputType.text,
           hintText: 'Consumer No',
         ),
         getHeight(15),
@@ -379,7 +752,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
 
         getHeight(15),
-        CustomRadioButton(
+        CustomOptionSelector(
           label: "Any Major Hazardous Punch Point",
           isRequired: true,
           options: _batteryStatusOptions
@@ -401,7 +774,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         ),
         getHeight(15),
 
-        CustomAssetAuditFormSection(
+        CustomErForm(
           sectionTitle: "Energy Reading",
           showTitle: false,
           isInputEditable: false,

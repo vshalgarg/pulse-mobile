@@ -3,6 +3,7 @@ import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/screens/reset_password_screen.dart';
 import 'package:app/screens/splash_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
@@ -13,67 +14,64 @@ import '../screens/login_screen.dart';
 import '../screens/otp_verfication_screen.dart';
 import '../screens/welcome_screen.dart';
 
-// class RouteGenerator {
 Route<dynamic> generateRoute(RouteSettings settings) {
   // handle deep link here
   if (settings.name!.contains("/goodMorning")) {
-    // return MaterialPageRoute(builder: (context) => const DeepLinkExample());
+    // return _noSwipeRoute(const DeepLinkExample(), settings);
   }
 
-  // according to route name goto screen
   switch (settings.name) {
     case "/":
-      return _push(const SplashScreen());
+      return _noSwipeRoute(const SplashScreen(), settings);
     case loginScreen:
-      return _push(const LoginScreen());
+      return _noSwipeRoute(const LoginScreen(), settings);
     case welcomeScreen:
-      return _push(const WelcomeScreen());
+      return _noSwipeRoute(const WelcomeScreen(), settings);
     case homeScreen:
-      return _push(const HomeScreen());
+      return _noSwipeRoute(const PulseDashboard(), settings);
+    // return _noSwipeRoute(const HomeScreen(), settings);
+
     case forgotPasswordScreen:
-      return _push(const ForgotPasswordScreen());
+      return _noSwipeRoute(const ForgotPasswordScreen(), settings);
     case resetPasswordScreen:
-      return _push(const ResetPasswordScreen());
+      return _noSwipeRoute(const ResetPasswordScreen(), settings);
     case passwordUpdateScreen:
-      return _push(const PasswordUpdatedScreen());
+      return _noSwipeRoute(const PasswordUpdatedScreen(), settings);
     case otpVerificationScreen:
-      return _push(const EnterVerificationCodeScreen());
+      return _noSwipeRoute(const EnterVerificationCodeScreen(), settings);
     case energyReadingScreen:
-      return _push(const EnergyReadingScreen(
-        siteType: "",
-        auditSchId: "",
-        siteAuditSchId: "",
-        siteId: "",
-      ));
+      return _noSwipeRoute(
+        const EnergyReadingScreen(
+          siteType: "",
+          auditSchId: "",
+          siteAuditSchId: "",
+          siteId: "",
+        ),
+        settings,
+      );
     case ticketScreen:
-      return _push(const TicketScreen(auditName: "", status: ""));
+      return _noSwipeRoute(const TicketScreen(auditName: "", status: ""), settings);
     case sqliteQueryScreen:
-      return _push(const SQLiteQueryScreen());
+      return _noSwipeRoute(const SQLiteQueryScreen(), settings);
 
     default:
-      return MaterialPageRoute(
-        builder: (context) {
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text("ERROR"),
-            ),
-            body: const Center(
-              child: Text("Page not found!"),
-            ),
-          );
-        },
+      return _noSwipeRoute(
+        Scaffold(
+          appBar: AppBar(title: const Text("ERROR")),
+          body: const Center(child: Text("Page not found!")),
+        ),
+        settings,
       );
   }
-  // return MaterialPageRoute(builder: (context) => const LoginScreen());
 }
 
-PageRoute _push(
-  Widget widget, {
-  RouteSettings? settings,
-  bool fullScreenDialog = false,
-}) =>
-    MaterialPageRoute(
-      builder: (context) => widget,
-      fullscreenDialog: fullScreenDialog,
-    );
-// }
+/// ✅ Custom route: no back-swipe on iOS, no transition animation
+PageRoute _noSwipeRoute(Widget child, RouteSettings settings) {
+  return PageRouteBuilder(
+    settings: settings,
+    pageBuilder: (_, __, ___) => child,
+    transitionDuration: Duration.zero,
+    reverseTransitionDuration: Duration.zero,
+    transitionsBuilder: (_, __, ___, child) => child,
+  );
+}

@@ -12,7 +12,7 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
 import 'package:app/utils/logger.dart';
 
-class CustomAssetAuditFormSection extends StatefulWidget {
+class CustomErForm extends StatefulWidget {
   final String sectionTitle;
   final String? inputLabel;
   final String? inputHintText;
@@ -21,24 +21,25 @@ class CustomAssetAuditFormSection extends StatefulWidget {
   final bool isInputEditable;
   final TextEditingController? inputController;
   final Function(String)? onInputChanged;
-
+  
   final String? photoLabel;
   final bool isPhotoRequired;
   final String? photoHintText;
   final String? uploadedImageId;
   final Function(String?)? onImageSelected;
-
+  
+  
   final String? statusLabel;
   final bool isStatusRequired;
   final String? statusInitialValue;
   final Function(String?)? onStatusChanged;
-
+  
   final String siteAuditSchId;
   final bool showTitle;
   final bool showStatus;
   final ActivityTypeEnum? activityType;
 
-  const CustomAssetAuditFormSection({
+  const CustomErForm({
     super.key,
     required this.sectionTitle,
     this.inputLabel,
@@ -48,18 +49,20 @@ class CustomAssetAuditFormSection extends StatefulWidget {
     this.isInputEditable = true,
     this.inputController,
     this.onInputChanged,
-
+    
     this.photoLabel,
     this.isPhotoRequired = false,
     this.photoHintText,
     this.uploadedImageId,
     this.onImageSelected,
-
+    
+    
+    
     this.statusLabel,
     this.isStatusRequired = false,
     this.statusInitialValue,
     this.onStatusChanged,
-
+    
     required this.siteAuditSchId,
     this.showTitle = true,
     this.showStatus = true,
@@ -68,12 +71,10 @@ class CustomAssetAuditFormSection extends StatefulWidget {
   });
 
   @override
-  State<CustomAssetAuditFormSection> createState() =>
-      _CustomAssetAuditFormSectionState();
+  State<CustomErForm> createState() => _CustomErFormState();
 }
 
-class _CustomAssetAuditFormSectionState
-    extends State<CustomAssetAuditFormSection> {
+class _CustomErFormState extends State<CustomErForm> {
   String? _uploadedImgId;
   String? _selectedStatus;
   String? _selectedPhotoPath;
@@ -89,57 +90,56 @@ class _CustomAssetAuditFormSectionState
   Future<void> _onImageSelected(File imageFile) async {
     try {
       Logger.debugLog('📸 CustomAssetAuditFormSection: Starting image upload');
-
+      
       // Get API service from context
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
-
+      
       // Upload image using ImageUploadService
       final uniqueId = await imageUploadService.uploadImage(
         await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
-        ActivityTypeEnum.energyReading,
+        ActivityTypeEnum.assetAudit,
         false,
         widget.siteAuditSchId,
       );
-
+      
       if (uniqueId.isNotEmpty) {
         setState(() {
           _uploadedImgId = uniqueId;
         });
-
+        
         // Notify parent component
         widget.onImageSelected?.call(uniqueId);
-
-        Logger.debugLog(
-          '✅ CustomAssetAuditFormSection: Image uploaded successfully with ID: $uniqueId',
-        );
+        
+        Logger.debugLog('✅ CustomAssetAuditFormSection: Image uploaded successfully with ID: $uniqueId');
       } else {
-        Logger.errorLog(
-          '❌ CustomAssetAuditFormSection: Failed to upload image',
-        );
+        Logger.errorLog('❌ CustomAssetAuditFormSection: Failed to upload image');
         _showErrorSnackBar('Failed to upload image');
       }
     } catch (e) {
-      Logger.errorLog(
-        '❌ CustomAssetAuditFormSection: Error uploading image: $e',
-      );
+      Logger.errorLog('❌ CustomAssetAuditFormSection: Error uploading image: $e');
       _showErrorSnackBar('Error uploading image: $e');
     }
   }
+
 
   void _onStatusChanged(String? value) {
     setState(() {
       _selectedStatus = value;
     });
-
+    
     // Notify parent component
     widget.onStatusChanged?.call(value);
   }
 
+
   void _showErrorSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message), backgroundColor: AppColors.errorColor),
+        SnackBar(
+          content: Text(message),
+          backgroundColor: AppColors.errorColor,
+        ),
       );
     }
   }
@@ -148,8 +148,7 @@ class _CustomAssetAuditFormSectionState
   Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
     try {
       // Use ImageUploadService to get image data
-      final imageData = await ServiceLocator().imageUploadService
-          .getImageUsingUniqueId(uniqueId);
+      final imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
 
       if (mounted && imageData != null && imageData.isNotEmpty) {
         // Ensure the image data has proper data URL format
@@ -158,8 +157,7 @@ class _CustomAssetAuditFormSectionState
             : 'data:image/jpeg;base64,$imageData';
 
         setState(() {
-          _selectedPhotoPath =
-              finalImageData; // Store as base64 data for display
+          _selectedPhotoPath = finalImageData; // Store as base64 data for display
         });
       }
     } catch (e) {
@@ -190,13 +188,16 @@ class _CustomAssetAuditFormSectionState
               ),
               const Text(
                 " *",
-                style: TextStyle(color: Colors.red, fontSize: 16),
+                style: TextStyle(
+                  color: Colors.red,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
           getHeight(15),
         ],
-
+        
         // Input Field (optional)
         if (widget.inputLabel != null) ...[
           CustomFormField(
@@ -210,7 +211,7 @@ class _CustomAssetAuditFormSectionState
           ),
           getHeight(15),
         ],
-
+        
         // Photo Upload Section (optional)
         if (widget.photoLabel != null) ...[
           ImageUploadField(
@@ -222,11 +223,12 @@ class _CustomAssetAuditFormSectionState
                 _onImageSelected(file);
               }
             },
-            externalImageUrl: _selectedPhotoPath ?? "",
+            externalImageUrl: _selectedPhotoPath ?? ""
           ),
           getHeight(15),
         ],
-
+        
+        
         // Status Section (optional)
         if (widget.showStatus && widget.statusLabel != null) ...[
           Row(
@@ -242,12 +244,15 @@ class _CustomAssetAuditFormSectionState
               if (widget.isStatusRequired)
                 const Text(
                   " *",
-                  style: TextStyle(color: Colors.red, fontSize: 16),
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 16,
+                  ),
                 ),
             ],
           ),
           getHeight(8),
-
+          
           Row(
             children: [
               Radio<String>(
@@ -258,7 +263,10 @@ class _CustomAssetAuditFormSectionState
               ),
               const Text(
                 "Ok",
-                style: TextStyle(color: AppColors.white, fontSize: 16),
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 16,
+                ),
               ),
               const SizedBox(width: 20),
               Radio<String>(
@@ -269,7 +277,10 @@ class _CustomAssetAuditFormSectionState
               ),
               const Text(
                 "Not Ok",
-                style: TextStyle(color: AppColors.white, fontSize: 16),
+                style: TextStyle(
+                  color: AppColors.white,
+                  fontSize: 16,
+                ),
               ),
             ],
           ),
