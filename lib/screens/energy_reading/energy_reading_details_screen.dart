@@ -99,26 +99,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
             siteAuditSchId: widget.siteAuditSchId,
           );
 
-      if (data != null) {
-        Logger.debugLog('📊 Received Energy Reading data from SQLite');
-        Logger.debugLog('📊 Data keys: ${data.keys.toList()}');
-        Logger.debugLog('📊 Full data: $data');
-        print('🔍 DEBUG: Full data from SQLite: $data');
-
-        // Check if energy reading FORM data exists (user has filled the form before)
-        // The data could be at root level OR under 'energyReading' key
-        Map<String, dynamic>? erData;
-        
-        if (data['energyReading'] != null) {
-          erData = data['energyReading'] as Map<String, dynamic>;
-          Logger.debugLog('✅ Found energy reading data under energyReading key');
-          print('🔍 DEBUG: Found data under energyReading key: $erData');
-        } else if (data['consumerNo'] != null || data['ebMeterNo'] != null) {
-          // Data might be at root level
-          erData = data;
-          Logger.debugLog('✅ Found energy reading data at root level');
-          print('🔍 DEBUG: Found data at root level: $erData');
-        }
+      final erData = data?['EnergyReadingData'] ?? {};
         
         if (erData != null) {
           Logger.debugLog('✅ Initializing form with saved data: $erData');
@@ -157,15 +138,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           _energyReadingData = data;
           _isLoadingData = false;
         });
-      } else {
-        setState(() {
-          _isLoadingData = false;
-          _errorMessage = 'No data available for this site';
-        });
-        Logger.errorLog(
-          '❌ No data available for site ${widget.siteAuditSchId}',
-        );
-      }
 
       // Add listeners after loading data to avoid triggering change flag
       _consumerNoController.addListener(_onFormChanged);
@@ -762,6 +734,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                 ),
               )
               .toList(),
+          initialValue: _selectedBatteryStatus,
           onChanged: (value) {
             setState(() {
               _selectedBatteryStatus = value;

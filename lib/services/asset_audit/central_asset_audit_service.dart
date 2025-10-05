@@ -209,7 +209,7 @@ class CentralAssetAuditService {
         final value = entry.value;
         
         // Check if this is a photo_id or maker_selfie_image_id field
-        if ((key == 'photo_id' || key == 'maker_selfie_image_id') && value != null) {
+        if ((key == 'photo_id' || key == 'maker_selfie_image_id' || key == 'ebAttachmentFileId') && value != null) {
           final serverId = value.toString();
           if (serverId.isNotEmpty) {
             Logger.debugLog('🖼️ Found $key: $serverId');

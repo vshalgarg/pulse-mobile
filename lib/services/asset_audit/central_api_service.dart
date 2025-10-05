@@ -76,14 +76,14 @@ class CentralApiService {
     try {
       Logger.debugLog('🌐 Fetching complete ER data from API');
 
-      final response = await _apiService.get<List<dynamic>>(
+      final response = await _apiService.get<Map<String, dynamic>>(
         path:
-            '/api/v1/mobile/EB/PageData/$siteType/$auditSchId/$siteAuditSchId',
+            '/api/v1/mobile/EB/PageDataAndERData/$siteType/$auditSchId/$siteAuditSchId',
       );
 
       if (response.isSuccess && response.data != null) {
         final Map<String, dynamic> parsedData =
-            response.data!.first as Map<String, dynamic>;
+            response.data! as Map<String, dynamic>;
 
         Logger.debugLog('🌐 ER data fetched successfully: ${response.data}');
         return parsedData;
