@@ -122,27 +122,25 @@ class ImageUploadService {
 
       Logger.debugLog('Image saved to SQLite with ID: $uniqueId');
 
-      if(await ConnectivityHelper.isConnected()) {
-        // Try to upload to server
-        try {
-          final serverId = await _uploadToServer(
-            imageData,
-            activityType,
-            siteSchId ?? '',
-            isSelfie,
-          );
-          if (serverId != null) {
-            // Update server_id in SQLite
-            await _updateServerId(uniqueId, serverId);
-            Logger.debugLog(
-                'Image uploaded to server with ID for uniqueId: $serverId, $uniqueId');
-          } else {
-            Logger.debugLog(
-                'Server upload failed, but image saved locally with ID: $uniqueId');
-          }
-        } catch (e) {
-          Logger.errorLog('Server upload failed: $e');
+      // Try to upload to server
+      try {
+        final serverId = await _uploadToServer(
+          imageData,
+          activityType,
+          siteSchId ?? '',
+          isSelfie,
+        );
+        if (serverId != null) {
+          // Update server_id in SQLite
+          await _updateServerId(uniqueId, serverId);
+          Logger.debugLog(
+              'Image uploaded to server with ID for uniqueId: $serverId, $uniqueId');
+        } else {
+          Logger.debugLog(
+              'Server upload failed, but image saved locally with ID: $uniqueId');
         }
+      } catch (e) {
+        Logger.errorLog('Server upload failed: $e');
       }
       return uniqueId;
     } catch (e) {
@@ -375,11 +373,11 @@ class ImageUploadService {
         }
         if(response == null || !response.isSuccess) {
           await ServiceLocator().pendingRequestService.savePendingRequest(
-              requestId: 'IMAGE-{$DateTime.timestamp()}',
+              requestId: 'IMAGE-${DateTime.timestamp()}',
               url: "api/v1/mobile/uploadsSelfie",
               headers: {},
-              jsonEncodedRequestData: jsonEncode({'selfie': multipartFile,
-                'imgId': '0', 'SchId': siteSchId}),
+              jsonEncodedRequestData: jsonEncode([{'selfie': imageData,
+                'imgId': '0', 'SchId': siteSchId}]),
           );
         }
       } else {

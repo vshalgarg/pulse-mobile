@@ -11,7 +11,7 @@ class PendingRequestsService {
       PendingRequestsService._internal();
   factory PendingRequestsService() => _instance;
   PendingRequestsService._internal();
-
+  static const int _databaseVersion = 2;
   static Database? _database;
 
   static final String _databaseName = 'pending_requests.db';
@@ -24,7 +24,7 @@ class PendingRequestsService {
 
   Future<Database> _initDatabase() async {
     String path = join(await getDatabasesPath(), _databaseName);
-    return await openDatabase(path, version: 1, onCreate: _onCreate);
+    return await openDatabase(path, version: _databaseVersion, onCreate: _onCreate, onUpgrade: _onUpgrade);
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -44,6 +44,16 @@ class PendingRequestsService {
       )
     ''');
     Logger.debugLog('✅ PendingRequestsService: Database created successfully');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < newVersion) {
+      // Drop existing tables
+      await db.execute('DROP TABLE IF EXISTS pending_requests');
+      // Recreate tables with current schema
+      await _onCreate(db, newVersion);
+      Logger.debugLog('✅ Database upgraded from version $oldVersion to $newVersion');
+    }
   }
 
   /// Save a pending request to the database
