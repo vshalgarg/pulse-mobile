@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'dart:typed_data';
 import 'package:app/models/location_model.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/repositories/auth_repository.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils.dart';
@@ -9,6 +12,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/toastbar.dart';
+import 'package:dio/dio.dart';
 
 /// Service for posting asset audit data with photo ID replacement
 /// This service handles replacing local unique_id photo IDs with server_id
@@ -130,15 +134,58 @@ class AssetAuditPostService {
 
   Future<void> _postDataToApi(String url, List<dynamic> requests) async {
     Logger.infoLog("User is connected to internet, posting data to API");
-    final response = await ServiceLocator().apiService.post<List<dynamic>>(
-      path: url,
-      data: DataTransformationHelper.convertListToCamelCase(requests),
-    );
-    if (response.isSuccess && response.data != null) {
+    final response;
+    if(url.contains("api/v1/mobile/uploadsSelfie")) {
+      response = await _uploadSelfieWithoutCache(requests);
+    } else {
+      response = await ServiceLocator().apiService.post<List<dynamic>>(
+        path: url,
+        data: DataTransformationHelper.convertListToCamelCase(requests),
+      );
+    }
+    if (response != null && response.isSuccess && response.data != null) {
       Toastbar.showSuccessToastWithoutContext("Data posted successfully");
       Logger.infoLog("Data posted successfully");
     } else {
       throw Exception((response.errorMessage ?? 'Unknown error from server'));
+    }
+  }
+
+  Future<dynamic> _uploadSelfieWithoutCache(List<dynamic> requests) async {
+    try {
+      Uint8List imageBytes;
+      dynamic decodedRequest = requests.first;
+      String imageData = decodedRequest['selfie'];
+      if (imageData.startsWith('data:image/')) {
+        // Remove data URL prefix
+        final base64String = imageData.split(',')[1];
+        imageBytes = base64Decode(base64String);
+      } else {
+        // Assume it's raw base64
+        imageBytes = base64Decode(imageData);
+      }
+
+      // Create a temporary file for upload
+      final tempDir = Directory.systemTemp;
+      final tempFile = File(
+        '${tempDir.path}/temp_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tempFile.writeAsBytes(imageBytes);
+
+      // Create multipart file
+      final multipartFile = await MultipartFile.fromFile(
+        tempFile.path,
+        filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      decodedRequest['selfie'] = multipartFile;
+      final response = await ServiceLocator().apiService.post<Map<String, dynamic>>(
+          path: "api/v1/mobile/uploadsSelfie",
+          data: decodedRequest,
+          useFormDataFormat: true,
+        );
+      return response;
+    } catch(e) {
+      return null;
     }
   }
 

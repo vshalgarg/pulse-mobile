@@ -1,3 +1,4 @@
+import 'package:app/services/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -69,12 +70,39 @@ class _PulseDashboardState extends State<PulseDashboard> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          GestureDetector(
+          onTap: () async {
+    try {
+    // Clear all asset audit data
+    await ServiceLocator().centralAssetAuditService
+        .clearAllData();
+
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+    content: Text(
+    'All asset audit data cleared successfully!',
+    ),
+    backgroundColor: AppColors.primaryGreen,
+    ),
+    );
+    } catch (e) {
+    // Show error message
+    ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+    content: Text('Error clearing data: $e'),
+    backgroundColor: AppColors.errorColor,
+    ),
+    );
+    }
+    },
           // Logo - using the same image as HomeScreen
-          Image.asset(
+          child: Image.asset(
             AppImages.pulseImg,
             fit: BoxFit.cover,
             width: 113,
             height: 40,
+          ),
           ),
           const Spacer(),
           // Notification bell - same as HomeScreen
