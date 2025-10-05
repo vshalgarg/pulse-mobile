@@ -53,10 +53,9 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
         '🔄 Loading Site Audit data for site ${widget.siteAuditSchId}',
       );
 
-      final data = await ServiceLocator().centralAssetAuditService
+      final completeData = await ServiceLocator().centralAssetAuditService
           .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
-
-      print("data: ER $data");
+      final data = completeData?['EBPageData']?.first ?? {};
 
       if (data != null) {
         final formData = <String, String>{};

@@ -148,7 +148,7 @@ class _CustomErFormState extends State<CustomErForm> {
   Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
     try {
       // Use ImageUploadService to get image data
-      final imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
+      final imageData = await ServiceLocator().centralAssetAuditService.getImageAsDataUrl(uniqueId);
 
       if (mounted && imageData != null && imageData.isNotEmpty) {
         // Ensure the image data has proper data URL format
