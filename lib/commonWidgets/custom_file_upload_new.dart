@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
+import '../utils/toastbar.dart';
 
 class CustomFileUploadNew extends StatelessWidget {
   final String? label;
@@ -37,7 +38,21 @@ class CustomFileUploadNew extends StatelessWidget {
     );
 
     if (result != null && result.files.single.path != null) {
-      onFileSelected(File(result.files.single.path!));
+      final file = File(result.files.single.path!);
+      
+      // Check file size (2 MB = 2 * 1024 * 1024 bytes)
+      const int maxSizeInBytes = 2 * 1024 * 1024; // 2 MB
+      final int fileSizeInBytes = await file.length();
+      
+      if (fileSizeInBytes > maxSizeInBytes) {
+        Toastbar.showErrorToastbar(
+          'File size exceeds 2 MB limit. Please select a smaller file.',
+          context,
+        );
+        return;
+      }
+      
+      onFileSelected(file);
     }
   }
 

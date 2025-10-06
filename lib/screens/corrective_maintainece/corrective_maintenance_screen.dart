@@ -466,6 +466,7 @@ class _CorrectiveMaintenanceScreenState
           label: "OEM Ticket ID",
           controller: controllers['oem_ticket_id'],
           isEditable: widget.mode == CMScreenModeEnum.create,
+          isRequired: controllers['responsible_party'] != null && controllers['responsible_party']?.text == 'OEM',
         ),
         getHeight(15),
 
@@ -531,13 +532,15 @@ class _CorrectiveMaintenanceScreenState
           controller: controllers['contact_no'],
           isRequired: true,
           isEditable: widget.mode != CMScreenModeEnum.view,
+          inputType: InputType.number,
+          maxLength: 10,
         ),
         getHeight(15),
 
         CustomFormField(
           label: "Customer Remarks",
           controller: controllers['customer_remarks'],
-          isRequired: true,
+          isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
         getHeight(15),
@@ -553,7 +556,7 @@ class _CorrectiveMaintenanceScreenState
         ImageUploadField(
             label: "Customer Photo",
             placeholder: "Add a Photo",
-            isRequired: true,
+            isRequired: false,
             onImageSelected: (File? file) async {
               if (file != null) {
                 setState(() async {
@@ -585,7 +588,7 @@ class _CorrectiveMaintenanceScreenState
               _uploadedAttachments.remove(file);
             });
           },
-          isRequired: true,
+          isRequired: false,
           maxSizeText: "(Max Size: 2MB)",
           acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
           isDisabled: widget.mode == CMScreenModeEnum.view,

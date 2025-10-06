@@ -4,6 +4,14 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+enum InputType {
+  text,
+  number,
+  email,
+  phone,
+  multiline,
+}
+
 class CustomFormField extends StatelessWidget {
   final String? label;
   final String? initialValue;
@@ -16,6 +24,8 @@ class CustomFormField extends StatelessWidget {
   final List<TextInputFormatter>? inputFormatters;
   final TextInputType? keyboardType;
   final int? maxDecimalDigits;
+  final InputType? inputType;
+  final int? maxLength;
 
   const CustomFormField({
     super.key,
@@ -30,6 +40,8 @@ class CustomFormField extends StatelessWidget {
     this.inputFormatters,
     this.keyboardType,
     this.maxDecimalDigits,
+    this.inputType,
+    this.maxLength,
   });
 
   TextInputFormatter? _getDecimalInputFormatter() {
@@ -42,6 +54,60 @@ class CustomFormField extends StatelessWidget {
     return null;
   }
 
+  TextInputType _getKeyboardType() {
+    if (keyboardType != null) return keyboardType!;
+    
+    switch (inputType) {
+      case InputType.number:
+        return TextInputType.number;
+      case InputType.email:
+        return TextInputType.emailAddress;
+      case InputType.phone:
+        return TextInputType.phone;
+      case InputType.multiline:
+        return TextInputType.multiline;
+      case InputType.text:
+      case null:
+      default:
+        return TextInputType.text;
+    }
+  }
+
+  List<TextInputFormatter> _getInputFormatters() {
+    List<TextInputFormatter> formatters = [];
+    
+    // Add existing input formatters
+    if (inputFormatters != null) {
+      formatters.addAll(inputFormatters!);
+    }
+    
+    // Add decimal formatter if needed
+    if (_getDecimalInputFormatter() != null) {
+      formatters.add(_getDecimalInputFormatter()!);
+    }
+    
+    // Add input type specific formatters
+    switch (inputType) {
+      case InputType.number:
+        formatters.add(FilteringTextInputFormatter.digitsOnly);
+        break;
+      case InputType.phone:
+        formatters.add(FilteringTextInputFormatter.digitsOnly);
+        break;
+      case InputType.email:
+        // No specific formatter for email, let the keyboard handle it
+        break;
+      case InputType.multiline:
+      case InputType.text:
+      case null:
+      default:
+        // No additional formatters
+        break;
+    }
+    
+    return formatters;
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextEditingController textController =
@@ -52,10 +118,7 @@ class CustomFormField extends StatelessWidget {
       textController.text = initialValue!;
     }
 
-    final List<TextInputFormatter> finalInputFormatters = [
-      if (inputFormatters != null) ...inputFormatters!,
-      if (_getDecimalInputFormatter() != null) _getDecimalInputFormatter()!,
-    ];
+    final List<TextInputFormatter> finalInputFormatters = _getInputFormatters();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,8 +159,10 @@ class CustomFormField extends StatelessWidget {
         TextFormField(
           controller: textController,
           readOnly: !isEditable,
-          keyboardType: keyboardType ?? TextInputType.text,
-          inputFormatters: inputFormatters,
+          keyboardType: _getKeyboardType(),
+          inputFormatters: finalInputFormatters,
+          maxLength: maxLength,
+          maxLines: inputType == InputType.multiline ? null : 1,
           decoration: InputDecoration(
             filled: true,
             fillColor: isEditable
