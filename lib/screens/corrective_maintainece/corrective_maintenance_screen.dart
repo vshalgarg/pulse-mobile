@@ -412,7 +412,7 @@ class _CorrectiveMaintenanceScreenState
 
         CustomFormField(
           label: "Site Id",
-          controller: controllers['site_id'],
+          controller: _siteCodeController,
           isEditable: false,
         ),
         getHeight(15),
