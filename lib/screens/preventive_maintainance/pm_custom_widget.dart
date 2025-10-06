@@ -411,26 +411,26 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Label
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  checklistDesc,
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: checklistDesc,
                   style: const TextStyle(
                     color: AppColors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     fontFamily: fontFamilyMontserrat,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
-              ),
-              const Text(
-                " *",
-                style: TextStyle(fontSize: 16, color: Colors.red),
-              ),
-            ],
+                const TextSpan(
+                  text: " *",
+                  style: TextStyle(fontSize: 16, color: Colors.red),
+                ),
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 8),
 

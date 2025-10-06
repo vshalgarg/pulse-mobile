@@ -207,30 +207,28 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       children: [
         // Label with required mark
         if(widget.label != null) ...[
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label ?? '',
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: widget.label,
                   style: const TextStyle(
+                    color: AppColors.white,
                     fontSize: 16,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
                     fontFamily: fontFamilyMontserrat,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 2,
                 ),
-              ),
-              if (widget.isRequired)
-                const Text(
-                  " *",
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.red,
+                if(widget.isRequired) ...[
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(fontSize: 16, color: Colors.red),
                   ),
-                ),
-            ],
+                ],
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
         const SizedBox(height: 6),

@@ -176,6 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 _loadSitesAndNavigateToCM();
               },
               backgroundColor: AppColors.bellColor,
+              heroTag: "add_cm_fab",
               child: const Icon(Icons.add, color: Colors.white),
               tooltip: 'Add CM',
             ),
@@ -187,6 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _syncOfflineData();
             },
             backgroundColor: Colors.blue,
+            heroTag: "sync_fab",
             child: const Icon(Icons.sync, color: Colors.white),
             tooltip: 'Sync Offline Data',
           ),
@@ -196,6 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pushPage(context, const LogViewerScreen());
             },
             backgroundColor: Colors.orange,
+            heroTag: "log_viewer_fab",
             child: const Icon(Icons.description, color: Colors.white),
             tooltip: 'Log Viewer',
           ),
@@ -205,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pushPage(context, const SQLiteQueryScreen());
             },
             backgroundColor: AppColors.auditColor,
+            heroTag: "sqlite_query_fab",
             child: const Icon(Icons.storage, color: Colors.white),
             tooltip: 'SQLite Query Executor',
           ),

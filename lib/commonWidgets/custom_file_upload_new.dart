@@ -59,7 +59,7 @@ class CustomFileUploadNew extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.color555555,
+                  color: AppColors.whiteColor,
                   fontFamily: fontFamilyMontserrat,
                 ),
               ),
