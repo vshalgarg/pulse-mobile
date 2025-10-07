@@ -14,25 +14,35 @@ class CMRepository {
 
   Future<List<CMSite>> getCMSitesDropdown() async {
     try {
+      Logger.debugLog('[CMRepository] Starting to fetch CM sites dropdown');
+      
       final response = await _apiService.get<List<dynamic>>(
         path: '/api/v1/mobile/cm/CmSitesDropdown',
       );
 
-      if (response.isSuccess && response.data != null) {
+      Logger.debugLog('[CMRepository] API response received - Success: ${response.isSuccess}');
 
+      if (response.isSuccess && response.data != null) {
         // Check if data is a list
         if (response.data is List) {
           final List<dynamic> rawData = response.data!;
-          final sites = rawData.map((siteJson) {
+          Logger.debugLog('[CMRepository] Processing ${rawData.length} sites');
+          
+          final List<CMSite> sites = [];
+          for (int i = 0; i < rawData.length; i++) {
             try {
+              final siteJson = rawData[i];
               final site = CMSite.fromJson(siteJson);
-              return site;
+              sites.add(site);
             } catch (e) {
-              Logger.errorLog('[CMRepository] Error parsing site $siteJson: $e');
-              rethrow;
+              Logger.errorLog('[CMRepository] Error parsing site at index $i: $e');
+              Logger.errorLog('[CMRepository] Problematic site data: ${rawData[i]}');
+              // Continue with other sites instead of crashing
+              continue;
             }
-          }).toList();
-          Logger.infoLog('[CMRepository] Site names: ${sites.map((s) => s.siteName).toList()}');
+          }
+          
+          Logger.infoLog('[CMRepository] Successfully parsed ${sites.length} out of ${rawData.length} sites');
           return sites;
         } else {
           Logger.errorLog('[CMRepository] Expected List but got ${response.data.runtimeType}');
@@ -43,6 +53,7 @@ class CMRepository {
         throw Exception('Failed to load sites: ${response.errorMessage}');
       }
     } catch (e) {
+      Logger.errorLog('[CMRepository] Exception in getCMSitesDropdown: $e');
       Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
       throw Exception('Failed to load sites: $e');
     }

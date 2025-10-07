@@ -9,6 +9,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
+import 'package:app/screens/corrective_maintainece/cm_all_sites.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/screens/sqlite_query_screen.dart';
@@ -49,16 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
   /// Loads sites data for corrective maintenance
   Future<void> _loadSitesAndNavigateToCM() async {
     try {
-      LoaderWidget.showLoader(context);
-      final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+      // LoaderWidget.showLoader(context);
+      // final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
 
       if (mounted) {
         LoaderWidget.hideLoader();
         // Navigate to corrective maintenance screen with sites data
-        pushPage(context, CorrectiveMaintenanceScreen(
-          mode: CMScreenModeEnum.create,
-          preloadedSites: sites,
-        ));
+        pushPage(context, CMAllSitesScreen());
       }
     } catch (e) {
       if (mounted) {
@@ -67,7 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
-
 
   /// Syncs offline data by checking pending requests and posting them to the server
   Future<void> _syncOfflineData() async {
