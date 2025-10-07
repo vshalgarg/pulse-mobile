@@ -233,7 +233,7 @@ class _TicketScreenState extends State<TicketScreen> {
       case ActivityTypeEnum.correctiveMaintenance:
         _navigateToCmWorkflow(ticket);
         break;
-     default:
+      default:
         _navigateToWorkflow(ticket);
         break;
     }
@@ -245,12 +245,18 @@ class _TicketScreenState extends State<TicketScreen> {
       // Determine site type - check if it's solar or telecom
       final siteType = ticket.siteDomainName ?? 'Solar';
       Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
-      final data = await ServiceLocator().cmRepository.getCmTicketData(ticket.ticketSchId);
-      pushPage(context, CorrectiveMaintenanceScreen(
-        mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED' ?
-          CMScreenModeEnum.view : CMScreenModeEnum.edit,
-        preloadedSiteData: data,
-      ));
+      final data = await ServiceLocator().cmRepository.getCmTicketData(
+        ticket.ticketSchId,
+      );
+      pushPage(
+        context,
+        CorrectiveMaintenanceScreen(
+          mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+              ? CMScreenModeEnum.view
+              : CMScreenModeEnum.edit,
+          preloadedSiteData: data,
+        ),
+      );
     } catch (e) {
       Toastbar.showErrorToastbar("Failed to load data", context);
     } finally {
@@ -546,8 +552,7 @@ class _TicketScreenState extends State<TicketScreen> {
   Future<void> _downloadReport(Ticket ticket) async {
     print("downloading pdf report for ${ticket.pvTicketId}");
 
-    if (_currentActivityType != ActivityTypeEnum.preventiveMaintenance &&
-        _currentActivityType != ActivityTypeEnum.assetAudit) {
+    if (_currentActivityType == ActivityTypeEnum.energyReading) {
       Toastbar.showErrorToastbar(
         'PDF report not available for this activity type',
         context,

@@ -137,8 +137,13 @@ class CentralApiService {
       Logger.debugLog('📄 Starting PDF download for ticket: $activityType');
 
       final reportPath = activityType == ActivityTypeEnum.preventiveMaintenance
-          ? 'OnM/Preventive_Maintenance.rptdesign'
-          : 'OnM/Asset_Audit.rptdesign';
+          ? 'OnM/Preventive_Maintenance.rptdesign' 
+          : activityType == ActivityTypeEnum.assetAudit 
+          ? 'OnM/Asset_Audit.rptdesign' 
+          : activityType == ActivityTypeEnum.correctiveMaintenance 
+          ? 'OnM/Corrective_Maintenance.rptdesign' 
+          : 'OnM/Corrective_Maintenance.rptdesign';
+         
 
       print('Report Path: $reportPath');
 

@@ -28,6 +28,7 @@ class CustomDropdown extends StatefulWidget {
 
 class _CustomDropdownState extends State<CustomDropdown> {
   String? selectedValue;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -38,6 +39,12 @@ class _CustomDropdownState extends State<CustomDropdown> {
         widget.items.contains(widget.initialValue)) {
       selectedValue = widget.initialValue;
     }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -84,29 +91,64 @@ class _CustomDropdownState extends State<CustomDropdown> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
-                color: widget.isDisabled ? AppColors.borderColorE0E0E0 : AppColors.color555555,
+                color: widget.isDisabled
+                    ? AppColors.borderColorE0E0E0
+                    : AppColors.color555555,
                 fontFamily: fontFamilyMontserrat,
               ),
             ),
             items: widget.items.map((item) {
               return DropdownMenuItem<String>(
                 value: item,
-                child: Text(
-                  item,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                child: Text(item, style: const TextStyle(fontSize: 14)),
               );
             }).toList(),
-            value: (selectedValue != null &&
-                widget.items.contains(selectedValue))
+            value:
+                (selectedValue != null && widget.items.contains(selectedValue))
                 ? selectedValue
                 : null,
-            onChanged: widget.isDisabled ? null : (value) {
-              setState(() {
-                selectedValue = value;
-              });
-              widget.onChanged(value);
+            onChanged: widget.isDisabled
+                ? null
+                : (value) {
+                    setState(() {
+                      selectedValue = value;
+                    });
+                    widget.onChanged(value);
+                  },
+
+            dropdownSearchData: DropdownSearchData(
+              searchController: _searchController,
+              searchInnerWidgetHeight: 50,
+              searchInnerWidget: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    hintText: 'Search...',
+                    hintStyle: const TextStyle(fontSize: 14),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+              searchMatchFn: (item, searchValue) {
+                return item.value!.toLowerCase().contains(
+                  searchValue.toLowerCase(),
+                );
+              },
+            ),
+            onMenuStateChange: (isOpen) {
+              if (!isOpen) {
+                _searchController.clear(); // clear search when closed
+              }
             },
+
             dropdownStyleData: DropdownStyleData(
               maxHeight: 200,
               direction: DropdownDirection.textDirection,
@@ -127,12 +169,16 @@ class _CustomDropdownState extends State<CustomDropdown> {
             ),
             iconStyleData: IconStyleData(
               icon: Icon(
-                widget.isDisabled ? null: Icons.keyboard_arrow_down,
-                color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
+                widget.isDisabled ? null : Icons.keyboard_arrow_down,
+                color: widget.isDisabled
+                    ? Colors.grey.shade600
+                    : AppColors.color555555,
               ),
               openMenuIcon: Icon(
                 Icons.keyboard_arrow_up,
-                color: widget.isDisabled ? Colors.grey.shade600 : AppColors.color555555,
+                color: widget.isDisabled
+                    ? Colors.grey.shade600
+                    : AppColors.color555555,
               ),
             ),
           ),
