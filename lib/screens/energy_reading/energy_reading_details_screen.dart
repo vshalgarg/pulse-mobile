@@ -548,47 +548,10 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     });
   }
 
-  // Debug method to check what's in the database
-  Future<void> _debugCheckDatabase() async {
-    try {
-      final data = await ServiceLocator().centralAssetAuditService
-          .getActualDataFromSqlite(
-            siteAuditSchId: widget.siteAuditSchId,
-          );
-      
-      print("🔍 DEBUG CHECK: Current database data:");
-      print("🔍 DEBUG CHECK: Data is null: ${data == null}");
-      if (data != null) {
-        print("🔍 DEBUG CHECK: Keys: ${data.keys.toList()}");
-        print("🔍 DEBUG CHECK: Full data: $data");
-        print("🔍 DEBUG CHECK: Has energyReading key: ${data.containsKey('energyReading')}");
-        print("🔍 DEBUG CHECK: Has consumerNo key: ${data.containsKey('consumerNo')}");
-        if (data['energyReading'] != null) {
-          print("🔍 DEBUG CHECK: energyReading data: ${data['energyReading']}");
-        }
-      }
-    } catch (e) {
-      print("🔍 DEBUG CHECK ERROR: $e");
-    }
-  }
-
   Widget _buildFormFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Debug button - remove this after testing
-        Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 16),
-          child: ElevatedButton(
-            onPressed: _debugCheckDatabase,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('🔍 DEBUG: Check Database'),
-          ),
-        ),
         CustomDropdown(
           label: "EB Meter Status",
           items: _meterStatusOptions,
