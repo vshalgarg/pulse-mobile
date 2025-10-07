@@ -9,7 +9,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 5;
+  static const int _databaseVersion = 6;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -54,8 +54,38 @@ class CentralAssetAuditDataService {
       )
     ''');
 
+    // CM Sites table for downloaded CM site data
+    await db.execute('''
+      CREATE TABLE cm_sites_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        entity_id INTEGER NOT NULL,
+        site_code TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        cluster_district_id INTEGER,
+        cluster_district_name TEXT,
+        circle_state_id INTEGER,
+        circle_state_name TEXT,
+        client_id INTEGER,
+        client_name TEXT,
+        oem TEXT,
+        oem_id INTEGER,
+        self TEXT,
+        self_id INTEGER,
+        activity_type TEXT NOT NULL,
+        is_downloaded INTEGER DEFAULT 1,
+        downloaded_at TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
     await db.execute(
       'CREATE INDEX idx_raw_api_data_site_audit_sch_id ON raw_api_data(site_audit_sch_id)',
+    );
+    
+    await db.execute(
+      'CREATE INDEX idx_cm_sites_data_site_id ON cm_sites_data(site_id)',
     );
   }
 
@@ -160,6 +190,44 @@ class CentralAssetAuditDataService {
         await db.execute('DROP TABLE IF EXISTS raw_api_data');
         await _onCreate(db, newVersion);
         Logger.debugLog('✅ Database recreated due to upgrade failure');
+      }
+    }
+
+    if (oldVersion < 6) {
+      // For version 6, create CM sites table
+      try {
+        await db.execute('''
+          CREATE TABLE cm_sites_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            cluster_district_id INTEGER,
+            cluster_district_name TEXT,
+            circle_state_id INTEGER,
+            circle_state_name TEXT,
+            client_id INTEGER,
+            client_name TEXT,
+            oem TEXT,
+            oem_id INTEGER,
+            self TEXT,
+            self_id INTEGER,
+            activity_type TEXT NOT NULL,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_cm_sites_data_site_id ON cm_sites_data(site_id)',
+        );
+
+        Logger.debugLog('✅ Successfully created cm_sites_data table');
+      } catch (e) {
+        Logger.errorLog('❌ Error creating cm_sites_data table: $e');
       }
     }
   }
@@ -379,6 +447,123 @@ class CentralAssetAuditDataService {
           .toList();
     } catch (e) {
       Logger.errorLog("Exception while getting all downloaded tickets $e");
+      return [];
+    }
+  }
+
+  /// Save CM site data to SQLite
+  Future<bool> saveCMSiteData({
+    required int siteId,
+    required int entityId,
+    required String siteCode,
+    required String siteName,
+    required int? clusterDistrictId,
+    required String? clusterDistrictName,
+    required int? circleStateId,
+    required String? circleStateName,
+    required int? clientId,
+    required String? clientName,
+    required String? oem,
+    required int? oemId,
+    required String? self,
+    required int? selfId,
+    required String activityType,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      await db.insert(
+        'cm_sites_data',
+        {
+          'site_id': siteId,
+          'entity_id': entityId,
+          'site_code': siteCode,
+          'site_name': siteName,
+          'cluster_district_id': clusterDistrictId,
+          'cluster_district_name': clusterDistrictName,
+          'circle_state_id': circleStateId,
+          'circle_state_name': circleStateName,
+          'client_id': clientId,
+          'client_name': clientName,
+          'oem': oem,
+          'oem_id': oemId,
+          'self': self,
+          'self_id': selfId,
+          'activity_type': activityType,
+          'is_downloaded': 1,
+          'downloaded_at': now,
+          'created_at': now,
+          'updated_at': now,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      Logger.debugLog('✅ CM site data saved successfully');
+      return true;
+    } catch (e) {
+      Logger.errorLog('❌ Error saving CM site data: $e');
+      return false;
+    }
+  }
+
+  /// Get CM site data from SQLite
+  Future<Map<String, dynamic>?> getCMSiteData(int siteId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_sites_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        return maps.first;
+      }
+      return null;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting CM site data: $e');
+      return null;
+    }
+  }
+
+  /// Check if CM site is downloaded
+  Future<bool> isCMSiteDownloaded(int siteId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_sites_data',
+        columns: ['is_downloaded'],
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        return maps.first['is_downloaded'] == 1;
+      }
+      return false;
+    } catch (e) {
+      Logger.errorLog('❌ Error checking CM site download status: $e');
+      return false;
+    }
+  }
+
+  /// Get all downloaded CM sites
+  Future<List<Map<String, dynamic>>> getAllDownloadedCMSites() async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_sites_data',
+        where: 'is_downloaded = ?',
+        whereArgs: [1],
+        orderBy: 'downloaded_at DESC',
+      );
+
+      return maps;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting all downloaded CM sites: $e');
       return [];
     }
   }

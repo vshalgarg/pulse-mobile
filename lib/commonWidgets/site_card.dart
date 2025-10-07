@@ -10,6 +10,7 @@ class SiteCard extends StatelessWidget {
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
   final VoidCallback? onDownloadTap;
+  final bool isDownloaded;
 
   const SiteCard({
     super.key,
@@ -18,6 +19,7 @@ class SiteCard extends StatelessWidget {
     this.onDirectionTap,
     this.onTap,
     this.onDownloadTap,
+    this.isDownloaded = false,
   });
 
   @override
@@ -126,16 +128,26 @@ class SiteCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   
-                  // Download icon
-                  IconButton(
-                    icon: const Icon(
-                      Icons.file_download_outlined,
-                      color: Colors.blue,
-                      size: 24,
-                    ),
-                    onPressed: onDownloadTap,
-                    tooltip: 'Download Site Info',
-                  ),
+                  // Download icon - shows different states
+                  isDownloaded
+                      ? IconButton(
+                          icon: const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 24,
+                          ),
+                          onPressed: null,
+                          tooltip: 'Site Downloaded',
+                        )
+                      : IconButton(
+                          icon: const Icon(
+                            Icons.file_download_outlined,
+                            color: Colors.blue,
+                            size: 24,
+                          ),
+                          onPressed: onDownloadTap,
+                          tooltip: 'Download Site Info',
+                        ),
                 ],
               ),
 

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/cm_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import '../../utils/logger.dart';
@@ -65,6 +66,40 @@ class CentralAssetAuditService {
       return sqliteData;
     } else {
       return null;
+    }
+  }
+
+  /// Download CM site data and save to SQLite
+  Future<bool> downloadCMSiteData({
+    required CMSite site,
+  }) async {
+    try {
+      Logger.debugLog('Starting to download CM site data for site: ${site.siteName}');
+      
+      // Save to SQLite using the new CM site data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveCMSiteData(
+        siteId: site.siteId,
+        entityId: site.entityId,
+        siteCode: site.siteCode,
+        siteName: site.siteName,
+        clusterDistrictId: site.clusterDistrictId,
+        clusterDistrictName: site.clusterDistrictName,
+        circleStateId: site.circleStateId,
+        circleStateName: site.circleStateName,
+        clientId: site.clientId,
+        clientName: site.clientName,
+        oem: site.oem,
+        oemId: site.oemId,
+        self: site.self,
+        selfId: site.selfId,
+        activityType: 'correctiveMaintenance',
+      );
+
+      Logger.debugLog('✅ CM site data saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading CM site data: $e');
+      return false;
     }
   }
 

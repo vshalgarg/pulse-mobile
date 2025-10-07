@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/cm_site_model.dart';
 import 'package:app/repositories/cm_repository.dart';
@@ -32,6 +33,8 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
   String? _selectedFilter;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final Set<int> _downloadedSiteIds = <int>{};
+  bool _isInitializingDownloadedSites = false;
 
   @override
   void initState() {
@@ -68,6 +71,15 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
           _filteredSites = sites;
           _selectedFilter = 'All Sites';
           _isLoading = false;
+        });
+        
+        // Initialize downloaded sites state after sites are loaded
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (sites.isNotEmpty) {
+              _initializeDownloadedSites(sites);
+            }
+          });
         });
       }
     } catch (e) {
@@ -140,6 +152,84 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         ),
       ),
     );
+  }
+
+  void _initializeDownloadedSites(List<CMSite> sites) async {
+    // Prevent multiple initializations
+    if (_isInitializingDownloadedSites) return;
+    _isInitializingDownloadedSites = true;
+
+    try {
+      bool hasChanges = false;
+      // Check which sites are already downloaded and populate local state
+      for (final site in sites) {
+        final isDownloaded = await _isSiteDownloaded(site);
+        if (isDownloaded && !_downloadedSiteIds.contains(site.siteId)) {
+          _downloadedSiteIds.add(site.siteId);
+          hasChanges = true;
+        }
+      }
+      // Only trigger UI update if there were actual changes
+      if (hasChanges && mounted) {
+        setState(() {});
+      }
+    } finally {
+      _isInitializingDownloadedSites = false;
+    }
+  }
+
+  Future<bool> _isSiteDownloaded(CMSite site) async {
+    // Check local state first (for recently downloaded sites)
+    if (_downloadedSiteIds.contains(site.siteId)) {
+      return true;
+    }
+
+    // Check database for existing downloads using CM site data service
+    try {
+      final isDownloaded = await ServiceLocator().centralAssetAuditDataService
+          .isCMSiteDownloaded(site.siteId);
+      return isDownloaded;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<void> _downloadSiteData(CMSite site) async {
+    try {
+      LoaderWidget.showLoader(context);
+      
+      // Use the new CM-specific download method
+      final service = ServiceLocator().centralAssetAuditService;
+      final isDownloaded = await service.downloadCMSiteData(site: site);
+
+      if (isDownloaded) {
+        // Add to local state and trigger UI update
+        setState(() {
+          _downloadedSiteIds.add(site.siteId);
+        });
+        
+        // Re-initialize downloaded sites state to ensure consistency
+        _initializeDownloadedSites(_allSites);
+        
+        Toastbar.showSuccessToastbar(
+          'Site data downloaded successfully',
+          context,
+        );
+      } else {
+        Toastbar.showErrorToastbar(
+          'Failed to download site data',
+          context,
+        );
+      }
+    } catch (e) {
+      print('Download error: $e');
+      Toastbar.showErrorToastbar(
+        'Error downloading site data: $e',
+        context,
+      );
+    } finally {
+      LoaderWidget.hideLoader();
+    }
   }
 
   @override
@@ -373,22 +463,25 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
           padding: EdgeInsets.only(
             bottom: index == _filteredSites.length - 1 ? 0 : 5,
           ),
-          child: SiteCard(
-            site: site,
-            distance: "2 KM", // You can calculate actual distance here
-            onDirectionTap: () {
-              // Show location info or open maps
-              Toastbar.showInfoToastbar(
-                'Location: ${site.clusterDistrictName}, ${site.circleStateName}',
-                context,
-              );
-            },
-            onTap: () => _navigateToSite(site),
-            onDownloadTap: () {
-              // Handle download action
-              Toastbar.showInfoToastbar(
-                'Downloading site info for ${site.siteName}',
-                context,
+          child: FutureBuilder<bool>(
+            future: _isSiteDownloaded(site),
+            builder: (context, snapshot) {
+              final isDownloaded = snapshot.data ?? false;
+              return SiteCard(
+                site: site,
+                distance: "2 KM", // You can calculate actual distance here
+                isDownloaded: isDownloaded,
+                onDirectionTap: () {
+                  // Show location info or open maps
+                  Toastbar.showInfoToastbar(
+                    'Location: ${site.clusterDistrictName}, ${site.circleStateName}',
+                    context,
+                  );
+                },
+                onTap: () => _navigateToSite(site),
+                onDownloadTap: isDownloaded 
+                  ? null // Disable download if already downloaded
+                  : () => _downloadSiteData(site),
               );
             },
           ),
