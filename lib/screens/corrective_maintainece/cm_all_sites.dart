@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/cm_site_model.dart';
 import 'package:app/repositories/cm_repository.dart';
 import 'package:app/services/service_locator.dart';
@@ -12,6 +13,7 @@ import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 import '../../services/location_service.dart';
+import 'corrective_maintenance_screen.dart';
 
 class CMAllSitesScreen extends StatefulWidget {
   const CMAllSitesScreen({super.key});
@@ -119,11 +121,24 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
   }
 
   void _navigateToSite(CMSite site) {
-    // Navigate to corrective maintenance screen for this site
-    // This would typically open a new CM ticket for the selected site
-    Toastbar.showInfoToastbar(
-      'Opening corrective maintenance for ${site.siteName}',
+    // Navigate to corrective maintenance screen with the selected site data
+    Navigator.push(
       context,
+      MaterialPageRoute(
+        builder: (context) => CorrectiveMaintenanceScreen(
+          mode: CMScreenModeEnum.create,
+          preloadedSites: [site], // Pass the selected site
+          preloadedSiteData: {
+            'siteId': site.siteId,
+            'siteName': site.siteName,
+            'siteCode': site.siteCode,
+            'clusterDistrictName': site.clusterDistrictName,
+            'circleStateName': site.circleStateName,
+            'clientName': site.clientName,
+            'oem': site.oem,
+          },
+        ),
+      ),
     );
   }
 
