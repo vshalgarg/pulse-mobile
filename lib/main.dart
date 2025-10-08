@@ -29,21 +29,28 @@ import 'services/log_push_config.dart';
 // Global config variable
 AppConfig? globalConfig;
 
-
-
-
 // prod main file
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
+  
+  // Configure system UI overlay style for better keyboard handling
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+    ),
+  );
 
   await init();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   // push notification
   PushNotificationApi().initNotifications();
+
+
 
   // initDeepLinks();
 

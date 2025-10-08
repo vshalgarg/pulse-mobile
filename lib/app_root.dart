@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:app/bloc/forgot_password_cubit.dart';
+import 'package:flutter/gestures.dart';
 import 'package:app/bloc/login_bloc/auth_cubit.dart';
 import 'package:app/bloc/otp_verification_cubit.dart';
 import 'package:app/bloc/reset_password_cubit.dart';
@@ -27,6 +28,16 @@ import 'repositories/audit_schedule_repository.dart';
 import 'l10n/l10n.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// Custom scroll behavior for better keyboard handling
+class CustomScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+  };
+}
 
 class AppRoot extends StatelessWidget {
   final AppConfig config;
@@ -81,12 +92,7 @@ class AppRoot extends StatelessWidget {
           title: 'Nexgen',
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
-          scrollBehavior: const MaterialScrollBehavior().copyWith(dragDevices: {
-            PointerDeviceKind.mouse,
-            PointerDeviceKind.touch,
-            PointerDeviceKind.stylus,
-            PointerDeviceKind.unknown
-          }),
+          scrollBehavior: CustomScrollBehavior(),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
