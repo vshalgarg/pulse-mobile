@@ -61,16 +61,24 @@ class CMRepository {
 
   Future<Map<String, dynamic>> getChecklistData(int entityId) async {
     try {
-
+      Logger.infoLog('[CMRepository] 🔄 Calling getChecklistData API for entityId: $entityId');
+      
       final response = await _apiService.get<Map<String, dynamic>>(
         path: '/api/v1/mobile/correctiveMaintenance/checkListDtlForMobile/$entityId/ALL',
       );
+      
+      Logger.infoLog('[CMRepository] API Response - Success: ${response.isSuccess}, Has Data: ${response.data != null}');
+      
       if (response.isSuccess && response.data != null) {
-        return response.data?['data'] as Map<String, dynamic>;
+        final data = response.data?['data'] as Map<String, dynamic>;
+        Logger.infoLog('[CMRepository] ✅ Checklist data received with ${data.keys.length} keys');
+        return data;
       } else {
+        Logger.errorLog('[CMRepository] ❌ Failed to load checklist: ${response.errorMessage}');
         throw Exception('Failed to load checklist data: ${response.errorMessage}');
       }
     } catch (e) {
+      Logger.errorLog('[CMRepository] ❌ Exception in getChecklistData: $e');
       rethrow;
     }
   }

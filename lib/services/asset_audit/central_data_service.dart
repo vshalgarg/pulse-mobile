@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/gen_ins_checklist_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -503,6 +504,51 @@ class CentralAssetAuditDataService {
       return true;
     } catch (e) {
       Logger.errorLog('❌ Error saving CM site data: $e');
+      return false;
+    }
+  }
+
+  /// Save General Inspection checklist data to SQLite
+  Future<bool> saveGenInsCheckListData({
+    required int siteId,
+    required String siteCode,
+    required String siteName,
+    required List<GenInsCheckListData> checklistData,
+    required String activityType,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      // Save each checklist item
+      for (final item in checklistData) {
+        await db.insert(
+          'gen_ins_checklist_data',
+          {
+            'site_id': siteId,
+            'site_code': siteCode,
+            'site_name': siteName,
+            'giclm_id': item.giclmId,
+            'site_domain_id': item.siteDomainId,
+            'checklist_desc': item.checklistDesc,
+            'resp_type': item.respType,
+            'resp_type_value_map': item.respTypeValueMap?.toJson().toString(),
+            'is_mandatory': item.isMandatory ? 1 : 0,
+            'cl_order': item.clOrder,
+            'activity_type': activityType,
+            'is_downloaded': 1,
+            'downloaded_at': now,
+            'created_at': now,
+            'updated_at': now,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      Logger.debugLog('✅ General Inspection checklist data saved successfully to SQLite');
+      return true;
+    } catch (e) {
+      Logger.errorLog('❌ Error saving General Inspection checklist data: $e');
       return false;
     }
   }

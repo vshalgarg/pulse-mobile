@@ -1,4 +1,4 @@
-class CMSite {
+class AllSiteModel {
   final int siteId;
   final int entityId;
   final String siteCode;
@@ -13,8 +13,10 @@ class CMSite {
   final int? oemId;
   final String self;
   final int selfId;
+  final String? siteDomainName;
+  final String? distanceKM;
 
-  CMSite({
+  AllSiteModel({
     required this.siteId,
     required this.entityId,
     required this.siteCode,
@@ -29,18 +31,18 @@ class CMSite {
     this.oemId,
     required this.self,
     required this.selfId,
+    this.siteDomainName,
+     this.distanceKM,
   });
 
-  factory CMSite.fromJson(Map<String, dynamic> json) {
-    print('🔄 [CMSite] Parsing JSON: $json');
-    
+  factory AllSiteModel.fromJson(Map<String, dynamic> json) {
     final siteId = json['site_id'] ?? 0;
     final siteName = json['site_name']?.toString() ?? '';
     final siteCode = json['site_code']?.toString() ?? '';
+
     
-    
-    
-    return CMSite(
+
+    return AllSiteModel(
       siteId: siteId,
       entityId: json['entity_id'] ?? 0,
       siteCode: siteCode,
@@ -55,6 +57,8 @@ class CMSite {
       oemId: json['oem_id'],
       self: json['self']?.toString() ?? '',
       selfId: json['self_id'] ?? 0,
+      siteDomainName: json['site_domain_name']?.toString() ?? '',
+      distanceKM: json['distance_km']?.toString() ?? '',
     );
   }
 
@@ -74,18 +78,20 @@ class CMSite {
       'oem_id': oemId,
       'self': self,
       'self_id': selfId,
+      'site_domain_name': siteDomainName,
+      'distance_km': distanceKM,
     };
   }
 
   @override
   String toString() {
-    return 'CMSite{siteId: $siteId, siteName: "$siteName", siteCode: "$siteCode"}';
+    return 'AllSiteModel{siteId: $siteId, siteName: "$siteName", siteCode: "$siteCode"}';
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CMSite && other.siteId == siteId;
+    return other is AllSiteModel && other.siteId == siteId;
   }
 
   @override

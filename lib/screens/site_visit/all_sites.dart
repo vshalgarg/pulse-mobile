@@ -4,7 +4,8 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/cm_site_model.dart';
-import 'package:app/models/location_model.dart';
+import 'package:app/screens/general_inspection/gi_custom_widget.dart';
+import 'package:app/screens/general_inspection/ginspection_detail.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -13,24 +14,23 @@ import 'package:flutter_svg/svg.dart';
 import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
-import '../../services/location_service.dart';
-import 'corrective_maintenance_screen.dart';
+import 'site_visit.dart';
 
-class CMAllSitesScreen extends StatefulWidget {
-  const CMAllSitesScreen({super.key});
+class AllSitesScreen extends StatefulWidget {
+  const AllSitesScreen({super.key});
 
   @override
-  State<CMAllSitesScreen> createState() => _CMAllSitesScreenState();
+  State<AllSitesScreen> createState() => _AllSitesScreenState();
 }
 
-class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
+class _AllSitesScreenState extends State<AllSitesScreen> {
+  
   List<AllSiteModel> _allSites = [];
-  List<AllSiteModel> _nearbySites = [];
   List<AllSiteModel> _filteredSites = [];
+  List<AllSiteModel> _nearbySites = [];
   bool _isLoading = true;
   String? _errorMessage;
   String? _selectedFilter;
-  String _siteType = 'ALL';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   final Set<int> _downloadedSiteIds = <int>{};
@@ -39,7 +39,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
   @override
   void initState() {
     super.initState();
-    _loadSites(_siteType);
+    _loadSites();
   }
 
   @override
@@ -48,7 +48,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
     super.dispose();
   }
 
-  Future<void> _loadSites(String type, {String searchText = ''}) async {
+  Future<void> _loadSites() async {
     try {
       setState(() {
         _isLoading = true;
@@ -56,20 +56,10 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
       });
 
       final repository = ServiceLocator().sitesRepository;
-
-      // Get current location with fallback to default
-      LocationModel location;
-      try {
-        location = await LocationService.getCurrentLocation();
-      } catch (e) {
-        // Use default location if GPS fails
-        location = LocationModel(latitude: 32.899, longitude: 56.989);
-        print('Using default location: $e');
-      }
-
+      
       // Add timeout to prevent indefinite loading
       final sites = await repository
-          .getAllSitesData(location.latitude, location.longitude, searchText, type)
+          .getAllSitesData(28.4471, 77.3092, '', 'All')
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () {
@@ -81,19 +71,12 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
 
       if (mounted) {
         setState(() {
-          // Populate the appropriate list based on type
-          if (type == 'ALL') {
-            _allSites = sites;
-            _filteredSites = sites;
-          } else {
-            _nearbySites = sites;
-            _filteredSites = sites;
-          }
-          // Keep the current selected filter based on type
-          _selectedFilter = type == 'ALL' ? 'All Sites' : 'Near By Sites';
+          _allSites = sites;
+          _filteredSites = sites;
+          _selectedFilter = 'All Sites';
           _isLoading = false;
         });
-
+        
         // Initialize downloaded sites state after sites are loaded
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Future.delayed(const Duration(milliseconds: 500), () {
@@ -117,45 +100,50 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
   void _filterSites(String filter) {
     setState(() {
       _selectedFilter = filter;
-      _siteType = filter == 'All Sites' ? 'ALL' : 'nearby';
+      if (filter == 'All Sites') {
+        _filteredSites = _allSites;
+      } else if (filter == 'Near By Sites') {
+        // For now, show all sites as nearby sites
+        // In a real implementation, you would filter based on user location
+        _filteredSites = _allSites;
+      }
     });
-    _loadSites(_siteType);
   }
 
   void _performSearch(String query) {
     setState(() {
-      _searchQuery = query;
+      _searchQuery = query.toLowerCase();
+      if (query.isEmpty) {
+        _filteredSites = _selectedFilter == 'All Sites' ? _allSites : _nearbySites;
+      } else {
+        final baseList = _selectedFilter == 'All Sites' ? _allSites : _nearbySites;
+        _filteredSites = baseList.where((site) {
+          return site.siteName.toLowerCase().contains(_searchQuery) ||
+                 site.siteCode.toLowerCase().contains(_searchQuery) ||
+                 site.clusterDistrictName.toLowerCase().contains(_searchQuery) ||
+                 site.circleStateName.toLowerCase().contains(_searchQuery);
+        }).toList();
+      }
     });
-    // Call API with search text
-    _loadSites(_siteType, searchText: query.isEmpty ? '' : query);
   }
 
   int _getSiteCountForFilter(String filter) {
     if (filter == 'All Sites') {
       return _allSites.length;
     } else if (filter == 'Near By Sites') {
-      return _nearbySites.length;
+      return _allSites.length; // For now, same as all sites
     }
     return 0;
   }
 
-  void _navigateToSite(CMSite site) {
-    // Navigate to corrective maintenance screen with the selected site data
+  void _navigateToSite(AllSiteModel site) {
+    // Navigate to General Inspection Detail screen with the selected site data
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CorrectiveMaintenanceScreen(
-          mode: CMScreenModeEnum.create,
-          preloadedSites: [site], // Pass the selected site
-          preloadedSiteData: {
-            'siteId': site.siteId,
-            'siteName': site.siteName,
-            'siteCode': site.siteCode,
-            'clusterDistrictName': site.clusterDistrictName,
-            'circleStateName': site.circleStateName,
-            'clientName': site.clientName,
-            'oem': site.oem,
-          },
+        builder: (context) => GInspectionDetailScreen(
+          siteData: site,
+          mode: CMScreenModeEnum.edit,
         ),
       ),
     );
@@ -204,7 +192,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
   Future<void> _downloadSiteData(AllSiteModel site) async {
     try {
       LoaderWidget.showLoader(context);
-
+      
       // Use the new CM-specific download method
       final service = ServiceLocator().centralAssetAuditService;
       final isDownloaded = await service.downloadCMSiteData(site: site);
@@ -214,20 +202,26 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         setState(() {
           _downloadedSiteIds.add(site.siteId);
         });
-
+        
         // Re-initialize downloaded sites state to ensure consistency
         _initializeDownloadedSites(_allSites);
-
+        
         Toastbar.showSuccessToastbar(
           'Site data downloaded successfully',
           context,
         );
       } else {
-        Toastbar.showErrorToastbar('Failed to download site data', context);
+        Toastbar.showErrorToastbar(
+          'Failed to download site data',
+          context,
+        );
       }
     } catch (e) {
       print('Download error: $e');
-      Toastbar.showErrorToastbar('Error downloading site data: $e', context);
+      Toastbar.showErrorToastbar(
+        'Error downloading site data: $e',
+        context,
+      );
     } finally {
       LoaderWidget.hideLoader();
     }
@@ -295,7 +289,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Corrective Maintenance",
+                  "All Sites",
                   style: const TextStyle(
                     color: AppColors.white,
                     fontSize: 20,
@@ -312,31 +306,40 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
     );
   }
 
+
   Widget _buildSearchBar() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       child: TextField(
         controller: _searchController,
-        onSubmitted: _performSearch,
-        textInputAction: TextInputAction.search,
-        style: const TextStyle(color: Colors.black, fontSize: 16),
+        onChanged: _performSearch,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 16,
+        ),
         decoration: InputDecoration(
-          hintText: 'Search and press enter',
-          hintStyle: const TextStyle(color: Colors.grey, fontSize: 16),
+          hintText: 'Search',
+          hintStyle: const TextStyle(
+            color: Colors.grey,
+            fontSize: 16,
+          ),
           prefixIcon: null, // Remove search icon from left
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                  icon: const Icon(
+                    Icons.clear,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
                   onPressed: () {
                     _searchController.clear();
                     _performSearch('');
                   },
                 )
-              : IconButton(
-                  icon: const Icon(Icons.search, color: Colors.black, size: 20),
-                  onPressed: () {
-                    _performSearch(_searchController.text);
-                  },
+              : const Icon(
+                  Icons.search,
+                  color: Colors.black,
+                  size: 20,
                 ),
           filled: true,
           fillColor: Colors.white,
@@ -352,10 +355,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(color: Colors.blue, width: 2),
           ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         ),
       ),
     );
@@ -424,10 +424,9 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
     } else if (_errorMessage != null) {
       return _buildErrorWidget(_errorMessage!);
     } else if (_filteredSites.isEmpty) {
-      final currentList = _selectedFilter == 'All Sites' ? _allSites : _nearbySites;
       return Center(
         child: Text(
-          currentList.isEmpty
+          _allSites.isEmpty
               ? 'No sites found'
               : 'No sites found for ${_selectedFilter ?? 'selected filter'}',
           textAlign: TextAlign.center,
@@ -465,7 +464,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
               final isDownloaded = snapshot.data ?? false;
               return SiteCard(
                 site: site,
-
+               
                 isDownloaded: isDownloaded,
                 onDirectionTap: () {
                   // Show location info or open maps
@@ -474,10 +473,10 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
                     context,
                   );
                 },
-                onTap: () => _navigateToSite(CMSite.fromJson(site.toJson())),
-                onDownloadTap: isDownloaded
-                    ? null // Disable download if already downloaded
-                    : () => _downloadSiteData(site),
+                onTap: () => _navigateToSite(site),
+                onDownloadTap: isDownloaded 
+                  ? null // Disable download if already downloaded
+                  : () => _downloadSiteData(site),
               );
             },
           ),
@@ -485,6 +484,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
       },
     );
   }
+
 
   Widget _buildErrorWidget(String errorMessage) {
     return Center(
@@ -519,7 +519,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => _loadSites(_siteType, searchText: _searchQuery),
+              onPressed: _loadSites,
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryGreen,
               ),

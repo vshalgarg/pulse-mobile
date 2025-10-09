@@ -7,6 +7,8 @@ import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/pending_requests_service.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/repositories/cm_repository.dart';
+import 'package:app/repositories/sites.repository.dart';
+import 'package:app/repositories/general_inspection_repository.dart';
 
 class ServiceLocator {
   static final ServiceLocator _instance = ServiceLocator._internal();
@@ -22,15 +24,20 @@ class ServiceLocator {
   late CentralAssetAuditDataService _centralAssetAuditDataService;
   late CentralApiService _centralApiService;
   late CMRepository _cmRepository;
+  SitesRepository? _sitesRepository;
+  late GeneralInspectionRepository _generalInspectionRepository;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
+    print('🔧 ServiceLocator: initializeServices called');
     if (_isInitialized) {
+      print('🔧 ServiceLocator: Services already initialized');
       Logger.debugLog('✅ Services already initialized');
       return;
     }
 
     try {
+      print('🔧 ServiceLocator: Starting initialization...');
       Logger.debugLog('🚀 Initializing all services...');
 
       // Initialize Central Asset Audit Service
@@ -48,8 +55,16 @@ class ServiceLocator {
       _centralAssetAuditDataService = CentralAssetAuditDataService();
       _centralApiService = CentralApiService(apiService: apiService);
       _cmRepository = CMRepository(apiService);
+      _sitesRepository = SitesRepository(apiService);
+      _generalInspectionRepository = GeneralInspectionRepository(apiService);
+      
+      print('🔧 ServiceLocator: SitesRepository initialized');
+      print('🔧 ServiceLocator: _sitesRepository = $_sitesRepository');
+      print('🔧 ServiceLocator: GeneralInspectionRepository initialized');
 
       _isInitialized = true;
+      print('🔧 ServiceLocator: All services initialized successfully');
+      print('🔧 ServiceLocator: _sitesRepository after init = $_sitesRepository');
       Logger.debugLog('✅ All services initialized successfully');
     } catch (e) {
       Logger.errorLog('❌ Failed to initialize services: $e');
@@ -99,6 +114,27 @@ class ServiceLocator {
   CMRepository get cmRepository {
     _ensureInitialized();
     return _cmRepository;
+  }
+
+  /// Get Sites Repository (guaranteed to be initialized)
+  SitesRepository get sitesRepository {
+    print('🔍 ServiceLocator: Accessing sitesRepository');
+    print('🔍 ServiceLocator: _isInitialized = $_isInitialized');
+    print('🔍 ServiceLocator: _sitesRepository = $_sitesRepository');
+    _ensureInitialized();
+    if (_sitesRepository == null) {
+      print('🔧 ServiceLocator: SitesRepository is null, initializing now...');
+      _sitesRepository = SitesRepository(_apiService);
+      print('🔧 ServiceLocator: SitesRepository initialized on demand');
+    }
+    print('🔍 ServiceLocator: Returning sitesRepository');
+    return _sitesRepository!;
+  }
+
+  /// Get General Inspection Repository (guaranteed to be initialized)
+  GeneralInspectionRepository get generalInspectionRepository {
+    _ensureInitialized();
+    return _generalInspectionRepository;
   }
 
   /// Check if services are initialized

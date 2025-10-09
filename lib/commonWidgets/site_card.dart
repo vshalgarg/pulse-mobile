@@ -1,12 +1,13 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/models/cm_site_model.dart';
+import 'package:app/models/all_site_model.dart';
+
 import 'package:app/utils.dart';
 import 'package:flutter/material.dart';
 
 class SiteCard extends StatelessWidget {
-  final CMSite site;
-  final String? distance;
+  final AllSiteModel site;
+ 
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
   final VoidCallback? onDownloadTap;
@@ -15,7 +16,7 @@ class SiteCard extends StatelessWidget {
   const SiteCard({
     super.key,
     required this.site,
-    this.distance,
+    
     this.onDirectionTap,
     this.onTap,
     this.onDownloadTap,
@@ -36,9 +37,9 @@ class SiteCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header with Telecom label
+           
               Text(
-                "Telecom",
+                site.siteDomainName ?? 'N/A'  ,
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
@@ -94,19 +95,20 @@ class SiteCard extends StatelessWidget {
                       maxLines: 2,
                     ),
                   ),
-                  if (distance != null) ...[
+
+                 
                     const SizedBox(width: 8),
                     Text(
-                      distance!,
+                      site.distanceKM ?? '',
                       style: const TextStyle(
                         fontSize: 12,
-                        color: Colors.grey,
+                        color: Colors.black,
                         fontWeight: FontWeight.w400,
                         fontFamily: fontFamilyMontserrat,
                       ),
                     ),
                   ],
-                ],
+                
               ),
               const SizedBox(height: 4),
 
@@ -149,46 +151,8 @@ class SiteCard extends StatelessWidget {
                           tooltip: 'Download Site Info',
                         ),
                 ],
-              ),
-
-              const SizedBox(height: 4),
-              const Divider(height: 0.5, color: AppColors.color555555),
-              const SizedBox(height: 4),
-
-              // Footer with dates (using site creation info or current dates)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      "Raised On : ${Utils.formatDataForTicketCard(DateTime.now().toString())}",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        fontFamily: fontFamilyMontserrat,
-                        color: AppColors.color555555,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 1,
-                    child: Text(
-                      "Due : ${Utils.formatDataForTicketCard(DateTime.now().add(const Duration(days: 2)).toString())}",
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                        fontFamily: fontFamilyMontserrat,
-                        color: AppColors.color555555,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                    ),
-                  ),
-                ],
-              ),
+              ), 
+              
             ],
           ),
         ),

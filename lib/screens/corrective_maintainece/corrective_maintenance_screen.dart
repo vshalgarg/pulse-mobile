@@ -107,12 +107,18 @@ class _CorrectiveMaintenanceScreenState
 
     controllers['responsible_party']!.addListener(_updateAssignedToField);
     if (widget.preloadedSites != null) {
+
+      Logger.infoLog("🔄 [CM] Preloaded sites: ${widget.preloadedSites}");
+
       _siteOptions = widget.preloadedSites!;
       // Automatically select the first (and only) preloaded site
       if (_siteOptions.isNotEmpty) {
         _onSiteSelected(_siteOptions.first);
       }
     } else {
+
+      Logger.infoLog("🔄 [CM] Preloaded site data: ${widget.preloadedSiteData}");
+
       Map<String, dynamic> preloadedSite = widget.preloadedSiteData!;
       cmSiteReqId = preloadedSite['cm_site_req_id'];
       CMSite site = CMSite(
@@ -207,39 +213,51 @@ class _CorrectiveMaintenanceScreenState
   // 👇 Jab user site select kare
   Future<void> _onSiteSelected(CMSite? selectedSite) async {
     if (selectedSite == null) {
+      Logger.errorLog("⚠️ [CM] selectedSite is null");
       return;
     }
+
+    Logger.infoLog("✅ [CM] Site selected: ${selectedSite.siteName}, entityId: ${selectedSite.entityId}, mode: ${widget.mode}");
 
     setState(() {
       _selectedSite = selectedSite;
       _hasFormDataChanges = true;
+      
+      // Populate site fields
+      _siteNameController.text = selectedSite.siteName;
+      _siteCodeController.text = selectedSite.siteCode;
+      _circleStateController.text = selectedSite.circleStateName;
+      _clusterDistrictController.text = selectedSite.clusterDistrictName;
+      _customerController.text = selectedSite.clientName ?? '';
+      controllers['site_id']!.text = selectedSite.siteId.toString();
     });
 
-    //Automatically baaki fields fill karo
-    _siteNameController.text = selectedSite.siteName;
-    _siteCodeController.text = selectedSite.siteCode;
-    controllers['site_id']!.text = selectedSite.siteId.toString();
-    _circleStateController.text = selectedSite.circleStateName;
-    _clusterDistrictController.text = selectedSite.clusterDistrictName;
-    _customerController.text = selectedSite.clientName ?? 'N/A';
-
+    // Wait for the current build to complete before showing loader
+    await Future.delayed(Duration.zero);
+   
     try {
-      LoaderWidget.showLoader(context);
+      if (mounted) LoaderWidget.showLoader(context);
       if (widget.mode == CMScreenModeEnum.create) {
+        Logger.infoLog("🔄 [CM] Calling getChecklistData for entityId: ${selectedSite.entityId}");
         final checklistData = await ServiceLocator().cmRepository
             .getChecklistData(selectedSite.entityId);
-        setState(() {
-          _checklistData = checklistData;
-        });
+        Logger.infoLog("✅ [CM] Checklist data received: ${checklistData.keys}");
+        if (mounted) {
+          setState(() {
+            _checklistData = checklistData;
+          });
+        }
+      } else {
+        Logger.infoLog("⚠️ [CM] Skipping getChecklistData - mode is ${widget.mode}, not CREATE");
       }
       for (var value in controllers.values) {
         value.addListener(_onFormChanged);
       }
     } catch (e) {
-      Logger.errorLog("exception in loading checklist $e");
+      Logger.errorLog("❌ [CM] Exception in loading checklist: $e");
       // Toastbar.showErrorToastbar("Error while loading checklist", context);
     } finally {
-      LoaderWidget.hideLoader();
+      if (mounted) LoaderWidget.hideLoader();
     }
   }
 

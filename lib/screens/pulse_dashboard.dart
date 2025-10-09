@@ -1,3 +1,4 @@
+import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -71,38 +72,35 @@ class _PulseDashboardState extends State<PulseDashboard> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           GestureDetector(
-          onTap: () async {
-    try {
-    // Clear all asset audit data
-    await ServiceLocator().centralAssetAuditService
-        .clearAllData();
+            onTap: () async {
+              try {
+                // Clear all asset audit data
+                await ServiceLocator().centralAssetAuditService.clearAllData();
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-    content: Text(
-    'All asset audit data cleared successfully!',
-    ),
-    backgroundColor: AppColors.primaryGreen,
-    ),
-    );
-    } catch (e) {
-    // Show error message
-    ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-    content: Text('Error clearing data: $e'),
-    backgroundColor: AppColors.errorColor,
-    ),
-    );
-    }
-    },
-          // Logo - using the same image as HomeScreen
-          child: Image.asset(
-            AppImages.pulseImg,
-            fit: BoxFit.cover,
-            width: 113,
-            height: 40,
-          ),
+                // Show success message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('All asset audit data cleared successfully!'),
+                    backgroundColor: AppColors.primaryGreen,
+                  ),
+                );
+              } catch (e) {
+                // Show error message
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error clearing data: $e'),
+                    backgroundColor: AppColors.errorColor,
+                  ),
+                );
+              }
+            },
+            // Logo - using the same image as HomeScreen
+            child: Image.asset(
+              AppImages.pulseImg,
+              fit: BoxFit.cover,
+              width: 113,
+              height: 40,
+            ),
           ),
           const Spacer(),
           // Notification bell - same as HomeScreen
@@ -271,13 +269,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
               iconPath: AppImages.siteaccess,
               label: 'Site Access',
               onTap: () => _navigateToTask('Site Access'),
-              isComingSoon: true,
+              isComingSoon: false,
             ),
             _buildTaskCard(
               iconPath: AppImages.inspection,
               label: 'General Inspection',
               onTap: () => _navigateToTask('General Inspection'),
-              isComingSoon: true,
+              isComingSoon: false,
             ),
 
             _buildTaskCard(
@@ -389,12 +387,19 @@ class _PulseDashboardState extends State<PulseDashboard> {
   }
 
   void _navigateToTask(String taskName) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => HomeScreen(selectedActivity: taskName),
-      ),
-    );
+    if (taskName == 'Site Access' || taskName == 'General Inspection') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const AllSitesScreen()),
+      );
+    } else {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => HomeScreen(selectedActivity: taskName),
+        ),
+      );
+    }
   }
 
   void _navigateToMyTickets() {

@@ -1,4 +1,4 @@
-class CMSite {
+class GISite {
   final int siteId;
   final int entityId;
   final String siteCode;
@@ -9,12 +9,16 @@ class CMSite {
   final String circleStateName;
   final int? clientId;
   final String? clientName;
-  final String? oem;
-  final int? oemId;
-  final String self;
-  final int selfId;
+  final String? infraEngineerID;
+  final String? infraEngineerName;
+  final String? infraEngineerPhone;
+  final String? ownerName;
+  final String? ownerPhone;
+  
+  
 
-  CMSite({
+
+  GISite({
     required this.siteId,
     required this.entityId,
     required this.siteCode,
@@ -25,22 +29,21 @@ class CMSite {
     required this.circleStateName,
     this.clientId,
     this.clientName,
-    this.oem,
-    this.oemId,
-    required this.self,
-    required this.selfId,
+    this.infraEngineerID,
+    this.infraEngineerName,
+    this.infraEngineerPhone,
+    this.ownerName,
+    this.ownerPhone,
   });
 
-  factory CMSite.fromJson(Map<String, dynamic> json) {
+  factory GISite.fromJson(Map<String, dynamic> json) {
     print('🔄 [CMSite] Parsing JSON: $json');
     
     final siteId = json['site_id'] ?? 0;
     final siteName = json['site_name']?.toString() ?? '';
     final siteCode = json['site_code']?.toString() ?? '';
-    
-    
-    
-    return CMSite(
+ 
+    return GISite(
       siteId: siteId,
       entityId: json['entity_id'] ?? 0,
       siteCode: siteCode,
@@ -51,10 +54,11 @@ class CMSite {
       circleStateName: json['circle_state_name']?.toString() ?? '',
       clientId: json['client_id'],
       clientName: json['client_name']?.toString(),
-      oem: json['oem']?.toString(),
-      oemId: json['oem_id'],
-      self: json['self']?.toString() ?? '',
-      selfId: json['self_id'] ?? 0,
+      infraEngineerID: json['infra_engineer_id']?.toString() ?? '',
+      infraEngineerName: json['infra_engineer_name']?.toString() ?? '',
+      infraEngineerPhone: json['infra_engineer_phone']?.toString() ?? '',
+      ownerName: json['owner_name']?.toString() ?? '',
+      ownerPhone: json['owner_phone']?.toString() ?? '',
     );
   }
 
@@ -70,10 +74,11 @@ class CMSite {
       'circle_state_name': circleStateName,
       'client_id': clientId,
       'client_name': clientName,
-      'oem': oem,
-      'oem_id': oemId,
-      'self': self,
-      'self_id': selfId,
+      'infra_engineer_id': infraEngineerID,
+      'infra_engineer_name': infraEngineerName,
+      'infra_engineer_phone': infraEngineerPhone,
+      'owner_name': ownerName,
+      'owner_phone': ownerPhone,
     };
   }
 
@@ -85,7 +90,7 @@ class CMSite {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is CMSite && other.siteId == siteId;
+    return other is GISite && other.siteId == siteId;
   }
 
   @override

@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/all_site_model.dart';
 import 'package:app/models/cm_site_model.dart';
+import 'package:app/models/gen_ins_checklist_model.dart';
+import 'package:app/models/gi_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import '../../utils/logger.dart';
@@ -71,7 +74,7 @@ class CentralAssetAuditService {
 
   /// Download CM site data and save to SQLite
   Future<bool> downloadCMSiteData({
-    required CMSite site,
+    required AllSiteModel site,
   }) async {
     try {
       Logger.debugLog('Starting to download CM site data for site: ${site.siteName}');
@@ -99,6 +102,34 @@ class CentralAssetAuditService {
       return isSaved;
     } catch (e) {
       Logger.errorLog('❌ Error downloading CM site data: $e');
+      return false;
+    }
+  }
+
+  /// Download General Inspection checklist data and save to SQLite
+  Future<bool> downloadGILIstData({
+    required GISite site,
+    required int siteDomainId,
+  }) async {
+    try {
+      Logger.debugLog('Starting to download General Inspection checklist data for site: ${site.siteName}');
+      
+      // Get checklist data from API
+      final checklistData = await ServiceLocator().generalInspectionRepository.getGenInsCheckListData(siteDomainId);
+      
+      // Save to SQLite using the central data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveGenInsCheckListData(
+        siteId: site.siteId,
+        siteCode: site.siteCode,
+        siteName: site.siteName,
+        checklistData: checklistData,
+        activityType: 'generalInspection',
+      );
+
+      Logger.debugLog('✅ General Inspection checklist data saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading General Inspection checklist data: $e');
       return false;
     }
   }
