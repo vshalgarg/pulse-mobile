@@ -84,7 +84,7 @@ class CentralAssetAuditDataService {
     await db.execute(
       'CREATE INDEX idx_raw_api_data_site_audit_sch_id ON raw_api_data(site_audit_sch_id)',
     );
-    
+
     await db.execute(
       'CREATE INDEX idx_cm_sites_data_site_id ON cm_sites_data(site_id)',
     );
@@ -474,31 +474,27 @@ class CentralAssetAuditDataService {
       final db = await database;
       final now = DateTime.now().toIso8601String();
 
-      await db.insert(
-        'cm_sites_data',
-        {
-          'site_id': siteId,
-          'entity_id': entityId,
-          'site_code': siteCode,
-          'site_name': siteName,
-          'cluster_district_id': clusterDistrictId,
-          'cluster_district_name': clusterDistrictName,
-          'circle_state_id': circleStateId,
-          'circle_state_name': circleStateName,
-          'client_id': clientId,
-          'client_name': clientName,
-          'oem': oem,
-          'oem_id': oemId,
-          'self': self,
-          'self_id': selfId,
-          'activity_type': activityType,
-          'is_downloaded': 1,
-          'downloaded_at': now,
-          'created_at': now,
-          'updated_at': now,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      await db.insert('cm_sites_data', {
+        'site_id': siteId,
+        'entity_id': entityId,
+        'site_code': siteCode,
+        'site_name': siteName,
+        'cluster_district_id': clusterDistrictId,
+        'cluster_district_name': clusterDistrictName,
+        'circle_state_id': circleStateId,
+        'circle_state_name': circleStateName,
+        'client_id': clientId,
+        'client_name': clientName,
+        'oem': oem,
+        'oem_id': oemId,
+        'self': self,
+        'self_id': selfId,
+        'activity_type': activityType,
+        'is_downloaded': 1,
+        'downloaded_at': now,
+        'created_at': now,
+        'updated_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
 
       Logger.debugLog('✅ CM site data saved successfully');
       return true;
@@ -522,30 +518,28 @@ class CentralAssetAuditDataService {
 
       // Save each checklist item
       for (final item in checklistData) {
-        await db.insert(
-          'gen_ins_checklist_data',
-          {
-            'site_id': siteId,
-            'site_code': siteCode,
-            'site_name': siteName,
-            'giclm_id': item.giclmId,
-            'site_domain_id': item.siteDomainId,
-            'checklist_desc': item.checklistDesc,
-            'resp_type': item.respType,
-            'resp_type_value_map': item.respTypeValueMap?.toJson().toString(),
-            'is_mandatory': item.isMandatory ? 1 : 0,
-            'cl_order': item.clOrder,
-            'activity_type': activityType,
-            'is_downloaded': 1,
-            'downloaded_at': now,
-            'created_at': now,
-            'updated_at': now,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
+        await db.insert('gen_ins_checklist_data', {
+          'site_id': siteId,
+          'site_code': siteCode,
+          'site_name': siteName,
+          'giclm_id': item.giclmId,
+          'site_domain_id': item.siteDomainId,
+          'checklist_desc': item.checklistDesc,
+          'resp_type': item.respType,
+          'resp_type_value_map': item.respTypeValueMap?.toJson().toString(),
+          'is_mandatory': item.isMandatory ? 1 : 0,
+          'cl_order': item.clOrder,
+          'activity_type': activityType,
+          'is_downloaded': 1,
+          'downloaded_at': now,
+          'created_at': now,
+          'updated_at': now,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
       }
 
-      Logger.debugLog('✅ General Inspection checklist data saved successfully to SQLite');
+      Logger.debugLog(
+        '✅ General Inspection checklist data saved successfully to SQLite',
+      );
       return true;
     } catch (e) {
       Logger.errorLog('❌ Error saving General Inspection checklist data: $e');

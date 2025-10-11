@@ -24,13 +24,14 @@ class CMAllSitesScreen extends StatefulWidget {
 }
 
 class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
+
   List<AllSiteModel> _allSites = [];
   List<AllSiteModel> _nearbySites = [];
   List<AllSiteModel> _filteredSites = [];
   bool _isLoading = true;
   String? _errorMessage;
   String? _selectedFilter;
-  String _siteType = 'ALL';
+  String _siteType = 'nearby';
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   final Set<int> _downloadedSiteIds = <int>{};
@@ -362,7 +363,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
   }
 
   Widget _buildFilterBar() {
-    final filters = ['All Sites', 'Near By Sites'];
+    final filters = ['Near By Sites', 'All Sites'];
 
     return Container(
       height: 50,
