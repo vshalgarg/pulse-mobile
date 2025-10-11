@@ -178,6 +178,9 @@ class _TicketScreenState extends State<TicketScreen> {
       final data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.ticketSchId.toString(),
       );
+  
+  print("data on tickety: $data");
+
       if (data == null) {
         Toastbar.showErrorToastbar("Failed to load data", context);
         return;
@@ -199,6 +202,17 @@ class _TicketScreenState extends State<TicketScreen> {
               siteAuditSchId: ticket.ticketSchId.toString(),
               siteId: ticket.ticketSchId.toString(),
             ),
+          ),
+        );
+      } else if (_currentActivityType ==
+          ActivityTypeEnum.correctiveMaintenance) {
+        pushPage(
+          context,
+          CorrectiveMaintenanceScreen(
+            mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+                ? CMScreenModeEnum.view
+                : CMScreenModeEnum.edit,
+             preloadedSiteData: data.apiData,
           ),
         );
       } else {
@@ -231,7 +245,7 @@ class _TicketScreenState extends State<TicketScreen> {
 
     switch (_currentActivityType) {
       case ActivityTypeEnum.correctiveMaintenance:
-        _navigateToCmWorkflow(ticket);
+        _navigateToWorkflow(ticket);
         break;
       default:
         _navigateToWorkflow(ticket);
@@ -245,6 +259,7 @@ class _TicketScreenState extends State<TicketScreen> {
       // Determine site type - check if it's solar or telecom
       final siteType = ticket.siteDomainName ?? 'Solar';
       Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
+
       final data = await ServiceLocator().cmRepository.getCmTicketData(
         ticket.ticketSchId,
       );
@@ -254,7 +269,7 @@ class _TicketScreenState extends State<TicketScreen> {
           mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
               ? CMScreenModeEnum.view
               : CMScreenModeEnum.edit,
-          preloadedSiteData: data,
+          // preloadedSiteData: data,
         ),
       );
     } catch (e) {

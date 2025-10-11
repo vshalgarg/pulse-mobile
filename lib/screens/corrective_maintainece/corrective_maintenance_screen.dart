@@ -107,7 +107,6 @@ class _CorrectiveMaintenanceScreenState
 
     controllers['responsible_party']!.addListener(_updateAssignedToField);
     if (widget.preloadedSites != null) {
-
       Logger.infoLog("🔄 [CM] Preloaded sites: ${widget.preloadedSites}");
 
       _siteOptions = widget.preloadedSites!;
@@ -116,22 +115,27 @@ class _CorrectiveMaintenanceScreenState
         _onSiteSelected(_siteOptions.first);
       }
     } else {
+      Logger.infoLog(
+        "🔄 [CM] Preloaded site data: ${widget.preloadedSiteData}",
+      );
 
-      Logger.infoLog("🔄 [CM] Preloaded site data: ${widget.preloadedSiteData}");
-
+      if (widget.preloadedSiteData == null) {
+        Logger.errorLog("❌ [CM] preloadedSiteData is null");
+        return;
+      }
       Map<String, dynamic> preloadedSite = widget.preloadedSiteData!;
       cmSiteReqId = preloadedSite['cm_site_req_id'];
       CMSite site = CMSite(
-        siteId: preloadedSite['site_id'],
-        entityId: preloadedSite['entity_id'],
-        siteCode: preloadedSite['site_code'],
-        siteName: preloadedSite['site_name'],
+        siteId: preloadedSite['site_id'] ?? 0,
+        entityId: preloadedSite['entity_id'] ?? 0,
+        siteCode: preloadedSite['site_code'] ?? '',
+        siteName: preloadedSite['site_name'] ?? '',
         clusterDistrictId: 0,
-        clusterDistrictName: preloadedSite['cluster'],
+        clusterDistrictName: preloadedSite['cluster'] ?? '',
         circleStateId: 0,
-        circleStateName: preloadedSite['circle'],
-        self: preloadedSite['assigned_to_name'],
-        selfId: preloadedSite['assigned_to'],
+        circleStateName: preloadedSite['circle'] ?? '',
+        self: preloadedSite['assigned_to_name'] ?? '',
+        selfId: preloadedSite['assigned_to'] ?? 0,
       );
       _siteOptions = [site];
       _initializeTicketControllers(preloadedSite);
@@ -175,17 +179,26 @@ class _CorrectiveMaintenanceScreenState
   }
 
   void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
-    controllers['responsible_party']!.text = preloadedSite['responsible_party'];
-    controllers['assigned_to']!.text = preloadedSite['assigned_to_name'];
-    controllers['priority']!.text = preloadedSite['priority'];
-    controllers['oem_ticket_id']!.text = preloadedSite['oem_ticket_id'];
-    controllers['nature_of_failure']!.text = preloadedSite['nature_of_failure'];
-    controllers['action_taken']!.text = preloadedSite['action_taken'];
-    controllers['rca']!.text = preloadedSite['rca'];
-    controllers['customer_name']!.text = preloadedSite['customer_name'];
-    controllers['contact_no']!.text = preloadedSite['contact_no'];
-    controllers['customer_remarks']!.text = preloadedSite['customer_remarks'];
-    controllers['problem_summary']!.text = preloadedSite['problem_summary'];
+    controllers['responsible_party']!.text =
+        preloadedSite['responsible_party']?.toString() ?? '';
+    controllers['assigned_to']!.text =
+        preloadedSite['assigned_to_name']?.toString() ?? '';
+    controllers['priority']!.text = preloadedSite['priority']?.toString() ?? '';
+    controllers['oem_ticket_id']!.text =
+        preloadedSite['oem_ticket_id']?.toString() ?? '';
+    controllers['nature_of_failure']!.text =
+        preloadedSite['nature_of_failure']?.toString() ?? '';
+    controllers['action_taken']!.text =
+        preloadedSite['action_taken']?.toString() ?? '';
+    controllers['rca']!.text = preloadedSite['rca']?.toString() ?? '';
+    controllers['customer_name']!.text =
+        preloadedSite['customer_name']?.toString() ?? '';
+    controllers['contact_no']!.text =
+        preloadedSite['contact_no']?.toString() ?? '';
+    controllers['customer_remarks']!.text =
+        preloadedSite['customer_remarks']?.toString() ?? '';
+    controllers['problem_summary']!.text =
+        preloadedSite['problem_summary']?.toString() ?? '';
     setState(() {
       if (preloadedSite['is_dg'] != null && preloadedSite['is_dg'] == true) {
         _selectedEquipmentType = 'DG';
@@ -217,12 +230,14 @@ class _CorrectiveMaintenanceScreenState
       return;
     }
 
-    Logger.infoLog("✅ [CM] Site selected: ${selectedSite.siteName}, entityId: ${selectedSite.entityId}, mode: ${widget.mode}");
+    Logger.infoLog(
+      "✅ [CM] Site selected: ${selectedSite.siteName}, entityId: ${selectedSite.entityId}, mode: ${widget.mode}",
+    );
 
     setState(() {
       _selectedSite = selectedSite;
       _hasFormDataChanges = true;
-      
+
       // Populate site fields
       _siteNameController.text = selectedSite.siteName;
       _siteCodeController.text = selectedSite.siteCode;
@@ -234,11 +249,13 @@ class _CorrectiveMaintenanceScreenState
 
     // Wait for the current build to complete before showing loader
     await Future.delayed(Duration.zero);
-   
+
     try {
       if (mounted) LoaderWidget.showLoader(context);
       if (widget.mode == CMScreenModeEnum.create) {
-        Logger.infoLog("🔄 [CM] Calling getChecklistData for entityId: ${selectedSite.entityId}");
+        Logger.infoLog(
+          "🔄 [CM] Calling getChecklistData for entityId: ${selectedSite.entityId}",
+        );
         final checklistData = await ServiceLocator().cmRepository
             .getChecklistData(selectedSite.entityId);
         Logger.infoLog("✅ [CM] Checklist data received: ${checklistData.keys}");
@@ -248,7 +265,9 @@ class _CorrectiveMaintenanceScreenState
           });
         }
       } else {
-        Logger.infoLog("⚠️ [CM] Skipping getChecklistData - mode is ${widget.mode}, not CREATE");
+        Logger.infoLog(
+          "⚠️ [CM] Skipping getChecklistData - mode is ${widget.mode}, not CREATE",
+        );
       }
       for (var value in controllers.values) {
         value.addListener(_onFormChanged);
@@ -599,11 +618,14 @@ class _CorrectiveMaintenanceScreenState
           isRequired: false,
           onImageSelected: (File? file) async {
             if (file != null) {
-              setState(() async {
+              // Perform async operation first
+              final bytes = await file.readAsBytes();
+              final encodedData = base64Encode(bytes);
+              
+              // Then update state synchronously
+              setState(() {
                 customerPhoto = file;
-                customerPhotoByteData = await file.readAsBytes().then(
-                  (bytes) => base64Encode(bytes),
-                );
+                customerPhotoByteData = encodedData;
               });
             }
           },
@@ -745,6 +767,9 @@ class _CorrectiveMaintenanceScreenState
         await ServiceLocator().cmRepository.createCorrectiveMaintenance(
           processedData,
         );
+
+        Logger.debugLog("vishal printing processedData: $processedData");
+
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
           cmSiteReqId!,
           customerPhoto,
@@ -762,7 +787,8 @@ class _CorrectiveMaintenanceScreenState
         AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
-        Toastbar.showErrorToastbar("Failed to save the form", context);
+        print("Failed to save the form edit : $e");
+        Toastbar.showErrorToastbar("Failed to save the form edit : $e", context);
       }
     } finally {
       LoaderWidget.hideLoader();
@@ -827,13 +853,14 @@ class _CorrectiveMaintenanceScreenState
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
           cmSiteReqId,
           customerPhoto!,
-          _uploadedAttachments.first,
+          _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
         );
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
         AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
-        Toastbar.showErrorToastbar("Failed to save the form", context);
+         print("Failed to save the form submit : $e");
+        Toastbar.showErrorToastbar("Failed to save the form submit : $e", context);
       }
     } finally {
       LoaderWidget.hideLoader();

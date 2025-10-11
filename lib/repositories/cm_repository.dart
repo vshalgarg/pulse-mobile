@@ -100,18 +100,27 @@ class CMRepository {
   }
 
   Future<Map<String, dynamic>> createCorrectiveMaintenance(Map<String, dynamic> requestData) async {
+   
+    print("vishal printing requestData: correctiveMaintenance $requestData");
     try {
+      print("vishal printing requestData: correctiveMaintenance $requestData");
       final response = await _apiService.post<Map<String, dynamic>>(
         path: '/api/v1/mobile/correctiveMaintenance',
         data: requestData,
       );
+
+      print("vishal printing response: correctiveMaintenance $response");
       if(response.isSuccess && response.data != null) {
-        Logger.debugLog("response from creating cm: $response");
+        print("response from creating cm: $response");
         return response.data?['data'];
       } else {
+       print("vishal printing error: correctiveMaintenance $response");
         throw Exception("Error while saving data");
       }
     } catch(e) {
+
+      print("vishal printing error: correctiveMaintenance $e");
+
       Logger.errorLog("Exception while creating corrective maintenance $e");
       rethrow;
     }
@@ -119,6 +128,9 @@ class CMRepository {
 
   Future<void> saveCustomerPhotoAndAttachments(int cmSiteReqId, File? customerPhoto,
       File? uploadedAttachment) async {
+
+    print("vishal printing cmSiteReqId: $cmSiteReqId");
+
     try {
       final customerPhotoMultipartFile = customerPhoto == null ? null
         : await MultipartFile.fromFile(
@@ -126,11 +138,15 @@ class CMRepository {
         filename: customerPhoto.path.split('/').last,
       );
 
+      print("vishal printing customerPhotoMultipartFile: $customerPhotoMultipartFile");
+
       final uploadedAttachmentMultipartFile = uploadedAttachment == null ? null
           : await MultipartFile.fromFile(
         uploadedAttachment.path,
         filename: uploadedAttachment.path.split('/').last,
       );
+
+      print("vishal printing uploadedAttachmentMultipartFile: $uploadedAttachmentMultipartFile");
 
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'api/v1/mobile/correctiveMaintenance/upload',
@@ -141,13 +157,18 @@ class CMRepository {
         },
         useFormDataFormat: true,
       );
+
+      print("vishal printing response: $response");
+
       if(response.isSuccess && response.data != null) {
-        Logger.debugLog("response from uploading customer photo: $response");
+        print("response from uploading customer photo: $response");
         //return response.data?['data'];
       } else {
+        print("vishal printing error: image Error while saving data");
         throw Exception("Error while saving data");
       }
     } catch(e) {
+      print("vishal printing error: image Exception while uploading customer photo and attachments $e");
       Logger.errorLog("Exception while uploading customer photo and attachments $e");
       rethrow;
     }

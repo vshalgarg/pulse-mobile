@@ -1,5 +1,6 @@
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/repositories/cm_repository.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/services/pdf_download_service.dart';
 import '../api_service.dart';
@@ -18,6 +19,9 @@ class CentralApiService {
     required ActivityTypeEnum activityType,
   }) async {
     final apiData = activityType == ActivityTypeEnum.assetAudit
+  
+
+
         ? await fetchAssetAuditData(
             siteType: siteType,
             auditSchId: auditSchId,
@@ -35,6 +39,9 @@ class CentralApiService {
             auditSchId: auditSchId,
             siteAuditSchId: siteAuditSchId,
           )
+
+         : activityType == ActivityTypeEnum.correctiveMaintenance
+        ? await CMRepository(_apiService).getCmTicketData(int.parse(siteAuditSchId))
         : null;
     return apiData;
   }
