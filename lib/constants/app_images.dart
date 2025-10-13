@@ -36,7 +36,7 @@ class AppImages {
 
   static const String whiteSplash = '${_basePath}white_splash.png';
   static const String welcomeBgPng = '${_basePath}Welcomescreen.png';
-  static const String userPlaceholder = '${_basePath}user_placeholder.png';
+  static const String userPlaceholder = '${_basePath}user_profile.jpeg';
 
   // Add more images as needed
 }

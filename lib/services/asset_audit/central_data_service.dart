@@ -13,7 +13,7 @@ class CentralAssetAuditDataService {
   static const int _databaseVersion = 6;
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    if (_database != null && _database!.isOpen) return _database!;
     _database = await _initDatabase();
     return _database!;
   }

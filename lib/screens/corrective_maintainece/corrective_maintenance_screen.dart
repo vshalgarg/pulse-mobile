@@ -217,7 +217,10 @@ class _CorrectiveMaintenanceScreenState
       }
     });
     _loadImages(preloadedSite);
-    _statusController.text = 'Open';
+    // Only set default status if not already set from preloaded data
+    if (_statusController.text.isEmpty) {
+      _statusController.text = 'Open';
+    }
     for (var value in controllers.values) {
       value.addListener(_onFormChanged);
     }
@@ -730,6 +733,8 @@ class _CorrectiveMaintenanceScreenState
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;
       }
+      // Add status to request data
+      requestData['status'] = _statusController.text;
       if (controllers['responsible_party']!.text == 'OEM') {
         requestData['assigned_to'] = _selectedSite!.oemId;
       } else if (controllers['responsible_party']!.text == 'Self') {

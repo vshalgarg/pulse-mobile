@@ -165,7 +165,7 @@ class CentralApiService {
       }
 
       final reportUrl =
-          'https://pulseapi.nexgeninfra.com//reports/generate?' +
+          'https://pulseapi.premiumfreshers.com//reports/generate?' +
           'reportPath=$reportPath&' +
           'rp_tenant=$userId&' +
           'rp_sch_id=$ticketSchId&' +
@@ -174,7 +174,9 @@ class CentralApiService {
       Logger.debugLog('Report URL: $reportUrl');
 
       final fileName = activityType == ActivityTypeEnum.preventiveMaintenance
-          ? 'PM-Report-$ticketId'
+          ? 'PM-Report-$ticketId' 
+          : activityType == ActivityTypeEnum.correctiveMaintenance
+          ? 'CM-Report-$ticketId'
           : 'AA-Report-$ticketId';
 
       // Download the PDF
