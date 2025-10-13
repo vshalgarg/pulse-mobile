@@ -137,15 +137,6 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
 
-    // Before checking IMG validation
-    // String? dropdownValue = _selectedDropdownValue;
-    // bool isNotApplicable = dropdownValue == 'Not Applicable';
-
-    // if (respTypes.contains('IMG') && !isNotApplicable &&
-    //     (respValue == null || respValue.toString().isEmpty)) {
-    //   return false;
-    // }
-
     // Handle resp_type as array or string
     List<String> respTypes = [];
     if (respTypeList is List) {

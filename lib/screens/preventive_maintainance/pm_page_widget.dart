@@ -22,6 +22,7 @@ class PMPageWidget extends StatefulWidget {
   final String? errorMessage;
   final Future<void> Function() submitDataWhenExit;
   final String siteAuditSchId;
+  final String sectionName;
 
   const PMPageWidget({
     super.key,
@@ -37,6 +38,7 @@ class PMPageWidget extends StatefulWidget {
     this.errorMessage,
     required this.submitDataWhenExit,
     required this.siteAuditSchId,
+    this.sectionName = '',
   });
 
   // Convenience constructor that automatically determines readonly fields
@@ -70,6 +72,7 @@ class PMPageWidget extends StatefulWidget {
       errorMessage: errorMessage,
       submitDataWhenExit: submitDataWhenExit,
       siteAuditSchId: siteAuditSchId,
+      sectionName: sectionName,
     );
   }
 
@@ -120,7 +123,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   bool _validateAllFields() {
     bool isValid = true;
 
-    for (final pmItem in _pmItems) {
+    // Get filtered items (excluding conditionally hidden fields)
+    final filteredItems = _filterItemsByConditions(widget.sectionName, _pmItems);
+
+    for (final pmItem in filteredItems) {
       final respValue = pmItem['resp'];
       final respTypeList = pmItem['resp_type'];
 
@@ -165,7 +171,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   List<String> _getValidationErrors() {
     List<String> errors = [];
 
-    for (final pmItem in _pmItems) {
+    // Get filtered items (excluding conditionally hidden fields)
+    final filteredItems = _filterItemsByConditions(widget.sectionName, _pmItems);
+
+    for (final pmItem in filteredItems) {
       final respValue = pmItem['resp'];
       final respTypeList = pmItem['resp_type'];
       final checklistDesc =
@@ -260,10 +269,51 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     });
   }
 
+  /// Filter items based on conditional logic (e.g., CT availability)
+  List<Map<String, dynamic>> _filterItemsByConditions(
+    String sectionName,
+    List<Map<String, dynamic>> items,
+  ) {
+    // Special handling for CT section
+    if (sectionName == 'CT') {
+      // Find CT availability item
+      final ctAvailabilityItem = items.firstWhere(
+        (item) =>
+            item['checklist_desc']
+                ?.toString()
+                .toLowerCase()
+                .contains('ct availability') ??
+            false,
+        orElse: () => {},
+      );
+
+      // If CT availability is "No", filter out CT Name and CT Contact Number
+      if (ctAvailabilityItem.isNotEmpty) {
+        final ctAvailability = ctAvailabilityItem['resp']?.toString();
+
+        if (ctAvailability == 'No' || ctAvailability == 'NO') {
+          // Filter out CT Name and CT Contact Number
+          return items.where((item) {
+            final checklistDesc =
+                item['checklist_desc']?.toString().toLowerCase() ?? '';
+            return !checklistDesc.contains('ct name') &&
+                !checklistDesc.contains('ct contact');
+          }).toList();
+        }
+      }
+    }
+
+    // Return all items if no filtering needed
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     // Sort items by cl_order
     _sortItemsByOrder();
+
+    // Filter items based on conditional logic (CT availability, etc.)
+    final filteredItems = _filterItemsByConditions(widget.sectionName, _pmItems);
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -337,10 +387,17 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Render PM items
-                                ..._pmItems.asMap().entries.map((entry) {
+                                // Render filtered PM items
+                                ...filteredItems.asMap().entries.map((entry) {
                                   final index = entry.key;
                                   final pmItem = entry.value;
+
+                                  // Find the original index in _pmItems for proper state management
+                                  final originalIndex = _pmItems.indexWhere(
+                                    (item) =>
+                                        item['pm_check_list_site_resp_id'] ==
+                                        pmItem['pm_check_list_site_resp_id'],
+                                  );
 
                                   return PMCustomWidget(
                                     key: ValueKey(
@@ -350,7 +407,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                                     readonlyFields: widget.readonlyFields,
                                     onValueChanged: (updatedItem) {
                                       if (mounted) {
-                                        _onItemChanged(index, updatedItem);
+                                        _onItemChanged(originalIndex, updatedItem);
                                       }
                                     },
                                   );
