@@ -607,4 +607,13 @@ class CentralAssetAuditDataService {
       return [];
     }
   }
+
+  /// Close the database
+  Future<void> close() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+      Logger.debugLog('✅ CentralAssetAuditDataService database closed');
+    }
+  }
 }

@@ -26,6 +26,8 @@ import 'bloc/asset_audit_photo_upload_cubit.dart';
 import 'bloc/audit_schedule_status_cubit.dart';
 import 'repositories/audit_schedule_repository.dart';
 import 'l10n/l10n.dart';
+import 'services/service_locator.dart';
+import 'utils/logger.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -39,7 +41,7 @@ class CustomScrollBehavior extends MaterialScrollBehavior {
   };
 }
 
-class AppRoot extends StatelessWidget {
+class AppRoot extends StatefulWidget {
   final AppConfig config;
 
   const AppRoot({
@@ -48,27 +50,93 @@ class AppRoot extends StatelessWidget {
   });
 
   @override
+  State<AppRoot> createState() => _AppRootState();
+}
+
+class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    Logger.debugLog('🔄 AppRoot: WidgetsBindingObserver registered');
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    Logger.debugLog('🔄 AppRoot: WidgetsBindingObserver removed');
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    
+    switch (state) {
+      case AppLifecycleState.resumed:
+        Logger.debugLog('🟢 App resumed (foreground)');
+        // Databases will be automatically reopened on next access due to .isOpen check
+        break;
+        
+      case AppLifecycleState.inactive:
+        Logger.debugLog('🟡 App inactive');
+        break;
+        
+      case AppLifecycleState.paused:
+        Logger.debugLog('🟠 App paused (background)');
+        _closeDatabasesOnBackground();
+        break;
+        
+      case AppLifecycleState.detached:
+        Logger.debugLog('🔴 App detached');
+        break;
+        
+      case AppLifecycleState.hidden:
+        Logger.debugLog('⚫ App hidden');
+        break;
+    }
+  }
+
+  /// Close databases when app goes to background to prevent stale connections
+  void _closeDatabasesOnBackground() {
+    try {
+      Logger.debugLog('📊 Closing databases due to app going to background...');
+      
+      // Close all service databases
+      // Note: We don't await these as they should complete quickly
+      // and we don't want to block the lifecycle event
+      ServiceLocator().imageUploadService.close();
+      ServiceLocator().centralAssetAuditDataService.close();
+      ServiceLocator().pendingRequestService.close();
+      
+      Logger.debugLog('✅ Database close initiated for all services');
+    } catch (e) {
+      Logger.errorLog('❌ Error closing databases on background: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider.value(value: config.globalLoadingCubit),
-        BlocProvider(create: (context) => DemoBlocCubit(config.askRepository)),
-        BlocProvider(create: (context) => AuthCubit(config.authRepository)),
-        BlocProvider(create: (context) => ForgotPasswordCubit(config.authRepository)),
-        BlocProvider(create: (context) => OtpVerificationCubit(config.authRepository)),
-        BlocProvider(create: (context) => ResetPasswordCubit(config.authRepository)),
-        BlocProvider(create: (context) => DashboardCubit(config.dashboardRepository)),
-        BlocProvider(create: (context) => TicketCubit(ticketRepository: config.ticketRepository)),
-        BlocProvider(create: (context) => EnergyReadingCubit(config.energyReadingRepository)),
-        BlocProvider(create: (context) => EnergyReadingDetailCubit(config.energyReadingDetailRepository)),
-        BlocProvider(create: (context) => SelfieUploadCubit(config.selfieUploadRepository)),
-        BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(config.assetAuditPhotoUploadRepository)),
-        BlocProvider(create: (context) => AuditScheduleStatusCubit(config.auditScheduleRepository)),
+        BlocProvider.value(value: widget.config.globalLoadingCubit),
+        BlocProvider(create: (context) => DemoBlocCubit(widget.config.askRepository)),
+        BlocProvider(create: (context) => AuthCubit(widget.config.authRepository)),
+        BlocProvider(create: (context) => ForgotPasswordCubit(widget.config.authRepository)),
+        BlocProvider(create: (context) => OtpVerificationCubit(widget.config.authRepository)),
+        BlocProvider(create: (context) => ResetPasswordCubit(widget.config.authRepository)),
+        BlocProvider(create: (context) => DashboardCubit(widget.config.dashboardRepository)),
+        BlocProvider(create: (context) => TicketCubit(ticketRepository: widget.config.ticketRepository)),
+        BlocProvider(create: (context) => EnergyReadingCubit(widget.config.energyReadingRepository)),
+        BlocProvider(create: (context) => EnergyReadingDetailCubit(widget.config.energyReadingDetailRepository)),
+        BlocProvider(create: (context) => SelfieUploadCubit(widget.config.selfieUploadRepository)),
+        BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(widget.config.assetAuditPhotoUploadRepository)),
+        BlocProvider(create: (context) => AuditScheduleStatusCubit(widget.config.auditScheduleRepository)),
       ],
       child: MultiProvider(
         providers: [
-          Provider<AppConfig>.value(value: config),
-          Provider<AuditScheduleRepository>.value(value: config.auditScheduleRepository),
+          Provider<AppConfig>.value(value: widget.config),
+          Provider<AuditScheduleRepository>.value(value: widget.config.auditScheduleRepository),
           ChangeNotifierProvider(create: (context) => LocaleProvider()),
           ChangeNotifierProvider(create: (context) => ThemeProvider()),
         ],

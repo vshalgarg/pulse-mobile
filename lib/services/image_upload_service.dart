@@ -4,7 +4,6 @@ import 'dart:typed_data';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/sqlite/image_model.dart';
 import 'package:app/services/service_locator.dart';
-import 'package:app/utils.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
@@ -319,7 +318,25 @@ class ImageUploadService {
         Logger.debugLog('Image not found in sqlite with unique id');
       }
     } catch (e) {
-      Logger.errorLog('Exception in _getServerIdFromSQLite: $e');
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+        
+        final List<Map<String, dynamic>> maps = await db.query(
+          _tableName,
+          where: 'unique_id = ?',
+          whereArgs: [uniqueId],
+          limit: 1,
+        );
+        
+        if (maps.isNotEmpty) {
+          final data = maps.first;
+          return convertDataToModel(data);
+        }
+      } else {
+        Logger.errorLog('Exception in _getServerIdFromSQLite: $e');
+      }
     }
     return null;
   }
@@ -338,34 +355,76 @@ class ImageUploadService {
 
   /// Update image data for existing record
   Future<void> _updateImageData(String uniqueId, String? imageData) async {
-    final db = await database;
-    await db.update(
-      _tableName,
-      {
-        'image_data': imageData,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'unique_id = ?',
-      whereArgs: [uniqueId],
-    );
+    try {
+      final db = await database;
+      await db.update(
+        _tableName,
+        {
+          'image_data': imageData,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'unique_id = ?',
+        whereArgs: [uniqueId],
+      );
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+        
+        await db.update(
+          _tableName,
+          {
+            'image_data': imageData,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'unique_id = ?',
+          whereArgs: [uniqueId],
+        );
+      } else {
+        rethrow;
+      }
+    }
   }
 
   /// Update server ID in SQLite
   Future<void> _updateServerId(String uniqueId, String serverId) async {
-    final db = await database;
-    Logger.debugLog('Updating SQLite: uniqueId=$uniqueId, serverId=$serverId');
+    try {
+      final db = await database;
+      Logger.debugLog('Updating SQLite: uniqueId=$uniqueId, serverId=$serverId');
 
-    final result = await db.update(
-      _tableName,
-      {
-        'server_id': serverId,
-        'updated_at': DateTime.now().millisecondsSinceEpoch,
-      },
-      where: 'unique_id = ?',
-      whereArgs: [uniqueId],
-    );
+      final result = await db.update(
+        _tableName,
+        {
+          'server_id': serverId,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'unique_id = ?',
+        whereArgs: [uniqueId],
+      );
 
-    Logger.debugLog('SQLite update result: $result rows affected');
+      Logger.debugLog('SQLite update result: $result rows affected');
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+        
+        final result = await db.update(
+          _tableName,
+          {
+            'server_id': serverId,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'unique_id = ?',
+          whereArgs: [uniqueId],
+        );
+        
+        Logger.debugLog('SQLite update result (after retry): $result rows affected');
+      } else {
+        rethrow;
+      }
+    }
   }
 
   /// Upload image to server
@@ -495,21 +554,44 @@ class ImageUploadService {
 
   /// Get images by server ID
   Future<ImageModel?> getImagesByServerId(String serverId) async {
-    final db = await database;
-    final List<Map<String, dynamic>> maps = await db.query(
-      _tableName,
-      where: 'server_id = ?',
-      whereArgs: [serverId],
-      orderBy: 'created_at DESC',
-      limit: 1,
-    );
-    Logger.debugLog('🔍 SQLite query result: $maps');
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        _tableName,
+        where: 'server_id = ?',
+        whereArgs: [serverId],
+        orderBy: 'created_at DESC',
+        limit: 1,
+      );
+      Logger.debugLog('🔍 SQLite query result: $maps');
 
-    if (maps.isNotEmpty) {
-      final data = maps.first;
-      return convertDataToModel(data);
-    } else {
-      Logger.debugLog('Image not found in sqlite with unique id');
+      if (maps.isNotEmpty) {
+        final data = maps.first;
+        return convertDataToModel(data);
+      } else {
+        Logger.debugLog('Image not found in sqlite with unique id');
+      }
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+        
+        final List<Map<String, dynamic>> maps = await db.query(
+          _tableName,
+          where: 'server_id = ?',
+          whereArgs: [serverId],
+          orderBy: 'created_at DESC',
+          limit: 1,
+        );
+        
+        if (maps.isNotEmpty) {
+          final data = maps.first;
+          return convertDataToModel(data);
+        }
+      } else {
+        Logger.errorLog('Error in getImagesByServerId: $e');
+      }
     }
     return null;
   }

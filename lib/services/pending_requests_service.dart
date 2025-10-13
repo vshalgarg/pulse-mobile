@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../utils/logger.dart';
-import 'image_upload_service.dart';
-import '../enum/activity_type_enum.dart';
 
 class PendingRequestsService {
   static final PendingRequestsService _instance =
@@ -426,6 +424,15 @@ class PendingRequestsService {
       print('❌ TEST FAILED: $e');
     }
     print('🧪 ===== END TEST =====');
+  }
+
+  /// Close the database
+  Future<void> close() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+      Logger.debugLog('✅ PendingRequestsService database closed');
+    }
   }
 
   /// Process offline request by converting photo_id to server_id
