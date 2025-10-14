@@ -352,16 +352,23 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       }
 
       // ===== Remarks =====
-      final remarksList = finalCCuData?['Remarks'];
+      final remarksList = finalCCuData?['remarks'];
+      Logger.debugLog('📝 CCU Remarks Debug: remarksList = $remarksList');
       if (remarksList != null &&
           remarksList is List &&
           remarksList.isNotEmpty) {
         final finalRemarks = Map<String, dynamic>.from(remarksList.first);
         final String remark = _remarksController.text;
+        Logger.debugLog('📝 CCU Remarks Debug: remark text = "$remark"');
         if (remark.isNotEmpty) {
           finalRemarks['item_type_remark'] = remark;
           modifiedAssetsWithAllProperties.add(finalRemarks);
+          Logger.debugLog('✅ CCU: Added remarks to modifiedAssetsWithAllProperties');
+        } else {
+          Logger.debugLog('⚠️ CCU: Remarks text is empty, not adding to modifiedAssetsWithAllProperties');
         }
+      } else {
+        Logger.debugLog('⚠️ CCU: remarksList is null or empty, not adding remarks');
       }
 
       // ===== Update _assetAuditData with modified data before saving =====
@@ -427,6 +434,12 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         }
       }
 
+
+    Logger.debugLog('📊 CCU Final Debug: modifiedAssetsWithAllProperties count = ${modifiedAssetsWithAllProperties.length}');
+    Logger.debugLog('📊 CCU Final Debug: modifiedAssetsWithAllProperties = $modifiedAssetsWithAllProperties');
+    print("_assetAuditData: $_assetAuditData ");
+    print("modifiedAssetsWithAllProperties: $modifiedAssetsWithAllProperties");
+
       // ===== Update local SQLite with modified data =====
       _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
@@ -434,6 +447,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       );
 
       final postObject = [...modifiedAssetsWithAllProperties];
+
+      print("postObject: $postObject ");
       await ServiceLocator().assetAuditPostService
           .postAssetAuditDataWithPhotoReplacement(
             requests: postObject,
