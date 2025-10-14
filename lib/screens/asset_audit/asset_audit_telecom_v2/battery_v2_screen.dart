@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/custom_dialogs/serial_number_mismatch_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/simple_asset_audit_form_component.dart';
 import '../../../commonWidgets/custom_form_field.dart';
@@ -91,6 +92,11 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   }
 
   String? _getBatteryCabinetValue(String key) {
+    // Handle special case for image_data
+    if (key == 'image_data') {
+      return _displayFormData?['batteryCabinetImageData']?.toString();
+    }
+    
     final assets = _displayFormData?['batteryCabinetAllAssets'] as List?;
     if (assets?.isNotEmpty == true) {
       return assets!.first[key]?.toString();
@@ -129,6 +135,21 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         final batteryAssets = batteryItems['assets'] as List<dynamic>? ?? [];
         final remarksData = batteryItems['remarks'] as List<dynamic>? ?? [];
 
+        // Fetch image data for battery cabinet if photo_id exists
+        String? batteryCabinetImageData;
+        if (batteryCabinetAssets.isNotEmpty && batteryCabinetAssets.first?['photo_id'] != null) {
+          final photoId = batteryCabinetAssets.first!['photo_id'].toString();
+          Logger.debugLog('📸 Loading battery cabinet image with photo_id: $photoId');
+          try {
+            batteryCabinetImageData = await _service.getImageAsDataUrl(photoId);
+            Logger.debugLog('✅ Successfully loaded battery cabinet image');
+          } catch (e) {
+            Logger.errorLog('❌ Error loading battery cabinet image: $e');
+          }
+        } else {
+          Logger.debugLog('📸 No photo_id found for battery cabinet');
+        }
+
         final formData = <String, dynamic>{
           'cbmsAvailable': cbmsAssets.isNotEmpty ? "Yes" : "No",
           'capacity': batteryAssets.first?['capacity'],
@@ -139,6 +160,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           'batteryCabinetAvailable': batteryCabinetAssets.isNotEmpty,
           'batteryCabinetSerial': batteryCabinetAssets.first?['mfg_serial_no'],
           'batteryCabinetPhotoId': batteryCabinetAssets.first?['photo_id'],
+          'batteryCabinetImageData': batteryCabinetImageData,
           'cbmsAssets': cbmsAssets
               .where((obj) => obj['photo_id'] != null)
               .toList(),
@@ -190,8 +212,10 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
     if (formData['batteryCabinetPhotoId'] != null) {
       _batteryCabinetSerialController.text =
           formData['batteryCabinetSerial'] ?? "";
-    }else{
+      Logger.debugLog('📝 Initialized battery cabinet serial controller with existing photo_id: ${formData['batteryCabinetPhotoId']}');
+    } else {
       _batteryCabinetSerialController.text = "";
+      Logger.debugLog('📝 Initialized battery cabinet serial controller as empty (no existing photo)');
     }
   }
 
@@ -224,10 +248,29 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   ) {
     final savedItems =
         _displayFormData?['batteryCabinetAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+    
+    final isValid = AssetAuditValidationHelper.validateQRCodeSerialNumber(
       serialNumber,
       savedItems,
       isQRCodeScanned,
+    );
+
+    // If validation fails, show popup
+    if (!isValid && serialNumber.isNotEmpty) {
+      _showBatteryCabinetSerialNumberMismatchDialog(serialNumber);
+    }else{
+      serialNumber = '';
+    }
+
+    return isValid;
+  }
+
+  // Show dialog when battery cabinet serial number doesn't match
+  void _showBatteryCabinetSerialNumberMismatchDialog(String enteredSerialNumber) {
+    
+    SerialNumberMismatchDialog.show(
+      context,
+      
     );
   }
 
@@ -616,9 +659,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
                   _onBatteryCabinetItemSaved([cabinet]);
                 } else {
                   _batteryCabinetSerialController.text = '';
-                  Toastbar.showErrorWithoutContext(
-                    "Invalid Battery Cabinet serial number. Please check and try again.",
-                  );
+                  
                 }
               }
             },

@@ -13,6 +13,7 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/simple_asset_audit_form_component.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../../commonWidgets/custom_dialogs/serial_number_mismatch_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
@@ -277,19 +278,22 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   ) {
     //Logger.debugLog("vishal ")
 
-    final isValidSerial = _validateCabinetSerialNumber(_cabinetSerialController.text, isQRCodeScanned1 ?? false);
+    final isValidSerial = _validateCabinetSerialNumber(
+      _cabinetSerialController.text,
+      isQRCodeScanned1 ?? false,
+    );
 
-    
-    if(isValidSerial){
-    setState(() {
-      _cabinetPhotoId = photoId;
-      _cabinetImageData = imageData;
-      _hasFormDataChanges = true;
-      isQrCodeScanned = isQRCodeScanned1 ?? false;
-      qrCodeScannedTs = qrCodeScannedTs1;
-    });
-    }else{
-      Toastbar.showErrorWithoutContext( "Invalid Cabinet serial number. Please check and try again.");
+    if (isValidSerial) {
+      setState(() {
+        _cabinetPhotoId = photoId;
+        _cabinetImageData = imageData;
+        _hasFormDataChanges = true;
+        isQrCodeScanned = isQRCodeScanned1 ?? false;
+        qrCodeScannedTs = qrCodeScannedTs1;
+      });
+    } else {
+      _cabinetSerialController.text = '';
+     
     }
   }
 
@@ -436,9 +440,10 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         }
       }
 
-
-    print("_assetAuditData: $_assetAuditData ");
-    print("modifiedAssetsWithAllProperties: $modifiedAssetsWithAllProperties");
+      print("_assetAuditData: $_assetAuditData ");
+      print(
+        "modifiedAssetsWithAllProperties: $modifiedAssetsWithAllProperties",
+      );
 
       // ===== Update local SQLite with modified data =====
       _service.updateDataInSqlite(
@@ -624,6 +629,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     // If validation fails, show popup
     if (!isValid && serialNumber.isNotEmpty) {
       _showSerialNumberMismatchDialog(serialNumber);
+    }else{
+      serialNumber = '';
     }
 
     return isValid;
@@ -673,47 +680,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       }
     }
 
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (dialogContext) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(
-              Icons.warning_amber_rounded,
-              color: AppColors.errorColor,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            const Text('Serial Number Mismatch'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'The entered cabinet serial number does not match the expected values.',
-              style: TextStyle(fontSize: 16, color: AppColors.black),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-            },
-            child: Text(
-              'OK',
-              style: TextStyle(
-                color: AppColors.primaryGreen,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    SerialNumberMismatchDialog.show(context);
   }
 
   @override
