@@ -310,54 +310,53 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       return false;
     }
 
-    if(_selectedStatus == 'OK'){
-      if(_ERImageID == null || _ERImageID!.isEmpty){
+    if (_selectedStatus == 'OK') {
+      if (_ERImageID == null || _ERImageID!.isEmpty) {
         Toastbar.showErrorToastbar("EB Meter photo is required", context);
         return false;
       }
-    
 
-    if (_selectedMeterType == null || _selectedMeterType!.isEmpty) {
-      Toastbar.showErrorToastbar("EB Meter Type is required", context);
-      return false;
-    }
+      if (_selectedMeterType == null || _selectedMeterType!.isEmpty) {
+        Toastbar.showErrorToastbar("EB Meter Type is required", context);
+        return false;
+      }
 
-    if (_selectedConnectionType == null || _selectedConnectionType!.isEmpty) {
-      Toastbar.showErrorToastbar("Connection Type is required", context);
-      return false;
-    }
+      if (_selectedConnectionType == null || _selectedConnectionType!.isEmpty) {
+        Toastbar.showErrorToastbar("Connection Type is required", context);
+        return false;
+      }
 
-    if (_selectedEbConnectionType == null ||
-        _selectedEbConnectionType!.isEmpty) {
-      Toastbar.showErrorToastbar("EB Connection Type is required", context);
-      return false;
-    }
+      if (_selectedEbConnectionType == null ||
+          _selectedEbConnectionType!.isEmpty) {
+        Toastbar.showErrorToastbar("EB Connection Type is required", context);
+        return false;
+      }
 
-    // Check text fields
-    if (_meterNoController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("EB Meter No is required", context);
-      return false;
-    }
+      // Check text fields
+      if (_meterNoController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("EB Meter No is required", context);
+        return false;
+      }
 
-    if (_ebMeterReadingController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("EB Meter Reading is required", context);
-      return false;
-    }
+      if (_ebMeterReadingController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("EB Meter Reading is required", context);
+        return false;
+      }
 
-    if (_ebKwhInSebMeterController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("EB KWH in SEB Meter is required", context);
-      return false;
-    }
+      if (_ebKwhInCcuController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("EB KWH in CCU is required", context);
+        return false;
+      }
 
-    if (_voltageController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("Voltage is required", context);
-      return false;
-    }
+      if (_voltageController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("Voltage is required", context);
+        return false;
+      }
 
-    if (_loadController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("Load (Amps) is required", context);
-      return false;
-    }
+      if (_loadController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("Load (Amps) is required", context);
+        return false;
+      }
     }
 
     if (_selectedBatteryStatus == null || _selectedBatteryStatus!.isEmpty) {
@@ -374,7 +373,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       return false;
     }
 
-    if(_remarksController.text.trim().isEmpty){
+    if (_remarksController.text.trim().isEmpty) {
       Toastbar.showErrorToastbar("Remarks is required", context);
       return false;
     }
@@ -634,12 +633,12 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         ),
         getHeight(15),
         CustomFormField(
-          label: "EB KWH in SEB Meter",
-          controller: _ebKwhInSebMeterController,
+          label: "EB KWH in CCU",
+          controller: _ebKwhInCcuController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.number,
-          hintText: 'EB KWH in SEB Meter',
+          hintText: 'EB KWH in CCU',
         ),
         getHeight(15),
 

@@ -107,6 +107,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
         final lspuAssets = smpsItems['LSPU'] as List<dynamic>? ?? [];
         final remarksData = smpsItems['remarks'] as List<dynamic>? ?? [];
 
+        print("smpsCabinet: $acdbAssets");
+
         final formData = <String, dynamic>{
           'smpsMake': smpsAssets.isNotEmpty
               ? smpsAssets.first['oem_name']?.toString() ?? 'N/A'
@@ -144,6 +146,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           _displayFormData = formData;
           _isLoadingData = false;
         });
+
+        print("formData: $_displayFormData['acdbAssets']");
 
         _initializeFormControllers(formData);
         Logger.debugLog('✅ SMPS V2: Data loaded successfully');
@@ -261,6 +265,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           finalData?['SMPS Cabinet'] as List<dynamic>? ?? [];
       final finalACDBAssets = finalData?['ACDB'] as List<dynamic>? ?? [];
       final finalLSPUAssets = finalData?['LSPU'] as List<dynamic>? ?? [];
+
+      print("finalSMPSCabinet: $finalACDBAssets");
 
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
@@ -518,7 +524,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                 ],
 
                                 // ACDB Section
-                                if (_displayFormData?['acdbAssetsCount'] !=
+                                if (_displayFormData?['acdbAssets'] !=
                                     null) ...[
                                   AssetAuditFormComponent(
                                     componentId: 'acdb_component',
