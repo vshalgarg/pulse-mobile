@@ -3,6 +3,7 @@ import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.d
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -41,25 +42,27 @@ class BatteryV2Screen extends StatefulWidget {
 
 class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   final String _screenName = 'Battery';
-  
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers for each section
-  final TextEditingController _batteryCabinetSerialController = TextEditingController();
+  final TextEditingController _batteryCabinetSerialController =
+      TextEditingController();
   final TextEditingController _cbmsSerialController = TextEditingController();
-  final TextEditingController _batterySerialController = TextEditingController();
+  final TextEditingController _batterySerialController =
+      TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
-  
+
   // Section visibility states
   bool _showCbmsDetails = false;
 
@@ -102,18 +105,26 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Battery V2: Loading data for site ${widget.siteAuditSchId}');
-      
+      Logger.debugLog(
+        '🔄 Battery V2: Loading data for site ${widget.siteAuditSchId}',
+      );
+
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final batteryItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
-        as Map<String, dynamic>? ?? {};
+        final batteryItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'TELECOM',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
         // Parse Battery data
-        final batteryCabinetAssets = batteryItems['Battery Cabinet'] as List<dynamic>? ?? [];
+        final batteryCabinetAssets =
+            batteryItems['Battery Cabinet'] as List<dynamic>? ?? [];
         final cbmsAssets = batteryItems['CBMS'] as List<dynamic>? ?? [];
         final batteryAssets = batteryItems['assets'] as List<dynamic>? ?? [];
         final remarksData = batteryItems['remarks'] as List<dynamic>? ?? [];
@@ -121,14 +132,24 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         final formData = <String, dynamic>{
           'cbmsAvailable': cbmsAssets.isNotEmpty ? "Yes" : "No",
           'capacity': batteryAssets.first?['capacity'],
-          'batteryCabinetAssets': batteryCabinetAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'batteryCabinetAssets': batteryCabinetAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'batteryCabinetAllAssets': batteryCabinetAssets,
           'batteryCabinetAvailable': batteryCabinetAssets.isNotEmpty,
-          'cbmsAssets': cbmsAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'batteryCabinetSerial': batteryCabinetAssets.first?['mfg_serial_no'],
+          'batteryCabinetPhotoId': batteryCabinetAssets.first?['photo_id'],
+          'cbmsAssets': cbmsAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'cbmsAllAssets': cbmsAssets,
-          'batteryAssets': batteryAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'batteryAssets': batteryAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'batteryAllAssets': batteryAssets,
-          'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
+          'remarks': remarksData.isNotEmpty
+              ? remarksData.first['item_type_remark']?.toString() ?? ""
+              : "",
         };
 
         setState(() {
@@ -164,6 +185,14 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
     if (mounted) {
       setState(() {});
     }
+
+    // Initialize cabinet serial number controller
+    if (formData['batteryCabinetPhotoId'] != null) {
+      _batteryCabinetSerialController.text =
+          formData['batteryCabinetSerial'] ?? "";
+    }else{
+      _batteryCabinetSerialController.text = "";
+    }
   }
 
   // Callback methods for each AssetAuditFormComponent
@@ -189,49 +218,90 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   }
 
   // Validation methods for each section
-  bool _validateBatteryCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['batteryCabinetAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  bool _validateBatteryCabinetSerialNumber(
+    String serialNumber,
+    bool isQRCodeScanned,
+  ) {
+    final savedItems =
+        _displayFormData?['batteryCabinetAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   bool _validateCbmsSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['cbmsAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+    final savedItems =
+        _displayFormData?['cbmsAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   bool _validateBatterySerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+    final savedItems =
+        _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 Battery V2: Starting postCurrentScreenData');
-      
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
+
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'TELECOM',
+          )];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      final finalBatteryCabinetAssets = finalData?['Battery Cabinet'] as List<dynamic>? ?? [];
+      final finalBatteryCabinetAssets =
+          finalData?['Battery Cabinet'] as List<dynamic>? ?? [];
       final finalCbmsAssets = finalData?['CBMS'] as List<dynamic>? ?? [];
       final finalBatteryAssets = finalData?['assets'] as List<dynamic>? ?? [];
-      
+
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
-      
+
       // Add Battery Cabinet assets
-      final modifiedBatteryCabinetAssets = _displayFormData?['batteryCabinetAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalBatteryCabinetAssets, modifiedBatteryCabinetAssets));
+      final modifiedBatteryCabinetAssets =
+          _displayFormData?['batteryCabinetAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalBatteryCabinetAssets,
+          modifiedBatteryCabinetAssets,
+        ),
+      );
 
       // Add CBMS assets
-      final modifiedCbmsAssets = _displayFormData?['cbmsAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalCbmsAssets, modifiedCbmsAssets));
+      final modifiedCbmsAssets =
+          _displayFormData?['cbmsAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalCbmsAssets,
+          modifiedCbmsAssets,
+        ),
+      );
 
       // Add Battery assets
-      final modifiedBatteryAssets = _displayFormData?['batteryAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalBatteryAssets, modifiedBatteryAssets));
+      final modifiedBatteryAssets =
+          _displayFormData?['batteryAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalBatteryAssets,
+          modifiedBatteryAssets,
+        ),
+      );
 
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
           Logger.debugLog('✅ Updated remarks: $remark');
@@ -239,27 +309,33 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
-
-      // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
-
-      Logger.debugLog('📤 Battery V2: Prepared ${postObject.length} items for posting');
-      // Post data with photo ID replacement
-      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
       );
 
+      // Prepare data for posting
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
+
+      Logger.debugLog(
+        '📤 Battery V2: Prepared ${postObject.length} items for posting',
+      );
+      // Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getTelecomNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
 
       Logger.debugLog('✅ Battery V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ Battery V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -278,8 +354,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
@@ -349,7 +424,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -400,13 +475,17 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -424,13 +503,13 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom buttons using your specific format
                 AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    if(_hasFormDataChanges) {
+                    if (_hasFormDataChanges) {
                       await postCurrentScreenData();
                     }
                   },
@@ -459,7 +538,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           initialSelectedValue: _displayFormData?['cbmsAvailable'] ?? "No",
         ),
         getHeight(15),
-        
+
         // CBMS Details Section (only show if available)
         if (_showCbmsDetails) ...[
           const Text(
@@ -471,7 +550,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             ),
           ),
           getHeight(15),
-          
+
           // CBMS Form Component
           AssetAuditFormComponent(
             componentId: 'cbms_component',
@@ -479,58 +558,79 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             serialHintText: "CBMS Serial Number *",
             photoLabel: "Add a Photo",
             serialController: _cbmsSerialController,
-            initialSavedItems: _displayFormData?['cbmsAssets'] as List<dynamic>? ?? [],
+            initialSavedItems:
+                _displayFormData?['cbmsAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onCbmsItemSaved,
-            onStatusChanged: (status) {
-            },
+            onStatusChanged: (status) {},
             customValidator: _validateCbmsSerialNumber,
-            customValidationErrorMessage: "Invalid CBMS serial number. Please check and try again.",
+            customValidationErrorMessage:
+                "Invalid CBMS serial number. Please check and try again.",
             siteAuditSchId: widget.siteAuditSchId,
             showTable: true,
             tableTitle: "CBMS Items",
           ),
           getHeight(20),
         ],
-        if(_displayFormData?['batteryCabinetAvailable'] || false) ...[
-        const Text(
-          "Battery Cabinet Details",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.white,
+        if (_displayFormData?['batteryCabinetAvailable'] || false) ...[
+          const Text(
+            "Battery Cabinet Details",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.white,
+            ),
           ),
-        ),
-        getHeight(15),
-         // Battery Cabinet Form Component
-         SimpleAssetAuditFormComponent(
-           componentId: 'battery_cabinet_component',
-           serialLabel: "Battery Cabinet - Serial Number *",
-           serialHintText: "Battery Cabinet Serial Number *",
-           photoLabel: "Add a Photo",
-           serialController: _batteryCabinetSerialController,
-           initialSerialValue: _getBatteryCabinetValue('mfg_serial_no'),
-           initialPhotoId: _getBatteryCabinetValue('photo_id'),
-           initialImageData: _getBatteryCabinetValue('image_data'),
-           onDataChanged: (photoId, imageData, isQRCodeScanned, qrCodeScannedTs) {
-             // Update the battery cabinet data
-             if ((_displayFormData?['batteryCabinetAllAssets'] as List?)?.isNotEmpty == true) {
-               final cabinet = (_displayFormData!['batteryCabinetAllAssets'] as List).first;
-               _validateBatteryCabinetSerialNumber(_batteryCabinetSerialController.text, isQRCodeScanned ?? false);
-               cabinet['photo_id'] = photoId;
-               cabinet['image_data'] = imageData;
-               cabinet['qr_code_scanned'] = isQRCodeScanned;
-               cabinet['qr_code_scanned_ts'] = qrCodeScannedTs;
-               _onBatteryCabinetItemSaved([cabinet]);
-             }
-           },
-           siteAuditSchId: widget.siteAuditSchId,
-         ),
-        getHeight(20),
+          getHeight(15),
+          // Battery Cabinet Form Component
+          SimpleAssetAuditFormComponent(
+            componentId: 'battery_cabinet_component',
+            serialLabel: "Battery Cabinet - Serial Number *",
+            serialHintText: "Battery Cabinet Serial Number *",
+            photoLabel: "Add a Photo",
+            serialController: _batteryCabinetSerialController,
+            initialSerialValue: _getBatteryCabinetValue('mfg_serial_no'),
+            initialPhotoId: _getBatteryCabinetValue('photo_id'),
+            initialImageData: _getBatteryCabinetValue('image_data'),
+            onDataChanged: (photoId, imageData, isQRCodeScanned, qrCodeScannedTs) {
+              // Update the battery cabinet data
+              if ((_displayFormData?['batteryCabinetAllAssets'] as List?)
+                      ?.isNotEmpty ==
+                  true) {
+                final cabinet =
+                    (_displayFormData!['batteryCabinetAllAssets'] as List)
+                        .first;
+
+                // Validate battery cabinet serial number and capture the result
+                final isValidSerial = _validateBatteryCabinetSerialNumber(
+                  _batteryCabinetSerialController.text,
+                  isQRCodeScanned ?? false,
+                );
+
+                // Only update cabinet data if serial number is valid
+                if (isValidSerial) {
+                  cabinet['photo_id'] = photoId;
+                  cabinet['image_data'] = imageData;
+                  cabinet['qr_code_scanned'] = isQRCodeScanned;
+                  cabinet['qr_code_scanned_ts'] = qrCodeScannedTs;
+                  cabinet['asset_status'] = 'OK';
+                  _onBatteryCabinetItemSaved([cabinet]);
+                } else {
+                  _batteryCabinetSerialController.text = '';
+                  Toastbar.showErrorWithoutContext(
+                    "Invalid Battery Cabinet serial number. Please check and try again.",
+                  );
+                }
+              }
+            },
+            siteAuditSchId: widget.siteAuditSchId,
+          ),
+          getHeight(20),
         ],
         // Count of Battery Modules
         CustomFormField(
           label: "Count of Battery Modules",
-          initialValue: _displayFormData?['batteryAllAssets']?.length.toString() ?? "0",
+          initialValue:
+              _displayFormData?['batteryAllAssets']?.length.toString() ?? "0",
           isRequired: false,
           isEditable: false,
         ),
@@ -545,7 +645,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             color: AppColors.white,
           ),
         ),
-        
+
         // Battery Form Component
         AssetAuditFormComponent(
           componentId: 'battery_component',
@@ -555,18 +655,19 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           disabledFieldLabel: "Capacity *",
           disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
           serialController: _batterySerialController,
-          initialSavedItems: _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
+          initialSavedItems:
+              _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
           onItemSaved: _onBatteryItemSaved,
-          onStatusChanged: (status) {
-          },
+          onStatusChanged: (status) {},
           customValidator: _validateBatterySerialNumber,
-          customValidationErrorMessage: "Invalid Battery serial number. Please check and try again.",
+          customValidationErrorMessage:
+              "Invalid Battery serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "Battery Items",
         ),
         getHeight(20),
-        
+
         // Remarks using CustomRemarksField
         CustomRemarksField(
           label: "Add Remarks",

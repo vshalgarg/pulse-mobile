@@ -4,6 +4,7 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
@@ -275,6 +276,11 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     String? qrCodeScannedTs1,
   ) {
     //Logger.debugLog("vishal ")
+
+    final isValidSerial = _validateCabinetSerialNumber(_cabinetSerialController.text, isQRCodeScanned1 ?? false);
+
+    
+    if(isValidSerial){
     setState(() {
       _cabinetPhotoId = photoId;
       _cabinetImageData = imageData;
@@ -282,6 +288,9 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       isQrCodeScanned = isQRCodeScanned1 ?? false;
       qrCodeScannedTs = qrCodeScannedTs1;
     });
+    }else{
+      Toastbar.showErrorWithoutContext( "Invalid Cabinet serial number. Please check and try again.");
+    }
   }
 
   Future<void> postCurrentScreenData() async {
@@ -353,22 +362,15 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
       // ===== Remarks =====
       final remarksList = finalCCuData?['remarks'];
-      Logger.debugLog('📝 CCU Remarks Debug: remarksList = $remarksList');
       if (remarksList != null &&
           remarksList is List &&
           remarksList.isNotEmpty) {
         final finalRemarks = Map<String, dynamic>.from(remarksList.first);
         final String remark = _remarksController.text;
-        Logger.debugLog('📝 CCU Remarks Debug: remark text = "$remark"');
         if (remark.isNotEmpty) {
           finalRemarks['item_type_remark'] = remark;
           modifiedAssetsWithAllProperties.add(finalRemarks);
-          Logger.debugLog('✅ CCU: Added remarks to modifiedAssetsWithAllProperties');
-        } else {
-          Logger.debugLog('⚠️ CCU: Remarks text is empty, not adding to modifiedAssetsWithAllProperties');
         }
-      } else {
-        Logger.debugLog('⚠️ CCU: remarksList is null or empty, not adding remarks');
       }
 
       // ===== Update _assetAuditData with modified data before saving =====
@@ -435,8 +437,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       }
 
 
-    Logger.debugLog('📊 CCU Final Debug: modifiedAssetsWithAllProperties count = ${modifiedAssetsWithAllProperties.length}');
-    Logger.debugLog('📊 CCU Final Debug: modifiedAssetsWithAllProperties = $modifiedAssetsWithAllProperties');
     print("_assetAuditData: $_assetAuditData ");
     print("modifiedAssetsWithAllProperties: $modifiedAssetsWithAllProperties");
 
