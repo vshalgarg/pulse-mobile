@@ -116,7 +116,7 @@ class _CorrectiveMaintenanceScreenState
       }
     } else {
       Logger.infoLog(
-        "🔄 [CM] Preloaded site data: ${widget.preloadedSiteData}",
+        "[CM] Preloaded site data: ${widget.preloadedSiteData}",
       );
 
       if (widget.preloadedSiteData == null) {

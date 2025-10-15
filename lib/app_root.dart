@@ -8,8 +8,7 @@ import 'package:app/bloc/reset_password_cubit.dart';
 import 'package:app/bloc/demo_bloc_cubit.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
 import 'package:app/bloc/ticket_cubit.dart';
-import 'package:app/bloc/energy_reading_cubit.dart';
-import 'package:app/bloc/energy_reading_detail_cubit.dart';
+
 import 'package:app/bloc/selfie_upload_cubit.dart';
 import 'package:app/provider/locale_provider.dart';
 import 'package:app/provider/theme_provider.dart';
@@ -127,8 +126,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
         BlocProvider(create: (context) => ResetPasswordCubit(widget.config.authRepository)),
         BlocProvider(create: (context) => DashboardCubit(widget.config.dashboardRepository)),
         BlocProvider(create: (context) => TicketCubit(ticketRepository: widget.config.ticketRepository)),
-        BlocProvider(create: (context) => EnergyReadingCubit(widget.config.energyReadingRepository)),
-        BlocProvider(create: (context) => EnergyReadingDetailCubit(widget.config.energyReadingDetailRepository)),
+        
         BlocProvider(create: (context) => SelfieUploadCubit(widget.config.selfieUploadRepository)),
         BlocProvider(create: (context) => AssetAuditPhotoUploadCubit(widget.config.assetAuditPhotoUploadRepository)),
         BlocProvider(create: (context) => AuditScheduleStatusCubit(widget.config.auditScheduleRepository)),
