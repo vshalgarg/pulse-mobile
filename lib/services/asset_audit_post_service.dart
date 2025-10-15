@@ -98,7 +98,7 @@ class AssetAuditPostService {
         break;
 
       default:
-        url += 'AssetAuditSiteResp';
+        url += 'correctiveMaintenance';
         break;
     }
     url += '?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}';

@@ -9,10 +9,12 @@ import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/exception_constants.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
 import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
 import 'package:app/screens/corrective_maintainece/cm_custom_view_widget.dart';
+import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -31,6 +33,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../models/cm_site_model.dart';
+import '../../../app_config.dart';
 
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
@@ -115,9 +118,7 @@ class _CorrectiveMaintenanceScreenState
         _onSiteSelected(_siteOptions.first);
       }
     } else {
-      Logger.infoLog(
-        "[CM] Preloaded site data: ${widget.preloadedSiteData}",
-      );
+      Logger.infoLog("[CM] Preloaded site data: ${widget.preloadedSiteData}");
 
       if (widget.preloadedSiteData == null) {
         Logger.errorLog("❌ [CM] preloadedSiteData is null");
@@ -314,6 +315,41 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
+  //  Future<void> _onImageSelected(File imageFile) async {
+  //   try {
+  //     Logger.debugLog('📸 CustomAssetAuditFormSection: Starting image upload');
+      
+  //     // Get API service from context
+  //     final apiService = AppConfig.of(context).apiService;
+  //     final imageUploadService = ImageUploadService(apiService: apiService);
+      
+  //     // Upload image using ImageUploadService
+  //     final uniqueId = await imageUploadService.uploadImage(
+  //       await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
+  //       ActivityTypeEnum.assetAudit,
+  //       false,
+  //       widget.siteAuditSchId,
+  //     );
+      
+  //     if (uniqueId.isNotEmpty) {
+  //       setState(() {
+  //         _uploadedImgId = uniqueId;
+  //       });
+        
+  //       // Notify parent component
+  //       widget.onImageSelected?.call(uniqueId);
+        
+  //       Logger.debugLog('✅ CustomAssetAuditFormSection: Image uploaded successfully with ID: $uniqueId');
+  //     } else {
+  //       Logger.errorLog('❌ CustomAssetAuditFormSection: Failed to upload image');
+  //       _showErrorSnackBar('Failed to upload image');
+  //     }
+  //   } catch (e) {
+  //     Logger.errorLog('❌ CustomAssetAuditFormSection: Error uploading image: $e');
+  //     _showErrorSnackBar('Error uploading image: $e');
+  //   }
+  // }
+
   Widget _buildEquipmentTypeRadioButtons() {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -446,6 +482,8 @@ class _CorrectiveMaintenanceScreenState
       ),
     );
   }
+
+
 
   Widget _buildFormFields() {
     return Column(
@@ -624,7 +662,7 @@ class _CorrectiveMaintenanceScreenState
               // Perform async operation first
               final bytes = await file.readAsBytes();
               final encodedData = base64Encode(bytes);
-              
+
               // Then update state synchronously
               setState(() {
                 customerPhoto = file;
@@ -766,14 +804,21 @@ class _CorrectiveMaintenanceScreenState
             );
       }
       Logger.infoLog("requestData: $requestData");
+     
       try {
+        //   await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
+        //   requests: [requestData],
+        //   isLastPage: true,
+        //   activityType: ActivityTypeEnum.correctiveMaintenance,
+        // );
+
         Map<String, dynamic> processedData =
             DataTransformationHelper.convertKeysToCamelCase(requestData);
         await ServiceLocator().cmRepository.createCorrectiveMaintenance(
           processedData,
         );
 
-        Logger.debugLog("vishal printing processedData: $processedData");
+        Logger.debugLog(" processedData: $processedData");
 
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
           cmSiteReqId!,
@@ -793,7 +838,10 @@ class _CorrectiveMaintenanceScreenState
       } catch (e) {
         Logger.errorLog(e.toString());
         print("Failed to save the form edit : $e");
-        Toastbar.showErrorToastbar("Failed to save the form edit : $e", context);
+        Toastbar.showErrorToastbar(
+          "Failed to save the form edit : $e",
+          context,
+        );
       }
     } finally {
       LoaderWidget.hideLoader();
@@ -803,7 +851,7 @@ class _CorrectiveMaintenanceScreenState
   void _submitFormData() async {
     try {
       LoaderWidget.showLoader(context);
-      Logger.debugLog("vishal printing $_checklistData");
+  
       final requestData = <String, dynamic>{};
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;
@@ -849,23 +897,27 @@ class _CorrectiveMaintenanceScreenState
             selectedCheckListData,
           );
       Logger.infoLog("requestData: $requestData");
+      print("vishal printing requestData: $requestData");
       try {
         Map<String, dynamic> processedData =
             DataTransformationHelper.convertKeysToCamelCase(requestData);
-        Map<String, dynamic> response = await ServiceLocator().cmRepository
-            .createCorrectiveMaintenance(processedData);
-        int cmSiteReqId = response['cmSiteReqId'];
-        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-          cmSiteReqId,
-          customerPhoto!,
-          _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
-        );
-        Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-        AssetAuditNavigationHelper.navigateToHomeScreen(context);
+        // Map<String, dynamic> response = await ServiceLocator().cmRepository
+        //     .createCorrectiveMaintenance(processedData);
+        // int cmSiteReqId = response['cmSiteReqId'];
+        // await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+        //   cmSiteReqId,
+        //   customerPhoto!,
+        //   _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
+        // );
+        // Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
-         print("Failed to save the form submit : $e");
-        Toastbar.showErrorToastbar("Failed to save the form submit : $e", context);
+        print("Failed to save the form submit : $e");
+        Toastbar.showErrorToastbar(
+          "Failed to save the form submit : $e",
+          context,
+        );
       }
     } finally {
       LoaderWidget.hideLoader();

@@ -155,14 +155,14 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
 
         final formData = <String, dynamic>{
           'cbmsAvailable': cbmsAssets.isNotEmpty ? "Yes" : "No",
-          'capacity': batteryAssets.first?['capacity'],
+          'capacity': batteryAssets.isNotEmpty ? batteryAssets.first['capacity'] : null,
           'batteryCabinetAssets': batteryCabinetAssets
               .where((obj) => obj['photo_id'] != null)
               .toList(),
           'batteryCabinetAllAssets': batteryCabinetAssets,
           'batteryCabinetAvailable': batteryCabinetAssets.isNotEmpty,
-          'batteryCabinetSerial': batteryCabinetAssets.first?['mfg_serial_no'],
-          'batteryCabinetPhotoId': batteryCabinetAssets.first?['photo_id'],
+          'batteryCabinetSerial': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['mfg_serial_no'] : null,
+          'batteryCabinetPhotoId': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['photo_id'] : null,
           'batteryCabinetImageData': batteryCabinetImageData,
           'cbmsAssets': cbmsAssets
               .where((obj) => obj['photo_id'] != null)
@@ -681,37 +681,40 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         ),
         getHeight(15),
 
-        // Battery Details Section
-        const Text(
-          "Battery Details",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.white,
+        // Battery Details Section - only show if battery assets exist
+        if (_displayFormData?['batteryAllAssets'] != null && 
+            (_displayFormData?['batteryAllAssets'] as List).isNotEmpty) ...[
+          const Text(
+            "Battery Details",
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.white,
+            ),
           ),
-        ),
 
-        // Battery Form Component
-        AssetAuditFormComponent(
-          componentId: 'battery_component',
-          serialLabel: "Battery - Serial Number *",
-          serialHintText: "Battery Serial Number *",
-          photoLabel: "Add a Photo",
-          disabledFieldLabel: "Capacity *",
-          disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
-          serialController: _batterySerialController,
-          initialSavedItems:
-              _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
-          onItemSaved: _onBatteryItemSaved,
-          onStatusChanged: (status) {},
-          customValidator: _validateBatterySerialNumber,
-          customValidationErrorMessage:
-              "Invalid Battery serial number. Please check and try again.",
-          siteAuditSchId: widget.siteAuditSchId,
-          showTable: true,
-          tableTitle: "Battery Items",
-        ),
-        getHeight(20),
+          // Battery Form Component
+          AssetAuditFormComponent(
+            componentId: 'battery_component',
+            serialLabel: "Battery - Serial Number *",
+            serialHintText: "Battery Serial Number *",
+            photoLabel: "Add a Photo",
+            disabledFieldLabel: "Capacity *",
+            disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
+            serialController: _batterySerialController,
+            initialSavedItems:
+                _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
+            onItemSaved: _onBatteryItemSaved,
+            onStatusChanged: (status) {},
+            customValidator: _validateBatterySerialNumber,
+            customValidationErrorMessage:
+                "Invalid Battery serial number. Please check and try again.",
+            siteAuditSchId: widget.siteAuditSchId,
+            showTable: true,
+            tableTitle: "Battery Items",
+          ),
+          getHeight(20),
+        ],
 
         // Remarks using CustomRemarksField
         CustomRemarksField(
