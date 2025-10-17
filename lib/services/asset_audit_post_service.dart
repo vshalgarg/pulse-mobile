@@ -104,7 +104,7 @@ class AssetAuditPostService {
         url += 'correctiveMaintenance';
         break;
       case ActivityTypeEnum.siteVisit:
-        url += 'siteVisitLog';
+        'api/v1/om-schedule/siteVisitLog';
         break;
       case ActivityTypeEnum.generalInspection:
         url += 'generalInspection';
@@ -112,7 +112,12 @@ class AssetAuditPostService {
       default:
         throw Exception('Invalid activity type: $activityType');
     }
-    url += '?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}';
+
+    if (activityType == ActivityTypeEnum.siteVisit) {
+      url = 'api/v1/om-schedule/siteVisitLog';
+    } else {
+      url += '?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}';
+    }
     if (isConnected) {
       try {
         await _postDataToApi(url, requests);
@@ -148,6 +153,12 @@ class AssetAuditPostService {
     final response;
     if (url.contains("api/v1/mobile/uploadsSelfie")) {
       response = await _uploadSelfieWithoutCache(requests);
+    } else if (url.contains("api/v1/om-schedule/siteVisitLog")) {
+      // For site visit logs, send as single object instead of array
+      response = await ServiceLocator().apiService.post<dynamic>(
+        path: url,
+        data: requests.isNotEmpty ? requests.first : {},
+      );
     } else {
       response = await ServiceLocator().apiService.post<List<dynamic>>(
         path: url,
@@ -255,6 +266,8 @@ class AssetAuditPostService {
 
       if (request.containsKey("energyReadingId")) {
         photoId = request['ebAttachmentFileId'];
+      } else if (request.containsKey("visitingPersonName")) {
+        photoId = request['visitingPersonImageId'];
       } else {
         photoId = request['photo_id'] ?? request['photoId'];
       }
@@ -279,6 +292,8 @@ class AssetAuditPostService {
 
           if (request.containsKey("energyReadingId")) {
             request['ebAttachmentFileId'] = serverId;
+          } else if (request.containsKey("visitingPersonName")) {
+            request['visitingPersonImageId'] = serverId;
           } else {
             request['photo_id'] = serverId;
           }

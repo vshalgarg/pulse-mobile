@@ -124,6 +124,7 @@ class ImageUploadService {
       Logger.debugLog('Image saved to SQLite with ID: $uniqueId');
 
       // Try to upload to server
+      String finalId = uniqueId; // Default to local ID
       try {
         final serverId = await _uploadToServer(
           imageData,
@@ -137,6 +138,7 @@ class ImageUploadService {
           Logger.debugLog(
             'Image uploaded to server with ID for uniqueId: $serverId, $uniqueId',
           );
+          finalId = serverId; // Return server ID instead of local ID
         } else {
           Logger.debugLog(
             'Server upload failed, but image saved locally with ID: $uniqueId',
@@ -145,7 +147,7 @@ class ImageUploadService {
       } catch (e) {
         Logger.errorLog('Server upload failed: $e');
       }
-      return uniqueId;
+      return finalId;
     } catch (e) {
       Logger.errorLog('Error in uploadImage: $e');
       rethrow;
@@ -508,8 +510,10 @@ class ImageUploadService {
             response.data!['id']?.toString();
 
         Logger.debugLog('🔍 Extracted photo ID: $photoId');
+        print("photoId:withut if $photoId");
 
         if (photoId != null && photoId.isNotEmpty) {
+          print("photoId: $photoId");
           Logger.debugLog('✅ Image uploaded to server with ID: $photoId');
           return photoId;
         } else {

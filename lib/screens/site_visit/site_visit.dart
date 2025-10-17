@@ -6,12 +6,15 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/services/api_service.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -139,6 +142,8 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         activityType: ActivityTypeEnum.siteVisit,
       );
 
+      print("imgId: after upload $imgId");
+
       // Update the database with the new image ID
       final dbData = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteData.siteId.toString(),
@@ -159,23 +164,65 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         }
       }
 
-      if (imgId != null) {
+      if (imgId != null && imgId.isNotEmpty) {
         setState(() {
           _uploadedImgId = imgId;
+          print('uploadedImgId: $_uploadedImgId, $imgId');
           _hasFormDataChanges = true;
         });
 
-        showCustomToast(context, 'Selfie uploaded successfully');
+        // Show appropriate message based on whether it's server or local ID
+        if (imgId.contains("LOCAL_IMAGE_ID")) {
+          showCustomToast(context, 'Selfie saved locally (offline mode)');
+        } else {
+          showCustomToast(context, 'Selfie uploaded successfully');
+        }
       } else {
         showCustomToast(context, 'Failed to upload selfie');
+        throw Exception('Failed to get image ID');
       }
     } catch (e) {
       Logger.errorLog('❌ Error uploading selfie: $e');
     }
   }
 
+  Future<void> postSiteVisitLog() async {
+    try {
+      LoaderWidget.showLoader(context);
 
-   
+      final requestData = {
+        "svlId": 0,
+        "siteId": widget.siteData.siteId,
+        "visitingPersonName": "",
+        "visitingPersonImageId": _uploadedImgId != null
+            ? (_uploadedImgId!.contains("LOCAL_IMAGE_ID") 
+                ? _uploadedImgId!  // Send local ID as string for offline mode
+                : (int.tryParse(_uploadedImgId!) ?? 0))  // Send server ID as int for online mode
+            : 0,
+        "visitDate":
+            "${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}",
+        "purposeOfVisit": _purposeController.text.trim(),
+        "isActive": true,
+        "remarks": "",
+      };
+
+      print('requestData: $requestData');
+
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: [requestData],
+            activityType: ActivityTypeEnum.siteVisit,
+            isLastPage: true,
+          );
+
+      Navigator.of(context).pop();
+    } catch (e) {
+      Logger.errorLog('❌ Error submitting site visit: $e');
+      showCustomToast(context, "Error submitting site visit: $e");
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+  }
 
   Widget _buildFormFields() {
     return Column(
@@ -303,14 +350,20 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     );
   }
 
-  void _submitForm() {
+  void _submitForm() async {
     if (_purposeController.text.trim().isEmpty) {
       showCustomToast(context, "Please enter purpose of visit");
       return;
     }
 
-    if (_selfieImagePath == null) {
+    if (_selectedImage == null) {
       showCustomToast(context, "Please add a selfie");
+      return;
+    }
+
+    // Check if image has been uploaded (either to server or locally)
+    if (_uploadedImgId == null || _uploadedImgId!.isEmpty) {
+      showCustomToast(context, "Please wait for image upload to complete");
       return;
     }
 
@@ -318,13 +371,16 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       _isSubmitting = true;
     });
 
-    // TODO: Implement form submission logic
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      // Submit the form with already uploaded image
+      await postSiteVisitLog();
+    } catch (e) {
+      Logger.errorLog('❌ Error in submit process: $e');
+      showCustomToast(context, "Error submitting site visit: $e");
+    } finally {
       setState(() {
         _isSubmitting = false;
       });
-      showCustomToast(context, "Site visit submitted successfully");
-      Navigator.of(context).pop();
-    });
+    }
   }
 }
