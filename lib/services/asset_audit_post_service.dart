@@ -63,7 +63,10 @@ class AssetAuditPostService {
           "User is not connected to the internet, saving data locally",
         );
       }
-      DataTransformationHelper.updateMetadataInRequest(copiedRequests, finalLocation);
+      DataTransformationHelper.updateMetadataInRequest(
+        copiedRequests,
+        finalLocation,
+      );
       _postRequestsIfConnectedOrSaveToSqlite(
         copiedRequests,
         isConnected,
@@ -97,9 +100,17 @@ class AssetAuditPostService {
         url += 'EbBillReading';
         break;
 
-      default:
+      case ActivityTypeEnum.correctiveMaintenance:
         url += 'correctiveMaintenance';
         break;
+      case ActivityTypeEnum.siteVisit:
+        url += 'siteVisitLog';
+        break;
+      case ActivityTypeEnum.generalInspection:
+        url += 'generalInspection';
+        break;
+      default:
+        throw Exception('Invalid activity type: $activityType');
     }
     url += '?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}';
     if (isConnected) {
@@ -135,7 +146,7 @@ class AssetAuditPostService {
   Future<void> _postDataToApi(String url, List<dynamic> requests) async {
     Logger.infoLog("User is connected to internet, posting data to API");
     final response;
-    if(url.contains("api/v1/mobile/uploadsSelfie")) {
+    if (url.contains("api/v1/mobile/uploadsSelfie")) {
       response = await _uploadSelfieWithoutCache(requests);
     } else {
       response = await ServiceLocator().apiService.post<List<dynamic>>(
@@ -178,13 +189,14 @@ class AssetAuditPostService {
         filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
       decodedRequest['selfie'] = multipartFile;
-      final response = await ServiceLocator().apiService.post<Map<String, dynamic>>(
-          path: "api/v1/mobile/uploadsSelfie",
-          data: decodedRequest,
-          useFormDataFormat: true,
-        );
+      final response = await ServiceLocator().apiService
+          .post<Map<String, dynamic>>(
+            path: "api/v1/mobile/uploadsSelfie",
+            data: decodedRequest,
+            useFormDataFormat: true,
+          );
       return response;
-    } catch(e) {
+    } catch (e) {
       return null;
     }
   }
@@ -213,7 +225,7 @@ class AssetAuditPostService {
   /// Replaces photo_id with server_id and adds photo_taken_ts
   Future<dynamic> _processRequestForImages(dynamic request) async {
     Logger.infoLog("Processing request for images: $request");
-    
+
     try {
       // Check if request is a List, if so, process each item
       if (request is List) {
@@ -222,7 +234,7 @@ class AssetAuditPostService {
         }
         return request;
       }
-      
+
       // Process single request
       return await _processSingleRequest(request);
     } catch (e) {

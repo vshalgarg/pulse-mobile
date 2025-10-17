@@ -322,14 +322,14 @@ class ImageUploadService {
         Logger.errorLog('Database was closed, reinitializing...');
         _database = null; // Force reinitialization
         final db = await database;
-        
+
         final List<Map<String, dynamic>> maps = await db.query(
           _tableName,
           where: 'unique_id = ?',
           whereArgs: [uniqueId],
           limit: 1,
         );
-        
+
         if (maps.isNotEmpty) {
           final data = maps.first;
           return convertDataToModel(data);
@@ -371,7 +371,7 @@ class ImageUploadService {
         Logger.errorLog('Database was closed, reinitializing...');
         _database = null; // Force reinitialization
         final db = await database;
-        
+
         await db.update(
           _tableName,
           {
@@ -391,7 +391,9 @@ class ImageUploadService {
   Future<void> _updateServerId(String uniqueId, String serverId) async {
     try {
       final db = await database;
-      Logger.debugLog('Updating SQLite: uniqueId=$uniqueId, serverId=$serverId');
+      Logger.debugLog(
+        'Updating SQLite: uniqueId=$uniqueId, serverId=$serverId',
+      );
 
       final result = await db.update(
         _tableName,
@@ -409,7 +411,7 @@ class ImageUploadService {
         Logger.errorLog('Database was closed, reinitializing...');
         _database = null; // Force reinitialization
         final db = await database;
-        
+
         final result = await db.update(
           _tableName,
           {
@@ -419,8 +421,10 @@ class ImageUploadService {
           where: 'unique_id = ?',
           whereArgs: [uniqueId],
         );
-        
-        Logger.debugLog('SQLite update result (after retry): $result rows affected');
+
+        Logger.debugLog(
+          'SQLite update result (after retry): $result rows affected',
+        );
       } else {
         rethrow;
       }
@@ -543,7 +547,7 @@ class ImageUploadService {
           return null;
         }
       } else {
-        Logger.errorLog('❌ Failed to download image: ${response.errorMessage}');
+        Logger.errorLog(' Failed to download image: ${response.errorMessage}');
         return null;
       }
     } catch (e) {
@@ -576,7 +580,7 @@ class ImageUploadService {
         Logger.errorLog('Database was closed, reinitializing...');
         _database = null; // Force reinitialization
         final db = await database;
-        
+
         final List<Map<String, dynamic>> maps = await db.query(
           _tableName,
           where: 'server_id = ?',
@@ -584,7 +588,7 @@ class ImageUploadService {
           orderBy: 'created_at DESC',
           limit: 1,
         );
-        
+
         if (maps.isNotEmpty) {
           final data = maps.first;
           return convertDataToModel(data);

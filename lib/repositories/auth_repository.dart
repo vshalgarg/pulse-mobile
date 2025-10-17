@@ -1,3 +1,4 @@
+import 'package:app/services/local_storage_db.dart';
 import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 
@@ -18,14 +19,19 @@ class AuthRepository {
   }) async {
     try {
       print("AuthRepository: Attempting login for username: $username");
+
+      final firebaseToken = LocalStorageDB.getFireBaseToken;
       
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'authenticate/login',
         data: {
           'username': username,
           'password': password,
+          'firebaseAccessToken': firebaseToken,
         },
       );
+
+      
 
       if (response.isSuccess && response.data != null) {
         final authModel = AuthModel.fromJson(response.data!);

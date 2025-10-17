@@ -18,12 +18,13 @@ class ApiService {
     Map<String, dynamic>? queryParameters,
     Map<String, String>? headers,
     bool refreshCache = false,
+    ResponseType responseType = ResponseType.json,
   }) async {
     try {
       final result = await apiProvider.getClient().get(
             path,
             queryParameters: queryParameters,
-            options: Options(headers: headers),
+            options: Options(headers: headers, responseType: responseType),
           );
 
       // Check if status code is 200 for success
@@ -61,6 +62,8 @@ class ApiService {
     try {
 
       dynamic dataPayload;
+
+      print("vishal printing data: $data");
       
       if (useFormDataFormat) {
         // Handle FormData creation
@@ -225,16 +228,51 @@ class ApiService {
   }
 
   void _recordError(DioException error) {
-    // FirebaseCrashlytics.instance.recordError(
-    //   error.error,
-    //   error.stackTrace,
-    //   reason: '${error.message} (${error.requestOptions.uri})',
-    //   printDetails: true,
-    // );
+
     print("API Error: ${error.message}");
     print("API Error Type: ${error.type}");
     print("API Error Response: ${error.response?.data}");
   }
+
+  /// Get notifications for a user
+  Future<ResponseResult<List<dynamic>>> getNotifications({
+    required String userId,
+    int pageSize = 50,
+    int pageNo = 1,
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final result = await apiProvider.getClient().post(
+            '/notifications/allNotification',
+            queryParameters: {
+              'userId': userId,
+              'pageSize': pageSize.toString(),
+              'pageNo': pageNo.toString(),
+            },
+            options: Options(headers: headers),
+          );
+
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      _recordError(e);
+      return ResponseResult.error(
+        errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
+      );
+    }
+  }
+
+
+
 
 
 }

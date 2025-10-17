@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/services/local_storage_db.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +14,8 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/my_tickets.dart';
+import 'package:app/screens/notifications.dart';
+import 'package:app/services/notification_service.dart';
 
 class PulseDashboard extends StatefulWidget {
   const PulseDashboard({Key? key}) : super(key: key);
@@ -23,6 +27,39 @@ class PulseDashboard extends StatefulWidget {
 class _PulseDashboardState extends State<PulseDashboard> {
   final GlobalKey<PopupMenuButtonState> _profileMenuKey =
       GlobalKey<PopupMenuButtonState>();
+  
+  int _notificationCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh notifications when the screen becomes visible
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    try {
+      final notificationService = NotificationService(
+        ServiceLocator().apiService,
+      );
+      
+      final notifications = await notificationService.getNotifications();
+      
+      setState(() {
+        _notificationCount = notifications.length;
+      });
+    } catch (e) {
+      setState(() {
+        _notificationCount = 0;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,20 +155,35 @@ class _PulseDashboardState extends State<PulseDashboard> {
               Positioned(
                 right: 1,
                 top: 4,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: AppColors.errorColor,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Text(
-                    "10",
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                child: GestureDetector(
+                  onTap: () async {
+                    // Navigate to notifications screen and refresh count when returning
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const NotificationsScreen(),
+                      ),
+                    );
+                    // Refresh notifications when returning from notifications screen
+                    _loadNotifications();
+                  },
+                  child: _notificationCount > 0
+                      ? Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: AppColors.errorColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            _notificationCount.toString(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
               ),
             ],
@@ -174,9 +226,11 @@ class _PulseDashboardState extends State<PulseDashboard> {
                 ),
               ),
             ],
-            child: const CircleAvatar(
+            child: CircleAvatar(
               radius: 20,
-              backgroundImage: AssetImage(AppImages.userPlaceholder),
+              backgroundImage: LocalStorageDB.getUserProfile != null
+                  ? MemoryImage(base64Decode(LocalStorageDB.getUserProfile!))
+                  : const AssetImage(AppImages.userPlaceholder),
             ),
           ),
         ],
@@ -424,13 +478,21 @@ class _PulseDashboardState extends State<PulseDashboard> {
             TextButton(
               onPressed: () async {
                 Navigator.of(context).pop();
+
+                // Store context reference before async operations
+                final currentContext = context;
+
                 // Clear all authentication data before navigating to login
                 await context.read<AuthCubit>().forceClearAllData();
-                pushReplacementPage(context, LoginScreen());
-                Toastbar.showSuccessToastbar(
-                  'Logged out successfully',
-                  context,
-                );
+
+                // Use stored context and check if still mounted
+                if (mounted && currentContext.mounted) {
+                  pushReplacementPage(currentContext, LoginScreen());
+                  Toastbar.showSuccessToastbar(
+                    'Logged out successfully',
+                    currentContext,
+                  );
+                }
               },
               child: const Text('Logout'),
             ),

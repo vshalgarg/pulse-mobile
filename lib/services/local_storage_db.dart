@@ -90,6 +90,13 @@ class LocalStorageDB {
   static String? get getProfileImage =>
       LocalStorageService.getString(LocalStorageConstants.profileImage);
 
+  static Future<void> saveProfileImage(String profileImage) async {
+    await LocalStorageService.setString(
+      LocalStorageConstants.profileImage,
+      profileImage,
+    );
+  }
+
   static String? get getFirstName =>
       LocalStorageService.getString(LocalStorageConstants.firstName);
 
@@ -100,12 +107,24 @@ class LocalStorageDB {
     );
   }
 
+   static Future<void> saveUserProfile(String userProfile) async {
+    await LocalStorageService.setString(
+      LocalStorageConstants.userProfile,
+      userProfile,
+    );
+  }
+
+  
+
   static Future<void> saveUserId(String user_id) async {
     await LocalStorageService.setString(LocalStorageConstants.userId, user_id);
   }
 
   static String? get getFullName =>
       LocalStorageService.getString(LocalStorageConstants.fullName);
+
+      static String? get getUserProfile =>
+      LocalStorageService.getString(LocalStorageConstants.userProfile);
 
   static String? get appSessionKey =>
       LocalStorageService.getString('sessionKey');

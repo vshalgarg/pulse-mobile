@@ -95,6 +95,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         return "Corrective Maintenance";
       case ActivityTypeEnum.energyReading:
         return "Energy Reading";
+      case ActivityTypeEnum.siteVisit:
+        return "Site Visit";
+      case ActivityTypeEnum.generalInspection:
+        return "General Inspection";
     }
   }
 
@@ -171,6 +175,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         Navigator.pushNamed(context, correctiveMaintenanceScreen);
         break;
       case ActivityTypeEnum.energyReading:
+        _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.siteVisit:
+        _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.generalInspection:
         _navigateToWorkflow(ticket);
         break;
     }

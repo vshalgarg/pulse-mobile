@@ -44,4 +44,7 @@ class LocalStorageConstants {
   // Offline Ticket Management
   static const String offlineTickets = "offlineTickets";
   static const String offlineTicketKey = "offlineTicket_";
+
+  // User Profile
+  static const String userProfile = "userProfile";
 }

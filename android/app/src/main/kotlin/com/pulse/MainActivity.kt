@@ -1,4 +1,4 @@
-package com.rapadit.flutter_template_rad
+package com.pulse
 
 import io.flutter.embedding.android.FlutterActivity
 

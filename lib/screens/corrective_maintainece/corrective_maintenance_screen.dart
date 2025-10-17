@@ -318,11 +318,11 @@ class _CorrectiveMaintenanceScreenState
   //  Future<void> _onImageSelected(File imageFile) async {
   //   try {
   //     Logger.debugLog('📸 CustomAssetAuditFormSection: Starting image upload');
-      
+
   //     // Get API service from context
   //     final apiService = AppConfig.of(context).apiService;
   //     final imageUploadService = ImageUploadService(apiService: apiService);
-      
+
   //     // Upload image using ImageUploadService
   //     final uniqueId = await imageUploadService.uploadImage(
   //       await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
@@ -330,15 +330,15 @@ class _CorrectiveMaintenanceScreenState
   //       false,
   //       widget.siteAuditSchId,
   //     );
-      
+
   //     if (uniqueId.isNotEmpty) {
   //       setState(() {
   //         _uploadedImgId = uniqueId;
   //       });
-        
+
   //       // Notify parent component
   //       widget.onImageSelected?.call(uniqueId);
-        
+
   //       Logger.debugLog('✅ CustomAssetAuditFormSection: Image uploaded successfully with ID: $uniqueId');
   //     } else {
   //       Logger.errorLog('❌ CustomAssetAuditFormSection: Failed to upload image');
@@ -482,8 +482,6 @@ class _CorrectiveMaintenanceScreenState
       ),
     );
   }
-
-
 
   Widget _buildFormFields() {
     return Column(
@@ -804,7 +802,7 @@ class _CorrectiveMaintenanceScreenState
             );
       }
       Logger.infoLog("requestData: $requestData");
-     
+
       try {
         //   await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         //   requests: [requestData],
@@ -851,7 +849,7 @@ class _CorrectiveMaintenanceScreenState
   void _submitFormData() async {
     try {
       LoaderWidget.showLoader(context);
-  
+
       final requestData = <String, dynamic>{};
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;

@@ -15,6 +15,10 @@ class AllSiteModel {
   final int selfId;
   final String? siteDomainName;
   final String? distanceKM;
+  final String? infraEngineerName;
+  final String? infraEngineerPhone;
+  final String? ownerName;
+  final String? ownerPhone;
 
   AllSiteModel({
     required this.siteId,
@@ -32,15 +36,17 @@ class AllSiteModel {
     required this.self,
     required this.selfId,
     this.siteDomainName,
-     this.distanceKM,
+    this.distanceKM,
+    this.infraEngineerName,
+    this.infraEngineerPhone,
+    this.ownerName,
+    this.ownerPhone,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
     final siteId = json['site_id'] ?? 0;
     final siteName = json['site_name']?.toString() ?? '';
     final siteCode = json['site_code']?.toString() ?? '';
-
-    
 
     return AllSiteModel(
       siteId: siteId,
@@ -59,6 +65,11 @@ class AllSiteModel {
       selfId: json['self_id'] ?? 0,
       siteDomainName: json['site_domain_name']?.toString() ?? '',
       distanceKM: json['distance_km']?.toString() ?? '',
+      infraEngineerName: json['infra_district_engineer_name']?.toString() ?? '',
+      infraEngineerPhone:
+          json['infra_district_engineer_contact_no']?.toString() ?? '',
+      ownerName: json['owner_name']?.toString() ?? '',
+      ownerPhone: json['owner_contact_no']?.toString() ?? '',
     );
   }
 

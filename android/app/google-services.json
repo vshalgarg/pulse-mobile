@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "551410385511",
+    "project_id": "pulse-firebase-notif",
+    "storage_bucket": "pulse-firebase-notif.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:551410385511:android:22014ff170feca8ab70ac2",
+        "android_client_info": {
+          "package_name": "com.pulse"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAwwXKI0O1YSEgCNjbRnWggTidxxs9y80Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

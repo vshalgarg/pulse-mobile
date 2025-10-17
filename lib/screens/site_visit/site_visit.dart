@@ -1,23 +1,24 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app/commonWidgets/custom_buttons/custom_rounded_button.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
-import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/constants/constants_strings.dart';
-import 'package:app/models/cm_site_model.dart';
+import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/all_site_model.dart';
+import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/utils/logger.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 class SiteVisitScreen extends StatefulWidget {
-  final CMSite siteData;
- 
+  final AllSiteModel siteData;
 
   const SiteVisitScreen({super.key, required this.siteData});
 
@@ -34,25 +35,26 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   final TextEditingController _ownerController = TextEditingController();
   final TextEditingController _ownerContactController = TextEditingController();
 
+  late CentralAssetAuditService _service;
   bool _isSubmitting = false;
   String? _selfieImagePath;
-  File? customerPhoto;
+
   String? customerPhotoByteData;
+  String? _uploadedImgId;
+  bool _hasFormDataChanges = false;
+  String? _fetchedImageData;
+  File? _selectedImage;
 
   @override
   void initState() {
     super.initState();
+    _service = ServiceLocator().centralAssetAuditService;
     _initializeFormData();
   }
 
   void _initializeFormData() {
     // Initialize form fields with site data
-    _infraEngineerController.text = "Suresh"; // Default value as shown in image
-    _infraEngineerContactController.text =
-        "9327490188"; // Default value as shown in image
-    _ownerController.text = "Prashant"; // Default value as shown in image
-    _ownerContactController.text =
-        "9327490188"; // Default value as shown in image
+
     _purposeController.text = ""; // Default value as shown in image
   }
 
@@ -107,11 +109,13 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
                   ),
                 ),
 
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    child: CustomSubmitButtonV2(text: "Submit", onPressed: _submitForm),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  child: CustomSubmitButtonV2(
+                    text: "Submit",
+                    onPressed: _submitForm,
                   ),
-               
+                ),
               ],
             ),
           ),
@@ -119,6 +123,59 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       ),
     );
   }
+
+  Future<void> _uploadSelfie() async {
+    try {
+      if (_selectedImage == null) {
+        Toastbar.showErrorToastbar('Please select an image first', context);
+        return;
+      }
+
+      // Internet connected - upload to server
+      final imgId = await _service.uploadImage(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+        imageFile: _selectedImage!,
+        isSelfie: false,
+        activityType: ActivityTypeEnum.siteVisit,
+      );
+
+      // Update the database with the new image ID
+      final dbData = await _service.getActualDataFromSqlite(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+      );
+      if (dbData != null) {
+        final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>
+            : null;
+        if (pageHeader != null) {
+          pageHeader['maker_selfie_image_id'] = imgId;
+
+          // Save the updated data back to the database
+          await _service.updateDataInSqlite(
+            siteAuditSchId: widget.siteData.siteId.toString(),
+            updatedData: dbData,
+          );
+        }
+      }
+
+      if (imgId != null) {
+        setState(() {
+          _uploadedImgId = imgId;
+          _hasFormDataChanges = true;
+        });
+
+        showCustomToast(context, 'Selfie uploaded successfully');
+      } else {
+        showCustomToast(context, 'Failed to upload selfie');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading selfie: $e');
+    }
+  }
+
+
+   
 
   Widget _buildFormFields() {
     return Column(
@@ -171,7 +228,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Infra Engineer
         CustomFormField(
           label: "Infra Engineer",
-          controller: _infraEngineerController,
+          initialValue: widget.siteData.infraEngineerName ?? "N/A",
           isRequired: false,
           isEditable: true,
         ),
@@ -180,7 +237,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Infra Engineer Contact No.
         CustomFormField(
           label: "Infra Engineer Contact No.",
-          controller: _infraEngineerContactController,
+          initialValue: widget.siteData.infraEngineerPhone ?? "N/A",
           isRequired: false,
           isEditable: true,
           keyboardType: TextInputType.phone,
@@ -190,7 +247,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Owner
         CustomFormField(
           label: "Owner",
-          controller: _ownerController,
+          initialValue: widget.siteData.ownerName ?? "N/A",
           isRequired: false,
           isEditable: true,
         ),
@@ -199,7 +256,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Owner Contact No.
         CustomFormField(
           label: "Owner Contact No.",
-          controller: _ownerContactController,
+          initialValue: widget.siteData.ownerPhone ?? "N/A",
           isRequired: false,
           isEditable: true,
           keyboardType: TextInputType.phone,
@@ -219,23 +276,29 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         ImageUploadField(
           label: "Add a Selfie",
           placeholder: "Selfie",
-          isRequired: false,
-          onImageSelected: (File? file) async {
+          isRequired: true,
+          externalImageUrl: _fetchedImageData,
+          onImageSelected: (file) {
             if (file != null) {
-              setState(() async {
-                customerPhoto = file;
-                customerPhotoByteData = await file.readAsBytes().then(
-                  (bytes) => base64Encode(bytes),
-                );
+              debugPrint("Selected image path: ${file.path}");
+              setState(() {
+                _selectedImage = file;
+                _hasFormDataChanges = true;
+              });
+              // Upload selfie to server
+
+              _uploadSelfie();
+            } else {
+              setState(() {
+                _selectedImage = null;
+                _uploadedImgId = null;
+                _fetchedImageData = null;
               });
             }
           },
-          externalImageUrl: customerPhotoByteData,
-          isDisabled: false,
         ),
-        getHeight(15),
 
-        
+        getHeight(15),
       ],
     );
   }
