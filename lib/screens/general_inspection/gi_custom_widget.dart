@@ -45,10 +45,10 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
     bool hasImage = widget.checklistItem.respType.contains('IMG');
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      padding: const EdgeInsets.all(16.0),
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
+      padding: const EdgeInsets.all(10.0),
       decoration: BoxDecoration(
-        color: const Color(0xFF4A4A5A), // Dark grey background for the card
+        color: const Color(0x4DE6F5EF), // #E6F5EF4D - 30% opacity
         borderRadius: BorderRadius.circular(8.0),
       ),
       child: Column(
@@ -106,6 +106,9 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
       child: CustomHorizontalRadioButtons(
         options: radioOptions,
         selectedValue: _selectedRadioValue,
+        activeColor: Colors.white,
+        inactiveColor: Colors.white,
+        textColor: Colors.white,
         onButtonSelected: isEditable
             ? (value) {
                 setState(() {
@@ -128,20 +131,44 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
   Widget _buildImageUploadField(bool isEditable) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
-      child: ImageUploadField(
-        label: "Add a Photo", // Fixed label as per image
-        placeholder: "Add a Photo",
-        isRequired: widget.checklistItem.isMandatory,
-        onImageSelected: isEditable
-            ? (File? file) {
-                setState(() {
-                  _imageFile = file;
-                });
-                widget.onImageChanged?.call(_imageFile);
-              }
-            : (File? file) {}, // Provide empty function if not editable
-        externalImageUrl: _imageFile != null ? _imageFile!.path : null,
-        isDisabled: !isEditable,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Label with asterisk
+          Row(
+            children: [
+              const Text(
+                "Add a Photo",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                ),
+              ),
+              if (widget.checklistItem.isMandatory)
+                const Text(
+                  ' *',
+                  style: TextStyle(color: AppColors.redColor),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Image upload field
+          ImageUploadField(
+            placeholder: "Add a Photo",
+            isRequired: widget.checklistItem.isMandatory,
+            onImageSelected: isEditable
+                ? (File? file) {
+                    setState(() {
+                      _imageFile = file;
+                    });
+                    widget.onImageChanged?.call(_imageFile);
+                  }
+                : (File? file) {}, // Provide empty function if not editable
+            externalImageUrl: _imageFile != null ? _imageFile!.path : null,
+            isDisabled: !isEditable,
+          ),
+        ],
       ),
     );
   }

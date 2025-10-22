@@ -1,25 +1,20 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
-import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
-import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
-import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
-import 'package:app/models/cm_site_model.dart';
-import 'package:app/services/asset_audit/central_data_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'gi_checklist_screen.dart';
 
 class GInspectionDetailScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -44,20 +39,13 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
   final TextEditingController _ownerController = TextEditingController();
   final TextEditingController _ownerContactController = TextEditingController();
 
-  bool _isSubmitting = false;
-
   String? _uploadedImgId;
-  bool _hasFormDataChanges = false;
   String? _fetchedImageData;
   File? _selectedImage;
-
-  late CentralAssetAuditDataService _service;
 
   @override
   void initState() {
     super.initState();
-
-    _service = ServiceLocator().centralAssetAuditDataService;
   }
 
   @override
@@ -68,6 +56,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     _ownerContactController.dispose();
     super.dispose();
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +167,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         CustomFormField(
           label: "Infra Engineer",
           initialValue: widget.siteData.infraEngineerName ?? "N/A",
-
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
@@ -223,10 +211,8 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               debugPrint("Selected image path: ${file.path}");
               setState(() {
                 _selectedImage = file;
-                _hasFormDataChanges = true;
               });
               // Upload selfie to server
-
               _uploadSelfie();
             } else {
               setState(() {
@@ -284,7 +270,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         setState(() {
           _uploadedImgId = imgId;
           print('uploadedImgId: $_uploadedImgId, $imgId');
-          _hasFormDataChanges = true;
         });
 
         // Show appropriate message based on whether it's server or local ID
@@ -303,22 +288,21 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
   }
 
   void _submitForm() {
+    // Validate selfie
     if (_selectedImage == null) {
       showCustomToast(context, "Please add a selfie");
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    // TODO: Implement form submission logic
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        _isSubmitting = false;
-      });
-      showCustomToast(context, "General inspection data saved successfully");
-      Navigator.of(context).pop();
-    });
+    // Navigate to checklist screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GIChecklistScreen(
+          siteData: widget.siteData,
+          mode: widget.mode,
+        ),
+      ),
+    );
   }
 }

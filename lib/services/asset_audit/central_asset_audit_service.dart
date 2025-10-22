@@ -95,6 +95,7 @@ class CentralAssetAuditService {
         oemId: site.oemId,
         self: site.self,
         selfId: site.selfId,
+        
         activityType: 'correctiveMaintenance',
       );
 
