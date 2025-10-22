@@ -9,6 +9,8 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/models/gen_ins_checklist_model.dart';
+import 'package:app/repositories/general_inspection_repository.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
@@ -43,9 +45,17 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
   String? _fetchedImageData;
   File? _selectedImage;
 
+  // Checklist data
+  bool _isLoadingChecklist = true;
+  String? _checklistError;
+  List<GenInsCheckListData> _checklistItems = [];
+  late GeneralInspectionRepository _repository;
+
   @override
   void initState() {
     super.initState();
+    _repository = GeneralInspectionRepository(ServiceLocator().apiService);
+    _loadChecklistData();
   }
 
   @override
@@ -287,6 +297,38 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     }
   }
 
+  Future<void> _loadChecklistData() async {
+    try {
+      setState(() {
+        _isLoadingChecklist = true;
+        _checklistError = null;
+      });
+
+      // Use default site domain ID for now (can be made configurable later)
+      final siteDomainId = 1;
+      
+      Logger.debugLog('Loading checklist data for site domain ID: $siteDomainId');
+      
+      final checklistItems = await _repository.getGenInsCheckListData(siteDomainId);
+      
+      // Sort by cl_order
+      checklistItems.sort((a, b) => a.clOrder.compareTo(b.clOrder));
+      
+      setState(() {
+        _checklistItems = checklistItems;
+        _isLoadingChecklist = false;
+      });
+      
+      Logger.debugLog('Loaded ${checklistItems.length} checklist items');
+    } catch (e) {
+      Logger.errorLog('Error loading checklist data: $e');
+      setState(() {
+        _isLoadingChecklist = false;
+        _checklistError = e.toString();
+      });
+    }
+  }
+
   void _submitForm() {
     // Validate selfie
     if (_selectedImage == null) {
@@ -294,7 +336,19 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
       return;
     }
 
-    // Navigate to checklist screen
+    // Check if checklist is still loading
+    if (_isLoadingChecklist) {
+      showCustomToast(context, "Please wait while checklist is loading");
+      return;
+    }
+
+    // Check if there was an error loading checklist
+    if (_checklistError != null) {
+      showCustomToast(context, "Error loading checklist: $_checklistError");
+      return;
+    }
+
+    // Navigate to checklist screen with pre-loaded data
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -302,6 +356,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
           siteData: widget.siteData,
           mode: widget.mode,
           visitingPersonImageId: _uploadedImgId,
+          checklistItems: _checklistItems,
         ),
       ),
     );

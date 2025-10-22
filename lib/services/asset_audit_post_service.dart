@@ -104,17 +104,18 @@ class AssetAuditPostService {
         url += 'correctiveMaintenance';
         break;
       case ActivityTypeEnum.siteVisit:
-        'api/v1/om-schedule/siteVisitLog';
+        url = 'api/v1/om-schedule/siteVisitLog';
         break;
       case ActivityTypeEnum.generalInspection:
-        'api/v1/om-schedule/genInspection';
+        url = 'api/v1/om-schedule/genInspection';
         break;
       default:
         throw Exception('Invalid activity type: $activityType');
     }
 
-    if (activityType == ActivityTypeEnum.siteVisit) {
-      url = 'api/v1/om-schedule/siteVisitLog';
+    if (activityType == ActivityTypeEnum.siteVisit || activityType == ActivityTypeEnum.generalInspection) {
+      // These endpoints don't need the status parameter
+      // URL is already set in the switch statement
     } else {
       url += '?status=${isLastPage ? 'COMPLETED' : 'IN-PROGRESS'}';
     }
