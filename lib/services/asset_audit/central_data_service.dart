@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 6;
+  static const int _databaseVersion = 7;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -81,12 +81,38 @@ class CentralAssetAuditDataService {
       )
     ''');
 
+    // General Inspection Checklist table for downloaded GI checklist data
+    await db.execute('''
+      CREATE TABLE gen_ins_checklist_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        site_code TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        giclm_id INTEGER NOT NULL,
+        site_domain_id INTEGER NOT NULL,
+        checklist_desc TEXT NOT NULL,
+        resp_type TEXT NOT NULL,
+        resp_type_value_map TEXT,
+        is_mandatory INTEGER DEFAULT 0,
+        cl_order INTEGER NOT NULL,
+        activity_type TEXT NOT NULL,
+        is_downloaded INTEGER DEFAULT 1,
+        downloaded_at TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
     await db.execute(
       'CREATE INDEX idx_raw_api_data_site_audit_sch_id ON raw_api_data(site_audit_sch_id)',
     );
 
     await db.execute(
       'CREATE INDEX idx_cm_sites_data_site_id ON cm_sites_data(site_id)',
+    );
+
+    await db.execute(
+      'CREATE INDEX idx_gen_ins_checklist_data_site_id ON gen_ins_checklist_data(site_id)',
     );
   }
 
@@ -229,6 +255,40 @@ class CentralAssetAuditDataService {
         Logger.debugLog('✅ Successfully created cm_sites_data table');
       } catch (e) {
         Logger.errorLog('❌ Error creating cm_sites_data table: $e');
+      }
+    }
+
+    if (oldVersion < 7) {
+      // For version 7, create General Inspection checklist table
+      try {
+        await db.execute('''
+          CREATE TABLE gen_ins_checklist_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            giclm_id INTEGER NOT NULL,
+            site_domain_id INTEGER NOT NULL,
+            checklist_desc TEXT NOT NULL,
+            resp_type TEXT NOT NULL,
+            resp_type_value_map TEXT,
+            is_mandatory INTEGER DEFAULT 0,
+            cl_order INTEGER NOT NULL,
+            activity_type TEXT NOT NULL,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_gen_ins_checklist_data_site_id ON gen_ins_checklist_data(site_id)',
+        );
+
+        Logger.debugLog('✅ Successfully created gen_ins_checklist_data table');
+      } catch (e) {
+        Logger.errorLog('❌ Error creating gen_ins_checklist_data table: $e');
       }
     }
   }
@@ -516,25 +576,81 @@ class CentralAssetAuditDataService {
       final db = await database;
       final now = DateTime.now().toIso8601String();
 
-      // Save each checklist item
-      for (final item in checklistData) {
-        await db.insert('gen_ins_checklist_data', {
-          'site_id': siteId,
-          'site_code': siteCode,
-          'site_name': siteName,
-          'giclm_id': item.giclmId,
-          'site_domain_id': item.siteDomainId,
-          'checklist_desc': item.checklistDesc,
-          'resp_type': item.respType,
-          'resp_type_value_map': item.respTypeValueMap?.toJson().toString(),
-          'is_mandatory': item.isMandatory ? 1 : 0,
-          'cl_order': item.clOrder,
-          'activity_type': activityType,
-          'is_downloaded': 1,
-          'downloaded_at': now,
-          'created_at': now,
-          'updated_at': now,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      // Check if table exists, if not create it
+      await _ensureGenInsChecklistTableExists(db);
+
+      // Clear existing data for this site to avoid conflicts
+      await db.delete(
+        'gen_ins_checklist_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+      );
+      Logger.debugLog('🗑️ Cleared existing checklist data for site_id: $siteId');
+
+      // Save each checklist item in a transaction
+      Logger.debugLog('📝 Saving ${checklistData.length} checklist items to database');
+      
+      await db.transaction((txn) async {
+        for (int i = 0; i < checklistData.length; i++) {
+          final item = checklistData[i];
+          try {
+            Logger.debugLog('📝 Saving item ${i + 1}/${checklistData.length}: ${item.checklistDesc} (giclm_id: ${item.giclmId})');
+            
+            String? respTypeValueMapJson;
+            if (item.respTypeValueMap != null) {
+              try {
+                // Try a simpler approach - just convert the value to string
+                respTypeValueMapJson = item.respTypeValueMap!.value;
+                Logger.debugLog('📝 resp_type_value_map (value only): $respTypeValueMapJson');
+              } catch (jsonError) {
+                Logger.errorLog('❌ JSON serialization error for item ${item.checklistDesc}: $jsonError');
+                respTypeValueMapJson = null;
+              }
+            } else {
+              Logger.debugLog('📝 resp_type_value_map: null');
+            }
+            
+            final insertData = {
+              'site_id': siteId,
+              'site_code': siteCode,
+              'site_name': siteName,
+              'giclm_id': item.giclmId,
+              'site_domain_id': item.siteDomainId,
+              'checklist_desc': item.checklistDesc,
+              'resp_type': item.respType,
+              'resp_type_value_map': respTypeValueMapJson,
+              'is_mandatory': item.isMandatory ? 1 : 0,
+              'cl_order': item.clOrder,
+              'activity_type': activityType,
+              'is_downloaded': 1,
+              'downloaded_at': now,
+              'created_at': now,
+              'updated_at': now,
+            };
+            
+            Logger.debugLog('📝 Insert data for ${item.checklistDesc}: $insertData');
+            
+            final result = await txn.insert('gen_ins_checklist_data', insertData, conflictAlgorithm: ConflictAlgorithm.replace);
+            
+            Logger.debugLog('✅ Successfully saved item ${i + 1}: ${item.checklistDesc} (rowId: $result)');
+          } catch (itemError) {
+            Logger.errorLog('❌ Error saving item ${i + 1} (${item.checklistDesc}): $itemError');
+            // Continue with other items even if one fails
+          }
+        }
+      });
+
+      // Verify what was actually saved
+      final savedItems = await db.query(
+        'gen_ins_checklist_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        orderBy: 'cl_order ASC',
+      );
+      
+      Logger.debugLog('🔍 Verification: ${savedItems.length} items saved to database for site_id: $siteId');
+      for (final savedItem in savedItems) {
+        Logger.debugLog('🔍 Saved: ${savedItem['checklist_desc']} (giclm_id: ${savedItem['giclm_id']}, cl_order: ${savedItem['cl_order']})');
       }
 
       Logger.debugLog(
@@ -544,6 +660,54 @@ class CentralAssetAuditDataService {
     } catch (e) {
       Logger.errorLog('❌ Error saving General Inspection checklist data: $e');
       return false;
+    }
+  }
+
+  /// Ensure the gen_ins_checklist_data table exists
+  Future<void> _ensureGenInsChecklistTableExists(Database db) async {
+    try {
+      // Check if table exists
+      final result = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='gen_ins_checklist_data'"
+      );
+      
+      if (result.isEmpty) {
+        Logger.debugLog('Creating gen_ins_checklist_data table...');
+        
+        // Create the table
+        await db.execute('''
+          CREATE TABLE gen_ins_checklist_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            giclm_id INTEGER NOT NULL,
+            site_domain_id INTEGER NOT NULL,
+            checklist_desc TEXT NOT NULL,
+            resp_type TEXT NOT NULL,
+            resp_type_value_map TEXT,
+            is_mandatory INTEGER DEFAULT 0,
+            cl_order INTEGER NOT NULL,
+            activity_type TEXT NOT NULL,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        // Create index
+        await db.execute(
+          'CREATE INDEX idx_gen_ins_checklist_data_site_id ON gen_ins_checklist_data(site_id)',
+        );
+
+        Logger.debugLog('✅ gen_ins_checklist_data table created successfully');
+      } else {
+        Logger.debugLog('✅ gen_ins_checklist_data table already exists');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error ensuring gen_ins_checklist_data table exists: $e');
+      rethrow;
     }
   }
 
@@ -565,6 +729,72 @@ class CentralAssetAuditDataService {
     } catch (e) {
       Logger.errorLog('❌ Error getting CM site data: $e');
       return null;
+    }
+  }
+
+  /// Get General Inspection checklist data from SQLite
+  Future<List<GenInsCheckListData>> getGIChecklistData(int siteId) async {
+    try {
+      final db = await database;
+      
+      // Ensure table exists before querying
+      await _ensureGenInsChecklistTableExists(db);
+      
+      final List<Map<String, dynamic>> maps = await db.query(
+        'gen_ins_checklist_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        orderBy: 'cl_order ASC',
+      );
+
+      final List<GenInsCheckListData> checklistItems = [];
+      for (final map in maps) {
+        try {
+          final item = GenInsCheckListData.fromJson({
+            'giclm_id': map['giclm_id'],
+            'site_domain_id': map['site_domain_id'],
+            'checklist_desc': map['checklist_desc'],
+            'resp_type': map['resp_type'],
+            'resp_type_value_map': map['resp_type_value_map'] != null 
+                ? jsonDecode(map['resp_type_value_map'])
+                : null,
+            'is_mandatory': map['is_mandatory'] == 1,
+            'cl_order': map['cl_order'],
+          });
+          checklistItems.add(item);
+        } catch (e) {
+          Logger.errorLog('❌ Error parsing GI checklist item: $e');
+          continue;
+        }
+      }
+
+      Logger.debugLog('✅ Retrieved ${checklistItems.length} GI checklist items from SQLite');
+      return checklistItems;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting GI checklist data: $e');
+      return [];
+    }
+  }
+
+  /// Check if GI checklist is downloaded for a site
+  Future<bool> isGIChecklistDownloaded(int siteId) async {
+    try {
+      final db = await database;
+      
+      // Ensure table exists before querying
+      await _ensureGenInsChecklistTableExists(db);
+      
+      final List<Map<String, dynamic>> maps = await db.query(
+        'gen_ins_checklist_data',
+        where: 'site_id = ? AND is_downloaded = 1',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      return maps.isNotEmpty;
+    } catch (e) {
+      Logger.errorLog('❌ Error checking if GI checklist is downloaded: $e');
+      return false;
     }
   }
 

@@ -20,9 +20,6 @@ import '../../constants/app_images.dart';
 
 
 
-import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-// Import your dependencies here
 
 class AllSitesScreen extends StatefulWidget {
   final String ActivityType;
@@ -194,9 +191,23 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     }
 
     try {
-      final isDownloaded = await ServiceLocator().centralAssetAuditDataService
+      // Always check CM site data first
+      final cmDownloaded = await ServiceLocator().centralAssetAuditDataService
           .isCMSiteDownloaded(site.siteId);
-      return isDownloaded;
+      
+      if (!cmDownloaded) {
+        return false;
+      }
+
+      // For GI sites, also check if checklist data is downloaded
+      if (widget.ActivityType == 'GI') {
+        final giDownloaded = await ServiceLocator().centralAssetAuditDataService
+            .isGIChecklistDownloaded(site.siteId);
+        return giDownloaded;
+      } else {
+        // For other activity types, CM site data is sufficient
+        return cmDownloaded;
+      }
     } catch (e) {
       return false;
     }
@@ -207,9 +218,27 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       LoaderWidget.showLoader(context);
 
       final service = ServiceLocator().centralAssetAuditService;
-      final isDownloaded = await service.downloadCMSiteData(site: site);
+      bool isDownloaded = false;
+
+      // Always download CM site data first
+      isDownloaded = await service.downloadCMSiteData(site: site);
 
       if (isDownloaded) {
+        // If CM site data downloaded successfully, also download GI checklist data for GI sites
+        if (widget.ActivityType == 'GI') {
+          final giDownloaded = await service.downloadGIChecklist(
+            siteId: site.siteId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            siteDomainId: 1, // Default site domain ID
+          );
+          
+          if (!giDownloaded) {
+            print('Warning: CM site data downloaded but GI checklist failed');
+            // Still consider it successful since CM data was downloaded
+          }
+        }
+
         setState(() {
           _downloadedSiteIds.add(site.siteId);
         });

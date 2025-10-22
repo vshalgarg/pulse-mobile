@@ -304,27 +304,75 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         _checklistError = null;
       });
 
-      // Use default site domain ID for now (can be made configurable later)
-      final siteDomainId = 1;
+      Logger.debugLog('Loading checklist data for site ID: ${widget.siteData.siteId}');
       
-      Logger.debugLog('Loading checklist data for site domain ID: $siteDomainId');
+      // First, try to get checklist data from local database
+      try {
+        final localChecklistData = await ServiceLocator().centralAssetAuditDataService
+            .getGIChecklistData(widget.siteData.siteId);
+        
+        if (localChecklistData.isNotEmpty) {
+          // Use local data if available
+          Logger.debugLog('Using local checklist data: ${localChecklistData.length} items');
+          setState(() {
+            _checklistItems = localChecklistData;
+            _isLoadingChecklist = false;
+          });
+          return;
+        } else {
+          Logger.debugLog('No local checklist data found for site ID: ${widget.siteData.siteId}');
+        }
+      } catch (localError) {
+        Logger.debugLog('Local data retrieval failed: $localError');
+      }
       
-      final checklistItems = await _repository.getGenInsCheckListData(siteDomainId);
-      
-      // Sort by cl_order
-      checklistItems.sort((a, b) => a.clOrder.compareTo(b.clOrder));
-      
-      setState(() {
-        _checklistItems = checklistItems;
-        _isLoadingChecklist = false;
-      });
-      
-      Logger.debugLog('Loaded ${checklistItems.length} checklist items');
+      // If no local data, try to fetch from API
+      Logger.debugLog('No local data found, fetching from API...');
+      try {
+        final siteDomainId = 1; // Default site domain ID
+        final checklistItems = await _repository.getGenInsCheckListData(siteDomainId);
+        
+        // Sort by cl_order
+        checklistItems.sort((a, b) => a.clOrder.compareTo(b.clOrder));
+        
+        setState(() {
+          _checklistItems = checklistItems;
+          _isLoadingChecklist = false;
+        });
+        
+        Logger.debugLog('Loaded ${checklistItems.length} checklist items from API');
+      } catch (apiError) {
+        Logger.errorLog('API call failed: $apiError');
+        
+        // If API failed, try to get any available local data as fallback
+        try {
+          final fallbackData = await ServiceLocator().centralAssetAuditDataService
+              .getGIChecklistData(widget.siteData.siteId);
+          
+          if (fallbackData.isNotEmpty) {
+            Logger.debugLog('Using fallback local data: ${fallbackData.length} items');
+            setState(() {
+              _checklistItems = fallbackData;
+              _isLoadingChecklist = false;
+              _checklistError = null; // Clear error since we have local data
+            });
+            return;
+          }
+        } catch (fallbackError) {
+          Logger.errorLog('Fallback local data also failed: $fallbackError');
+        }
+        
+        // If both API and local data failed, show error
+        setState(() {
+          _isLoadingChecklist = false;
+          _checklistError = 'Failed to load checklist data. Please check your internet connection and try downloading the data first.';
+        });
+      }
     } catch (e) {
-      Logger.errorLog('Error loading checklist data: $e');
+      Logger.errorLog('Unexpected error loading checklist data: $e');
       setState(() {
         _isLoadingChecklist = false;
-        _checklistError = e.toString();
+        _checklistError = 'Unexpected error: ${e.toString()}';
       });
     }
   }
@@ -344,7 +392,33 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
     // Check if there was an error loading checklist
     if (_checklistError != null) {
-      showCustomToast(context, "Error loading checklist: $_checklistError");
+      // Show error dialog with retry option
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Checklist Data Error'),
+          content: Text(_checklistError!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _loadChecklistData(); // Retry loading
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Check if we have checklist items
+    if (_checklistItems.isEmpty) {
+      showCustomToast(context, "No checklist data available. Please try downloading the data first.");
       return;
     }
 

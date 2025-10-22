@@ -2,9 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
-import 'package:app/models/cm_site_model.dart';
-import 'package:app/models/gen_ins_checklist_model.dart';
-import 'package:app/models/gi_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import '../../utils/logger.dart';
@@ -108,21 +105,23 @@ class CentralAssetAuditService {
   }
 
   /// Download General Inspection checklist data and save to SQLite
-  Future<bool> downloadGILIstData({
-    required GISite site,
+  Future<bool> downloadGIChecklist({
+    required int siteId,
+    required String siteCode,
+    required String siteName,
     required int siteDomainId,
   }) async {
     try {
-      Logger.debugLog('Starting to download General Inspection checklist data for site: ${site.siteName}');
+      Logger.debugLog('Starting to download General Inspection checklist data for site: $siteName');
       
       // Get checklist data from API
       final checklistData = await ServiceLocator().generalInspectionRepository.getGenInsCheckListData(siteDomainId);
       
       // Save to SQLite using the central data service
       bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveGenInsCheckListData(
-        siteId: site.siteId,
-        siteCode: site.siteCode,
-        siteName: site.siteName,
+        siteId: siteId,
+        siteCode: siteCode,
+        siteName: siteName,
         checklistData: checklistData,
         activityType: 'generalInspection',
       );
