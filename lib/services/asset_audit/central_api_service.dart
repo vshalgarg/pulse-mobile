@@ -19,9 +19,6 @@ class CentralApiService {
     required ActivityTypeEnum activityType,
   }) async {
     final apiData = activityType == ActivityTypeEnum.assetAudit
-  
-
-
         ? await fetchAssetAuditData(
             siteType: siteType,
             auditSchId: auditSchId,
@@ -39,9 +36,16 @@ class CentralApiService {
             auditSchId: auditSchId,
             siteAuditSchId: siteAuditSchId,
           )
-
-         : activityType == ActivityTypeEnum.correctiveMaintenance
-        ? await CMRepository(_apiService).getCmTicketData(int.parse(siteAuditSchId))
+        : activityType == ActivityTypeEnum.siteVisit
+        ? await fetchSiteVisitData(
+            siteType: siteType,
+            auditSchId: auditSchId,
+            siteAuditSchId: siteAuditSchId,
+          )
+        : activityType == ActivityTypeEnum.correctiveMaintenance
+        ? await CMRepository(
+            _apiService,
+          ).getCmTicketData(int.parse(siteAuditSchId))
         : null;
     return apiData;
   }
@@ -144,13 +148,12 @@ class CentralApiService {
       Logger.debugLog('📄 Starting PDF download for ticket: $activityType');
 
       final reportPath = activityType == ActivityTypeEnum.preventiveMaintenance
-          ? 'OnM/Preventive_Maintenance.rptdesign' 
-          : activityType == ActivityTypeEnum.assetAudit 
-          ? 'OnM/Asset_Audit.rptdesign' 
-          : activityType == ActivityTypeEnum.correctiveMaintenance 
-          ? 'OnM/Corrective_Maintenance.rptdesign' 
+          ? 'OnM/Preventive_Maintenance.rptdesign'
+          : activityType == ActivityTypeEnum.assetAudit
+          ? 'OnM/Asset_Audit.rptdesign'
+          : activityType == ActivityTypeEnum.correctiveMaintenance
+          ? 'OnM/Corrective_Maintenance.rptdesign'
           : 'OnM/Corrective_Maintenance.rptdesign';
-         
 
       print('Report Path: $reportPath');
 
@@ -174,7 +177,7 @@ class CentralApiService {
       Logger.debugLog('Report URL: $reportUrl');
 
       final fileName = activityType == ActivityTypeEnum.preventiveMaintenance
-          ? 'PM-Report-$ticketId' 
+          ? 'PM-Report-$ticketId'
           : activityType == ActivityTypeEnum.correctiveMaintenance
           ? 'CM-Report-$ticketId'
           : 'AA-Report-$ticketId';
@@ -195,6 +198,40 @@ class CentralApiService {
       }
     } catch (e) {
       Logger.errorLog('❌ Error downloading PDF: $e');
+      return null;
+    }
+  }
+
+  // fetch site visit data
+  Future<Map<String, dynamic>?> fetchSiteVisitData({
+    required String siteType,
+    required String auditSchId,
+    required String siteAuditSchId,
+  }) async {
+    try {
+      Logger.debugLog('🌐 Fetching complete site visit data from API');
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/om-schedule/siteVisitLog/$siteAuditSchId',
+      );
+
+      if (response.isSuccess && response.data != null) {
+        final Map<String, dynamic> parsedData =
+            response.data! as Map<String, dynamic>;
+
+        Logger.debugLog(
+          '🌐 Site Visit data fetched successfully: ${response.data}',
+        );
+
+        print("parsedData: site visit log data ${parsedData}");
+
+        return parsedData;
+      } else {
+        Logger.errorLog('❌ Failed to fetch ER data: ${response.errorMessage}');
+        return null;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error fetching Site Visit data: $e');
       return null;
     }
   }

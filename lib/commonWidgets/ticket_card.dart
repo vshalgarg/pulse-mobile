@@ -96,25 +96,27 @@ class TicketCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor ?? _getStatusColor(statusText),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      statusText,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontFamily: fontFamilyMontserrat,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
+                  statusText != null && statusText.isNotEmpty
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 4,
+                            horizontal: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor ?? _getStatusColor(statusText),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            statusText,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontFamily: fontFamilyMontserrat,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ],
               ),
               const SizedBox(height: 4),
@@ -162,14 +164,17 @@ class TicketCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       company,
-                      style: const TextStyle(fontSize: 14, color: AppColors.black),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: AppColors.black,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   const SizedBox(width: 8),
-                  
+
                   // Add document icon for completed/closed tickets
-                  if (statusText.toLowerCase() == 'completed' || 
+                  if (statusText.toLowerCase() == 'completed' ||
                       statusText.toLowerCase() == 'closed')
                     IconButton(
                       icon: const Icon(
@@ -180,7 +185,7 @@ class TicketCard extends StatelessWidget {
                       onPressed: onPdfDownloadTap,
                       tooltip: 'Download PDF Report',
                     ),
-                  
+
                   // Keep existing download/check icon
                   FutureBuilder<bool>(
                     future: isDownloadedFunc(ticket),
@@ -207,6 +212,7 @@ class TicketCard extends StatelessWidget {
               ),
 
               const SizedBox(height: 4),
+
               const Divider(height: 0.5, color: AppColors.color555555),
               const SizedBox(height: 4),
 
@@ -231,7 +237,9 @@ class TicketCard extends StatelessWidget {
                   Expanded(
                     flex: 1,
                     child: Text(
-                      "Due : ${Utils.formatDataForTicketCard(dueDate)}",
+                      dueDate != null && dueDate.isNotEmpty
+                          ? "Due : ${Utils.formatDataForTicketCard(dueDate)}"
+                          : "",
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w400,

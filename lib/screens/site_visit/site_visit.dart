@@ -40,9 +40,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
   late CentralAssetAuditService _service;
   bool _isSubmitting = false;
-  String? _selfieImagePath;
-
-  String? customerPhotoByteData;
   String? _uploadedImgId;
   bool _hasFormDataChanges = false;
   String? _fetchedImageData;
@@ -52,13 +49,109 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   void initState() {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
+
     _initializeFormData();
   }
 
   void _initializeFormData() {
     // Initialize form fields with site data
+    _purposeController.text =
+        widget.siteData.purposeOfVisit ??
+        ""; // Use existing purpose of visit if available
 
-    _purposeController.text = ""; // Default value as shown in image
+    // Initialize infra engineer fields with site data
+    _infraEngineerController.text = widget.siteData.infraEngineerName ?? "";
+    _infraEngineerContactController.text =
+        widget.siteData.infraEngineerPhone ?? "";
+    _ownerController.text = widget.siteData.ownerName ?? "";
+    _ownerContactController.text = widget.siteData.ownerPhone ?? "";
+
+    // Handle existing image if available
+    print("🔍 visitingPersonImageId: ${widget.siteData.visitingPersonImageId}");
+    print(
+      "🔍 visitingPersonImageId type: ${widget.siteData.visitingPersonImageId.runtimeType}",
+    );
+
+    if (widget.siteData.visitingPersonImageId != null &&
+        widget.siteData.visitingPersonImageId!.isNotEmpty) {
+      _uploadedImgId = widget.siteData.visitingPersonImageId;
+      print(
+        "🔍 Loading image with ID: ${widget.siteData.visitingPersonImageId}",
+      );
+      // Load the actual image data
+      _loadImage(widget.siteData.visitingPersonImageId!);
+    } else {
+      print("🔍 No visitingPersonImageId found or empty");
+      _uploadedImgId = null; // Ensure it's null when no image
+    }
+  }
+
+  Future<void> _loadImage(String imageId) async {
+    try {
+      print("🔍 _loadImage called with imageId: $imageId");
+      print("🔍 _loadImage imageId type: ${imageId.runtimeType}");
+
+      String? uniqueId;
+      
+      // Check if this is already a unique ID (offline mode) or a server ID (online mode)
+      if (imageId.contains("LOCAL_IMAGE_ID")) {
+        // This is already a unique ID from offline mode
+        print("🔍 Detected unique ID (offline mode): $imageId");
+        uniqueId = imageId;
+      } else {
+        // This is a server ID, try to download from server (online mode)
+        print("🔍 Detected server ID (online mode): $imageId");
+        uniqueId = await ServiceLocator().imageUploadService
+            .downloadImageUsingServerId(
+              imageId,
+              ActivityTypeEnum.siteVisit,
+              widget.siteData.siteId.toString(),
+            );
+        print("🔍 Download result - uniqueId: $uniqueId");
+      }
+
+      if (uniqueId != null) {
+        // Now get the image data using the unique ID
+        final imageData = await _service.getImageAsDataUrl(uniqueId);
+
+        print(
+          "🔍 Image loading result: ${imageData != null ? 'SUCCESS' : 'FAILED'}",
+        );
+        print("🔍 Image data length: ${imageData?.length ?? 0}");
+
+        if (imageData != null) {
+          Logger.debugLog(
+            '✅ Image data received: ${imageData.length} characters',
+          );
+          Logger.debugLog(
+            '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
+          );
+          setState(() {
+            _fetchedImageData = imageData;
+          });
+          Logger.debugLog('✅ Image loaded successfully and state updated');
+          print("✅ Image loaded successfully and state updated");
+        } else {
+          Logger.errorLog(
+            '❌ Failed to load image data with uniqueId $uniqueId - imageData is null',
+          );
+          print(
+            "❌ Failed to load image data with uniqueId $uniqueId - imageData is null",
+          );
+        }
+      } else {
+        Logger.errorLog(
+          '❌ Failed to get unique ID for image: $imageId',
+        );
+        print(
+          "❌ Failed to get unique ID for image: $imageId",
+        );
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading image: $e');
+      Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
+      print("❌ Error loading image: $e");
+    }
   }
 
   @override
@@ -191,13 +284,18 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       LoaderWidget.showLoader(context);
 
       final requestData = {
-        "svlId": 0,
+        "svlId":
+            widget.siteData.siteVisitLogId != null &&
+                widget.siteData.siteVisitLogId!.isNotEmpty
+            ? int.tryParse(widget.siteData.siteVisitLogId!) ?? 0
+            : 0,
         "siteId": widget.siteData.siteId,
         "visitingPersonName": "",
         "visitingPersonImageId": _uploadedImgId != null
-            ? (_uploadedImgId!.contains("LOCAL_IMAGE_ID") 
-                ? _uploadedImgId!  // Send local ID as string for offline mode
-                : (int.tryParse(_uploadedImgId!) ?? 0))  // Send server ID as int for online mode
+            ? (_uploadedImgId!.contains("LOCAL_IMAGE_ID")
+                  ? _uploadedImgId! // Send local ID as string for offline mode
+                  : (int.tryParse(_uploadedImgId!) ??
+                        0)) // Send server ID as int for online mode
             : 0,
         "visitDate":
             "${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}",
@@ -275,18 +373,18 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Infra Engineer
         CustomFormField(
           label: "Infra Engineer",
-          initialValue: widget.siteData.infraEngineerName ?? "N/A",
+          controller: _infraEngineerController,
           isRequired: false,
-          isEditable: true,
+          isEditable: false,
         ),
         const SizedBox(height: 15),
 
         // Infra Engineer Contact No.
         CustomFormField(
           label: "Infra Engineer Contact No.",
-          initialValue: widget.siteData.infraEngineerPhone ?? "N/A",
+          controller: _infraEngineerContactController,
           isRequired: false,
-          isEditable: true,
+          isEditable: false,
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 15),
@@ -294,18 +392,18 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Owner
         CustomFormField(
           label: "Owner",
-          initialValue: widget.siteData.ownerName ?? "N/A",
+          controller: _ownerController,
           isRequired: false,
-          isEditable: true,
+          isEditable: false,
         ),
         const SizedBox(height: 15),
 
         // Owner Contact No.
         CustomFormField(
           label: "Owner Contact No.",
-          initialValue: widget.siteData.ownerPhone ?? "N/A",
+          controller: _ownerContactController,
           isRequired: false,
-          isEditable: true,
+          isEditable: false,
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 15),
@@ -320,28 +418,38 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         getHeight(20),
 
         // Add a Selfie Section
-        ImageUploadField(
-          label: "Add a Selfie",
-          placeholder: "Selfie",
-          isRequired: true,
-          externalImageUrl: _fetchedImageData,
-          onImageSelected: (file) {
-            if (file != null) {
-              debugPrint("Selected image path: ${file.path}");
-              setState(() {
-                _selectedImage = file;
-                _hasFormDataChanges = true;
-              });
-              // Upload selfie to server
+        Builder(
+          builder: (context) {
+            print(
+              "🔍 Building ImageUploadField - _fetchedImageData: ${_fetchedImageData != null ? 'HAS_DATA' : 'NULL'}",
+            );
+            print(
+              "🔍 Building ImageUploadField - _fetchedImageData length: ${_fetchedImageData?.length ?? 0}",
+            );
+            return ImageUploadField(
+              label: "Add a Selfie",
+              placeholder: "Selfie",
+              isRequired: true,
+              externalImageUrl: _fetchedImageData,
+              onImageSelected: (file) {
+                if (file != null) {
+                  debugPrint("Selected image path: ${file.path}");
+                  setState(() {
+                    _selectedImage = file;
+                    _hasFormDataChanges = true;
+                  });
+                  // Upload selfie to server
 
-              _uploadSelfie();
-            } else {
-              setState(() {
-                _selectedImage = null;
-                _uploadedImgId = null;
-                _fetchedImageData = null;
-              });
-            }
+                  _uploadSelfie();
+                } else {
+                  setState(() {
+                    _selectedImage = null;
+                    _uploadedImgId = null;
+                    _fetchedImageData = null;
+                  });
+                }
+              },
+            );
           },
         ),
 

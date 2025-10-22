@@ -5,6 +5,9 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
+import 'package:app/models/all_site_model.dart';
+import 'package:app/screens/site_visit/all_sites.dart';
+import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/logger.dart';
@@ -47,6 +50,10 @@ class _TicketScreenState extends State<TicketScreen> {
   @override
   void initState() {
     super.initState();
+
+    print("widget.auditName: ${widget.auditName}");
+    print("widget.status: ${widget.status}");
+
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
     _loadTickets();
@@ -64,6 +71,9 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _loadTickets() {
+    print(
+      "loading tickets for ${_currentActivityType.value} and ${_currentTicketType}",
+    );
     context.read<TicketCubit>().getTickets(
       activityType: _currentActivityType.value,
       ticketType: _currentTicketType,
@@ -105,6 +115,10 @@ class _TicketScreenState extends State<TicketScreen> {
         return ActivityTypeEnum.preventiveMaintenance;
       case "ER":
         return ActivityTypeEnum.energyReading;
+      case "SV":
+        return ActivityTypeEnum.siteVisit;
+      case "GI":
+        return ActivityTypeEnum.generalInspection;
       default:
         return ActivityTypeEnum.correctiveMaintenance;
     }
@@ -152,9 +166,7 @@ class _TicketScreenState extends State<TicketScreen> {
       LoaderWidget.showLoader(context);
       // Determine site type - check if it's solar or telecom
       final siteType = ticket.siteDomainName ?? 'Solar';
-      Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
 
-      // Use ServiceLocator - no initialization check needed!
       final service = ServiceLocator().centralAssetAuditService;
       final isAvailable = await service.getDataFromApiAndSaveToSqlite(
         siteType: siteType,
@@ -178,8 +190,8 @@ class _TicketScreenState extends State<TicketScreen> {
       final data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.ticketSchId.toString(),
       );
-  
-  print("data on tickety: $data");
+
+      print("data: site visit log data ${data?.apiData}");
 
       if (data == null) {
         Toastbar.showErrorToastbar("Failed to load data", context);
@@ -204,6 +216,43 @@ class _TicketScreenState extends State<TicketScreen> {
             ),
           ),
         );
+      } else if (_currentActivityType == ActivityTypeEnum.siteVisit) {
+        // Create site data from API response with correct field mapping
+        final siteData = AllSiteModel(
+          siteId: data.apiData['siteId'] ?? ticket.ticketSchId,
+          entityId: 0, // Default value
+          siteCode: data.apiData['siteCode'] ?? ticket.siteCode ?? '',
+          siteName: data.apiData['siteName'] ?? ticket.cluster ?? '',
+          clusterDistrictId: 0, // Default value
+          clusterDistrictName: data.apiData['cluster'] ?? ticket.cluster ?? '',
+          circleStateId: 0, // Default value
+          circleStateName: data.apiData['circle'] ?? ticket.operator ?? '',
+          clientId: null,
+          clientName: data.apiData['client'] ?? ticket.operator,
+          svlId: data.apiData['svlId']?.toString(),
+          oem: null,
+          oemId: null,
+          self: '',
+          selfId: 0,
+          siteDomainName: ticket.siteDomainName,
+          distanceKM: null,
+          infraEngineerName: data.apiData['infraDistrictEngineerName'],
+          infraEngineerPhone: data.apiData['infraDistrictEngineerContactNo'],
+          ownerName: data.apiData['ownerName'],
+          ownerPhone: data.apiData['ownerContactNo'],
+          siteVisitLogId: data.apiData['svlId']?.toString(),
+          siteVisitLogDate: data.apiData['visitDate']?.toString(),
+          purposeOfVisit: data.apiData['purposeOfVisit']?.toString(),
+          visitingPersonImageId: data.apiData['visitingPersonImageId']
+              ?.toString(),
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SiteVisitScreen(siteData: siteData),
+          ),
+        );
       } else if (_currentActivityType ==
           ActivityTypeEnum.correctiveMaintenance) {
         pushPage(
@@ -212,7 +261,7 @@ class _TicketScreenState extends State<TicketScreen> {
             mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
                 ? CMScreenModeEnum.view
                 : CMScreenModeEnum.edit,
-             preloadedSiteData: data.apiData,
+            preloadedSiteData: data.apiData,
           ),
         );
       } else {
@@ -235,7 +284,7 @@ class _TicketScreenState extends State<TicketScreen> {
 
     // Check if ticket status is completed, closed, or missed deadline
     final status = ticket.status?.toLowerCase() ?? '';
-    if ( status == 'missed deadline') {
+    if (status == 'missed deadline') {
       Toastbar.showInfoToastbar(
         "Ticket can't be opened. Please download PDF.",
         context,
@@ -297,6 +346,9 @@ class _TicketScreenState extends State<TicketScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: _buildCustomAppBar(),
+      floatingActionButton: _shouldShowFloatingButton()
+          ? _buildFloatingActionButton()
+          : null,
       body: Stack(
         children: [
           // Background image that fully covers the screen
@@ -388,7 +440,11 @@ class _TicketScreenState extends State<TicketScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "${widget.auditName} - ${widget.status}",
+                  widget.auditName == "SV"
+                      ? "Site Access Logs"
+                      : widget.auditName == "GI"
+                      ? "General Inspection Logs"
+                      : "${widget.auditName} - ${widget.status}",
                   style: const TextStyle(
                     color: AppColors.white,
                     fontSize: 20,
@@ -417,7 +473,7 @@ class _TicketScreenState extends State<TicketScreen> {
             ? ticket.status!
             : _getStatusFromTicketType(_currentTicketType);
 
-        // Debug logging removed to prevent loop
+        print("statusText: $statusText for ticket: ${ticket.status}");
 
         return Padding(
           padding: EdgeInsets.only(
@@ -630,5 +686,62 @@ class _TicketScreenState extends State<TicketScreen> {
     } finally {
       LoaderWidget.hideLoader();
     }
+  }
+
+  bool _shouldShowFloatingButton() {
+    return _currentActivityType == ActivityTypeEnum.siteVisit ||
+        _currentActivityType == ActivityTypeEnum.generalInspection;
+  }
+
+  Widget _buildFloatingActionButton() {
+    return FloatingActionButton(
+      onPressed: _onFloatingButtonPressed,
+      backgroundColor: AppColors.primaryGreen,
+      child: const Icon(Icons.add, color: Colors.white, size: 28),
+    );
+  }
+
+  void _onFloatingButtonPressed() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            AllSitesScreen(ActivityType: _currentActivityType.value),
+      ),
+    );
+  }
+
+  void _showAddTicketDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Add New ${_currentActivityType == ActivityTypeEnum.siteVisit ? "Site Visit" : "General Inspection"}',
+          ),
+          content: Text(
+            'This will create a new ${_currentActivityType == ActivityTypeEnum.siteVisit ? "Site Visit" : "General Inspection"} ticket.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Add your navigation logic here
+                // For example, navigate to a form screen
+                Toastbar.showSuccessToastbar(
+                  'Create new ticket functionality',
+                  context,
+                );
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

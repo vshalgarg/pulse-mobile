@@ -2,6 +2,7 @@ import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/all_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -17,6 +18,7 @@ import '../routes/routes.dart';
 import '../services/location_service.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
+import 'site_visit/site_visit.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key});
@@ -134,6 +136,41 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               siteAuditSchId: ticket.siteAuditSchId,
               siteId: ticket.siteAuditSchId,
             ),
+          ),
+        );
+      } else if (ticket.activityType == ActivityTypeEnum.siteVisit) {
+        // Create site data from API response with correct field mapping
+        final siteData = AllSiteModel(
+          siteId: data.apiData['siteId'] ?? int.tryParse(ticket.siteAuditSchId) ?? 0,
+          entityId: 0, // Default value
+          siteCode: data.apiData['siteCode'] ?? ticket.siteCode,
+          siteName: data.apiData['siteName'] ?? ticket.cluster,
+          clusterDistrictId: 0, // Default value
+          clusterDistrictName: data.apiData['cluster'] ?? ticket.cluster,
+          circleStateId: 0, // Default value
+          circleStateName: data.apiData['circle'] ?? ticket.operator,
+          clientId: null,
+          clientName: data.apiData['client'] ?? ticket.operator,
+          oem: null,
+          oemId: null,
+          self: '',
+          selfId: 0,
+          siteDomainName: ticket.siteType,
+          distanceKM: null,
+          infraEngineerName: data.apiData['infraDistrictEngineerName'],
+          infraEngineerPhone: data.apiData['infraDistrictEngineerContactNo'],
+          ownerName: data.apiData['ownerName'],
+          ownerPhone: data.apiData['ownerContactNo'],
+          siteVisitLogId: data.apiData['svlId']?.toString(),
+          siteVisitLogDate: data.apiData['visitDate']?.toString(),
+          purposeOfVisit: data.apiData['purposeOfVisit']?.toString(),
+          visitingPersonImageId: data.apiData['visitingPersonImageId']?.toString(),
+        );
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SiteVisitScreen(siteData: siteData),
           ),
         );
       } else {

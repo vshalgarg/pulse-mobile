@@ -10,9 +10,14 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/cm_site_model.dart';
+import 'package:app/services/asset_audit/central_data_service.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/utils/logger.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
@@ -27,31 +32,32 @@ class GInspectionDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<GInspectionDetailScreen> createState() => _GInspectionDetailScreenState();
+  State<GInspectionDetailScreen> createState() =>
+      _GInspectionDetailScreenState();
 }
 
 class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
-  final TextEditingController _infraEngineerController = TextEditingController();
-  final TextEditingController _infraEngineerContactController = TextEditingController();
+  final TextEditingController _infraEngineerController =
+      TextEditingController();
+  final TextEditingController _infraEngineerContactController =
+      TextEditingController();
   final TextEditingController _ownerController = TextEditingController();
   final TextEditingController _ownerContactController = TextEditingController();
 
   bool _isSubmitting = false;
-  File? customerPhoto;
-  String? customerPhotoByteData;
+
+  String? _uploadedImgId;
+  bool _hasFormDataChanges = false;
+  String? _fetchedImageData;
+  File? _selectedImage;
+
+  late CentralAssetAuditDataService _service;
 
   @override
   void initState() {
     super.initState();
-    _initializeFormData();
-  }
 
-  void _initializeFormData() {
-    // Initialize form fields with site data
-    _infraEngineerController.text = "Suresh"; // Default value as shown in image
-    _infraEngineerContactController.text = "9327490188"; // Default value as shown in image
-    _ownerController.text = "Prashant"; // Default value as shown in image
-    _ownerContactController.text = "9327490188"; // Default value as shown in image
+    _service = ServiceLocator().centralAssetAuditDataService;
   }
 
   @override
@@ -88,7 +94,8 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
                     physics: const BouncingScrollPhysics(),
                     padding: EdgeInsets.only(
                       bottom: MediaQuery.of(context).viewInsets.bottom + 100,
@@ -106,7 +113,9 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                   padding: const EdgeInsets.all(16),
                   child: CustomSubmitButtonV2(
                     text: "Next",
-                    onPressed: widget.mode == CMScreenModeEnum.view ? null : _submitForm,
+                    onPressed: widget.mode == CMScreenModeEnum.view
+                        ? null
+                        : _submitForm,
                   ),
                 ),
               ],
@@ -168,7 +177,8 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Infra Engineer
         CustomFormField(
           label: "Infra Engineer",
-          controller: _infraEngineerController,
+          initialValue: widget.siteData.infraEngineerName ?? "N/A",
+
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
@@ -177,7 +187,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Infra Engineer Contact No.
         CustomFormField(
           label: "Infra Engineer Contact No.",
-          controller: _infraEngineerContactController,
+          initialValue: widget.siteData.infraEngineerPhone ?? "N/A",
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
           keyboardType: TextInputType.phone,
@@ -187,7 +197,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Owner
         CustomFormField(
           label: "Owner",
-          controller: _ownerController,
+          initialValue: widget.siteData.ownerName ?? "N/A",
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
@@ -196,38 +206,104 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Owner Contact No.
         CustomFormField(
           label: "Owner Contact No.",
-          controller: _ownerContactController,
+          initialValue: widget.siteData.ownerPhone ?? "N/A",
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 20),
 
-        // Add a Selfie Section
         ImageUploadField(
           label: "Add a Selfie",
           placeholder: "Selfie",
           isRequired: true,
-          onImageSelected: (File? file) async {
+          externalImageUrl: _fetchedImageData,
+          onImageSelected: (file) {
             if (file != null) {
-              setState(() async {
-                customerPhoto = file;
-                customerPhotoByteData = await file.readAsBytes().then(
-                  (bytes) => base64Encode(bytes),
-                );
+              debugPrint("Selected image path: ${file.path}");
+              setState(() {
+                _selectedImage = file;
+                _hasFormDataChanges = true;
+              });
+              // Upload selfie to server
+
+              _uploadSelfie();
+            } else {
+              setState(() {
+                _selectedImage = null;
+                _uploadedImgId = null;
+                _fetchedImageData = null;
               });
             }
           },
-          externalImageUrl: customerPhotoByteData,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(15),
       ],
     );
   }
 
+  Future<void> _uploadSelfie() async {
+    try {
+      if (_selectedImage == null) {
+        Toastbar.showErrorToastbar('Please select an image first', context);
+        return;
+      }
+
+      // Internet connected - upload to server
+      final imgId = await ServiceLocator().centralAssetAuditService.uploadImage(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+        imageFile: _selectedImage!,
+        isSelfie: false,
+        activityType: ActivityTypeEnum.generalInspection,
+      );
+
+      print("imgId: after upload $imgId");
+
+      // Update the database with the new image ID
+      final dbData = await ServiceLocator().centralAssetAuditService
+          .getActualDataFromSqlite(
+            siteAuditSchId: widget.siteData.siteId.toString(),
+          );
+      if (dbData != null) {
+        final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>
+            : null;
+        if (pageHeader != null) {
+          pageHeader['maker_selfie_image_id'] = imgId;
+
+          // Save the updated data back to the database
+          await ServiceLocator().centralAssetAuditService.updateDataInSqlite(
+            siteAuditSchId: widget.siteData.siteId.toString(),
+            updatedData: dbData,
+          );
+        }
+      }
+
+      if (imgId != null && imgId.isNotEmpty) {
+        setState(() {
+          _uploadedImgId = imgId;
+          print('uploadedImgId: $_uploadedImgId, $imgId');
+          _hasFormDataChanges = true;
+        });
+
+        // Show appropriate message based on whether it's server or local ID
+        if (imgId.contains("LOCAL_IMAGE_ID")) {
+          showCustomToast(context, 'Selfie saved locally (offline mode)');
+        } else {
+          showCustomToast(context, 'Selfie uploaded successfully');
+        }
+      } else {
+        showCustomToast(context, 'Failed to upload selfie');
+        throw Exception('Failed to get image ID');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading selfie: $e');
+    }
+  }
+
   void _submitForm() {
-    if (customerPhoto == null) {
+    if (_selectedImage == null) {
       showCustomToast(context, "Please add a selfie");
       return;
     }

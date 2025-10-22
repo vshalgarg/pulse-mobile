@@ -20,6 +20,13 @@ class AllSiteModel {
   final String? ownerName;
   final String? ownerPhone;
 
+  final String? siteVisitLogId;
+  final String? siteVisitLogDate;
+  final String? purposeOfVisit;
+  final String? visitingPersonImageId;
+
+  final String? svlId;
+
   AllSiteModel({
     required this.siteId,
     required this.entityId,
@@ -41,6 +48,11 @@ class AllSiteModel {
     this.infraEngineerPhone,
     this.ownerName,
     this.ownerPhone,
+    this.siteVisitLogId,
+    this.siteVisitLogDate,
+    this.purposeOfVisit,
+    this.visitingPersonImageId,
+    this.svlId,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
@@ -70,6 +82,24 @@ class AllSiteModel {
           json['infra_district_engineer_contact_no']?.toString() ?? '',
       ownerName: json['owner_name']?.toString() ?? '',
       ownerPhone: json['owner_contact_no']?.toString() ?? '',
+
+      // site visit log data
+      siteVisitLogId: json['site_visit_log_id'] != null
+          ? json['site_visit_log_id'].toString()
+          : null,
+      siteVisitLogDate: json['site_visit_log_date'] != null
+          ? json['site_visit_log_date'].toString()
+          : null,
+      purposeOfVisit: json['purpose_of_visit'] != null
+          ? json['purpose_of_visit'].toString()
+          : null,
+      visitingPersonImageId: json['visiting_person_image_id'] != null
+          ? json['visiting_person_image_id'].toString()
+          : null,
+
+      svlId: json['svl_id'] != null
+          ? json['svl_id'].toString()
+          : null,
     );
   }
 
@@ -91,6 +121,11 @@ class AllSiteModel {
       'self_id': selfId,
       'site_domain_name': siteDomainName,
       'distance_km': distanceKM,
+      'site_visit_log_id': siteVisitLogId,
+      'site_visit_log_date': siteVisitLogDate,
+      'purpose_of_visit': purposeOfVisit,
+      'visiting_person_image_id': visitingPersonImageId,
+      'svl_id': svlId,
     };
   }
 

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:app/screens/site_visit/all_sites.dart';
+import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:flutter/material.dart';
@@ -27,7 +28,7 @@ class PulseDashboard extends StatefulWidget {
 class _PulseDashboardState extends State<PulseDashboard> {
   final GlobalKey<PopupMenuButtonState> _profileMenuKey =
       GlobalKey<PopupMenuButtonState>();
-  
+
   int _notificationCount = 0;
 
   @override
@@ -48,9 +49,9 @@ class _PulseDashboardState extends State<PulseDashboard> {
       final notificationService = NotificationService(
         ServiceLocator().apiService,
       );
-      
+
       final notifications = await notificationService.getNotifications();
-      
+
       setState(() {
         _notificationCount = notifications.length;
       });
@@ -322,13 +323,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
             _buildTaskCard(
               iconPath: AppImages.siteaccess,
               label: 'Site Access',
-              onTap: () => _navigateToTask('Site Access'),
+              onTap: () => _navigateToTask('SV'),
               isComingSoon: false,
             ),
             _buildTaskCard(
               iconPath: AppImages.inspection,
               label: 'General Inspection',
-              onTap: () => _navigateToTask('General Inspection'),
+              onTap: () => _navigateToTask('GI'),
               isComingSoon: false,
             ),
 
@@ -441,10 +442,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
   }
 
   void _navigateToTask(String taskName) {
-    if (taskName == 'Site Access' || taskName == 'General Inspection') {
+    if (taskName == 'SV' || taskName == 'GI') {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const AllSitesScreen()),
+        MaterialPageRoute(
+          builder: (context) =>
+              TicketScreen(auditName: taskName, status: taskName),
+        ),
       );
     } else {
       Navigator.push(
