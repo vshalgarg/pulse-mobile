@@ -145,47 +145,46 @@ class _PulseDashboardState extends State<PulseDashboard> {
           Stack(
             clipBehavior: Clip.none,
             children: [
-              Container(
-                padding: const EdgeInsets.all(4),
-                child: Icon(
-                  Icons.notifications,
-                  color: AppColors.bellColor,
-                  size: 35,
+              GestureDetector(
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsScreen(),
+                    ),
+                  );
+                  // Refresh notifications when returning from notifications screen
+                  _loadNotifications();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.notifications,
+                    color: AppColors.bellColor,
+                    size: 35,
+                  ),
                 ),
               ),
               Positioned(
                 right: 1,
                 top: 4,
-                child: GestureDetector(
-                  onTap: () async {
-                    // Navigate to notifications screen and refresh count when returning
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const NotificationsScreen(),
-                      ),
-                    );
-                    // Refresh notifications when returning from notifications screen
-                    _loadNotifications();
-                  },
-                  child: _notificationCount > 0
-                      ? Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: const BoxDecoration(
-                            color: AppColors.errorColor,
-                            shape: BoxShape.circle,
+                child: _notificationCount > 0
+                    ? Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppColors.errorColor,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          _notificationCount.toString(),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
                           ),
-                          child: Text(
-                            _notificationCount.toString(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      : const SizedBox.shrink(),
-                ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
               ),
             ],
           ),
