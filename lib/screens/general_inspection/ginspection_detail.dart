@@ -301,6 +301,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         builder: (context) => GIChecklistScreen(
           siteData: widget.siteData,
           mode: widget.mode,
+          visitingPersonImageId: _uploadedImgId,
         ),
       ),
     );

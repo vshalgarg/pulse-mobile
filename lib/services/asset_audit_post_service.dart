@@ -107,7 +107,7 @@ class AssetAuditPostService {
         'api/v1/om-schedule/siteVisitLog';
         break;
       case ActivityTypeEnum.generalInspection:
-        url += 'generalInspection';
+        'api/v1/om-schedule/genInspection';
         break;
       default:
         throw Exception('Invalid activity type: $activityType');

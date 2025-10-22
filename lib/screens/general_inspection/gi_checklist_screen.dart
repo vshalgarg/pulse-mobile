@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
@@ -13,16 +13,19 @@ import 'package:app/utils/logger.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:geolocator/geolocator.dart';
 import 'gi_custom_widget.dart';
 
 class GIChecklistScreen extends StatefulWidget {
   final AllSiteModel siteData;
   final CMScreenModeEnum mode;
+  final String? visitingPersonImageId; // Image ID from the previous screen
 
   const GIChecklistScreen({
     super.key,
     required this.siteData,
     required this.mode,
+    this.visitingPersonImageId,
   });
 
   @override
@@ -38,6 +41,10 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
   // Checklist data
   List<GenInsCheckListData> _checklistItems = [];
   Map<int, Map<String, dynamic>> _checklistResponses = {}; // giclm_id -> response data
+  
+  // Location data
+  double? _latitude;
+  double? _longitude;
 
   @override
   void initState() {
@@ -45,6 +52,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
     _repository = GeneralInspectionRepository(ServiceLocator().apiService);
     
+    _getCurrentLocation();
     _loadChecklistData();
   }
 
@@ -80,13 +88,52 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     }
   }
 
-  void _onChecklistItemChanged(int giclmId, String? radioValue, File? imageFile) {
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          Logger.errorLog('Location permissions are denied');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        Logger.errorLog('Location permissions are permanently denied');
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+
+      Logger.debugLog('Location: $_latitude, $_longitude');
+    } catch (e) {
+      Logger.errorLog('Error getting location: $e');
+    }
+  }
+
+  void _onChecklistItemChanged(int giclmId, String? radioValue, String? imageId, String? textValue) {
+    print('🔍 _onChecklistItemChanged called for giclmId: $giclmId');
+    print('  - radioValue: $radioValue');
+    print('  - imageId: $imageId');
+    print('  - textValue: $textValue');
+    
     setState(() {
       _checklistResponses[giclmId] = {
         'radio_value': radioValue,
-        'image_file': imageFile,
+        'image_id': imageId,
+        'text_value': textValue,
       };
     });
+    
+    print('🔍 Updated _checklistResponses for $giclmId: ${_checklistResponses[giclmId]}');
   }
 
   @override
@@ -230,9 +277,35 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: GICustomChecklistItem(
               checklistItem: item,
+              siteData: widget.siteData,
               mode: widget.mode,
-              onRadioChanged: (radioValue) => _onChecklistItemChanged(item.giclmId, radioValue, null),
-              onImageChanged: (imageFile) => _onChecklistItemChanged(item.giclmId, null, imageFile),
+              onRadioChanged: (radioValue) {
+                final currentResponse = _checklistResponses[item.giclmId];
+                _onChecklistItemChanged(
+                  item.giclmId, 
+                  radioValue, 
+                  currentResponse?['image_id'], 
+                  currentResponse?['text_value']
+                );
+              },
+              onImageChanged: (imageId) {
+                final currentResponse = _checklistResponses[item.giclmId];
+                _onChecklistItemChanged(
+                  item.giclmId, 
+                  currentResponse?['radio_value'], 
+                  imageId, 
+                  currentResponse?['text_value']
+                );
+              },
+              onTextChanged: (textValue) {
+                final currentResponse = _checklistResponses[item.giclmId];
+                _onChecklistItemChanged(
+                  item.giclmId, 
+                  currentResponse?['radio_value'], 
+                  currentResponse?['image_id'], 
+                  textValue
+                );
+              },
             ),
           )),
       ],
@@ -240,6 +313,12 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
   }
 
   void _submitForm() {
+    // Debug: Print all responses
+    print('🔍 All checklist responses:');
+    for (final entry in _checklistResponses.entries) {
+      print('  Item ${entry.key}: ${entry.value}');
+    }
+    
     // Validate checklist items
     List<String> validationErrors = [];
     for (final item in _checklistItems) {
@@ -247,13 +326,32 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         final response = _checklistResponses[item.giclmId];
         bool hasRadio = item.respType.contains('RADIO');
         bool hasImage = item.respType.contains('IMG');
+        bool hasText = item.respType.contains('TEXT');
         
-        if (hasRadio && (response == null || response['radio_value'] == null)) {
+        print('🔍 Validating ${item.checklistDesc}:');
+        print('  - hasRadio: $hasRadio, hasImage: $hasImage, hasText: $hasText');
+        print('  - response: $response');
+        print('  - radio_value: ${response?['radio_value']}');
+        print('  - image_id: ${response?['image_id']}');
+        print('  - text_value: ${response?['text_value']}');
+        
+        if (hasRadio && (response == null || response['radio_value'] == null || response['radio_value'].toString().isEmpty)) {
           validationErrors.add('${item.checklistDesc} is required');
+          print('  ❌ Radio validation failed for ${item.checklistDesc}');
         }
         
-        if (hasImage && (response == null || response['image_file'] == null)) {
+        if (hasText && (response == null || response['text_value'] == null || response['text_value'].toString().trim().isEmpty)) {
+          validationErrors.add('${item.checklistDesc} is required');
+          print('  ❌ Text validation failed for ${item.checklistDesc}');
+          print('    - response is null: ${response == null}');
+          print('    - text_value is null: ${response?['text_value'] == null}');
+          print('    - text_value is empty: ${response?['text_value']?.toString().trim().isEmpty}');
+          print('    - text_value value: "${response?['text_value']}"');
+        }
+        
+        if (hasImage && (response == null || response['image_id'] == null || response['image_id'].toString().isEmpty)) {
           validationErrors.add('${item.checklistDesc} photo is required');
+          print('  ❌ Image validation failed for ${item.checklistDesc}');
         }
       }
     }
@@ -263,15 +361,95 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       return;
     }
 
-    // TODO: Implement form submission logic with checklist data
-    Logger.debugLog('Submitting checklist with ${_checklistResponses.length} responses');
-    for (final entry in _checklistResponses.entries) {
-      Logger.debugLog('Item ${entry.key}: ${entry.value}');
+    // Create the JSON response
+    _createAndPrintResponse();
+  }
+
+  void _createAndPrintResponse() {
+    // Get current timestamp
+    final now = DateTime.now().toUtc();
+    final visitDate = now.toIso8601String();
+    
+    // Debug: Print visiting person image ID
+    print('🔍 Visiting Person Image ID from previous screen: ${widget.visitingPersonImageId}');
+
+    // Create genInspectionSiteRespList
+    List<Map<String, dynamic>> genInspectionSiteRespList = [];
+    
+    for (final item in _checklistItems) {
+      final response = _checklistResponses[item.giclmId];
+      if (response != null) {
+        // Determine the response value based on the response type
+        String respValue = "";
+        if (item.respType.contains('RADIO')) {
+          respValue = response['radio_value'] ?? "";
+        } else if (item.respType.contains('TEXT')) {
+          respValue = response['text_value'] ?? "";
+        }
+
+        Map<String, dynamic> respItem = {
+          "gispId": 0,
+          "siteId": widget.siteData.siteId,
+          "giclmId": item.giclmId,
+          "checklistDesc": item.checklistDesc,
+          "resp": respValue,
+          "respPhotoId": int.tryParse(response['image_id'] ?? "0") ?? 0,
+          "clOrder": item.clOrder,
+          "longitude": _longitude?.toString() ?? "0.0",
+          "latitude": _latitude?.toString() ?? "0.0",
+          "isActive": true,
+          "remarks": ""
+        };
+        genInspectionSiteRespList.add(respItem);
+      }
     }
 
-    Future.delayed(const Duration(seconds: 2), () {
-      showCustomToast(context, "General inspection checklist submitted successfully");
-      Navigator.of(context).pop();
-    });
+    // Create the main response object
+    Map<String, dynamic> response = {
+      "giId": 0,
+      "visitDate": visitDate,
+      "siteId": widget.siteData.siteId,
+      "visitingPersonId": 0,
+      "visitingPersonImageId": int.tryParse(widget.visitingPersonImageId ?? "0") ?? 0,
+      "isActive": true,
+      "remarks": "",
+      "genInspectionSiteRespList": genInspectionSiteRespList,
+      "circle": widget.siteData.circleStateName,
+      "cluster": widget.siteData.clusterDistrictName,
+      "client": widget.siteData.clientName,
+      "siteName": widget.siteData.siteName,
+      "siteCode": widget.siteData.siteCode,
+      "operator": "",
+      "infraDistrictEngineerName": widget.siteData.infraEngineerName ?? "",
+      "infraDistrictEngineerContactNo": widget.siteData.infraEngineerPhone ?? "",
+      "ownerName": widget.siteData.ownerName ?? "",
+      "ownerContactNo": widget.siteData.ownerPhone ?? ""
+    };
+
+    // Print the full JSON response with formatting
+    final jsonString = jsonEncode(response);
+    final prettyJson = _formatJson(jsonString);
+    
+    Logger.debugLog('Full General Inspection Response:');
+    print('\n' + '=' * 80);
+    print('GENERAL INSPECTION RESPONSE JSON:');
+    print('=' * 80);
+    print(prettyJson);
+    print('=' * 80);
+    print('Raw JSON (for API):');
+    print(jsonString);
+    print('=' * 80 + '\n');
+
+    showCustomToast(context, "General inspection checklist submitted successfully");
+    Navigator.of(context).pop();
+  }
+
+  String _formatJson(String jsonString) {
+    try {
+      final dynamic jsonData = jsonDecode(jsonString);
+      return const JsonEncoder.withIndent('  ').convert(jsonData);
+    } catch (e) {
+      return jsonString; // Return original if formatting fails
+    }
   }
 }
