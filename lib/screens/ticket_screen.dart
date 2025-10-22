@@ -473,8 +473,6 @@ class _TicketScreenState extends State<TicketScreen> {
             ? ticket.status!
             : _getStatusFromTicketType(_currentTicketType);
 
-        print("statusText: $statusText for ticket: ${ticket.status}");
-
         return Padding(
           padding: EdgeInsets.only(
             bottom: index == ticketResponse.tickets.length - 1 ? 0 : 10,

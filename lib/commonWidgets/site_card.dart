@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 class SiteCard extends StatelessWidget {
   final AllSiteModel site;
- 
+
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
   final VoidCallback? onDownloadTap;
@@ -16,7 +16,7 @@ class SiteCard extends StatelessWidget {
   const SiteCard({
     super.key,
     required this.site,
-    
+
     this.onDirectionTap,
     this.onTap,
     this.onDownloadTap,
@@ -37,9 +37,8 @@ class SiteCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-           
               Text(
-                site.siteDomainName ?? 'N/A'  ,
+                site.siteDomainName ?? 'N/A',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Colors.grey,
@@ -48,14 +47,14 @@ class SiteCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              
+
               // Site ID and Site Code
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
                     child: Text(
-                     "${site.siteCode} (Site ID : ${site.siteId})",
+                      "${site.siteCode} (Site ID : ${site.siteCode})",
                       style: const TextStyle(
                         fontSize: 14,
                         color: Colors.black87,
@@ -77,7 +76,7 @@ class SiteCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 4),
-              
+
               // Site Name (main title) with distance
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -96,19 +95,17 @@ class SiteCard extends StatelessWidget {
                     ),
                   ),
 
-                 
-                    const SizedBox(width: 8),
-                    Text(
-                      site.distanceKM ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w400,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
+                  const SizedBox(width: 8),
+                  Text(
+                    site.distanceKM ?? '',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black,
+                      fontWeight: FontWeight.w400,
+                      fontFamily: fontFamilyMontserrat,
                     ),
-                  ],
-                
+                  ),
+                ],
               ),
               const SizedBox(height: 4),
 
@@ -120,7 +117,7 @@ class SiteCard extends StatelessWidget {
                     child: Text(
                       site.clientName ?? 'N/A',
                       style: const TextStyle(
-                        fontSize: 14, 
+                        fontSize: 14,
                         color: AppColors.black,
                         fontWeight: FontWeight.w500,
                         fontFamily: fontFamilyMontserrat,
@@ -129,7 +126,7 @@ class SiteCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  
+
                   // Download icon - shows different states
                   isDownloaded
                       ? IconButton(
@@ -151,8 +148,7 @@ class SiteCard extends StatelessWidget {
                           tooltip: 'Download Site Info',
                         ),
                 ],
-              ), 
-              
+              ),
             ],
           ),
         ),

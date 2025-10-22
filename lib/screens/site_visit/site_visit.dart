@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
@@ -6,15 +5,13 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
-import 'package:app/commonWidgets/loader_widget.dart';
+import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
-import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/service_locator.dart';
-import 'package:app/services/api_service.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +36,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   final TextEditingController _ownerContactController = TextEditingController();
 
   late CentralAssetAuditService _service;
-  bool _isSubmitting = false;
   String? _uploadedImgId;
   bool _hasFormDataChanges = false;
   String? _fetchedImageData;
@@ -51,6 +47,16 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     _service = ServiceLocator().centralAssetAuditService;
 
     _initializeFormData();
+    
+    // Add listener to purpose controller to track changes
+    _purposeController.addListener(() {
+      if (!_hasFormDataChanges) {
+        print("🔍 Purpose of visit changed - setting _hasFormDataChanges to true");
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
   }
 
   void _initializeFormData() {
@@ -171,7 +177,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
         title: "Site Visit",
-        onClose: () => Navigator.of(context).pop(),
+        onClose: () => _showUnsavedChangesDialog(),
       ),
       body: Stack(
         children: [
@@ -281,8 +287,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
   Future<void> postSiteVisitLog() async {
     try {
-      LoaderWidget.showLoader(context);
-
       final requestData = {
         "svlId":
             widget.siteData.siteVisitLogId != null &&
@@ -313,12 +317,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             isLastPage: true,
           );
 
-      Navigator.of(context).pop();
+      print('✅ Site visit submitted successfully');
     } catch (e) {
       Logger.errorLog('❌ Error submitting site visit: $e');
-      showCustomToast(context, "Error submitting site visit: $e");
-    } finally {
-      LoaderWidget.hideLoader();
+      rethrow; // Re-throw the error so UnsavedChangesDialog can handle it
     }
   }
 
@@ -458,6 +460,31 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     );
   }
 
+  void _showUnsavedChangesDialog() {
+    print("🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges");
+    if (_hasFormDataChanges) {
+      print("🔍 Showing unsaved changes dialog");
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => UnsavedChangesDialog(
+          siteAuditSchId: widget.siteData.siteId.toString(),
+          section: "Site Visit",
+          parentContext: context,
+          onSaveAndExit: () async {
+            _submitForm();
+          },
+          onDiscard: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+    } else {
+      print("🔍 No form changes detected - navigating back directly");
+      Navigator.of(context).pop();
+    }
+  }
+
   void _submitForm() async {
     if (_purposeController.text.trim().isEmpty) {
       showCustomToast(context, "Please enter purpose of visit");
@@ -475,20 +502,12 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       return;
     }
 
-    setState(() {
-      _isSubmitting = true;
-    });
-
     try {
       // Submit the form with already uploaded image
       await postSiteVisitLog();
     } catch (e) {
       Logger.errorLog('❌ Error in submit process: $e');
-      showCustomToast(context, "Error submitting site visit: $e");
-    } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      rethrow; // Re-throw so UnsavedChangesDialog can handle the error
     }
   }
 }

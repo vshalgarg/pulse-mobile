@@ -16,6 +16,14 @@ import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 
+
+
+
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+// Import your dependencies here
+
 class AllSitesScreen extends StatefulWidget {
   final String ActivityType;
 
@@ -56,20 +64,15 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         _isLoading = true;
         _errorMessage = null;
       });
-
       final repository = ServiceLocator().sitesRepository;
 
-      // Get current location with fallback to default
       LocationModel location;
       try {
         location = await LocationService.getCurrentLocation();
       } catch (e) {
-        // Use default location if GPS fails
         location = LocationModel(latitude: 32.899, longitude: 56.989);
-        print('Using default location: $e');
       }
 
-      // Add timeout to prevent indefinite loading
       final sites = await repository
           .getAllSitesData(
             location.latitude,
@@ -88,7 +91,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
 
       if (mounted) {
         setState(() {
-          // Populate the appropriate list based on type
           if (type == 'ALL') {
             _allSites = sites;
             _filteredSites = sites;
@@ -96,12 +98,10 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             _nearbySites = sites;
             _filteredSites = sites;
           }
-          // Keep the current selected filter based on type
           _selectedFilter = type == 'ALL' ? 'All Sites' : 'Near By Sites';
           _isLoading = false;
         });
 
-        // Initialize downloaded sites state after sites are loaded
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Future.delayed(const Duration(milliseconds: 500), () {
             if (sites.isNotEmpty) {
@@ -126,21 +126,22 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       _selectedFilter = filter;
       if (filter == 'All Sites') {
         _siteType = 'ALL';
+        // ✅ Don’t load sites, just clear data
+        _filteredSites.clear();
+        _allSites.clear();
       } else if (filter == 'Near By Sites') {
         _siteType = 'nearby';
+        // ✅ Load nearby sites when selected
+        _loadSites(_siteType, searchText: _searchQuery);
       }
     });
-    
-    // Load sites for the selected filter
-    _loadSites(_siteType, searchText: _searchQuery);
   }
 
   void _performSearch(String query) {
     setState(() {
       _searchQuery = query;
     });
-
-    _loadSites(_siteType, searchText: query.isEmpty ? '' : query);
+    // No auto load; only load on Enter
   }
 
   int _getSiteCountForFilter(String filter) {
@@ -153,7 +154,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   }
 
   void _navigateToSite(AllSiteModel site) {
-    // Navigate to General Inspection Detail screen with the selected site data
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -163,23 +163,16 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 siteData: site,
                 mode: CMScreenModeEnum.edit,
               ),
-
-        // builder: (context) => GInspectionDetailScreen(
-        //   siteData: site,
-        //   mode: CMScreenModeEnum.edit,
-        // ),
       ),
     );
   }
 
   void _initializeDownloadedSites(List<AllSiteModel> sites) async {
-    // Prevent multiple initializations
     if (_isInitializingDownloadedSites) return;
     _isInitializingDownloadedSites = true;
 
     try {
       bool hasChanges = false;
-      // Check which sites are already downloaded and populate local state
       for (final site in sites) {
         final isDownloaded = await _isSiteDownloaded(site);
         if (isDownloaded && !_downloadedSiteIds.contains(site.siteId)) {
@@ -187,7 +180,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           hasChanges = true;
         }
       }
-      // Only trigger UI update if there were actual changes
       if (hasChanges && mounted) {
         setState(() {});
       }
@@ -197,12 +189,10 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   }
 
   Future<bool> _isSiteDownloaded(AllSiteModel site) async {
-    // Check local state first (for recently downloaded sites)
     if (_downloadedSiteIds.contains(site.siteId)) {
       return true;
     }
 
-    // Check database for existing downloads using CM site data service
     try {
       final isDownloaded = await ServiceLocator().centralAssetAuditDataService
           .isCMSiteDownloaded(site.siteId);
@@ -216,17 +206,14 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     try {
       LoaderWidget.showLoader(context);
 
-      // Use the new CM-specific download method
       final service = ServiceLocator().centralAssetAuditService;
       final isDownloaded = await service.downloadCMSiteData(site: site);
 
       if (isDownloaded) {
-        // Add to local state and trigger UI update
         setState(() {
           _downloadedSiteIds.add(site.siteId);
         });
 
-        // Re-initialize downloaded sites state to ensure consistency
         _initializeDownloadedSites(_allSites);
 
         Toastbar.showSuccessToastbar(
@@ -252,7 +239,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       appBar: _buildCustomAppBar(),
       body: Stack(
         children: [
-          // Background image that fully covers the screen
           Positioned.fill(
             child: SvgPicture.asset(
               AppImages.home,
@@ -261,7 +247,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
               height: double.infinity,
             ),
           ),
-          // Content overlay
           SafeArea(
             child: Container(
               height: MediaQuery.of(context).size.height,
@@ -324,45 +309,82 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      child: TextField(
-        controller: _searchController,
-        onChanged: _performSearch,
-        style: const TextStyle(color: Colors.black, fontSize: 16),
-        decoration: InputDecoration(
-          hintText: 'Search',
-          hintStyle: const TextStyle(color: Colors.grey, fontSize: 16),
-          prefixIcon: null, // Remove search icon from left
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
-                  onPressed: () {
-                    _searchController.clear();
-                    _performSearch('');
-                  },
-                )
-              : const Icon(Icons.search, color: Colors.black, size: 20),
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.grey, width: 1),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.grey, width: 1),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.blue, width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 8,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _performSearch,
+            onSubmitted: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isNotEmpty) {
+                _loadSites(_siteType, searchText: trimmed);
+              }
+            },
+            style: const TextStyle(color: Colors.black, fontSize: 16),
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              hintText: 'Search',
+              hintStyle: const TextStyle(color: Colors.grey, fontSize: 16),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                          // ✅ For All Sites: clear data and show nothing
+                          if (_siteType == 'ALL') {
+                            _filteredSites.clear();
+                            _allSites.clear();
+                          } else {
+                            // ✅ For Nearby: reload nearby sites
+                            _loadSites(_siteType, searchText: '');
+                          }
+                        });
+                      },
+                    )
+                  : const Icon(Icons.search, color: Colors.black, size: 20),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.grey, width: 1),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.grey, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.blue, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+            ),
           ),
         ),
-      ),
+        if (_searchQuery.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Press Enter to search',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.8),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -401,7 +423,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     return GestureDetector(
       onTap: () => _filterSites(filter),
       child: Container(
-        height: 32, // Fixed height for consistency
+        height: 32,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.myTicketsSelected : AppColors.myTickets,
@@ -429,16 +451,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     } else if (_errorMessage != null) {
       return _buildErrorWidget(_errorMessage!);
     } else if (_filteredSites.isEmpty) {
-      final currentList = _selectedFilter == 'All Sites'
-          ? _allSites
-          : _nearbySites;
-      return Center(
+      return const Center(
         child: Text(
-          currentList.isEmpty
-              ? 'No sites found'
-              : 'No sites found for ${_selectedFilter ?? 'selected filter'}',
+          'No sites found',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppColors.white,
             fontSize: 18,
             fontWeight: FontWeight.w500,
@@ -461,7 +478,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       itemCount: _filteredSites.length,
       itemBuilder: (context, index) {
         final site = _filteredSites[index];
-
         return Padding(
           padding: EdgeInsets.only(
             bottom: index == _filteredSites.length - 1 ? 0 : 5,
@@ -472,19 +488,16 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
               final isDownloaded = snapshot.data ?? false;
               return SiteCard(
                 site: site,
-
                 isDownloaded: isDownloaded,
                 onDirectionTap: () {
-                  // Show location info or open maps
                   Toastbar.showInfoToastbar(
                     'Location: ${site.clusterDistrictName}, ${site.circleStateName}',
                     context,
                   );
                 },
                 onTap: () => _navigateToSite(site),
-                onDownloadTap: isDownloaded
-                    ? null // Disable download if already downloaded
-                    : () => _downloadSiteData(site),
+                onDownloadTap:
+                    isDownloaded ? null : () => _downloadSiteData(site),
               );
             },
           ),
@@ -530,7 +543,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryGreen,
               ),
-              child: const Text('Retry', style: TextStyle(color: Colors.white)),
+              child:
+                  const Text('Retry', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),

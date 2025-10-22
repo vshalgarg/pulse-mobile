@@ -321,7 +321,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
             ),
             _buildTaskCard(
               iconPath: AppImages.siteaccess,
-              label: 'Site Access',
+              label: 'Site Visit',
               onTap: () => _navigateToTask('SV'),
               isComingSoon: false,
             ),
