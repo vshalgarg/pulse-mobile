@@ -387,8 +387,19 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           respValue = response['text_value'] ?? "";
         }
 
-        int? respPhotoId = int.tryParse(response['image_id'] ?? "0");
-        if (respPhotoId == 0) respPhotoId = null;
+        // Handle image ID - can be either integer (server ID) or string (local ID)
+        dynamic respPhotoId;
+        final imageId = response['image_id']?.toString();
+        if (imageId != null && imageId.isNotEmpty && imageId != "0") {
+          // Check if it's a local image ID or server ID
+          if (imageId.contains("LOCAL_IMAGE_ID")) {
+            respPhotoId = imageId; // Keep as string for local image IDs
+          } else {
+            respPhotoId = int.tryParse(imageId); // Parse as int for server IDs
+          }
+        } else {
+          respPhotoId = null;
+        }
         
         // Use existing gispId if available (for edit mode), otherwise use 0 (for create mode)
         int gispId = response['gispId'] ?? 0;

@@ -262,6 +262,10 @@ class AssetAuditPostService {
         return request; // Not a Map, return as-is
       }
 
+      // First, process nested objects/arrays recursively
+      if(request.containsKey("giId")) {
+      await _processNestedObjects(request);
+    }
       // Check both snake_case and camelCase field names
       String? photoId = "";
 
@@ -269,7 +273,10 @@ class AssetAuditPostService {
         photoId = request['ebAttachmentFileId'];
       } else if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId")) {
         photoId = request['visitingPersonImageId'];
-      } else {
+      } else if (request.containsKey("gispId")) {
+        
+        photoId = request['respPhotoId'];
+        }else {
         photoId = request['photo_id'] ?? request['photoId'];
       }
 
@@ -295,6 +302,8 @@ class AssetAuditPostService {
             request['ebAttachmentFileId'] = serverId;
           } else if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId")) {
             request['visitingPersonImageId'] = serverId;
+          } else if (request.containsKey("gispId")) {
+            request['respPhotoId'] = serverId;
           } else {
             request['photo_id'] = serverId;
           }
@@ -325,5 +334,85 @@ class AssetAuditPostService {
     Logger.infoLog("processAssetAuditRequest COMPLETED - returning: $request");
     print("processAssetAuditRequest COMPLETED - returning: $request");
     return request;
+  }
+
+  /// Recursively process nested objects and arrays for image IDs
+  Future<void> _processNestedObjects(dynamic obj) async {
+    if (obj is Map<String, dynamic>) {
+      // Process each value in the map
+      for (String key in obj.keys) {
+        final value = obj[key];
+        
+        if (value is List) {
+          // Process each item in the list
+          for (int i = 0; i < value.length; i++) {
+            if (value[i] is Map<String, dynamic>) {
+              // Recursively process nested objects
+              await _processNestedObjects(value[i]);
+              // Also process this object for image IDs
+              await _processImageIdInObject(value[i]);
+            }
+          }
+        } else if (value is Map<String, dynamic>) {
+          // Recursively process nested maps
+          await _processNestedObjects(value);
+        }
+      }
+    }
+  }
+
+  /// Process image ID in a specific object
+  Future<void> _processImageIdInObject(Map<String, dynamic> obj) async {
+    try {
+      // Check for respPhotoId (General Inspection checklist items)
+      if (obj.containsKey('respPhotoId')) {
+        final photoId = obj['respPhotoId']?.toString();
+        if (photoId != null && photoId.isNotEmpty && photoId.startsWith('LOCAL_IMAGE_ID_')) {
+          print("Processing respPhotoId: $photoId");
+          
+          final imageModel = await ServiceLocator().imageUploadService
+              .getServerIdFromUniqueIdTryUploading(photoId);
+          
+          if (imageModel != null) {
+            final serverId = imageModel.serverId;
+            print("Replacing respPhotoId $photoId with serverId: $serverId");
+            obj['respPhotoId'] = serverId;
+            
+            final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
+            if (timestamp != null) {
+              obj['photo_taken_ts'] = timestamp;
+            }
+          } else {
+            Logger.debugLog("FAILED to get server_id for respPhotoId: $photoId");
+          }
+        }
+      }
+      
+      // Check for other photo ID fields
+      if (obj.containsKey('photo_id')) {
+        final photoId = obj['photo_id']?.toString();
+        if (photoId != null && photoId.isNotEmpty && photoId.startsWith('LOCAL_IMAGE_ID_')) {
+          print("Processing photo_id: $photoId");
+          
+          final imageModel = await ServiceLocator().imageUploadService
+              .getServerIdFromUniqueIdTryUploading(photoId);
+          
+          if (imageModel != null) {
+            final serverId = imageModel.serverId;
+            print("Replacing photo_id $photoId with serverId: $serverId");
+            obj['photo_id'] = serverId;
+            
+            final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
+            if (timestamp != null) {
+              obj['photo_taken_ts'] = timestamp;
+            }
+          } else {
+            Logger.debugLog("FAILED to get server_id for photo_id: $photoId");
+          }
+        }
+      }
+    } catch (e) {
+      Logger.errorLog("Error processing image ID in object: $e");
+    }
   }
 }
