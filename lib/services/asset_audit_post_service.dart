@@ -154,7 +154,7 @@ class AssetAuditPostService {
     final response;
     if (url.contains("api/v1/mobile/uploadsSelfie")) {
       response = await _uploadSelfieWithoutCache(requests);
-    } else if (url.contains("api/v1/om-schedule/siteVisitLog")) {
+    } else if (url.contains("api/v1/om-schedule/siteVisitLog") || url.contains("api/v1/om-schedule/genInspection")) {
       // For site visit logs, send as single object instead of array
       response = await ServiceLocator().apiService.post<dynamic>(
         path: url,

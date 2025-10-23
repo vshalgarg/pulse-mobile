@@ -335,13 +335,16 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           respValue = response['text_value'] ?? "";
         }
 
+        int? respPhotoId = int.tryParse(response['image_id'] ?? "0");
+        if (respPhotoId == 0) respPhotoId = null;
+        
         Map<String, dynamic> respItem = {
           "gispId": 0,
           "siteId": widget.siteData.siteId,
           "giclmId": item.giclmId,
           "checklistDesc": item.checklistDesc,
           "resp": respValue,
-          "respPhotoId": int.tryParse(response['image_id'] ?? "0") ?? 0,
+          "respPhotoId": respPhotoId,
           "clOrder": item.clOrder,
           "longitude": _longitude?.toString() ?? "0.0",
           "latitude": _latitude?.toString() ?? "0.0",
