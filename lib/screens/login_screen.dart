@@ -196,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
         Row(
           children: const [
             Text(
-              "Mobile Number ", // Changed from "Email "
+              "Login ID(Email/Mobile)", // Changed from "Email "
               style: TextStyle(
                 color: AppColors.textWhite,
                 fontSize: 16,
@@ -218,16 +218,13 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 15),
         TextFormFieldWidget(
           controller: mobileController,
-          hintText: "Enter your mobile number",
-          keyboardType: TextInputType.phone,
-          validator: _validateMobileNumber,
+          hintText: "Login ID(Email/Mobile)",
+          keyboardType: TextInputType.text,
+          
           onChanged: (value) {
             setState(() {});
           },
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(10),
-          ],
+         
         ),
       ],
     );
