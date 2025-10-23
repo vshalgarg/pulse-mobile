@@ -305,7 +305,8 @@ class CentralAssetAuditService {
         if ((key == 'photo_id' ||
                 key == 'maker_selfie_image_id' ||
                 key == 'ebAttachmentFileId' ||
-                key == 'visitingPersonImageId') &&
+                key == 'visitingPersonImageId' ||
+                key == 'respPhotoId') &&
             value != null) {
           final serverId = value.toString();
           if (serverId.isNotEmpty) {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
@@ -132,7 +133,25 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               
               // Set the appropriate response value based on the checklist item type
               if (checklistItem.respType.contains('RADIO')) {
-                responseData['radio_value'] = response['resp'] as String?;
+                // Map the resp value using respTypeValueMap to get the correct display value
+                final respValue = response['resp'] as String?;
+                if (respValue != null && respValue.isNotEmpty && checklistItem.respTypeValueMap != null) {
+                  try {
+                    final Map<String, dynamic> decodedMap = json.decode(checklistItem.respTypeValueMap!.value);
+                    String? displayValue;
+                    decodedMap.forEach((key, value) {
+                      if (value.toString().toLowerCase() == respValue.toLowerCase()) {
+                        displayValue = value.toString();
+                      }
+                    });
+                    responseData['radio_value'] = displayValue ?? respValue;
+                  } catch (e) {
+                    print('🔍 Error decoding respTypeValueMap: $e');
+                    responseData['radio_value'] = respValue;
+                  }
+                } else {
+                  responseData['radio_value'] = respValue;
+                }
               } else if (checklistItem.respType.contains('TEXT')) {
                 responseData['text_value'] = response['resp'] as String?;
               }
