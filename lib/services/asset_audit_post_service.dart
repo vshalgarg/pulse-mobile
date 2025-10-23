@@ -267,7 +267,7 @@ class AssetAuditPostService {
 
       if (request.containsKey("energyReadingId")) {
         photoId = request['ebAttachmentFileId'];
-      } else if (request.containsKey("visitingPersonName")) {
+      } else if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId")) {
         photoId = request['visitingPersonImageId'];
       } else {
         photoId = request['photo_id'] ?? request['photoId'];
@@ -293,7 +293,7 @@ class AssetAuditPostService {
 
           if (request.containsKey("energyReadingId")) {
             request['ebAttachmentFileId'] = serverId;
-          } else if (request.containsKey("visitingPersonName")) {
+          } else if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId")) {
             request['visitingPersonImageId'] = serverId;
           } else {
             request['photo_id'] = serverId;

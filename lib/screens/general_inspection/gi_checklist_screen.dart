@@ -9,6 +9,7 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/gen_ins_checklist_model.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
@@ -312,7 +313,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       showCustomToast(context, "General inspection checklist submitted successfully");
 
       
-       Navigator.push(context, MaterialPageRoute(builder: (context) => AllSitesScreen(ActivityType:ActivityTypeEnum.generalInspection.value,)));
+       Navigator.push(context, MaterialPageRoute(builder: (context) => PulseDashboard()));
     } catch (e) {
       Logger.errorLog('❌ Error submitting general inspection: $e');
       showCustomToast(context, "Failed to submit general inspection data");

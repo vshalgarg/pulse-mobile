@@ -42,6 +42,12 @@ class CentralApiService {
             auditSchId: auditSchId,
             siteAuditSchId: siteAuditSchId,
           )
+        : activityType == ActivityTypeEnum.generalInspection
+        ? await fetchGeneralInspectionData(
+            siteType: siteType,
+            auditSchId: auditSchId,
+            siteAuditSchId: siteAuditSchId,
+          )
         : activityType == ActivityTypeEnum.correctiveMaintenance
         ? await CMRepository(
             _apiService,
@@ -232,6 +238,38 @@ class CentralApiService {
       }
     } catch (e) {
       Logger.errorLog('❌ Error fetching Site Visit data: $e');
+      return null;
+    }
+  }
+
+  // fetch general inspection data
+  Future<Map<String, dynamic>?> fetchGeneralInspectionData({
+    required String siteType,
+    required String auditSchId,
+    required String siteAuditSchId,
+  }) async {
+    try {
+      print("general inspection called");
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/om-schedule/genInspection/$siteAuditSchId',
+      );
+
+      if (response.isSuccess && response.data != null) {
+        final Map<String, dynamic> parsedData =
+            response.data! as Map<String, dynamic>;
+
+       
+
+        print("parsedData: GI  log data ${parsedData}");
+
+        return parsedData;
+      } else {
+        Logger.errorLog('❌ Failed to fetch  data: ${response.errorMessage}');
+        return null;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error fetching GI data: $e');
       return null;
     }
   }

@@ -6,6 +6,7 @@ import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/screens/general_inspection/ginspection_detail.dart';
 import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/services/service_locator.dart';
@@ -25,7 +26,7 @@ import '../models/ticket_model.dart';
 import '../services/location_service.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
-import 'general_inspection/ginspection_detail.dart';
+import 'general_inspection/gi_checklist_screen.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -245,7 +246,7 @@ class _TicketScreenState extends State<TicketScreen> {
           purposeOfVisit: data.apiData['purposeOfVisit']?.toString(),
           visitingPersonImageId: data.apiData['visitingPersonImageId']
               ?.toString(),
-        );
+        ); // site visit screen
 
         Navigator.push(
           context,
@@ -254,27 +255,47 @@ class _TicketScreenState extends State<TicketScreen> {
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.generalInspection) {
-        // For General Inspection, get checklist data from local database
-        final checklistData = await ServiceLocator().centralAssetAuditDataService
-            .getGIChecklistData(ticket.ticketSchId);
-        
-        if (checklistData.isEmpty) {
-          Toastbar.showErrorToastbar("Checklist data not found. Please download first.", context);
+        // For General Inspection, get checklist data from API response
+        final genInspectionData = data.apiData;
+
+        if (genInspectionData == null) {
+          Toastbar.showErrorToastbar(
+            "General inspection data not found.",
+            context,
+          );
           return;
         }
 
-        // Create site data for General Inspection
+        // Extract visiting person image ID from API response
+        final visitingPersonImageId = genInspectionData['visitingPersonImageId']
+            ?.toString();
+
+        // Get checklist data from local database
+        final checklistData = await ServiceLocator()
+            .centralAssetAuditDataService
+            .getGIChecklistData(ticket.ticketSchId);
+
+        if (checklistData.isEmpty) {
+          Toastbar.showErrorToastbar(
+            "Checklist data not found. Please download first.",
+            context,
+          );
+          return;
+        }
+
+        // Create site data for General Inspection using API response data
         final siteData = AllSiteModel(
-          siteId: data.apiData['siteId'] ?? ticket.ticketSchId,
+          siteId: genInspectionData['siteId'] ?? ticket.ticketSchId,
           entityId: 0, // Default value
-          siteCode: data.apiData['siteCode'] ?? ticket.siteCode ?? '',
-          siteName: data.apiData['siteName'] ?? ticket.cluster ?? '',
+          siteCode: genInspectionData['siteCode'] ?? ticket.siteCode ?? '',
+          siteName: genInspectionData['siteName'] ?? ticket.cluster ?? '',
           clusterDistrictId: 0, // Default value
-          clusterDistrictName: data.apiData['cluster'] ?? ticket.cluster ?? '',
+          clusterDistrictName:
+              genInspectionData['cluster'] ?? ticket.cluster ?? '',
           circleStateId: 0, // Default value
-          circleStateName: data.apiData['circle'] ?? ticket.operator ?? '',
+          circleStateName: genInspectionData['circle'] ?? ticket.operator ?? '',
           clientId: null,
-          clientName: data.apiData['client'] ?? ticket.operator,
+          clientName: genInspectionData['client'] ?? ticket.operator,
           svlId: null,
           oem: null,
           oemId: null,
@@ -282,14 +303,15 @@ class _TicketScreenState extends State<TicketScreen> {
           selfId: 0,
           siteDomainName: ticket.siteDomainName,
           distanceKM: null,
-          infraEngineerName: data.apiData['infraDistrictEngineerName'],
-          infraEngineerPhone: data.apiData['infraDistrictEngineerContactNo'],
-          ownerName: data.apiData['ownerName'],
-          ownerPhone: data.apiData['ownerContactNo'],
+          infraEngineerName: genInspectionData['infraDistrictEngineerName'],
+          infraEngineerPhone:
+              genInspectionData['infraDistrictEngineerContactNo'],
+          ownerName: genInspectionData['ownerName'],
+          ownerPhone: genInspectionData['ownerContactNo'],
           siteVisitLogId: null,
           siteVisitLogDate: null,
           purposeOfVisit: null,
-          visitingPersonImageId: null,
+          visitingPersonImageId: visitingPersonImageId,
         );
 
         Navigator.push(
@@ -297,9 +319,7 @@ class _TicketScreenState extends State<TicketScreen> {
           MaterialPageRoute(
             builder: (context) => GInspectionDetailScreen(
               siteData: siteData,
-              mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
-                  ? CMScreenModeEnum.view
-                  : CMScreenModeEnum.edit,
+              mode: CMScreenModeEnum.edit,
             ),
           ),
         );
@@ -581,32 +601,23 @@ class _TicketScreenState extends State<TicketScreen> {
                 bool isDownloaded = false;
 
                 // Handle General Inspection tickets differently
-                if (_currentActivityType == ActivityTypeEnum.generalInspection) {
-                  // For GI tickets, download checklist data
-                  isDownloaded = await service.downloadGIChecklist(
-                    siteId: ticket.ticketSchId, // Using ticketSchId as siteId for GI
-                    siteCode: ticket.siteCode ?? "",
-                    siteName: ticket.pvTicketId, // Using pvTicketId as siteName
-                    siteDomainId: 1, // Default site domain ID
-                  );
-                } else {
-                  // For other ticket types, use the existing downloadData method
-                  isDownloaded = await service.downloadData(
-                    siteType: ticket.siteDomainName ?? 'Solar',
-                    auditSchId: ticket.auditSchId?.toString() ?? "",
-                    siteAuditSchId: ticket.ticketSchId.toString(),
-                    pvTicketId: ticket.pvTicketId,
-                    siteCode: ticket.siteCode ?? "",
-                    cluster: ticket.cluster ?? "",
-                    operator: ticket.operator ?? "",
-                    raisedDt: ticket.raisedDt,
-                    dueDt: ticket.dueDt,
-                    status: ticket.status ?? "",
-                    latitude: ticket.latitude ?? 0,
-                    longitude: ticket.longitude ?? 0,
-                    activityType: _currentActivityType,
-                  );
-                }
+
+                // For other ticket types, use the existing downloadData method
+                isDownloaded = await service.downloadData(
+                  siteType: ticket.siteDomainName ?? 'Solar',
+                  auditSchId: ticket.auditSchId?.toString() ?? "",
+                  siteAuditSchId: ticket.ticketSchId.toString(),
+                  pvTicketId: ticket.pvTicketId,
+                  siteCode: ticket.siteCode ?? "",
+                  cluster: ticket.cluster ?? "",
+                  operator: ticket.operator ?? "",
+                  raisedDt: ticket.raisedDt,
+                  dueDt: ticket.dueDt,
+                  status: ticket.status ?? "",
+                  latitude: ticket.latitude ?? 0,
+                  longitude: ticket.longitude ?? 0,
+                  activityType: _currentActivityType,
+                );
 
                 if (isDownloaded) {
                   // Add to local state and trigger UI update

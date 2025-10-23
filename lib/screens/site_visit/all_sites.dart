@@ -182,7 +182,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             ? SiteVisitScreen(siteData: site)
             : GInspectionDetailScreen(
                 siteData: site,
-                mode: CMScreenModeEnum.edit,
+                mode: CMScreenModeEnum.create,
               ),
       ),
     );
