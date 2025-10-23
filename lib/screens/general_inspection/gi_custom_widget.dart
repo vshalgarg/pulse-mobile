@@ -245,6 +245,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
         onButtonSelected: isEditable
             ? (value) {
                 print('🔍 Radio button selected: $value');
+                // Update the selected value with setState to show visual feedback
                 setState(() {
                   _selectedRadioValue = value;
                 });
@@ -310,6 +311,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
           const SizedBox(height: 8),
           // Image upload field
           ImageUploadField(
+            key: ValueKey('${widget.checklistItem.giclmId}_image'),
             placeholder: "Add a Photo",
             isRequired: widget.checklistItem.isMandatory,
             onImageSelected: isEditable

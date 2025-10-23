@@ -120,21 +120,20 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     print('  - imageId: $imageId');
     print('  - textValue: $textValue');
 
-    setState(() {
-      _checklistResponses[giclmId] = {
-        'radio_value': radioValue,
-        'image_id': imageId,
-        'text_value': textValue,
-      };
+    // Update the response data
+    _checklistResponses[giclmId] = {
+      'radio_value': radioValue,
+      'image_id': imageId,
+      'text_value': textValue,
+    };
 
-      // Track form changes
-      if (!_hasFormDataChanges) {
-        print(
-          "🔍 Checklist item changed - setting _hasFormDataChanges to true",
-        );
-        _hasFormDataChanges = true;
-      }
-    });
+    // Track form changes
+    if (!_hasFormDataChanges) {
+      print(
+        "🔍 Checklist item changed - setting _hasFormDataChanges to true",
+      );
+      _hasFormDataChanges = true;
+    }
 
     print(
       '🔍 Updated _checklistResponses for $giclmId: ${_checklistResponses[giclmId]}',
