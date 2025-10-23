@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
+import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
@@ -49,6 +50,9 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
   // Location data
   double? _latitude;
   double? _longitude;
+  
+  // Form change tracking
+  bool _hasFormDataChanges = false;
 
   @override
   void initState() {
@@ -116,6 +120,12 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         'image_id': imageId,
         'text_value': textValue,
       };
+      
+      // Track form changes
+      if (!_hasFormDataChanges) {
+        print("🔍 Checklist item changed - setting _hasFormDataChanges to true");
+        _hasFormDataChanges = true;
+      }
     });
     
     print('🔍 Updated _checklistResponses for $giclmId: ${_checklistResponses[giclmId]}');
@@ -128,7 +138,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
         title: "General Inspection Checklist",
-        onClose: () => Navigator.of(context).pop(),
+        onClose: () => _showUnsavedChangesDialog(),
       ),
       body: Stack(
         children: [
@@ -168,7 +178,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                       // Back Button
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: () => _showUnsavedChangesDialog(),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.buttonColorBg,
                             foregroundColor: Colors.white,
@@ -335,11 +345,16 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       print('✅ General inspection submitted successfully');
       showCustomToast(context, "General inspection checklist submitted successfully");
 
+      // Reset form changes flag after successful submission
+      setState(() {
+        _hasFormDataChanges = false;
+      });
       
       //  Navigator.push(context, MaterialPageRoute(builder: (context) => PulseDashboard()));
     } catch (e) {
       Logger.errorLog('❌ Error submitting general inspection: $e');
       showCustomToast(context, "Failed to submit general inspection data");
+      rethrow; // Re-throw so UnsavedChangesDialog can handle the error
     } finally {
       LoaderWidget.hideLoader();
     }
@@ -418,6 +433,31 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     };
 
     return requestData;
+  }
+
+  void _showUnsavedChangesDialog() {
+    print("🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges");
+    if (_hasFormDataChanges) {
+      print("🔍 Showing unsaved changes dialog");
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => UnsavedChangesDialog(
+          siteAuditSchId: widget.siteData.siteId.toString(),
+          section: "General Inspection Checklist",
+          parentContext: context,
+          onSaveAndExit: () async {
+            _submitForm();
+          },
+          onDiscard: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+    } else {
+      print("🔍 No form changes detected - navigating back directly");
+      Navigator.of(context).pop();
+    }
   }
 
 }

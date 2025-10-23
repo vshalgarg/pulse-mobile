@@ -4,6 +4,7 @@ import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
+import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -46,6 +47,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
   String? _uploadedImgId;
   String? _fetchedImageData;
   File? _selectedImage;
+  bool _hasFormDataChanges = false;
 
   // Checklist data
   bool _isLoadingChecklist = true;
@@ -63,6 +65,43 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     _repository = GeneralInspectionRepository(ServiceLocator().apiService);
     _initializeFormData(); // Initialize form fields with existing data
     _loadChecklistData();
+    
+    // Add listeners to track form changes
+    _infraEngineerController.addListener(() {
+      if (!_hasFormDataChanges) {
+        print("🔍 Infra Engineer changed - setting _hasFormDataChanges to true");
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
+    
+    _infraEngineerContactController.addListener(() {
+      if (!_hasFormDataChanges) {
+        print("🔍 Infra Engineer Contact changed - setting _hasFormDataChanges to true");
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
+    
+    _ownerController.addListener(() {
+      if (!_hasFormDataChanges) {
+        print("🔍 Owner changed - setting _hasFormDataChanges to true");
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
+    
+    _ownerContactController.addListener(() {
+      if (!_hasFormDataChanges) {
+        print("🔍 Owner Contact changed - setting _hasFormDataChanges to true");
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
   }
 
   void _populateExistingResponses() {
@@ -214,20 +253,25 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     // Debug: Print visiting person image ID before navigation
     print('🔍 Passing visitingPersonImageId to checklist screen: $_uploadedImgId');
 
-    // Navigate to checklist screen with pre-loaded data
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => GIChecklistScreen(
-          siteData: widget.siteData,
-          mode: widget.mode,
-          visitingPersonImageId: _uploadedImgId,
-          checklistItems: _checklistItems,
-          existingResponses: _existingChecklistResponses.isNotEmpty ? _existingChecklistResponses : null,
-          giId: giId,
+    try {
+      // Navigate to checklist screen with pre-loaded data
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => GIChecklistScreen(
+            siteData: widget.siteData,
+            mode: widget.mode,
+            visitingPersonImageId: _uploadedImgId,
+            checklistItems: _checklistItems,
+            existingResponses: _existingChecklistResponses.isNotEmpty ? _existingChecklistResponses : null,
+            giId: giId,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      Logger.errorLog('❌ Error in submit process: $e');
+      rethrow; // Re-throw so UnsavedChangesDialog can handle the error
+    }
   }
 
   Future<void> _loadImage(String imageId) async {
@@ -293,7 +337,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
         title: "General Inspection",
-        onClose: () => Navigator.of(context).pop(),
+        onClose: () => _showUnsavedChangesDialog(),
       ),
       body: Stack(
         children: [
@@ -442,6 +486,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                   debugPrint("Selected image path: ${file.path}");
                   setState(() {
                     _selectedImage = file;
+                    _hasFormDataChanges = true;
                   });
                   // Upload selfie to server
                   _uploadSelfie();
@@ -450,6 +495,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                     _selectedImage = null;
                     _uploadedImgId = null;
                     _fetchedImageData = null;
+                    _hasFormDataChanges = true;
                   });
                 }
               },
@@ -600,6 +646,31 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         _isLoadingChecklist = false;
         _checklistError = 'Unexpected error: ${e.toString()}';
       });
+    }
+  }
+
+  void _showUnsavedChangesDialog() {
+    print("🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges");
+    if (_hasFormDataChanges) {
+      print("🔍 Showing unsaved changes dialog");
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) => UnsavedChangesDialog(
+          siteAuditSchId: widget.siteData.siteId.toString(),
+          section: "General Inspection",
+          parentContext: context,
+          onSaveAndExit: () async {
+            _submitForm();
+          },
+          onDiscard: () {
+            Navigator.of(context).pop();
+          },
+        ),
+      );
+    } else {
+      print("🔍 No form changes detected - navigating back directly");
+      Navigator.of(context).pop();
     }
   }
 
