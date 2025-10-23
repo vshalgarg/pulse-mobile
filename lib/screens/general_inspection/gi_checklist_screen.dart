@@ -24,6 +24,8 @@ class GIChecklistScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
   final String? visitingPersonImageId; // Image ID from the previous screen
   final List<GenInsCheckListData> checklistItems; // Pre-loaded checklist data
+  final Map<int, Map<String, dynamic>>? existingResponses; // Existing responses for edit mode
+  final int? giId; // General Inspection ID for edit mode
 
   const GIChecklistScreen({
     super.key,
@@ -31,6 +33,8 @@ class GIChecklistScreen extends StatefulWidget {
     required this.mode,
     this.visitingPersonImageId,
     required this.checklistItems,
+    this.existingResponses,
+    this.giId,
   });
 
   @override
@@ -52,6 +56,18 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     
     // Use the pre-loaded checklist data
     _checklistItems = widget.checklistItems;
+    
+    // Populate existing responses if in edit mode
+    if (widget.existingResponses != null) {
+      _checklistResponses = Map.from(widget.existingResponses!);
+      print('🔍 Loaded existing responses: $_checklistResponses');
+      print('🔍 Number of existing responses: ${_checklistResponses.length}');
+      for (final entry in _checklistResponses.entries) {
+        print('  - Item ${entry.key}: ${entry.value}');
+      }
+    } else {
+      print('🔍 No existing responses provided');
+    }
     
     _getCurrentLocation();
   }
@@ -200,12 +216,18 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         const SizedBox(height: 20),
 
         // Checklist Items
-        ..._checklistItems.map((item) => Container(
+        ..._checklistItems.map((item) {
+          final existingResponse = _checklistResponses[item.giclmId];
+          print('🔍 Building checklist item ${item.giclmId} (${item.checklistDesc}):');
+          print('  - existingResponse: $existingResponse');
+          
+          return Container(
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: GICustomChecklistItem(
               checklistItem: item,
               siteData: widget.siteData,
               mode: widget.mode,
+              existingResponse: existingResponse, // Pass existing response data
               onRadioChanged: (radioValue) {
                 final currentResponse = _checklistResponses[item.giclmId];
                 _onChecklistItemChanged(
@@ -234,7 +256,8 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                 );
               },
             ),
-          )),
+          );
+        }),
       ],
     );
   }
@@ -313,7 +336,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       showCustomToast(context, "General inspection checklist submitted successfully");
 
       
-       Navigator.push(context, MaterialPageRoute(builder: (context) => PulseDashboard()));
+      //  Navigator.push(context, MaterialPageRoute(builder: (context) => PulseDashboard()));
     } catch (e) {
       Logger.errorLog('❌ Error submitting general inspection: $e');
       showCustomToast(context, "Failed to submit general inspection data");
@@ -329,6 +352,11 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     
     // Debug: Print visiting person image ID
     print('🔍 Visiting Person Image ID from previous screen: ${widget.visitingPersonImageId}');
+    print('🔍 Visiting Person Image ID type: ${widget.visitingPersonImageId.runtimeType}');
+    
+    // Use giId from widget (passed from API response data)
+    int giId = widget.giId ?? 0;
+    print('🔍 Using giId: $giId');
 
     // Create genInspectionSiteRespList
     List<Map<String, dynamic>> genInspectionSiteRespList = [];
@@ -347,8 +375,11 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         int? respPhotoId = int.tryParse(response['image_id'] ?? "0");
         if (respPhotoId == 0) respPhotoId = null;
         
+        // Use existing gispId if available (for edit mode), otherwise use 0 (for create mode)
+        int gispId = response['gispId'] ?? 0;
+        
         Map<String, dynamic> respItem = {
-          "gispId": 0,
+          "gispId": gispId,
           "siteId": widget.siteData.siteId,
           "giclmId": item.giclmId,
           "checklistDesc": item.checklistDesc,
@@ -366,11 +397,11 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
     // Create the main request object
     Map<String, dynamic> requestData = {
-      "giId": 0,
+      "giId": giId,
       "visitDate": visitDate,
       "siteId": widget.siteData.siteId,
       "visitingPersonId": 0,
-      "visitingPersonImageId": int.tryParse(widget.visitingPersonImageId ?? "0") ?? 0,
+      "visitingPersonImageId": widget.visitingPersonImageId ?? "0",
       "isActive": true,
       "remarks": "",
       "genInspectionSiteRespList": genInspectionSiteRespList,

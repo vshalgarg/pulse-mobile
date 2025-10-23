@@ -21,11 +21,13 @@ import 'gi_checklist_screen.dart';
 class GInspectionDetailScreen extends StatefulWidget {
   final AllSiteModel siteData;
   final CMScreenModeEnum mode;
+  final Map<String, dynamic>? apiResponseData; // Add API response data
 
   const GInspectionDetailScreen({
     super.key,
     required this.siteData,
     required this.mode,
+    this.apiResponseData,
   });
 
   @override
@@ -49,13 +51,229 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
   bool _isLoadingChecklist = true;
   String? _checklistError;
   List<GenInsCheckListData> _checklistItems = [];
+  Map<int, Map<String, dynamic>> _existingChecklistResponses = {}; // Store existing responses for edit mode
   late GeneralInspectionRepository _repository;
 
   @override
   void initState() {
     super.initState();
+
+    print("🔍 general isnpection data: ${widget.siteData.toJson()}");
+
     _repository = GeneralInspectionRepository(ServiceLocator().apiService);
+    _initializeFormData(); // Initialize form fields with existing data
     _loadChecklistData();
+  }
+
+  void _populateExistingResponses() {
+    if (widget.mode == CMScreenModeEnum.edit && widget.apiResponseData != null) {
+      final genInspectionSiteRespList = widget.apiResponseData!['genInspectionSiteRespList'] as List<dynamic>?;
+      if (genInspectionSiteRespList != null) {
+        for (final response in genInspectionSiteRespList) {
+          final giclmId = response['giclmId'] as int?;
+          if (giclmId != null) {
+            // Find the corresponding checklist item to determine response type
+            GenInsCheckListData? checklistItem;
+            try {
+              checklistItem = _checklistItems.firstWhere(
+                (item) => item.giclmId == giclmId,
+              );
+            } catch (e) {
+              print('🔍 Warning: No checklist item found for giclmId: $giclmId');
+              // Skip this response if no matching checklist item is found
+              continue;
+            }
+            
+            if (checklistItem != null) {
+              Map<String, dynamic> responseData = {
+                'image_id': response['respPhotoId']?.toString(),
+                'giId': widget.apiResponseData!['giId']?.toString(), // Include giId
+                'gispId': response['gispId'] as int?, // Include gispId for edit mode
+              };
+              
+              // Set the appropriate response value based on the checklist item type
+              if (checklistItem.respType.contains('RADIO')) {
+                responseData['radio_value'] = response['resp'] as String?;
+              } else if (checklistItem.respType.contains('TEXT')) {
+                responseData['text_value'] = response['resp'] as String?;
+              }
+              
+              _existingChecklistResponses[giclmId] = responseData;
+            }
+          }
+        }
+        print('🔍 Populated existing responses: $_existingChecklistResponses');
+      }
+    }
+  }
+
+  void _initializeFormData() {
+    // Debug: Print the entire API response data structure
+    print("🔍 Full API Response Data: ${widget.apiResponseData}");
+    
+    // Initialize form fields with API response data if available, otherwise use site data
+    if (widget.apiResponseData != null) {
+      print("🔍 Initializing form data from API response");
+      
+      // Debug: Print individual field values
+      print("🔍 infraDistrictEngineerName: ${widget.apiResponseData!['infraDistrictEngineerName']}");
+      print("🔍 infraDistrictEngineerContactNo: ${widget.apiResponseData!['infraDistrictEngineerContactNo']}");
+      print("🔍 ownerName: ${widget.apiResponseData!['ownerName']}");
+      print("🔍 ownerContactNo: ${widget.apiResponseData!['ownerContactNo']}");
+      
+      _infraEngineerController.text = widget.apiResponseData!['infraDistrictEngineerName']?.toString() ?? "";
+      _infraEngineerContactController.text = widget.apiResponseData!['infraDistrictEngineerContactNo']?.toString() ?? "";
+      _ownerController.text = widget.apiResponseData!['ownerName']?.toString() ?? "";
+      _ownerContactController.text = widget.apiResponseData!['ownerContactNo']?.toString() ?? "";
+      
+      // Handle existing image from API response
+      final visitingPersonImageId = widget.apiResponseData!['visitingPersonImageId']?.toString();
+      print("🔍 visitingPersonImageId from API: $visitingPersonImageId");
+      
+      if (visitingPersonImageId != null && visitingPersonImageId.isNotEmpty) {
+        _uploadedImgId = visitingPersonImageId;
+        print("🔍 Loading image with ID: $visitingPersonImageId");
+        _loadImage(visitingPersonImageId);
+      } else {
+        print("🔍 No visitingPersonImageId found in API response");
+        _uploadedImgId = null;
+      }
+    } else {
+      print("🔍 No API response data, using site data");
+      // Fallback to site data
+      _infraEngineerController.text = widget.siteData.infraEngineerName ?? "";
+      _infraEngineerContactController.text = widget.siteData.infraEngineerPhone ?? "";
+      _ownerController.text = widget.siteData.ownerName ?? "";
+      _ownerContactController.text = widget.siteData.ownerPhone ?? "";
+      
+      // Handle existing image from site data
+      if (widget.siteData.visitingPersonImageId != null &&
+          widget.siteData.visitingPersonImageId!.isNotEmpty) {
+        _uploadedImgId = widget.siteData.visitingPersonImageId;
+        print("🔍 Loading image with ID from site data: ${widget.siteData.visitingPersonImageId}");
+        _loadImage(widget.siteData.visitingPersonImageId!);
+      } else {
+        print("🔍 No visitingPersonImageId found in site data");
+        _uploadedImgId = null;
+      }
+    }
+  }
+
+  void _submitForm() {
+    // Validate selfie - check if we have an uploaded image ID
+    if (_uploadedImgId == null || _uploadedImgId!.isEmpty) {
+      showCustomToast(context, "Please add a selfie");
+      return;
+    }
+
+    // Check if checklist is still loading
+    if (_isLoadingChecklist) {
+      showCustomToast(context, "Please wait while checklist is loading");
+      return;
+    }
+
+    // Check if there was an error loading checklist
+    if (_checklistError != null) {
+      // Show error dialog with retry option
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Checklist Data Error'),
+          content: Text(_checklistError!),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _loadChecklistData(); // Retry loading
+              },
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // Check if we have checklist items
+    if (_checklistItems.isEmpty) {
+      showCustomToast(context, "No checklist data available. Please try downloading the data first.");
+      return;
+    }
+
+    // Extract giId from API response data if available
+    int? giId;
+    if (widget.apiResponseData != null) {
+      giId = widget.apiResponseData!['giId'] as int?;
+      print('🔍 Extracted giId from API response: $giId');
+    }
+
+    // Debug: Print visiting person image ID before navigation
+    print('🔍 Passing visitingPersonImageId to checklist screen: $_uploadedImgId');
+
+    // Navigate to checklist screen with pre-loaded data
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GIChecklistScreen(
+          siteData: widget.siteData,
+          mode: widget.mode,
+          visitingPersonImageId: _uploadedImgId,
+          checklistItems: _checklistItems,
+          existingResponses: _existingChecklistResponses.isNotEmpty ? _existingChecklistResponses : null,
+          giId: giId,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadImage(String imageId) async {
+    try {
+      print("🔍 _loadImage called with imageId: $imageId");
+
+      String? uniqueId;
+      
+      // Check if this is already a unique ID (offline mode) or a server ID (online mode)
+      if (imageId.contains("LOCAL_IMAGE_ID")) {
+        // This is already a unique ID from offline mode
+        print("🔍 Detected unique ID (offline mode): $imageId");
+        uniqueId = imageId;
+      } else {
+        // This is a server ID, try to download from server (online mode)
+        print("🔍 Detected server ID (online mode): $imageId");
+        uniqueId = await ServiceLocator().imageUploadService
+            .downloadImageUsingServerId(
+              imageId,
+              ActivityTypeEnum.generalInspection,
+              widget.siteData.siteId.toString(),
+            );
+        print("🔍 Download result - uniqueId: $uniqueId");
+      }
+
+      if (uniqueId != null) {
+        // Now get the image data using the unique ID
+        final imageData = await ServiceLocator().centralAssetAuditService.getImageAsDataUrl(uniqueId);
+
+        print("🔍 Image loading result: ${imageData != null ? 'SUCCESS' : 'FAILED'}");
+
+        if (imageData != null) {
+          Logger.debugLog('✅ Image data received: ${imageData.length} characters');
+          setState(() {
+            _fetchedImageData = imageData;
+          });
+          Logger.debugLog('✅ Image loaded successfully and state updated');
+        } else {
+          Logger.errorLog('❌ Failed to load image data with uniqueId $uniqueId - imageData is null');
+        }
+      } else {
+        Logger.errorLog('❌ Failed to get unique ID for image: $imageId');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading image: $e');
+    }
   }
 
   @override
@@ -176,7 +394,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Infra Engineer
         CustomFormField(
           label: "Infra Engineer",
-          initialValue: widget.siteData.infraEngineerName ?? "N/A",
+          controller: _infraEngineerController,
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
@@ -185,7 +403,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Infra Engineer Contact No.
         CustomFormField(
           label: "Infra Engineer Contact No.",
-          initialValue: widget.siteData.infraEngineerPhone ?? "N/A",
+          controller: _infraEngineerContactController,
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
           keyboardType: TextInputType.phone,
@@ -195,7 +413,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Owner
         CustomFormField(
           label: "Owner",
-          initialValue: widget.siteData.ownerName ?? "N/A",
+          controller: _ownerController,
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
@@ -204,33 +422,38 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Owner Contact No.
         CustomFormField(
           label: "Owner Contact No.",
-          initialValue: widget.siteData.ownerPhone ?? "N/A",
+          controller: _ownerContactController,
           isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 20),
 
-        ImageUploadField(
-          label: "Add a Selfie",
-          placeholder: "Selfie",
-          isRequired: true,
-          externalImageUrl: _fetchedImageData,
-          onImageSelected: (file) {
-            if (file != null) {
-              debugPrint("Selected image path: ${file.path}");
-              setState(() {
-                _selectedImage = file;
-              });
-              // Upload selfie to server
-              _uploadSelfie();
-            } else {
-              setState(() {
-                _selectedImage = null;
-                _uploadedImgId = null;
-                _fetchedImageData = null;
-              });
-            }
+        Builder(
+          builder: (context) {
+            print("🔍 Building ImageUploadField - _fetchedImageData: ${_fetchedImageData != null ? 'HAS_DATA' : 'NULL'}");
+            return ImageUploadField(
+              label: "Add a Selfie",
+              placeholder: "Selfie",
+              isRequired: true,
+              externalImageUrl: _fetchedImageData,
+              onImageSelected: (file) {
+                if (file != null) {
+                  debugPrint("Selected image path: ${file.path}");
+                  setState(() {
+                    _selectedImage = file;
+                  });
+                  // Upload selfie to server
+                  _uploadSelfie();
+                } else {
+                  setState(() {
+                    _selectedImage = null;
+                    _uploadedImgId = null;
+                    _fetchedImageData = null;
+                  });
+                }
+              },
+            );
           },
         ),
         getHeight(15),
@@ -318,6 +541,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
             _checklistItems = localChecklistData;
             _isLoadingChecklist = false;
           });
+          _populateExistingResponses(); // Populate existing responses after checklist data is loaded
           return;
         } else {
           Logger.debugLog('No local checklist data found for site ID: ${widget.siteData.siteId}');
@@ -341,6 +565,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         });
         
         Logger.debugLog('Loaded ${checklistItems.length} checklist items from API');
+        _populateExistingResponses(); // Populate existing responses after checklist data is loaded
       } catch (apiError) {
         Logger.errorLog('API call failed: $apiError');
         
@@ -356,6 +581,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               _isLoadingChecklist = false;
               _checklistError = null; // Clear error since we have local data
             });
+            _populateExistingResponses(); // Populate existing responses after checklist data is loaded
             return;
           }
         } catch (fallbackError) {
@@ -377,62 +603,4 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     }
   }
 
-  void _submitForm() {
-    // Validate selfie
-    if (_selectedImage == null) {
-      showCustomToast(context, "Please add a selfie");
-      return;
-    }
-
-    // Check if checklist is still loading
-    if (_isLoadingChecklist) {
-      showCustomToast(context, "Please wait while checklist is loading");
-      return;
-    }
-
-    // Check if there was an error loading checklist
-    if (_checklistError != null) {
-      // Show error dialog with retry option
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Checklist Data Error'),
-          content: Text(_checklistError!),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _loadChecklistData(); // Retry loading
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-      return;
-    }
-
-    // Check if we have checklist items
-    if (_checklistItems.isEmpty) {
-      showCustomToast(context, "No checklist data available. Please try downloading the data first.");
-      return;
-    }
-
-    // Navigate to checklist screen with pre-loaded data
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => GIChecklistScreen(
-          siteData: widget.siteData,
-          mode: widget.mode,
-          visitingPersonImageId: _uploadedImgId,
-          checklistItems: _checklistItems,
-        ),
-      ),
-    );
-  }
 }

@@ -18,6 +18,7 @@ class GICustomChecklistItem extends StatefulWidget {
   final GenInsCheckListData checklistItem;
   final AllSiteModel siteData;
   final CMScreenModeEnum mode;
+  final Map<String, dynamic>? existingResponse; // Existing response data for edit mode
   final Function(String? value)? onRadioChanged; // Callback for radio button changes (returns key)
   final Function(String? imageId)? onImageChanged; // Callback for image changes (returns image ID)
   final Function(String? textValue)? onTextChanged; // Callback for text changes (returns text)
@@ -27,6 +28,7 @@ class GICustomChecklistItem extends StatefulWidget {
     required this.checklistItem,
     required this.siteData,
     this.mode = CMScreenModeEnum.create, // Default to create mode
+    this.existingResponse,
     this.onRadioChanged,
     this.onImageChanged,
     this.onTextChanged,
@@ -46,8 +48,60 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
   @override
   void initState() {
     super.initState();
-    // Initialize state if needed, e.g., from existing data in view mode
-    // For now, assuming no pre-filled data for simplicity.
+    
+    // Initialize form fields with existing response data if available
+    if (widget.existingResponse != null) {
+      print('🔍 Initializing checklist item with existing response: ${widget.existingResponse}');
+      
+      // Initialize text field with existing value
+      final textValue = widget.existingResponse!['text_value']?.toString();
+      if (textValue != null && textValue.isNotEmpty) {
+        _textController.text = textValue;
+      }
+      
+      // Initialize image with existing value
+      final imageId = widget.existingResponse!['image_id']?.toString();
+      if (imageId != null && imageId.isNotEmpty && imageId != "0") {
+        _uploadedImageId = imageId;
+        _loadExistingImage(imageId);
+      }
+      
+      // Initialize radio button with existing value
+      final radioValue = widget.existingResponse!['radio_value']?.toString();
+      if (radioValue != null && radioValue.isNotEmpty) {
+        // Convert to lowercase for comparison
+        final lowerRadioValue = radioValue.toLowerCase();
+        print('🔍 Initialized radio button with value: $radioValue (lowercase: $lowerRadioValue)');
+        
+        // Find matching display value by comparing lowercase values
+        if (widget.checklistItem.respTypeValueMap != null) {
+          try {
+            final Map<String, dynamic> decodedMap = json.decode(widget.checklistItem.respTypeValueMap!.value);
+            String? matchingDisplayValue;
+            
+            decodedMap.forEach((key, value) {
+              if (value.toString().toLowerCase() == lowerRadioValue) {
+                matchingDisplayValue = value.toString();
+              }
+            });
+            
+            if (matchingDisplayValue != null) {
+              _selectedRadioValue = matchingDisplayValue;
+              print('🔍 Found matching display value: $matchingDisplayValue');
+            } else {
+              // Fallback to original value
+              _selectedRadioValue = radioValue;
+              print('🔍 No matching display value found, using original: $radioValue');
+            }
+          } catch (e) {
+            Logger.errorLog('Error decoding resp_type_value_map: $e');
+            _selectedRadioValue = radioValue;
+          }
+        } else {
+          _selectedRadioValue = radioValue;
+        }
+      }
+    }
     
     // Add listener to text controller
     _textController.addListener(() {
@@ -60,6 +114,52 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
   void dispose() {
     _textController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadExistingImage(String imageId) async {
+    try {
+      print("🔍 _loadExistingImage called with imageId: $imageId");
+
+      String? uniqueId;
+      
+      // Check if this is already a unique ID (offline mode) or a server ID (online mode)
+      if (imageId.contains("LOCAL_IMAGE_ID")) {
+        // This is already a unique ID from offline mode
+        print("🔍 Detected unique ID (offline mode): $imageId");
+        uniqueId = imageId;
+      } else {
+        // This is a server ID, try to download from server (online mode)
+        print("🔍 Detected server ID (online mode): $imageId");
+        uniqueId = await ServiceLocator().imageUploadService
+            .downloadImageUsingServerId(
+              imageId,
+              ActivityTypeEnum.generalInspection,
+              widget.siteData.siteId.toString(),
+            );
+        print("🔍 Download result - uniqueId: $uniqueId");
+      }
+
+      if (uniqueId != null) {
+        // Now get the image data using the unique ID
+        final imageData = await ServiceLocator().centralAssetAuditService.getImageAsDataUrl(uniqueId);
+
+        print("🔍 Image loading result: ${imageData != null ? 'SUCCESS' : 'FAILED'}");
+
+        if (imageData != null) {
+          Logger.debugLog('✅ Image data received: ${imageData.length} characters');
+          setState(() {
+            _fetchedImageData = imageData;
+          });
+          Logger.debugLog('✅ Image loaded successfully and state updated');
+        } else {
+          Logger.errorLog('❌ Failed to load image data with uniqueId $uniqueId - imageData is null');
+        }
+      } else {
+        Logger.errorLog('❌ Failed to get unique ID for image: $imageId');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading existing image: $e');
+    }
   }
 
   @override
@@ -129,6 +229,11 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
         .map((entry) => RadioOption(label: entry.value, value: entry.value))
         .toList();
 
+    print('🔍 Building radio buttons for ${widget.checklistItem.checklistDesc}:');
+    print('  - valueMap: $valueMap');
+    print('  - radioOptions: ${radioOptions.map((opt) => '${opt.label}:${opt.value}').toList()}');
+    print('  - _selectedRadioValue: $_selectedRadioValue');
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: CustomHorizontalRadioButtons(
@@ -143,10 +248,10 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
                 setState(() {
                   _selectedRadioValue = value;
                 });
-                // Find the key corresponding to the selected value
+                // Find the key corresponding to the selected value using lowercase comparison
                 String? selectedKey;
                 valueMap.forEach((key, val) {
-                  if (val == value) {
+                  if (val.toLowerCase() == value.toLowerCase()) {
                     selectedKey = key;
                   }
                 });

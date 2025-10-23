@@ -7,7 +7,6 @@ import 'package:app/services/service_locator.dart';
 import '../../utils/logger.dart';
 
 class CentralAssetAuditService {
-
   Future<bool> getDataFromApiAndSaveToSqlite({
     required String siteType,
     required String auditSchId,
@@ -23,8 +22,9 @@ class CentralAssetAuditService {
     required String dueDt,
     required String status,
   }) async {
-    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
-    if(sqliteData != null && sqliteData.isDownloaded) {
+    final sqliteData = await ServiceLocator().centralAssetAuditDataService
+        .getRawApiData(siteAuditSchId);
+    if (sqliteData != null && sqliteData.isDownloaded) {
       return true;
     }
 
@@ -32,28 +32,29 @@ class CentralAssetAuditService {
       siteType: siteType,
       auditSchId: auditSchId,
       siteAuditSchId: siteAuditSchId,
-      activityType: activityType
+      activityType: activityType,
     );
-    if(apiData == null) {
+    if (apiData == null) {
       return false;
     }
     // Save to SQLite
     final isSaved = await _saveDataToSQLite(
-        siteAuditSchId: siteAuditSchId,
-        siteType: siteType,
-        auditSchId: auditSchId,
-        activityType: activityType,
-        latitude: latitude,
-        longitude: longitude,
-        pvTicketId: pvTicketId,
-        siteCode: siteCode,
-        cluster: cluster,
-        operator: operator,
-        raisedDt: raisedDt,
-        dueDt: dueDt,
-        status: status,
-        isDownloaded: false,
-        apiData: apiData);
+      siteAuditSchId: siteAuditSchId,
+      siteType: siteType,
+      auditSchId: auditSchId,
+      activityType: activityType,
+      latitude: latitude,
+      longitude: longitude,
+      pvTicketId: pvTicketId,
+      siteCode: siteCode,
+      cluster: cluster,
+      operator: operator,
+      raisedDt: raisedDt,
+      dueDt: dueDt,
+      status: status,
+      isDownloaded: false,
+      apiData: apiData,
+    );
 
     return isSaved;
   }
@@ -61,8 +62,9 @@ class CentralAssetAuditService {
   Future<RawApiDataModel?> getDataFromSqlite({
     required String siteAuditSchId,
   }) async {
-    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
-    if(sqliteData != null) {
+    final sqliteData = await ServiceLocator().centralAssetAuditDataService
+        .getRawApiData(siteAuditSchId);
+    if (sqliteData != null) {
       return sqliteData;
     } else {
       return null;
@@ -70,31 +72,32 @@ class CentralAssetAuditService {
   }
 
   /// Download CM site data and save to SQLite
-  Future<bool> downloadCMSiteData({
-    required AllSiteModel site,
-  }) async {
+  Future<bool> downloadCMSiteData({required AllSiteModel site}) async {
     try {
-      Logger.debugLog('Starting to download CM site data for site: ${site.siteName}');
-      
-      // Save to SQLite using the new CM site data service
-      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveCMSiteData(
-        siteId: site.siteId,
-        entityId: site.entityId,
-        siteCode: site.siteCode,
-        siteName: site.siteName,
-        clusterDistrictId: site.clusterDistrictId,
-        clusterDistrictName: site.clusterDistrictName,
-        circleStateId: site.circleStateId,
-        circleStateName: site.circleStateName,
-        clientId: site.clientId,
-        clientName: site.clientName,
-        oem: site.oem,
-        oemId: site.oemId,
-        self: site.self,
-        selfId: site.selfId,
-        
-        activityType: 'correctiveMaintenance',
+      Logger.debugLog(
+        'Starting to download CM site data for site: ${site.siteName}',
       );
+
+      // Save to SQLite using the new CM site data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMSiteData(
+            siteId: site.siteId,
+            entityId: site.entityId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: site.circleStateName,
+            clientId: site.clientId,
+            clientName: site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+
+            activityType: 'correctiveMaintenance',
+          );
 
       Logger.debugLog('✅ CM site data saved successfully to SQLite: $isSaved');
       return isSaved;
@@ -112,24 +115,32 @@ class CentralAssetAuditService {
     required int siteDomainId,
   }) async {
     try {
-      Logger.debugLog('Starting to download General Inspection checklist data for site: $siteName');
-      
-      // Get checklist data from API
-      final checklistData = await ServiceLocator().generalInspectionRepository.getGenInsCheckListData(siteDomainId);
-      
-      // Save to SQLite using the central data service
-      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveGenInsCheckListData(
-        siteId: siteId,
-        siteCode: siteCode,
-        siteName: siteName,
-        checklistData: checklistData,
-        activityType: 'generalInspection',
+      Logger.debugLog(
+        'Starting to download General Inspection checklist data for site: $siteName',
       );
 
-      Logger.debugLog('✅ General Inspection checklist data saved successfully to SQLite: $isSaved');
+      // Get checklist data from API
+      final checklistData = await ServiceLocator().generalInspectionRepository
+          .getGenInsCheckListData(siteDomainId);
+
+      // Save to SQLite using the central data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveGenInsCheckListData(
+            siteId: siteId,
+            siteCode: siteCode,
+            siteName: siteName,
+            checklistData: checklistData,
+            activityType: 'generalInspection',
+          );
+
+      Logger.debugLog(
+        '✅ General Inspection checklist data saved successfully to SQLite: $isSaved',
+      );
       return isSaved;
     } catch (e) {
-      Logger.errorLog('❌ Error downloading General Inspection checklist data: $e');
+      Logger.errorLog(
+        '❌ Error downloading General Inspection checklist data: $e',
+      );
       return false;
     }
   }
@@ -137,8 +148,9 @@ class CentralAssetAuditService {
   Future<Map<String, dynamic>?> getActualDataFromSqlite({
     required String siteAuditSchId,
   }) async {
-    final sqliteData = await ServiceLocator().centralAssetAuditDataService.getRawApiData(siteAuditSchId);
-    if(sqliteData != null) {
+    final sqliteData = await ServiceLocator().centralAssetAuditDataService
+        .getRawApiData(siteAuditSchId);
+    if (sqliteData != null) {
       return sqliteData.apiData;
     } else {
       return null;
@@ -158,43 +170,41 @@ class CentralAssetAuditService {
     required String status,
     required double latitude,
     required double longitude,
-    required ActivityTypeEnum activityType
+    required ActivityTypeEnum activityType,
   }) async {
-
     final apiData = await ServiceLocator().centralApiService.fetchData(
       siteType: siteType,
       auditSchId: auditSchId,
       siteAuditSchId: siteAuditSchId,
-      activityType: activityType
+      activityType: activityType,
     );
 
-    if(apiData == null) {
+    if (apiData == null) {
       return false;
     }
     // Save to SQLite
     final isSaved = await _saveDataToSQLite(
-        siteAuditSchId: siteAuditSchId,
-        siteType: siteType,
-        auditSchId: auditSchId,
-        pvTicketId: pvTicketId,
-        siteCode: siteCode,
-        cluster: cluster,
-        operator: operator,
-        raisedDt: raisedDt,
-        dueDt: dueDt,
-        status: status,
-        activityType: activityType,
-
-        isDownloaded: true,
-        latitude: latitude,
-        longitude: longitude,
-        apiData: apiData);
+      siteAuditSchId: siteAuditSchId,
+      siteType: siteType,
+      auditSchId: auditSchId,
+      pvTicketId: pvTicketId,
+      siteCode: siteCode,
+      cluster: cluster,
+      operator: operator,
+      raisedDt: raisedDt,
+      dueDt: dueDt,
+      status: status,
+      activityType: activityType,
+      isDownloaded: true,
+      latitude: latitude,
+      longitude: longitude,
+      apiData: apiData,
+    );
     return isSaved;
   }
 
   /// Save asset audit data to SQLite
-  Future<bool> _saveDataToSQLite(
-  {
+  Future<bool> _saveDataToSQLite({
     required String siteType,
     required String auditSchId,
     required String siteAuditSchId,
@@ -216,26 +226,31 @@ class CentralAssetAuditService {
       Logger.debugLog('💾 API data keys: ${apiData.keys.toList()}');
 
       // Process images and replace server IDs with unique IDs
-      final processedApiData = await _processImagesInApiData(apiData, activityType, siteAuditSchId);
+      final processedApiData = await _processImagesInApiData(
+        apiData,
+        activityType,
+        siteAuditSchId,
+      );
 
       // Save the processed API response
-      bool isSaved = await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
-        siteAuditSchId: siteAuditSchId,
-        siteType: siteType,
-        auditSchId: auditSchId,
-        pvTicketId: pvTicketId,
-        siteCode: siteCode,
-        cluster: cluster,
-        operator: operator,
-        raisedDt: raisedDt,
-        dueDt: dueDt,
-        status: status,
-        isDownloaded: isDownloaded,
-        activityType: activityType,
-        latitude: latitude,
-        longitude: longitude,
-        apiData: processedApiData,
-      );
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveRawApiData(
+            siteAuditSchId: siteAuditSchId,
+            siteType: siteType,
+            auditSchId: auditSchId,
+            pvTicketId: pvTicketId,
+            siteCode: siteCode,
+            cluster: cluster,
+            operator: operator,
+            raisedDt: raisedDt,
+            dueDt: dueDt,
+            status: status,
+            isDownloaded: isDownloaded,
+            activityType: activityType,
+            latitude: latitude,
+            longitude: longitude,
+            apiData: processedApiData,
+          );
 
       Logger.debugLog('✅ Raw API data saved successfully to SQLite');
       return isSaved;
@@ -246,16 +261,24 @@ class CentralAssetAuditService {
   }
 
   /// Process images in API data by downloading and replacing server IDs with unique IDs
-  Future<Map<String, dynamic>> _processImagesInApiData(Map<String, dynamic> apiData, ActivityTypeEnum activityType, String siteAuditSchId) async {
+  Future<Map<String, dynamic>> _processImagesInApiData(
+    Map<String, dynamic> apiData,
+    ActivityTypeEnum activityType,
+    String siteAuditSchId,
+  ) async {
     try {
       Logger.debugLog('Processing images in API data');
-      
+
       // Create a deep copy of the API data to avoid modifying the original
       final processedData = Map<String, dynamic>.from(apiData);
-      
+
       // Process the entire object recursively
-      await _processObjectRecursively(processedData, activityType, siteAuditSchId);
-      
+      await _processObjectRecursively(
+        processedData,
+        activityType,
+        siteAuditSchId,
+      );
+
       Logger.debugLog('Images processed successfully');
       return processedData;
     } catch (e) {
@@ -265,27 +288,41 @@ class CentralAssetAuditService {
   }
 
   /// Recursively process an object to find and replace image server IDs
-  Future<void> _processObjectRecursively(dynamic obj, ActivityTypeEnum activityType, String siteAuditSchId) async {
+  Future<void> _processObjectRecursively(
+    dynamic obj,
+    ActivityTypeEnum activityType,
+    String siteAuditSchId,
+  ) async {
     if (obj == null) return;
-    
+
     if (obj is Map<String, dynamic>) {
       // Process each key-value pair in the map
       for (final entry in obj.entries) {
         final key = entry.key;
         final value = entry.value;
-        
+
         // Check if this is a photo_id or maker_selfie_image_id field
-        if ((key == 'photo_id' || key == 'maker_selfie_image_id' || key == 'ebAttachmentFileId' || key == 'visitingPersonImageId') && value != null) {
+        if ((key == 'photo_id' ||
+                key == 'maker_selfie_image_id' ||
+                key == 'ebAttachmentFileId' ||
+                key == 'visitingPersonImageId') &&
+            value != null) {
           final serverId = value.toString();
           if (serverId.isNotEmpty) {
             Logger.debugLog('🖼️ Found $key: $serverId');
-            
+
             // Download image and get unique ID
-            final uniqueId = await _downloadImageAndGetUniqueId(serverId, activityType, siteAuditSchId);
+            final uniqueId = await _downloadImageAndGetUniqueId(
+              serverId,
+              activityType,
+              siteAuditSchId,
+            );
             if (uniqueId != null) {
               // Replace server ID with unique ID
               obj[key] = uniqueId;
-              Logger.debugLog('✅ Replaced $key $serverId with unique ID: $uniqueId');
+              Logger.debugLog(
+                '✅ Replaced $key $serverId with unique ID: $uniqueId',
+              );
             } else {
               Logger.errorLog('❌ Failed to download image for $key: $serverId');
             }
@@ -304,13 +341,20 @@ class CentralAssetAuditService {
   }
 
   /// Download image using server ID and return unique ID
-  Future<String?> _downloadImageAndGetUniqueId(String serverId, ActivityTypeEnum activityType, String schId) async {
+  Future<String?> _downloadImageAndGetUniqueId(
+    String serverId,
+    ActivityTypeEnum activityType,
+    String schId,
+  ) async {
     try {
       Logger.debugLog('📥 Downloading image with server ID: $serverId');
-      final uniqueId = await ServiceLocator().imageUploadService.downloadImageUsingServerId(serverId, activityType, schId);
-      
+      final uniqueId = await ServiceLocator().imageUploadService
+          .downloadImageUsingServerId(serverId, activityType, schId);
+
       if (uniqueId != null) {
-        Logger.debugLog('✅ Image downloaded successfully with unique ID: $uniqueId');
+        Logger.debugLog(
+          '✅ Image downloaded successfully with unique ID: $uniqueId',
+        );
         return uniqueId;
       } else {
         Logger.errorLog('❌ Failed to download image with server ID: $serverId');
@@ -336,7 +380,7 @@ class CentralAssetAuditService {
         siteAuditSchId: siteAuditSchId,
         apiData: updatedData,
       );
-      
+
       Logger.debugLog('✅ Asset audit data updated successfully');
       return true;
     } catch (e) {
@@ -350,8 +394,9 @@ class CentralAssetAuditService {
   /// Get image as data URL
   Future<String?> getImageAsDataUrl(String imageId) async {
     try {
-      final imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(imageId);
-      if(imageData != null) {
+      final imageData = await ServiceLocator().imageUploadService
+          .getImageUsingUniqueId(imageId);
+      if (imageData != null) {
         return imageData; // Already a base64 string
       }
       return null;
@@ -375,10 +420,10 @@ class CentralAssetAuditService {
 
       // Upload using ImageUploadService
       return await ServiceLocator().imageUploadService.uploadImage(
-          imageData,
-          ActivityTypeEnum.assetAudit,
-          isSelfie,
-          siteAuditSchId
+        imageData,
+        ActivityTypeEnum.assetAudit,
+        isSelfie,
+        siteAuditSchId,
       );
     } catch (e) {
       Logger.errorLog('❌ Error uploading image: $e');
@@ -400,24 +445,20 @@ class CentralAssetAuditService {
 
   /// Drop and recreate all databases with all tables
   Future<void> dropAndRecreateAllDatabases() async {
-
     try {
       Logger.debugLog('🗑️ Dropping and recreating all databases');
-      
+
       // Drop and recreate both databases
       await Future.wait([
         ServiceLocator().centralAssetAuditDataService.dropAndRecreateDatabase(),
         ServiceLocator().pendingRequestService.dropAndRecreateDatabase(),
         ServiceLocator().imageUploadService.dropAndRecreateDatabase(),
       ]);
-      
+
       Logger.debugLog('✅ All databases dropped and recreated successfully');
     } catch (e) {
       Logger.errorLog('❌ Error dropping and recreating databases: $e');
       rethrow;
     }
   }
-
-
-  
 }

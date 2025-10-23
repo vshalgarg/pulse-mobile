@@ -1,3 +1,5 @@
+import 'gen_ins_checklist_model.dart';
+
 class AllSiteModel {
   final int siteId;
   final int entityId;
@@ -24,8 +26,10 @@ class AllSiteModel {
   final String? siteVisitLogDate;
   final String? purposeOfVisit;
   final String? visitingPersonImageId;
+  final List<GenInsCheckListData>? checklistItems;
 
   final String? svlId;
+  final String? giId;
 
   AllSiteModel({
     required this.siteId,
@@ -53,6 +57,8 @@ class AllSiteModel {
     this.purposeOfVisit,
     this.visitingPersonImageId,
     this.svlId,
+    this.checklistItems,
+    this.giId,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
@@ -100,6 +106,15 @@ class AllSiteModel {
       svlId: json['svl_id'] != null
           ? json['svl_id'].toString()
           : null,
+
+      checklistItems: json['checklist_items'] != null
+          ? (json['checklist_items'] as List)
+              .map((item) => GenInsCheckListData.fromJson(item))
+              .toList()
+          : null,
+          giId: json['gi_id'] != null
+          ? json['gi_id'].toString()
+          : null,
     );
   }
 
@@ -126,6 +141,8 @@ class AllSiteModel {
       'purpose_of_visit': purposeOfVisit,
       'visiting_person_image_id': visitingPersonImageId,
       'svl_id': svlId,
+      'checklist_items': checklistItems?.map((item) => item.toJson()).toList(),
+      'gi_id': giId,
     };
   }
 

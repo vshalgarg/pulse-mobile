@@ -266,36 +266,44 @@ class _TicketScreenState extends State<TicketScreen> {
           return;
         }
 
+        // Debug: Print the API response data
+        print("🔍 genInspectionData: $genInspectionData");
+
+        // Extract the actual data from the nested structure
+        final actualData = genInspectionData['data'] as Map<String, dynamic>?;
+        
+        if (actualData == null) {
+          Toastbar.showErrorToastbar("General inspection data structure is invalid", context);
+          return;
+        }
+
         // Extract visiting person image ID from API response
-        final visitingPersonImageId = genInspectionData['visitingPersonImageId']
-            ?.toString();
+        final visitingPersonImageId = actualData['visitingPersonImageId']?.toString();
+
+        // Debug: Print extracted values
+        print("🔍 visitingPersonImageId: $visitingPersonImageId");
+        print("🔍 infraDistrictEngineerName: ${actualData['infraDistrictEngineerName']}");
+        print("🔍 infraDistrictEngineerContactNo: ${actualData['infraDistrictEngineerContactNo']}");
+        print("🔍 ownerName: ${actualData['ownerName']}");
+        print("🔍 ownerContactNo: ${actualData['ownerContactNo']}");
 
         // Get checklist data from local database
         final checklistData = await ServiceLocator()
             .centralAssetAuditDataService
             .getGIChecklistData(ticket.ticketSchId);
 
-        if (checklistData.isEmpty) {
-          Toastbar.showErrorToastbar(
-            "Checklist data not found. Please download first.",
-            context,
-          );
-          return;
-        }
-
         // Create site data for General Inspection using API response data
         final siteData = AllSiteModel(
-          siteId: genInspectionData['siteId'] ?? ticket.ticketSchId,
+          siteId: actualData['siteId'] ?? ticket.ticketSchId,
           entityId: 0, // Default value
-          siteCode: genInspectionData['siteCode'] ?? ticket.siteCode ?? '',
-          siteName: genInspectionData['siteName'] ?? ticket.cluster ?? '',
+          siteCode: actualData['siteCode'] ?? ticket.siteCode ?? '',
+          siteName: actualData['siteName'] ?? ticket.cluster ?? '',
           clusterDistrictId: 0, // Default value
-          clusterDistrictName:
-              genInspectionData['cluster'] ?? ticket.cluster ?? '',
+          clusterDistrictName: actualData['cluster'] ?? ticket.cluster ?? '',
           circleStateId: 0, // Default value
-          circleStateName: genInspectionData['circle'] ?? ticket.operator ?? '',
+          circleStateName: actualData['circle'] ?? ticket.operator ?? '',
           clientId: null,
-          clientName: genInspectionData['client'] ?? ticket.operator,
+          clientName: actualData['client'] ?? ticket.operator,
           svlId: null,
           oem: null,
           oemId: null,
@@ -303,15 +311,15 @@ class _TicketScreenState extends State<TicketScreen> {
           selfId: 0,
           siteDomainName: ticket.siteDomainName,
           distanceKM: null,
-          infraEngineerName: genInspectionData['infraDistrictEngineerName'],
-          infraEngineerPhone:
-              genInspectionData['infraDistrictEngineerContactNo'],
-          ownerName: genInspectionData['ownerName'],
-          ownerPhone: genInspectionData['ownerContactNo'],
+          infraEngineerName: actualData['infraDistrictEngineerName'],
+          infraEngineerPhone: actualData['infraDistrictEngineerContactNo'],
+          ownerName: actualData['ownerName'],
+          ownerPhone: actualData['ownerContactNo'],
           siteVisitLogId: null,
           siteVisitLogDate: null,
           purposeOfVisit: null,
           visitingPersonImageId: visitingPersonImageId,
+          checklistItems: checklistData,
         );
 
         Navigator.push(
@@ -319,7 +327,10 @@ class _TicketScreenState extends State<TicketScreen> {
           MaterialPageRoute(
             builder: (context) => GInspectionDetailScreen(
               siteData: siteData,
-              mode: CMScreenModeEnum.edit,
+              mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+                  ? CMScreenModeEnum.view
+                  : CMScreenModeEnum.edit,
+              apiResponseData: actualData,
             ),
           ),
         );
