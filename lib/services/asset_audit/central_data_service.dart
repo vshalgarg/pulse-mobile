@@ -750,14 +750,29 @@ class CentralAssetAuditDataService {
       final List<GenInsCheckListData> checklistItems = [];
       for (final map in maps) {
         try {
+          // Parse resp_type_value_map correctly
+          Map<String, dynamic>? respTypeValueMap;
+          if (map['resp_type_value_map'] != null) {
+            try {
+              // The resp_type_value_map is stored as a JSON string, so we need to parse it
+              jsonDecode(map['resp_type_value_map']); // Validate it's valid JSON
+              respTypeValueMap = {
+                'type': 'string', // Default type
+                'value': map['resp_type_value_map'], // The original JSON string
+                'null': false,
+              };
+            } catch (e) {
+              Logger.errorLog('❌ Error parsing resp_type_value_map: $e');
+              respTypeValueMap = null;
+            }
+          }
+
           final item = GenInsCheckListData.fromJson({
             'giclm_id': map['giclm_id'],
             'site_domain_id': map['site_domain_id'],
             'checklist_desc': map['checklist_desc'],
             'resp_type': map['resp_type'],
-            'resp_type_value_map': map['resp_type_value_map'] != null 
-                ? jsonDecode(map['resp_type_value_map'])
-                : null,
+            'resp_type_value_map': respTypeValueMap,
             'is_mandatory': map['is_mandatory'] == 1,
             'cl_order': map['cl_order'],
           });

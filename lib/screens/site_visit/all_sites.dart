@@ -141,6 +141,30 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     // No auto load; only load on Enter
   }
 
+  void _performSearchAndLoad(String query) {
+    final trimmed = query.trim();
+    print('🔍 Search submitted: "$trimmed"');
+    print('🔍 Current site type: $_siteType');
+    
+    setState(() {
+      _searchQuery = trimmed;
+    });
+    
+    if (trimmed.isNotEmpty) {
+      print('🔍 Loading sites with search text: "$trimmed"');
+      _loadSites(_siteType, searchText: trimmed);
+    } else {
+      print('🔍 Search is empty, clearing results');
+      // If search is empty, reload based on current filter
+      if (_siteType == 'ALL') {
+        _filteredSites.clear();
+        _allSites.clear();
+      } else {
+        _loadSites(_siteType, searchText: '');
+      }
+    }
+  }
+
   int _getSiteCountForFilter(String filter) {
     if (filter == 'All Sites') {
       return _allSites.length;
@@ -347,35 +371,52 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             controller: _searchController,
             onChanged: _performSearch,
             onSubmitted: (value) {
-              final trimmed = value.trim();
-              if (trimmed.isNotEmpty) {
-                _loadSites(_siteType, searchText: trimmed);
-              }
+              _performSearchAndLoad(value);
             },
             style: const TextStyle(color: Colors.black, fontSize: 16),
             textInputAction: TextInputAction.search,
+            keyboardType: TextInputType.text,
             decoration: InputDecoration(
               hintText: 'Search',
               hintStyle: const TextStyle(color: Colors.grey, fontSize: 16),
               suffixIcon: _searchQuery.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {
-                          _searchQuery = '';
-                          // ✅ For All Sites: clear data and show nothing
-                          if (_siteType == 'ALL') {
-                            _filteredSites.clear();
-                            _allSites.clear();
-                          } else {
-                            // ✅ For Nearby: reload nearby sites
-                            _loadSites(_siteType, searchText: '');
-                          }
-                        });
-                      },
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.search, color: Colors.blue, size: 20),
+                          onPressed: () {
+                            _performSearchAndLoad(_searchController.text);
+                          },
+                          tooltip: 'Search',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                              // ✅ For All Sites: clear data and show nothing
+                              if (_siteType == 'ALL') {
+                                _filteredSites.clear();
+                                _allSites.clear();
+                              } else {
+                                // ✅ For Nearby: reload nearby sites
+                                _loadSites(_siteType, searchText: '');
+                              }
+                            });
+                          },
+                          tooltip: 'Clear',
+                        ),
+                      ],
                     )
-                  : const Icon(Icons.search, color: Colors.black, size: 20),
+                  : IconButton(
+                      icon: const Icon(Icons.search, color: Colors.black, size: 20),
+                      onPressed: () {
+                        _performSearchAndLoad(_searchController.text);
+                      },
+                      tooltip: 'Search',
+                    ),
               filled: true,
               fillColor: Colors.white,
               border: OutlineInputBorder(

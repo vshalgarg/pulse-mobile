@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:app/services/local_storage_db.dart';
 import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
@@ -35,9 +36,13 @@ class AuthRepository {
 
       if (response.isSuccess && response.data != null) {
         final authModel = AuthModel.fromJson(response.data!);
-        print("AuthRepository: Login successful - token: ${authModel.token?.substring(0, 20)}...");
+        print("AuthRepository: Login successful - token: ${authModel.token.substring(0, 20)}...");
         return ResponseResult.success(authModel, response.statusCode);
       } else {
+        print("🔍 Login failed - response not successful");
+        print("🔍 Response error: ${response.errorMessage}");
+        print("🔍 Status code: ${response.statusCode}");
+        
         String errorMessage = 'Login failed';
         if (response.errorMessage != null) {
           if (response.errorMessage!.contains('timeout')) {
@@ -50,6 +55,11 @@ class AuthRepository {
             errorMessage = response.errorMessage!;
           }
         }
+        
+        // Send detailed failure logs to server for API failures too
+        print("🔍 Sending login failure logs for API response failure...");
+        _sendLoginFailureLogs(username, 'API_RESPONSE_FAILURE: ${response.errorMessage}');
+        
         return ResponseResult.error(
           errorMessage: errorMessage,
           statusCode: response.statusCode,
@@ -68,6 +78,10 @@ class AuthRepository {
       } else {
         errorMessage = 'Login failed. Please try again.';
       }
+      
+      // Send detailed exception logs to server
+      print("🔍 Login failed, calling _sendLoginFailureLogs...");
+      _sendLoginFailureLogs(username, e);
       
       return ResponseResult.error(
         errorMessage: errorMessage,
@@ -338,6 +352,102 @@ class AuthRepository {
       }
       
       return ResponseResult.error(errorMessage: errorMessage);
+    }
+  }
+
+  /// Helper method to send login failure logs
+  void _sendLoginFailureLogs(String username, dynamic exception) {
+    print("🔍 _sendLoginFailureLogs called for username: $username");
+    try {
+      // Create detailed log information
+      final logData = {
+        'timestamp': DateTime.now().toIso8601String(),
+        'event': 'LOGIN_FAILURE',
+        'username': username,
+        'exception': exception.toString(),
+        'exceptionType': exception.runtimeType.toString(),
+        'stackTrace': exception is Error ? exception.stackTrace?.toString() : null,
+        'deviceInfo': {
+          'platform': 'mobile',
+          'appVersion': '1.0.0', // You can get this from package_info_plus
+        }
+      };
+      
+      // Convert to JSON string
+      final logsJson = jsonEncode(logData);
+      print("🔍 Created log data: $logsJson");
+      
+      // Send logs asynchronously (don't wait for response)
+      print("🔍 Calling sendMobileLogs...");
+      sendMobileLogs(logs: logsJson).then((result) {
+        print("🔍 sendMobileLogs completed with result: ${result.isSuccess}");
+        if (result.isSuccess) {
+          print("✅ AuthRepository: Login failure logs sent successfully");
+        } else {
+          print("❌ AuthRepository: Failed to send login failure logs: ${result.errorMessage}");
+        }
+      }).catchError((error) {
+        print("❌ AuthRepository: Error sending login failure logs: $error");
+      });
+    } catch (e) {
+      print("❌ AuthRepository: Error creating login failure logs: $e");
+    }
+  }
+
+  /// Test method to manually send mobile logs (for debugging)
+  Future<ResponseResult<bool>> testSendMobileLogs() async {
+    print("🧪 Testing mobile logs API...");
+    final testLogs = {
+      'timestamp': DateTime.now().toIso8601String(),
+      'event': 'TEST_LOG',
+      'message': 'This is a test log from mobile app',
+      'deviceInfo': {
+        'platform': 'mobile',
+        'appVersion': '1.0.0',
+      }
+    };
+    
+    print("🧪 Test logs data: ${jsonEncode(testLogs)}");
+    return sendMobileLogs(logs: jsonEncode(testLogs));
+  }
+
+  /// Send mobile logs to server when login fails
+  Future<ResponseResult<bool>> sendMobileLogs({
+    required String logs,
+  }) async {
+    print("🔍 sendMobileLogs method called");
+    print("🔍 Logs data: $logs");
+    try {
+      print("🔍 AuthRepository: Sending mobile logs to server");
+      print("🔍 API Path: api/v1/mobile/upload/MobileLogs");
+      
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: 'api/v1/mobile/upload/MobileLogs',
+        data: {
+          'logs': logs,
+        },
+      );
+
+      print("🔍 API Response received - Success: ${response.isSuccess}");
+      print("🔍 Status Code: ${response.statusCode}");
+      print("🔍 Error Message: ${response.errorMessage}");
+
+      if (response.isSuccess) {
+        print("✅ AuthRepository: Mobile logs sent successfully");
+        return ResponseResult.success(true, response.statusCode);
+      } else {
+        print("❌ AuthRepository: Failed to send mobile logs - ${response.errorMessage}");
+        return ResponseResult.error(
+          errorMessage: response.errorMessage ?? 'Failed to send mobile logs',
+          statusCode: response.statusCode,
+        );
+      }
+    } catch (e) {
+      print("❌ AuthRepository: Exception sending mobile logs - $e");
+      print("❌ Exception type: ${e.runtimeType}");
+      return ResponseResult.error(
+        errorMessage: 'Failed to send mobile logs: $e',
+      );
     }
   }
 }
