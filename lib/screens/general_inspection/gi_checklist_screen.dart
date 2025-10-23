@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/gen_ins_checklist_model.dart';
+import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -290,6 +292,8 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
   }
 
   Future<void> _submitGeneralInspectionData() async {
+
+    LoaderWidget.showLoader(context);
     try {
       // Create the request data
       final requestData = _createRequestData();
@@ -306,17 +310,21 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
       print('✅ General inspection submitted successfully');
       showCustomToast(context, "General inspection checklist submitted successfully");
-      Navigator.of(context).pop();
+
+      
+       Navigator.push(context, MaterialPageRoute(builder: (context) => AllSitesScreen(ActivityType:ActivityTypeEnum.generalInspection.value,)));
     } catch (e) {
       Logger.errorLog('❌ Error submitting general inspection: $e');
       showCustomToast(context, "Failed to submit general inspection data");
+    } finally {
+      LoaderWidget.hideLoader();
     }
   }
 
   Map<String, dynamic> _createRequestData() {
     // Get current timestamp
     final now = DateTime.now().toUtc();
-    final visitDate = now.toIso8601String();
+    final visitDate = "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}";
     
     // Debug: Print visiting person image ID
     print('🔍 Visiting Person Image ID from previous screen: ${widget.visitingPersonImageId}');
