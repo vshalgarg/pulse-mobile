@@ -276,37 +276,8 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
             controller: _textController,
             isDisabled: !isEditable,
           ),
-          // Debug: Show current text value
-          if (widget.checklistItem.respType.contains('TEXT'))
-            Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    'Debug - Current text: "${_textController.text}"',
-                    style: const TextStyle(color: Colors.white, fontSize: 12),
-                  ),
-                  const SizedBox(height: 4),
-                  ElevatedButton(
-                    onPressed: () {
-                      print('🔍 Manual text callback triggered with: "${_textController.text}"');
-                      widget.onTextChanged?.call(_textController.text);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    ),
-                    child: const Text('Test Callback', style: TextStyle(fontSize: 10)),
-                  ),
-                ],
-              ),
-            ),
+          
+          
         ],
       ),
     );
