@@ -243,7 +243,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Solar Plates',
         onClose: () {
           _showUnsavedChangesDialog();
         },

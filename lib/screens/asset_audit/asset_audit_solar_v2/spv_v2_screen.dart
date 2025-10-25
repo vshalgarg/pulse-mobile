@@ -229,7 +229,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'SPV',
         onClose: () {
           _showUnsavedChangesDialog();
         },

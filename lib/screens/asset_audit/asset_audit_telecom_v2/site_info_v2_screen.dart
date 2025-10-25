@@ -135,7 +135,7 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Site Info',
         onClose: () {
           _showUnsavedChangesDialog();
         },

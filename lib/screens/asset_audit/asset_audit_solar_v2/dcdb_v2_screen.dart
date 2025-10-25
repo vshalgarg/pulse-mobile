@@ -240,7 +240,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'DCDB',
         onClose: () {
           _showUnsavedChangesDialog();
         },

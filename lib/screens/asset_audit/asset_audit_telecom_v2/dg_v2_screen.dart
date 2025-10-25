@@ -260,7 +260,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'DG',
         onClose: () {
           _showUnsavedChangesDialog();
         },

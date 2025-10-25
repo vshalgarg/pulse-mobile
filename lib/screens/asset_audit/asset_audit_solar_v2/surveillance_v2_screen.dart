@@ -244,7 +244,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Surveillance',
         onClose: () {
           _showUnsavedChangesDialog();
         },

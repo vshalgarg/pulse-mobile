@@ -253,7 +253,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Fencing/Boundary',
         onClose: () {
           _showUnsavedChangesDialog();
         },

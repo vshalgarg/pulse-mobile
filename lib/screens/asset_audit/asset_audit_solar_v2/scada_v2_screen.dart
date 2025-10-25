@@ -256,7 +256,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'SCADA',
         onClose: () {
           _showUnsavedChangesDialog();
         },

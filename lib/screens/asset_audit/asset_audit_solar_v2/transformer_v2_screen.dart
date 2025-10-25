@@ -254,7 +254,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Transformer',
         onClose: () {
           _showUnsavedChangesDialog();
         },

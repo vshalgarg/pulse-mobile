@@ -264,7 +264,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Surveillance',
         onClose: () {
           _showUnsavedChangesDialog();
         },

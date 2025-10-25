@@ -244,7 +244,7 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Inverter',
         onClose: () {
           _showUnsavedChangesDialog();
         },

@@ -253,7 +253,7 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'PCU',
         onClose: () {
           _showUnsavedChangesDialog();
         },

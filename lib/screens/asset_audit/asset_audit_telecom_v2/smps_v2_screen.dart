@@ -376,7 +376,7 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'SMPS',
         onClose: () {
           _showUnsavedChangesDialog();
         },

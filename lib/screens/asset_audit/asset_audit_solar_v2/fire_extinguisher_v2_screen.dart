@@ -291,7 +291,7 @@ class _FireExtinguisherV2ScreenState extends State<FireExtinguisherV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Fire Extinguisher',
         onClose: () {
           _showUnsavedChangesDialog();
         },

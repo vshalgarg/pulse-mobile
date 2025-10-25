@@ -244,7 +244,7 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'VCB',
         onClose: () {
           _showUnsavedChangesDialog();
         },

@@ -249,7 +249,7 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'LTDB',
         onClose: () {
           _showUnsavedChangesDialog();
         },

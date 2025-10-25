@@ -45,18 +45,18 @@ class WMSV2Screen extends StatefulWidget {
 
 class _WMSV2ScreenState extends State<WMSV2Screen> {
   final String _screenName = 'WMS';
-  
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers
   final TextEditingController _wmsSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
@@ -91,23 +91,33 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 WMS V2: Loading data for site ${widget.siteAuditSchId}');
-      
+      Logger.debugLog(
+        '🔄 WMS V2: Loading data for site ${widget.siteAuditSchId}',
+      );
+
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final wmsItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
-        as Map<String, dynamic>? ?? {};
+        final wmsItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'SOLAR',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
         if (wmsItems.isNotEmpty) {
           final firstItem = wmsItems['assets'].first;
           final formData = <String, dynamic>{
             'wmsMake': firstItem['oem_name']?.toString() ?? "N/A",
             'totalItems': wmsItems['assets'].length.toString(),
-            'remarks': wmsItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': wmsItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'remarks':
+                wmsItems['remarks'].first['item_type_remark']?.toString() ?? "",
+            'assets': wmsItems['assets']
+                .where((obj) => obj['photo_id'] != null)
+                .toList(),
             'allAssets': wmsItems['assets'],
           };
 
@@ -162,55 +172,75 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
 
   // Validate WMS serial number
   bool _validateWMSSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedWMSItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedWMSItems, isQRCodeScanned);
+    final savedWMSItems =
+        _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedWMSItems,
+      isQRCodeScanned,
+    );
   }
 
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 WMS V2: Starting postCurrentScreenData');
-      
-      final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
+
+      final modifiedAssets =
+          _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'SOLAR',
+          )];
       final finalAssets = finalData?['assets'] as List<dynamic>? ?? [];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      
-      Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalAssets, modifiedAssets));
-      
+
+      Logger.debugLog(
+        '📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}',
+      );
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(finalAssets, modifiedAssets),
+      );
+
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
-           finalRemarks.first['assetStatus'] = 'OK';
+          finalRemarks.first['assetStatus'] = 'OK';
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
-
-      // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
-
-      Logger.debugLog('📤 WMS V2: Prepared ${postObject.length} items for posting');
-      // Post data with photo ID replacement
-      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
       );
 
+      // Prepare data for posting
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
+
+      Logger.debugLog(
+        '📤 WMS V2: Prepared ${postObject.length} items for posting',
+      );
+      // Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getSolarNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
 
       Logger.debugLog('✅ WMS V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ WMS V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -227,12 +257,11 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
           section: "Asset Audit",
           parentContext: context,
           onSaveAndExit: () async {
-            if(_hasFormDataChanges) {
+            if (_hasFormDataChanges) {
               await postCurrentScreenData();
             }
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
@@ -246,7 +275,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'WMS',
         onClose: () {
           _showUnsavedChangesDialog();
         },
@@ -302,7 +331,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -353,13 +382,17 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -377,7 +410,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom buttons using your specific format
                 AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
@@ -422,7 +455,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
           ),
         ),
         getHeight(15),
-        
+
         // WMS Form Component
         AssetAuditFormComponent(
           componentId: 'wms_component',
@@ -430,12 +463,13 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
           serialHintText: "WMS Serial Number *",
           photoLabel: "Add a Photo",
           serialController: _wmsSerialController,
-          initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
+          initialSavedItems:
+              _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onWMSItemSaved,
-          onStatusChanged: (status) {
-          },
+          onStatusChanged: (status) {},
           customValidator: _validateWMSSerialNumber,
-          customValidationErrorMessage: "Invalid WMS serial number. Please check and try again.",
+          customValidationErrorMessage:
+              "Invalid WMS serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "WMS Items",

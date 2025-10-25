@@ -292,7 +292,7 @@ class _FireExtinguisherTelecomV2ScreenState extends State<FireExtinguisherTeleco
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Fire Extinguisher',
         onClose: () {
           _showUnsavedChangesDialog();
         },

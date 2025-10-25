@@ -416,7 +416,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'Battery',
         onClose: () {
           _showUnsavedChangesDialog();
         },

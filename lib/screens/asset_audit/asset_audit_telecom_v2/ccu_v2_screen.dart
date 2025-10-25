@@ -689,7 +689,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'Asset Audit',
+        title: 'CCU',
         onClose: () {
           _showUnsavedChangesDialog();
         },
