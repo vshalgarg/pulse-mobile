@@ -68,9 +68,9 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       respTypes = respTypeList.split(",");
     }
 
-    // Initialize dropdown value - convert numeric to string
+    // Initialize dropdown value - handle dynamic mapping
     if (respTypes.contains('DROPDOWN')) {
-      _selectedDropdownValue = respValue;
+      _selectedDropdownValue = _getDisplayLabelForValue(respValue);
     }
 
     // Initialize radio value - convert 1/0 to Yes/No
@@ -208,11 +208,15 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     return null;
   }
 
-  void _onDropdownChanged(String? value) {
+  void _onDropdownChanged(String? value, [Map<String, String>? valueMap]) {
     setState(() {
       _selectedDropdownValue = value;
-      // Convert dropdown selection back to numeric value for API
-      _currentItem['resp'] = value;
+      // Use the mapped value for API if valueMap is provided, otherwise use the label
+      if (valueMap != null && value != null && valueMap.containsKey(value)) {
+        _currentItem['resp'] = valueMap[value];
+      } else {
+        _currentItem['resp'] = value;
+      }
     });
     _notifyValueChanged();
   }
@@ -241,18 +245,75 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     _notifyValueChanged();
   }
 
+  /// Get display label for a given API value by reverse mapping
+  String? _getDisplayLabelForValue(dynamic respValue) {
+    if (respValue == null) return null;
+    
+    try {
+      final respTypeValueMap = _currentItem['resp_type_value_map'];
+      if (respTypeValueMap != null && respTypeValueMap['value'] != null) {
+        final jsonString = respTypeValueMap['value'].toString();
+        final Map<String, dynamic> parsedMap = Map<String, dynamic>.from(
+          jsonDecode(jsonString)
+        );
+        
+        // Find the key (label) for the given value
+        for (final entry in parsedMap.entries) {
+          if (entry.value.toString() == respValue.toString()) {
+            return entry.key;
+          }
+        }
+      }
+    } catch (e) {
+      // If parsing fails, return the original value
+    }
+    
+    return respValue?.toString();
+  }
+
   Widget _buildDropdownField() {
-    const dropdownOptions = [
-      'OK',
-      'Corrected',
-      'NOT OK - To be corrected',
-      'Not Applicable',
-    ];
+    // Parse resp_type_value_map to get dynamic dropdown options
+    List<String> dropdownOptions = [];
+    Map<String, String> valueMap = {};
+    
+    try {
+      final respTypeValueMap = _currentItem['resp_type_value_map'];
+      if (respTypeValueMap != null && respTypeValueMap['value'] != null) {
+        final jsonString = respTypeValueMap['value'].toString();
+        final Map<String, dynamic> parsedMap = Map<String, dynamic>.from(
+          jsonDecode(jsonString)
+        );
+        
+        // Convert to label-value mapping
+        parsedMap.forEach((key, value) {
+          dropdownOptions.add(key); // Label for display
+          valueMap[key] = value.toString(); // Value for API
+        });
+      }
+    } catch (e) {
+      // Fallback to static options if parsing fails
+      dropdownOptions = [
+        'OK',
+        'Corrected',
+        'NOT OK - To be corrected',
+        'Not Applicable',
+      ];
+    }
+
+    // If no dynamic options found, use static fallback
+    if (dropdownOptions.isEmpty) {
+      dropdownOptions = [
+        'OK',
+        'Corrected',
+        'NOT OK - To be corrected',
+        'Not Applicable',
+      ];
+    }
 
     return CustomDropdown(
       items: dropdownOptions,
       initialValue: _selectedDropdownValue,
-      onChanged: (value) => _onDropdownChanged(value),
+      onChanged: (value) => _onDropdownChanged(value, valueMap),
     );
   }
 
