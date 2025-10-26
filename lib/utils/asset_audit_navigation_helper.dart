@@ -26,7 +26,7 @@ import 'package:app/screens/asset_audit/asset_audit_telecom_v2/fire_extinguisher
 import 'package:app/screens/asset_audit/asset_audit_telecom_v2/site_info_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom_v2/smps_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom_v2/solar_plate_v2_screen.dart';
-import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/asset_audit/asset_audit_telecom_v2/electrical_screen.dart';
 import 'package:app/screens/pulse_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -129,6 +129,7 @@ class AssetAuditNavigationHelper {
     'Fencing',
     'DG',
     'SMPS',
+    'Electrical',
   ];
 
   static String? _getNextAvailableScreenNameV2(
@@ -609,6 +610,16 @@ class AssetAuditNavigationHelper {
         pushPage(
           context,
           SMPSV2Screen(
+            siteAuditSchId: siteAuditSchId,
+            siteType: siteType,
+            auditSchId: auditSchId,
+          ),
+        );
+        break;
+      case 'Electrical':
+        pushPage(
+          context,
+          ElectricalScreen(
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
