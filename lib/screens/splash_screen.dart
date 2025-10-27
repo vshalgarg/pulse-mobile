@@ -55,10 +55,6 @@ class _SplashScreenState extends State<SplashScreen>
     print('   rememberMe: ${authCubit.getRememberMe}');
     print('   currentState: ${authCubit.state}');
 
-    Toastbar.showSuccessToastWithoutContext(
-      "Splash Screen: isLoggedIn=${authCubit.isLoggedIn}, rememberMe=${authCubit.getRememberMe}",
-    );
-
     if (authCubit.isLoggedIn) {
       // User is already logged in, go to pulse dashboard
       print('✅ User is logged in, navigating to PulseDashboard');

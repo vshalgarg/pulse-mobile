@@ -505,6 +505,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
             statusText: ticket.status ?? 'N/A',
+            activityType: rawTicket.activityType,
             isDownloadedFunc: (ticket) async =>
                 true, // All tickets here are downloaded
             onPdfDownloadTap: () => _downloadReport(rawTicket),

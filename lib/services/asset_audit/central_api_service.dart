@@ -158,7 +158,7 @@ class CentralApiService {
           : activityType == ActivityTypeEnum.assetAudit
           ? 'OnM/Asset_Audit.rptdesign'
           : activityType == ActivityTypeEnum.correctiveMaintenance
-          ? 'OnM/Corrective_Maintenance.rptdesign'
+          ? 'OnM/Corrective_Maintenance.rptdesign' : activityType == ActivityTypeEnum.generalInspection ? 'OnM/gen_inspection.rptdesign'
           : 'OnM/Corrective_Maintenance.rptdesign';
 
       print('Report Path: $reportPath');
@@ -173,11 +173,13 @@ class CentralApiService {
         return null;
       }
 
+      // Use baseUrl from ApiService instead of hardcoded URL
+      final baseUrl = _apiService.baseUrl;
       final reportUrl =
-          'https://pulseapi.nexgeninfra.com//reports/generate?' +
-          'reportPath=$reportPath&' +
-          'rp_tenant=$userId&' +
-          'rp_sch_id=$ticketSchId&' +
+          '$baseUrl/reports/generate?'
+          'reportPath=$reportPath&'
+          'rp_tenant=$userId&'
+          'rp_sch_id=$ticketSchId&'
           'rp_login_userid=$userId';
 
       Logger.debugLog('Report URL: $reportUrl');
@@ -185,7 +187,8 @@ class CentralApiService {
       final fileName = activityType == ActivityTypeEnum.preventiveMaintenance
           ? 'PM-Report-$ticketId'
           : activityType == ActivityTypeEnum.correctiveMaintenance
-          ? 'CM-Report-$ticketId'
+          ? 'CM-Report-$ticketId'  
+          : activityType == ActivityTypeEnum.generalInspection ? 'GI-Report-$ticketId'
           : 'AA-Report-$ticketId';
 
       // Download the PDF

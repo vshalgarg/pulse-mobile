@@ -1,5 +1,6 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/ticket_model.dart';
 import 'package:app/utils.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,7 @@ class TicketCard extends StatelessWidget {
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
   final VoidCallback? onPdfDownloadTap;
+  final ActivityTypeEnum activityType;
 
   const TicketCard({
     super.key,
@@ -38,6 +40,7 @@ class TicketCard extends StatelessWidget {
     this.onDirectionTap,
     this.onTap,
     this.onPdfDownloadTap,
+    required this.activityType,
   });
 
   // Method to get status color based on status text
@@ -174,7 +177,8 @@ class TicketCard extends StatelessWidget {
                   const SizedBox(width: 8),
 
                   // Add document icon for completed/closed tickets
-                  if (statusText.toLowerCase() == 'completed' ||
+                  if (activityType == ActivityTypeEnum.generalInspection ||
+                      statusText.toLowerCase() == 'completed' ||
                       statusText.toLowerCase() == 'closed')
                     IconButton(
                       icon: const Icon(

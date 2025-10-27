@@ -585,6 +585,7 @@ class _TicketScreenState extends State<TicketScreen> {
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
             statusText: statusText,
+            activityType: _currentActivityType,
             isDownloadedFunc: _isTicketDownloaded,
             onPdfDownloadTap: () => _downloadReport(ticket),
             onTap: () => _navigateToAuditScreen(ticket),

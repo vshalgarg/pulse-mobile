@@ -49,11 +49,13 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     _service = ServiceLocator().centralAssetAuditService;
 
     _initializeFormData();
-    
+
     // Add listener to purpose controller to track changes
     _purposeController.addListener(() {
       if (!_hasFormDataChanges) {
-        print("🔍 Purpose of visit changed - setting _hasFormDataChanges to true");
+        print(
+          "🔍 Purpose of visit changed - setting _hasFormDataChanges to true",
+        );
         setState(() {
           _hasFormDataChanges = true;
         });
@@ -100,7 +102,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       print("🔍 _loadImage imageId type: ${imageId.runtimeType}");
 
       String? uniqueId;
-      
+
       // Check if this is already a unique ID (offline mode) or a server ID (online mode)
       if (imageId.contains("LOCAL_IMAGE_ID")) {
         // This is already a unique ID from offline mode
@@ -148,12 +150,8 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           );
         }
       } else {
-        Logger.errorLog(
-          '❌ Failed to get unique ID for image: $imageId',
-        );
-        print(
-          "❌ Failed to get unique ID for image: $imageId",
-        );
+        Logger.errorLog('❌ Failed to get unique ID for image: $imageId');
+        print("❌ Failed to get unique ID for image: $imageId");
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading image: $e');
@@ -304,7 +302,8 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
                   : (int.tryParse(_uploadedImgId!) ??
                         0)) // Send server ID as int for online mode
             : 0,
-        "visitDate": "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}",
+        "visitDate":
+            "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}",
         "purposeOfVisit": _purposeController.text.trim(),
         "isActive": true,
         "remarks": "",
@@ -463,7 +462,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   }
 
   void _showUnsavedChangesDialog() {
-    print("🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges");
+    print(
+      "🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges",
+    );
     if (_hasFormDataChanges) {
       print("🔍 Showing unsaved changes dialog");
       showDialog(
@@ -507,30 +508,28 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     try {
       // Show loader
       LoaderWidget.showLoader(context);
-      
+
       // Submit the form with already uploaded image
       await postSiteVisitLog();
-      
+
       // Hide loader
       LoaderWidget.hideLoader();
-      
+
       // Show success message
       showCustomToast(context, "Site visit submitted successfully");
-      
+
       // Mark as submitted (reset changes flag)
       setState(() {
         _hasFormDataChanges = false;
       });
-      
+
       // Navigate to home screen after a short delay
       await Future.delayed(const Duration(milliseconds: 500));
-      
+
       if (mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(
-            builder: (context) => PulseDashboard(),
-          ),
+          MaterialPageRoute(builder: (context) => PulseDashboard()),
         );
       }
     } catch (e) {
@@ -538,9 +537,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       if (LoaderWidget.isShowing) {
         LoaderWidget.hideLoader();
       }
-      
+
       Logger.errorLog('❌ Error in submit process: $e');
-      
+
       // Show error message
       if (mounted) {
         Toastbar.showErrorToastbar(
@@ -548,7 +547,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           context,
         );
       }
-      
+
       // Re-throw so UnsavedChangesDialog can handle the error if called from there
       rethrow;
     }
