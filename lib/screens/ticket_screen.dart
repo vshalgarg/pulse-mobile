@@ -169,40 +169,58 @@ class _TicketScreenState extends State<TicketScreen> {
       final siteType = ticket.siteDomainName ?? 'Solar';
 
       final service = ServiceLocator().centralAssetAuditService;
-      final isAvailable = await service.getDataFromApiAndSaveToSqlite(
-        siteType: siteType,
-        auditSchId: ticket.auditSchId?.toString() ?? "",
+      
+      // Try to get data from local database first
+      RawApiDataModel? data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.ticketSchId.toString(),
-        latitude: ticket.latitude ?? 0,
-        longitude: ticket.longitude ?? 0,
-        activityType: _currentActivityType,
-        pvTicketId: ticket.pvTicketId,
-        siteCode: ticket.siteCode ?? "",
-        cluster: ticket.cluster ?? "",
-        operator: ticket.operator ?? "",
-        raisedDt: ticket.raisedDt,
-        dueDt: ticket.dueDt,
-        status: ticket.status ?? "",
       );
-      if (!isAvailable) {
+      
+      // If not found in local DB, fetch from API and save
+      if (data == null || !data.isDownloaded) {
+        Logger.infoLog('📥 Data not found in local DB, fetching from API...');
+        final isAvailable = await service.getDataFromApiAndSaveToSqlite(
+          siteType: siteType,
+          auditSchId: ticket.auditSchId?.toString() ?? "",
+          siteAuditSchId: ticket.ticketSchId.toString(),
+          latitude: ticket.latitude ?? 0,
+          longitude: ticket.longitude ?? 0,
+          activityType: _currentActivityType,
+          pvTicketId: ticket.pvTicketId,
+          siteCode: ticket.siteCode ?? "",
+          cluster: ticket.cluster ?? "",
+          operator: ticket.operator ?? "",
+          raisedDt: ticket.raisedDt,
+          dueDt: ticket.dueDt,
+          status: ticket.status ?? "",
+        );
+        if (!isAvailable) {
+          Toastbar.showErrorToastbar("Failed to load data", context);
+          return;
+        }
+        
+        // Get the data from local DB after saving
+        data = await service.getDataFromSqlite(
+          siteAuditSchId: ticket.ticketSchId.toString(),
+        );
+      } else {
+        Logger.infoLog('✅ Using data from local database');
+      }
+
+      if (data == null || data.apiData == null) {
         Toastbar.showErrorToastbar("Failed to load data", context);
         return;
       }
-      final data = await service.getDataFromSqlite(
-        siteAuditSchId: ticket.ticketSchId.toString(),
-      );
-
-      print("data: site visit log data ${data?.apiData}");
-
-      if (data == null) {
-        Toastbar.showErrorToastbar("Failed to load data", context);
-        return;
-      }
+      
+      Logger.infoLog('✅ Loaded data from ${data.isDownloaded ? 'local database' : 'API'}');
+      Logger.infoLog('📊 Data keys: ${data.apiData.keys.toList()}');
+      
+      final apiData = data.apiData;
+      
       if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PMPageRender(pmData: data.apiData),
+            builder: (context) => PMPageRender(pmData: apiData),
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
@@ -220,31 +238,31 @@ class _TicketScreenState extends State<TicketScreen> {
       } else if (_currentActivityType == ActivityTypeEnum.siteVisit) {
         // Create site data from API response with correct field mapping
         final siteData = AllSiteModel(
-          siteId: data.apiData['siteId'] ?? ticket.ticketSchId,
+          siteId: apiData['siteId'] ?? ticket.ticketSchId,
           entityId: 0, // Default value
-          siteCode: data.apiData['siteCode'] ?? ticket.siteCode ?? '',
-          siteName: data.apiData['siteName'] ?? ticket.cluster ?? '',
+          siteCode: apiData['siteCode'] ?? ticket.siteCode ?? '',
+          siteName: apiData['siteName'] ?? ticket.cluster ?? '',
           clusterDistrictId: 0, // Default value
-          clusterDistrictName: data.apiData['cluster'] ?? ticket.cluster ?? '',
+          clusterDistrictName: apiData['cluster'] ?? ticket.cluster ?? '',
           circleStateId: 0, // Default value
-          circleStateName: data.apiData['circle'] ?? ticket.operator ?? '',
+          circleStateName: apiData['circle'] ?? ticket.operator ?? '',
           clientId: null,
-          clientName: data.apiData['client'] ?? ticket.operator,
-          svlId: data.apiData['svlId']?.toString(),
+          clientName: apiData['client'] ?? ticket.operator,
+          svlId: apiData['svlId']?.toString(),
           oem: null,
           oemId: null,
           self: '',
           selfId: 0,
           siteDomainName: ticket.siteDomainName,
           distanceKM: null,
-          infraEngineerName: data.apiData['infraDistrictEngineerName'],
-          infraEngineerPhone: data.apiData['infraDistrictEngineerContactNo'],
-          ownerName: data.apiData['ownerName'],
-          ownerPhone: data.apiData['ownerContactNo'],
-          siteVisitLogId: data.apiData['svlId']?.toString(),
-          siteVisitLogDate: data.apiData['visitDate']?.toString(),
-          purposeOfVisit: data.apiData['purposeOfVisit']?.toString(),
-          visitingPersonImageId: data.apiData['visitingPersonImageId']
+          infraEngineerName: apiData['infraDistrictEngineerName'],
+          infraEngineerPhone: apiData['infraDistrictEngineerContactNo'],
+          ownerName: apiData['ownerName'],
+          ownerPhone: apiData['ownerContactNo'],
+          siteVisitLogId: apiData['svlId']?.toString(),
+          siteVisitLogDate: apiData['visitDate']?.toString(),
+          purposeOfVisit: apiData['purposeOfVisit']?.toString(),
+          visitingPersonImageId: apiData['visitingPersonImageId']
               ?.toString(),
         ); // site visit screen
 
@@ -256,15 +274,7 @@ class _TicketScreenState extends State<TicketScreen> {
         );
       } else if (_currentActivityType == ActivityTypeEnum.generalInspection) {
         // For General Inspection, get checklist data from API response
-        final genInspectionData = data.apiData;
-
-        if (genInspectionData == null) {
-          Toastbar.showErrorToastbar(
-            "General inspection data not found.",
-            context,
-          );
-          return;
-        }
+        final genInspectionData = apiData;
 
         // Debug: Print the API response data
         print("🔍 genInspectionData: $genInspectionData");
@@ -342,7 +352,7 @@ class _TicketScreenState extends State<TicketScreen> {
             mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
                 ? CMScreenModeEnum.view
                 : CMScreenModeEnum.edit,
-            preloadedSiteData: data.apiData,
+            preloadedSiteData: apiData,
           ),
         );
       } else {

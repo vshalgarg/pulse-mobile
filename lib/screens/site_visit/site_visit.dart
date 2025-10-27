@@ -6,10 +6,12 @@ import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
@@ -287,6 +289,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
   Future<void> postSiteVisitLog() async {
     try {
+      final now = DateTime.now();
       final requestData = {
         "svlId":
             widget.siteData.siteVisitLogId != null &&
@@ -301,8 +304,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
                   : (int.tryParse(_uploadedImgId!) ??
                         0)) // Send server ID as int for online mode
             : 0,
-        "visitDate":
-            "${DateTime.now().day.toString().padLeft(2, '0')}/${DateTime.now().month.toString().padLeft(2, '0')}/${DateTime.now().year}",
+        "visitDate": "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}",
         "purposeOfVisit": _purposeController.text.trim(),
         "isActive": true,
         "remarks": "",
@@ -503,11 +505,52 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     }
 
     try {
+      // Show loader
+      LoaderWidget.showLoader(context);
+      
       // Submit the form with already uploaded image
       await postSiteVisitLog();
+      
+      // Hide loader
+      LoaderWidget.hideLoader();
+      
+      // Show success message
+      showCustomToast(context, "Site visit submitted successfully");
+      
+      // Mark as submitted (reset changes flag)
+      setState(() {
+        _hasFormDataChanges = false;
+      });
+      
+      // Navigate to home screen after a short delay
+      await Future.delayed(const Duration(milliseconds: 500));
+      
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PulseDashboard(),
+          ),
+        );
+      }
     } catch (e) {
+      // Hide loader on error
+      if (LoaderWidget.isShowing) {
+        LoaderWidget.hideLoader();
+      }
+      
       Logger.errorLog('❌ Error in submit process: $e');
-      rethrow; // Re-throw so UnsavedChangesDialog can handle the error
+      
+      // Show error message
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          "Error submitting site visit: ${e.toString()}",
+          context,
+        );
+      }
+      
+      // Re-throw so UnsavedChangesDialog can handle the error if called from there
+      rethrow;
     }
   }
 }

@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 7;
+  static const int _databaseVersion = 9;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -74,6 +74,7 @@ class CentralAssetAuditDataService {
         self TEXT,
         self_id INTEGER,
         activity_type TEXT NOT NULL,
+        checklist_data TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -103,6 +104,34 @@ class CentralAssetAuditDataService {
       )
     ''');
 
+    // CM Checklist table for downloaded CM checklist data
+    await db.execute('''
+      CREATE TABLE cm_checklist_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        entity_id INTEGER NOT NULL,
+        site_code TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        checklist_desc TEXT NOT NULL,
+        resp_type TEXT NOT NULL,
+        resp_type_value_map TEXT,
+        impacted_item_value_map TEXT,
+        item_type_id INTEGER NOT NULL,
+        item_type TEXT NOT NULL,
+        check_list_group_id INTEGER,
+        cm_check_list_mst_id INTEGER NOT NULL,
+        is_mandatory INTEGER DEFAULT 0,
+        childitem_data TEXT,
+        cl_order INTEGER NOT NULL,
+        sub_item_type TEXT NOT NULL,
+        activity_type TEXT NOT NULL,
+        is_downloaded INTEGER DEFAULT 1,
+        downloaded_at TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
     await db.execute(
       'CREATE INDEX idx_raw_api_data_site_audit_sch_id ON raw_api_data(site_audit_sch_id)',
     );
@@ -113,6 +142,10 @@ class CentralAssetAuditDataService {
 
     await db.execute(
       'CREATE INDEX idx_gen_ins_checklist_data_site_id ON gen_ins_checklist_data(site_id)',
+    );
+
+    await db.execute(
+      'CREATE INDEX idx_cm_checklist_data_site_id ON cm_checklist_data(site_id)',
     );
   }
 
@@ -241,6 +274,7 @@ class CentralAssetAuditDataService {
             self TEXT,
             self_id INTEGER,
             activity_type TEXT NOT NULL,
+            checklist_data TEXT,
             is_downloaded INTEGER DEFAULT 1,
             downloaded_at TEXT,
             created_at TEXT,
@@ -255,6 +289,26 @@ class CentralAssetAuditDataService {
         Logger.debugLog('✅ Successfully created cm_sites_data table');
       } catch (e) {
         Logger.errorLog('❌ Error creating cm_sites_data table: $e');
+      }
+    }
+
+    if (oldVersion < 9) {
+      // For version 9, add checklist_data column to cm_sites_data table
+      try {
+        // Check if column already exists
+        final tableInfo = await db.rawQuery("PRAGMA table_info(cm_sites_data)");
+        final existingColumns = tableInfo
+            .map((col) => col['name'] as String)
+            .toList();
+
+        if (!existingColumns.contains('checklist_data')) {
+          await db.execute(
+            'ALTER TABLE cm_sites_data ADD COLUMN checklist_data TEXT',
+          );
+          Logger.debugLog('✅ Added checklist_data column to cm_sites_data table');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error adding checklist_data column: $e');
       }
     }
 
@@ -289,6 +343,46 @@ class CentralAssetAuditDataService {
         Logger.debugLog('✅ Successfully created gen_ins_checklist_data table');
       } catch (e) {
         Logger.errorLog('❌ Error creating gen_ins_checklist_data table: $e');
+      }
+    }
+
+    if (oldVersion < 8) {
+      // For version 8, create CM checklist table
+      try {
+        await db.execute('''
+          CREATE TABLE cm_checklist_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            checklist_desc TEXT NOT NULL,
+            resp_type TEXT NOT NULL,
+            resp_type_value_map TEXT,
+            impacted_item_value_map TEXT,
+            item_type_id INTEGER NOT NULL,
+            item_type TEXT NOT NULL,
+            check_list_group_id INTEGER,
+            cm_check_list_mst_id INTEGER NOT NULL,
+            is_mandatory INTEGER DEFAULT 0,
+            childitem_data TEXT,
+            cl_order INTEGER NOT NULL,
+            sub_item_type TEXT NOT NULL,
+            activity_type TEXT NOT NULL,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_cm_checklist_data_site_id ON cm_checklist_data(site_id)',
+        );
+
+        Logger.debugLog('✅ Successfully created cm_checklist_data table');
+      } catch (e) {
+        Logger.errorLog('❌ Error creating cm_checklist_data table: $e');
       }
     }
   }
@@ -512,6 +606,80 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Save CM site data to SQLite with checklist data
+  Future<bool> saveCMSiteDataWithChecklist({
+    required int siteId,
+    required int entityId,
+    required String siteCode,
+    required String siteName,
+    required int? clusterDistrictId,
+    required String? clusterDistrictName,
+    required int? circleStateId,
+    required String? circleStateName,
+    required int? clientId,
+    required String? clientName,
+    required String? oem,
+    required int? oemId,
+    required String? self,
+    required int? selfId,
+    required String activityType,
+    Map<String, dynamic>? checklistData,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      // Convert checklist data to JSON string if provided
+      String? checklistDataJson;
+      if (checklistData != null && checklistData.isNotEmpty) {
+        try {
+          Logger.infoLog('📝 Attempting to encode checklist data for site: $siteName');
+          Logger.infoLog('📝 Checklist data keys: ${checklistData.keys.toList()}');
+          Logger.infoLog('📝 Checklist data type: ${checklistData.runtimeType}');
+          
+          checklistDataJson = jsonEncode(checklistData);
+          
+          Logger.infoLog('✅ Successfully encoded checklist data (${checklistDataJson.length} characters)');
+        } catch (jsonError) {
+          Logger.errorLog('❌ Error encoding checklist data to JSON: $jsonError');
+          Logger.errorLog('❌ Checklist data structure: ${checklistData.toString()}');
+          // Continue without checklist data rather than failing completely
+          checklistDataJson = null;
+        }
+      }
+
+      await db.insert('cm_sites_data', {
+        'site_id': siteId,
+        'entity_id': entityId,
+        'site_code': siteCode,
+        'site_name': siteName,
+        'cluster_district_id': clusterDistrictId,
+        'cluster_district_name': clusterDistrictName,
+        'circle_state_id': circleStateId,
+        'circle_state_name': circleStateName,
+        'client_id': clientId,
+        'client_name': clientName,
+        'oem': oem,
+        'oem_id': oemId,
+        'self': self,
+        'self_id': selfId,
+        'activity_type': activityType,
+        'checklist_data': checklistDataJson, // Store checklist data in the same table
+        'is_downloaded': 1,
+        'downloaded_at': now,
+        'created_at': now,
+        'updated_at': now,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+
+      Logger.debugLog('✅ CM site data saved successfully with checklist');
+      return true;
+    } catch (e) {
+      Logger.errorLog('❌ Error saving CM site data: $e');
+      Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
+      return false;
+    }
+  }
+
   /// Save CM site data to SQLite
   Future<bool> saveCMSiteData({
     required int siteId,
@@ -732,6 +900,39 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Get CM site data with checklist from SQLite
+  Future<Map<String, dynamic>?> getCMSiteDataWithChecklist(int siteId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_sites_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        final siteData = Map<String, dynamic>.from(maps.first);
+        
+        // Parse checklist_data from JSON string
+        if (siteData['checklist_data'] != null) {
+          try {
+            final checklistData = jsonDecode(siteData['checklist_data']);
+            siteData['checklist_items'] = checklistData;
+          } catch (e) {
+            Logger.errorLog('❌ Error parsing checklist_data: $e');
+          }
+        }
+        
+        return siteData;
+      }
+      return null;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting CM site data with checklist: $e');
+      return null;
+    }
+  }
+
   /// Get General Inspection checklist data from SQLite
   Future<List<GenInsCheckListData>> getGIChecklistData(int siteId) async {
     try {
@@ -850,6 +1051,163 @@ class CentralAssetAuditDataService {
     } catch (e) {
       Logger.errorLog('❌ Error getting all downloaded CM sites: $e');
       return [];
+    }
+  }
+
+  /// Save CM checklist data to SQLite
+  Future<bool> saveCMChecklistData({
+    required int siteId,
+    required int entityId,
+    required String siteCode,
+    required String siteName,
+    required Map<String, List<Map<String, dynamic>>> checklistData,
+    required String activityType,
+  }) async {
+    try {
+      final db = await database;
+      final now = DateTime.now().toIso8601String();
+
+      // Clear existing data for this site to avoid conflicts
+      await db.delete(
+        'cm_checklist_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+      );
+      Logger.debugLog('🗑️ Cleared existing CM checklist data for site_id: $siteId');
+
+      // Save each checklist item in a transaction
+      int totalItems = 0;
+      for (final entry in checklistData.entries) {
+        totalItems += entry.value.length;
+      }
+      
+      Logger.debugLog('📝 Saving $totalItems CM checklist items to database');
+
+      await db.transaction((txn) async {
+        int itemIndex = 0;
+        for (final entry in checklistData.entries) {
+          final itemType = entry.key;
+          final items = entry.value;
+
+          for (int i = 0; i < items.length; i++) {
+            final item = items[i];
+            itemIndex++;
+
+            try {
+              String? childitemDataJson;
+              if (item['childitemData'] != null && item['childitemData'] is List) {
+                childitemDataJson = jsonEncode(item['childitemData']);
+              }
+
+              final insertData = {
+                'site_id': siteId,
+                'entity_id': entityId,
+                'site_code': siteCode,
+                'site_name': siteName,
+                'checklist_desc': item['checklist_desc']?.toString() ?? '',
+                'resp_type': item['resp_type']?.toString() ?? '',
+                'resp_type_value_map': item['resp_type_value_map']?.toString(),
+                'impacted_item_value_map': item['impacted_item_value_map']?.toString(),
+                'item_type_id': item['item_type_id'] ?? 0,
+                'item_type': itemType,
+                'check_list_group_id': item['check_list_group_id'],
+                'cm_check_list_mst_id': item['cm_check_list_mst_id'] ?? 0,
+                'is_mandatory': (item['is_mandatory'] ?? false) ? 1 : 0,
+                'childitem_data': childitemDataJson,
+                'cl_order': item['cl_order'] ?? 0,
+                'sub_item_type': item['sub_item_type']?.toString() ?? '',
+                'activity_type': activityType,
+                'is_downloaded': 1,
+                'downloaded_at': now,
+                'created_at': now,
+                'updated_at': now,
+              };
+
+              await txn.insert('cm_checklist_data', insertData, conflictAlgorithm: ConflictAlgorithm.replace);
+            } catch (itemError) {
+              Logger.errorLog('❌ Error saving CM checklist item $itemIndex: $itemError');
+              // Continue with other items even if one fails
+            }
+          }
+        }
+      });
+
+      Logger.debugLog('✅ CM checklist data saved successfully to SQLite');
+      return true;
+    } catch (e) {
+      Logger.errorLog('❌ Error saving CM checklist data: $e');
+      return false;
+    }
+  }
+
+  /// Get CM checklist data from SQLite
+  Future<Map<String, List<Map<String, dynamic>>>> getCMChecklistData(int siteId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_checklist_data',
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        orderBy: 'cl_order ASC',
+      );
+
+      final Map<String, List<Map<String, dynamic>>> checklistByType = {};
+
+      for (final map in maps) {
+        final itemType = map['item_type'] as String;
+
+        if (!checklistByType.containsKey(itemType)) {
+          checklistByType[itemType] = [];
+        }
+
+        List<dynamic> childitemData = [];
+        if (map['childitem_data'] != null) {
+          try {
+            childitemData = jsonDecode(map['childitem_data']);
+          } catch (e) {
+            Logger.errorLog('❌ Error parsing childitem_data: $e');
+          }
+        }
+
+        checklistByType[itemType]!.add({
+          'checklist_desc': map['checklist_desc'],
+          'resp_type': map['resp_type'],
+          'resp_type_value_map': map['resp_type_value_map'],
+          'impacted_item_value_map': map['impacted_item_value_map'],
+          'item_type_id': map['item_type_id'],
+          'item_type': map['item_type'],
+          'check_list_group_id': map['check_list_group_id'],
+          'cm_check_list_mst_id': map['cm_check_list_mst_id'],
+          'is_mandatory': map['is_mandatory'] == 1,
+          'childitemData': childitemData,
+          'cl_order': map['cl_order'],
+          'sub_item_type': map['sub_item_type'],
+        });
+      }
+
+      Logger.debugLog('✅ Retrieved CM checklist data from SQLite with ${checklistByType.length} item types');
+      return checklistByType;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting CM checklist data: $e');
+      return {};
+    }
+  }
+
+  /// Check if CM checklist is downloaded for a site
+  Future<bool> isCMChecklistDownloaded(int siteId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_checklist_data',
+        where: 'site_id = ? AND is_downloaded = 1',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      return maps.isNotEmpty;
+    } catch (e) {
+      Logger.errorLog('❌ Error checking if CM checklist is downloaded: $e');
+      return false;
     }
   }
 

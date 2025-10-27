@@ -145,6 +145,99 @@ class CentralAssetAuditService {
     }
   }
 
+  /// Download CM checklist data and save to SQLite
+  Future<bool> downloadCMChecklist({
+    required int siteId,
+    required int entityId,
+    required String siteCode,
+    required String siteName,
+  }) async {
+    try {
+      Logger.debugLog(
+        'Starting to download CM checklist data for site: $siteName',
+      );
+
+      // Get checklist data from API
+      final checklistDataRaw = await ServiceLocator().cmRepository
+          .getChecklistData(entityId);
+
+      print("vishal printing checklistDataRaw: $checklistDataRaw");
+
+      // Convert to the expected format
+      final Map<String, List<Map<String, dynamic>>> checklistData = {};
+      checklistDataRaw.forEach((key, value) {
+        if (value is List) {
+          checklistData[key] = List<Map<String, dynamic>>.from(
+            value.map((item) => Map<String, dynamic>.from(item)),
+          );
+        }
+      });
+
+      // Save to SQLite using the central data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMChecklistData(
+            siteId: siteId,
+            entityId: entityId,
+            siteCode: siteCode,
+            siteName: siteName,
+            checklistData: checklistData,
+            activityType: 'correctiveMaintenance',
+          );
+
+      print("vishal printing checklistData: $checklistData");
+
+      Logger.debugLog(
+        '✅ CM checklist data saved successfully to SQLite: $isSaved',
+      );
+      return isSaved;
+    } catch (e) {
+      print("vishal printing e: $e");
+      Logger.errorLog(
+        '❌ Error downloading CM checklist data: $e',
+      );
+      return false;
+    }
+  }
+
+  /// Download CM site data with checklist data
+  Future<bool> downloadCMSiteDataWithChecklist({
+    required AllSiteModel site,
+    required Map<String, dynamic> checklistData,
+  }) async {
+    try {
+      Logger.debugLog(
+        'Starting to download CM site data with checklist for site: ${site.siteName}',
+      );
+
+      // Save to SQLite using the new CM site data with checklist service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMSiteDataWithChecklist(
+            siteId: site.siteId,
+            entityId: site.entityId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: site.circleStateName,
+            clientId: site.clientId,
+            clientName: site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+            activityType: 'correctiveMaintenance',
+            checklistData: checklistData,
+          );
+
+      Logger.debugLog('✅ CM site data with checklist saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading CM site data with checklist: $e');
+      return false;
+    }
+  }
+
   Future<Map<String, dynamic>?> getActualDataFromSqlite({
     required String siteAuditSchId,
   }) async {

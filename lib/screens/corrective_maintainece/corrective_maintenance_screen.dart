@@ -238,6 +238,8 @@ class _CorrectiveMaintenanceScreenState
       "✅ [CM] Site selected: ${selectedSite.siteName}, entityId: ${selectedSite.entityId}, mode: ${widget.mode}",
     );
 
+    print("vishal printing selectedSite: $selectedSite");
+
     setState(() {
       _selectedSite = selectedSite;
       _hasFormDataChanges = true;
@@ -257,11 +259,108 @@ class _CorrectiveMaintenanceScreenState
     try {
       if (mounted) LoaderWidget.showLoader(context);
       if (widget.mode == CMScreenModeEnum.create) {
+        // Try to load from local database first
         Logger.infoLog(
-          "🔄 [CM] Calling getChecklistData for entityId: ${selectedSite.entityId}",
+          "🔄 [CM] Attempting to load checklist data from local database for siteId: ${selectedSite.siteId}",
         );
-        final checklistData = await ServiceLocator().cmRepository
-            .getChecklistData(selectedSite.entityId);
+
+        print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
+        
+        Map<String, dynamic> checklistData = {};
+        
+        try {
+          // Try to get site data with checklist from local database first
+          Logger.infoLog("🔄 [CM] Checking local database for site data with checklist...");
+          Logger.infoLog("🆔 [CM] Looking for site ID: ${selectedSite.siteId}, entityId: ${selectedSite.entityId}");
+
+        print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
+
+          final siteDataWithChecklist = await ServiceLocator()
+              .centralAssetAuditDataService
+              .getCMSiteDataWithChecklist(selectedSite.siteId);
+          
+          Logger.infoLog("🔍 [CM] Site data lookup result: ${siteDataWithChecklist != null ? 'FOUND' : 'NOT_FOUND'}");
+          
+          if (siteDataWithChecklist != null && siteDataWithChecklist['checklist_items'] != null) {
+            Logger.infoLog("✅ [CM] Found site data with checklist_items in local database");
+            print("vishal printing siteDataWithChecklist: $siteDataWithChecklist");
+            checklistData = Map<String, dynamic>.from(siteDataWithChecklist['checklist_items']);
+            Logger.infoLog("✅ [CM] Checklist data loaded with types: ${checklistData.keys.toList()}");
+            print("vishal printing checklistData: $checklistData");
+          } else {
+            // Fallback: Try separate checklist table
+            Logger.infoLog("⚠️ [CM] No checklist in site data, checking separate checklist table...");
+
+            Logger.infoLog("🆔 [CM] Looking for checklist data for site ID: ${selectedSite.siteId}");
+            print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
+            final localChecklistData = await ServiceLocator()
+                .centralAssetAuditDataService
+                .getCMChecklistData(selectedSite.siteId);
+            
+            Logger.infoLog("🔍 [CM] Separate checklist lookup result: ${localChecklistData.length} equipment types");
+            
+            Logger.infoLog("🔍 [CM] Local checklist table returned ${localChecklistData.length} equipment types");
+            print("vishal printing localChecklistData: $localChecklistData");
+
+            if (localChecklistData.isNotEmpty) {
+              Logger.infoLog("✅ [CM] Checklist data loaded from separate table with types: ${localChecklistData.keys.toList()}");
+              print("vishal printing localChecklistData: $localChecklistData");
+              checklistData = localChecklistData;
+            } else {
+              Logger.infoLog("⚠️ [CM] No local checklist data found, fetching from API");
+              print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
+              try {
+                // Check if site is downloaded - if not, suggest downloading first
+                final isSiteDownloaded = await ServiceLocator()
+                    .centralAssetAuditDataService
+                    .isCMSiteDownloaded(selectedSite.siteId);
+                
+                if (!isSiteDownloaded) {
+                  throw Exception("This site is not downloaded. Please download the site data first to use it offline.");
+                }
+                
+                // Fallback to API call (only if online)
+                checklistData = await ServiceLocator().cmRepository
+                    .getChecklistData(selectedSite.entityId);
+                
+                Logger.infoLog("✅ [CM] Checklist data fetched from API");
+                print("vishal printing checklistData: $checklistData");
+                
+                // Save to local database for offline use
+                try {
+                  await ServiceLocator().centralAssetAuditService.downloadCMChecklist(
+                    siteId: selectedSite.siteId,
+                    entityId: selectedSite.entityId,
+                    siteCode: selectedSite.siteCode,
+                    siteName: selectedSite.siteName,
+                  );
+                  Logger.infoLog("✅ [CM] Checklist data saved to local database");
+                  print("vishal printing checklistData: $checklistData");
+                } catch (saveError) {
+                  Logger.errorLog("⚠️ [CM] Failed to save checklist to local database: $saveError");
+                  print("vishal printing saveError: $saveError");
+                  // Continue even if save fails
+                }
+              } catch (apiError) {
+                Logger.errorLog("❌ [CM] Failed to fetch checklist from API: $apiError");
+                print("vishal printing apiError: $apiError");
+                // If API fails and no local data, show error
+                if (apiError.toString().contains("host lookup") || 
+                    apiError.toString().contains("connection") ||
+                    apiError.toString().contains("internet")) {
+                  throw Exception("No internet connection. Please download the site data first to use it offline, or check your internet connection.");
+                }
+                throw Exception("Unable to load checklist data. Please check your internet connection or download the site data first.");
+              }
+            }
+          }
+        } catch (dbError) {
+          Logger.errorLog("❌ [CM] Local database check failed: $dbError");
+          print("vishal printing dbError: $dbError");
+          // Re-throw the error to show message to user
+          rethrow;
+        }
+        
         Logger.infoLog("✅ [CM] Checklist data received: ${checklistData.keys}");
         if (mounted) {
           setState(() {
@@ -278,7 +377,12 @@ class _CorrectiveMaintenanceScreenState
       }
     } catch (e) {
       Logger.errorLog("❌ [CM] Exception in loading checklist: $e");
-      // Toastbar.showErrorToastbar("Error while loading checklist", context);
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          "Error loading checklist: ${e.toString()}",
+          context,
+        );
+      }
     } finally {
       if (mounted) LoaderWidget.hideLoader();
     }
@@ -796,6 +900,14 @@ class _CorrectiveMaintenanceScreenState
           );
           return;
         }
+        
+        // Add cmItemType to each checklist item if not already present
+        for (var item in selectedCheckListData) {
+          if (item['cmItemType'] == null || item['cmItemType'].toString().isEmpty) {
+            item['cmItemType'] = item['subItemType'] ?? _selectedEquipmentType;
+          }
+        }
+        
         requestData['cm_check_list_site_resp_list'] =
             DataTransformationHelper.convertListToCamelCase(
               selectedCheckListData,
@@ -890,6 +1002,14 @@ class _CorrectiveMaintenanceScreenState
         );
         return;
       }
+      
+      // Add cmItemType to each checklist item if not already present
+      for (var item in selectedCheckListData) {
+        if (item['cmItemType'] == null || item['cmItemType'].toString().isEmpty) {
+          item['cmItemType'] = item['subItemType'] ?? _selectedEquipmentType;
+        }
+      }
+      
       requestData['cm_check_list_site_resp_list'] =
           DataTransformationHelper.convertListToCamelCase(
             selectedCheckListData,
@@ -899,16 +1019,16 @@ class _CorrectiveMaintenanceScreenState
       try {
         Map<String, dynamic> processedData =
             DataTransformationHelper.convertKeysToCamelCase(requestData);
-        // Map<String, dynamic> response = await ServiceLocator().cmRepository
-        //     .createCorrectiveMaintenance(processedData);
-        // int cmSiteReqId = response['cmSiteReqId'];
-        // await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-        //   cmSiteReqId,
-        //   customerPhoto!,
-        //   _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
-        // );
-        // Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+        Map<String, dynamic> response = await ServiceLocator().cmRepository
+            .createCorrectiveMaintenance(processedData);
+        int cmSiteReqId = response['cmSiteReqId'];
+        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+          cmSiteReqId,
+          customerPhoto!,
+          _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
+        );
+        Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+        AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
         print("Failed to save the form submit : $e");

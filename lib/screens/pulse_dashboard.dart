@@ -16,6 +16,7 @@ import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/my_tickets.dart';
 import 'package:app/screens/notifications.dart';
+import 'package:app/screens/splash_screen.dart';
 import 'package:app/services/notification_service.dart';
 
 class PulseDashboard extends StatefulWidget {
@@ -466,35 +467,55 @@ class _PulseDashboardState extends State<PulseDashboard> {
     );
   }
 
+  bool _isLogoutDialogShowing = false;
+
   void _handleLogout() {
+    // Prevent multiple dialogs from being shown
+    if (_isLogoutDialogShowing) {
+      return;
+    }
+
+    _isLogoutDialogShowing = true;
+
     showDialog(
       context: context,
-      builder: (BuildContext context) {
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Logout'),
           content: const Text('Are you sure you want to logout?'),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                _isLogoutDialogShowing = false;
+              },
               child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () async {
-                Navigator.of(context).pop();
+                Navigator.of(dialogContext).pop();
+                _isLogoutDialogShowing = false;
 
-                // Store context reference before async operations
-                final currentContext = context;
+                try {
+                  // Store context reference before async operations
+                  final currentContext = context;
 
-                // Clear all authentication data before navigating to login
-                await context.read<AuthCubit>().forceClearAllData();
+                  // Clear all authentication data before navigating to login
+                  await currentContext.read<AuthCubit>().forceClearAllData();
 
-                // Use stored context and check if still mounted
-                if (mounted && currentContext.mounted) {
-                  pushReplacementPage(currentContext, LoginScreen());
-                  Toastbar.showSuccessToastbar(
-                    'Logged out successfully',
-                    currentContext,
-                  );
+                  // Use stored context and check if still mounted
+                  if (mounted && currentContext.mounted) {
+                    // Use pushAndRemoveUntil to clear entire navigation stack
+                    pushAndRemoveUntilPage(currentContext, const LoginScreen());
+                    Toastbar.showSuccessToastbar(
+                      'Logged out successfully',
+                      currentContext,
+                    );
+                  }
+                } catch (e) {
+                  // If logout fails, reset the flag
+                  _isLogoutDialogShowing = false;
                 }
               },
               child: const Text('Logout'),
@@ -502,6 +523,9 @@ class _PulseDashboardState extends State<PulseDashboard> {
           ],
         );
       },
-    );
+    ).then((_) {
+      // Reset flag when dialog is dismissed
+      _isLogoutDialogShowing = false;
+    });
   }
 }

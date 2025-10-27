@@ -6,6 +6,7 @@ import 'package:app/models/all_site_model.dart';
 import 'package:app/models/cm_site_model.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -24,7 +25,6 @@ class CMAllSitesScreen extends StatefulWidget {
 }
 
 class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
-
   List<AllSiteModel> _allSites = [];
   List<AllSiteModel> _nearbySites = [];
   List<AllSiteModel> _filteredSites = [];
@@ -70,7 +70,12 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
 
       // Add timeout to prevent indefinite loading
       final sites = await repository
-          .getAllSitesData(location.latitude, location.longitude, searchText, type)
+          .getAllSitesData(
+            location.latitude,
+            location.longitude,
+            searchText,
+            type,
+          )
           .timeout(
             const Duration(seconds: 30),
             onTimeout: () {
@@ -194,9 +199,10 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
 
     // Check database for existing downloads using CM site data service
     try {
-      final isDownloaded = await ServiceLocator().centralAssetAuditDataService
+      final cmDownloaded = await ServiceLocator().centralAssetAuditDataService
           .isCMSiteDownloaded(site.siteId);
-      return isDownloaded;
+
+      return cmDownloaded;
     } catch (e) {
       return false;
     }
@@ -206,18 +212,44 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
     try {
       LoaderWidget.showLoader(context);
 
-      // Use the new CM-specific download method
       final service = ServiceLocator().centralAssetAuditService;
-      final isDownloaded = await service.downloadCMSiteData(site: site);
+      bool isDownloaded = false;
+
+      // Always download CM site data first
+      isDownloaded = await service.downloadCMSiteData(site: site);
 
       if (isDownloaded) {
-        // Add to local state and trigger UI update
+        Logger.infoLog('🔄 Starting checklist download for site: ${site.siteName} (ID: ${site.siteId})');
+        
+        final checklistDownloaded = await service.downloadCMChecklist(
+          siteId: site.siteId,
+          entityId: site.entityId,
+          siteCode: site.siteCode,
+          siteName: site.siteName,
+        );
+
+        Logger.infoLog('📊 Checklist download result: $checklistDownloaded');
+        
+        if (!checklistDownloaded) {
+          Logger.errorLog('⚠️ Warning: CM site data downloaded but CM checklist failed');
+          // Still consider it successful since CM data was downloaded
+        } else {
+          Logger.infoLog('✅ Checklist data saved successfully to local DB');
+        }
+
         setState(() {
           _downloadedSiteIds.add(site.siteId);
         });
 
         // Re-initialize downloaded sites state to ensure consistency
-        _initializeDownloadedSites(_allSites);
+        // Use the currently displayed sites list
+        _initializeDownloadedSites(
+          _filteredSites.isNotEmpty
+              ? _filteredSites
+              : _siteType == 'ALL'
+              ? _allSites
+              : _nearbySites,
+        );
 
         Toastbar.showSuccessToastbar(
           'Site data downloaded successfully',
@@ -425,7 +457,9 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
     } else if (_errorMessage != null) {
       return _buildErrorWidget(_errorMessage!);
     } else if (_filteredSites.isEmpty) {
-      final currentList = _selectedFilter == 'All Sites' ? _allSites : _nearbySites;
+      final currentList = _selectedFilter == 'All Sites'
+          ? _allSites
+          : _nearbySites;
       return Center(
         child: Text(
           currentList.isEmpty
