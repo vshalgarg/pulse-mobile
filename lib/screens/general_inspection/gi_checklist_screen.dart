@@ -129,9 +129,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
     // Track form changes
     if (!_hasFormDataChanges) {
-      print(
-        "🔍 Checklist item changed - setting _hasFormDataChanges to true",
-      );
+      print("🔍 Checklist item changed - setting _hasFormDataChanges to true");
       _hasFormDataChanges = true;
     }
 
@@ -391,9 +389,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
   Map<String, dynamic> _createRequestData() {
     // Get current timestamp
-    final now = DateTime.now().toUtc();
-    final visitDate =
-        "${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}";
+    final now = DateTime.now();
 
     // Debug: Print visiting person image ID
     print(
@@ -458,7 +454,8 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     // Create the main request object
     Map<String, dynamic> requestData = {
       "giId": giId,
-      "visitDate": visitDate,
+      "visitDate":
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}",
       "siteId": widget.siteData.siteId,
       "visitingPersonId": 0,
       "visitingPersonImageId": widget.visitingPersonImageId ?? "0",
