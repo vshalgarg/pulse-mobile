@@ -1,7 +1,6 @@
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
-import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -45,6 +44,14 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   // Controllers
   final TextEditingController _remarksController = TextEditingController();
 
+  final TextEditingController _acdbSerialController =
+      TextEditingController();
+  final TextEditingController _lspuSerialController =
+      TextEditingController();
+
+  List<Map<String, dynamic>> _savedACDBs = [];
+  List<Map<String, dynamic>> _savedLSPUs = [];
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
@@ -60,6 +67,8 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   @override
   void dispose() {
     _remarksController.dispose();
+    _acdbSerialController.dispose();
+    _lspuSerialController.dispose();
     super.dispose();
   }
 
@@ -103,6 +112,12 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         print("ACDB Assets: $acdbAssets");
         print("LSPU Assets: $lspuAssets");
 
+       
+       
+          
+        
+
+
         final formData = <String, dynamic>{
           'acdbAssets': acdbAssets
               .where((obj) => obj['photo_id'] != null)
@@ -116,6 +131,14 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
               ? remarksData.first['item_type_remark']?.toString() ?? ''
               : '',
         };
+
+         // Initialize saved items
+          _savedACDBs = List<Map<String, dynamic>>.from(
+            formData['acdbAssets'] ?? [],
+          );
+          _savedLSPUs = List<Map<String, dynamic>>.from(
+            formData['lspuAssets'] ?? [],
+          );
 
         setState(() {
           _assetAuditData = data;
@@ -153,14 +176,14 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   // Callback methods for AssetAuditFormComponent
   void _onACDBItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
-      _displayFormData?['acdbAssets'] = items;
+      _savedACDBs = items;
       _hasFormDataChanges = true;
     });
   }
 
   void _onLSPUItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
-      _displayFormData?['lspuAssets'] = items;
+      _savedLSPUs = items;
       _hasFormDataChanges = true;
     });
   }
@@ -205,45 +228,79 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
 
-      // Add ACDB assets
-      final modifiedACDBAssets =
-          _displayFormData?['acdbAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(
-        DataTransformationHelper.modifyData(
-          finalACDBAssets,
-          modifiedACDBAssets,
-        ),
-      );
+      // ===== ACDB Assets =====
+      if (finalACDBAssets.isNotEmpty) {
+        final modifiedACDBAssets = _modifyData(finalACDBAssets, _savedACDBs);
+        modifiedAssetsWithAllProperties.addAll(
+          modifiedACDBAssets.cast<Map<String, dynamic>>(),
+        );
+      }
 
-      // Add LSPU assets
-      final modifiedLSPUAssets =
-          _displayFormData?['lspuAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(
-        DataTransformationHelper.modifyData(
-          finalLSPUAssets,
-          modifiedLSPUAssets,
-        ),
-      );
+      // ===== LSPU Assets =====
+      if (finalLSPUAssets.isNotEmpty) {
+        final modifiedLSPUAssets = _modifyData(finalLSPUAssets, _savedLSPUs);
+        modifiedAssetsWithAllProperties.addAll(
+          modifiedLSPUAssets.cast<Map<String, dynamic>>(),
+        );
+      }
 
-      // Update remarks
-      final String remark = _remarksController.text;
-      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
-        try {
-          finalRemarks.first['item_type_remark'] = remark;
-          Logger.debugLog('✅ Updated remarks: $remark');
-        } catch (e) {
-          Logger.errorLog('❌ Error updating remarks: $e');
+      // ===== Remarks =====
+      if (finalRemarks.isNotEmpty) {
+        final finalRemarksMap = Map<String, dynamic>.from(finalRemarks.first);
+        final String remark = _remarksController.text;
+        if (remark.isNotEmpty) {
+          finalRemarksMap['item_type_remark'] = remark;
+          modifiedAssetsWithAllProperties.add(finalRemarksMap);
         }
       }
 
-      // Update local data
+      // ===== Update _assetAuditData with modified data before saving =====
+      // Update ACDB data in _assetAuditData
+      for (var asset in finalACDBAssets) {
+        final assetSerialNo = asset['mfg_serial_no']?.toString();
+        final modifiedAsset = _savedACDBs
+            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+            .firstOrNull;
+
+        if (modifiedAsset != null) {
+          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+          asset['photo_id'] = modifiedAsset['photo_id'];
+          asset['asset_status'] = modifiedAsset['asset_status'];
+        }
+      }
+
+      // Update LSPU data in _assetAuditData
+      for (var asset in finalLSPUAssets) {
+        final assetSerialNo = asset['mfg_serial_no']?.toString();
+        final modifiedAsset = _savedLSPUs
+            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+            .firstOrNull;
+
+        if (modifiedAsset != null) {
+          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+          asset['photo_id'] = modifiedAsset['photo_id'];
+          asset['asset_status'] = modifiedAsset['asset_status'];
+        }
+      }
+
+      // Update Remarks in _assetAuditData
+      if (finalRemarks.isNotEmpty) {
+        final String remark = _remarksController.text;
+        if (remark.isNotEmpty) {
+          finalRemarks.first['item_type_remark'] = remark;
+        }
+      }
+
+      // ===== Update local SQLite with modified data =====
       _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
         updatedData: _assetAuditData ?? {},
       );
 
       // Prepare data for posting
-      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
+      final postObject = [...modifiedAssetsWithAllProperties];
 
       Logger.debugLog(
         '📤 Electrical: Prepared ${postObject.length} items for posting',
@@ -254,11 +311,43 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
         activityType: ActivityTypeEnum.assetAudit,
       );
-      Logger.debugLog('Electrical: Data posted successfully');
+      Logger.debugLog('✅ Electrical: Data posted successfully');
     } catch (e) {
-      Logger.errorLog('Electrical: Error in postCurrentScreenData: $e');
+      Logger.errorLog('❌ Electrical: Error in postCurrentScreenData: $e');
       rethrow;
     }
+  }
+
+  // Helper method to modify data (similar to CCU screen)
+  List<dynamic> _modifyData(
+    List<dynamic> actualData,
+    List<dynamic> modifiedData,
+  ) {
+    List<dynamic> modifiedDataToReturn = [];
+    for (dynamic asset in actualData) {
+      try {
+        final assetSerialNo = asset['mfg_serial_no']?.toString();
+        final modifiedAsset = modifiedData
+            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+            .firstOrNull;
+
+        if (modifiedAsset != null) {
+          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+          asset['photo_id'] = modifiedAsset['photo_id'];
+          asset['asset_status'] = modifiedAsset['asset_status'];
+          modifiedDataToReturn.add(asset);
+          Logger.debugLog('✅ Updated asset: $assetSerialNo');
+        } else {
+          Logger.debugLog(
+            '⚠️ No modified asset found for serial: $assetSerialNo',
+          );
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error updating asset: $e');
+      }
+    }
+    return modifiedDataToReturn;
   }
 
   void _showUnsavedChangesDialog() {
@@ -351,54 +440,51 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // ACDB Section
-                                if (_displayFormData?['acdbAssets'] != null &&
-                                    (_displayFormData?['acdbAssets'] as List).isNotEmpty) ...[
-                                  AssetAuditFormComponent(
-                                    componentId: 'acdb_component',
-                                    serialLabel: "ACDB *",
-                                    serialHintText: "ACDB *",
-                                    photoLabel: "Add Photo of ACDB",
-                                    serialController: TextEditingController(),
-                                    initialSavedItems:
-                                        _displayFormData?['acdbAssets']
-                                            as List<dynamic>? ??
-                                        [],
-                                    onItemSaved: _onACDBItemSaved,
-                                    onStatusChanged: (status) {},
-                                    customValidator: _validateAcdbSerialNumber,
-                                    customValidationErrorMessage:
-                                        "Invalid ACDB serial number. Please check and try again.",
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    showTable: true,
-                                    tableTitle: "ACDB Items",
-                                  ),
-                                  getHeight(20),
-                                ],
+                                AssetAuditFormComponent(
+                                  componentId: 'acdb_component',
+                                  serialLabel: "ACDB *",
+                                  serialHintText: "ACDB *",
+                                  photoLabel: "Add Photo of ACDB",
+                                  serialController: _acdbSerialController,
+                                  initialSavedItems: _savedACDBs,
+                                  onItemSaved: _onACDBItemSaved,
+                                  onStatusChanged: (status) {
+                                    setState(() {
+                                      _hasFormDataChanges = true;
+                                    });
+                                  },
+                                  customValidator: _validateAcdbSerialNumber,
+                                  customValidationErrorMessage:
+                                      "Invalid ACDB serial number. Please check and try again.",
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  showTable: true,
+                                  tableTitle: "ACDB Items",
+                                ),
+                                getHeight(20),
 
                                 // LSPU Section
-                                if (_displayFormData?['lspuAssets'] != null &&
-                                    (_displayFormData?['lspuAssets'] as List).isNotEmpty) ...[
-                                  AssetAuditFormComponent(
-                                    componentId: 'lspu_component',
-                                    serialLabel: "LSPU *",
-                                    serialHintText: "LSPU *",
-                                    photoLabel: "Add Photo of LSPU",
-                                    serialController: TextEditingController(),
-                                    initialSavedItems:
-                                        _displayFormData?['lspuAssets']
-                                            as List<dynamic>? ??
-                                        [],
-                                    onItemSaved: _onLSPUItemSaved,
-                                    onStatusChanged: (status) {},
-                                    customValidator: _validateLspuSerialNumber,
-                                    customValidationErrorMessage:
-                                        "Invalid LSPU serial number. Please check and try again.",
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    showTable: true,
-                                    tableTitle: "LSPU Items",
-                                  ),
-                                  getHeight(20),
-                                ],
+                                AssetAuditFormComponent(
+                                  componentId: 'lspu_component',
+                                  serialLabel: "LSPU *",
+                                  serialHintText: "LSPU *",
+                                  photoLabel: "Add Photo of LSPU",
+                                  serialController: _lspuSerialController,
+                                  initialSavedItems: _savedLSPUs,
+                                  onItemSaved: _onLSPUItemSaved,
+                                  onStatusChanged: (status) {
+                                    setState(() {
+                                      _hasFormDataChanges = true;
+                                    });
+                                  },
+                                  customValidator: _validateLspuSerialNumber,
+                                  customValidationErrorMessage:
+                                      "Invalid LSPU serial number. Please check and try again.",
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  showTable: true,
+                                  tableTitle: "LSPU Items",
+                                ),
+                                getHeight(20),
+                                
 
                                 // Add Remarks
                                 CustomRemarksField(

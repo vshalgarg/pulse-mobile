@@ -302,42 +302,74 @@ class ImageUploadService {
   /// Get server ID from SQLite
   Future<ImageModel?> _getByUniqueIdFromSQLite(String uniqueId) async {
     Logger.debugLog('_getServerIdFromSQLite called with uniqueId: $uniqueId');
+    print('🔍 _getByUniqueIdFromSQLite called with uniqueId: $uniqueId');
     try {
       final db = await database;
       Logger.debugLog('Executing database query...');
-      final List<Map<String, dynamic>> maps = await db.query(
+      
+      // First try to find by unique_id
+      List<Map<String, dynamic>> maps = await db.query(
         _tableName,
         where: 'unique_id = ?',
         whereArgs: [uniqueId],
         limit: 1,
       );
-      Logger.debugLog('🔍 SQLite query result: $maps');
+      print('🔍 SQLite query by unique_id result: $maps');
+      Logger.debugLog('🔍 SQLite query by unique_id result: $maps');
+
+      // If not found by unique_id and the ID looks like a server ID (numeric), try server_id
+      if (maps.isEmpty && int.tryParse(uniqueId) != null) {
+        print('🔍 Image not found by unique_id, trying server_id: $uniqueId');
+        maps = await db.query(
+          _tableName,
+          where: 'server_id = ?',
+          whereArgs: [uniqueId],
+          limit: 1,
+        );
+        print('🔍 SQLite query by server_id result: $maps');
+        Logger.debugLog('🔍 SQLite query by server_id result: $maps');
+      }
 
       if (maps.isNotEmpty) {
         final data = maps.first;
+        print('✅ Image found in SQLite');
         return convertDataToModel(data);
       } else {
-        Logger.debugLog('Image not found in sqlite with unique id');
+        print('❌ Image not found in sqlite with unique id or server id: $uniqueId');
+        Logger.debugLog('Image not found in sqlite with unique id or server id: $uniqueId');
       }
     } catch (e) {
+      print('🔍 Exception in _getByUniqueIdFromSQLite: $e');
       if (e.toString().contains('database_closed')) {
         Logger.errorLog('Database was closed, reinitializing...');
         _database = null; // Force reinitialization
         final db = await database;
 
-        final List<Map<String, dynamic>> maps = await db.query(
+        // Try unique_id first
+        List<Map<String, dynamic>> maps = await db.query(
           _tableName,
           where: 'unique_id = ?',
           whereArgs: [uniqueId],
           limit: 1,
         );
 
+        // If not found and ID is numeric, try server_id
+        if (maps.isEmpty && int.tryParse(uniqueId) != null) {
+          maps = await db.query(
+            _tableName,
+            where: 'server_id = ?',
+            whereArgs: [uniqueId],
+            limit: 1,
+          );
+        }
+
         if (maps.isNotEmpty) {
           final data = maps.first;
           return convertDataToModel(data);
         }
       } else {
-        Logger.errorLog('Exception in _getServerIdFromSQLite: $e');
+        print('🔍 Exception in _getByUniqueIdFromSQLite: $e');
+        Logger.errorLog('Exception in _getByUniqueIdFromSQLite: $e');
       }
     }
     return null;
