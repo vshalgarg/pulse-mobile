@@ -306,7 +306,7 @@ class ImageUploadService {
     try {
       final db = await database;
       Logger.debugLog('Executing database query...');
-      
+
       // First try to find by unique_id
       List<Map<String, dynamic>> maps = await db.query(
         _tableName,
@@ -335,8 +335,12 @@ class ImageUploadService {
         print('✅ Image found in SQLite');
         return convertDataToModel(data);
       } else {
-        print('❌ Image not found in sqlite with unique id or server id: $uniqueId');
-        Logger.debugLog('Image not found in sqlite with unique id or server id: $uniqueId');
+        print(
+          '❌ Image not found in sqlite with unique id or server id: $uniqueId',
+        );
+        Logger.debugLog(
+          'Image not found in sqlite with unique id or server id: $uniqueId',
+        );
       }
     } catch (e) {
       print('🔍 Exception in _getByUniqueIdFromSQLite: $e');
