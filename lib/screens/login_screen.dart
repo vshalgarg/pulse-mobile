@@ -9,7 +9,6 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/screens/forgot_password_screen.dart';
-import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -68,6 +67,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primaryBlue,
+      resizeToAvoidBottomInset: true,
       body: BlocListener<AuthCubit, AuthState>(
         listener: (context, state) {
           if (state is AuthSuccess) {
@@ -96,6 +96,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Content
                     SafeArea(
                       child: SingleChildScrollView(
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        physics: const BouncingScrollPhysics(),
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).size.height * 0.05,
+                          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+                        ),
                         child: ConstrainedBox(
                           constraints: BoxConstraints(
                             minHeight:
