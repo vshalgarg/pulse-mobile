@@ -15,12 +15,31 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   List<NotificationModel> _notifications = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
   String? _errorMessage;
+  int _currentPage = 1;
+  int _pageSize = 50;
+  bool _hasMorePages = true;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadNotifications();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent * 0.8) {
+      _loadMoreNotifications();
+    }
   }
 
   Future<void> _loadNotifications() async {
@@ -28,6 +47,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       setState(() {
         _isLoading = true;
         _errorMessage = null;
+        _currentPage = 1;
+        _hasMorePages = true;
       });
 
       // Get notification service from service locator
@@ -35,16 +56,52 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ServiceLocator().apiService,
       );
 
-      final notifications = await notificationService.getNotifications();
+      final notifications = await notificationService.getNotifications(
+        pageSize: _pageSize,
+        pageNo: _currentPage,
+      );
 
       setState(() {
         _notifications = notifications;
         _isLoading = false;
+        _hasMorePages = notifications.length >= _pageSize;
       });
     } catch (e) {
       setState(() {
         _errorMessage = 'Failed to load notifications: $e';
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMoreNotifications() async {
+    if (_isLoadingMore || !_hasMorePages) return;
+
+    try {
+      setState(() {
+        _isLoadingMore = true;
+      });
+
+      // Get notification service from service locator
+      final notificationService = NotificationService(
+        ServiceLocator().apiService,
+      );
+
+      final nextPage = _currentPage + 1;
+      final newNotifications = await notificationService.getNotifications(
+        pageSize: _pageSize,
+        pageNo: nextPage,
+      );
+
+      setState(() {
+        _notifications.addAll(newNotifications);
+        _currentPage = nextPage;
+        _hasMorePages = newNotifications.length >= _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingMore = false;
       });
     }
   }
@@ -163,9 +220,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       onRefresh: _loadNotifications,
       color: AppColors.primaryGreen,
       child: ListView.builder(
+        controller: _scrollController,
         padding: const EdgeInsets.all(16),
-        itemCount: _notifications.length,
+        itemCount: _notifications.length + (_isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
+          // Show loading indicator at the bottom when loading more
+          if (index == _notifications.length) {
+            return const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                ),
+              ),
+            );
+          }
+
           final notification = _notifications[index];
           return _buildNotificationCard(notification, index);
         },

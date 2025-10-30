@@ -8,10 +8,7 @@ class NotificationService {
   NotificationService(this._apiService);
 
   /// Get notifications for the current user
-  Future<List<NotificationModel>> getNotifications({
-    int pageSize = 50,
-    int pageNo = 1,
-  }) async {
+  Future<List<NotificationModel>> getNotifications({pageSize, pageNo}) async {
     try {
       // Get user ID from local storage
       final userId = LocalStorageDB.getUserId;
