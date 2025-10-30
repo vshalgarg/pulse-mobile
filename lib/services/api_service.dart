@@ -243,7 +243,7 @@ class ApiService {
   }) async {
     try {
       final result = await apiProvider.getClient().post(
-            '/notifications/allNotification',
+            '/notifications/allNotificationAndMarkRead',
             queryParameters: {
               'userId': userId,
               'pageSize': pageSize.toString(),
@@ -255,6 +255,45 @@ class ApiService {
       // Check if status code is 200 for success
       if (result.statusCode == 200) {
         return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: 'Request failed with status code: ${result.statusCode}',
+          statusCode: result.statusCode,
+        );
+      }
+    } on DioException catch (e) {
+      _recordError(e);
+      return ResponseResult.error(
+        errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        statusCode: e.response?.statusCode,
+      );
+    }
+  }
+
+  /// Get unseen notifications count for a user
+  Future<ResponseResult<String>> getNotificationsCount({
+    Map<String, String>? headers,
+  }) async {
+    try {
+      final result = await apiProvider.getClient().get(
+            '/notifications/get-unseen-count',
+            options: Options(headers: headers),
+          );
+
+      // Check if status code is 200 for success
+      if (result.statusCode == 200) {
+        // Extract count from response as string
+        String count = "0";
+        if (result.data is Map) {
+          final data = result.data['count'] ?? result.data['unseenCount'] ?? "0";
+          count = data.toString();
+        } else if (result.data is String) {
+          count = result.data as String;
+        } else if (result.data is int) {
+          count = result.data.toString();
+        }
+        return ResponseResult.success(count, result.statusCode);
       } else {
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${result.statusCode}',

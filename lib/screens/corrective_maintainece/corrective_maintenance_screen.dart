@@ -13,14 +13,13 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
 import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
-import 'package:app/screens/corrective_maintainece/cm_custom_view_widget.dart';
-import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -33,7 +32,6 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../models/cm_site_model.dart';
-import '../../../app_config.dart';
 
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
@@ -496,7 +494,7 @@ class _CorrectiveMaintenanceScreenState
                 _checklistData[_selectedEquipmentType] = updatedData;
               });
             },
-            cmImpactedItemList: _impactedItemList ?? [],
+            cmImpactedItemList: _impactedItemList,
             onImpactedItemListChanged:
                 (List<Map<String, dynamic>> impactedItems) {
                   setState(() {
@@ -944,7 +942,7 @@ class _CorrectiveMaintenanceScreenState
           );
         }
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-        AssetAuditNavigationHelper.navigateToHomeScreen(context);
+        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
         print("Failed to save the form edit : $e");
@@ -961,6 +959,10 @@ class _CorrectiveMaintenanceScreenState
   void _submitFormData() async {
     try {
       LoaderWidget.showLoader(context);
+
+      // Check internet connectivity
+      final isConnected = await ConnectivityHelper.isConnected();
+      Logger.infoLog("CM form submission - Connected: $isConnected");
 
       final requestData = <String, dynamic>{};
       for (var entry in controllers.entries) {
@@ -1016,29 +1018,137 @@ class _CorrectiveMaintenanceScreenState
           );
       Logger.infoLog("requestData: $requestData");
       print("vishal printing requestData: $requestData");
-      try {
-        Map<String, dynamic> processedData =
-            DataTransformationHelper.convertKeysToCamelCase(requestData);
-        Map<String, dynamic> response = await ServiceLocator().cmRepository
-            .createCorrectiveMaintenance(processedData);
-        int cmSiteReqId = response['cmSiteReqId'];
-        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-          cmSiteReqId,
-          customerPhoto!,
-          _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
-        );
-        Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-        AssetAuditNavigationHelper.navigateToHomeScreen(context);
-      } catch (e) {
-        Logger.errorLog(e.toString());
-        print("Failed to save the form submit : $e");
-        Toastbar.showErrorToastbar(
-          "Failed to save the form submit : $e",
-          context,
-        );
+
+      if (isConnected) {
+        // Online mode: Process images first, then submit
+        try {
+          await _handleOnlineSubmission(requestData);
+        } catch (e) {
+          Logger.errorLog("Online submission failed: $e");
+          // Fallback to offline mode
+          await _handleOfflineSubmission(requestData, finalLocation);
+        }
+      } else {
+        // Offline mode: Save to pending requests
+        await _handleOfflineSubmission(requestData, finalLocation);
       }
     } finally {
       LoaderWidget.hideLoader();
+    }
+  }
+
+  Future<void> _handleOnlineSubmission(Map<String, dynamic> requestData) async {
+    try {
+      // Convert keys to camelCase for API
+      Map<String, dynamic> processedData =
+          DataTransformationHelper.convertKeysToCamelCase(requestData);
+      
+      // Create CM ticket first
+      final response = await ServiceLocator().cmRepository.createCorrectiveMaintenance(processedData);
+      
+      if (response.containsKey('cmSiteReqId')) {
+        final cmSiteReqId = response['cmSiteReqId'] as int;
+        Logger.infoLog("CM ticket created with ID: $cmSiteReqId");
+        
+        // Upload customer photo and attachments after creating the ticket
+        if (customerPhoto != null || _uploadedAttachments.isNotEmpty) {
+          await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+            cmSiteReqId,
+            customerPhoto,
+            _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
+          );
+          Logger.infoLog("CM images uploaded successfully");
+        }
+      }
+
+      Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+      // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+    } catch (e) {
+      Logger.errorLog("Error in online submission: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> _handleOfflineSubmission(
+    Map<String, dynamic> requestData,
+    LocationModel location,
+  ) async {
+    try {
+      Logger.infoLog("Saving CM form data offline");
+
+      // Upload images first and get unique IDs
+      String? customerPhotoId;
+      String? attachmentId;
+
+      if (customerPhoto != null) {
+        customerPhotoId = await _uploadImageWithOfflineSupport(
+          customerPhoto!,
+          ActivityTypeEnum.correctiveMaintenance,
+        );
+      }
+
+      if (_uploadedAttachments.isNotEmpty) {
+        attachmentId = await _uploadImageWithOfflineSupport(
+          _uploadedAttachments.first,
+          ActivityTypeEnum.correctiveMaintenance,
+        );
+      }
+
+      // Add image IDs to request data
+      if (customerPhotoId != null) {
+        requestData['customer_photo_id'] = customerPhotoId;
+      }
+      if (attachmentId != null) {
+        requestData['customer_attachment_id'] = attachmentId;
+      }
+
+      // Save to pending requests for sync when online
+      final requestId = 'cm_${DateTime.now().millisecondsSinceEpoch}';
+      final url = '/api/v1/mobile/correctiveMaintenance';
+      final isSaved = await ServiceLocator().pendingRequestService.savePendingRequest(
+        requestId: requestId,
+        url: url,
+        headers: {},
+        jsonEncodedRequestData: jsonEncode([requestData]),
+      );
+
+      if (isSaved) {
+        Logger.infoLog("CM data saved to pending requests successfully");
+        Toastbar.showSuccessToastbar("Data saved offline. Will sync when online.", context);
+        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      } else {
+        throw Exception('Failed to save data to offline storage');
+      }
+    } catch (e) {
+      Logger.errorLog("Error in offline submission: $e");
+      Toastbar.showErrorToastbar(
+        "Failed to save form offline: $e",
+        context,
+      );
+    }
+  }
+
+  Future<String?> _uploadImageWithOfflineSupport(
+    File imageFile,
+    ActivityTypeEnum activityType,
+  ) async {
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      // Upload using ImageUploadService which handles offline automatically
+      final uniqueId = await ServiceLocator().imageUploadService.uploadImage(
+        base64Image,
+        activityType,
+        false, // not a selfie
+        null, // no sch id for CM
+      );
+
+      Logger.infoLog("Image uploaded with ID: $uniqueId");
+      return uniqueId;
+    } catch (e) {
+      Logger.errorLog("Error uploading image: $e");
+      return null;
     }
   }
 
@@ -1055,7 +1165,7 @@ class _CorrectiveMaintenanceScreenState
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      // AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
   }
 }

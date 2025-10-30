@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
@@ -16,8 +15,8 @@ import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/my_tickets.dart';
 import 'package:app/screens/notifications.dart';
-import 'package:app/screens/splash_screen.dart';
 import 'package:app/services/notification_service.dart';
+import 'package:app/utils/logger.dart';
 
 class PulseDashboard extends StatefulWidget {
   const PulseDashboard({Key? key}) : super(key: key);
@@ -30,7 +29,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
   final GlobalKey<PopupMenuButtonState> _profileMenuKey =
       GlobalKey<PopupMenuButtonState>();
 
-  int _notificationCount = 0;
+  String _notificationCount = "0";
 
   @override
   void initState() {
@@ -49,16 +48,16 @@ class _PulseDashboardState extends State<PulseDashboard> {
     try {
       final notificationService = NotificationService(
         ServiceLocator().apiService,
-      );
+      ); 
 
-      final notifications = await notificationService.getNotifications();
+      final count = await notificationService.getNotificationsCount();
 
       setState(() {
-        _notificationCount = notifications.length;
+        _notificationCount = count;
       });
     } catch (e) {
       setState(() {
-        _notificationCount = 0;
+        _notificationCount = "0";
       });
     }
   }
@@ -67,6 +66,15 @@ class _PulseDashboardState extends State<PulseDashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _syncOfflineData();
+        },
+        backgroundColor: Colors.blue,
+        heroTag: "sync_fab",
+        child: const Icon(Icons.sync, color: Colors.white),
+        tooltip: 'Sync Offline Data',
+      ),
       body: Stack(
         children: [
           // Background - same as HomeScreen
@@ -169,7 +177,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
               Positioned(
                 right: 1,
                 top: 4,
-                child: _notificationCount > 0
+                child: _notificationCount != "0" && _notificationCount.isNotEmpty
                     ? Container(
                         padding: const EdgeInsets.all(4),
                         decoration: const BoxDecoration(
@@ -177,7 +185,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
                           shape: BoxShape.circle,
                         ),
                         child: Text(
-                          _notificationCount.toString(),
+                          _notificationCount,
                           style: const TextStyle(
                             fontSize: 10,
                             color: Colors.white,
@@ -465,6 +473,54 @@ class _PulseDashboardState extends State<PulseDashboard> {
       context,
       MaterialPageRoute(builder: (context) => const MyTicketsScreen()),
     );
+  }
+
+  /// Syncs offline data by checking pending requests and posting them to the server
+  Future<void> _syncOfflineData() async {
+    try {
+      Logger.infoLog('🔄 PulseDashboard: Starting offline data sync');
+
+      // Get pending requests
+      final pendingRequestsService = ServiceLocator().pendingRequestService;
+      final pendingRequests = await pendingRequestsService.getPendingRequests();
+
+      Logger.infoLog(
+        'PulseDashboard: Found ${pendingRequests.length} pending requests',
+      );
+
+      if (pendingRequests.isEmpty) {
+        Logger.infoLog('PulseDashboard: No pending requests found');
+        Toastbar.showInfoToastbar('No pending requests to sync', context);
+        return;
+      }
+      int successCount = 0;
+      int totalCount = pendingRequests.length;
+      // Process each pending request
+      for (final request in pendingRequests) {
+        try {
+          await ServiceLocator().assetAuditPostService
+              .syncRequestsWhenUserComesOnline(
+                request['url'],
+                jsonDecode(request['request_data']),
+                request['request_id'],
+              );
+          successCount++;
+        } catch (e) {
+          Logger.errorLog(
+            'PulseDashboard: Failed to sync request ${request['request_id']}: $e',
+          );
+        }
+      }
+
+      // Show sync result
+      final message =
+          'Sync completed: $successCount successful, out of $totalCount';
+      Logger.infoLog('PulseDashboard: $message');
+      Toastbar.showSuccessToastbar(message, context);
+    } catch (e) {
+      Logger.errorLog('PulseDashboard: Error during sync: $e');
+      Toastbar.showErrorToastbar('Sync failed: $e', context);
+    }
   }
 
   bool _isLogoutDialogShowing = false;

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
@@ -26,7 +27,6 @@ import '../models/ticket_model.dart';
 import '../services/location_service.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
-import 'general_inspection/gi_checklist_screen.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -169,12 +169,12 @@ class _TicketScreenState extends State<TicketScreen> {
       final siteType = ticket.siteDomainName ?? 'Solar';
 
       final service = ServiceLocator().centralAssetAuditService;
-      
+
       // Try to get data from local database first
       RawApiDataModel? data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.ticketSchId.toString(),
       );
-      
+
       // If not found in local DB, fetch from API and save
       if (data == null || !data.isDownloaded) {
         Logger.infoLog('📥 Data not found in local DB, fetching from API...');
@@ -197,7 +197,7 @@ class _TicketScreenState extends State<TicketScreen> {
           Toastbar.showErrorToastbar("Failed to load data", context);
           return;
         }
-        
+
         // Get the data from local DB after saving
         data = await service.getDataFromSqlite(
           siteAuditSchId: ticket.ticketSchId.toString(),
@@ -206,16 +206,18 @@ class _TicketScreenState extends State<TicketScreen> {
         Logger.infoLog('✅ Using data from local database');
       }
 
-      if (data == null || data.apiData == null) {
+      if (data == null) {
         Toastbar.showErrorToastbar("Failed to load data", context);
         return;
       }
-      
-      Logger.infoLog('✅ Loaded data from ${data.isDownloaded ? 'local database' : 'API'}');
+
+      Logger.infoLog(
+        '✅ Loaded data from ${data.isDownloaded ? 'local database' : 'API'}',
+      );
       Logger.infoLog('📊 Data keys: ${data.apiData.keys.toList()}');
-      
+
       final apiData = data.apiData;
-      
+
       if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
         Navigator.push(
           context,
@@ -262,8 +264,7 @@ class _TicketScreenState extends State<TicketScreen> {
           siteVisitLogId: apiData['svlId']?.toString(),
           siteVisitLogDate: apiData['visitDate']?.toString(),
           purposeOfVisit: apiData['purposeOfVisit']?.toString(),
-          visitingPersonImageId: apiData['visitingPersonImageId']
-              ?.toString(),
+          visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
         ); // site visit screen
 
         Navigator.push(
@@ -281,19 +282,27 @@ class _TicketScreenState extends State<TicketScreen> {
 
         // Extract the actual data from the nested structure
         final actualData = genInspectionData['data'] as Map<String, dynamic>?;
-        
+
         if (actualData == null) {
-          Toastbar.showErrorToastbar("General inspection data structure is invalid", context);
+          Toastbar.showErrorToastbar(
+            "General inspection data structure is invalid",
+            context,
+          );
           return;
         }
 
         // Extract visiting person image ID from API response
-        final visitingPersonImageId = actualData['visitingPersonImageId']?.toString();
+        final visitingPersonImageId = actualData['visitingPersonImageId']
+            ?.toString();
 
         // Debug: Print extracted values
         print("🔍 visitingPersonImageId: $visitingPersonImageId");
-        print("🔍 infraDistrictEngineerName: ${actualData['infraDistrictEngineerName']}");
-        print("🔍 infraDistrictEngineerContactNo: ${actualData['infraDistrictEngineerContactNo']}");
+        print(
+          "🔍 infraDistrictEngineerName: ${actualData['infraDistrictEngineerName']}",
+        );
+        print(
+          "🔍 infraDistrictEngineerContactNo: ${actualData['infraDistrictEngineerContactNo']}",
+        );
         print("🔍 ownerName: ${actualData['ownerName']}");
         print("🔍 ownerContactNo: ${actualData['ownerContactNo']}");
 
@@ -393,32 +402,6 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
-  void _navigateToCmWorkflow(Ticket ticket) async {
-    try {
-      LoaderWidget.showLoader(context);
-      // Determine site type - check if it's solar or telecom
-      final siteType = ticket.siteDomainName ?? 'Solar';
-      Logger.debugLog("🔍 PM Ticket Site Type: $siteType");
-
-      final data = await ServiceLocator().cmRepository.getCmTicketData(
-        ticket.ticketSchId,
-      );
-      pushPage(
-        context,
-        CorrectiveMaintenanceScreen(
-          mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
-              ? CMScreenModeEnum.view
-              : CMScreenModeEnum.edit,
-          // preloadedSiteData: data,
-        ),
-      );
-    } catch (e) {
-      Toastbar.showErrorToastbar("Failed to load data", context);
-    } finally {
-      LoaderWidget.hideLoader();
-    }
-  }
-
   Future<bool> _isTicketDownloaded(Ticket ticket) async {
     // Check local state first (for recently downloaded tickets)
     if (_downloadedTicketIds.contains(ticket.ticketSchId)) {
@@ -444,9 +427,8 @@ class _TicketScreenState extends State<TicketScreen> {
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
       appBar: _buildCustomAppBar(),
-      floatingActionButton: _shouldShowFloatingButton()
-          ? _buildFloatingActionButton()
-          : null,
+
+      floatingActionButton: _buildFloatingActionButtons(),
       body: Stack(
         children: [
           // Background image that fully covers the screen
@@ -789,17 +771,33 @@ class _TicketScreenState extends State<TicketScreen> {
     }
   }
 
-  bool _shouldShowFloatingButton() {
-    return _currentActivityType == ActivityTypeEnum.siteVisit ||
-        _currentActivityType == ActivityTypeEnum.generalInspection;
-  }
-
-  Widget _buildFloatingActionButton() {
-    return FloatingActionButton(
-      onPressed: _onFloatingButtonPressed,
-      backgroundColor: AppColors.primaryGreen,
-      child: const Icon(Icons.add, color: Colors.white, size: 28),
-    );
+  Widget _buildFloatingActionButtons() {
+    if (_currentActivityType == ActivityTypeEnum.siteVisit ||
+        _currentActivityType == ActivityTypeEnum.generalInspection) {
+      // Show both add button and sync button for SV/GI
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _onFloatingButtonPressed,
+            backgroundColor: AppColors.primaryGreen,
+            heroTag: "add_fab",
+            child: const Icon(Icons.add, color: Colors.white, size: 28),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            onPressed: _syncOfflineData,
+            backgroundColor: Colors.blue,
+            heroTag: "sync_fab",
+            child: const Icon(Icons.sync, color: Colors.white),
+            tooltip: 'Sync Offline Data',
+          ),
+        ],
+      );
+    } else {
+      // Show only sync button for other activity types
+      return const SizedBox.shrink();
+    }
   }
 
   void _onFloatingButtonPressed() {
@@ -812,37 +810,51 @@ class _TicketScreenState extends State<TicketScreen> {
     );
   }
 
-  void _showAddTicketDialog() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(
-            'Add New ${_currentActivityType == ActivityTypeEnum.siteVisit ? "Site Visit" : "General Inspection"}',
-          ),
-          content: Text(
-            'This will create a new ${_currentActivityType == ActivityTypeEnum.siteVisit ? "Site Visit" : "General Inspection"} ticket.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Add your navigation logic here
-                // For example, navigate to a form screen
-                Toastbar.showSuccessToastbar(
-                  'Create new ticket functionality',
-                  context,
-                );
-              },
-              child: const Text('Create'),
-            ),
-          ],
-        );
-      },
-    );
+  /// Syncs offline data by checking pending requests and posting them to the server
+  Future<void> _syncOfflineData() async {
+    try {
+      Logger.infoLog('🔄 TicketScreen: Starting offline data sync');
+
+      // Get pending requests
+      final pendingRequestsService = ServiceLocator().pendingRequestService;
+      final pendingRequests = await pendingRequestsService.getPendingRequests();
+
+      Logger.infoLog(
+        'TicketScreen: Found ${pendingRequests.length} pending requests',
+      );
+
+      if (pendingRequests.isEmpty) {
+        Logger.infoLog('TicketScreen: No pending requests found');
+        Toastbar.showInfoToastbar('No pending requests to sync', context);
+        return;
+      }
+      int successCount = 0;
+      int totalCount = pendingRequests.length;
+      // Process each pending request
+      for (final request in pendingRequests) {
+        try {
+          await ServiceLocator().assetAuditPostService
+              .syncRequestsWhenUserComesOnline(
+                request['url'],
+                jsonDecode(request['request_data']),
+                request['request_id'],
+              );
+          successCount++;
+        } catch (e) {
+          Logger.errorLog(
+            'TicketScreen: Failed to sync request ${request['request_id']}: $e',
+          );
+        }
+      }
+
+      // Show sync result
+      final message =
+          'Sync completed: $successCount successful, out of $totalCount';
+      Logger.infoLog('TicketScreen: $message');
+      Toastbar.showSuccessToastbar(message, context);
+    } catch (e) {
+      Logger.errorLog('TicketScreen: Error during sync: $e');
+      Toastbar.showErrorToastbar('Sync failed: $e', context);
+    }
   }
 }

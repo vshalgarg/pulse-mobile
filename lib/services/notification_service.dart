@@ -16,43 +16,38 @@ class NotificationService {
       // Get user ID from local storage
       final userId = LocalStorageDB.getUserId;
       if (userId == null) {
-       
         return [];
       }
 
       // Get token for authorization
       final token = LocalStorageDB.getToken;
       if (token == null) {
-       
         return [];
       }
-
-      
 
       // Call the API
       final response = await _apiService.getNotifications(
         userId: userId,
         pageSize: pageSize,
         pageNo: pageNo,
-        headers: {
-          'Authorization': 'Bearer $token',
-          'accept': '*/*',
-        },
+        headers: {'Authorization': 'Bearer $token', 'accept': '*/*'},
       );
 
       if (response.isSuccess && response.data != null) {
-         // Handle different response structures
+        // Handle different response structures
         List<dynamic> notificationsData = [];
-        
+
         if (response.data is List) {
           // Direct list response
           notificationsData = response.data as List<dynamic>;
         } else if (response.data is Map<String, dynamic>) {
           // Response wrapped in an object, check for common keys
-          final Map<String, dynamic> dataMap = response.data as Map<String, dynamic>;
+          final Map<String, dynamic> dataMap =
+              response.data as Map<String, dynamic>;
           if (dataMap.containsKey('data') && dataMap['data'] is List) {
             notificationsData = dataMap['data'] as List<dynamic>;
-          } else if (dataMap.containsKey('notifications') && dataMap['notifications'] is List) {
+          } else if (dataMap.containsKey('notifications') &&
+              dataMap['notifications'] is List) {
             notificationsData = dataMap['notifications'] as List<dynamic>;
           } else if (dataMap.containsKey('items') && dataMap['items'] is List) {
             notificationsData = dataMap['items'] as List<dynamic>;
@@ -61,31 +56,64 @@ class NotificationService {
             notificationsData = [dataMap];
           }
         }
-        
-       
-        
+
         // Parse the response into NotificationModel objects
         final List<NotificationModel> notifications = [];
         for (int i = 0; i < notificationsData.length; i++) {
           try {
-            final notification = NotificationModel.fromJson(notificationsData[i]);
+            final notification = NotificationModel.fromJson(
+              notificationsData[i],
+            );
             notifications.add(notification);
           } catch (e) {
-            print('NotificationService: Error parsing notification at index $i: $e');
-            print('NotificationService: Problematic data: ${notificationsData[i]}');
+            print(
+              'NotificationService: Error parsing notification at index $i: $e',
+            );
+            print(
+              'NotificationService: Problematic data: ${notificationsData[i]}',
+            );
             // Continue with other notifications
           }
         }
-        
-        
+
         return notifications;
       } else {
-        print('NotificationService: Failed to fetch notifications: ${response.errorMessage}');
+        print(
+          'NotificationService: Failed to fetch notifications: ${response.errorMessage}',
+        );
         return [];
       }
     } catch (e) {
       print('NotificationService: Error fetching notifications: $e');
       return [];
+    }
+  }
+
+  /// Get count of unseen notifications for the current user
+  Future<String> getNotificationsCount() async {
+    try {
+      // Get token for authorization
+      final token = LocalStorageDB.getToken;
+      if (token == null) {
+        return "0";
+      }
+
+      // Call the API
+      final response = await _apiService.getNotificationsCount(
+        headers: {'Authorization': 'Bearer $token', 'accept': '*/*'},
+      );
+
+      if (response.isSuccess && response.data != null) {
+        return response.data!;
+      } else {
+        print(
+          'NotificationService: Failed to fetch notifications count: ${response.errorMessage}',
+        );
+        return "0";
+      }
+    } catch (e) {
+      print('NotificationService: Error fetching notifications count: $e');
+      return "0";
     }
   }
 }

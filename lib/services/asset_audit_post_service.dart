@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:app/models/location_model.dart';
 import 'package:app/enum/activity_type_enum.dart';
-import 'package:app/repositories/auth_repository.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils.dart';
@@ -109,11 +108,10 @@ class AssetAuditPostService {
       case ActivityTypeEnum.generalInspection:
         url = 'api/v1/om-schedule/genInspection';
         break;
-      default:
-        throw Exception('Invalid activity type: $activityType');
     }
 
-    if (activityType == ActivityTypeEnum.siteVisit || activityType == ActivityTypeEnum.generalInspection) {
+    if (activityType == ActivityTypeEnum.siteVisit ||
+        activityType == ActivityTypeEnum.generalInspection) {
       // These endpoints don't need the status parameter
       // URL is already set in the switch statement
     } else {
@@ -154,8 +152,8 @@ class AssetAuditPostService {
     final response;
     if (url.contains("api/v1/mobile/uploadsSelfie")) {
       response = await _uploadSelfieWithoutCache(requests);
-    } else if (url.contains("api/v1/om-schedule/siteVisitLog") || url.contains("api/v1/om-schedule/genInspection")) {
-      // For site visit logs, send as single object instead of array
+    } else if (url.contains("api/v1/om-schedule/siteVisitLog") ||
+        url.contains("api/v1/om-schedule/genInspection")) {
       response = await ServiceLocator().apiService.post<dynamic>(
         path: url,
         data: requests.isNotEmpty ? requests.first : {},
@@ -220,11 +218,155 @@ class AssetAuditPostService {
   ) async {
     try {
       List<dynamic> copiedRequests = jsonDecode(jsonEncode(requests));
-      await _processRequestsForImages(copiedRequests);
-      await _postDataToApi(url, copiedRequests);
-      await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+
+      // Special handling for CM requests
+      if (url.contains('/correctiveMaintenance')) {
+        await _syncCMRequestWhenOnline(copiedRequests, requestId);
+        return;
+      } else {
+        await _processRequestsForImages(copiedRequests);
+        await _postDataToApi(url, copiedRequests);
+        await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+      }
     } catch (e) {
       Logger.errorLog(e.toString());
+    }
+  }
+
+  Future<void> _syncCMRequestWhenOnline(
+    List<dynamic> requests,
+    String requestId,
+  ) async {
+    try {
+      Logger.infoLog("Syncing CM request when online");
+
+      if (requests.isEmpty) {
+        Logger.errorLog("CM requests list is empty!");
+        return;
+      }
+
+      final request = requests.first;
+      Logger.infoLog("Processing CM request: ${request.keys}");
+
+      // Convert keys to camelCase
+      final processedData = DataTransformationHelper.convertKeysToCamelCase(
+        request,
+      );
+
+      // Extract image IDs before removing them from the request
+      final customerPhotoId = processedData['customer_photo_id'] ?? processedData['customerPhotoId'];
+      final customerAttachmentId = processedData['customer_attachment_id'] ?? processedData['customerAttachmentId'];
+
+     
+      // Remove image IDs from the request data before creating CM ticket
+      processedData.remove('customer_photo_id');
+      processedData.remove('customerPhotoId');
+      processedData.remove('customer_attachment_id');
+      processedData.remove('customerAttachmentId');
+
+      
+
+      // Create CM ticket using the repository
+      final response = await ServiceLocator().cmRepository
+          .createCorrectiveMaintenance(processedData);
+
+      Logger.infoLog("CM ticket creation response received: ${response.keys}");
+      print("vishal printing response: $response");
+
+      if (response.containsKey('cmSiteReqId')) {
+        print("vishal printing response: $response");
+        final cmSiteReqId = response['cmSiteReqId'] as int;
+
+        print("vishal printing cmSiteReqId: $cmSiteReqId");
+        Logger.infoLog("CM ticket created with ID: $cmSiteReqId");
+
+        // Upload customer photo and attachments using the extracted IDs
+        Logger.infoLog("About to call _uploadCMImagesAndAttachments...");
+        print("vishal printing customerPhotoId: $customerPhotoId");
+        await _uploadCMImagesAndAttachments(
+          customerPhotoId,
+          customerAttachmentId,
+          cmSiteReqId,
+        );
+        Logger.infoLog("_uploadCMImagesAndAttachments completed");
+
+        // Delete the pending request
+        // await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+        Logger.infoLog("CM sync completed successfully");
+      } else {
+        Logger.errorLog("Response does not contain cmSiteReqId, response keys: ${response.keys}");
+        throw Exception("Failed to create CM ticket");
+      }
+    } catch (e) {
+      Logger.errorLog("Error syncing CM request: $e");
+      Logger.errorLog("Stack trace: ${StackTrace.current}");
+      rethrow;
+    }
+  }
+
+  Future<void> _uploadCMImagesAndAttachments(
+    dynamic customerPhotoId,
+    dynamic customerAttachmentId,
+    int cmSiteReqId,
+  ) async {
+    try {
+      print("vishal printing _uploadCMImagesAndAttachments: $customerPhotoId");
+      Logger.infoLog("_uploadCMImagesAndAttachments called with cmSiteReqId: $cmSiteReqId");
+      Logger.infoLog("customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
+      
+      File? customerPhoto;
+      File? attachment;
+
+      // Check for customer photo ID
+      if (customerPhotoId != null && customerPhotoId is String) {
+        Logger.infoLog("Retrieving customer photo with ID: $customerPhotoId");
+        // Get image data from ImageUploadService
+        final imageData = await ServiceLocator().imageUploadService
+            .getImageUsingUniqueId(customerPhotoId);
+        if (imageData != null) {
+          Logger.infoLog("Image data retrieved for customer photo, converting to File...");
+          customerPhoto = await Utils.buildImageFromBytesData(imageData);
+          Logger.infoLog("Customer photo File created successfully");
+        } else {
+          Logger.errorLog("Failed to retrieve image data for customer photo ID: $customerPhotoId");
+        }
+      }
+
+      // Check for attachment ID
+      if (customerAttachmentId != null && customerAttachmentId is String) {
+        Logger.infoLog("Retrieving attachment with ID: $customerAttachmentId");
+        print("vishal printing customerAttachmentId: $customerAttachmentId");
+        final attachmentData = await ServiceLocator().imageUploadService
+            .getImageUsingUniqueId(customerAttachmentId);
+        print("vishal printing attachmentData: $attachmentData");
+        if (attachmentData != null) {
+          print("vishal printing attachmentData: $attachmentData");
+          Logger.infoLog("Image data retrieved for attachment, converting to File...");
+          attachment = await Utils.buildImageFromBytesData(attachmentData);
+          Logger.infoLog("Attachment File created successfully");
+          print("vishal printing attachment: $attachment");
+        } else {
+          Logger.errorLog("Failed to retrieve image data for attachment ID: $customerAttachmentId");
+        }
+      }
+
+      // Upload if files exist
+      if (customerPhoto != null || attachment != null) {
+        Logger.infoLog("Uploading CM images with cmSiteReqId: $cmSiteReqId");
+        Logger.infoLog("customerPhoto: ${customerPhoto != null ? 'exists' : 'null'}, attachment: ${attachment != null ? 'exists' : 'null'}");
+        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+          cmSiteReqId,
+          customerPhoto,
+          attachment,
+        );
+        Logger.infoLog("CM images uploaded successfully");
+      } else {
+        Logger.infoLog("No images to upload for CM - both are null");
+      }
+    } catch (e) {
+      Logger.errorLog("Error uploading CM images: $e");
+      Logger.errorLog("Stack trace: ${StackTrace.current}");
+      // Don't throw - images might not be critical
     }
   }
 
@@ -263,20 +405,20 @@ class AssetAuditPostService {
       }
 
       // First, process nested objects/arrays recursively
-      if(request.containsKey("giId")) {
-      await _processNestedObjects(request);
-    }
+      if (request.containsKey("giId")) {
+        await _processNestedObjects(request);
+      }
       // Check both snake_case and camelCase field names
       String? photoId = "";
 
       if (request.containsKey("energyReadingId")) {
         photoId = request['ebAttachmentFileId'];
-      } else if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId")) {
+      } else if (request.containsKey("visitingPersonName") ||
+          request.containsKey("visitingPersonId")) {
         photoId = request['visitingPersonImageId'];
       } else if (request.containsKey("gispId")) {
-        
         photoId = request['respPhotoId'];
-        }else {
+      } else {
         photoId = request['photo_id'] ?? request['photoId'];
       }
 
@@ -300,7 +442,8 @@ class AssetAuditPostService {
 
           if (request.containsKey("energyReadingId")) {
             request['ebAttachmentFileId'] = serverId;
-          } else if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId")) {
+          } else if (request.containsKey("visitingPersonName") ||
+              request.containsKey("visitingPersonId")) {
             request['visitingPersonImageId'] = serverId;
           } else if (request.containsKey("gispId")) {
             request['respPhotoId'] = serverId;
@@ -342,7 +485,7 @@ class AssetAuditPostService {
       // Process each value in the map
       for (String key in obj.keys) {
         final value = obj[key];
-        
+
         if (value is List) {
           // Process each item in the list
           for (int i = 0; i < value.length; i++) {
@@ -367,42 +510,52 @@ class AssetAuditPostService {
       // Check for respPhotoId (General Inspection checklist items)
       if (obj.containsKey('respPhotoId')) {
         final photoId = obj['respPhotoId']?.toString();
-        if (photoId != null && photoId.isNotEmpty && photoId.startsWith('LOCAL_IMAGE_ID_')) {
+        if (photoId != null &&
+            photoId.isNotEmpty &&
+            photoId.startsWith('LOCAL_IMAGE_ID_')) {
           print("Processing respPhotoId: $photoId");
-          
+
           final imageModel = await ServiceLocator().imageUploadService
               .getServerIdFromUniqueIdTryUploading(photoId);
-          
+
           if (imageModel != null) {
             final serverId = imageModel.serverId;
             print("Replacing respPhotoId $photoId with serverId: $serverId");
             obj['respPhotoId'] = serverId;
-            
-            final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
+
+            final timestamp = Utils.getTmeFromMSForAPICall(
+              imageModel.createdAt,
+            );
             if (timestamp != null) {
               obj['photo_taken_ts'] = timestamp;
             }
           } else {
-            Logger.debugLog("FAILED to get server_id for respPhotoId: $photoId");
+            Logger.debugLog(
+              "FAILED to get server_id for respPhotoId: $photoId",
+            );
           }
         }
       }
-      
+
       // Check for other photo ID fields
       if (obj.containsKey('photo_id')) {
         final photoId = obj['photo_id']?.toString();
-        if (photoId != null && photoId.isNotEmpty && photoId.startsWith('LOCAL_IMAGE_ID_')) {
+        if (photoId != null &&
+            photoId.isNotEmpty &&
+            photoId.startsWith('LOCAL_IMAGE_ID_')) {
           print("Processing photo_id: $photoId");
-          
+
           final imageModel = await ServiceLocator().imageUploadService
               .getServerIdFromUniqueIdTryUploading(photoId);
-          
+
           if (imageModel != null) {
             final serverId = imageModel.serverId;
             print("Replacing photo_id $photoId with serverId: $serverId");
             obj['photo_id'] = serverId;
-            
-            final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
+
+            final timestamp = Utils.getTmeFromMSForAPICall(
+              imageModel.createdAt,
+            );
             if (timestamp != null) {
               obj['photo_taken_ts'] = timestamp;
             }
