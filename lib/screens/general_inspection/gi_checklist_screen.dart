@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
@@ -11,7 +9,6 @@ import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/gen_ins_checklist_model.dart';
 import 'package:app/screens/pulse_dashboard.dart';
-import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -185,7 +182,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                       // Back Button
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => _showUnsavedChangesDialog(),
+                          onPressed: () => Navigator.of(context).pop(),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.buttonColorBg,
                             foregroundColor: Colors.white,
@@ -318,16 +315,14 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                 response['text_value'] == null ||
                 response['text_value'].toString().trim().isEmpty)) {
           validationErrors.add('${item.checklistDesc} is required');
-          print('  ❌ Text validation failed for ${item.checklistDesc}');
-          print('    - response is null: ${response == null}');
-          print('    - text_value is null: ${response?['text_value'] == null}');
-          print(
-            '    - text_value is empty: ${response?['text_value']?.toString().trim().isEmpty}',
-          );
-          print('    - text_value value: "${response?['text_value']}"');
+          
         }
 
-        if (hasImage &&
+        // Skip image validation if radio_value is 'NA' (case insensitive)
+        final radioValue = response?['radio_value']?.toString().toUpperCase();
+        bool isRadioValueNA = radioValue == 'NA';
+
+        if (hasImage && !isRadioValueNA &&
             (response == null ||
                 response['image_id'] == null ||
                 response['image_id'].toString().isEmpty)) {
