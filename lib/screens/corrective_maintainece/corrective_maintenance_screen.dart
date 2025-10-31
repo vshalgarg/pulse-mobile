@@ -194,22 +194,50 @@ class _CorrectiveMaintenanceScreenState
           customerAttachmentId = null;
         }
       }
-      
+
       // Try all possible field name variations for attachment name (check typo variant first - it's in the JSON!)
-      dynamic customerAttachmentName = preloadedSite['customerAttachmenName'] ?? // Handle typo variant first - matches JSON!
-                                        preloadedSite['customerAttachmentName'] ??
-                                        preloadedSite['customer_attachment_name'];
+      // Check all possible field variations with better null/empty handling
+      dynamic customerAttachmentName;
+      
+      // First check the typo variant (customerAttachmenName - missing 't')
+      if (preloadedSite.containsKey('customerAttachmenName')) {
+        final value = preloadedSite['customerAttachmenName'];
+        if (value != null && value.toString().trim().isNotEmpty) {
+          customerAttachmentName = value;
+        }
+      }
+
+      print("vishal printing customerAttachmentName: $customerAttachmentName $customerAttachmentId");
+      
+     
+      
+   
+      
+      // Debug logging to help identify the issue
+      Logger.infoLog('[CM] customerAttachmentId found: $customerAttachmentId');
+      Logger.infoLog('[CM] Checking for attachment name in preloadedSite...');
+      Logger.infoLog('[CM] Has customerAttachmenName key: ${preloadedSite.containsKey('customerAttachmenName')}');
+      if (preloadedSite.containsKey('customerAttachmenName')) {
+        Logger.infoLog('[CM] customerAttachmenName value: ${preloadedSite['customerAttachmenName']} (type: ${preloadedSite['customerAttachmenName'].runtimeType})');
+      }
+      Logger.infoLog('[CM] Has customerAttachmentName key: ${preloadedSite.containsKey('customerAttachmentName')}');
+      if (preloadedSite.containsKey('customerAttachmentName')) {
+        Logger.infoLog('[CM] customerAttachmentName value: ${preloadedSite['customerAttachmentName']} (type: ${preloadedSite['customerAttachmentName'].runtimeType})');
+      }
+      Logger.infoLog('[CM] Final customerAttachmentName resolved: $customerAttachmentName');
       
       // Set customer attachment if ID is valid
       if (customerAttachmentId != null && customerAttachmentId != 0) {
+        final nameToSet = (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) 
+            ? customerAttachmentName.toString().trim() 
+            : 'attachment ${customerAttachmentId.toString()}';
+
+            print("vishal printing nameToSet: $nameToSet $customerAttachmentId");
+        
+        // Set state directly (same pattern as remarks attachment)
         setState(() {
           _customerAttachmentId = customerAttachmentId;
-          // Preserve the exact filename with extension from server
-          if (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) {
-            _customerAttachmentName = customerAttachmentName.toString().trim();
-          } else {
-            _customerAttachmentName = null;
-          }
+          _customerAttachmentName = nameToSet;
         });
       }
       
@@ -427,7 +455,11 @@ class _CorrectiveMaintenanceScreenState
         _selectedEquipmentType = 'SOLAR';
       }
     });
+    
+    // Load images and attachments asynchronously
+    // This will update state after the widget has built
     _loadImages(preloadedSite);
+    
     // Only set default status if not already set from preloaded data
     if (_statusController.text.isEmpty) {
       _statusController.text = 'Open';
@@ -978,12 +1010,16 @@ class _CorrectiveMaintenanceScreenState
           label: "Attachments",
           placeholder: "Upload File",
           uploadedFiles: _uploadedAttachments,
-              serverAttachmentName: widget.mode != CMScreenModeEnum.create 
-                  ? (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty ? _customerAttachmentName!.trim() : null)
-                  : null,
-              serverAttachmentId: widget.mode != CMScreenModeEnum.create 
-                  ? _customerAttachmentId 
-                  : null,
+          serverAttachmentName: widget.mode != CMScreenModeEnum.create && 
+              _customerAttachmentName != null && 
+              _customerAttachmentName!.trim().isNotEmpty
+              ? _customerAttachmentName!.trim()
+              : null,
+          serverAttachmentId: widget.mode != CMScreenModeEnum.create && 
+              _customerAttachmentId != null && 
+              _customerAttachmentId != 0
+              ? _customerAttachmentId
+              : null,
           onServerAttachmentClicked: widget.mode != CMScreenModeEnum.create
               ? (attachmentId) async {
                   LoaderWidget.showLoader(context);
@@ -1025,8 +1061,8 @@ class _CorrectiveMaintenanceScreenState
           },
           isRequired: false,
           maxSizeText: "(Max Size: 2MB)",
-              acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
-              isDisabled: widget.mode == CMScreenModeEnum.view,
+          acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
+          isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(30),
         // Edit mode: Show editable remarks and attachments section
@@ -1052,7 +1088,7 @@ class _CorrectiveMaintenanceScreenState
           ),
           getHeight(15),
           CustomFileUploadNew(
-            label: "Attachments",
+            label: "Remark Attachment",
             placeholder: "Upload File",
                 uploadedFiles: _remarksAttachments,
                 serverAttachmentName: (_remarksAttachmentName != null && _remarksAttachmentName!.trim().isNotEmpty)
