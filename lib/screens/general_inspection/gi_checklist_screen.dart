@@ -490,7 +490,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
             _submitForm();
           },
           onDiscard: () {
-            Navigator.of(context).pop();
+           
           },
         ),
       );

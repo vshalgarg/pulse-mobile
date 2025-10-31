@@ -257,7 +257,8 @@ class AssetAuditPostService {
       final customerPhotoId = processedData['customer_photo_id'] ?? processedData['customerPhotoId'];
       final customerAttachmentId = processedData['customer_attachment_id'] ?? processedData['customerAttachmentId'];
 
-     
+      Logger.infoLog("Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
+
       // Remove image IDs from the request data before creating CM ticket
       processedData.remove('customer_photo_id');
       processedData.remove('customerPhotoId');
@@ -282,7 +283,8 @@ class AssetAuditPostService {
 
         // Upload customer photo and attachments using the extracted IDs
         Logger.infoLog("About to call _uploadCMImagesAndAttachments...");
-        print("vishal printing customerPhotoId: $customerPhotoId");
+        Logger.infoLog("customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
+        print("vishal printing customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
         await _uploadCMImagesAndAttachments(
           customerPhotoId,
           customerAttachmentId,

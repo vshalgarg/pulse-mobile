@@ -37,21 +37,20 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
 
     try {
       await widget.onSaveAndExit();
-      
+
       // Use parentContext if available, otherwise use the dialog context
       final contextToUse = widget.parentContext ?? context;
-      
+
       // Close the loading dialog first
       setState(() {
         _isLoading = false;
       });
-      
+
       // Close the UnsavedChangesDialog before showing success/error dialog
       Navigator.of(context).pop();
-      
+
       // Call the API to update audit schedule status if siteAuditSchId is provided
       if (widget.siteAuditSchId != null && widget.siteAuditSchId!.isNotEmpty) {
-
         // Get the current state after the API call
         final currentState = contextToUse
             .read<AuditScheduleStatusCubit>()
@@ -83,10 +82,10 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
       setState(() {
         _isLoading = false;
       });
-      
+
       // Close the UnsavedChangesDialog before showing success dialog
       Navigator.of(context).pop();
-      
+
       // Fallback message if API call fails
       _showSuccessDialogWithMessage(
         widget.parentContext ?? context,
@@ -175,7 +174,7 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.all(20),

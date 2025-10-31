@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/cm_site_model.dart';
 import '../services/api_service.dart';
@@ -99,6 +101,157 @@ class CMRepository {
     }
   }
 
+  /// Downloads document as binary data and saves to Downloads folder
+  /// Returns the file path where the document was saved
+  Future<String> downloadDocument(int id, String fileName) async {
+    try {
+      Logger.infoLog('[CMRepository] 🔄 Downloading document with ID: $id');
+      
+      // Use ApiService with ResponseType.bytes to get binary data
+      final response = await _apiService.get<Uint8List>(
+        path: '/api/v1/common/DocumentById/$id',
+        responseType: ResponseType.bytes,
+      );
+      
+      Logger.infoLog('[CMRepository] API Response - Success: ${response.isSuccess}, Status: ${response.statusCode}');
+      
+      if (!response.isSuccess || response.data == null) {
+        Logger.errorLog('[CMRepository] ❌ Failed to load document: ${response.errorMessage}');
+        Logger.errorLog('[CMRepository] Status code: ${response.statusCode}');
+        throw Exception('Failed to load document: ${response.errorMessage}');
+      }
+      
+      Logger.infoLog('[CMRepository] ✅ Document binary data received, size: ${(response.data as Uint8List).length} bytes');
+      
+      // Get Downloads directory
+      Directory downloadsPath;
+      try {
+        if (Platform.isAndroid) {
+          final externalStorage = await getExternalStorageDirectory();
+          if (externalStorage != null) {
+            final rootPath = externalStorage.path.split('/Android')[0];
+            downloadsPath = Directory('$rootPath/Download');
+
+            // Test write access
+            try {
+              if (!await downloadsPath.exists()) {
+                await downloadsPath.create(recursive: true);
+              }
+              final testFile = File('${downloadsPath.path}/test_write.tmp');
+              await testFile.writeAsString('test');
+              await testFile.delete();
+              Logger.infoLog('[CMRepository] Using public Downloads: ${downloadsPath.path}');
+            } catch (e) {
+              Logger.infoLog('[CMRepository] Cannot write to public Downloads, trying alternative: $e');
+              downloadsPath = Directory('/storage/emulated/0/Download');
+              
+              try {
+                if (!await downloadsPath.exists()) {
+                  await downloadsPath.create(recursive: true);
+                }
+                final testFile = File('${downloadsPath.path}/test_write.tmp');
+                await testFile.writeAsString('test');
+                await testFile.delete();
+                Logger.infoLog('[CMRepository] Using alternative public Downloads: ${downloadsPath.path}');
+              } catch (e2) {
+                Logger.infoLog('[CMRepository] Using app external storage Downloads: $e2');
+                downloadsPath = Directory('${externalStorage.path}/Downloads');
+              }
+            }
+          } else {
+            throw Exception('Could not access external storage');
+          }
+        } else {
+          downloadsPath = await getApplicationDocumentsDirectory();
+        }
+      } catch (e) {
+        Logger.errorLog('[CMRepository] Error getting Downloads directory: $e');
+        downloadsPath = await getApplicationDocumentsDirectory();
+        Logger.infoLog('[CMRepository] Using fallback directory: ${downloadsPath.path}');
+      }
+
+      // Create downloads folder if it doesn't exist
+      if (!await downloadsPath.exists()) {
+        await downloadsPath.create(recursive: true);
+      }
+
+      // Save file to Downloads
+      final filePath = '${downloadsPath.path}/$fileName';
+      final file = File(filePath);
+      await file.writeAsBytes(response.data as Uint8List);
+      
+      Logger.infoLog('[CMRepository] ✅ Document saved to: $filePath');
+      return filePath;
+    } catch (e) {
+      Logger.errorLog('[CMRepository] ❌ Exception in downloadDocument: $e');
+      Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
+      rethrow;
+    }
+  }
+
+  /// Legacy method - kept for backward compatibility but now downloads directly
+  /// This will be deprecated, use downloadDocument instead
+  Future<Map<String, dynamic>> getDocuments(int id) async {
+    try {
+      Logger.infoLog('[CMRepository] 🔄 Calling getDocuments API for id: $id');
+      
+      // Try to get as bytes first (if API returns binary)
+      final binaryResponse = await _apiService.get<Uint8List>(
+        path: '/api/v1/common/DocumentById/$id',
+        responseType: ResponseType.bytes,
+      );
+      
+      Logger.infoLog('[CMRepository] API Response - Success: ${binaryResponse.isSuccess}, Status: ${binaryResponse.statusCode}');
+      
+      if (binaryResponse.isSuccess && binaryResponse.data != null) {
+        Logger.infoLog('[CMRepository] ✅ Received binary data, converting to base64');
+        
+        // Convert binary to base64
+        final base64Data = base64Encode(binaryResponse.data as Uint8List);
+        
+        // Try to extract filename from response headers if available
+        String fileName = 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+        
+        return {
+          'documentData': base64Data,
+          'fileName': fileName,
+        };
+      }
+      
+      // Fallback: Try as JSON (in case API returns JSON)
+      final jsonResponse = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/common/DocumentById/$id',
+        responseType: ResponseType.json,
+      );
+      
+      if (!jsonResponse.isSuccess || jsonResponse.data == null) {
+        Logger.errorLog('[CMRepository] ❌ Failed to load document: ${jsonResponse.errorMessage}');
+        throw Exception('Failed to load document: ${jsonResponse.errorMessage}');
+      }
+      
+      Logger.infoLog('[CMRepository] ✅ Document data received as JSON');
+      Logger.infoLog('[CMRepository] Response data type: ${jsonResponse.data.runtimeType}');
+      
+      if (jsonResponse.data is Map) {
+        final data = jsonResponse.data as Map<String, dynamic>;
+        if (data.containsKey('data')) {
+          if (data['data'] is Map) {
+            return data['data'] as Map<String, dynamic>;
+          } else if (data['data'] is String) {
+            return {'documentData': data['data']};
+          }
+        }
+        return data;
+      }
+      
+      throw Exception('Unexpected response format');
+    } catch (e) {
+      Logger.errorLog('[CMRepository] ❌ Exception in getDocuments: $e');
+      Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> createCorrectiveMaintenance(Map<String, dynamic> requestData) async {
    
     print("vishal printing requestData: correctiveMaintenance $requestData");
@@ -158,7 +311,7 @@ class CMRepository {
         useFormDataFormat: true,
       );
 
-      print("vishal printing response: $response");
+      print("vishal printing response: for upload $response");
 
       if(response.isSuccess && response.data != null) {
         print("response from uploading customer photo: $response");

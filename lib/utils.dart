@@ -95,24 +95,42 @@ class Utils {
 
   static Future<File?> buildImageFromBytesData(String byteData) async {
     try {
-      final parts = byteData.split(',');
-      if (parts.length == 2 && parts[1].isNotEmpty) {
-        final base64Data = parts[1];
-        final bytes = base64Decode(base64Data);
-
-        // Get temporary directory
-        final tempDir = await getTemporaryDirectory();
-        
-        // Create a unique filename
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final fileName = 'image_$timestamp.jpg';
-        final file = File('${tempDir.path}/$fileName');
-        
-        // Write bytes to file
-        await file.writeAsBytes(bytes);
-        
-        return file;
+      String base64Data;
+      
+      // Handle both formats: "data:image/...,base64data" or raw base64
+      if (byteData.startsWith('data:image/')) {
+        // Remove data URL prefix
+        final parts = byteData.split(',');
+        if (parts.length == 2 && parts[1].isNotEmpty) {
+          base64Data = parts[1];
+        } else {
+          print('Error: Invalid data URL format');
+          return null;
+        }
+      } else {
+        // Assume it's raw base64
+        base64Data = byteData;
       }
+      
+      if (base64Data.isEmpty) {
+        print('Error: Empty base64 data');
+        return null;
+      }
+      
+      final bytes = base64Decode(base64Data);
+
+      // Get temporary directory
+      final tempDir = await getTemporaryDirectory();
+      
+      // Create a unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final fileName = 'image_$timestamp.jpg';
+      final file = File('${tempDir.path}/$fileName');
+      
+      // Write bytes to file
+      await file.writeAsBytes(bytes);
+      
+      return file;
     } catch (e) {
       print('Error creating file from bytes data: $e');
     }

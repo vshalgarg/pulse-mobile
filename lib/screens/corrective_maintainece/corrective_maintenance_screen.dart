@@ -15,13 +15,14 @@ import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.da
 import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_submit_button_v2.dart';
@@ -89,6 +90,10 @@ class _CorrectiveMaintenanceScreenState
   String customerPhotoByteData = "";
   final List<File> _uploadedAttachments = [];
   final List<File> _remarksAttachments = [];
+  
+  // Store server attachment info (ID and filename)
+  String? _customerAttachmentName;
+  dynamic _customerAttachmentId;
 
   // 👇 Dropdown options
   List<CMSite> _siteOptions = [];
@@ -158,21 +163,222 @@ class _CorrectiveMaintenanceScreenState
         });
       }
     }
-    if (preloadedSite['customer_attachment_id'] != null) {
-      String? attachmentByteData = await ServiceLocator().imageUploadService
-          .downloadFromServer(
-            preloadedSite['customer_attachment_id'].toString(),
-          );
-
-      if (attachmentByteData != null) {
-        File? imageFile = await Utils.buildImageFromBytesData(
-          attachmentByteData,
-        );
-        if (imageFile != null) {
+    
+    // Extract customer attachment info (only for edit/view mode, not create)
+    if (widget.mode != CMScreenModeEnum.create) {
+      final customerAttachmentId = preloadedSite['customer_attachment_id'] ?? 
+                                    preloadedSite['customerAttachmentId'] ??
+                                    preloadedSite['customerAttachmenId']; // Handle typo variant
+      final customerAttachmentName = preloadedSite['customer_attachment_name'] ?? 
+                                      preloadedSite['customerAttachmentName'] ??
+                                      preloadedSite['customerAttachmenName']; // Handle typo variant
+      
+      if (customerAttachmentId != null && 
+          customerAttachmentId != 0 && 
+          customerAttachmentId.toString().isNotEmpty) {
           setState(() {
-            _uploadedAttachments.add(imageFile);
-          });
+          _customerAttachmentId = customerAttachmentId;
+          // Preserve the exact filename with extension from server
+          _customerAttachmentName = customerAttachmentName?.toString();
+          Logger.infoLog('[CM] Loaded attachment - ID: $customerAttachmentId, Name: $_customerAttachmentName');
+        });
+      }
+    }
+  }
+
+  Future<bool> _requestStoragePermission() async {
+    try {
+      PermissionStatus permissionStatus;
+      
+      if (Platform.isAndroid) {
+        // Check Android version and request appropriate permissions
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        Logger.infoLog('[CM] Android SDK: ${androidInfo.version.sdkInt}');
+
+        if (androidInfo.version.sdkInt >= 30) {
+          // Android 11+ - request manage external storage for public Downloads access
+          permissionStatus = await Permission.manageExternalStorage.request();
+          Logger.infoLog('[CM] Manage external storage status: $permissionStatus');
+
+          if (permissionStatus != PermissionStatus.granted) {
+            // Fallback to storage permission
+            permissionStatus = await Permission.storage.request();
+            Logger.infoLog('[CM] Storage permission status: $permissionStatus');
+          }
+        } else {
+          // Android 10 and below - use storage permission
+          permissionStatus = await Permission.storage.request();
+          Logger.infoLog('[CM] Storage permission status: $permissionStatus');
         }
+      } else {
+        // iOS - request storage permission
+        permissionStatus = await Permission.storage.request();
+        Logger.infoLog('[CM] Storage permission status: $permissionStatus');
+      }
+
+      if (permissionStatus != PermissionStatus.granted) {
+        Logger.errorLog('[CM] Storage permission denied');
+        if (mounted) {
+          // Show dialog to request permission
+          final shouldShowRationale = await Permission.storage.shouldShowRequestRationale;
+          if (shouldShowRationale || permissionStatus.isPermanentlyDenied) {
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Storage Permission Required'),
+                content: const Text(
+                  'This app needs storage permission to download files. Please grant permission in settings.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      openAppSettings();
+                    },
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              ),
+            );
+          }
+        }
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      Logger.errorLog('[CM] Error requesting storage permission: $e');
+      return false;
+    }
+  }
+
+  Future<void> _loadAttachmentFromDocumentId(dynamic attachmentId) async {
+    try {
+      Logger.infoLog('[CM] Downloading attachment with ID: $attachmentId');
+      
+      // Request storage permission before downloading
+      bool hasPermission = await _requestStoragePermission();
+      if (!hasPermission) {
+        if (mounted) {
+          Toastbar.showErrorToastbar(
+            'Storage permission is required to download files',
+            context,
+          );
+        }
+        return;
+      }
+      
+      // Parse attachment ID safely
+      int docId;
+      try {
+        docId = attachmentId is int 
+            ? attachmentId 
+            : int.parse(attachmentId.toString());
+        Logger.infoLog('[CM] Parsed document ID: $docId');
+      } catch (e) {
+        Logger.errorLog('[CM] Format exception: Invalid attachment ID format: $attachmentId');
+        if (mounted) {
+          Toastbar.showErrorToastbar(
+            'Invalid attachment ID format',
+            context,
+          );
+        }
+        return;
+      }
+      
+      // Generate filename from attachment name or use default
+      String fileName;
+      if (_customerAttachmentName != null && _customerAttachmentName!.isNotEmpty) {
+        // Use the exact filename from server (includes extension)
+        fileName = _customerAttachmentName!;
+        Logger.infoLog('[CM] Using filename from server: $fileName');
+      } else {
+        // Fallback to default filename if not available
+        fileName = 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+        Logger.infoLog('[CM] Using default filename: $fileName');
+      }
+      
+      // Sanitize filename - remove invalid characters but preserve extension
+      // Split filename and extension to preserve extension separately
+      final lastDotIndex = fileName.lastIndexOf('.');
+      String nameWithoutExt = lastDotIndex > 0 
+          ? fileName.substring(0, lastDotIndex) 
+          : fileName;
+      String extension = lastDotIndex > 0 && lastDotIndex < fileName.length - 1
+          ? fileName.substring(lastDotIndex)
+          : '';
+      
+      // Sanitize the name part (without extension)
+      nameWithoutExt = nameWithoutExt.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+      
+      // Reconstruct filename
+      fileName = extension.isNotEmpty ? '$nameWithoutExt$extension' : nameWithoutExt;
+      
+      // Only add default extension if filename has no extension at all
+      if (!fileName.contains('.')) {
+        Logger.infoLog('[CM] No extension found, adding generic .dat extension');
+        fileName = '$fileName.dat'; // Use .dat as generic fallback
+      }
+      
+      Logger.infoLog('[CM] Final filename: $fileName');
+      
+      // Download document directly to Downloads folder
+      String filePath;
+      try {
+        filePath = await ServiceLocator()
+            .cmRepository
+            .downloadDocument(docId, fileName);
+        
+        Logger.infoLog('[CM] ✅ Document downloaded successfully to: $filePath');
+      } catch (e) {
+        Logger.errorLog('[CM] Error downloading document: $e');
+        Logger.errorLog('[CM] Stack trace: ${StackTrace.current}');
+        if (mounted) {
+          Toastbar.showErrorToastbar(
+            'Failed to download document: ${e.toString()}',
+            context,
+          );
+        }
+        return;
+      }
+
+      // Show success message
+      if (mounted) {
+        String locationMessage;
+        if (filePath.contains('/Download/')) {
+          locationMessage = 'File downloaded successfully to Downloads folder';
+        } else {
+          locationMessage = 'File downloaded to app storage';
+        }
+        
+        Toastbar.showSuccessToastbar(locationMessage, context);
+        
+        // Show file path in snackbar after a delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('File saved to: $filePath'),
+                duration: const Duration(seconds: 3),
+                action: SnackBarAction(label: 'OK', onPressed: () {}),
+              ),
+            );
+          }
+        });
+      }
+      return; // Exit early since we're downloading directly now
+    } catch (e) {
+      Logger.errorLog('[CM] Error loading attachment: $e');
+      Logger.errorLog('[CM] Stack trace: ${StackTrace.current}');
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          'Failed to load attachment: ${e.toString()}',
+          context,
+        );
       }
     }
   }
@@ -779,11 +985,41 @@ class _CorrectiveMaintenanceScreenState
           label: "Attachments",
           placeholder: "Upload File",
           uploadedFiles: _uploadedAttachments,
+          serverAttachmentName: widget.mode != CMScreenModeEnum.create 
+              ? _customerAttachmentName 
+              : null,
+          serverAttachmentId: widget.mode != CMScreenModeEnum.create 
+              ? _customerAttachmentId 
+              : null,
+          onServerAttachmentClicked: widget.mode != CMScreenModeEnum.create
+              ? (attachmentId) async {
+                  LoaderWidget.showLoader(context);
+                  try {
+                    await _loadAttachmentFromDocumentId(attachmentId);
+                  } finally {
+                    LoaderWidget.hideLoader();
+                  }
+                }
+              : null,
+          onServerAttachmentDeleted: widget.mode != CMScreenModeEnum.create
+              ? () {
+                  setState(() {
+                    _customerAttachmentId = null;
+                    _customerAttachmentName = null;
+                    _hasFormDataChanges = true;
+                  });
+                }
+              : null,
           onFileSelected: (File? file) {
             if (file != null) {
               setState(() {
+                // Clear server attachment when new file is uploaded
+                _customerAttachmentId = null;
+                _customerAttachmentName = null;
+                // Clear existing attachments and add new one
                 _uploadedAttachments.clear();
                 _uploadedAttachments.add(file);
+                _hasFormDataChanges = true;
               });
             }
           },
@@ -791,6 +1027,7 @@ class _CorrectiveMaintenanceScreenState
             // Handle file deletion
             setState(() {
               _uploadedAttachments.remove(file);
+              _hasFormDataChanges = true;
             });
           },
           isRequired: false,

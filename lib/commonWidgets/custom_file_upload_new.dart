@@ -16,6 +16,10 @@ class CustomFileUploadNew extends StatelessWidget {
   final List<File> uploadedFiles;
   final Function(File) onFileDeleted;
   final bool isDisabled; // Add isDisabled parameter
+  final String? serverAttachmentName; // Server attachment file name
+  final dynamic serverAttachmentId; // Server attachment ID
+  final Function(dynamic)? onServerAttachmentClicked; // Callback when server attachment is clicked
+  final Function()? onServerAttachmentDeleted; // Callback when server attachment is deleted
 
   const CustomFileUploadNew({
     super.key,
@@ -29,6 +33,10 @@ class CustomFileUploadNew extends StatelessWidget {
     this.uploadedFiles = const [],
     required this.onFileDeleted,
     this.isDisabled = false, // Default value is false
+    this.serverAttachmentName,
+    this.serverAttachmentId,
+    this.onServerAttachmentClicked,
+    this.onServerAttachmentDeleted,
   });
 
   Future<void> _pickFile(BuildContext context) async {
@@ -197,6 +205,16 @@ class CustomFileUploadNew extends StatelessWidget {
           ),
         ),
         
+        // Server Attachment (if exists and has valid ID)
+        if (serverAttachmentId != null && 
+            serverAttachmentId != 0 && 
+            serverAttachmentId.toString().isNotEmpty &&
+            serverAttachmentName != null &&
+            serverAttachmentName!.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _buildServerAttachmentItem(),
+        ],
+        
         // Uploaded Files List
         if (uploadedFiles.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -204,6 +222,63 @@ class CustomFileUploadNew extends StatelessWidget {
         ],
         
       ],
+    );
+  }
+
+  Widget _buildServerAttachmentItem() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: Colors.grey.shade300,
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            _getFileIcon(serverAttachmentName ?? ''),
+            size: 20,
+            color: AppColors.color555555,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: isDisabled || onServerAttachmentClicked == null
+                  ? null
+                  : () => onServerAttachmentClicked!(serverAttachmentId),
+              child: Text(
+                serverAttachmentName ?? 'attachment',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: isDisabled || onServerAttachmentClicked == null
+                      ? AppColors.color555555
+                      : AppColors.textBlueAccent,
+                  fontFamily: fontFamilyMontserrat,
+                  decoration: isDisabled || onServerAttachmentClicked == null
+                      ? TextDecoration.none
+                      : TextDecoration.underline,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (!isDisabled && onServerAttachmentDeleted != null)
+            GestureDetector(
+              onTap: onServerAttachmentDeleted,
+              child: Icon(
+                Icons.delete_outline,
+                size: 20,
+                color: Colors.red.shade400,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
