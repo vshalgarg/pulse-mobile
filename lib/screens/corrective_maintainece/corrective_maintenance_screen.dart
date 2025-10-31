@@ -87,6 +87,8 @@ class _CorrectiveMaintenanceScreenState
 
   File? customerPhoto;
   String customerPhotoByteData = "";
+  // Store original photo ID to reload if needed after submission
+  dynamic _originalCustomerPhotoId;
   final List<File> _uploadedAttachments = [];
   final List<File> _remarksAttachments = [];
   
@@ -162,19 +164,65 @@ class _CorrectiveMaintenanceScreenState
     
     // Try both camelCase and snake_case for customer photo ID
     dynamic customerPhotoId = preloadedSite['customerPhotoId'] ?? preloadedSite['customer_photo_id'];
-    if (customerPhotoId != null) {
-      String? customerPhotoByteDataLocal = await ServiceLocator()
-          .imageUploadService
-          .downloadFromServer(customerPhotoId.toString());
-
-      if (customerPhotoByteDataLocal != null) {
-        File? imageFile = await Utils.buildImageFromBytesData(
-          customerPhotoByteDataLocal,
-        );
-        customerPhoto = imageFile;
-        setState(() {
-          customerPhotoByteData = customerPhotoByteDataLocal;
-        });
+    // Store original photo ID to preserve it after form submission
+    _originalCustomerPhotoId = customerPhotoId;
+    
+    if (customerPhotoId != null && customerPhotoId.toString().trim().isNotEmpty) {
+      String? customerPhotoByteDataLocal;
+      
+      try {
+        // First, check if image is already cached locally (works in offline mode)
+        final cachedImage = await ServiceLocator()
+            .imageUploadService
+            .getImagesByServerId(customerPhotoId.toString());
+        
+        if (cachedImage != null && cachedImage.imageData != null) {
+          // Image found in local cache - use it (works offline)
+          Logger.infoLog('[CM] Customer photo found in local cache (offline mode supported)');
+          customerPhotoByteDataLocal = cachedImage.imageData;
+        } else {
+          // Not in cache, check if we're online and try to download
+          final isOnline = await ConnectivityHelper.isConnected();
+          
+          if (isOnline) {
+            // Online: try to download from server and cache it
+            Logger.infoLog('[CM] Customer photo not in cache, downloading from server (online mode)');
+            
+            // Use downloadImageUsingServerId which handles caching
+            final uniqueId = await ServiceLocator()
+                .imageUploadService
+                .downloadImageUsingServerId(
+                  customerPhotoId.toString(),
+                  ActivityTypeEnum.correctiveMaintenance,
+                  _selectedSite?.siteId.toString() ?? '',
+                );
+            
+            if (uniqueId != null) {
+              // Get the image data using the unique ID
+              customerPhotoByteDataLocal = await ServiceLocator()
+                  .imageUploadService
+                  .getImageUsingUniqueId(uniqueId);
+            }
+          } else {
+            // Offline and not in cache - cannot load image
+            Logger.errorLog('[CM] Customer photo not in cache and device is offline - cannot load');
+          }
+        }
+        
+        // If we got image data (from cache or download), process it
+        if (customerPhotoByteDataLocal != null && customerPhotoByteDataLocal.isNotEmpty) {
+          File? imageFile = await Utils.buildImageFromBytesData(
+            customerPhotoByteDataLocal,
+          );
+          customerPhoto = imageFile;
+          setState(() {
+            customerPhotoByteData = customerPhotoByteDataLocal!;
+          });
+        } else {
+          Logger.errorLog('[CM] Failed to load customer photo: No data retrieved');
+        }
+      } catch (e) {
+        Logger.errorLog('[CM] Error loading customer photo: $e');
       }
     }
     
@@ -280,6 +328,63 @@ class _CorrectiveMaintenanceScreenState
           }
         });
       }
+    }
+  }
+
+  /// Reload customer photo from server/cache to preserve it after form submission
+  Future<void> _reloadCustomerPhoto(dynamic customerPhotoId) async {
+    try {
+      if (customerPhotoId == null || customerPhotoId.toString().trim().isEmpty) {
+        return;
+      }
+      
+      // First, check if image is already cached locally
+      final cachedImage = await ServiceLocator()
+          .imageUploadService
+          .getImagesByServerId(customerPhotoId.toString());
+      
+      String? customerPhotoByteDataLocal;
+      
+      if (cachedImage != null && cachedImage.imageData != null) {
+        // Image found in local cache - use it
+        customerPhotoByteDataLocal = cachedImage.imageData;
+      } else {
+        // Not in cache, check if we're online and try to download
+        final isOnline = await ConnectivityHelper.isConnected();
+        
+        if (isOnline) {
+          // Use downloadImageUsingServerId which handles caching
+          final uniqueId = await ServiceLocator()
+              .imageUploadService
+              .downloadImageUsingServerId(
+                customerPhotoId.toString(),
+                ActivityTypeEnum.correctiveMaintenance,
+                _selectedSite?.siteId.toString() ?? '',
+              );
+          
+          if (uniqueId != null) {
+            // Get the image data using the unique ID
+            customerPhotoByteDataLocal = await ServiceLocator()
+                .imageUploadService
+                .getImageUsingUniqueId(uniqueId);
+          }
+        }
+      }
+      
+      // If we got image data, restore it
+      if (customerPhotoByteDataLocal != null && customerPhotoByteDataLocal.isNotEmpty) {
+        File? imageFile = await Utils.buildImageFromBytesData(
+          customerPhotoByteDataLocal,
+        );
+        if (mounted) {
+          setState(() {
+            customerPhoto = imageFile;
+            customerPhotoByteData = customerPhotoByteDataLocal!;
+          });
+        }
+      }
+    } catch (e) {
+      Logger.errorLog('[CM] Error reloading customer photo after submission: $e');
     }
   }
 
@@ -1182,6 +1287,26 @@ class _CorrectiveMaintenanceScreenState
       }
       requestData['cm_impacted_item_list'] =
           DataTransformationHelper.convertListToCamelCase(_impactedItemList);
+      
+      // Preserve customer attachment ID and name in edit mode if they exist and weren't changed
+      if (widget.mode == CMScreenModeEnum.edit) {
+        // If attachment wasn't changed (no new file uploaded) but we have existing attachment info
+        if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
+          requestData['customer_attachment_id'] = _customerAttachmentId;
+          
+          // Use attachment name if available, otherwise use attachment ID as name
+          final attachmentName = (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty)
+              ? _customerAttachmentName!.trim()
+              : _customerAttachmentId.toString();
+          
+          // Include both possible field names (typo variant and correct spelling)
+          requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
+          requestData['customer_attachment_name'] = attachmentName; // Correct spelling (fallback)
+          
+          Logger.infoLog('[CM] Preserving customer attachment in edit mode - ID: $_customerAttachmentId, Name: $attachmentName');
+        }
+      }
+      
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel finalLocation;
 
@@ -1230,11 +1355,22 @@ class _CorrectiveMaintenanceScreenState
 
         Logger.debugLog(" processedData: $processedData");
 
-        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-          cmSiteReqId!,
-          customerPhoto,
-          _uploadedAttachments.firstOrNull,
-        );
+        // Only upload photo/attachment if they were actually changed (new files selected)
+        // In edit mode, if customerPhoto is null and _uploadedAttachments is empty,
+        // it means they weren't changed, so we should preserve them by not calling this method
+        final hasNewPhoto = customerPhoto != null;
+        final hasNewAttachment = _uploadedAttachments.isNotEmpty;
+        
+        if (hasNewPhoto || hasNewAttachment) {
+          Logger.infoLog('[CM] Uploading changed photo/attachment - Photo: $hasNewPhoto, Attachment: $hasNewAttachment');
+          await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+            cmSiteReqId!,
+            customerPhoto, // Will be null if not changed, which is fine - API won't update it
+            _uploadedAttachments.firstOrNull, // Will be null if not changed, which is fine - API won't update it
+          );
+        } else {
+          Logger.infoLog('[CM] No changes to photo or attachment, skipping upload to preserve existing ones');
+        }
         if (_remarksAttachments.isNotEmpty) {
           await ServiceLocator().cmRepository.saveRemarks(
             cmSiteReqId!,
@@ -1243,6 +1379,24 @@ class _CorrectiveMaintenanceScreenState
             _remarksAttachments.first,
           );
         }
+        
+        // Reload customer photo if it wasn't changed (preserve existing photo in edit mode)
+        if (customerPhoto == null && _originalCustomerPhotoId != null && 
+            _originalCustomerPhotoId.toString().trim().isNotEmpty) {
+          Logger.infoLog('[CM] Reloading customer photo after submission to preserve display');
+          await _reloadCustomerPhoto(_originalCustomerPhotoId);
+        }
+        
+        // Reload customer attachment info if it wasn't changed (preserve existing attachment in edit mode)
+        if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
+          Logger.infoLog('[CM] Reloading customer attachment after submission to preserve display');
+          // The attachment info is already in state, but ensure it's still displayed
+          // No need to reload from server since we already have the ID and name
+          setState(() {
+            // Force rebuild to ensure attachment is displayed
+          });
+        }
+        
         Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
         // AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
