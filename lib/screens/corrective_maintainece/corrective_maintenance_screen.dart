@@ -21,8 +21,7 @@ import 'package:app/utils/toastbar.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
+import '../../../services/file_download_service.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_submit_button_v2.dart';
@@ -94,6 +93,10 @@ class _CorrectiveMaintenanceScreenState
   // Store server attachment info (ID and filename)
   String? _customerAttachmentName;
   dynamic _customerAttachmentId;
+  
+  // Store remarks attachment info (for edit mode)
+  String? _remarksAttachmentName;
+  dynamic _remarksAttachmentId;
 
   // 👇 Dropdown options
   List<CMSite> _siteOptions = [];
@@ -127,8 +130,16 @@ class _CorrectiveMaintenanceScreenState
         Logger.errorLog("❌ [CM] preloadedSiteData is null");
         return;
       }
-      Map<String, dynamic> preloadedSite = widget.preloadedSiteData!;
-      cmSiteReqId = preloadedSite['cm_site_req_id'];
+      Map<String, dynamic> preloadedSite = Map<String, dynamic>.from(widget.preloadedSiteData!);
+      
+      // Handle nested data structure if present
+      if (preloadedSite.containsKey('data') && preloadedSite['data'] is Map<String, dynamic>) {
+        preloadedSite = Map<String, dynamic>.from(preloadedSite['data']);
+      }
+      
+      
+      // Try both camelCase and snake_case for cmSiteReqId
+      cmSiteReqId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
       CMSite site = CMSite(
         siteId: preloadedSite['site_id'] ?? 0,
         entityId: preloadedSite['entity_id'] ?? 0,
@@ -148,10 +159,13 @@ class _CorrectiveMaintenanceScreenState
   }
 
   void _loadImages(Map<String, dynamic> preloadedSite) async {
-    if (preloadedSite['customer_photo_id'] != null) {
+    
+    // Try both camelCase and snake_case for customer photo ID
+    dynamic customerPhotoId = preloadedSite['customerPhotoId'] ?? preloadedSite['customer_photo_id'];
+    if (customerPhotoId != null) {
       String? customerPhotoByteDataLocal = await ServiceLocator()
           .imageUploadService
-          .downloadFromServer(preloadedSite['customer_photo_id'].toString());
+          .downloadFromServer(customerPhotoId.toString());
 
       if (customerPhotoByteDataLocal != null) {
         File? imageFile = await Utils.buildImageFromBytesData(
@@ -166,94 +180,86 @@ class _CorrectiveMaintenanceScreenState
     
     // Extract customer attachment info (only for edit/view mode, not create)
     if (widget.mode != CMScreenModeEnum.create) {
-      final customerAttachmentId = preloadedSite['customer_attachment_id'] ?? 
-                                    preloadedSite['customerAttachmentId'] ??
-                                    preloadedSite['customerAttachmenId']; // Handle typo variant
-      final customerAttachmentName = preloadedSite['customer_attachment_name'] ?? 
-                                      preloadedSite['customerAttachmentName'] ??
-                                      preloadedSite['customerAttachmenName']; // Handle typo variant
+      // Try all possible field name variations for customer attachment ID (check camelCase first)
+      dynamic customerAttachmentId = preloadedSite['customerAttachmentId'] ?? 
+                                      preloadedSite['customer_attachment_id'] ??
+                                      preloadedSite['customerAttachmenId']; // Handle typo variant
       
-      if (customerAttachmentId != null && 
-          customerAttachmentId != 0 && 
-          customerAttachmentId.toString().isNotEmpty) {
-          setState(() {
+      // Convert to int if it's a string
+      if (customerAttachmentId != null && customerAttachmentId is String && customerAttachmentId.trim().isNotEmpty) {
+        try {
+          customerAttachmentId = int.parse(customerAttachmentId.trim());
+        } catch (e) {
+          Logger.errorLog('[CM] Failed to parse attachment ID as int: $customerAttachmentId');
+          customerAttachmentId = null;
+        }
+      }
+      
+      // Try all possible field name variations for attachment name (check typo variant first - it's in the JSON!)
+      dynamic customerAttachmentName = preloadedSite['customerAttachmenName'] ?? // Handle typo variant first - matches JSON!
+                                        preloadedSite['customerAttachmentName'] ??
+                                        preloadedSite['customer_attachment_name'];
+      
+      // Set customer attachment if ID is valid
+      if (customerAttachmentId != null && customerAttachmentId != 0) {
+        setState(() {
           _customerAttachmentId = customerAttachmentId;
           // Preserve the exact filename with extension from server
-          _customerAttachmentName = customerAttachmentName?.toString();
-          Logger.infoLog('[CM] Loaded attachment - ID: $customerAttachmentId, Name: $_customerAttachmentName');
+          if (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) {
+            _customerAttachmentName = customerAttachmentName.toString().trim();
+          } else {
+            _customerAttachmentName = null;
+          }
+        });
+      }
+      
+      // Load remarks data from cmRemarksList (for edit and view modes)
+      final cmRemarksList = preloadedSite['cmRemarksList'] ?? preloadedSite['cm_remarks_list'];
+      
+      if (cmRemarksList != null && cmRemarksList is List && cmRemarksList.isNotEmpty) {
+        // Get the latest/active remark (usually the last one)
+        final latestRemark = cmRemarksList.last;
+        
+        final cmRemark = latestRemark['cmRemark'] ?? latestRemark['cm_remark'];
+        dynamic cmAttachmentId = latestRemark['cmAttachmentId'] ?? latestRemark['cm_attachment_id'];
+        final cmAttachmentName = latestRemark['cmAttachmentName'] ?? latestRemark['cm_attachment_name'];
+        
+        // Convert attachment ID to int if it's a string
+        if (cmAttachmentId != null && cmAttachmentId is String && cmAttachmentId.toString().trim().isNotEmpty) {
+          try {
+            cmAttachmentId = int.parse(cmAttachmentId.toString().trim());
+          } catch (e) {
+            Logger.errorLog('[CM] Failed to parse remarks attachment ID as int: $cmAttachmentId');
+            cmAttachmentId = null;
+          }
+        }
+        
+        setState(() {
+          // Set remarks text (for edit mode only, view mode shows in CMRemarksShowWidget)
+          if (widget.mode == CMScreenModeEnum.edit && 
+              cmRemark != null && cmRemark.toString().trim().isNotEmpty) {
+            _remarksController.text = cmRemark.toString().trim();
+          }
+          
+          // Set remarks attachment info (for both edit and view modes)
+          if (cmAttachmentId != null && cmAttachmentId != 0) {
+            _remarksAttachmentId = cmAttachmentId;
+            if (cmAttachmentName != null && cmAttachmentName.toString().trim().isNotEmpty) {
+              _remarksAttachmentName = cmAttachmentName.toString().trim();
+            } else {
+              _remarksAttachmentName = null;
+            }
+          }
         });
       }
     }
   }
 
   Future<bool> _requestStoragePermission() async {
-    try {
-      PermissionStatus permissionStatus;
-      
-      if (Platform.isAndroid) {
-        // Check Android version and request appropriate permissions
-        final androidInfo = await DeviceInfoPlugin().androidInfo;
-        Logger.infoLog('[CM] Android SDK: ${androidInfo.version.sdkInt}');
-
-        if (androidInfo.version.sdkInt >= 30) {
-          // Android 11+ - request manage external storage for public Downloads access
-          permissionStatus = await Permission.manageExternalStorage.request();
-          Logger.infoLog('[CM] Manage external storage status: $permissionStatus');
-
-          if (permissionStatus != PermissionStatus.granted) {
-            // Fallback to storage permission
-            permissionStatus = await Permission.storage.request();
-            Logger.infoLog('[CM] Storage permission status: $permissionStatus');
-          }
-        } else {
-          // Android 10 and below - use storage permission
-          permissionStatus = await Permission.storage.request();
-          Logger.infoLog('[CM] Storage permission status: $permissionStatus');
-        }
-      } else {
-        // iOS - request storage permission
-        permissionStatus = await Permission.storage.request();
-        Logger.infoLog('[CM] Storage permission status: $permissionStatus');
-      }
-
-      if (permissionStatus != PermissionStatus.granted) {
-        Logger.errorLog('[CM] Storage permission denied');
-        if (mounted) {
-          // Show dialog to request permission
-          final shouldShowRationale = await Permission.storage.shouldShowRequestRationale;
-          if (shouldShowRationale || permissionStatus.isPermanentlyDenied) {
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Storage Permission Required'),
-                content: const Text(
-                  'This app needs storage permission to download files. Please grant permission in settings.',
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(ctx).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(ctx).pop();
-                      openAppSettings();
-                    },
-                    child: const Text('Open Settings'),
-                  ),
-                ],
-              ),
-            );
-          }
-        }
-        return false;
-      }
-
-      return true;
-    } catch (e) {
-      Logger.errorLog('[CM] Error requesting storage permission: $e');
-      return false;
-    }
+    // Use common file download service for permission handling
+    return await FileDownloadService.requestStoragePermissionWithDialog(
+      context: context,
+    );
   }
 
   Future<void> _loadAttachmentFromDocumentId(dynamic attachmentId) async {
@@ -442,7 +448,6 @@ class _CorrectiveMaintenanceScreenState
       "✅ [CM] Site selected: ${selectedSite.siteName}, entityId: ${selectedSite.entityId}, mode: ${widget.mode}",
     );
 
-    print("vishal printing selectedSite: $selectedSite");
 
     setState(() {
       _selectedSite = selectedSite;
@@ -468,7 +473,6 @@ class _CorrectiveMaintenanceScreenState
           "🔄 [CM] Attempting to load checklist data from local database for siteId: ${selectedSite.siteId}",
         );
 
-        print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
         
         Map<String, dynamic> checklistData = {};
         
@@ -477,7 +481,6 @@ class _CorrectiveMaintenanceScreenState
           Logger.infoLog("🔄 [CM] Checking local database for site data with checklist...");
           Logger.infoLog("🆔 [CM] Looking for site ID: ${selectedSite.siteId}, entityId: ${selectedSite.entityId}");
 
-        print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
 
           final siteDataWithChecklist = await ServiceLocator()
               .centralAssetAuditDataService
@@ -487,16 +490,13 @@ class _CorrectiveMaintenanceScreenState
           
           if (siteDataWithChecklist != null && siteDataWithChecklist['checklist_items'] != null) {
             Logger.infoLog("✅ [CM] Found site data with checklist_items in local database");
-            print("vishal printing siteDataWithChecklist: $siteDataWithChecklist");
             checklistData = Map<String, dynamic>.from(siteDataWithChecklist['checklist_items']);
             Logger.infoLog("✅ [CM] Checklist data loaded with types: ${checklistData.keys.toList()}");
-            print("vishal printing checklistData: $checklistData");
           } else {
             // Fallback: Try separate checklist table
             Logger.infoLog("⚠️ [CM] No checklist in site data, checking separate checklist table...");
 
             Logger.infoLog("🆔 [CM] Looking for checklist data for site ID: ${selectedSite.siteId}");
-            print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
             final localChecklistData = await ServiceLocator()
                 .centralAssetAuditDataService
                 .getCMChecklistData(selectedSite.siteId);
@@ -508,11 +508,9 @@ class _CorrectiveMaintenanceScreenState
 
             if (localChecklistData.isNotEmpty) {
               Logger.infoLog("✅ [CM] Checklist data loaded from separate table with types: ${localChecklistData.keys.toList()}");
-              print("vishal printing localChecklistData: $localChecklistData");
               checklistData = localChecklistData;
             } else {
               Logger.infoLog("⚠️ [CM] No local checklist data found, fetching from API");
-              print("vishal printing selectedSite.entityId: ${selectedSite.entityId}");
               try {
                 // Check if site is downloaded - if not, suggest downloading first
                 final isSiteDownloaded = await ServiceLocator()
@@ -528,7 +526,6 @@ class _CorrectiveMaintenanceScreenState
                     .getChecklistData(selectedSite.entityId);
                 
                 Logger.infoLog("✅ [CM] Checklist data fetched from API");
-                print("vishal printing checklistData: $checklistData");
                 
                 // Save to local database for offline use
                 try {
@@ -539,15 +536,12 @@ class _CorrectiveMaintenanceScreenState
                     siteName: selectedSite.siteName,
                   );
                   Logger.infoLog("✅ [CM] Checklist data saved to local database");
-                  print("vishal printing checklistData: $checklistData");
                 } catch (saveError) {
                   Logger.errorLog("⚠️ [CM] Failed to save checklist to local database: $saveError");
-                  print("vishal printing saveError: $saveError");
                   // Continue even if save fails
                 }
               } catch (apiError) {
                 Logger.errorLog("❌ [CM] Failed to fetch checklist from API: $apiError");
-                print("vishal printing apiError: $apiError");
                 // If API fails and no local data, show error
                 if (apiError.toString().contains("host lookup") || 
                     apiError.toString().contains("connection") ||
@@ -560,7 +554,6 @@ class _CorrectiveMaintenanceScreenState
           }
         } catch (dbError) {
           Logger.errorLog("❌ [CM] Local database check failed: $dbError");
-          print("vishal printing dbError: $dbError");
           // Re-throw the error to show message to user
           rethrow;
         }
@@ -985,12 +978,12 @@ class _CorrectiveMaintenanceScreenState
           label: "Attachments",
           placeholder: "Upload File",
           uploadedFiles: _uploadedAttachments,
-          serverAttachmentName: widget.mode != CMScreenModeEnum.create 
-              ? _customerAttachmentName 
-              : null,
-          serverAttachmentId: widget.mode != CMScreenModeEnum.create 
-              ? _customerAttachmentId 
-              : null,
+              serverAttachmentName: widget.mode != CMScreenModeEnum.create 
+                  ? (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty ? _customerAttachmentName!.trim() : null)
+                  : null,
+              serverAttachmentId: widget.mode != CMScreenModeEnum.create 
+                  ? _customerAttachmentId 
+                  : null,
           onServerAttachmentClicked: widget.mode != CMScreenModeEnum.create
               ? (attachmentId) async {
                   LoaderWidget.showLoader(context);
@@ -1032,10 +1025,11 @@ class _CorrectiveMaintenanceScreenState
           },
           isRequired: false,
           maxSizeText: "(Max Size: 2MB)",
-          acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
-          isDisabled: widget.mode == CMScreenModeEnum.view,
+              acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
+              isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(30),
+        // Edit mode: Show editable remarks and attachments section
         if (widget.mode == CMScreenModeEnum.edit) ...[
           CustomDropdown(
             label: "Status",
@@ -1054,17 +1048,49 @@ class _CorrectiveMaintenanceScreenState
             label: "Remarks",
             hintText: "Enter remarks",
             controller: _remarksController,
+            isDisabled: false, // Allow editing in edit mode
           ),
           getHeight(15),
           CustomFileUploadNew(
             label: "Attachments",
             placeholder: "Upload File",
-            uploadedFiles: _remarksAttachments,
+                uploadedFiles: _remarksAttachments,
+                serverAttachmentName: (_remarksAttachmentName != null && _remarksAttachmentName!.trim().isNotEmpty)
+                    ? _remarksAttachmentName!.trim()
+                    : null,
+                serverAttachmentId: _remarksAttachmentId != null && 
+                    _remarksAttachmentId != 0 && 
+                    _remarksAttachmentId.toString().trim().isNotEmpty
+                    ? _remarksAttachmentId 
+                    : null,
+                onServerAttachmentClicked: _remarksAttachmentId != null && 
+                    _remarksAttachmentId != 0
+                    ? (attachmentId) async {
+                        LoaderWidget.showLoader(context);
+                        try {
+                          await _loadAttachmentFromDocumentId(attachmentId);
+                        } finally {
+                          LoaderWidget.hideLoader();
+                        }
+                      }
+                    : null,
+                onServerAttachmentDeleted: () {
+                  setState(() {
+                    _remarksAttachmentId = null;
+                    _remarksAttachmentName = null;
+                    _hasFormDataChanges = true;
+                  });
+                },
             onFileSelected: (File? file) {
               if (file != null) {
                 setState(() {
+                      // Clear server attachment when new file is uploaded
+                      _remarksAttachmentId = null;
+                      _remarksAttachmentName = null;
+                      // Clear existing attachments and add new one
                   _remarksAttachments.clear();
                   _remarksAttachments.add(file);
+                      _hasFormDataChanges = true;
                 });
               }
             },
@@ -1072,17 +1098,20 @@ class _CorrectiveMaintenanceScreenState
               // Handle file deletion
               setState(() {
                 _remarksAttachments.remove(file);
+                    _hasFormDataChanges = true;
               });
             },
             isRequired: true,
             maxSizeText: "(Max Size: 2MB)",
-            acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
+                acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
           ),
           getHeight(30),
         ],
-        if (widget.mode != CMScreenModeEnum.create)
+        // Show remarks in view mode (read-only display)
+        if (widget.mode == CMScreenModeEnum.view)
           CMRemarksShowWidget(
-            remarksList: widget.preloadedSiteData?['cm_remarks_list'],
+            remarksList: widget.preloadedSiteData?['cmRemarksList'] ?? 
+                        widget.preloadedSiteData?['cm_remarks_list'],
           ),
         CustomSubmitButtonV2(text: "Submit", onPressed: _validateAndSubmit),
       ],
@@ -1182,7 +1211,6 @@ class _CorrectiveMaintenanceScreenState
         // AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } catch (e) {
         Logger.errorLog(e.toString());
-        print("Failed to save the form edit : $e");
         Toastbar.showErrorToastbar(
           "Failed to save the form edit : $e",
           context,
@@ -1254,7 +1282,6 @@ class _CorrectiveMaintenanceScreenState
             selectedCheckListData,
           );
       Logger.infoLog("requestData: $requestData");
-      print("vishal printing requestData: $requestData");
 
       if (isConnected) {
         // Online mode: Process images first, then submit

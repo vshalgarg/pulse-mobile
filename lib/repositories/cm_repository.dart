@@ -4,10 +4,10 @@ import 'dart:typed_data';
 
 import 'package:app/utils/logger.dart';
 import 'package:dio/dio.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../models/cm_site_model.dart';
 import '../services/api_service.dart';
+import '../services/file_download_service.dart';
 
 class CMRepository {
   final ApiService _apiService;
@@ -123,62 +123,12 @@ class CMRepository {
       
       Logger.infoLog('[CMRepository] ✅ Document binary data received, size: ${(response.data as Uint8List).length} bytes');
       
-      // Get Downloads directory
-      Directory downloadsPath;
-      try {
-        if (Platform.isAndroid) {
-          final externalStorage = await getExternalStorageDirectory();
-          if (externalStorage != null) {
-            final rootPath = externalStorage.path.split('/Android')[0];
-            downloadsPath = Directory('$rootPath/Download');
-
-            // Test write access
-            try {
-              if (!await downloadsPath.exists()) {
-                await downloadsPath.create(recursive: true);
-              }
-              final testFile = File('${downloadsPath.path}/test_write.tmp');
-              await testFile.writeAsString('test');
-              await testFile.delete();
-              Logger.infoLog('[CMRepository] Using public Downloads: ${downloadsPath.path}');
-            } catch (e) {
-              Logger.infoLog('[CMRepository] Cannot write to public Downloads, trying alternative: $e');
-              downloadsPath = Directory('/storage/emulated/0/Download');
-              
-              try {
-                if (!await downloadsPath.exists()) {
-                  await downloadsPath.create(recursive: true);
-                }
-                final testFile = File('${downloadsPath.path}/test_write.tmp');
-                await testFile.writeAsString('test');
-                await testFile.delete();
-                Logger.infoLog('[CMRepository] Using alternative public Downloads: ${downloadsPath.path}');
-              } catch (e2) {
-                Logger.infoLog('[CMRepository] Using app external storage Downloads: $e2');
-                downloadsPath = Directory('${externalStorage.path}/Downloads');
-              }
-            }
-          } else {
-            throw Exception('Could not access external storage');
-          }
-        } else {
-          downloadsPath = await getApplicationDocumentsDirectory();
-        }
-      } catch (e) {
-        Logger.errorLog('[CMRepository] Error getting Downloads directory: $e');
-        downloadsPath = await getApplicationDocumentsDirectory();
-        Logger.infoLog('[CMRepository] Using fallback directory: ${downloadsPath.path}');
-      }
-
-      // Create downloads folder if it doesn't exist
-      if (!await downloadsPath.exists()) {
-        await downloadsPath.create(recursive: true);
-      }
-
-      // Save file to Downloads
-      final filePath = '${downloadsPath.path}/$fileName';
-      final file = File(filePath);
-      await file.writeAsBytes(response.data as Uint8List);
+      // Use common file download service
+      final filePath = await FileDownloadService.downloadFileFromBytes(
+        data: response.data as Uint8List,
+        fileName: fileName,
+        requirePermission: false, // Permission is already checked in screen
+      );
       
       Logger.infoLog('[CMRepository] ✅ Document saved to: $filePath');
       return filePath;

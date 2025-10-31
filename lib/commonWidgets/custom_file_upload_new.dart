@@ -205,12 +205,11 @@ class CustomFileUploadNew extends StatelessWidget {
           ),
         ),
         
-        // Server Attachment (if exists and has valid ID)
         if (serverAttachmentId != null && 
             serverAttachmentId != 0 && 
-            serverAttachmentId.toString().isNotEmpty &&
+            serverAttachmentId.toString().trim().isNotEmpty &&
             serverAttachmentName != null &&
-            serverAttachmentName!.isNotEmpty) ...[
+            serverAttachmentName!.trim().isNotEmpty) ...[
           const SizedBox(height: 16),
           _buildServerAttachmentItem(),
         ],
@@ -226,6 +225,11 @@ class CustomFileUploadNew extends StatelessWidget {
   }
 
   Widget _buildServerAttachmentItem() {
+    // Get the display name - use serverAttachmentName if available, otherwise fallback
+    final displayName = (serverAttachmentName != null && serverAttachmentName!.isNotEmpty)
+        ? serverAttachmentName!
+        : 'attachment';
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -240,7 +244,7 @@ class CustomFileUploadNew extends StatelessWidget {
       child: Row(
         children: [
           Icon(
-            _getFileIcon(serverAttachmentName ?? ''),
+            _getFileIcon(displayName),
             size: 20,
             color: AppColors.color555555,
           ),
@@ -251,7 +255,7 @@ class CustomFileUploadNew extends StatelessWidget {
                   ? null
                   : () => onServerAttachmentClicked!(serverAttachmentId),
               child: Text(
-                serverAttachmentName ?? 'attachment',
+                displayName,
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
