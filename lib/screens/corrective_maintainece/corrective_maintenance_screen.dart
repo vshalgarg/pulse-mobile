@@ -254,33 +254,31 @@ class _CorrectiveMaintenanceScreenState
           customerAttachmentName = value;
         }
       }
-
-      print("vishal printing customerAttachmentName: $customerAttachmentName $customerAttachmentId");
       
-     
-      
-   
-      
-      // Debug logging to help identify the issue
-      Logger.infoLog('[CM] customerAttachmentId found: $customerAttachmentId');
-      Logger.infoLog('[CM] Checking for attachment name in preloadedSite...');
-      Logger.infoLog('[CM] Has customerAttachmenName key: ${preloadedSite.containsKey('customerAttachmenName')}');
-      if (preloadedSite.containsKey('customerAttachmenName')) {
-        Logger.infoLog('[CM] customerAttachmenName value: ${preloadedSite['customerAttachmenName']} (type: ${preloadedSite['customerAttachmenName'].runtimeType})');
+      // Then check correct spelling if not found
+      if (customerAttachmentName == null && preloadedSite.containsKey('customerAttachmentName')) {
+        final value = preloadedSite['customerAttachmentName'];
+        if (value != null && value.toString().trim().isNotEmpty) {
+          customerAttachmentName = value;
+        }
       }
-      Logger.infoLog('[CM] Has customerAttachmentName key: ${preloadedSite.containsKey('customerAttachmentName')}');
-      if (preloadedSite.containsKey('customerAttachmentName')) {
-        Logger.infoLog('[CM] customerAttachmentName value: ${preloadedSite['customerAttachmentName']} (type: ${preloadedSite['customerAttachmentName'].runtimeType})');
+      
+      // Then check snake_case variant if still not found
+      if (customerAttachmentName == null && preloadedSite.containsKey('customer_attachment_name')) {
+        final value = preloadedSite['customer_attachment_name'];
+        if (value != null && value.toString().trim().isNotEmpty) {
+          customerAttachmentName = value;
+        }
       }
-      Logger.infoLog('[CM] Final customerAttachmentName resolved: $customerAttachmentName');
       
       // Set customer attachment if ID is valid
       if (customerAttachmentId != null && customerAttachmentId != 0) {
+        // If name is null or empty, use attachment ID as the name
         final nameToSet = (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) 
             ? customerAttachmentName.toString().trim() 
-            : 'attachment ${customerAttachmentId.toString()}';
-
-            print("vishal printing nameToSet: $nameToSet $customerAttachmentId");
+            : customerAttachmentId.toString(); // Use ID as name if name is not available
+        
+        Logger.infoLog('[CM] Setting customer attachment - ID: $customerAttachmentId, Name: $nameToSet');
         
         // Set state directly (same pattern as remarks attachment)
         setState(() {
@@ -1287,26 +1285,6 @@ class _CorrectiveMaintenanceScreenState
       }
       requestData['cm_impacted_item_list'] =
           DataTransformationHelper.convertListToCamelCase(_impactedItemList);
-      
-      // Preserve customer attachment ID and name in edit mode if they exist and weren't changed
-      if (widget.mode == CMScreenModeEnum.edit) {
-        // If attachment wasn't changed (no new file uploaded) but we have existing attachment info
-        if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
-          requestData['customer_attachment_id'] = _customerAttachmentId;
-          
-          // Use attachment name if available, otherwise use attachment ID as name
-          final attachmentName = (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty)
-              ? _customerAttachmentName!.trim()
-              : _customerAttachmentId.toString();
-          
-          // Include both possible field names (typo variant and correct spelling)
-          requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
-          requestData['customer_attachment_name'] = attachmentName; // Correct spelling (fallback)
-          
-          Logger.infoLog('[CM] Preserving customer attachment in edit mode - ID: $_customerAttachmentId, Name: $attachmentName');
-        }
-      }
-      
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel finalLocation;
 
@@ -1338,6 +1316,26 @@ class _CorrectiveMaintenanceScreenState
               selectedCheckListData,
             );
       }
+      
+      // In edit mode, preserve customer attachment ID and name if they exist and weren't changed
+      if (widget.mode == CMScreenModeEnum.edit) {
+        // If attachment wasn't changed (no new file uploaded) but we have existing attachment info
+        if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
+          requestData['customer_attachment_id'] = _customerAttachmentId;
+          
+          // Use attachment name if available, otherwise use attachment ID as name
+          final attachmentName = (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty)
+              ? _customerAttachmentName!.trim()
+              : _customerAttachmentId.toString();
+          
+          // Include both possible field names (typo variant and correct spelling)
+          requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
+          requestData['customer_attachment_name'] = attachmentName; // Correct spelling (fallback)
+          
+          Logger.infoLog('[CM] Preserving customer attachment in edit mode - ID: $_customerAttachmentId, Name: $attachmentName');
+        }
+      }
+      
       Logger.infoLog("requestData: $requestData");
 
       try {
