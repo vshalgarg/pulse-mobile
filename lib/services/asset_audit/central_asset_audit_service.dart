@@ -293,6 +293,28 @@ class CentralAssetAuditService {
       longitude: longitude,
       apiData: apiData,
     );
+    
+    // For General Inspection, also download checklist data
+    if (isSaved && activityType == ActivityTypeEnum.generalInspection) {
+      try {
+        final ticketSchId = int.tryParse(siteAuditSchId) ?? 0;
+        final giChecklistDownloaded = await downloadGIChecklist(
+          siteId: ticketSchId,
+          siteCode: siteCode,
+          siteName: cluster,
+          siteDomainId: 1, // Default site domain ID for GI
+        );
+        
+        if (giChecklistDownloaded) {
+          Logger.debugLog('✅ GI checklist data downloaded successfully');
+        } else {
+          Logger.errorLog('❌ Failed to download GI checklist data');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error downloading GI checklist: $e');
+      }
+    }
+    
     return isSaved;
   }
 

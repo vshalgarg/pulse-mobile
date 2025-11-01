@@ -17,8 +17,10 @@ import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
 import 'energy_reading/energy_reading_screen.dart';
+import 'general_inspection/ginspection_detail.dart';
 import 'preventive_maintainance/pm_page_render.dart';
 import 'site_visit/site_visit.dart';
+import '../enum/corrective_maintenance_screen_mode_enum.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key});
@@ -171,6 +173,72 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => SiteVisitScreen(siteData: siteData),
+          ),
+        );
+      } else if (ticket.activityType == ActivityTypeEnum.generalInspection) {
+        // For General Inspection, get checklist data from API response
+        final genInspectionData = data.apiData;
+
+        // Extract the actual data from the nested structure
+        final actualData = genInspectionData['data'] as Map<String, dynamic>?;
+
+        if (actualData == null) {
+          Toastbar.showErrorToastbar(
+            "General inspection data structure is invalid",
+            context,
+          );
+          return;
+        }
+
+        // Extract visiting person image ID from API response
+        final visitingPersonImageId = actualData['visitingPersonImageId']
+            ?.toString();
+
+        // Get checklist data from local database
+        final checklistData = await ServiceLocator()
+            .centralAssetAuditDataService
+            .getGIChecklistData(int.tryParse(ticket.siteAuditSchId) ?? 0);
+
+        // Create site data for General Inspection using API response data
+        final siteData = AllSiteModel(
+          siteId: actualData['siteId'] ?? int.tryParse(ticket.siteAuditSchId) ?? 0,
+          entityId: 0, // Default value
+          siteCode: actualData['siteCode'] ?? ticket.siteCode ?? '',
+          siteName: actualData['siteName'] ?? ticket.cluster ?? '',
+          clusterDistrictId: 0, // Default value
+          clusterDistrictName: actualData['cluster'] ?? ticket.cluster ?? '',
+          circleStateId: 0, // Default value
+          circleStateName: actualData['circle'] ?? ticket.operator ?? '',
+          clientId: null,
+          clientName: actualData['client'] ?? ticket.operator,
+          svlId: null,
+          oem: null,
+          oemId: null,
+          self: '',
+          selfId: 0,
+          siteDomainName: ticket.siteType,
+          distanceKM: null,
+          infraEngineerName: actualData['infraDistrictEngineerName'],
+          infraEngineerPhone: actualData['infraDistrictEngineerContactNo'],
+          ownerName: actualData['ownerName'],
+          ownerPhone: actualData['ownerContactNo'],
+          siteVisitLogId: null,
+          siteVisitLogDate: null,
+          purposeOfVisit: null,
+          visitingPersonImageId: visitingPersonImageId,
+          checklistItems: checklistData,
+        );
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GInspectionDetailScreen(
+              siteData: siteData,
+              mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+                  ? CMScreenModeEnum.view
+                  : CMScreenModeEnum.edit,
+              apiResponseData: actualData,
+            ),
           ),
         );
       } else {
@@ -401,6 +469,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       ActivityTypeEnum.preventiveMaintenance,
       ActivityTypeEnum.correctiveMaintenance,
       ActivityTypeEnum.energyReading,
+      ActivityTypeEnum.siteVisit,
+      ActivityTypeEnum.generalInspection,
     ];
 
     return Container(

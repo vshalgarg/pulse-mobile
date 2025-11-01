@@ -1271,6 +1271,11 @@ class _CorrectiveMaintenanceScreenState
       if (cmSiteReqId == null) {
         return;
       }
+      
+      // Check internet connectivity
+      final isConnected = await ConnectivityHelper.isConnected();
+      Logger.infoLog("CM form edit submission - Connected: $isConnected");
+      
       final requestData = <String, dynamic>{};
       requestData['cm_site_req_id'] = cmSiteReqId;
       for (var entry in controllers.entries) {
@@ -1286,7 +1291,7 @@ class _CorrectiveMaintenanceScreenState
       requestData['cm_impacted_item_list'] =
           DataTransformationHelper.convertListToCamelCase(_impactedItemList);
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
-      LocationModel finalLocation;
+      LocationModel? finalLocation;
 
       if (selectedCheckListData != null) {
         try {
@@ -1317,6 +1322,11 @@ class _CorrectiveMaintenanceScreenState
             );
       }
       
+      // Add remarks to request data
+      if (_remarksController.text.trim().isNotEmpty) {
+        requestData['cm_remark'] = _remarksController.text.trim();
+      }
+      
       // In edit mode, preserve customer attachment ID and name if they exist and weren't changed
       if (widget.mode == CMScreenModeEnum.edit) {
         // If attachment wasn't changed (no new file uploaded) but we have existing attachment info
@@ -1338,74 +1348,229 @@ class _CorrectiveMaintenanceScreenState
       
       Logger.infoLog("requestData: $requestData");
 
-      try {
-        //   await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        //   requests: [requestData],
-        //   isLastPage: true,
-        //   activityType: ActivityTypeEnum.correctiveMaintenance,
-        // );
-
-        Map<String, dynamic> processedData =
-            DataTransformationHelper.convertKeysToCamelCase(requestData);
-        await ServiceLocator().cmRepository.createCorrectiveMaintenance(
-          processedData,
-        );
-
-        Logger.debugLog(" processedData: $processedData");
-
-        // Only upload photo/attachment if they were actually changed (new files selected)
-        // In edit mode, if customerPhoto is null and _uploadedAttachments is empty,
-        // it means they weren't changed, so we should preserve them by not calling this method
-        final hasNewPhoto = customerPhoto != null;
-        final hasNewAttachment = _uploadedAttachments.isNotEmpty;
-        
-        if (hasNewPhoto || hasNewAttachment) {
-          Logger.infoLog('[CM] Uploading changed photo/attachment - Photo: $hasNewPhoto, Attachment: $hasNewAttachment');
-          await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-            cmSiteReqId!,
-            customerPhoto, // Will be null if not changed, which is fine - API won't update it
-            _uploadedAttachments.firstOrNull, // Will be null if not changed, which is fine - API won't update it
-          );
+      if (isConnected) {
+        // Online mode: Process and submit
+        try {
+          await _handleOnlineEditSubmission(requestData);
+        } catch (e) {
+          Logger.errorLog("Online edit submission failed: $e");
+          // Fallback to offline mode
+          if (finalLocation != null) {
+            await _handleOfflineEditSubmission(requestData, finalLocation);
+          }
+        }
+      } else {
+        // Offline mode: Save to pending requests
+        if (finalLocation != null) {
+          await _handleOfflineEditSubmission(requestData, finalLocation);
         } else {
-          Logger.infoLog('[CM] No changes to photo or attachment, skipping upload to preserve existing ones');
+          // Get location if not already available
+          try {
+            finalLocation = await LocationService.getCurrentLocation();
+            await _handleOfflineEditSubmission(requestData, finalLocation);
+          } catch (e) {
+            Logger.errorLog('Error getting location for offline submission: $e');
+            Toastbar.showErrorToastbar(
+              ExceptionConstants.UNABLE_TO_GET_LOCATION,
+              context,
+            );
+          }
         }
-        if (_remarksAttachments.isNotEmpty) {
-          await ServiceLocator().cmRepository.saveRemarks(
-            cmSiteReqId!,
-            _remarksController.text,
-            _statusController.text,
-            _remarksAttachments.first,
-          );
-        }
-        
-        // Reload customer photo if it wasn't changed (preserve existing photo in edit mode)
-        if (customerPhoto == null && _originalCustomerPhotoId != null && 
-            _originalCustomerPhotoId.toString().trim().isNotEmpty) {
-          Logger.infoLog('[CM] Reloading customer photo after submission to preserve display');
-          await _reloadCustomerPhoto(_originalCustomerPhotoId);
-        }
-        
-        // Reload customer attachment info if it wasn't changed (preserve existing attachment in edit mode)
-        if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
-          Logger.infoLog('[CM] Reloading customer attachment after submission to preserve display');
-          // The attachment info is already in state, but ensure it's still displayed
-          // No need to reload from server since we already have the ID and name
-          setState(() {
-            // Force rebuild to ensure attachment is displayed
-          });
-        }
-        
-        Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
-      } catch (e) {
-        Logger.errorLog(e.toString());
-        Toastbar.showErrorToastbar(
-          "Failed to save the form edit : $e",
-          context,
-        );
       }
     } finally {
       LoaderWidget.hideLoader();
+    }
+  }
+
+  Future<void> _handleOnlineEditSubmission(Map<String, dynamic> requestData) async {
+    try {
+      Map<String, dynamic> processedData =
+          DataTransformationHelper.convertKeysToCamelCase(requestData);
+      await ServiceLocator().cmRepository.createCorrectiveMaintenance(
+        processedData,
+      );
+
+      Logger.debugLog(" processedData: $processedData");
+
+      // Only upload photo/attachment if they were actually changed (new files selected)
+      // In edit mode, if customerPhoto is null and _uploadedAttachments is empty,
+      // it means they weren't changed, so we should preserve them by not calling this method
+      final hasNewPhoto = customerPhoto != null;
+      final hasNewAttachment = _uploadedAttachments.isNotEmpty;
+      
+      if (hasNewPhoto || hasNewAttachment) {
+        Logger.infoLog('[CM] Uploading changed photo/attachment - Photo: $hasNewPhoto, Attachment: $hasNewAttachment');
+        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
+          cmSiteReqId!,
+          customerPhoto, // Will be null if not changed, which is fine - API won't update it
+          _uploadedAttachments.firstOrNull, // Will be null if not changed, which is fine - API won't update it
+        );
+      } else {
+        Logger.infoLog('[CM] No changes to photo or attachment, skipping upload to preserve existing ones');
+      }
+      
+      // Upload remarks with attachment if remarks or attachment were changed
+      if (_remarksController.text.trim().isNotEmpty || _remarksAttachments.isNotEmpty) {
+        // If remarks attachment is provided, upload it
+        if (_remarksAttachments.isNotEmpty) {
+          await ServiceLocator().cmRepository.saveRemarks(
+            cmSiteReqId!,
+            _remarksController.text.trim(),
+            _statusController.text,
+            _remarksAttachments.first,
+          );
+        } else if (_remarksController.text.trim().isNotEmpty) {
+          // If only remarks text is provided without attachment, still save remarks
+          // Note: saveRemarks requires a file, so we might need to handle text-only remarks differently
+          // For now, only save if attachment is provided
+          Logger.infoLog('[CM] Remarks text provided but no attachment - skipping remarks save (API requires file)');
+        }
+      }
+      
+      // Reload customer photo if it wasn't changed (preserve existing photo in edit mode)
+      if (customerPhoto == null && _originalCustomerPhotoId != null && 
+          _originalCustomerPhotoId.toString().trim().isNotEmpty) {
+        Logger.infoLog('[CM] Reloading customer photo after submission to preserve display');
+        await _reloadCustomerPhoto(_originalCustomerPhotoId);
+      }
+      
+      // Reload customer attachment info if it wasn't changed (preserve existing attachment in edit mode)
+      if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
+        Logger.infoLog('[CM] Reloading customer attachment after submission to preserve display');
+        // The attachment info is already in state, but ensure it's still displayed
+        // No need to reload from server since we already have the ID and name
+        setState(() {
+          // Force rebuild to ensure attachment is displayed
+        });
+      }
+      
+      Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
+      // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+    } catch (e) {
+      Logger.errorLog("Error in online edit submission: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> _handleOfflineEditSubmission(
+    Map<String, dynamic> requestData,
+    LocationModel location,
+  ) async {
+    try {
+      Logger.infoLog("Saving CM edit form data offline");
+
+      // Upload images first and get unique IDs (same as create mode)
+      String? customerPhotoId;
+      String? attachmentId;
+      String? remarksAttachmentId;
+
+      // Only upload if new files were selected (not preserving existing ones)
+      if (customerPhoto != null) {
+        customerPhotoId = await _uploadImageWithOfflineSupport(
+          customerPhoto!,
+          ActivityTypeEnum.correctiveMaintenance,
+        );
+      }
+
+      if (_uploadedAttachments.isNotEmpty) {
+        attachmentId = await _uploadImageWithOfflineSupport(
+          _uploadedAttachments.first,
+          ActivityTypeEnum.correctiveMaintenance,
+        );
+      }
+
+      // Upload remarks attachment if provided
+      if (_remarksAttachments.isNotEmpty) {
+        remarksAttachmentId = await _uploadImageWithOfflineSupport(
+          _remarksAttachments.first,
+          ActivityTypeEnum.correctiveMaintenance,
+        );
+      }
+
+      // Add image IDs to request data (only if new files were uploaded)
+      if (customerPhotoId != null) {
+        requestData['customer_photo_id'] = customerPhotoId;
+      } else if (_originalCustomerPhotoId != null && _originalCustomerPhotoId.toString().trim().isNotEmpty) {
+        // Preserve existing photo ID if not changed
+        requestData['customer_photo_id'] = _originalCustomerPhotoId;
+      }
+      
+      if (attachmentId != null) {
+        requestData['customer_attachment_id'] = attachmentId;
+      } else if (_customerAttachmentId != null && _customerAttachmentId != 0) {
+        // Preserve existing attachment ID if not changed
+        requestData['customer_attachment_id'] = _customerAttachmentId;
+        // Also preserve attachment name
+        final attachmentName = (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty)
+            ? _customerAttachmentName!.trim()
+            : _customerAttachmentId.toString();
+        requestData['customer_attachmen_name'] = attachmentName;
+        requestData['customer_attachment_name'] = attachmentName;
+      }
+      
+      // Add remarks attachment ID if uploaded
+      if (remarksAttachmentId != null) {
+        requestData['cm_attachment_id'] = remarksAttachmentId;
+      } else if (_remarksAttachmentId != null && _remarksAttachmentId != 0) {
+        // Preserve existing remarks attachment ID if not changed
+        requestData['cm_attachment_id'] = _remarksAttachmentId;
+      }
+
+      // Save to pending requests for sync when online
+      final requestId = 'cm_edit_${cmSiteReqId}_${DateTime.now().millisecondsSinceEpoch}';
+      final url = '/api/v1/mobile/correctiveMaintenance';
+      final isSaved = await ServiceLocator().pendingRequestService.savePendingRequest(
+        requestId: requestId,
+        url: url,
+        headers: {},
+        jsonEncodedRequestData: jsonEncode([requestData]),
+      );
+
+      if (isSaved) {
+        Logger.infoLog("CM edit data saved to pending requests successfully");
+        
+        // If remarks were provided, also save remarks as a separate pending request
+        // (since remarks might be saved via separate API call)
+        if (_remarksController.text.trim().isNotEmpty || _remarksAttachments.isNotEmpty) {
+          // Create a remarks request data
+          final remarksRequestData = <String, dynamic>{
+            'cmId': cmSiteReqId,
+            'cmRemark': _remarksController.text.trim(),
+            'cmStatus': _statusController.text,
+          };
+          
+          if (remarksAttachmentId != null) {
+            remarksRequestData['cmRemarksFile'] = remarksAttachmentId;
+          } else if (_remarksAttachmentId != null && _remarksAttachmentId != 0) {
+            remarksRequestData['cmAttachmentId'] = _remarksAttachmentId;
+          }
+          
+          final remarksRequestId = 'cm_remarks_${cmSiteReqId}_${DateTime.now().millisecondsSinceEpoch}';
+          final remarksUrl = '/api/v1/mobile/cmRemarks/upload';
+          
+          // For offline, we'll save the remarks file path and upload it when online
+          // The actual file upload will happen when syncing pending requests
+          await ServiceLocator().pendingRequestService.savePendingRequest(
+            requestId: remarksRequestId,
+            url: remarksUrl,
+            headers: {},
+            jsonEncodedRequestData: jsonEncode(remarksRequestData),
+          );
+          
+          Logger.infoLog("CM remarks saved to pending requests successfully");
+        }
+        
+        Toastbar.showSuccessToastbar("Data saved offline. Will sync when online.", context);
+        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      } else {
+        throw Exception('Failed to save data to offline storage');
+      }
+    } catch (e) {
+      Logger.errorLog("Error in offline edit submission: $e");
+      Toastbar.showErrorToastbar(
+        "Failed to save form edit offline: $e",
+        context,
+      );
     }
   }
 
