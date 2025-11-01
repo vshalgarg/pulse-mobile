@@ -494,14 +494,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       return;
     }
 
-    if (_selectedImage == null) {
-      showCustomToast(context, "Please add a selfie");
-      return;
-    }
-
-    // Check if image has been uploaded (either to server or locally)
+    // Check if we have an uploaded image ID (either from existing data or newly uploaded)
     if (_uploadedImgId == null || _uploadedImgId!.isEmpty) {
-      showCustomToast(context, "Please wait for image upload to complete");
+      showCustomToast(context, "Please add a selfie");
       return;
     }
 
