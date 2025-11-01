@@ -201,7 +201,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
         // Create site data for General Inspection using API response data
         final siteData = AllSiteModel(
-          siteId: actualData['siteId'] ?? int.tryParse(ticket.siteAuditSchId) ?? 0,
+          siteId: int.tryParse(ticket.siteAuditSchId) ?? 0,
           entityId: 0, // Default value
           siteCode: actualData['siteCode'] ?? ticket.siteCode ?? '',
           siteName: actualData['siteName'] ?? ticket.cluster ?? '',
