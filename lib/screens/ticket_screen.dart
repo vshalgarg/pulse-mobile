@@ -566,7 +566,7 @@ class _TicketScreenState extends State<TicketScreen> {
             company: ticket.operator ?? 'N/A',
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
-            statusText: statusText,
+            statusText: ticket.status ?? '',
             activityType: _currentActivityType,
             isDownloadedFunc: _isTicketDownloaded,
             onPdfDownloadTap: () => _downloadReport(ticket),
@@ -606,6 +606,8 @@ class _TicketScreenState extends State<TicketScreen> {
 
                 // Handle General Inspection tickets differently
 
+                
+
                 // For other ticket types, use the existing downloadData method
                 isDownloaded = await service.downloadData(
                   siteType: ticket.siteDomainName ?? 'Solar',
@@ -620,6 +622,7 @@ class _TicketScreenState extends State<TicketScreen> {
                   status: ticket.status ?? "",
                   latitude: ticket.latitude ?? 0,
                   longitude: ticket.longitude ?? 0,
+
                   activityType: _currentActivityType,
                 );
 
