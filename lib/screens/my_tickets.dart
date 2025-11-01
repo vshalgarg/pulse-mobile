@@ -14,7 +14,6 @@ import '../commonWidgets/ticket_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../models/ticket_model.dart';
-import '../routes/routes.dart';
 import '../services/location_service.dart';
 import 'corrective_maintainece/corrective_maintenance_screen.dart';
 import 'energy_reading/energy_reading_screen.dart';
@@ -288,6 +287,18 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             ),
           ),
         );
+      } else if (ticket.activityType == ActivityTypeEnum.correctiveMaintenance) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CorrectiveMaintenanceScreen(
+              mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+                  ? CMScreenModeEnum.view
+                  : CMScreenModeEnum.edit,
+              preloadedSiteData: data.apiData,
+            ),
+          ),
+        );
       } else {
         AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
           siteType: ticket.siteType,
@@ -324,7 +335,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.correctiveMaintenance:
-        Navigator.pushNamed(context, correctiveMaintenanceScreen);
+        _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.energyReading:
         _navigateToWorkflow(ticket);
