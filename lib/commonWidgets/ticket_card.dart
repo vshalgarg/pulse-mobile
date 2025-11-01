@@ -176,10 +176,11 @@ class TicketCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
 
-                  // Add document icon for completed/closed tickets
-                  if (activityType == ActivityTypeEnum.generalInspection ||
+                  // Add document icon for completed/closed tickets (but not for sites)
+                  if (statusText.toLowerCase() != 'site' &&
+                      (activityType == ActivityTypeEnum.generalInspection ||
                       statusText.toLowerCase() == 'completed' ||
-                      statusText.toLowerCase() == 'closed')
+                      statusText.toLowerCase() == 'closed'))
                     IconButton(
                       icon: const Icon(
                         Icons.description,

@@ -77,9 +77,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     _ownerContactController.text = widget.siteData.ownerPhone ?? "";
 
     // Handle existing image if available
-    print("🔍 visitingPersonImageId: ${widget.siteData.visitingPersonImageId}");
+    print("🔍 visitingPersonImageId: ${widget.siteData.infraEngineerName}");
     print(
-      "🔍 visitingPersonImageId type: ${widget.siteData.visitingPersonImageId.runtimeType}",
+      "🔍 visitingPersonImageId type: ${widget.siteData.infraEngineerPhone}",
     );
 
     if (widget.siteData.visitingPersonImageId != null &&

@@ -16,11 +16,6 @@ import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 
-
-
-
-
-
 class AllSitesScreen extends StatefulWidget {
   final String ActivityType;
 
@@ -145,11 +140,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     final trimmed = query.trim();
     print('🔍 Search submitted: "$trimmed"');
     print('🔍 Current site type: $_siteType');
-    
+
     setState(() {
       _searchQuery = trimmed;
     });
-    
+
     if (trimmed.isNotEmpty) {
       print('🔍 Loading sites with search text: "$trimmed"');
       _loadSites(_siteType, searchText: trimmed);
@@ -218,7 +213,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       // Always check CM site data first
       final cmDownloaded = await ServiceLocator().centralAssetAuditDataService
           .isCMSiteDownloaded(site.siteId);
-      
+
       if (!cmDownloaded) {
         return false;
       }
@@ -245,7 +240,12 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       bool isDownloaded = false;
 
       // Always download CM site data first
-      isDownloaded = await service.downloadCMSiteData(site: site);
+
+      if (widget.ActivityType == 'SV') {
+        isDownloaded = await service.downloadSVSiteData(site: site);
+      } else if (widget.ActivityType == 'GI') {
+        isDownloaded = await service.downloadGISiteData(site: site);
+      }
 
       if (isDownloaded) {
         // If CM site data downloaded successfully, also download GI checklist data for GI sites
@@ -256,7 +256,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             siteName: site.siteName,
             siteDomainId: 1, // Default site domain ID
           );
-          
+
           if (!giDownloaded) {
             print('Warning: CM site data downloaded but GI checklist failed');
             // Still consider it successful since CM data was downloaded
@@ -384,14 +384,22 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.search, color: Colors.blue, size: 20),
+                          icon: const Icon(
+                            Icons.search,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
                           onPressed: () {
                             _performSearchAndLoad(_searchController.text);
                           },
                           tooltip: 'Search',
                         ),
                         IconButton(
-                          icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                          icon: const Icon(
+                            Icons.clear,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
                           onPressed: () {
                             _searchController.clear();
                             setState(() {
@@ -411,7 +419,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                       ],
                     )
                   : IconButton(
-                      icon: const Icon(Icons.search, color: Colors.black, size: 20),
+                      icon: const Icon(
+                        Icons.search,
+                        color: Colors.black,
+                        size: 20,
+                      ),
                       onPressed: () {
                         _performSearchAndLoad(_searchController.text);
                       },
@@ -566,8 +578,9 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                   );
                 },
                 onTap: () => _navigateToSite(site),
-                onDownloadTap:
-                    isDownloaded ? null : () => _downloadSiteData(site),
+                onDownloadTap: isDownloaded
+                    ? null
+                    : () => _downloadSiteData(site),
               );
             },
           ),
@@ -613,8 +626,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryGreen,
               ),
-              child:
-                  const Text('Retry', style: TextStyle(color: Colors.white)),
+              child: const Text('Retry', style: TextStyle(color: Colors.white)),
             ),
           ],
         ),

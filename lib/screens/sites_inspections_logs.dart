@@ -141,7 +141,7 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
 
       // Use the new CM-specific download method
       final service = ServiceLocator().centralAssetAuditService;
-      final isDownloaded = await service.downloadCMSiteData(site: site);
+      final isDownloaded = await service.downloadCMSiteData(site: site, siteType: widget.activityType);
 
       if (isDownloaded) {
         // Add to local state and trigger UI update

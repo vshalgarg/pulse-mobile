@@ -16,6 +16,7 @@ import '../constants/app_images.dart';
 import '../models/ticket_model.dart';
 import '../routes/routes.dart';
 import '../services/location_service.dart';
+import 'corrective_maintainece/corrective_maintenance_screen.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'general_inspection/ginspection_detail.dart';
 import 'preventive_maintainance/pm_page_render.dart';
@@ -32,6 +33,8 @@ class MyTicketsScreen extends StatefulWidget {
 class _MyTicketsScreenState extends State<MyTicketsScreen> {
   List<RawApiDataModel> _downloadedTickets = [];
   List<RawApiDataModel> _filteredTickets = [];
+  List<Map<String, dynamic>> _downloadedSites = [];
+  List<Map<String, dynamic>> _filteredSites = [];
   bool _isLoading = true;
   String? _errorMessage;
   ActivityTypeEnum? _selectedActivityType;
@@ -40,6 +43,28 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   void initState() {
     super.initState();
     _loadDownloadedTickets();
+  }
+
+  ActivityTypeEnum _parseActivityTypeFromString(String activityTypeStr) {
+    // Normalize the string
+    final normalized = activityTypeStr.toLowerCase().trim();
+    
+    // Map various possible formats to enum
+    if (normalized == 'correctivemaintenance' || normalized == 'cm') {
+      return ActivityTypeEnum.correctiveMaintenance;
+    } else if (normalized == 'sitevisit' || normalized == 'sv' || normalized == 'site access') {
+      return ActivityTypeEnum.siteVisit;
+    } else if (normalized == 'generalinspection' || normalized == 'gi') {
+      return ActivityTypeEnum.generalInspection;
+    } else {
+      // Fallback to try the standard enum conversion
+      try {
+        return ActivityTypeEnum.fromString(activityTypeStr);
+      } catch (e) {
+        print('Failed to parse activity type: $activityTypeStr');
+        return ActivityTypeEnum.correctiveMaintenance; // Default fallback
+      }
+    }
   }
 
   Future<void> _loadDownloadedTickets() async {
@@ -51,13 +76,23 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
       final tickets = await ServiceLocator().centralAssetAuditDataService
           .getAllDownloadedTickets();
+      final sites = await ServiceLocator().centralAssetAuditDataService
+          .getAllDownloadedCMSites();
 
       setState(() {
         _downloadedTickets = tickets;
+        _downloadedSites = sites;
         _selectedActivityType = ActivityTypeEnum.assetAudit;
         _filteredTickets = tickets
             .where(
               (ticket) => ticket.activityType == ActivityTypeEnum.assetAudit,
+            )
+            .toList();
+        _filteredSites = sites
+            .where(
+              (site) => _parseActivityTypeFromString(
+                        site['activity_type']?.toString() ?? '',
+                      ) == ActivityTypeEnum.assetAudit,
             )
             .toList();
         _isLoading = false;
@@ -75,18 +110,30 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       _selectedActivityType = activityType;
       if (activityType == null) {
         _filteredTickets = _downloadedTickets;
+        _filteredSites = _downloadedSites;
       } else {
         _filteredTickets = _downloadedTickets
             .where((ticket) => ticket.activityType == activityType)
+            .toList();
+        _filteredSites = _downloadedSites
+            .where((site) => _parseActivityTypeFromString(
+                      site['activity_type']?.toString() ?? '',
+                    ) == activityType)
             .toList();
       }
     });
   }
 
   int _getTicketCountForActivityType(ActivityTypeEnum activityType) {
-    return _downloadedTickets
+    final ticketCount = _downloadedTickets
         .where((ticket) => ticket.activityType == activityType)
         .length;
+    final siteCount = _downloadedSites
+        .where((site) => _parseActivityTypeFromString(
+                  site['activity_type']?.toString() ?? '',
+                ) == activityType)
+        .length;
+    return ticketCount + siteCount;
   }
 
   String _getActivityTypeDisplayName(ActivityTypeEnum activityType) {
@@ -529,10 +576,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       );
     } else if (_errorMessage != null) {
       return _buildErrorWidget(_errorMessage!);
-    } else if (_filteredTickets.isEmpty) {
+    } else if (_filteredTickets.isEmpty && _filteredSites.isEmpty) {
       return Center(
         child: Text(
-          _downloadedTickets.isEmpty
+          _downloadedTickets.isEmpty && _downloadedSites.isEmpty
               ? 'No downloaded tickets found'
               : 'No tickets found for ${_selectedActivityType != null ? _getActivityTypeDisplayName(_selectedActivityType!) : 'selected filter'}',
           textAlign: TextAlign.center,
@@ -546,7 +593,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
     } else {
       return SingleChildScrollView(
         child: Column(
-          children: [getHeight(15), _buildTicketList(), getHeight(20)],
+          children: [
+            getHeight(15),
+            _buildTicketList(),
+            _buildSiteList(),
+            getHeight(20)
+          ],
         ),
       );
     }
@@ -615,6 +667,108 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         );
       },
     );
+  }
+
+  Widget _buildSiteList() {
+    if (_filteredSites.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _filteredSites.length,
+      itemBuilder: (context, index) {
+        final siteMap = _filteredSites[index];
+        try {
+          final site = AllSiteModel.fromJson(siteMap);
+          final activityType = _parseActivityTypeFromString(
+            siteMap['activity_type']?.toString() ?? '',
+          );
+
+          // Convert site to ticket-like display format
+          final ticket = Ticket(
+            ticketSchId: site.siteId,
+            pvTicketId: site.siteCode,
+            siteCode: site.siteCode,
+            cluster: site.clusterDistrictName,
+            operator: site.clientName ?? 'N/A',
+            raisedDt: siteMap['created_at']?.toString() ?? '',
+            dueDt: '',
+            status: 'Site',
+            latitude: 0.0,
+            longitude: 0.0,
+            auditSchId: null,
+            siteDomainName: site.siteDomainName,
+          );
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == _filteredSites.length - 1 ? 0 : 10,
+            ),
+            child: TicketCard(
+              ticket: ticket,
+              ticketId: ticket.pvTicketId,
+              siteCode: site.siteCode,
+              siteId: site.clusterDistrictName,
+              location: site.clusterDistrictName,
+              company: site.clientName ?? 'N/A',
+              raisedOn: siteMap['created_at']?.toString() ?? '',
+              dueDate: '',
+              statusText: 'Site',
+              activityType: activityType,
+              isDownloadedFunc: (ticket) async => true,
+              onPdfDownloadTap: () {},
+              onTap: () => _navigateToDownloadedSite(site, activityType),
+              onDirectionTap: () {},
+              onDownloadTap: () async {
+                Toastbar.showInfoToastbar("Site already downloaded", context);
+              },
+            ),
+          );
+        } catch (e) {
+          print('Error converting site: $e');
+          return const SizedBox.shrink();
+        }
+      },
+    );
+  }
+
+  void _navigateToDownloadedSite(AllSiteModel site, ActivityTypeEnum activityType) {
+    switch (activityType) {
+      case ActivityTypeEnum.correctiveMaintenance:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => CorrectiveMaintenanceScreen(
+              mode: CMScreenModeEnum.edit,
+              preloadedSiteData: site.toJson(),
+            ),
+          ),
+        );
+        break;
+      case ActivityTypeEnum.siteVisit:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SiteVisitScreen(siteData: site),
+          ),
+        );
+        break;
+      case ActivityTypeEnum.generalInspection:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GInspectionDetailScreen(
+              siteData: site,
+              mode: CMScreenModeEnum.edit,
+            ),
+          ),
+        );
+        break;
+      default:
+        break;
+    }
   }
 
   Widget _buildErrorWidget(String errorMessage) {

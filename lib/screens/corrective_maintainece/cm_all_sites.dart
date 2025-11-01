@@ -216,11 +216,16 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
       bool isDownloaded = false;
 
       // Always download CM site data first
-      isDownloaded = await service.downloadCMSiteData(site: site);
+      isDownloaded = await service.downloadCMSiteData(
+        site: site,
+        siteType: 'correctiveMaintenance',
+      );
 
       if (isDownloaded) {
-        Logger.infoLog('🔄 Starting checklist download for site: ${site.siteName} (ID: ${site.siteId})');
-        
+        Logger.infoLog(
+          '🔄 Starting checklist download for site: ${site.siteName} (ID: ${site.siteId})',
+        );
+
         final checklistDownloaded = await service.downloadCMChecklist(
           siteId: site.siteId,
           entityId: site.entityId,
@@ -229,9 +234,11 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         );
 
         Logger.infoLog('📊 Checklist download result: $checklistDownloaded');
-        
+
         if (!checklistDownloaded) {
-          Logger.errorLog('⚠️ Warning: CM site data downloaded but CM checklist failed');
+          Logger.errorLog(
+            '⚠️ Warning: CM site data downloaded but CM checklist failed',
+          );
           // Still consider it successful since CM data was downloaded
         } else {
           Logger.infoLog('✅ Checklist data saved successfully to local DB');

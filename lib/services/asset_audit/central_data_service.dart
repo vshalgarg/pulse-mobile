@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 9;
+  static const int _databaseVersion = 11;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -75,6 +75,72 @@ class CentralAssetAuditDataService {
         self_id INTEGER,
         activity_type TEXT NOT NULL,
         checklist_data TEXT,
+        infra_district_engineer_name TEXT,
+        infra_district_engineer_contact_no TEXT,
+        owner_name TEXT,
+        owner_contact_no TEXT,
+        is_downloaded INTEGER DEFAULT 1,
+        downloaded_at TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
+    // SV Sites table for downloaded SV site data
+    await db.execute('''
+      CREATE TABLE sv_sites_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        entity_id INTEGER NOT NULL,
+        site_code TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        cluster_district_id INTEGER,
+        cluster_district_name TEXT,
+        circle_state_id INTEGER,
+        circle_state_name TEXT,
+        client_id INTEGER,
+        client_name TEXT,
+        oem TEXT,
+        oem_id INTEGER,
+        self TEXT,
+        self_id INTEGER,
+        activity_type TEXT NOT NULL,
+        checklist_data TEXT,
+        infra_district_engineer_name TEXT,
+        infra_district_engineer_contact_no TEXT,
+        owner_name TEXT,
+        owner_contact_no TEXT,
+        is_downloaded INTEGER DEFAULT 1,
+        downloaded_at TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
+    // GI Sites table for downloaded GI site data
+    await db.execute('''
+      CREATE TABLE gi_sites_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        entity_id INTEGER NOT NULL,
+        site_code TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        cluster_district_id INTEGER,
+        cluster_district_name TEXT,
+        circle_state_id INTEGER,
+        circle_state_name TEXT,
+        client_id INTEGER,
+        client_name TEXT,
+        oem TEXT,
+        oem_id INTEGER,
+        self TEXT,
+        self_id INTEGER,
+        activity_type TEXT NOT NULL,
+        checklist_data TEXT,
+        infra_district_engineer_name TEXT,
+        infra_district_engineer_contact_no TEXT,
+        owner_name TEXT,
+        owner_contact_no TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -138,6 +204,14 @@ class CentralAssetAuditDataService {
 
     await db.execute(
       'CREATE INDEX idx_cm_sites_data_site_id ON cm_sites_data(site_id)',
+    );
+
+    await db.execute(
+      'CREATE INDEX idx_sv_sites_data_site_id ON sv_sites_data(site_id)',
+    );
+
+    await db.execute(
+      'CREATE INDEX idx_gi_sites_data_site_id ON gi_sites_data(site_id)',
     );
 
     await db.execute(
@@ -385,6 +459,111 @@ class CentralAssetAuditDataService {
         Logger.errorLog('❌ Error creating cm_checklist_data table: $e');
       }
     }
+
+    if (oldVersion < 10) {
+      // For version 10, create SV and GI sites tables
+      try {
+        await db.execute('''
+          CREATE TABLE sv_sites_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            cluster_district_id INTEGER,
+            cluster_district_name TEXT,
+            circle_state_id INTEGER,
+            circle_state_name TEXT,
+            client_id INTEGER,
+            client_name TEXT,
+            oem TEXT,
+            oem_id INTEGER,
+            self TEXT,
+            self_id INTEGER,
+            activity_type TEXT NOT NULL,
+            checklist_data TEXT,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_sv_sites_data_site_id ON sv_sites_data(site_id)',
+        );
+
+        await db.execute('''
+          CREATE TABLE gi_sites_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            cluster_district_id INTEGER,
+            cluster_district_name TEXT,
+            circle_state_id INTEGER,
+            circle_state_name TEXT,
+            client_id INTEGER,
+            client_name TEXT,
+            oem TEXT,
+            oem_id INTEGER,
+            self TEXT,
+            self_id INTEGER,
+            activity_type TEXT NOT NULL,
+            checklist_data TEXT,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_gi_sites_data_site_id ON gi_sites_data(site_id)',
+        );
+
+        Logger.debugLog('✅ Successfully created sv_sites_data and gi_sites_data tables');
+      } catch (e) {
+        Logger.errorLog('❌ Error creating sv_sites_data and gi_sites_data tables: $e');
+      }
+    }
+
+    if (oldVersion < 11) {
+      // For version 11, add infra engineer and owner columns to cm/sv/gi sites tables
+      try {
+        final tables = ['cm_sites_data', 'sv_sites_data', 'gi_sites_data'];
+        final columns = [
+          'infra_district_engineer_name',
+          'infra_district_engineer_contact_no',
+          'owner_name',
+          'owner_contact_no',
+        ];
+
+        for (final tableName in tables) {
+          // Check if table exists
+          final tableInfo = await db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'");
+          
+          if (tableInfo.isNotEmpty) {
+            // Get existing columns
+            final tableColumns = await db.rawQuery("PRAGMA table_info($tableName)");
+            final existingColumns = tableColumns.map((col) => col['name'] as String).toList();
+
+            // Add missing columns
+            for (final columnName in columns) {
+              if (!existingColumns.contains(columnName)) {
+                await db.execute('ALTER TABLE $tableName ADD COLUMN $columnName TEXT');
+                Logger.debugLog('✅ Added $columnName column to $tableName table');
+              }
+            }
+          }
+        }
+
+        Logger.debugLog('✅ Successfully added infra engineer and owner columns to sites tables');
+      } catch (e) {
+        Logger.errorLog('❌ Error adding infra engineer and owner columns: $e');
+      }
+    }
   }
 
   /// Clear all data
@@ -624,10 +803,26 @@ class CentralAssetAuditDataService {
     required int? selfId,
     required String activityType,
     Map<String, dynamic>? checklistData,
+    String? infraDistrictEngineerName,
+    String? infraDistrictEngineerContactNo,
+    String? ownerName,
+    String? ownerContactNo,
   }) async {
     try {
       final db = await database;
       final now = DateTime.now().toIso8601String();
+
+      // Determine table name based on activity type
+      String tableName;
+      if (activityType.toLowerCase() == 'sv' || activityType.toLowerCase().contains('sitevisit')) {
+        tableName = 'sv_sites_data';
+      } else if (activityType.toLowerCase() == 'gi' || activityType.toLowerCase().contains('generalinspection')) {
+        tableName = 'gi_sites_data';
+      } else if (activityType.toLowerCase() == 'cm' || activityType.toLowerCase().contains('correctivemaintenance')) {
+        tableName = 'cm_sites_data';
+      } else {
+        tableName = 'cm_sites_data'; // Default fallback
+      }
 
       // Convert checklist data to JSON string if provided
       String? checklistDataJson;
@@ -648,7 +843,7 @@ class CentralAssetAuditDataService {
         }
       }
 
-      await db.insert('cm_sites_data', {
+      await db.insert(tableName, {
         'site_id': siteId,
         'entity_id': entityId,
         'site_code': siteCode,
@@ -665,16 +860,20 @@ class CentralAssetAuditDataService {
         'self_id': selfId,
         'activity_type': activityType,
         'checklist_data': checklistDataJson, // Store checklist data in the same table
+        'infra_district_engineer_name': infraDistrictEngineerName,
+        'infra_district_engineer_contact_no': infraDistrictEngineerContactNo,
+        'owner_name': ownerName,
+        'owner_contact_no': ownerContactNo,
         'is_downloaded': 1,
         'downloaded_at': now,
         'created_at': now,
         'updated_at': now,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-      Logger.debugLog('✅ CM site data saved successfully with checklist');
+      Logger.debugLog('✅ Site data saved successfully with checklist to $tableName');
       return true;
     } catch (e) {
-      Logger.errorLog('❌ Error saving CM site data: $e');
+      Logger.errorLog('❌ Error saving site data: $e');
       Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
       return false;
     }
@@ -697,12 +896,30 @@ class CentralAssetAuditDataService {
     required String? self,
     required int? selfId,
     required String activityType,
+    String? infraDistrictEngineerName,
+    String? infraDistrictEngineerContactNo,
+    String? ownerName,
+    String? ownerContactNo,
   }) async {
     try {
       final db = await database;
       final now = DateTime.now().toIso8601String();
 
-      await db.insert('cm_sites_data', {
+      // Determine table name based on activity type
+      String tableName;
+      if (activityType.toLowerCase() == 'sv' || activityType.toLowerCase().contains('sitevisit')) {
+        tableName = 'sv_sites_data';
+      } else if (activityType.toLowerCase() == 'gi' || activityType.toLowerCase().contains('generalinspection')) {
+        tableName = 'gi_sites_data';
+      } else if (activityType.toLowerCase() == 'cm' || activityType.toLowerCase().contains('correctivemaintenance')) {
+        tableName = 'cm_sites_data';
+      } else {
+        tableName = 'cm_sites_data'; // Default fallback
+      }
+
+      print("vishal printing activityType: $activityType, tableName: $tableName");
+
+      await db.insert(tableName, {
         'site_id': siteId,
         'entity_id': entityId,
         'site_code': siteCode,
@@ -718,16 +935,20 @@ class CentralAssetAuditDataService {
         'self': self,
         'self_id': selfId,
         'activity_type': activityType,
+        'infra_district_engineer_name': infraDistrictEngineerName,
+        'infra_district_engineer_contact_no': infraDistrictEngineerContactNo,
+        'owner_name': ownerName,
+        'owner_contact_no': ownerContactNo,
         'is_downloaded': 1,
         'downloaded_at': now,
         'created_at': now,
         'updated_at': now,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
 
-      Logger.debugLog('✅ CM site data saved successfully');
+      Logger.debugLog('✅ Site data saved successfully to $tableName');
       return true;
     } catch (e) {
-      Logger.errorLog('❌ Error saving CM site data: $e');
+      Logger.errorLog('❌ Error saving site data: $e');
       return false;
     }
   }
@@ -1040,16 +1261,44 @@ class CentralAssetAuditDataService {
   Future<List<Map<String, dynamic>>> getAllDownloadedCMSites() async {
     try {
       final db = await database;
-      final List<Map<String, dynamic>> maps = await db.query(
+      final List<Map<String, dynamic>> allSites = [];
+      
+      // Query all three tables and combine results
+      final List<Map<String, dynamic>> cmMaps = await db.query(
         'cm_sites_data',
         where: 'is_downloaded = ?',
         whereArgs: [1],
         orderBy: 'downloaded_at DESC',
       );
+      
+      final List<Map<String, dynamic>> svMaps = await db.query(
+        'sv_sites_data',
+        where: 'is_downloaded = ?',
+        whereArgs: [1],
+        orderBy: 'downloaded_at DESC',
+      );
+      
+      final List<Map<String, dynamic>> giMaps = await db.query(
+        'gi_sites_data',
+        where: 'is_downloaded = ?',
+        whereArgs: [1],
+        orderBy: 'downloaded_at DESC',
+      );
+      
+      allSites.addAll(cmMaps);
+      allSites.addAll(svMaps);
+      allSites.addAll(giMaps);
+      
+      // Sort by downloaded_at descending
+      allSites.sort((a, b) {
+        final aDate = a['downloaded_at']?.toString() ?? '';
+        final bDate = b['downloaded_at']?.toString() ?? '';
+        return bDate.compareTo(aDate);
+      });
 
-      return maps;
+      return allSites;
     } catch (e) {
-      Logger.errorLog('❌ Error getting all downloaded CM sites: $e');
+      Logger.errorLog('❌ Error getting all downloaded sites: $e');
       return [];
     }
   }

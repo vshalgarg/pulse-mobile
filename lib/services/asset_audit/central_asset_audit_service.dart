@@ -72,7 +72,10 @@ class CentralAssetAuditService {
   }
 
   /// Download CM site data and save to SQLite
-  Future<bool> downloadCMSiteData({required AllSiteModel site}) async {
+  Future<bool> downloadCMSiteData({
+    required AllSiteModel site,
+    required String siteType,
+  }) async {
     try {
       Logger.debugLog(
         'Starting to download CM site data for site: ${site.siteName}',
@@ -95,14 +98,99 @@ class CentralAssetAuditService {
             oemId: site.oemId,
             self: site.self,
             selfId: site.selfId,
-
-            activityType: 'correctiveMaintenance',
+            activityType: siteType,
+            infraDistrictEngineerName: site.infraEngineerName,
+            infraDistrictEngineerContactNo: site.infraEngineerPhone,
+            ownerName: site.ownerName,
+            ownerContactNo: site.ownerPhone,
           );
 
       Logger.debugLog('✅ CM site data saved successfully to SQLite: $isSaved');
       return isSaved;
     } catch (e) {
       Logger.errorLog('❌ Error downloading CM site data: $e');
+      return false;
+    }
+  }
+
+  /// Download Site Visit site data and save to SQLite
+  Future<bool> downloadSVSiteData({
+    required AllSiteModel site,
+  }) async {
+    try {
+      Logger.debugLog(
+        'Starting to download Site Visit site data for site: ${site.siteName}',
+      );
+
+      // Save to SQLite using the site data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMSiteData(
+            siteId: site.siteId,
+            entityId: site.entityId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: site.circleStateName,
+            clientId: site.clientId,
+            clientName: site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+            activityType: ActivityTypeEnum.siteVisit.value,
+            infraDistrictEngineerName: site.infraEngineerName,
+            infraDistrictEngineerContactNo: site.infraEngineerPhone,
+            ownerName: site.ownerName,
+            ownerContactNo: site.ownerPhone,
+          );
+
+      Logger.debugLog('✅ Site Visit site data saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading Site Visit site data: $e');
+      return false;
+    }
+  }
+
+  /// Download General Inspection site data and save to SQLite
+  Future<bool> downloadGISiteData({
+    required AllSiteModel site,
+  }) async {
+    try {
+      Logger.debugLog(
+        'Starting to download General Inspection site data for site: ${site.siteName}',
+      );
+
+      // Save to SQLite using the site data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMSiteData(
+            siteId: site.siteId,
+            entityId: site.entityId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: site.circleStateName,
+            clientId: site.clientId,
+            clientName: site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+            activityType: ActivityTypeEnum.generalInspection.value,
+            infraDistrictEngineerName: site.infraEngineerName,
+            infraDistrictEngineerContactNo: site.infraEngineerPhone,
+            ownerName: site.ownerName,
+            ownerContactNo: site.ownerPhone,
+          );
+
+      Logger.debugLog('✅ General Inspection site data saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading General Inspection site data: $e');
       return false;
     }
   }
@@ -192,9 +280,7 @@ class CentralAssetAuditService {
       return isSaved;
     } catch (e) {
       print("vishal printing e: $e");
-      Logger.errorLog(
-        '❌ Error downloading CM checklist data: $e',
-      );
+      Logger.errorLog('❌ Error downloading CM checklist data: $e');
       return false;
     }
   }
@@ -228,9 +314,15 @@ class CentralAssetAuditService {
             selfId: site.selfId,
             activityType: 'correctiveMaintenance',
             checklistData: checklistData,
+            infraDistrictEngineerName: site.infraEngineerName,
+            infraDistrictEngineerContactNo: site.infraEngineerPhone,
+            ownerName: site.ownerName,
+            ownerContactNo: site.ownerPhone,
           );
 
-      Logger.debugLog('✅ CM site data with checklist saved successfully to SQLite: $isSaved');
+      Logger.debugLog(
+        '✅ CM site data with checklist saved successfully to SQLite: $isSaved',
+      );
       return isSaved;
     } catch (e) {
       Logger.errorLog('❌ Error downloading CM site data with checklist: $e');
@@ -293,7 +385,7 @@ class CentralAssetAuditService {
       longitude: longitude,
       apiData: apiData,
     );
-    
+
     // For General Inspection, also download checklist data
     if (isSaved && activityType == ActivityTypeEnum.generalInspection) {
       try {
@@ -304,7 +396,7 @@ class CentralAssetAuditService {
           siteName: cluster,
           siteDomainId: 1, // Default site domain ID for GI
         );
-        
+
         if (giChecklistDownloaded) {
           Logger.debugLog('✅ GI checklist data downloaded successfully');
         } else {
@@ -314,7 +406,7 @@ class CentralAssetAuditService {
         Logger.errorLog('❌ Error downloading GI checklist: $e');
       }
     }
-    
+
     return isSaved;
   }
 
