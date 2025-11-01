@@ -741,7 +741,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           context,
           MaterialPageRoute(
             builder: (context) => CorrectiveMaintenanceScreen(
-              mode: CMScreenModeEnum.edit,
+              mode: CMScreenModeEnum.create,
               preloadedSiteData: site.toJson(),
             ),
           ),

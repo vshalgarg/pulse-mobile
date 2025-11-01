@@ -147,12 +147,16 @@ class _CorrectiveMaintenanceScreenState
         entityId: preloadedSite['entity_id'] ?? 0,
         siteCode: preloadedSite['site_code'] ?? '',
         siteName: preloadedSite['site_name'] ?? '',
-        clusterDistrictId: 0,
-        clusterDistrictName: preloadedSite['cluster'] ?? '',
-        circleStateId: 0,
-        circleStateName: preloadedSite['circle'] ?? '',
-        self: preloadedSite['assigned_to_name'] ?? '',
-        selfId: preloadedSite['assigned_to'] ?? 0,
+        clusterDistrictId: preloadedSite['cluster_district_id'] ?? 0,
+        clusterDistrictName: preloadedSite['cluster_district_name'] ?? preloadedSite['cluster'] ?? '',
+        circleStateId: preloadedSite['circle_state_id'] ?? 0,
+        circleStateName: preloadedSite['circle_state_name'] ?? preloadedSite['circle'] ?? '',
+        clientId: preloadedSite['client_id'],
+        clientName: preloadedSite['client_name']?.toString(),
+        oem: preloadedSite['oem']?.toString(),
+        oemId: preloadedSite['oem_id'],
+        self: preloadedSite['assigned_to_name'] ?? preloadedSite['self'] ?? '',
+        selfId: preloadedSite['assigned_to'] ?? preloadedSite['self_id'] ?? 0,
       );
       _siteOptions = [site];
       _initializeTicketControllers(preloadedSite);
