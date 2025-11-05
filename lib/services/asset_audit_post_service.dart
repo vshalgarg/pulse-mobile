@@ -256,14 +256,34 @@ class AssetAuditPostService {
       // Extract image IDs before removing them from the request
       final customerPhotoId = processedData['customer_photo_id'] ?? processedData['customerPhotoId'];
       final customerAttachmentId = processedData['customer_attachment_id'] ?? processedData['customerAttachmentId'];
+      
+      // Extract original file info for customer attachment (to preserve filename)
+      final customerOriginalFilePath = processedData['customer_original_file_path'];
+      final customerOriginalFileName = processedData['customer_original_file_name'];
+      
+      // Extract attachment name if present, or use original filename
+      final customerAttachmentName = processedData['customer_attachmen_name'] ?? 
+                                     processedData['customer_attachment_name'] ??
+                                     customerOriginalFileName;
 
       Logger.infoLog("Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
+      Logger.infoLog("Extracted attachment name - customerAttachmentName: $customerAttachmentName");
 
-      // Remove image IDs from the request data before creating CM ticket
+      // Remove image IDs and file info from the request data before creating CM ticket
       processedData.remove('customer_photo_id');
       processedData.remove('customerPhotoId');
       processedData.remove('customer_attachment_id');
       processedData.remove('customerAttachmentId');
+      processedData.remove('customer_original_file_path');
+      processedData.remove('customer_original_file_name');
+      processedData.remove('customer_attachmen_name');
+      processedData.remove('customer_attachment_name');
+      
+      // Preserve attachment name in request data if we have it (for API to store the correct name)
+      if (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) {
+        processedData['customer_attachmen_name'] = customerAttachmentName.toString().trim();
+        processedData['customer_attachment_name'] = customerAttachmentName.toString().trim();
+      }
 
       
 
@@ -289,6 +309,8 @@ class AssetAuditPostService {
           customerPhotoId,
           customerAttachmentId,
           cmSiteReqId,
+          customerOriginalFilePath: customerOriginalFilePath,
+          customerOriginalFileName: customerOriginalFileName,
         );
 
         // Check for and sync remarks if present
@@ -304,31 +326,75 @@ class AssetAuditPostService {
           
           Logger.infoLog("Syncing CM remarks with attachment ID: $cmAttachmentId");
           
-          // Get attachment file from ImageUploadService
+          // Get attachment file - try original file first, then reconstruct from ImageUploadService
           File? attachmentFile;
-          final attachmentData = await ServiceLocator().imageUploadService
-              .getImageUsingUniqueId(cmAttachmentId.toString());
           
-          if (attachmentData != null) {
-            Logger.infoLog("Attachment data retrieved, converting to File...");
-            attachmentFile = await Utils.buildImageFromBytesData(attachmentData);
-            
-            if (attachmentFile != null) {
-              Logger.infoLog("Remarks attachment File created successfully");
-              
-              // Call saveRemarks from repository
-              await ServiceLocator().cmRepository.saveRemarks(
-                cmSiteReqId,
-                cmRemark.toString().trim(),
-                cmStatus.toString().trim(),
-                attachmentFile,
-              );
-              Logger.infoLog("CM remarks uploaded successfully");
+          // Check if original file path is stored (preserves extension and filename)
+          final originalFilePath = processedData['originalFilePath'];
+          final originalFileName = processedData['originalFileName'];
+          
+          if (originalFilePath != null && originalFilePath.toString().trim().isNotEmpty) {
+            final originalFile = File(originalFilePath.toString());
+            if (await originalFile.exists()) {
+              Logger.infoLog("Using original file: $originalFilePath");
+              attachmentFile = originalFile;
             } else {
-              Logger.errorLog("Failed to create File from attachment data");
+              Logger.infoLog("Original file not found, will reconstruct from ImageUploadService");
             }
+          }
+          
+          // If original file not available, reconstruct from ImageUploadService
+          if (attachmentFile == null) {
+            Logger.infoLog("Retrieving attachment data from ImageUploadService...");
+            final attachmentData = await ServiceLocator().imageUploadService
+                .getImageUsingUniqueId(cmAttachmentId.toString());
+            
+            if (attachmentData != null) {
+              Logger.infoLog("Attachment data retrieved, converting to File...");
+              
+              // Use original filename if available, otherwise generate one
+              String fileName;
+              if (originalFileName != null && originalFileName.toString().trim().isNotEmpty) {
+                // Sanitize filename to remove invalid characters but preserve name and extension
+                final originalName = originalFileName.toString().trim();
+                // Remove invalid path characters but keep the name structure
+                fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                Logger.infoLog("Using original filename: $fileName");
+              } else {
+                // Fallback: generate filename with proper extension
+                String fileExtension = '.pdf'; // Default for documents
+                fileName = 'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+                Logger.infoLog("Original filename not available, using generated name: $fileName");
+              }
+              
+              // Create temporary file with original filename
+              final tempDir = Directory.systemTemp;
+              final tempFile = File('${tempDir.path}/$fileName');
+              
+              // Decode base64 and write to file
+              final bytes = base64Decode(attachmentData);
+              await tempFile.writeAsBytes(bytes);
+              
+              attachmentFile = tempFile;
+              Logger.infoLog("Remarks attachment File created with filename: $fileName");
+            } else {
+              Logger.errorLog("Failed to retrieve attachment data for ID: $cmAttachmentId");
+            }
+          }
+          
+          if (attachmentFile != null) {
+            Logger.infoLog("Remarks attachment File ready, uploading...");
+            
+            // Call saveRemarks from repository
+            await ServiceLocator().cmRepository.saveRemarks(
+              cmSiteReqId,
+              cmRemark.toString().trim(),
+              cmStatus.toString().trim(),
+              attachmentFile,
+            );
+            Logger.infoLog("CM remarks uploaded successfully");
           } else {
-            Logger.errorLog("Failed to retrieve attachment data for ID: $cmAttachmentId");
+            Logger.errorLog("Failed to create File for remarks attachment");
           }
         }
 
@@ -336,7 +402,7 @@ class AssetAuditPostService {
         Logger.infoLog("_uploadCMImagesAndAttachments completed");
 
         // Delete the pending request
-        // await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+        await ServiceLocator().pendingRequestService.deleteRequest(requestId);
         Logger.infoLog("CM sync completed successfully");
       } else {
         Logger.errorLog("Response does not contain cmSiteReqId, response keys: ${response.keys}");
@@ -352,8 +418,10 @@ class AssetAuditPostService {
   Future<void> _uploadCMImagesAndAttachments(
     dynamic customerPhotoId,
     dynamic customerAttachmentId,
-    int cmSiteReqId,
-  ) async {
+    int cmSiteReqId, {
+    dynamic customerOriginalFilePath,
+    dynamic customerOriginalFileName,
+  }) async {
     try {
       print("vishal printing _uploadCMImagesAndAttachments: $customerPhotoId");
       Logger.infoLog("_uploadCMImagesAndAttachments called with cmSiteReqId: $cmSiteReqId");
@@ -381,17 +449,55 @@ class AssetAuditPostService {
       if (customerAttachmentId != null && customerAttachmentId is String) {
         Logger.infoLog("Retrieving attachment with ID: $customerAttachmentId");
         print("vishal printing customerAttachmentId: $customerAttachmentId");
-        final attachmentData = await ServiceLocator().imageUploadService
-            .getImageUsingUniqueId(customerAttachmentId);
-        print("vishal printing attachmentData: $attachmentData");
-        if (attachmentData != null) {
+        
+        // Try to use original file first if available
+        if (customerOriginalFilePath != null && customerOriginalFilePath.toString().trim().isNotEmpty) {
+          final originalFile = File(customerOriginalFilePath.toString());
+          if (await originalFile.exists()) {
+            Logger.infoLog("Using original customer attachment file: $customerOriginalFilePath");
+            attachment = originalFile;
+          } else {
+            Logger.infoLog("Original customer attachment file not found, will reconstruct from ImageUploadService");
+          }
+        }
+        
+        // If original file not available, reconstruct from ImageUploadService
+        if (attachment == null) {
+          final attachmentData = await ServiceLocator().imageUploadService
+              .getImageUsingUniqueId(customerAttachmentId);
           print("vishal printing attachmentData: $attachmentData");
-          Logger.infoLog("Image data retrieved for attachment, converting to File...");
-          attachment = await Utils.buildImageFromBytesData(attachmentData);
-          Logger.infoLog("Attachment File created successfully");
-          print("vishal printing attachment: $attachment");
-        } else {
-          Logger.errorLog("Failed to retrieve image data for attachment ID: $customerAttachmentId");
+          if (attachmentData != null) {
+            print("vishal printing attachmentData: $attachmentData");
+            Logger.infoLog("Attachment data retrieved, converting to File...");
+            
+            // Use original filename if available, otherwise generate one
+            String fileName;
+            if (customerOriginalFileName != null && customerOriginalFileName.toString().trim().isNotEmpty) {
+              // Sanitize filename to remove invalid characters but preserve name and extension
+              final originalName = customerOriginalFileName.toString().trim();
+              fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              Logger.infoLog("Using original customer attachment filename: $fileName");
+            } else {
+              // Fallback: generate filename with proper extension
+              String fileExtension = '.pdf'; // Default for documents
+              fileName = 'customer_attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+              Logger.infoLog("Original customer attachment filename not available, using generated name: $fileName");
+            }
+            
+            // Create temporary file with original filename
+            final tempDir = Directory.systemTemp;
+            final tempFile = File('${tempDir.path}/$fileName');
+            
+            // Decode base64 and write to file
+            final bytes = base64Decode(attachmentData);
+            await tempFile.writeAsBytes(bytes);
+            
+            attachment = tempFile;
+            Logger.infoLog("Customer attachment File created with filename: $fileName");
+            print("vishal printing attachment: $attachment");
+          } else {
+            Logger.errorLog("Failed to retrieve image data for attachment ID: $customerAttachmentId");
+          }
         }
       }
 

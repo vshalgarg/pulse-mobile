@@ -1509,6 +1509,16 @@ class _CorrectiveMaintenanceScreenState
       
       if (attachmentId != null) {
         requestData['customer_attachment_id'] = attachmentId;
+        // Store original file path and name to preserve extension and filename
+        if (_uploadedAttachments.isNotEmpty) {
+          final originalFile = _uploadedAttachments.first;
+          final originalFileName = originalFile.path.split('/').last;
+          requestData['customer_original_file_path'] = originalFile.path;
+          requestData['customer_original_file_name'] = originalFileName;
+          // Set attachment name for API (preserve original filename)
+          requestData['customer_attachmen_name'] = originalFileName; // Typo variant (matches API)
+          requestData['customer_attachment_name'] = originalFileName; // Correct spelling (fallback)
+        }
       } else if (_customerAttachmentId != null && _customerAttachmentId != 0) {
         // Preserve existing attachment ID if not changed
         requestData['customer_attachment_id'] = _customerAttachmentId;
@@ -1553,6 +1563,12 @@ class _CorrectiveMaintenanceScreenState
           
           if (remarksAttachmentId != null) {
             remarksRequestData['cmRemarksFile'] = remarksAttachmentId;
+            // Store original file path to preserve extension and filename
+            if (_remarksAttachments.isNotEmpty) {
+              final originalFile = _remarksAttachments.first;
+              remarksRequestData['originalFilePath'] = originalFile.path;
+              remarksRequestData['originalFileName'] = originalFile.path.split('/').last;
+            }
           } else if (_remarksAttachmentId != null && _remarksAttachmentId != 0) {
             remarksRequestData['cmAttachmentId'] = _remarksAttachmentId;
           }
