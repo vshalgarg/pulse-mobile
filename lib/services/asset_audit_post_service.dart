@@ -290,6 +290,49 @@ class AssetAuditPostService {
           customerAttachmentId,
           cmSiteReqId,
         );
+
+        // Check for and sync remarks if present
+        final cmRemark = processedData['cmRemark'] ?? processedData['cm_remark'] ?? '';
+        final cmStatus = processedData['cmStatus'] ?? processedData['cm_status'] ?? '';
+        final cmAttachmentId = processedData['cmRemarksFile'] ?? 
+                               processedData['cm_remarks_file'] ??
+                               processedData['cmAttachmentId'] ?? 
+                               processedData['cm_attachment_id'];
+        
+        if ((cmRemark.toString().trim().isNotEmpty || cmStatus.toString().trim().isNotEmpty) && 
+            cmAttachmentId != null && cmAttachmentId.toString().trim().isNotEmpty) {
+          
+          Logger.infoLog("Syncing CM remarks with attachment ID: $cmAttachmentId");
+          
+          // Get attachment file from ImageUploadService
+          File? attachmentFile;
+          final attachmentData = await ServiceLocator().imageUploadService
+              .getImageUsingUniqueId(cmAttachmentId.toString());
+          
+          if (attachmentData != null) {
+            Logger.infoLog("Attachment data retrieved, converting to File...");
+            attachmentFile = await Utils.buildImageFromBytesData(attachmentData);
+            
+            if (attachmentFile != null) {
+              Logger.infoLog("Remarks attachment File created successfully");
+              
+              // Call saveRemarks from repository
+              await ServiceLocator().cmRepository.saveRemarks(
+                cmSiteReqId,
+                cmRemark.toString().trim(),
+                cmStatus.toString().trim(),
+                attachmentFile,
+              );
+              Logger.infoLog("CM remarks uploaded successfully");
+            } else {
+              Logger.errorLog("Failed to create File from attachment data");
+            }
+          } else {
+            Logger.errorLog("Failed to retrieve attachment data for ID: $cmAttachmentId");
+          }
+        }
+
+
         Logger.infoLog("_uploadCMImagesAndAttachments completed");
 
         // Delete the pending request

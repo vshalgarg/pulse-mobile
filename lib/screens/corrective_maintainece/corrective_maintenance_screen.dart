@@ -15,6 +15,7 @@ import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.da
 import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
+import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
@@ -545,6 +546,13 @@ class _CorrectiveMaintenanceScreenState
         preloadedSite['customer_remarks']?.toString() ?? '';
     controllers['problem_summary']!.text =
         preloadedSite['problem_summary']?.toString() ?? '';
+    
+    // Set status from preloaded data (handle both camelCase and snake_case)
+    final status = preloadedSite['status'] ?? preloadedSite['Status'];
+    if (status != null && status.toString().trim().isNotEmpty) {
+      _statusController.text = status.toString().trim();
+    }
+    
     setState(() {
       if (preloadedSite['is_dg'] != null && preloadedSite['is_dg'] == true) {
         _selectedEquipmentType = 'DG';
@@ -1449,7 +1457,7 @@ class _CorrectiveMaintenanceScreenState
       }
       
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+    //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
     } catch (e) {
       Logger.errorLog("Error in online edit submission: $e");
       rethrow;
@@ -1565,7 +1573,7 @@ class _CorrectiveMaintenanceScreenState
         }
         
         Toastbar.showSuccessToastbar("Data saved offline. Will sync when online.", context);
-        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+        //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -1683,7 +1691,7 @@ class _CorrectiveMaintenanceScreenState
       }
 
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
     } catch (e) {
       Logger.errorLog("Error in online submission: $e");
       rethrow;
@@ -1786,7 +1794,7 @@ class _CorrectiveMaintenanceScreenState
         ),
       );
     } else {
-      // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
     }
   }
 }
