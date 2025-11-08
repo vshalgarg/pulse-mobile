@@ -170,14 +170,19 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   }
 
   void _navigateToSite(AllSiteModel site) {
+    final parentContext = context;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => widget.ActivityType == 'SV'
-            ? SiteVisitScreen(siteData: site)
+        builder: (_) => widget.ActivityType == 'SV'
+            ? SiteVisitScreen(
+                siteData: site,
+                parentContext: parentContext,
+              )
             : GInspectionDetailScreen(
                 siteData: site,
                 mode: CMScreenModeEnum.create,
+                parentContext: parentContext,
               ),
       ),
     );

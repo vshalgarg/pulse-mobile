@@ -185,4 +185,5 @@ class TicketType {
   static const String completed = 'COMPLETED';
   static const String closed = 'CLOSED';
   static const String missedDeadline = 'MISSED_DEADLINE';
+  static const String assignedToMe = 'ASSIGNED_TO_ME';
 }

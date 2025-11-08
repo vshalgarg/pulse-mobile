@@ -771,7 +771,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () {
                   pushPage(
                     context,
-                    TicketScreen(auditName: "CM", status: "Assigned to Me"),
+                    TicketScreen(auditName: "CM", status: "ASSIGNED_TO_ME"),
                   );
                   print("Corrective Maintenance Assigned to Me clicked");
                 },

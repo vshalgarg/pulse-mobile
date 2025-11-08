@@ -147,10 +147,11 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
 
   void _navigateToSite(CMSite site) {
     // Navigate to corrective maintenance screen with the selected site data
+    final parentContext = context;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CorrectiveMaintenanceScreen(
+        builder: (_) => CorrectiveMaintenanceScreen(
           mode: CMScreenModeEnum.create,
           preloadedSites: [site], // Pass the selected site
           preloadedSiteData: {
@@ -162,6 +163,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             'clientName': site.clientName,
             'oem': site.oem,
           },
+          parentContext: parentContext,
         ),
       ),
     );

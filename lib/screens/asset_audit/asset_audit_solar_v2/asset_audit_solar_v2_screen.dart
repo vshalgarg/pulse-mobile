@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,14 @@ class AssetAuditSolarV2Screen extends StatefulWidget {
   final String siteType;
   final String auditSchId;
   final String siteAuditSchId;
+  final BuildContext parentContext;
 
   const AssetAuditSolarV2Screen({
     super.key,
     required this.siteType,
     required this.auditSchId,
     required this.siteAuditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -398,6 +401,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: 'GENERAL',
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),
@@ -555,7 +559,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context, // Use the outer context (screen context)
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             postCurrentScreenData();
           },
@@ -563,7 +567,10 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 }

@@ -169,14 +169,19 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
 
   void _navigateToSite(AllSiteModel site) {
     // Navigate to appropriate screen based on activity type
+    final parentContext = context;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => widget.activityType == 'Site Access'
-            ? SiteVisitScreen(siteData: site)
+        builder: (_) => widget.activityType == 'Site Access'
+            ? SiteVisitScreen(
+                siteData: site,
+                parentContext: parentContext,
+              )
             : GInspectionDetailScreen(
                 siteData: site,
                 mode: CMScreenModeEnum.edit,
+                parentContext: parentContext,
               ),
       ),
     );

@@ -7,24 +7,24 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/utils/pm_navigation_helper.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
+import '../../routes/route_generator.dart';
 
 class PMPageHeaderSolar extends StatelessWidget {
   final Map<String, dynamic>? pageHeader;
   final Map<String, dynamic>? pmData;
   final Future<void> Function() onNext;
-  final VoidCallback? onClose;
   final bool isLoading;
   final String? errorMessage;
+  final BuildContext parentContext;
 
   const PMPageHeaderSolar({
     Key? key,
     this.pageHeader,
     this.pmData,
     required this.onNext,
-    this.onClose,
     this.isLoading = false,
     this.errorMessage,
+    required this.parentContext,
   }) : super(key: key);
 
   @override
@@ -34,7 +34,12 @@ class PMPageHeaderSolar extends StatelessWidget {
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
         title: 'Preventive Maintenance',
-        onClose: () => AssetAuditNavigationHelper.navigateToHomeScreen(context),
+        onClose: () {
+          navigateBackOrToHome(
+            context,
+            targetContext: parentContext,
+          );
+        },
       ),
       body: Stack(
         children: [

@@ -223,6 +223,10 @@ class AssetAuditPostService {
       if (url.contains('/correctiveMaintenance')) {
         await _syncCMRequestWhenOnline(copiedRequests, requestId);
         return;
+      } else if (url.contains('/cmRemarks/upload')) {
+        // Handle remarks upload separately
+        await _syncCMRemarksRequestWhenOnline(copiedRequests, requestId);
+        return;
       } else {
         await _processRequestsForImages(copiedRequests);
         await _postDataToApi(url, copiedRequests);
@@ -328,16 +332,20 @@ class AssetAuditPostService {
           
           // Get attachment file - try original file first, then reconstruct from ImageUploadService
           File? attachmentFile;
+          String? attachmentFileName; // Store the filename to pass to saveRemarks
           
           // Check if original file path is stored (preserves extension and filename)
-          final originalFilePath = processedData['originalFilePath'];
-          final originalFileName = processedData['originalFileName'];
+          // Handle both camelCase and snake_case
+          final originalFilePath = processedData['originalFilePath'] ?? processedData['original_file_path'];
+          final originalFileName = processedData['originalFileName'] ?? processedData['original_file_name'];
           
           if (originalFilePath != null && originalFilePath.toString().trim().isNotEmpty) {
             final originalFile = File(originalFilePath.toString());
             if (await originalFile.exists()) {
               Logger.infoLog("Using original file: $originalFilePath");
               attachmentFile = originalFile;
+              // Use original filename if available, otherwise use file path
+              attachmentFileName = originalFileName?.toString().trim() ?? originalFile.path.split('/').last;
             } else {
               Logger.infoLog("Original file not found, will reconstruct from ImageUploadService");
             }
@@ -352,30 +360,42 @@ class AssetAuditPostService {
             if (attachmentData != null) {
               Logger.infoLog("Attachment data retrieved, converting to File...");
               
-              // Use original filename if available, otherwise generate one
+              // Decode base64 and write to file first to detect file type
+              final bytes = base64Decode(attachmentData);
+              
+              // Use original filename if available, otherwise detect from binary data
               String fileName;
               if (originalFileName != null && originalFileName.toString().trim().isNotEmpty) {
                 // Sanitize filename to remove invalid characters but preserve name and extension
                 final originalName = originalFileName.toString().trim();
                 // Remove invalid path characters but keep the name structure
                 fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                
+                // If original filename doesn't have extension, detect from binary data
+                if (!fileName.contains('.')) {
+                  final detectedExt = _detectFileExtensionFromBytes(bytes);
+                  if (detectedExt != null) {
+                    fileName = '$fileName$detectedExt';
+                    Logger.infoLog("Added detected extension $detectedExt to filename: $fileName");
+                  }
+                }
                 Logger.infoLog("Using original filename: $fileName");
               } else {
-                // Fallback: generate filename with proper extension
-                String fileExtension = '.pdf'; // Default for documents
+                // Detect file type from binary data
+                final detectedExt = _detectFileExtensionFromBytes(bytes);
+                final fileExtension = detectedExt ?? '.pdf'; // Default to PDF if can't detect
                 fileName = 'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
-                Logger.infoLog("Original filename not available, using generated name: $fileName");
+                Logger.infoLog("Original filename not available, detected type: $fileExtension, using generated name: $fileName");
               }
               
-              // Create temporary file with original filename
+              // Create temporary file with correct filename
               final tempDir = Directory.systemTemp;
               final tempFile = File('${tempDir.path}/$fileName');
               
-              // Decode base64 and write to file
-              final bytes = base64Decode(attachmentData);
               await tempFile.writeAsBytes(bytes);
               
               attachmentFile = tempFile;
+              attachmentFileName = fileName; // Store filename for passing to saveRemarks
               Logger.infoLog("Remarks attachment File created with filename: $fileName");
             } else {
               Logger.errorLog("Failed to retrieve attachment data for ID: $cmAttachmentId");
@@ -391,6 +411,7 @@ class AssetAuditPostService {
               cmRemark.toString().trim(),
               cmStatus.toString().trim(),
               attachmentFile,
+              originalFileName: attachmentFileName,
             );
             Logger.infoLog("CM remarks uploaded successfully");
           } else {
@@ -519,6 +540,215 @@ class AssetAuditPostService {
       Logger.errorLog("Stack trace: ${StackTrace.current}");
       // Don't throw - images might not be critical
     }
+  }
+
+  /// Syncs CM remarks request when user comes online
+  /// Handles the /api/v1/mobile/cmRemarks/upload endpoint separately
+  Future<void> _syncCMRemarksRequestWhenOnline(
+    List<dynamic> requests,
+    String requestId,
+  ) async {
+    try {
+      Logger.infoLog("Syncing CM remarks request when online");
+
+      if (requests.isEmpty) {
+        Logger.errorLog("CM remarks requests list is empty!");
+        return;
+      }
+
+      // Get the first request (remarks are saved as single object)
+      final request = requests.first;
+      Logger.infoLog("Processing CM remarks request: ${request.keys}");
+
+      // Extract required fields - handle both camelCase and snake_case
+      final cmId = request['cmId'] ?? request['cm_id'];
+      final cmRemark = request['cmRemark'] ?? request['cm_remark'] ?? '';
+      final cmStatus = request['cmStatus'] ?? request['cm_status'] ?? '';
+      
+      // Extract attachment ID - can be cmRemarksFile or cmAttachmentId
+      dynamic attachmentId = request['cmRemarksFile'] ?? 
+                             request['cm_remarks_file'] ??
+                             request['cmAttachmentId'] ?? 
+                             request['cm_attachment_id'];
+      
+      // Extract original file info - handle both camelCase and snake_case
+      final originalFilePath = request['originalFilePath'] ?? request['original_file_path'];
+      final originalFileName = request['originalFileName'] ?? request['original_file_name'];
+
+      Logger.infoLog("Extracted CM remarks data - cmId: $cmId, cmRemark: $cmRemark, cmStatus: $cmStatus, attachmentId: $attachmentId");
+      Logger.infoLog("Extracted original file info - originalFilePath: $originalFilePath, originalFileName: $originalFileName");
+
+      if (cmId == null) {
+        Logger.errorLog("CM remarks request missing cmId");
+        throw Exception("CM remarks request missing cmId");
+      }
+
+      // Convert cmId to int if it's a string
+      int cmSiteReqId;
+      if (cmId is int) {
+        cmSiteReqId = cmId;
+      } else if (cmId is String) {
+        cmSiteReqId = int.parse(cmId);
+      } else {
+        throw Exception("Invalid cmId format: $cmId");
+      }
+
+      // Get attachment file if attachment ID is provided
+      File? attachmentFile;
+      String? attachmentFileName; // Store the filename to pass to saveRemarks
+      if (attachmentId != null && attachmentId.toString().trim().isNotEmpty) {
+        Logger.infoLog("Retrieving remarks attachment with ID: $attachmentId");
+        
+        // Try to use original file first if available
+        if (originalFilePath != null && originalFilePath.toString().trim().isNotEmpty) {
+          final originalFile = File(originalFilePath.toString());
+          if (await originalFile.exists()) {
+            Logger.infoLog("Using original remarks file: $originalFilePath");
+            attachmentFile = originalFile;
+            // Use original filename if available, otherwise use file path
+            attachmentFileName = originalFileName?.toString().trim() ?? originalFile.path.split('/').last;
+          } else {
+            Logger.infoLog("Original remarks file not found, will reconstruct from ImageUploadService");
+          }
+        }
+        
+        // If original file not available, reconstruct from ImageUploadService
+        if (attachmentFile == null) {
+          final attachmentData = await ServiceLocator().imageUploadService
+              .getImageUsingUniqueId(attachmentId.toString());
+          
+          if (attachmentData != null) {
+            Logger.infoLog("Attachment data retrieved, converting to File...");
+            
+            // Decode base64 and write to file first to detect file type
+            final bytes = base64Decode(attachmentData);
+            
+            // Use original filename if available, otherwise detect from binary data
+            String fileName;
+            if (originalFileName != null && originalFileName.toString().trim().isNotEmpty) {
+              // Sanitize filename to remove invalid characters but preserve name and extension
+              final originalName = originalFileName.toString().trim();
+              fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              
+              // If original filename doesn't have extension, detect from binary data
+              if (!fileName.contains('.')) {
+                final detectedExt = _detectFileExtensionFromBytes(bytes);
+                if (detectedExt != null) {
+                  fileName = '$fileName$detectedExt';
+                  Logger.infoLog("Added detected extension $detectedExt to filename: $fileName");
+                }
+              }
+              Logger.infoLog("Using original filename: $fileName");
+            } else {
+              // Detect file type from binary data
+              final detectedExt = _detectFileExtensionFromBytes(bytes);
+              final fileExtension = detectedExt ?? '.pdf'; // Default to PDF if can't detect
+              fileName = 'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+              Logger.infoLog("Original filename not available, detected type: $fileExtension, using generated name: $fileName");
+            }
+            
+            // Create temporary file with correct filename
+            final tempDir = Directory.systemTemp;
+            final tempFile = File('${tempDir.path}/$fileName');
+            
+            await tempFile.writeAsBytes(bytes);
+            
+            attachmentFile = tempFile;
+            attachmentFileName = fileName; // Store filename for passing to saveRemarks
+            Logger.infoLog("Remarks attachment File created with filename: $fileName");
+          } else {
+            Logger.errorLog("Failed to retrieve attachment data for ID: $attachmentId");
+            throw Exception("Failed to retrieve attachment file for ID: $attachmentId");
+          }
+        }
+      }
+
+      // Validate that we have either remark text or attachment
+      if (cmRemark.toString().trim().isEmpty && attachmentFile == null) {
+        Logger.errorLog("CM remarks request missing both remark text and attachment");
+        throw Exception("CM remarks request must have either remark text or attachment");
+      }
+
+      // Call saveRemarks from repository
+      if (attachmentFile != null) {
+        Logger.infoLog("Uploading CM remarks with cmSiteReqId: $cmSiteReqId, filename: $attachmentFileName");
+        await ServiceLocator().cmRepository.saveRemarks(
+          cmSiteReqId,
+          cmRemark.toString().trim(),
+          cmStatus.toString().trim(),
+          attachmentFile,
+          originalFileName: attachmentFileName,
+        );
+        Logger.infoLog("CM remarks uploaded successfully");
+      } else {
+        // If no attachment but we have remark text, we still need to upload
+        // But saveRemarks requires a file. We might need to create an empty file or handle differently
+        Logger.infoLog("CM remarks has text but no attachment - saveRemarks requires a file");
+        Logger.infoLog("Skipping remarks upload - attachment required by API");
+      }
+
+      // Delete the pending request on success
+      await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+      Logger.infoLog("CM remarks sync completed successfully");
+    } catch (e) {
+      Logger.errorLog("Error syncing CM remarks request: $e");
+      Logger.errorLog("Stack trace: ${StackTrace.current}");
+      rethrow;
+    }
+  }
+
+  /// Detect file extension from binary data using magic bytes
+  /// Similar to the method in cm_repository.dart
+  String? _detectFileExtensionFromBytes(Uint8List data) {
+    if (data.length < 4) return null;
+    
+    // Check magic bytes for common file types
+    // JPEG: FF D8 FF
+    if (data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+      return '.jpg';
+    }
+    
+    // PNG: 89 50 4E 47
+    if (data.length >= 4 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+      return '.png';
+    }
+    
+    // PDF: 25 50 44 46 (starts with "%PDF")
+    if (data.length >= 4 && data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46) {
+      return '.pdf';
+    }
+    
+    // DOCX: 50 4B 03 04 (ZIP file format, which DOCX uses)
+    if (data.length >= 4 && data[0] == 0x50 && data[1] == 0x4B && data[2] == 0x03 && data[3] == 0x04) {
+      try {
+        final dataString = String.fromCharCodes(data.take(1000));
+        if (dataString.contains('word/') || dataString.contains('xl/')) {
+          return dataString.contains('word/') ? '.docx' : '.xlsx';
+        }
+        return '.zip';
+      } catch (e) {
+        return '.docx';
+      }
+    }
+    
+    // DOC (older Word format): D0 CF 11 E0
+    if (data.length >= 4 && data[0] == 0xD0 && data[1] == 0xCF && data[2] == 0x11 && data[3] == 0xE0) {
+      return '.doc';
+    }
+    
+    // GIF: 47 49 46 38
+    if (data.length >= 4 && data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38) {
+      return '.gif';
+    }
+    
+    // WebP: Check for RIFF...WEBP
+    if (data.length >= 12 && 
+        data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
+        data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50) {
+      return '.webp';
+    }
+    
+    return null; // Could not detect
   }
 
   Future<void> _processRequestsForImages(List<dynamic> requests) async {

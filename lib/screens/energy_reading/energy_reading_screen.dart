@@ -9,6 +9,7 @@ import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
+import '../../routes/route_generator.dart';
 import 'energy_reading_details_screen.dart';
 
 class EnergyReadingScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class EnergyReadingScreen extends StatefulWidget {
   final String auditSchId;
   final String siteAuditSchId;
   final String siteId;
+  final BuildContext? parentContext;
 
   const EnergyReadingScreen({
     super.key,
@@ -23,6 +25,7 @@ class EnergyReadingScreen extends StatefulWidget {
     required this.auditSchId,
     required this.siteAuditSchId,
     required this.siteId,
+    this.parentContext,
   });
 
   @override
@@ -110,7 +113,12 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
         title: "Energy Reading",
-        onClose: () => Navigator.of(context).pop(),
+        onClose: () {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        },
       ),
       body: Stack(
         children: [
@@ -166,6 +174,7 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
                                       siteAuditSchId: widget.siteAuditSchId,
                                       siteType: widget.siteType,
                                       siteId: _displayFormData?['siteId'] ?? "0",
+                                      parentContext: widget.parentContext ?? context,
                                     ),
                                   );
                                 },

@@ -1,5 +1,6 @@
 import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -29,12 +30,14 @@ class SPVV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const SPVV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -81,12 +84,18 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
 
       Logger.debugLog('🔄 Loading SPV data for site ${widget.siteAuditSchId}');
 
-      final data = await ServiceLocator().centralAssetAuditService.getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
+      final data = await ServiceLocator().centralAssetAuditService
+          .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
       if (data != null) {
         // Extract SPV items
-        final spvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
-        as Map<String, dynamic>? ?? {};
-        
+        final spvItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'SOLAR',
+                )]
+                as Map<String, dynamic>? ??
+            {};
+
         // Extract form data for display
         final formData = <String, dynamic>{};
 
@@ -96,8 +105,11 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         formData['typeOfSpv'] = firstItem['item_type']?.toString() ?? "N/A";
         formData['totalItems'] = spvItems['assets'].length.toString();
         formData['capacity'] = firstItem['capacity']?.toString() ?? "N/A";
-        formData['remarks'] = spvItems['remarks'].first['item_type_remark']?.toString() ?? "";
-        formData['assets'] = spvItems['assets'].where((obj) => obj['photo_id'] != null).toList();
+        formData['remarks'] =
+            spvItems['remarks'].first['item_type_remark']?.toString() ?? "";
+        formData['assets'] = spvItems['assets']
+            .where((obj) => obj['photo_id'] != null)
+            .toList();
         formData['allAssets'] = spvItems['assets'];
 
         setState(() {
@@ -105,18 +117,19 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           _assetAuditData = data;
           _displayFormData = formData;
         });
-        
+
         // Set the remarks controller text after the widget is built
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _initializeFormControllers(formData);
         });
-        
       } else {
         setState(() {
           _isLoadingData = false;
           _errorMessage = 'No SPV data available for this site';
         });
-        Logger.errorLog('❌ No SPV data available for site ${widget.siteAuditSchId}');
+        Logger.errorLog(
+          '❌ No SPV data available for site ${widget.siteAuditSchId}',
+        );
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading SPV data: $e');
@@ -130,7 +143,11 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
   // Custom validation function for SPV serial number
   bool _validateSPVSerialNumber(String serialNumber, bool isQrCodeScanned) {
     final savedSpvItems = _displayFormData?['allAssets'] as List<dynamic>;
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedSpvItems, isQrCodeScanned);
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedSpvItems,
+      isQrCodeScanned,
+    );
   }
 
   // Callback when SPV item is saved
@@ -155,62 +172,78 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       setState(() {});
     }
   }
-  
+
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 SPV V2: Starting postCurrentScreenData');
-      
-      final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
+
+      final modifiedAssets =
+          _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'SOLAR',
+          )];
       final finalAssets = finalData?['assets'] as List<dynamic>? ?? [];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      
-      Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalAssets, modifiedAssets));
-      
+
+      Logger.debugLog(
+        '📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}',
+      );
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(finalAssets, modifiedAssets),
+      );
+
       // Update remarks
       final String remark = _remarksController.text;
-     
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
-          
+
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      ServiceLocator().centralAssetAuditService.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      ServiceLocator().centralAssetAuditService.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
 
       // Prepare data for posting
       final rawPostObject = [
         ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
+        ...finalRemarks,
       ];
 
       // Add auditSchId: 0 to each item
       final postObject = rawPostObject.map((item) {
         if (item is Map<String, dynamic>) {
-          return {
-            ...item,
-           
-          };
+          return {...item};
         }
         return item;
       }).toList();
 
-      Logger.debugLog('📤 SPV V2: Prepared ${postObject.length} items for posting');
-      // Post data with photo ID replacement
-      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
+      Logger.debugLog(
+        '📤 SPV V2: Prepared ${postObject.length} items for posting',
       );
+      // Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getSolarNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
       Logger.debugLog('✅ SPV V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ SPV V2: Error in postCurrentScreenData: $e');
     }
@@ -285,7 +318,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -358,8 +391,8 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                 AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
-                  onNextButtonClick:  () async {
-                    if(_hasFormDataChanges) {
+                  onNextButtonClick: () async {
+                    if (_hasFormDataChanges) {
                       await postCurrentScreenData();
                     }
                   },
@@ -368,6 +401,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),
@@ -410,19 +444,19 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           serialHintText: "SPV Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "SPV (Watt)",
-          disabledFieldValue:  _displayFormData?['capacity']?.toString() ?? "",
+          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
           serialController: _spvSerialController,
-          initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
+          initialSavedItems:
+              _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onSPVItemSaved,
-          onStatusChanged: (status) {
-          },
+          onStatusChanged: (status) {},
           customValidator: _validateSPVSerialNumber,
-          customValidationErrorMessage: "Invalid SPV serial number. Please check and try again.",
+          customValidationErrorMessage:
+              "Invalid SPV serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "SPV Items",
         ),
-
 
         // Remarks
         CustomRemarksField(
@@ -444,16 +478,18 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context, // Use the outer context (screen context)
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 }

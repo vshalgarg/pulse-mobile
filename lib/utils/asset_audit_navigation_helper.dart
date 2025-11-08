@@ -27,7 +27,7 @@ import 'package:app/screens/asset_audit/asset_audit_telecom_v2/site_info_v2_scre
 import 'package:app/screens/asset_audit/asset_audit_telecom_v2/smps_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom_v2/solar_plate_v2_screen.dart';
 import 'package:app/screens/asset_audit/asset_audit_telecom_v2/electrical_screen.dart';
-import 'package:app/screens/pulse_dashboard.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:flutter/material.dart';
 import 'package:app/constants/constants_methods.dart';
 
@@ -221,6 +221,7 @@ class AssetAuditNavigationHelper {
     String siteAuditSchId,
     String siteType,
     String auditSchId,
+    BuildContext parentContext,
   ) {
     String? nextScreenName = _getNextAvailableScreenNameV2(
       assetAuditData,
@@ -229,7 +230,10 @@ class AssetAuditNavigationHelper {
       'SOLAR',
     );
     if (nextScreenName == null) {
-      navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: parentContext,
+      );
     } else {
       _navigateToSolarScreen(
         context,
@@ -237,6 +241,7 @@ class AssetAuditNavigationHelper {
         siteType,
         auditSchId,
         nextScreenName,
+        parentContext,
       );
     }
   }
@@ -248,6 +253,7 @@ class AssetAuditNavigationHelper {
     String siteAuditSchId,
     String siteType,
     String auditSchId,
+    BuildContext parentContext,
   ) {
     String? previousScreenName = _getPreviousAvailableScreenNameV2(
       assetAuditData,
@@ -256,7 +262,10 @@ class AssetAuditNavigationHelper {
       'SOLAR',
     );
     if (previousScreenName == null) {
-      navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: parentContext,
+      );
     } else {
       _navigateToSolarScreen(
         context,
@@ -264,6 +273,7 @@ class AssetAuditNavigationHelper {
         siteType,
         auditSchId,
         previousScreenName,
+        parentContext,
       );
     }
   }
@@ -274,6 +284,7 @@ class AssetAuditNavigationHelper {
     String siteType,
     String auditSchId,
     String screenToNavigateOn,
+    BuildContext parentContext,
   ) {
     switch (screenToNavigateOn) {
       case 'GENERAL':
@@ -283,8 +294,10 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
+        break;
       case 'SPV':
         pushPage(
           context,
@@ -292,6 +305,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -302,6 +316,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -312,6 +327,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -322,8 +338,10 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
+        break;
       case 'PCU':
         pushPage(
           context,
@@ -331,6 +349,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -341,6 +360,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -351,6 +371,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -361,6 +382,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -371,6 +393,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -381,6 +404,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -391,6 +415,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -401,6 +426,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -411,6 +437,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -421,8 +448,10 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
+        break;
       default:
         break;
     }
@@ -461,6 +490,7 @@ class AssetAuditNavigationHelper {
     String siteAuditSchId,
     String siteType,
     String auditSchId,
+    BuildContext parentContext,
   ) {
     String? nextScreenName = _getNextAvailableScreenNameV2(
       assetAuditData,
@@ -469,7 +499,10 @@ class AssetAuditNavigationHelper {
       'TELECOM',
     );
     if (nextScreenName == null) {
-      navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: parentContext,
+      );
     } else {
       _navigateToTelecomScreen(
         context,
@@ -477,6 +510,7 @@ class AssetAuditNavigationHelper {
         siteType,
         auditSchId,
         nextScreenName,
+        parentContext,
       );
     }
   }
@@ -488,6 +522,7 @@ class AssetAuditNavigationHelper {
     String siteAuditSchId,
     String siteType,
     String auditSchId,
+    BuildContext parentContext,
   ) {
     String? previousScreenName = _getPreviousAvailableScreenNameV2(
       assetAuditData,
@@ -496,7 +531,10 @@ class AssetAuditNavigationHelper {
       'TELECOM',
     );
     if (previousScreenName == null) {
-      navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: parentContext,
+      );
     } else {
       _navigateToTelecomScreen(
         context,
@@ -504,6 +542,7 @@ class AssetAuditNavigationHelper {
         siteType,
         auditSchId,
         previousScreenName,
+        parentContext,
       );
     }
   }
@@ -514,6 +553,7 @@ class AssetAuditNavigationHelper {
     String siteType,
     String auditSchId,
     String screenToNavigateOn,
+    BuildContext parentContext,
   ) {
     switch (screenToNavigateOn) {
       case 'GENERAL':
@@ -523,6 +563,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -533,6 +574,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -543,6 +585,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -553,6 +596,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -563,6 +607,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -573,6 +618,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -583,6 +629,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -593,6 +640,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -603,6 +651,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -613,6 +662,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -623,6 +673,7 @@ class AssetAuditNavigationHelper {
             siteAuditSchId: siteAuditSchId,
             siteType: siteType,
             auditSchId: auditSchId,
+            parentContext: parentContext,
           ),
         );
         break;
@@ -631,10 +682,13 @@ class AssetAuditNavigationHelper {
     }
   }
 
-  static void navigateToHomeScreen(BuildContext context) {
-    Navigator.pushReplacement(
+  static void navigateToHomeScreen(
+    BuildContext context, {
+    BuildContext? targetContext,
+  }) {
+    navigateBackOrToHome(
       context,
-      MaterialPageRoute(builder: (context) => PulseDashboard()),
+      targetContext: targetContext,
     );
   }
 
@@ -650,11 +704,9 @@ class AssetAuditNavigationHelper {
     if (currentIndex < 0 || currentIndex >= _solarScreenOrder.length - 1)
       return null;
     String screenName = _solarScreenOrder[currentIndex + 1];
-    if (assetAuditData == null ||
-        assetAuditData.responseData == null ||
-        assetAuditData.responseData.categories == null ||
-        assetAuditData.responseData.categories.isEmpty ||
-        assetAuditData.responseData.categories[screenName] == null) {
+    final categories = assetAuditData.responseData.categories;
+    if (categories.isEmpty ||
+        categories[screenName] == null) {
       return getNextAvailableScreen(assetAuditData, screenName);
     }
 
@@ -668,19 +720,22 @@ class AssetAuditNavigationHelper {
     required String siteAuditSchId,
     required BuildContext context,
   }) {
+    final parentContext = context;
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => siteType == 'Telecom'
+        builder: (_) => siteType == 'Telecom'
             ? AssetAuditTelecomV2Screen(
                 siteType: siteType,
                 auditSchId: auditSchId,
                 siteAuditSchId: siteAuditSchId,
+                parentContext: parentContext,
               )
             : AssetAuditSolarV2Screen(
                 siteType: siteType,
                 auditSchId: auditSchId,
                 siteAuditSchId: siteAuditSchId,
+                parentContext: parentContext,
               ),
       ),
     );

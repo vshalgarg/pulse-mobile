@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_colors.dart';
@@ -59,12 +60,31 @@ class CMRemarksShowWidget extends StatelessWidget {
         base64Data = byteData.split(',')[1];
       }
 
-      // Convert to bytes
-      final bytes = base64Data.codeUnits;
+      // Properly decode base64 to bytes
+      final bytes = base64Decode(base64Data);
 
       // Get temporary directory and save file
       final tempDir = await getTemporaryDirectory();
-      final fileName = 'attachment_$attachmentName.pdf';
+      
+      // Determine file extension from attachment name or default based on content
+      String fileExtension = '.pdf'; // Default
+      if (attachmentName.isNotEmpty && attachmentName.contains('.')) {
+        final ext = attachmentName.substring(attachmentName.lastIndexOf('.'));
+        if (ext.length <= 5 && ext.length > 1) { // Valid extension (1-5 chars)
+          fileExtension = ext;
+        }
+      }
+      
+      // Use attachment name if available, otherwise generate one
+      String fileName;
+      if (attachmentName.isNotEmpty) {
+        // Sanitize filename but preserve extension
+        final sanitizedName = attachmentName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+        fileName = sanitizedName;
+      } else {
+        fileName = 'attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+      }
+      
       final file = File('${tempDir.path}/$fileName');
       await file.writeAsBytes(bytes);
 

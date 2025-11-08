@@ -1,4 +1,5 @@
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,14 @@ class ElectricalScreen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const ElectricalScreen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -358,7 +361,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context,
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             if (_hasFormDataChanges) {
               await postCurrentScreenData();
@@ -368,7 +371,10 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 
@@ -513,6 +519,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),

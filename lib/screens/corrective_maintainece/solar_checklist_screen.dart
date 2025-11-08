@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -365,7 +366,7 @@ class _SolarChecklistScreenState extends State<SolarChecklistScreen> {
         ),
       );
     } else {
-      Navigator.pop(context);
+      navigateBackOrToHome(context);
     }
   }
 

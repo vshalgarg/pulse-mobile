@@ -168,21 +168,27 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       }
 
       if (ticket.activityType == ActivityTypeEnum.preventiveMaintenance) {
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PMPageRender(pmData: data.apiData),
+            builder: (_) => PMPageRender(
+              pmData: data.apiData,
+              parentContext: parentContext,
+            ),
           ),
         );
       } else if (ticket.activityType == ActivityTypeEnum.energyReading) {
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => EnergyReadingScreen(
+            builder: (_) => EnergyReadingScreen(
               siteType: ticket.siteType,
               auditSchId: ticket.auditSchId,
               siteAuditSchId: ticket.siteAuditSchId,
               siteId: ticket.siteAuditSchId,
+              parentContext: parentContext,
             ),
           ),
         );
@@ -215,10 +221,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           visitingPersonImageId: data.apiData['visitingPersonImageId']?.toString(),
         );
         
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SiteVisitScreen(siteData: siteData),
+            builder: (_) => SiteVisitScreen(
+              siteData: siteData,
+              parentContext: parentContext,
+            ),
           ),
         );
       } else if (ticket.activityType == ActivityTypeEnum.generalInspection) {
@@ -275,27 +285,31 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           checklistItems: checklistData,
         );
 
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => GInspectionDetailScreen(
+            builder: (_) => GInspectionDetailScreen(
               siteData: siteData,
               mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               apiResponseData: actualData,
+              parentContext: parentContext,
             ),
           ),
         );
       } else if (ticket.activityType == ActivityTypeEnum.correctiveMaintenance) {
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CorrectiveMaintenanceScreen(
+            builder: (_) => CorrectiveMaintenanceScreen(
               mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               preloadedSiteData: data.apiData,
+              parentContext: parentContext,
             ),
           ),
         );
@@ -748,31 +762,39 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   void _navigateToDownloadedSite(AllSiteModel site, ActivityTypeEnum activityType) {
     switch (activityType) {
       case ActivityTypeEnum.correctiveMaintenance:
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CorrectiveMaintenanceScreen(
+            builder: (_) => CorrectiveMaintenanceScreen(
               mode: CMScreenModeEnum.create,
               preloadedSiteData: site.toJson(),
+              parentContext: parentContext,
             ),
           ),
         );
         break;
       case ActivityTypeEnum.siteVisit:
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SiteVisitScreen(siteData: site),
+            builder: (_) => SiteVisitScreen(
+              siteData: site,
+              parentContext: parentContext,
+            ),
           ),
         );
         break;
       case ActivityTypeEnum.generalInspection:
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => GInspectionDetailScreen(
+            builder: (_) => GInspectionDetailScreen(
               siteData: site,
               mode: CMScreenModeEnum.edit,
+              parentContext: parentContext,
             ),
           ),
         );

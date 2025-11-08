@@ -8,6 +8,7 @@ import 'pm_custom_widget.dart';
 import '../../commonWidgets/custom_pm_bottom_buttons.dart';
 import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import '../../routes/route_generator.dart';
 
 class PMPageWidget extends StatefulWidget {
   final List<Map<String, dynamic>> pmItems;
@@ -23,6 +24,7 @@ class PMPageWidget extends StatefulWidget {
   final Future<void> Function() submitDataWhenExit;
   final String siteAuditSchId;
   final String sectionName;
+  final BuildContext parentContext;
 
   const PMPageWidget({
     super.key,
@@ -39,6 +41,7 @@ class PMPageWidget extends StatefulWidget {
     required this.submitDataWhenExit,
     required this.siteAuditSchId,
     this.sectionName = '',
+    required this.parentContext,
   });
 
   // Convenience constructor that automatically determines readonly fields
@@ -56,6 +59,7 @@ class PMPageWidget extends StatefulWidget {
     List<String>? customReadonlyFields,
     required Future<void> Function() submitDataWhenExit,
     required String siteAuditSchId,
+    required BuildContext parentContext,
   }) {
     return PMPageWidget(
       pmItems: pmItems,
@@ -73,6 +77,7 @@ class PMPageWidget extends StatefulWidget {
       submitDataWhenExit: submitDataWhenExit,
       siteAuditSchId: siteAuditSchId,
       sectionName: sectionName,
+      parentContext: parentContext,
     );
   }
 
@@ -324,7 +329,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
           if (_hasChanges) {
             _showUnsavedChangesDialog();
           } else {
-            Navigator.pop(context);
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext,
+            );
           }
         },
       ),
@@ -443,6 +451,14 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   }
 
   void _showUnsavedChangesDialog() {
+    if (!_hasChanges) {
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -455,14 +471,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
           if (mounted) {
             widget.onDataChanged(_pmItems);
           }
-          Navigator.pop(context);
         },
-        onDiscard: () {
-          Navigator.pop(context);
-          Navigator.pop(context);
-        },
+        onDiscard: () {},
         section: widget.pageTitle,
-        parentContext: context,
+        parentContext: widget.parentContext,
       ),
     );
   }

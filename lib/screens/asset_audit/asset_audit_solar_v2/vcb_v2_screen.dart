@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -31,12 +32,14 @@ class VCBV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const VCBV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -225,7 +228,7 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context,
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
@@ -234,7 +237,10 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 
@@ -390,6 +396,7 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),

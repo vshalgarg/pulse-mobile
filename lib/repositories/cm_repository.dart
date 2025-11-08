@@ -123,10 +123,24 @@ class CMRepository {
       
       Logger.infoLog('[CMRepository] ✅ Document binary data received, size: ${(response.data as Uint8List).length} bytes');
       
+      // Detect file type from binary data (magic bytes) if extension is missing
+      String finalFileName = fileName;
+      if (!fileName.contains('.')) {
+        final detectedExtension = _detectFileExtensionFromBytes(response.data as Uint8List);
+        if (detectedExtension != null) {
+          finalFileName = '$fileName$detectedExtension';
+          Logger.infoLog('[CMRepository] Detected file type: $detectedExtension, updated filename: $finalFileName');
+        } else {
+          // Fallback: default to .pdf if we can't detect
+          finalFileName = '$fileName.pdf';
+          Logger.infoLog('[CMRepository] Could not detect file type, defaulting to .pdf');
+        }
+      }
+      
       // Use common file download service
       final filePath = await FileDownloadService.downloadFileFromBytes(
         data: response.data as Uint8List,
-        fileName: fileName,
+        fileName: finalFileName,
         requirePermission: false, // Permission is already checked in screen
       );
       
@@ -277,11 +291,75 @@ class CMRepository {
     }
   }
 
-  Future<void> saveRemarks(int cmSiteReqId, String remark, String status, File attachment) async {
+  /// Detect file extension from binary data using magic bytes
+  String? _detectFileExtensionFromBytes(Uint8List data) {
+    if (data.length < 4) return null;
+    
+    // Check magic bytes for common file types
+    // JPEG: FF D8 FF
+    if (data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+      return '.jpg';
+    }
+    
+    // PNG: 89 50 4E 47
+    if (data.length >= 4 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+      return '.png';
+    }
+    
+    // PDF: 25 50 44 46 (starts with "%PDF")
+    if (data.length >= 4 && data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46) {
+      return '.pdf';
+    }
+    
+    // DOCX: 50 4B 03 04 (ZIP file format, which DOCX uses)
+    if (data.length >= 4 && data[0] == 0x50 && data[1] == 0x4B && data[2] == 0x03 && data[3] == 0x04) {
+      // Check if it's actually a DOCX by looking for "word/" in the ZIP structure
+      // This is a simplified check - DOCX files are ZIP archives containing word/document.xml
+      try {
+        final dataString = String.fromCharCodes(data.take(1000));
+        if (dataString.contains('word/') || dataString.contains('xl/')) {
+          return dataString.contains('word/') ? '.docx' : '.xlsx';
+        }
+        // Could be a regular ZIP file
+        return '.zip';
+      } catch (e) {
+        return '.docx'; // Default to docx for ZIP-like files
+      }
+    }
+    
+    // DOC (older Word format): D0 CF 11 E0
+    if (data.length >= 4 && data[0] == 0xD0 && data[1] == 0xCF && data[2] == 0x11 && data[3] == 0xE0) {
+      return '.doc';
+    }
+    
+    // GIF: 47 49 46 38
+    if (data.length >= 4 && data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38) {
+      return '.gif';
+    }
+    
+    // WebP: Check for RIFF...WEBP
+    if (data.length >= 12 && 
+        data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
+        data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50) {
+      return '.webp';
+    }
+    
+    return null; // Could not detect
+  }
+
+  Future<void> saveRemarks(
+    int cmSiteReqId,
+    String remark,
+    String status,
+    File attachment, {
+    String? originalFileName,
+  }) async {
     try {
+      // Use original filename if provided, otherwise use file path
+      final fileName = originalFileName ?? attachment.path.split('/').last;
       final uploadedAttachmentMultipartFile = await MultipartFile.fromFile(
         attachment.path,
-        filename: attachment.path.split('/').last,
+        filename: fileName,
       );
 
       final response = await _apiService.post<Map<String, dynamic>>(

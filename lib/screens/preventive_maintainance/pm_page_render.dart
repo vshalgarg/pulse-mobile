@@ -1,11 +1,9 @@
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/service_locator.dart';
-import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import '../../constants/app_images.dart';
 import '../../constants/constants_strings.dart';
 import '../../constants/constants_methods.dart';
@@ -16,13 +14,14 @@ import 'pm_page_header_telecom.dart';
 import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../utils/pm_navigation_helper.dart';
-import '../../utils/asset_audit_navigation_helper.dart';
+import '../../routes/route_generator.dart';
 
 class PMPageRender extends StatefulWidget {
   final Map<String, dynamic> pmData;
   final Function(Map<String, dynamic>)? onDataChanged;
   final bool isLoading;
   final String? errorMessage;
+  final BuildContext parentContext;
 
   const PMPageRender({
     super.key,
@@ -30,6 +29,7 @@ class PMPageRender extends StatefulWidget {
     this.onDataChanged,
     this.isLoading = false,
     this.errorMessage,
+    required this.parentContext,
   });
 
   @override
@@ -127,19 +127,19 @@ class _PMPageRenderState extends State<PMPageRender> {
       return PMPageHeaderSolar(
         pageHeader: _pageHeader,
         pmData: _pmData,
-        onNext: _onNextPage,
-        onClose: () => Navigator.pop(context),
+        onNext: _onNextPageWrapper,
         isLoading: widget.isLoading,
         errorMessage: widget.errorMessage,
+        parentContext: widget.parentContext,
       );
     } else {
       return PMPageHeaderTelecom(
         pageHeader: _pageHeader,
         pmData: _pmData,
-        onNext: _onNextPage,
-        onClose: () => Navigator.pop(context),
+        onNext: _onNextPageWrapper,
         isLoading: widget.isLoading,
         errorMessage: widget.errorMessage,
+        parentContext: widget.parentContext,
       );
     }
   }
@@ -219,7 +219,6 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   Future<void> submitDataWhenExit() async {
     await _updateDataInSqliteAndCallApiWithLoader();
-    AssetAuditNavigationHelper.navigateToHomeScreen(context);
   }
 
   Future<void> _updateDataInSqliteAndCallApi() async {
@@ -318,10 +317,21 @@ class _PMPageRenderState extends State<PMPageRender> {
     );
 
     // Navigate to home screen
-    AssetAuditNavigationHelper.navigateToHomeScreen(context);
+    navigateBackOrToHome(
+      context,
+      targetContext: widget.parentContext,
+    );
   }
 
   void _showUnsavedChangesDialog() {
+    if (!_hasChanges) {
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -329,17 +339,14 @@ class _PMPageRenderState extends State<PMPageRender> {
         message:
             'You have unsaved changes. Do you want to save before leaving?',
         onSaveAndExit: () async {
-          // Save data and then navigate back
+          await submitDataWhenExit();
           widget.onDataChanged?.call(_pmData);
-          Navigator.pop(context);
         },
         onDiscard: () {
-          Navigator.pop(context);
-          Navigator.pop(context);
         },
         siteAuditSchId: null, // You can pass siteAuditSchId if available
         section: 'Preventive Maintenance',
-        parentContext: context,
+        parentContext: widget.parentContext,
       ),
     );
   }
@@ -429,6 +436,7 @@ class _PMPageRenderState extends State<PMPageRender> {
         submitDataWhenExit: submitDataWhenExit,
         siteAuditSchId:
             _pmData['pageHeader']?[0]?['site_audit_sch_id']?.toString() ?? '',
+        parentContext: widget.parentContext,
       ),
     );
   }

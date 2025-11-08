@@ -13,6 +13,7 @@ import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/gen_ins_checklist_model.dart';
 import 'package:app/repositories/general_inspection_repository.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
@@ -24,12 +25,14 @@ class GInspectionDetailScreen extends StatefulWidget {
   final AllSiteModel siteData;
   final CMScreenModeEnum mode;
   final Map<String, dynamic>? apiResponseData; // Add API response data
+  final BuildContext? parentContext;
 
   const GInspectionDetailScreen({
     super.key,
     required this.siteData,
     required this.mode,
     this.apiResponseData,
+    this.parentContext,
   });
 
   @override
@@ -217,7 +220,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     }
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     // Validate selfie - check if we have an uploaded image ID
     if (_uploadedImgId == null || _uploadedImgId!.isEmpty) {
       showCustomToast(context, "Please add a selfie");
@@ -277,13 +280,14 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => GIChecklistScreen(
+          builder: (_) => GIChecklistScreen(
             siteData: widget.siteData,
             mode: widget.mode,
             visitingPersonImageId: _uploadedImgId,
             checklistItems: _checklistItems,
             existingResponses: _existingChecklistResponses.isNotEmpty ? _existingChecklistResponses : null,
             giId: giId,
+            parentContext: widget.parentContext ?? context,
           ),
         ),
       );
@@ -678,18 +682,19 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteData.siteId.toString(),
           section: "General Inspection",
-          parentContext: context,
+          parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
-            _submitForm();
+            await _submitForm();
           },
-          onDiscard: () {
-            Navigator.of(context).pop();
-          },
+          onDiscard: () {},
         ),
       );
     } else {
       print("🔍 No form changes detected - navigating back directly");
-      Navigator.of(context).pop();
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 

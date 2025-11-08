@@ -1,6 +1,7 @@
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -28,12 +29,14 @@ class CCUV2Screen extends StatefulWidget {
   final String siteType;
   final String auditSchId;
   final String siteAuditSchId;
+  final BuildContext parentContext;
 
   const CCUV2Screen({
     super.key,
     required this.siteType,
     required this.auditSchId,
     required this.siteAuditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -832,6 +835,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),
@@ -986,7 +990,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context,
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
@@ -994,7 +998,10 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 }

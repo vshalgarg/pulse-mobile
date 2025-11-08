@@ -1,4 +1,5 @@
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -22,12 +23,14 @@ class BoundaryV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const BoundaryV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -232,7 +235,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context,
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             if(_hasFormDataChanges) {
               await postCurrentScreenData();
@@ -243,7 +246,10 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 
@@ -397,6 +403,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),

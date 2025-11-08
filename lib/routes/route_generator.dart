@@ -1,7 +1,6 @@
 import 'package:app/routes/routes.dart';
 import 'package:app/screens/energy_reading/energy_reading_screen.dart';
 import 'package:app/screens/forgot_password_screen.dart';
-import 'package:app/screens/home_screen.dart';
 import 'package:app/screens/password_updated_Screen.dart';
 import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/screens/reset_password_screen.dart';
@@ -74,4 +73,31 @@ PageRoute _noSwipeRoute(Widget child, RouteSettings settings) {
     reverseTransitionDuration: Duration.zero,
     transitionsBuilder: (_, __, ___, child) => child,
   );
+}
+
+
+void navigateBackOrToHome(
+  BuildContext context, {
+  BuildContext? targetContext,
+}) {
+  final navigator = Navigator.of(context);
+
+  if (targetContext != null) {
+    final targetRoute = ModalRoute.of(targetContext);
+    if (targetRoute != null) {
+      navigator.popUntil((route) => route == targetRoute);
+      return;
+    }
+  }
+
+  if (navigator.canPop()) {
+    navigator.pop();
+  } else {
+    // Fallback to PulseDashboard if can't pop
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => PulseDashboard()),
+      (route) => false,
+    );
+  }
 }

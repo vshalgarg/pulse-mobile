@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -24,12 +25,14 @@ class DCDBV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const DCDBV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -38,18 +41,18 @@ class DCDBV2Screen extends StatefulWidget {
 
 class _DCDBV2ScreenState extends State<DCDBV2Screen> {
   final String _screenName = 'DCDB';
-  
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers
   final TextEditingController _dcdbSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
@@ -60,7 +63,6 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-
   }
 
   @override
@@ -85,23 +87,34 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 DCDB V2: Loading data for site ${widget.siteAuditSchId}');
-      
+      Logger.debugLog(
+        '🔄 DCDB V2: Loading data for site ${widget.siteAuditSchId}',
+      );
+
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final dcdbItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')]
-        as Map<String, dynamic>? ?? {};
-        
+        final dcdbItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'SOLAR',
+                )]
+                as Map<String, dynamic>? ??
+            {};
+
         if (dcdbItems.isNotEmpty) {
           final firstItem = dcdbItems['assets'].first;
           final formData = <String, dynamic>{
             'ajbType': firstItem['oem_name']?.toString() ?? "N/A",
             'totalItems': dcdbItems['assets'].length.toString(),
-            'remarks': dcdbItems['remarks'].first['item_type_remark']?.toString() ?? "",
-            'assets': dcdbItems['assets'].where((obj) => obj['photo_id'] != null).toList(),
+            'remarks':
+                dcdbItems['remarks'].first['item_type_remark']?.toString() ??
+                "",
+            'assets': dcdbItems['assets']
+                .where((obj) => obj['photo_id'] != null)
+                .toList(),
             'allAssets': dcdbItems['assets'],
           };
 
@@ -155,55 +168,75 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
 
   // Validate DCDB serial number
   bool _validateDCDBSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedDcdbItems = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedDcdbItems, isQRCodeScanned);
+    final savedDcdbItems =
+        _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedDcdbItems,
+      isQRCodeScanned,
+    );
   }
 
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 DCDB V2: Starting postCurrentScreenData');
-      
-      final modifiedAssets = _displayFormData?['assets'] as List<dynamic>? ?? [];
+
+      final modifiedAssets =
+          _displayFormData?['assets'] as List<dynamic>? ?? [];
       final modifiedAssetsWithAllProperties = [];
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'SOLAR')];
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'SOLAR',
+          )];
       final finalAssets = finalData?['assets'] as List<dynamic>? ?? [];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      
-      Logger.debugLog('📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}');
 
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalAssets, modifiedAssets));
+      Logger.debugLog(
+        '📊 Data counts - Modified: ${modifiedAssets.length}, Final: ${finalAssets.length}, Remarks: ${finalRemarks.length}',
+      );
 
-      
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(finalAssets, modifiedAssets),
+      );
+
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
-           finalRemarks.first['assetStatus'] = 'OK';
+          finalRemarks.first['assetStatus'] = 'OK';
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
 
       // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
 
-      Logger.debugLog('📤 DCDB V2: Prepared ${postObject.length} items for posting');
-      // Post data with photo ID replacement
-      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getSolarNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
+      Logger.debugLog(
+        '📤 DCDB V2: Prepared ${postObject.length} items for posting',
       );
+      // Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getSolarNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
       Logger.debugLog('✅ DCDB V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ DCDB V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -212,7 +245,10 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
 
   void _showUnsavedChangesDialog() {
     if (!_hasFormDataChanges) {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
       return;
     }
 
@@ -221,14 +257,13 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return UnsavedChangesDialog(
-          parentContext: context, // Use the outer context (screen context)
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
-            if(_hasFormDataChanges) {
+            if (_hasFormDataChanges) {
               await postCurrentScreenData();
             }
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         );
       },
     );
@@ -296,7 +331,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -347,13 +382,17 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -374,8 +413,8 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                 AssetAuditSolarBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
-                  onNextButtonClick:  () async {
-                    if(_hasFormDataChanges) {
+                  onNextButtonClick: () async {
+                    if (_hasFormDataChanges) {
                       await postCurrentScreenData();
                     }
                   },
@@ -384,6 +423,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),
@@ -413,7 +453,7 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         // DCDB Form Component
         AssetAuditFormComponent(
           componentId: 'dcdb_component',
@@ -421,12 +461,13 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
           serialHintText: "DCDB Serial Number *",
           photoLabel: "Add a Photo",
           serialController: _dcdbSerialController,
-          initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
+          initialSavedItems:
+              _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onDCDBItemSaved,
-          onStatusChanged: (status) {
-          },
+          onStatusChanged: (status) {},
           customValidator: _validateDCDBSerialNumber,
-          customValidationErrorMessage: "Invalid DCDB serial number. Please check and try again.",
+          customValidationErrorMessage:
+              "Invalid DCDB serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "DCDB Items",

@@ -16,6 +16,7 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const AssetAuditSolarBottomButtons({
     super.key,
@@ -27,6 +28,7 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -59,6 +61,7 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
                   siteAuditSchId,
                   siteType,
                   auditSchId,
+                parentContext,
                 );
               },
             ),
@@ -85,6 +88,7 @@ class AssetAuditSolarBottomButtons extends StatelessWidget {
                     siteAuditSchId,
                     siteType,
                     auditSchId,
+                  parentContext,
                   );
                 } finally {
                   LoaderWidget.hideLoader();

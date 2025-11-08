@@ -139,6 +139,8 @@ class _TicketScreenState extends State<TicketScreen> {
         return TicketType.closed;
       case 'missed deadline':
         return TicketType.missedDeadline;
+      case 'assigned_to_me':
+        return TicketType.assignedToMe;
       default:
         return TicketType.all;
     }
@@ -219,21 +221,27 @@ class _TicketScreenState extends State<TicketScreen> {
       final apiData = data.apiData;
 
       if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PMPageRender(pmData: apiData),
+            builder: (_) => PMPageRender(
+              pmData: apiData,
+              parentContext: parentContext,
+            ),
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => EnergyReadingScreen(
+            builder: (_) => EnergyReadingScreen(
               siteType: ticket.siteDomainName ?? "Telecom",
               auditSchId: ticket.auditSchId?.toString() ?? "",
               siteAuditSchId: ticket.ticketSchId.toString(),
               siteId: ticket.ticketSchId.toString(),
+              parentContext: parentContext,
             ),
           ),
         );
@@ -267,10 +275,14 @@ class _TicketScreenState extends State<TicketScreen> {
           visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
         ); // site visit screen
 
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => SiteVisitScreen(siteData: siteData),
+            builder: (_) => SiteVisitScreen(
+              siteData: siteData,
+              parentContext: parentContext,
+            ),
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.generalInspection) {
@@ -341,20 +353,23 @@ class _TicketScreenState extends State<TicketScreen> {
           checklistItems: checklistData,
         );
 
+        final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => GInspectionDetailScreen(
+            builder: (_) => GInspectionDetailScreen(
               siteData: siteData,
               mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               apiResponseData: actualData,
+              parentContext: parentContext,
             ),
           ),
         );
       } else if (_currentActivityType ==
           ActivityTypeEnum.correctiveMaintenance) {
+        final parentContext = context;
         pushPage(
           context,
           CorrectiveMaintenanceScreen(
@@ -362,6 +377,7 @@ class _TicketScreenState extends State<TicketScreen> {
                 ? CMScreenModeEnum.view
                 : CMScreenModeEnum.edit,
             preloadedSiteData: apiData,
+            parentContext: parentContext,
           ),
         );
       } else {

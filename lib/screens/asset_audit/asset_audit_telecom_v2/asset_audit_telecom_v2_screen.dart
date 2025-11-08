@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/pulse_dashboard.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -28,12 +30,14 @@ class AssetAuditTelecomV2Screen extends StatefulWidget {
   final String siteType;
   final String auditSchId;
   final String siteAuditSchId;
+  final BuildContext parentContext;
 
   const AssetAuditTelecomV2Screen({
     super.key,
     required this.siteType,
     required this.auditSchId,
     required this.siteAuditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -449,6 +453,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),
@@ -623,13 +628,16 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context, // Use the outer context (screen context)
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {},
           onDiscard: () {},
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 }

@@ -1,6 +1,6 @@
 import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
-import 'package:app/screens/pulse_dashboard.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/bloc/audit_schedule_status_cubit.dart';
@@ -52,9 +52,12 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
       // Call the API to update audit schedule status if siteAuditSchId is provided
       if (widget.siteAuditSchId != null && widget.siteAuditSchId!.isNotEmpty) {
         // Get the current state after the API call
-        final currentState = contextToUse
-            .read<AuditScheduleStatusCubit>()
-            .state;
+        AuditScheduleStatusState? currentState;
+        try {
+          currentState = contextToUse.read<AuditScheduleStatusCubit>().state;
+        } catch (_) {
+          currentState = null;
+        }
         if (currentState is AuditScheduleStatusSuccess) {
           // Use the API response message in the success dialog
           _showSuccessDialogWithMessage(contextToUse, currentState.message);
@@ -114,12 +117,13 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
           Navigator.of(
             dialogContext,
           ).pop(); // Close the success dialog using dialog context
-          print('DEBUG: About to navigate to home screen');
-          // Navigate to home screen using the navigation context
-          Navigator.pushReplacement(
-            navigationContext,
-            MaterialPageRoute(builder: (context) => PulseDashboard()),
-          );
+          print('DEBUG: About to navigate back');
+          Future.microtask(() {
+            navigateBackOrToHome(
+              navigationContext,
+              targetContext: widget.parentContext,
+            );
+          });
           print('DEBUG: Navigation completed');
         },
       ),
@@ -142,11 +146,12 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
               Navigator.of(
                 dialogContext,
               ).pop(); // Close the error dialog using dialog context
-              // Navigate to home screen using the navigation context
-              Navigator.pushReplacement(
-                navigationContext,
-                MaterialPageRoute(builder: (context) => PulseDashboard()),
-              );
+              Future.microtask(() {
+                navigateBackOrToHome(
+                  navigationContext,
+                  targetContext: widget.parentContext,
+                );
+              });
             },
             child: const Text('OK'),
           ),
@@ -162,11 +167,15 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
     // Use parentContext if available, otherwise use the dialog context
     final contextToUse = widget.parentContext ?? context;
 
-    Navigator.pushReplacement(
-      contextToUse,
-      MaterialPageRoute(builder: (context) => PulseDashboard()),
-    );
-    widget.onDiscard();
+    print('DEBUG: contextToUse: ${contextToUse.toString()}');
+
+    Future.microtask(() {
+      navigateBackOrToHome(
+        contextToUse,
+        targetContext: widget.parentContext,
+      );
+      widget.onDiscard();
+    });
   }
 
   @override

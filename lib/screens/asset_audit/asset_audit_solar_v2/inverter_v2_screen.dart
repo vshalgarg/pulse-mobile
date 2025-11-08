@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -24,12 +25,14 @@ class InverterV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const InverterV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -218,7 +221,10 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
 
   void _showUnsavedChangesDialog() {
     if (!_hasFormDataChanges) {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
       return;
     }
 
@@ -227,7 +233,7 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
       barrierDismissible: false,
       builder: (BuildContext context) {
         return UnsavedChangesDialog(
-          parentContext: context, // Use the outer context (screen context)
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
@@ -390,6 +396,7 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),

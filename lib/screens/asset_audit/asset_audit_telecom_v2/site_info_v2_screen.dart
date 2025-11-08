@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -15,12 +16,14 @@ class SiteInfoV2Screen extends StatefulWidget {
   final String siteType;
   final String auditSchId;
   final String siteAuditSchId;
+  final BuildContext parentContext;
 
   const SiteInfoV2Screen({
     super.key,
     required this.siteType,
     required this.auditSchId,
     required this.siteAuditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -273,6 +276,8 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+
+                  parentContext: widget.parentContext,
                 ),
 
               ],
@@ -335,6 +340,9 @@ class _SiteInfoV2ScreenState extends State<SiteInfoV2Screen> {
   }
 
   void _showUnsavedChangesDialog() {
-    AssetAuditNavigationHelper.navigateToHomeScreen(context);
+    navigateBackOrToHome(
+      context,
+      targetContext: widget.parentContext,
+    );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/custom_remark.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -31,12 +32,14 @@ class WMSV2Screen extends StatefulWidget {
   final String siteAuditSchId;
   final String siteType;
   final String auditSchId;
+  final BuildContext parentContext;
 
   const WMSV2Screen({
     super.key,
     required this.siteAuditSchId,
     required this.siteType,
     required this.auditSchId,
+    required this.parentContext,
   });
 
   @override
@@ -255,7 +258,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Asset Audit",
-          parentContext: context,
+          parentContext: widget.parentContext,
           onSaveAndExit: () async {
             if (_hasFormDataChanges) {
               await postCurrentScreenData();
@@ -265,7 +268,10 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext,
+      );
     }
   }
 
@@ -423,6 +429,7 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
                   siteType: widget.siteType,
                   siteAuditSchId: widget.siteAuditSchId,
                   screenName: _screenName,
+                  parentContext: widget.parentContext,
                 ),
               ],
             ),

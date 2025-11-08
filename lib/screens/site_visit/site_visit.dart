@@ -11,7 +11,7 @@ import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
-import 'package:app/screens/pulse_dashboard.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
@@ -21,8 +21,13 @@ import 'package:flutter_svg/svg.dart';
 
 class SiteVisitScreen extends StatefulWidget {
   final AllSiteModel siteData;
+  final BuildContext? parentContext;
 
-  const SiteVisitScreen({super.key, required this.siteData});
+  const SiteVisitScreen({
+    super.key,
+    required this.siteData,
+    this.parentContext,
+  });
 
   @override
   State<SiteVisitScreen> createState() => _SiteVisitScreenState();
@@ -473,22 +478,23 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteData.siteId.toString(),
           section: "Site Visit",
-          parentContext: context,
+          parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
-            _submitForm();
+            await _submitForm(navigateOnSuccess: false);
           },
-          onDiscard: () {
-            Navigator.of(context).pop();
-          },
+          onDiscard: () {},
         ),
       );
     } else {
       print("🔍 No form changes detected - navigating back directly");
-      Navigator.of(context).pop();
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 
-  void _submitForm() async {
+  Future<void> _submitForm({bool navigateOnSuccess = true}) async {
     if (_purposeController.text.trim().isEmpty) {
       showCustomToast(context, "Please enter purpose of visit");
       return;
@@ -518,13 +524,17 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         _hasFormDataChanges = false;
       });
 
-      // Navigate to home screen after a short delay
+      if (!navigateOnSuccess) {
+        return;
+      }
+
+      // Navigate back to the originating screen after a short delay
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        Navigator.pushReplacement(
+        navigateBackOrToHome(
           context,
-          MaterialPageRoute(builder: (context) => PulseDashboard()),
+          targetContext: widget.parentContext ?? context,
         );
       }
     } catch (e) {

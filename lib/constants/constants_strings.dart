@@ -9,7 +9,7 @@ const String kPermissionGrantedMessage = 'Permission granted.';
 const String kRupeeSymbol = "₹";
 
 // Report service base URL
-const String reportBaseUrl = "https://pulsereports.premiumfreshers.com";
+const String reportBaseUrl = "https://pulse.premiumfreshers.com/reports/";
 
 const String somethingWentWrong = "Something went wrong.";
 const String noRecordFound = "No Record Found.";

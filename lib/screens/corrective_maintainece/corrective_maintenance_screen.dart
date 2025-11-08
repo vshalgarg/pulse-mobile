@@ -11,11 +11,11 @@ import 'package:app/constants/exception_constants.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/location_model.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
 import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
@@ -38,12 +38,14 @@ class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
   final List<CMSite>? preloadedSites;
   final Map<String, dynamic>? preloadedSiteData;
+  final BuildContext? parentContext;
 
   const CorrectiveMaintenanceScreen({
     super.key,
     required this.mode,
     this.preloadedSites,
     this.preloadedSiteData,
+    this.parentContext,
   });
 
   @override
@@ -461,9 +463,11 @@ class _CorrectiveMaintenanceScreenState
       fileName = extension.isNotEmpty ? '$nameWithoutExt$extension' : nameWithoutExt;
       
       // Only add default extension if filename has no extension at all
+      // We'll detect the actual file type from the binary data after download
+      // For now, don't add a default - let the download method handle it
       if (!fileName.contains('.')) {
-        Logger.infoLog('[CM] No extension found, adding generic .dat extension');
-        fileName = '$fileName.dat'; // Use .dat as generic fallback
+        Logger.infoLog('[CM] No extension found in filename, will detect from file content');
+        // Don't add extension here - will be detected from file content
       }
       
       Logger.infoLog('[CM] Final filename: $fileName');
@@ -659,33 +663,43 @@ class _CorrectiveMaintenanceScreenState
             } else {
               Logger.infoLog("⚠️ [CM] No local checklist data found, fetching from API");
               try {
-                // Check if site is downloaded - if not, suggest downloading first
+                // Check connectivity first
+                final isOnline = await ConnectivityHelper.isConnected();
+                
+                // Check if site is downloaded
                 final isSiteDownloaded = await ServiceLocator()
                     .centralAssetAuditDataService
                     .isCMSiteDownloaded(selectedSite.siteId);
                 
-                if (!isSiteDownloaded) {
+                // If offline and site is not downloaded, throw error
+                if (!isOnline && !isSiteDownloaded) {
                   throw Exception("This site is not downloaded. Please download the site data first to use it offline.");
                 }
                 
-                // Fallback to API call (only if online)
-                checklistData = await ServiceLocator().cmRepository
-                    .getChecklistData(selectedSite.entityId);
-                
-                Logger.infoLog("✅ [CM] Checklist data fetched from API");
-                
-                // Save to local database for offline use
-                try {
-                  await ServiceLocator().centralAssetAuditService.downloadCMChecklist(
-                    siteId: selectedSite.siteId,
-                    entityId: selectedSite.entityId,
-                    siteCode: selectedSite.siteCode,
-                    siteName: selectedSite.siteName,
-                  );
-                  Logger.infoLog("✅ [CM] Checklist data saved to local database");
-                } catch (saveError) {
-                  Logger.errorLog("⚠️ [CM] Failed to save checklist to local database: $saveError");
-                  // Continue even if save fails
+                // If online, allow API call even if site is not downloaded
+                if (isOnline) {
+                  Logger.infoLog("🌐 [CM] Online mode - fetching checklist from API");
+                  checklistData = await ServiceLocator().cmRepository
+                      .getChecklistData(selectedSite.entityId);
+                  
+                  Logger.infoLog("✅ [CM] Checklist data fetched from API");
+                  
+                  // Save to local database for offline use
+                  try {
+                    await ServiceLocator().centralAssetAuditService.downloadCMChecklist(
+                      siteId: selectedSite.siteId,
+                      entityId: selectedSite.entityId,
+                      siteCode: selectedSite.siteCode,
+                      siteName: selectedSite.siteName,
+                    );
+                    Logger.infoLog("✅ [CM] Checklist data saved to local database");
+                  } catch (saveError) {
+                    Logger.errorLog("⚠️ [CM] Failed to save checklist to local database: $saveError");
+                    // Continue even if save fails
+                  }
+                } else {
+                  // Offline mode but no local data - should not reach here due to check above
+                  throw Exception("No internet connection and site data not downloaded. Please download the site data first.");
                 }
               } catch (apiError) {
                 Logger.errorLog("❌ [CM] Failed to fetch checklist from API: $apiError");
@@ -1269,15 +1283,15 @@ class _CorrectiveMaintenanceScreenState
     );
   }
 
-  void _validateAndSubmit() async {
+  Future<void> _validateAndSubmit({bool shouldNavigate = true}) async {
     if (widget.mode == CMScreenModeEnum.create) {
-      _submitFormData();
+      await _submitFormData(shouldNavigate: shouldNavigate);
     } else if (widget.mode == CMScreenModeEnum.edit) {
-      _editFormData();
+      await _editFormData(shouldNavigate: shouldNavigate);
     }
   }
 
-  void _editFormData() async {
+  Future<void> _editFormData({bool shouldNavigate = true}) async {
     try {
       LoaderWidget.showLoader(context);
       if (cmSiteReqId == null) {
@@ -1363,23 +1377,38 @@ class _CorrectiveMaintenanceScreenState
       if (isConnected) {
         // Online mode: Process and submit
         try {
-          await _handleOnlineEditSubmission(requestData);
+          await _handleOnlineEditSubmission(
+            requestData,
+            shouldNavigate: shouldNavigate,
+          );
         } catch (e) {
           Logger.errorLog("Online edit submission failed: $e");
           // Fallback to offline mode
           if (finalLocation != null) {
-            await _handleOfflineEditSubmission(requestData, finalLocation);
+            await _handleOfflineEditSubmission(
+              requestData,
+              finalLocation,
+              shouldNavigate: shouldNavigate,
+            );
           }
         }
       } else {
         // Offline mode: Save to pending requests
         if (finalLocation != null) {
-          await _handleOfflineEditSubmission(requestData, finalLocation);
+          await _handleOfflineEditSubmission(
+            requestData,
+            finalLocation,
+            shouldNavigate: shouldNavigate,
+          );
         } else {
           // Get location if not already available
           try {
             finalLocation = await LocationService.getCurrentLocation();
-            await _handleOfflineEditSubmission(requestData, finalLocation);
+            await _handleOfflineEditSubmission(
+              requestData,
+              finalLocation,
+              shouldNavigate: shouldNavigate,
+            );
           } catch (e) {
             Logger.errorLog('Error getting location for offline submission: $e');
             Toastbar.showErrorToastbar(
@@ -1394,7 +1423,10 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  Future<void> _handleOnlineEditSubmission(Map<String, dynamic> requestData) async {
+  Future<void> _handleOnlineEditSubmission(
+    Map<String, dynamic> requestData, {
+    bool shouldNavigate = true,
+  }) async {
     try {
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
@@ -1425,11 +1457,14 @@ class _CorrectiveMaintenanceScreenState
       if (_remarksController.text.trim().isNotEmpty || _remarksAttachments.isNotEmpty) {
         // If remarks attachment is provided, upload it
         if (_remarksAttachments.isNotEmpty) {
+          final remarksFile = _remarksAttachments.first;
+          final originalFileName = remarksFile.path.split('/').last;
           await ServiceLocator().cmRepository.saveRemarks(
             cmSiteReqId!,
             _remarksController.text.trim(),
             _statusController.text,
-            _remarksAttachments.first,
+            remarksFile,
+            originalFileName: originalFileName,
           );
         } else if (_remarksController.text.trim().isNotEmpty) {
           // If only remarks text is provided without attachment, still save remarks
@@ -1457,7 +1492,14 @@ class _CorrectiveMaintenanceScreenState
       }
       
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-    //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      if (shouldNavigate && mounted) {
+        Future.microtask(() {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        });
+      }
     } catch (e) {
       Logger.errorLog("Error in online edit submission: $e");
       rethrow;
@@ -1466,8 +1508,9 @@ class _CorrectiveMaintenanceScreenState
 
   Future<void> _handleOfflineEditSubmission(
     Map<String, dynamic> requestData,
-    LocationModel location,
-  ) async {
+    LocationModel location, {
+    bool shouldNavigate = true,
+  }) async {
     try {
       Logger.infoLog("Saving CM edit form data offline");
 
@@ -1588,8 +1631,18 @@ class _CorrectiveMaintenanceScreenState
           Logger.infoLog("CM remarks saved to pending requests successfully");
         }
         
-        Toastbar.showSuccessToastbar("Data saved offline. Will sync when online.", context);
-        //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
+        Toastbar.showSuccessToastbar(
+          "Data saved offline. Will sync when online.",
+          context,
+        );
+        if (shouldNavigate && mounted) {
+          Future.microtask(() {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          });
+        }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -1602,7 +1655,7 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  void _submitFormData() async {
+  Future<void> _submitFormData({bool shouldNavigate = true}) async {
     try {
       LoaderWidget.showLoader(context);
 
@@ -1667,22 +1720,36 @@ class _CorrectiveMaintenanceScreenState
       if (isConnected) {
         // Online mode: Process images first, then submit
         try {
-          await _handleOnlineSubmission(requestData);
+          await _handleOnlineSubmission(
+            requestData,
+            shouldNavigate: shouldNavigate,
+          );
         } catch (e) {
           Logger.errorLog("Online submission failed: $e");
           // Fallback to offline mode
-          await _handleOfflineSubmission(requestData, finalLocation);
+          await _handleOfflineSubmission(
+            requestData,
+            finalLocation,
+            shouldNavigate: shouldNavigate,
+          );
         }
       } else {
         // Offline mode: Save to pending requests
-        await _handleOfflineSubmission(requestData, finalLocation);
+        await _handleOfflineSubmission(
+          requestData,
+          finalLocation,
+          shouldNavigate: shouldNavigate,
+        );
       }
     } finally {
       LoaderWidget.hideLoader();
     }
   }
 
-  Future<void> _handleOnlineSubmission(Map<String, dynamic> requestData) async {
+  Future<void> _handleOnlineSubmission(
+    Map<String, dynamic> requestData, {
+    bool shouldNavigate = true,
+  }) async {
     try {
       // Convert keys to camelCase for API
       Map<String, dynamic> processedData =
@@ -1707,7 +1774,14 @@ class _CorrectiveMaintenanceScreenState
       }
 
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      if (shouldNavigate && mounted) {
+        Future.microtask(() {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        });
+      }
     } catch (e) {
       Logger.errorLog("Error in online submission: $e");
       rethrow;
@@ -1716,8 +1790,9 @@ class _CorrectiveMaintenanceScreenState
 
   Future<void> _handleOfflineSubmission(
     Map<String, dynamic> requestData,
-    LocationModel location,
-  ) async {
+    LocationModel location, {
+    bool shouldNavigate = true,
+  }) async {
     try {
       Logger.infoLog("Saving CM form data offline");
 
@@ -1759,8 +1834,18 @@ class _CorrectiveMaintenanceScreenState
 
       if (isSaved) {
         Logger.infoLog("CM data saved to pending requests successfully");
-        Toastbar.showSuccessToastbar("Data saved offline. Will sync when online.", context);
-        // AssetAuditNavigationHelper.navigateToHomeScreen(context);
+        Toastbar.showSuccessToastbar(
+          "Data saved offline. Will sync when online.",
+          context,
+        );
+        if (shouldNavigate && mounted) {
+          Future.microtask(() {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          });
+        }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -1804,13 +1889,18 @@ class _CorrectiveMaintenanceScreenState
         builder: (ctx) => UnsavedChangesDialog(
           siteAuditSchId: _selectedSite?.siteCode ?? '',
           section: "Corrective Maintenance",
-          parentContext: context,
-          onSaveAndExit: () async {},
+          parentContext: widget.parentContext ?? context,
+          onSaveAndExit: () async {
+            await _validateAndSubmit(shouldNavigate: false);
+          },
           onDiscard: () {},
         ),
       );
     } else {
-      //  AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 }

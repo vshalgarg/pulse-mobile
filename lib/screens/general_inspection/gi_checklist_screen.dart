@@ -8,7 +8,7 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/gen_ins_checklist_model.dart';
-import 'package:app/screens/pulse_dashboard.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -25,6 +25,7 @@ class GIChecklistScreen extends StatefulWidget {
   final Map<int, Map<String, dynamic>>?
   existingResponses; // Existing responses for edit mode
   final int? giId; // General Inspection ID for edit mode
+  final BuildContext? parentContext;
 
   const GIChecklistScreen({
     super.key,
@@ -34,6 +35,7 @@ class GIChecklistScreen extends StatefulWidget {
     required this.checklistItems,
     this.existingResponses,
     this.giId,
+    this.parentContext,
   });
 
   @override
@@ -208,7 +210,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                           text: "Submit",
                           onPressed: widget.mode == CMScreenModeEnum.view
                               ? null
-                              : _submitForm,
+                              : () async => await _submitForm(),
                         ),
                       ),
                     ],
@@ -277,7 +279,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     );
   }
 
-  void _submitForm() {
+  Future<void> _submitForm() async {
     // Debug: Print all responses
     print('🔍 All checklist responses:');
     for (final entry in _checklistResponses.entries) {
@@ -338,7 +340,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     }
 
     // Submit the form data to API
-    _submitGeneralInspectionData();
+    await _submitGeneralInspectionData();
   }
 
   Future<void> _submitGeneralInspectionData() async {
@@ -369,10 +371,12 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         _hasFormDataChanges = false;
       });
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => PulseDashboard()),
-      );
+      Future.microtask(() {
+        navigateBackOrToHome(
+          context,
+          targetContext: widget.parentContext ?? context,
+        );
+      });
     } catch (e) {
       Logger.errorLog('❌ Error submitting general inspection: $e');
       showCustomToast(context, "Failed to submit general inspection data");
@@ -485,18 +489,18 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteData.siteId.toString(),
           section: "General Inspection Checklist",
-          parentContext: context,
+          parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
-            _submitForm();
+            await _submitForm();
           },
-          onDiscard: () {
-           
-          },
+          onDiscard: () {},
         ),
       );
     } else {
-      print("🔍 No form changes detected - navigating back directly");
-      Navigator.of(context).pop();
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 }

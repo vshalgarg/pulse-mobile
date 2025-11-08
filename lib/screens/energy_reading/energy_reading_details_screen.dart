@@ -5,12 +5,12 @@ import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
 
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -24,6 +24,7 @@ class EnergyReadingDetailScreen extends StatefulWidget {
   final String siteType;
   final String auditSchId;
   final String siteId;
+  final BuildContext? parentContext;
 
   const EnergyReadingDetailScreen({
     super.key,
@@ -31,6 +32,7 @@ class EnergyReadingDetailScreen extends StatefulWidget {
     required this.siteType,
     required this.auditSchId,
     required this.siteId,
+    this.parentContext,
   });
 
   @override
@@ -276,7 +278,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         builder: (dialogContext) => UnsavedChangesDialog(
           siteAuditSchId: widget.siteAuditSchId,
           section: "Energy Reading",
-          parentContext: context,
+          parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
             await postCurrentScreenData();
           },
@@ -284,7 +286,10 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         ),
       );
     } else {
-      AssetAuditNavigationHelper.navigateToHomeScreen(context);
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 
@@ -521,14 +526,15 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
                                     // Only navigate if data was saved successfully
                                     if (dataSavedSuccessfully) {
-                                      AssetAuditNavigationHelper.navigateToHomeScreen(
+                                      navigateBackOrToHome(
                                         context,
+                                        targetContext: widget.parentContext ?? context,
                                       );
                                     }
                                   } else {
-                                    // No changes, just navigate
-                                    AssetAuditNavigationHelper.navigateToHomeScreen(
+                                    navigateBackOrToHome(
                                       context,
+                                      targetContext: widget.parentContext ?? context,
                                     );
                                   }
                                 },
