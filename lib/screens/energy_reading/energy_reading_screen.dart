@@ -79,7 +79,6 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
             data['site_domain_name']?.toString() ?? "N/A";
         formData['status'] = data['status']?.toString() ?? "N/A";
 
-
         print("formData: $formData");
 
         setState(() {
@@ -173,8 +172,10 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
                                       auditSchId: widget.auditSchId,
                                       siteAuditSchId: widget.siteAuditSchId,
                                       siteType: widget.siteType,
-                                      siteId: _displayFormData?['siteId'] ?? "0",
-                                      parentContext: widget.parentContext ?? context,
+                                      siteId:
+                                          _displayFormData?['siteId'] ?? "0",
+                                      parentContext:
+                                          widget.parentContext ?? context,
                                     ),
                                   );
                                 },

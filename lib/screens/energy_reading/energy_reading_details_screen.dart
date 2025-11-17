@@ -528,13 +528,15 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                                     if (dataSavedSuccessfully) {
                                       navigateBackOrToHome(
                                         context,
-                                        targetContext: widget.parentContext ?? context,
+                                        targetContext:
+                                            widget.parentContext ?? context,
                                       );
                                     }
                                   } else {
                                     navigateBackOrToHome(
                                       context,
-                                      targetContext: widget.parentContext ?? context,
+                                      targetContext:
+                                          widget.parentContext ?? context,
                                     );
                                   }
                                 },

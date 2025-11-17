@@ -190,25 +190,25 @@ class _HomeScreenState extends State<HomeScreen> {
             tooltip: 'Sync Offline Data',
           ),
           const SizedBox(height: 16),
-          FloatingActionButton(
-            onPressed: () {
-              pushPage(context, const LogViewerScreen());
-            },
-            backgroundColor: Colors.orange,
-            heroTag: "log_viewer_fab",
-            child: const Icon(Icons.description, color: Colors.white),
-            tooltip: 'Log Viewer',
-          ),
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            onPressed: () {
-              pushPage(context, const SQLiteQueryScreen());
-            },
-            backgroundColor: AppColors.auditColor,
-            heroTag: "sqlite_query_fab",
-            child: const Icon(Icons.storage, color: Colors.white),
-            tooltip: 'SQLite Query Executor',
-          ),
+          // FloatingActionButton(
+          //   onPressed: () {
+          //     pushPage(context, const LogViewerScreen());
+          //   },
+          //   backgroundColor: Colors.orange,
+          //   heroTag: "log_viewer_fab",
+          //   child: const Icon(Icons.description, color: Colors.white),
+          //   tooltip: 'Log Viewer',
+          // ),
+          // const SizedBox(height: 16),
+          // FloatingActionButton(
+          //   onPressed: () {
+          //     pushPage(context, const SQLiteQueryScreen());
+          //   },
+          //   backgroundColor: AppColors.auditColor,
+          //   heroTag: "sqlite_query_fab",
+          //   child: const Icon(Icons.storage, color: Colors.white),
+          //   tooltip: 'SQLite Query Executor',
+          // ),
         ],
       ),
       body: BlocBuilder<DashboardCubit, DashboardState>(

@@ -230,7 +230,7 @@ class TicketCard extends StatelessWidget {
                     child: Text(
                       "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w400,
                         fontFamily: fontFamilyMontserrat,
                         color: AppColors.color555555,
@@ -246,7 +246,7 @@ class TicketCard extends StatelessWidget {
                           ? "Due : ${Utils.formatDataForTicketCard(dueDate)}"
                           : "",
                       style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w400,
                         fontFamily: fontFamilyMontserrat,
                         color: AppColors.color555555,
