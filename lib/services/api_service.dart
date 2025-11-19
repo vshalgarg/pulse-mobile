@@ -62,8 +62,6 @@ class ApiService {
     try {
 
       dynamic dataPayload;
-
-      print("vishal printing data: $data");
       
       if (useFormDataFormat) {
         // Handle FormData creation

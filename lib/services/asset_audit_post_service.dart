@@ -296,19 +296,15 @@ class AssetAuditPostService {
           .createCorrectiveMaintenance(processedData);
 
       Logger.infoLog("CM ticket creation response received: ${response.keys}");
-      print("vishal printing response: $response");
 
       if (response.containsKey('cmSiteReqId')) {
-        print("vishal printing response: $response");
         final cmSiteReqId = response['cmSiteReqId'] as int;
 
-        print("vishal printing cmSiteReqId: $cmSiteReqId");
         Logger.infoLog("CM ticket created with ID: $cmSiteReqId");
 
         // Upload customer photo and attachments using the extracted IDs
         Logger.infoLog("About to call _uploadCMImagesAndAttachments...");
         Logger.infoLog("customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
-        print("vishal printing customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
         await _uploadCMImagesAndAttachments(
           customerPhotoId,
           customerAttachmentId,
@@ -444,7 +440,6 @@ class AssetAuditPostService {
     dynamic customerOriginalFileName,
   }) async {
     try {
-      print("vishal printing _uploadCMImagesAndAttachments: $customerPhotoId");
       Logger.infoLog("_uploadCMImagesAndAttachments called with cmSiteReqId: $cmSiteReqId");
       Logger.infoLog("customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
       
@@ -469,7 +464,6 @@ class AssetAuditPostService {
       // Check for attachment ID
       if (customerAttachmentId != null && customerAttachmentId is String) {
         Logger.infoLog("Retrieving attachment with ID: $customerAttachmentId");
-        print("vishal printing customerAttachmentId: $customerAttachmentId");
         
         // Try to use original file first if available
         if (customerOriginalFilePath != null && customerOriginalFilePath.toString().trim().isNotEmpty) {
@@ -486,9 +480,7 @@ class AssetAuditPostService {
         if (attachment == null) {
           final attachmentData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(customerAttachmentId);
-          print("vishal printing attachmentData: $attachmentData");
           if (attachmentData != null) {
-            print("vishal printing attachmentData: $attachmentData");
             Logger.infoLog("Attachment data retrieved, converting to File...");
             
             // Use original filename if available, otherwise generate one
@@ -515,7 +507,6 @@ class AssetAuditPostService {
             
             attachment = tempFile;
             Logger.infoLog("Customer attachment File created with filename: $fileName");
-            print("vishal printing attachment: $attachment");
           } else {
             Logger.errorLog("Failed to retrieve image data for attachment ID: $customerAttachmentId");
           }

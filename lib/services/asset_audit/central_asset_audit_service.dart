@@ -249,8 +249,6 @@ class CentralAssetAuditService {
       final checklistDataRaw = await ServiceLocator().cmRepository
           .getChecklistData(entityId);
 
-      print("vishal printing checklistDataRaw: $checklistDataRaw");
-
       // Convert to the expected format
       final Map<String, List<Map<String, dynamic>>> checklistData = {};
       checklistDataRaw.forEach((key, value) {
@@ -272,14 +270,11 @@ class CentralAssetAuditService {
             activityType: 'correctiveMaintenance',
           );
 
-      print("vishal printing checklistData: $checklistData");
-
       Logger.debugLog(
         '✅ CM checklist data saved successfully to SQLite: $isSaved',
       );
       return isSaved;
     } catch (e) {
-      print("vishal printing e: $e");
       Logger.errorLog('❌ Error downloading CM checklist data: $e');
       return false;
     }

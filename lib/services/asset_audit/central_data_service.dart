@@ -917,8 +917,6 @@ class CentralAssetAuditDataService {
         tableName = 'cm_sites_data'; // Default fallback
       }
 
-      print("vishal printing activityType: $activityType, tableName: $tableName");
-
       await db.insert(tableName, {
         'site_id': siteId,
         'entity_id': entityId,

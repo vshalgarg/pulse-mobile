@@ -117,7 +117,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         setState(() {
           // State is already updated above, just trigger rebuild
         });
-        
+
         // Notify parent about data changes
         widget.onDataChanged(_pmItems);
       }
@@ -129,7 +129,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     bool isValid = true;
 
     // Get filtered items (excluding conditionally hidden fields)
-    final filteredItems = _filterItemsByConditions(widget.sectionName, _pmItems);
+    final filteredItems = _filterItemsByConditions(
+      widget.sectionName,
+      _pmItems,
+    );
 
     for (final pmItem in filteredItems) {
       final respValue = pmItem['resp'];
@@ -177,7 +180,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     List<String> errors = [];
 
     // Get filtered items (excluding conditionally hidden fields)
-    final filteredItems = _filterItemsByConditions(widget.sectionName, _pmItems);
+    final filteredItems = _filterItemsByConditions(
+      widget.sectionName,
+      _pmItems,
+    );
 
     for (final pmItem in filteredItems) {
       final respValue = pmItem['resp'];
@@ -254,14 +260,6 @@ class _PMPageWidgetState extends State<PMPageWidget> {
 
   /// Handle right button press with validation
   void _handleRightButtonPress() {
-    // Validate all fields
-    //TODO vishal enable validation by uncommenting this
-    // if (!_validateAllFields()) {
-    //   final errors = _getValidationErrors();
-    //   _showValidationErrorDialog(errors);
-    //   return;
-    // }
-
     // If validation passes, proceed with the original callback
     widget.onRightButtonPressed();
   }
@@ -284,10 +282,9 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       // Find CT availability item
       final ctAvailabilityItem = items.firstWhere(
         (item) =>
-            item['checklist_desc']
-                ?.toString()
-                .toLowerCase()
-                .contains('ct availability') ??
+            item['checklist_desc']?.toString().toLowerCase().contains(
+              'ct availability',
+            ) ??
             false,
         orElse: () => {},
       );
@@ -318,7 +315,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     _sortItemsByOrder();
 
     // Filter items based on conditional logic (CT availability, etc.)
-    final filteredItems = _filterItemsByConditions(widget.sectionName, _pmItems);
+    final filteredItems = _filterItemsByConditions(
+      widget.sectionName,
+      _pmItems,
+    );
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -329,10 +329,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
           if (_hasChanges) {
             _showUnsavedChangesDialog();
           } else {
-            navigateBackOrToHome(
-              context,
-              targetContext: widget.parentContext,
-            );
+            navigateBackOrToHome(context, targetContext: widget.parentContext);
           }
         },
       ),
@@ -415,7 +412,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                                     readonlyFields: widget.readonlyFields,
                                     onValueChanged: (updatedItem) {
                                       if (mounted) {
-                                        _onItemChanged(originalIndex, updatedItem);
+                                        _onItemChanged(
+                                          originalIndex,
+                                          updatedItem,
+                                        );
                                       }
                                     },
                                   );
@@ -452,10 +452,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
 
   void _showUnsavedChangesDialog() {
     if (!_hasChanges) {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(context, targetContext: widget.parentContext);
       return;
     }
 
@@ -467,7 +464,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         onSaveAndExit: () async {
           // Save data and then navigate back
           await widget.submitDataWhenExit();
-          
+
           if (mounted) {
             widget.onDataChanged(_pmItems);
           }

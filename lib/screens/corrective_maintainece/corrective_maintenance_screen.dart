@@ -655,7 +655,6 @@ class _CorrectiveMaintenanceScreenState
             Logger.infoLog("🔍 [CM] Separate checklist lookup result: ${localChecklistData.length} equipment types");
             
             Logger.infoLog("🔍 [CM] Local checklist table returned ${localChecklistData.length} equipment types");
-            print("vishal printing localChecklistData: $localChecklistData");
 
             if (localChecklistData.isNotEmpty) {
               Logger.infoLog("✅ [CM] Checklist data loaded from separate table with types: ${localChecklistData.keys.toList()}");
