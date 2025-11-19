@@ -4,7 +4,7 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
-import '../../../models/cm_checklist_model.dart';
+import '../../../models/cm_checklist_model.dart';  
 
 class CCUChecklistSection extends StatefulWidget {
   final VoidCallback onFormChanged;
