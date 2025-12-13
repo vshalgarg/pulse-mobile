@@ -28,6 +28,12 @@ class AllSiteModel {
   final String? visitingPersonImageId;
   final List<GenInsCheckListData>? checklistItems;
 
+  final String? visitorName;
+  final String? visitorContactNo;
+  final String? organisationName;
+  final String? roleDesignation;
+  final String? reportingManager;
+
   final String? svlId;
   final String? giId;
 
@@ -59,6 +65,12 @@ class AllSiteModel {
     this.svlId,
     this.checklistItems,
     this.giId,
+
+    this.visitorName,
+    this.visitorContactNo,
+    this.organisationName,
+    this.roleDesignation,
+    this.reportingManager,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
@@ -88,6 +100,12 @@ class AllSiteModel {
           json['infra_district_engineer_contact_no']?.toString() ?? '',
       ownerName: json['owner_name']?.toString() ?? '',
       ownerPhone: json['owner_contact_no']?.toString() ?? '',
+      visitorName: json['visitor_name']?.toString() ?? '',
+      visitorContactNo: json['visitor_contact_no']?.toString() ?? '',
+      organisationName: json['organisation_name']?.toString() ?? '',
+      roleDesignation: json['role_designation']?.toString() ?? '',
+      reportingManager: json['reporting_manager']?.toString() ?? '',
+
 
       // site visit log data
       siteVisitLogId: json['site_visit_log_id'] != null
@@ -143,6 +161,12 @@ class AllSiteModel {
       'svl_id': svlId,
       'checklist_items': checklistItems?.map((item) => item.toJson()).toList(),
       'gi_id': giId,
+
+      'visitor_name': visitorName,
+      'visitor_contact_no': visitorContactNo,
+      'organisation_name': organisationName,
+      'role_designation': roleDesignation,
+      'reporting_manager': reportingManager,
     };
   }
 

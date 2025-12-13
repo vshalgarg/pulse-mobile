@@ -273,6 +273,14 @@ class _TicketScreenState extends State<TicketScreen> {
           siteVisitLogDate: apiData['visitDate']?.toString(),
           purposeOfVisit: apiData['purposeOfVisit']?.toString(),
           visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
+          visitorName: apiData['visitorName']?.toString() ?? apiData['visitor_name']?.toString(),
+          visitorContactNo: apiData['visitorContactNo']?.toString() ?? apiData['visitor_contact_no']?.toString(),
+          organisationName: apiData['organisationName']?.toString() ?? 
+              apiData['organisation_name']?.toString() ?? 
+              apiData['organizationName']?.toString() ?? 
+              apiData['organization_name']?.toString(),
+          roleDesignation: apiData['roleDesignation']?.toString() ?? apiData['role_designation']?.toString(),
+          reportingManager: apiData['reportingManager']?.toString() ?? apiData['reporting_manager']?.toString(),
         ); // site visit screen
 
         final parentContext = context;

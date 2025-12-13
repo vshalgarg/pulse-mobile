@@ -305,7 +305,6 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       }
     }
 
-    // Return all items if no filtering needed
     return items;
   }
 

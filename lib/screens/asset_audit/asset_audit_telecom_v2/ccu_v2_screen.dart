@@ -279,7 +279,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     bool? isQRCodeScanned1,
     String? qrCodeScannedTs1,
   ) {
-    //Logger.debugLog("vishal ")
+  
 
     final isValidSerial = _validateCabinetSerialNumber(
       _cabinetSerialController.text,

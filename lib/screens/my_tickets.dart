@@ -219,6 +219,14 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           siteVisitLogDate: data.apiData['visitDate']?.toString(),
           purposeOfVisit: data.apiData['purposeOfVisit']?.toString(),
           visitingPersonImageId: data.apiData['visitingPersonImageId']?.toString(),
+          visitorName: data.apiData['visitorName']?.toString() ?? data.apiData['visitor_name']?.toString(),
+          visitorContactNo: data.apiData['visitorContactNo']?.toString() ?? data.apiData['visitor_contact_no']?.toString(),
+          organisationName: data.apiData['organisationName']?.toString() ?? 
+              data.apiData['organisation_name']?.toString() ?? 
+              data.apiData['organizationName']?.toString() ?? 
+              data.apiData['organization_name']?.toString(),
+          roleDesignation: data.apiData['roleDesignation']?.toString() ?? data.apiData['role_designation']?.toString(),
+          reportingManager: data.apiData['reportingManager']?.toString() ?? data.apiData['reporting_manager']?.toString(),
         );
         
         final parentContext = context;

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
@@ -42,6 +43,22 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   final TextEditingController _ownerController = TextEditingController();
   final TextEditingController _ownerContactController = TextEditingController();
 
+  final TextEditingController _visitorNameController = TextEditingController();
+  final TextEditingController _visitorContactNoController = TextEditingController();
+  final TextEditingController _roleDesignationController = TextEditingController();
+  final TextEditingController _reportingManagerController = TextEditingController();
+
+  // Organization Name dropdown
+  String? _selectedOrganization;
+  final List<String> _organizationOptions = [
+    'Nexgen',
+    'Skipper',
+    'BSNL',
+    'TCS',
+    'HFCL',
+    'CERAGON',
+  ];
+
   late CentralAssetAuditService _service;
   String? _uploadedImgId;
   bool _hasFormDataChanges = false;
@@ -66,6 +83,36 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         });
       }
     });
+
+    // Add listeners to visitor field controllers to track changes
+    _visitorNameController.addListener(() {
+      if (!_hasFormDataChanges) {
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
+    _visitorContactNoController.addListener(() {
+      if (!_hasFormDataChanges) {
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
+    _roleDesignationController.addListener(() {
+      if (!_hasFormDataChanges) {
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
+    _reportingManagerController.addListener(() {
+      if (!_hasFormDataChanges) {
+        setState(() {
+          _hasFormDataChanges = true;
+        });
+      }
+    });
   }
 
   void _initializeFormData() {
@@ -74,13 +121,19 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         widget.siteData.purposeOfVisit ??
         ""; // Use existing purpose of visit if available
 
+    _visitorNameController.text = widget.siteData.visitorName ?? "";
+    _visitorContactNoController.text = widget.siteData.visitorContactNo ?? "";
+    _selectedOrganization = widget.siteData.organisationName;
+    _roleDesignationController.text = widget.siteData.roleDesignation ?? "";
+    _reportingManagerController.text = widget.siteData.reportingManager ?? "";
+
     // Initialize infra engineer fields with site data
     _infraEngineerController.text = widget.siteData.infraEngineerName ?? "";
     _infraEngineerContactController.text =
         widget.siteData.infraEngineerPhone ?? "";
     _ownerController.text = widget.siteData.ownerName ?? "";
     _ownerContactController.text = widget.siteData.ownerPhone ?? "";
-
+   
     // Handle existing image if available
     print("🔍 visitingPersonImageId: ${widget.siteData.infraEngineerName}");
     print(
@@ -172,6 +225,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     _infraEngineerContactController.dispose();
     _ownerController.dispose();
     _ownerContactController.dispose();
+    _visitorNameController.dispose();
+    _visitorContactNoController.dispose();
+    _roleDesignationController.dispose();
+    _reportingManagerController.dispose();
     super.dispose();
   }
 
@@ -310,6 +367,11 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "visitDate":
             "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}",
         "purposeOfVisit": _purposeController.text.trim(),
+        "visitorName": _visitorNameController.text.trim(),
+        "visitorContactNo": _visitorContactNoController.text.trim(),
+        "organisationName": _selectedOrganization ?? "",
+        "roleDesignation": _roleDesignationController.text.trim(),
+        "reportingManager": _reportingManagerController.text.trim(),
         "isActive": true,
         "remarks": "",
       };
@@ -416,6 +478,66 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         ),
         const SizedBox(height: 15),
 
+
+        // Visitor Name
+        CustomFormField(
+          label: "Visitor Name",
+          controller: _visitorNameController,
+          isRequired: false,
+          isEditable: true,
+        ),
+        const SizedBox(height: 15),
+
+        // Visitor Contact No.
+        CustomFormField(
+          label: "Visitor Contact No.",
+          controller: _visitorContactNoController,
+          isRequired: false,
+          isEditable: true,
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 15),
+
+        // Organization Name
+        CustomDropdown(
+          label: "Organization Name",
+          items: _organizationOptions,
+          initialValue: _selectedOrganization,
+          onChanged: (value) {
+            if (!_hasFormDataChanges) {
+              setState(() {
+                _hasFormDataChanges = true;
+              });
+            }
+            setState(() {
+              _selectedOrganization = value;
+            });
+          },
+        ),
+        const SizedBox(height: 15),
+
+
+        // Role/Designation
+        CustomFormField(
+          label: "Role/Designation",
+          controller: _roleDesignationController,
+          isRequired: false,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+        ),
+        const SizedBox(height: 15),
+
+        // Reporting Manager
+        CustomFormField(
+          label: "Reporting Manager",
+          controller: _reportingManagerController,
+          isRequired: false,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+        ),
+        const SizedBox(height: 15),
+
+
         // Purpose of Visit (Multi-line)
         CustomRemarksField(
           label: "Purpose of Visit",
@@ -428,12 +550,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // Add a Selfie Section
         Builder(
           builder: (context) {
-            print(
-              "🔍 Building ImageUploadField - _fetchedImageData: ${_fetchedImageData != null ? 'HAS_DATA' : 'NULL'}",
-            );
-            print(
-              "🔍 Building ImageUploadField - _fetchedImageData length: ${_fetchedImageData?.length ?? 0}",
-            );
             return ImageUploadField(
               label: "Add a Selfie",
               placeholder: "Selfie",
@@ -495,6 +611,32 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   }
 
   Future<void> _submitForm({bool navigateOnSuccess = true}) async {
+
+    if (_visitorNameController.text.trim().isEmpty) {
+      showCustomToast(context, "Please enter visitor name");
+      return;
+    }
+
+    if (_visitorContactNoController.text.trim().isEmpty) {
+      showCustomToast(context, "Please enter visitor contact no.");
+      return;
+    }
+
+    if (_selectedOrganization == null || _selectedOrganization!.isEmpty) {
+      showCustomToast(context, "Please select organization name");
+      return;
+    }
+
+    if (_roleDesignationController.text.trim().isEmpty) {
+      showCustomToast(context, "Please enter role/designation");
+      return;
+    }
+
+    if (_reportingManagerController.text.trim().isEmpty) {
+      showCustomToast(context, "Please enter reporting manager");
+      return;
+    }
+
     if (_purposeController.text.trim().isEmpty) {
       showCustomToast(context, "Please enter purpose of visit");
       return;
