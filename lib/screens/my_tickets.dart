@@ -219,6 +219,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           siteVisitLogDate: data.apiData['visitDate']?.toString(),
           purposeOfVisit: data.apiData['purposeOfVisit']?.toString(),
           visitingPersonImageId: data.apiData['visitingPersonImageId']?.toString(),
+          officialIdImageId: data.apiData['officialIdImageId']?.toString(),
+          aadharCardImageId: data.apiData['aadharCardImageId']?.toString(),
+          leavingStatusImageId: data.apiData['leavingStatusImageId']?.toString(),
           visitorName: data.apiData['visitorName']?.toString() ?? data.apiData['visitor_name']?.toString(),
           visitorContactNo: data.apiData['visitorContactNo']?.toString() ?? data.apiData['visitor_contact_no']?.toString(),
           organisationName: data.apiData['organisationName']?.toString() ?? 

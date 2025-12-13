@@ -26,6 +26,9 @@ class AllSiteModel {
   final String? siteVisitLogDate;
   final String? purposeOfVisit;
   final String? visitingPersonImageId;
+  final String? officialIdImageId;
+  final String? aadharCardImageId;
+  final String? leavingStatusImageId;
   final List<GenInsCheckListData>? checklistItems;
 
   final String? visitorName;
@@ -63,6 +66,9 @@ class AllSiteModel {
     this.siteVisitLogDate,
     this.purposeOfVisit,
     this.visitingPersonImageId,
+    this.officialIdImageId,
+    this.aadharCardImageId,
+    this.leavingStatusImageId,
     this.svlId,
     this.checklistItems,
     this.giId,
@@ -123,6 +129,21 @@ class AllSiteModel {
       visitingPersonImageId: json['visiting_person_image_id'] != null
           ? json['visiting_person_image_id'].toString()
           : null,
+      officialIdImageId: json['official_id_image_id'] != null
+          ? json['official_id_image_id'].toString()
+          : json['officialIdImageId'] != null
+              ? json['officialIdImageId'].toString()
+              : null,
+      aadharCardImageId: json['aadhar_card_image_id'] != null
+          ? json['aadhar_card_image_id'].toString()
+          : json['aadharCardImageId'] != null
+              ? json['aadharCardImageId'].toString()
+              : null,
+      leavingStatusImageId: json['leaving_status_image_id'] != null
+          ? json['leaving_status_image_id'].toString()
+          : json['leavingStatusImageId'] != null
+              ? json['leavingStatusImageId'].toString()
+              : null,
 
       svlId: json['svl_id'] != null
           ? json['svl_id'].toString()
@@ -161,6 +182,9 @@ class AllSiteModel {
       'site_visit_log_date': siteVisitLogDate,
       'purpose_of_visit': purposeOfVisit,
       'visiting_person_image_id': visitingPersonImageId,
+      'official_id_image_id': officialIdImageId,
+      'aadhar_card_image_id': aadharCardImageId,
+      'leaving_status_image_id': leavingStatusImageId,
       'svl_id': svlId,
       'checklist_items': checklistItems?.map((item) => item.toJson()).toList(),
       'gi_id': giId,

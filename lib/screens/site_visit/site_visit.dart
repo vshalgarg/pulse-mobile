@@ -61,6 +61,21 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   String? _fetchedImageData;
   File? _selectedImage;
 
+  // Official ID Card
+  String? _officialIdImageId;
+  String? _fetchedOfficialIdImageData;
+  File? _selectedOfficialIdImage;
+
+  // Aadhar Card
+  String? _aadharCardImageId;
+  String? _fetchedAadharCardImageData;
+  File? _selectedAadharCardImage;
+
+  // Status of site at time of leaving
+  String? _leavingStatusImageId;
+  String? _fetchedLeavingStatusImageData;
+  File? _selectedLeavingStatusImage;
+
   @override
   void initState() {
     super.initState();
@@ -203,14 +218,38 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "🔍 Loading image with ID: ${widget.siteData.visitingPersonImageId}",
       );
       // Load the actual image data
-      _loadImage(widget.siteData.visitingPersonImageId!);
+      _loadImage(widget.siteData.visitingPersonImageId!, isSelfie: true);
     } else {
       print("🔍 No visitingPersonImageId found or empty");
       _uploadedImgId = null; // Ensure it's null when no image
     }
+
+    // Load Official ID Card image if available
+    if (widget.siteData.officialIdImageId != null &&
+        widget.siteData.officialIdImageId!.isNotEmpty) {
+      _officialIdImageId = widget.siteData.officialIdImageId;
+      print("🔍 Loading Official ID Card image with ID: ${widget.siteData.officialIdImageId}");
+      _loadImage(widget.siteData.officialIdImageId!, isSelfie: false, imageType: 'officialId');
+    }
+
+    // Load Aadhar Card image if available
+    if (widget.siteData.aadharCardImageId != null &&
+        widget.siteData.aadharCardImageId!.isNotEmpty) {
+      _aadharCardImageId = widget.siteData.aadharCardImageId;
+      print("🔍 Loading Aadhar Card image with ID: ${widget.siteData.aadharCardImageId}");
+      _loadImage(widget.siteData.aadharCardImageId!, isSelfie: false, imageType: 'aadharCard');
+    }
+
+    // Load Leaving Status image if available
+    if (widget.siteData.leavingStatusImageId != null &&
+        widget.siteData.leavingStatusImageId!.isNotEmpty) {
+      _leavingStatusImageId = widget.siteData.leavingStatusImageId;
+      print("🔍 Loading Leaving Status image with ID: ${widget.siteData.leavingStatusImageId}");
+      _loadImage(widget.siteData.leavingStatusImageId!, isSelfie: false, imageType: 'leavingStatus');
+    }
   }
 
-  Future<void> _loadImage(String imageId) async {
+  Future<void> _loadImage(String imageId, {bool isSelfie = true, String? imageType}) async {
     try {
       print("🔍 _loadImage called with imageId: $imageId");
       print("🔍 _loadImage imageId type: ${imageId.runtimeType}");
@@ -251,7 +290,21 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
           );
           setState(() {
-            _fetchedImageData = imageData;
+            if (isSelfie) {
+              _fetchedImageData = imageData;
+            } else {
+              switch (imageType) {
+                case 'officialId':
+                  _fetchedOfficialIdImageData = imageData;
+                  break;
+                case 'aadharCard':
+                  _fetchedAadharCardImageData = imageData;
+                  break;
+                case 'leavingStatus':
+                  _fetchedLeavingStatusImageData = imageData;
+                  break;
+              }
+            }
           });
           Logger.debugLog('✅ Image loaded successfully and state updated');
           print("✅ Image loaded successfully and state updated");
@@ -403,6 +456,108 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     }
   }
 
+  Future<void> _uploadOfficialIdCard() async {
+    try {
+      if (_selectedOfficialIdImage == null) {
+        Toastbar.showErrorToastbar('Please select an image first', context);
+        return;
+      }
+
+      final imgId = await _service.uploadImage(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+        imageFile: _selectedOfficialIdImage!,
+        isSelfie: false,
+        activityType: ActivityTypeEnum.siteVisit,
+      );
+
+      if (imgId != null && imgId.isNotEmpty) {
+        setState(() {
+          _officialIdImageId = imgId;
+          _hasFormDataChanges = true;
+        });
+
+        if (imgId.contains("LOCAL_IMAGE_ID")) {
+          showCustomToast(context, 'Official ID Card saved locally (offline mode)');
+        } else {
+          showCustomToast(context, 'Official ID Card uploaded successfully');
+        }
+      } else {
+        showCustomToast(context, 'Failed to upload Official ID Card');
+        throw Exception('Failed to get image ID');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading official ID card: $e');
+    }
+  }
+
+  Future<void> _uploadAadharCard() async {
+    try {
+      if (_selectedAadharCardImage == null) {
+        Toastbar.showErrorToastbar('Please select an image first', context);
+        return;
+      }
+
+      final imgId = await _service.uploadImage(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+        imageFile: _selectedAadharCardImage!,
+        isSelfie: false,
+        activityType: ActivityTypeEnum.siteVisit,
+      );
+
+      if (imgId != null && imgId.isNotEmpty) {
+        setState(() {
+          _aadharCardImageId = imgId;
+          _hasFormDataChanges = true;
+        });
+
+        if (imgId.contains("LOCAL_IMAGE_ID")) {
+          showCustomToast(context, 'Aadhar Card saved locally (offline mode)');
+        } else {
+          showCustomToast(context, 'Aadhar Card uploaded successfully');
+        }
+      } else {
+        showCustomToast(context, 'Failed to upload Aadhar Card');
+        throw Exception('Failed to get image ID');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading aadhar card: $e');
+    }
+  }
+
+  Future<void> _uploadLeavingStatus() async {
+    try {
+      if (_selectedLeavingStatusImage == null) {
+        Toastbar.showErrorToastbar('Please select an image first', context);
+        return;
+      }
+
+      final imgId = await _service.uploadImage(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+        imageFile: _selectedLeavingStatusImage!,
+        isSelfie: false,
+        activityType: ActivityTypeEnum.siteVisit,
+      );
+
+      if (imgId != null && imgId.isNotEmpty) {
+        setState(() {
+          _leavingStatusImageId = imgId;
+          _hasFormDataChanges = true;
+        });
+
+        if (imgId.contains("LOCAL_IMAGE_ID")) {
+          showCustomToast(context, 'Leaving status saved locally (offline mode)');
+        } else {
+          showCustomToast(context, 'Leaving status uploaded successfully');
+        }
+      } else {
+        showCustomToast(context, 'Failed to upload leaving status');
+        throw Exception('Failed to get image ID');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading leaving status: $e');
+    }
+  }
+
   Future<void> postSiteVisitLog() async {
     try {
       final now = DateTime.now();
@@ -428,6 +583,21 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "orgId": _selectedOrganizationId ?? 0,
         "roleDesignation": _roleDesignationController.text.trim(),
         "reportingManager": _reportingManagerController.text.trim(),
+        "officialIdImageId": _officialIdImageId != null
+            ? (_officialIdImageId!.contains("LOCAL_IMAGE_ID")
+                  ? _officialIdImageId! // Send local ID as string for offline mode
+                  : (int.tryParse(_officialIdImageId!) ?? 0)) // Send server ID as int for online mode
+            : 0,
+        "aadharCardImageId": _aadharCardImageId != null
+            ? (_aadharCardImageId!.contains("LOCAL_IMAGE_ID")
+                  ? _aadharCardImageId! // Send local ID as string for offline mode
+                  : (int.tryParse(_aadharCardImageId!) ?? 0)) // Send server ID as int for online mode
+            : 0,
+        "leavingStatusImageId": _leavingStatusImageId != null
+            ? (_leavingStatusImageId!.contains("LOCAL_IMAGE_ID")
+                  ? _leavingStatusImageId! // Send local ID as string for offline mode
+                  : (int.tryParse(_leavingStatusImageId!) ?? 0)) // Send server ID as int for online mode
+            : 0,
         "isActive": true,
         "remarks": "",
       };
@@ -638,6 +808,93 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
                     _selectedImage = null;
                     _uploadedImgId = null;
                     _fetchedImageData = null;
+                  });
+                }
+              },
+            );
+          },
+        ),
+        getHeight(15),
+
+        // Official ID Card Section
+        Builder(
+          builder: (context) {
+            return ImageUploadField(
+              label: "Official ID Card",
+              placeholder: "Official ID Card",
+              isRequired: false,
+              externalImageUrl: _fetchedOfficialIdImageData,
+              onImageSelected: (file) {
+                if (file != null) {
+                  debugPrint("Selected official ID card image path: ${file.path}");
+                  setState(() {
+                    _selectedOfficialIdImage = file;
+                    _hasFormDataChanges = true;
+                  });
+                  _uploadOfficialIdCard();
+                } else {
+                  setState(() {
+                    _selectedOfficialIdImage = null;
+                    _officialIdImageId = null;
+                    _fetchedOfficialIdImageData = null;
+                  });
+                }
+              },
+            );
+          },
+        ),
+        getHeight(15),
+
+        // Aadhar Card Section
+        Builder(
+          builder: (context) {
+            return ImageUploadField(
+              label: "Aadhar Card",
+              placeholder: "Aadhar Card",
+              isRequired: false,
+              externalImageUrl: _fetchedAadharCardImageData,
+              onImageSelected: (file) {
+                if (file != null) {
+                  debugPrint("Selected aadhar card image path: ${file.path}");
+                  setState(() {
+                    _selectedAadharCardImage = file;
+                    _hasFormDataChanges = true;
+                  });
+                  _uploadAadharCard();
+                } else {
+                  setState(() {
+                    _selectedAadharCardImage = null;
+                    _aadharCardImageId = null;
+                    _fetchedAadharCardImageData = null;
+                  });
+                }
+              },
+            );
+          },
+        ),
+        getHeight(15),
+
+        // Status of site at time of leaving Section
+        Builder(
+          builder: (context) {
+            return ImageUploadField(
+              label: "Status of site at time of leaving",
+              placeholder: "Status of site at time of leaving",
+              isRequired: false,
+              externalImageUrl: _fetchedLeavingStatusImageData,
+              onImageSelected: (file) {
+                if (file != null) {
+                  debugPrint("Selected leaving status image path: ${file.path}");
+                  setState(() {
+                    _selectedLeavingStatusImage = file;
+                    _hasFormDataChanges = true;
+                  });
+                  _uploadLeavingStatus();
+                } else {
+                  setState(() {
+                    _selectedLeavingStatusImage = null;
+                    _leavingStatusImageId = null;
+                    _fetchedLeavingStatusImageData = null;
                   });
                 }
               },
