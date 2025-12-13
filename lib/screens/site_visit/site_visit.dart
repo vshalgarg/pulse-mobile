@@ -49,15 +49,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   final TextEditingController _reportingManagerController = TextEditingController();
 
   // Organization Name dropdown
-  String? _selectedOrganization;
-  final List<String> _organizationOptions = [
-    'Nexgen',
-    'Skipper',
-    'BSNL',
-    'TCS',
-    'HFCL',
-    'CERAGON',
-  ];
+  int? _selectedOrganizationId;
+  List<Map<String, dynamic>> _organizationList = [];
+  List<String> _organizationOptions = [];
 
   late CentralAssetAuditService _service;
   String? _uploadedImgId;
@@ -70,6 +64,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
 
+    _loadOrganisationList();
     _initializeFormData();
 
     // Add listener to purpose controller to track changes
@@ -115,6 +110,48 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     });
   }
 
+  Future<void> _loadOrganisationList() async {
+    try {
+      final repository = ServiceLocator().sitesRepository;
+      final organisations = await repository.getOrganisationList();
+      
+      setState(() {
+        _organizationList = organisations;
+        _organizationOptions = organisations.map((org) => org['org_name'] as String).toList();
+      });
+
+      // After loading, initialize the selected organization ID if we have a name from siteData
+      if (widget.siteData.organisationName != null && widget.siteData.organisationName!.isNotEmpty) {
+        try {
+          final matchingOrg = _organizationList.firstWhere(
+            (org) => org['org_name'] == widget.siteData.organisationName,
+          );
+          setState(() {
+            _selectedOrganizationId = matchingOrg['org_id'] as int?;
+          });
+        } catch (e) {
+          // Organization name not found in list, keep _selectedOrganizationId as null
+          Logger.debugLog('Organization "${widget.siteData.organisationName}" not found in list');
+        }
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading organisation list: $e');
+      // Keep empty list on error
+    }
+  }
+
+  String? _getOrganizationNameById(int? orgId) {
+    if (orgId == null || _organizationList.isEmpty) return null;
+    try {
+      final org = _organizationList.firstWhere(
+        (org) => org['org_id'] == orgId,
+      );
+      return org['org_name'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
   void _initializeFormData() {
     // Initialize form fields with site data
     _purposeController.text =
@@ -123,7 +160,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
     _visitorNameController.text = widget.siteData.visitorName ?? "";
     _visitorContactNoController.text = widget.siteData.visitorContactNo ?? "";
-    _selectedOrganization = widget.siteData.organisationName;
+    // Organization ID will be set in _loadOrganisationList after list is loaded
     _roleDesignationController.text = widget.siteData.roleDesignation ?? "";
     _reportingManagerController.text = widget.siteData.reportingManager ?? "";
 
@@ -369,7 +406,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "purposeOfVisit": _purposeController.text.trim(),
         "visitorName": _visitorNameController.text.trim(),
         "visitorContactNo": _visitorContactNoController.text.trim(),
-        "organisationName": _selectedOrganization ?? "",
+        "orgId": _selectedOrganizationId ?? 0,
         "roleDesignation": _roleDesignationController.text.trim(),
         "reportingManager": _reportingManagerController.text.trim(),
         "isActive": true,
@@ -502,16 +539,28 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         CustomDropdown(
           label: "Organization Name",
           items: _organizationOptions,
-          initialValue: _selectedOrganization,
+          initialValue: _getOrganizationNameById(_selectedOrganizationId),
           onChanged: (value) {
             if (!_hasFormDataChanges) {
               setState(() {
                 _hasFormDataChanges = true;
               });
             }
-            setState(() {
-              _selectedOrganization = value;
-            });
+            if (value != null) {
+              final selectedOrg = _organizationList.firstWhere(
+                (org) => org['org_name'] == value,
+                orElse: () => {},
+              );
+              setState(() {
+                _selectedOrganizationId = selectedOrg.isNotEmpty
+                    ? selectedOrg['org_id'] as int?
+                    : null;
+              });
+            } else {
+              setState(() {
+                _selectedOrganizationId = null;
+              });
+            }
           },
         ),
         const SizedBox(height: 15),
@@ -622,7 +671,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       return;
     }
 
-    if (_selectedOrganization == null || _selectedOrganization!.isEmpty) {
+    if (_selectedOrganizationId == null) {
       showCustomToast(context, "Please select organization name");
       return;
     }
