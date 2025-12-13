@@ -23,11 +23,13 @@ import 'package:flutter_svg/svg.dart';
 class SiteVisitScreen extends StatefulWidget {
   final AllSiteModel siteData;
   final BuildContext? parentContext;
+  final List<Map<String, dynamic>>? preloadedOrganisationList;
 
   const SiteVisitScreen({
     super.key,
     required this.siteData,
     this.parentContext,
+    this.preloadedOrganisationList,
   });
 
   @override
@@ -64,8 +66,8 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
 
-    _loadOrganisationList();
     _initializeFormData();
+    _loadOrganisationList();
 
     // Add listener to purpose controller to track changes
     _purposeController.addListener(() {
@@ -112,16 +114,32 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
   Future<void> _loadOrganisationList() async {
     try {
-      final repository = ServiceLocator().sitesRepository;
-      final organisations = await repository.getOrganisationList();
+      List<Map<String, dynamic>> organisations;
+      
+      // Use preloaded organisation list if available, otherwise fetch it
+      if (widget.preloadedOrganisationList != null && widget.preloadedOrganisationList!.isNotEmpty) {
+        organisations = widget.preloadedOrganisationList!;
+        Logger.debugLog('✅ Using preloaded organisation list: ${organisations.length} organisations');
+      } else {
+        final repository = ServiceLocator().sitesRepository;
+        organisations = await repository.getOrganisationList();
+        Logger.debugLog('✅ Fetched organisation list: ${organisations.length} organisations');
+      }
       
       setState(() {
         _organizationList = organisations;
         _organizationOptions = organisations.map((org) => org['org_name'] as String).toList();
       });
 
-      // After loading, initialize the selected organization ID if we have a name from siteData
-      if (widget.siteData.organisationName != null && widget.siteData.organisationName!.isNotEmpty) {
+      // After loading, initialize the selected organization ID
+      // First try to use orgId directly from siteData (most reliable)
+      if (widget.siteData.orgId != null) {
+        setState(() {
+          _selectedOrganizationId = widget.siteData.orgId;
+        });
+        Logger.debugLog('✅ Set selected organization ID from siteData: ${widget.siteData.orgId}');
+      } else if (widget.siteData.organisationName != null && widget.siteData.organisationName!.isNotEmpty) {
+        // Fallback: try to find by organisationName from siteData
         try {
           final matchingOrg = _organizationList.firstWhere(
             (org) => org['org_name'] == widget.siteData.organisationName,
@@ -129,9 +147,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           setState(() {
             _selectedOrganizationId = matchingOrg['org_id'] as int?;
           });
+          Logger.debugLog('✅ Set selected organization ID from organisationName: ${matchingOrg['org_id']}');
         } catch (e) {
           // Organization name not found in list, keep _selectedOrganizationId as null
-          Logger.debugLog('Organization "${widget.siteData.organisationName}" not found in list');
+          Logger.debugLog('⚠️ Organization "${widget.siteData.organisationName}" not found in list');
         }
       }
     } catch (e) {

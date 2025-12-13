@@ -1,6 +1,6 @@
 import 'package:app/enum/activity_type_enum.dart';
-import 'package:app/constants/constants_strings.dart';
 import 'package:app/repositories/cm_repository.dart';
+import 'package:app/repositories/sites.repository.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/services/pdf_download_service.dart';
 import '../api_service.dart';
@@ -233,6 +233,34 @@ class CentralApiService {
         );
 
         print("parsedData: site visit log data ${parsedData}");
+
+        // Fetch organisation list and map orgId to organisationName
+        try {
+          
+          final sitesRepository = SitesRepository(_apiService);
+          final organisationList = await sitesRepository.getOrganisationList();
+          
+          // Include organisation list in the response so it's available to the screen
+          parsedData['organisationList'] = organisationList;
+          Logger.debugLog('✅ Organisation list fetched and included in response: ${organisationList.length} organisations');
+          
+          // If response has orgId, find the matching organisation name
+          if (parsedData.containsKey('orgId') && parsedData['orgId'] != null) {
+            final orgId = parsedData['orgId'];
+            try {
+              final matchingOrg = organisationList.firstWhere(
+                (org) => org['org_id'] == orgId,
+              );
+              parsedData['organisationName'] = matchingOrg['org_name'];
+              Logger.debugLog('✅ Mapped orgId $orgId to organisationName: ${matchingOrg['org_name']}');
+            } catch (e) {
+              Logger.debugLog('⚠️ Organisation with orgId $orgId not found in list');
+            }
+          }
+        } catch (e) {
+          Logger.errorLog('❌ Error fetching organisation list: $e');
+          // Continue without organisation name mapping
+        }
 
         return parsedData;
       } else {

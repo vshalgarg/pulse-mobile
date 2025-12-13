@@ -279,10 +279,22 @@ class _TicketScreenState extends State<TicketScreen> {
               apiData['organisation_name']?.toString() ?? 
               apiData['organizationName']?.toString() ?? 
               apiData['organization_name']?.toString(),
+          orgId: apiData['orgId'] != null 
+              ? (apiData['orgId'] is int 
+                  ? apiData['orgId'] as int 
+                  : int.tryParse(apiData['orgId'].toString()))
+              : null,
           roleDesignation: apiData['roleDesignation']?.toString() ?? apiData['role_designation']?.toString(),
           reportingManager: apiData['reportingManager']?.toString() ?? apiData['reporting_manager']?.toString(),
         ); // site visit screen
 
+        // Extract organisation list from API response if available
+        final organisationList = apiData['organisationList'] != null
+            ? (apiData['organisationList'] as List)
+                .map((org) => Map<String, dynamic>.from(org))
+                .toList()
+            : null;
+        
         final parentContext = context;
         Navigator.push(
           context,
@@ -290,6 +302,7 @@ class _TicketScreenState extends State<TicketScreen> {
             builder: (_) => SiteVisitScreen(
               siteData: siteData,
               parentContext: parentContext,
+              preloadedOrganisationList: organisationList,
             ),
           ),
         );

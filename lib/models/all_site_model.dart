@@ -31,6 +31,7 @@ class AllSiteModel {
   final String? visitorName;
   final String? visitorContactNo;
   final String? organisationName;
+  final int? orgId;
   final String? roleDesignation;
   final String? reportingManager;
 
@@ -69,6 +70,7 @@ class AllSiteModel {
     this.visitorName,
     this.visitorContactNo,
     this.organisationName,
+    this.orgId,
     this.roleDesignation,
     this.reportingManager,
   });
@@ -103,6 +105,7 @@ class AllSiteModel {
       visitorName: json['visitor_name']?.toString() ?? '',
       visitorContactNo: json['visitor_contact_no']?.toString() ?? '',
       organisationName: json['organisation_name']?.toString() ?? '',
+      orgId: json['org_id'] != null ? (json['org_id'] is int ? json['org_id'] as int : int.tryParse(json['org_id'].toString())) : null,
       roleDesignation: json['role_designation']?.toString() ?? '',
       reportingManager: json['reporting_manager']?.toString() ?? '',
 
@@ -165,6 +168,7 @@ class AllSiteModel {
       'visitor_name': visitorName,
       'visitor_contact_no': visitorContactNo,
       'organisation_name': organisationName,
+      'org_id': orgId,
       'role_designation': roleDesignation,
       'reporting_manager': reportingManager,
     };
