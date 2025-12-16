@@ -62,6 +62,14 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   final TextEditingController _ebKvaInSebMeterController =
       TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  
+  // New field controllers
+  final TextEditingController _ccuEbReadingController = TextEditingController();
+  final TextEditingController _ccuLoadController = TextEditingController();
+  final TextEditingController _ccuSolarLoadController = TextEditingController();
+  final TextEditingController _ccuBatteryLoadController = TextEditingController();
+  final TextEditingController _dgRunHourController = TextEditingController();
+  final TextEditingController _dieselStockController = TextEditingController();
 
   // Dropdowns
   String? _selectedStatus;
@@ -69,6 +77,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   String? _selectedConnectionType;
   String? _selectedEbConnectionType;
   String? _selectedBatteryStatus;
+  String? _selectedEbMeterDisplayStatus;
+  String? _selectedDgAvailability;
 
   final List<String> _meterStatusOptions = ['OK', 'Faulty'];
   final List<String> _meterTypeOptions = ['Prepaid', 'Postpaid'];
@@ -100,6 +110,9 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
 
       final erData = data?['EnergyReadingData'] ?? {};
+      
+      // Also check EBPageData for DG availability if not found in EnergyReadingData
+      final ebPageData = data?['EBPageData']?.first as Map<String, dynamic>?;
 
       if (erData != null) {
         Logger.debugLog('✅ Initializing form with saved data: $erData');
@@ -119,6 +132,14 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         _ebKvaInSebMeterController.text =
             erData['ebKvaInSebMeter']?.toString() ?? '';
         _remarksController.text = erData['remarks']?.toString() ?? '';
+        
+        // Initialize new field controllers
+        _ccuEbReadingController.text = erData['ccuEbReading']?.toString() ?? '';
+        _ccuLoadController.text = erData['ccuLoad']?.toString() ?? '';
+        _ccuSolarLoadController.text = erData['ccuSolarLoad']?.toString() ?? '';
+        _ccuBatteryLoadController.text = erData['ccuBatteryLoad']?.toString() ?? '';
+        _dgRunHourController.text = erData['dgRunHour']?.toString() ?? '';
+        _dieselStockController.text = erData['dieselStock']?.toString() ?? '';
 
         // Initialize dropdowns
         _selectedStatus = erData['ebMeterStatus']?.toString();
@@ -127,6 +148,38 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         _selectedEbConnectionType = erData['ebConnectionType']?.toString();
         _selectedBatteryStatus = erData['anyMajorHazardousPunchPoint']
             ?.toString();
+        _selectedEbMeterDisplayStatus = erData['ebBillReadingDisplayStatus']?.toString();
+        
+        // Initialize DG Availability - convert boolean to Yes/No
+        // Check from multiple possible sources (backend might store it differently)
+        // First check EnergyReadingData, then EBPageData, then other possible keys
+        dynamic dgAvailability = erData['dgAvailability'] ?? 
+                                erData['dg_availability'] ?? 
+                                erData['dgAvailable'];
+        
+        // If not found in EnergyReadingData, check EBPageData
+        if (dgAvailability == null && ebPageData != null) {
+          dgAvailability = ebPageData['dg_availability'] ?? 
+                          ebPageData['dgAvailability'] ?? 
+                          ebPageData['dgAvailable'];
+        }
+        
+        if (dgAvailability != null) {
+          // Handle boolean, string 'true'/'false', or 'Yes'/'No'
+          if (dgAvailability == true || 
+              dgAvailability == 'true' || 
+              dgAvailability == 'True' || 
+              dgAvailability == 'Yes' ||
+              dgAvailability == 1) {
+            _selectedDgAvailability = 'Yes';
+          } else {
+            // Explicitly set to 'No' when false, 0, 'false', 'False', 'No', etc.
+            _selectedDgAvailability = 'No';
+          }
+        } else {
+          // Default to 'No' if not found, so fields are hidden
+          _selectedDgAvailability = 'No';
+        }
 
         // Initialize image ID
         _ERImageID = erData['ebAttachmentFileId']?.toString();
@@ -140,6 +193,29 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           'ℹ️ No existing energy reading form data found - fresh form',
         );
         print('🔍 DEBUG: No form data found - showing fresh form');
+        
+        // Check EBPageData for DG availability even when EnergyReadingData is empty
+        if (ebPageData != null) {
+          final dgAvailability = ebPageData['dg_availability'] ?? 
+                                 ebPageData['dgAvailability'] ?? 
+                                 ebPageData['dgAvailable'];
+          if (dgAvailability != null) {
+            if (dgAvailability == true || 
+                dgAvailability == 'true' || 
+                dgAvailability == 'True' || 
+                dgAvailability == 'Yes' ||
+                dgAvailability == 1) {
+              _selectedDgAvailability = 'Yes';
+            } else {
+              _selectedDgAvailability = 'No';
+            }
+          } else {
+            _selectedDgAvailability = 'No';
+          }
+        } else {
+          // Default to 'No' if no data found anywhere
+          _selectedDgAvailability = 'No';
+        }
       }
 
       setState(() {
@@ -158,6 +234,12 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       _loadController.addListener(_onFormChanged);
       _ebKvaInSebMeterController.addListener(_onFormChanged);
       _remarksController.addListener(_onFormChanged);
+      _ccuEbReadingController.addListener(_onFormChanged);
+      _ccuLoadController.addListener(_onFormChanged);
+      _ccuSolarLoadController.addListener(_onFormChanged);
+      _ccuBatteryLoadController.addListener(_onFormChanged);
+      _dgRunHourController.addListener(_onFormChanged);
+      _dieselStockController.addListener(_onFormChanged);
     } catch (e) {
       Logger.errorLog('❌ Error loading Energy Reading data: $e');
       setState(() {
@@ -175,34 +257,57 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     }
   }
 
+  // Helper method to parse double values, handling empty strings and whitespace
+  double? _parseDouble(String? value) {
+    if (value == null) return null;
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return null;
+    return double.tryParse(trimmed);
+  }
+
   Future<void> postCurrentScreenData() async {
     try {
       final energyReading = {
+        "createdby": null,
+        "createddt": null,
+        "modifiedby": null,
+        "modifieddt": null,
+        "tenantId": null,
         "energyReadingId": 0,
         "auditSchId": widget.auditSchId,
         "siteAuditSchId": widget.siteAuditSchId,
         "siteId": widget.siteId,
-        "connectionType": _selectedConnectionType ?? "",
-        "consumerNo": _consumerNoController.text,
-        "ebMeterStatus": _selectedStatus ?? "",
-        "ebConnectionType": _selectedEbConnectionType ?? "",
-        "ebMeterType": _selectedMeterType ?? "",
-        "ebMeterNo": _meterNoController.text,
-        "ebMeterReading":
-            double.tryParse(_ebMeterReadingController.text) ?? 0.0,
-        "ebKwhInSebMeter":
-            double.tryParse(_ebKwhInSebMeterController.text) ?? 0.0,
-        "ebKwhInCcu": double.tryParse(_ebKwhInCcuController.text) ?? 0.0,
-        "ebKvaInCcu": double.tryParse(_ebKvhInCcuController.text) ?? 0.0,
-        "voltage": double.tryParse(_voltageController.text) ?? 0.0,
-        "load": double.tryParse(_loadController.text) ?? 0.0,
-        "ebKvaInSebMeter":
-            double.tryParse(_ebKvaInSebMeterController.text) ?? 0.0,
-        "documentName": "",
-        "anyMajorHazardousPunchPoint": _selectedBatteryStatus ?? "",
+        "connectionType": _selectedConnectionType?.isNotEmpty == true ? _selectedConnectionType : null,
+        "consumerNo": _consumerNoController.text.trim().isNotEmpty ? _consumerNoController.text.trim() : null,
+        "ebMeterStatus": _selectedStatus?.isNotEmpty == true ? _selectedStatus : null,
+        "ebConnectionType": _selectedEbConnectionType?.isNotEmpty == true ? _selectedEbConnectionType : null,
+        "ebMeterType": _selectedMeterType?.isNotEmpty == true ? _selectedMeterType : null,
+        "ebMeterNo": _meterNoController.text.trim().isNotEmpty ? _meterNoController.text.trim() : null,
+        "ebMeterReading": _parseDouble(_ebMeterReadingController.text),
+        "ebKwhInSebMeter": _parseDouble(_ebKwhInSebMeterController.text),
+        "ebKvaInSebMeter": _parseDouble(_ebKvaInSebMeterController.text),
+        "ebKwhInCcu": _parseDouble(_ebKwhInCcuController.text),
+        "ebKvaInCcu": _parseDouble(_ebKvhInCcuController.text),
+        "voltage": _parseDouble(_voltageController.text),
+        "yPhaseVoltagePn": null,
+        "bPhaseVoltagePn": null,
+        "loadInRPhaseAmpsInEbMeter": null,
+        "loadInYPhaseAmpsInEbMeter": null,
+        "load": _parseDouble(_loadController.text),
+        "rectificationRequired": null,
+        "anyMajorHazardousPunchPoint": _selectedBatteryStatus?.isNotEmpty == true ? _selectedBatteryStatus : null,
         "ebAttachmentFileId": _ERImageID,
+        "ebBillReadingDisplayStatus": _selectedEbMeterDisplayStatus?.isNotEmpty == true ? _selectedEbMeterDisplayStatus : null,
+        "ccuEbReading": _parseDouble(_ccuEbReadingController.text),
+        "ccuLoad": _parseDouble(_ccuLoadController.text),
+        "ccuSolarLoad": _parseDouble(_ccuSolarLoadController.text),
+        "ccuBatteryLoad": _parseDouble(_ccuBatteryLoadController.text),
+        "dgRunHour": _dgRunHourController.text.trim().isNotEmpty ? _dgRunHourController.text.trim() : null,
+        "dieselStock": _parseDouble(_dieselStockController.text),
         "isActive": true,
-        "remarks": _remarksController.text,
+        "documentName": null,
+        "remarks": _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+        "dgAvailability": _selectedDgAvailability == 'Yes',
       };
 
       Logger.debugLog("📤 EnergyReading: $energyReading");
@@ -305,6 +410,12 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     _loadController.dispose();
     _ebKvaInSebMeterController.dispose();
     _remarksController.dispose();
+    _ccuEbReadingController.dispose();
+    _ccuLoadController.dispose();
+    _ccuSolarLoadController.dispose();
+    _ccuBatteryLoadController.dispose();
+    _dgRunHourController.dispose();
+    _dieselStockController.dispose();
     super.dispose();
   }
 
@@ -580,10 +691,10 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         CustomDropdown(
           label: "EB Meter Display Status",
           items: _meterStatusOptions,
-          initialValue: _selectedStatus,
+          initialValue: _selectedEbMeterDisplayStatus,
           onChanged: (value) {
             setState(() {
-              _selectedStatus = value;
+              _selectedEbMeterDisplayStatus = value;
               _onFormChanged();
             });
           },
@@ -648,7 +759,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         // new addition of fields
         CustomFormField(
           label: "CCU EB Reading(kWh)",
-          controller: _ebMeterReadingController,
+          controller: _ccuEbReadingController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.number,
@@ -658,7 +769,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomFormField(
           label: "CCU Load(kWh)",
-          controller: _ebMeterReadingController,
+          controller: _ccuLoadController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.number,
@@ -668,7 +779,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomFormField(
           label: "CCU Solar Load(kWh)",
-          controller: _ebMeterReadingController,
+          controller: _ccuSolarLoadController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.number,
@@ -678,7 +789,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomFormField(
           label: "CCU Battery Load(kWh)",
-          controller: _ebMeterReadingController,
+          controller: _ccuBatteryLoadController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.number,
@@ -688,33 +799,33 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomFormField(
           label: "DG Availability",
-          controller: _ebMeterReadingController,
-          isRequired: true,
-          isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: '',
+          initialValue: _selectedDgAvailability ?? 'No',
+          isRequired: false,
+          isEditable: false,
         ),
         getHeight(15),
 
-        CustomFormField(
-          label: "DG Run Hour",
-          controller: _ebMeterReadingController,
-          isRequired: true,
-          isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: 'Text',
-        ),
-        getHeight(15),
+        if (_selectedDgAvailability == 'Yes') ...[
+          CustomFormField(
+            label: "DG Run Hour",
+            controller: _dgRunHourController,
+            isRequired: true,
+            isEditable: true,
+            keyboardType: TextInputType.text,
+            hintText: 'Text',
+          ),
+          getHeight(15),
 
-        CustomFormField(
-          label: "Diesel Stock",
-          controller: _ebMeterReadingController,
-          isRequired: true,
-          isEditable: true,
-          keyboardType: TextInputType.number,
-          hintText: 'Numeric',
-        ),
-        getHeight(15),
+          CustomFormField(
+            label: "Diesel Stock",
+            controller: _dieselStockController,
+            isRequired: true,
+            isEditable: true,
+            keyboardType: TextInputType.number,
+            hintText: 'Numeric',
+          ),
+          getHeight(15),
+        ],
 
         //end
         CustomFormField(
@@ -730,7 +841,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         //new fields
         CustomFormField(
           label: "EB KWH in SEB Meter",
-          controller: _ebKwhInCcuController,
+          controller: _ebKwhInSebMeterController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.text,
@@ -740,7 +851,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomFormField(
           label: "EB KVA in SEB Meter",
-          controller: _ebKwhInCcuController,
+          controller: _ebKvaInSebMeterController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.text,
@@ -762,7 +873,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         //nre field
         CustomFormField(
           label: "EB KVA in CCU",
-          controller: _ebKwhInCcuController,
+          controller: _ebKvhInCcuController,
           isRequired: true,
           isEditable: true,
           keyboardType: TextInputType.text,
