@@ -426,6 +426,11 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       return false;
     }
 
+    if (_selectedEbMeterDisplayStatus == null || _selectedEbMeterDisplayStatus!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Display Status is required", context);
+      return false;
+    }
+
     if (_selectedStatus == 'OK') {
       if (_ERImageID == null || _ERImageID!.isEmpty) {
         Toastbar.showErrorToastbar("EB Meter photo is required", context);
@@ -475,6 +480,62 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       }
     }
 
+    // Validate CCU fields
+    if (_ccuEbReadingController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("CCU EB Reading(kWh) is required", context);
+      return false;
+    }
+
+    if (_ccuLoadController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("CCU Load(kWh) is required", context);
+      return false;
+    }
+
+    if (_ccuSolarLoadController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("CCU Solar Load(kWh) is required", context);
+      return false;
+    }
+
+    if (_ccuBatteryLoadController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("CCU Battery Load(kWh) is required", context);
+      return false;
+    }
+
+    // Validate DG fields if DG Availability is Yes
+    if (_selectedDgAvailability == 'Yes') {
+      if (_dgRunHourController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("DG Run Hour is required", context);
+        return false;
+      }
+
+      if (_dieselStockController.text.trim().isEmpty) {
+        Toastbar.showErrorToastbar("Diesel Stock is required", context);
+        return false;
+      }
+    }
+
+    // Validate Consumer No
+    if (_consumerNoController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Consumer No is required", context);
+      return false;
+    }
+
+    // Validate EB KWH and KVA fields
+    if (_ebKwhInSebMeterController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KWH in SEB Meter is required", context);
+      return false;
+    }
+
+    if (_ebKvaInSebMeterController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KVA in SEB Meter is required", context);
+      return false;
+    }
+
+    if (_ebKvhInCcuController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KVA in CCU is required", context);
+      return false;
+    }
+
     if (_selectedBatteryStatus == null || _selectedBatteryStatus!.isEmpty) {
       Toastbar.showErrorToastbar(
         "Any Major Hazardous Punch Point is required",
@@ -486,11 +547,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     // Check if photo is selected
     if (_ERImageID == null || _ERImageID!.isEmpty) {
       Toastbar.showErrorToastbar("Energy Reading photo is required", context);
-      return false;
-    }
-
-    if (_remarksController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("Remarks is required", context);
       return false;
     }
 
@@ -678,6 +734,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         CustomDropdown(
           label: "EB Meter Status",
           items: _meterStatusOptions,
+           isRequired: true,
           initialValue: _selectedStatus,
           onChanged: (value) {
             setState(() {
@@ -691,6 +748,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         CustomDropdown(
           label: "EB Meter Display Status",
           items: _meterStatusOptions,
+           isRequired: true,
           initialValue: _selectedEbMeterDisplayStatus,
           onChanged: (value) {
             setState(() {
@@ -703,6 +761,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomDropdown(
           label: "EB Meter Type",
+           isRequired: true,
           items: _meterTypeOptions,
           initialValue: _selectedMeterType,
           onChanged: (value) {
@@ -715,6 +774,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
         CustomDropdown(
           label: "Connection Type",
+           isRequired: true,
           items: _connectionTypeOptions,
           initialValue: _selectedConnectionType,
           onChanged: (value) {
@@ -727,6 +787,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
         CustomDropdown(
           label: "EB Connection Type",
+           isRequired: true,
           items: _ebConnectionTypeOptions,
           initialValue: _selectedEbConnectionType,
           onChanged: (value) {
