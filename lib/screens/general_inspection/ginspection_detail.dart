@@ -477,6 +477,28 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         ),
         const SizedBox(height: 15),
 
+        // new field
+
+         CustomFormField(
+          label: "Cluster Incharge",
+          controller: _infraEngineerContactController,
+          isRequired: false,
+          isEditable: false,
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 15),
+
+         CustomFormField(
+          label: "Cluster Incharge Contact No.",
+          controller: _infraEngineerContactController,
+          isRequired: false,
+          isEditable: false,
+          keyboardType: TextInputType.phone,
+        ),
+        const SizedBox(height: 15),
+
+        //end
+
         // Owner
         CustomFormField(
           label: "Owner",
@@ -495,6 +517,11 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
           keyboardType: TextInputType.phone,
         ),
         const SizedBox(height: 20),
+
+
+        // new field
+
+        
 
         Builder(
           builder: (context) {

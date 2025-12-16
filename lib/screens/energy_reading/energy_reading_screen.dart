@@ -79,6 +79,11 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
             data['site_domain_name']?.toString() ?? "N/A";
         formData['status'] = data['status']?.toString() ?? "N/A";
 
+        formData['infra_district_engineer_name'] = data['infra_district_engineer_name']?.toString() ?? "N/A";
+        formData['infra_district_engineer_contact_no'] = data['infra_district_engineer_contact_no']?.toString() ?? "N/A";
+        formData['cluster_incharge_name'] = data['cluster_incharge_name']?.toString() ?? "N/A";
+        formData['cluster_incharge_contact_no'] = data['cluster_incharge_contact_no']?.toString() ?? "N/A";
+
         print("formData: $formData");
 
         setState(() {
@@ -298,6 +303,38 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
         CustomFormField(
           label: "Site Name",
           initialValue: _displayFormData?['siteName'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Infra Engineer Name",
+          initialValue: _displayFormData?['infra_district_engineer_name'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Infra Engineer Contact No.",
+          initialValue: _displayFormData?['infra_district_engineer_contact_no'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Cluster Incharge Name",
+          initialValue: _displayFormData?['cluster_incharge_name'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+
+        const SizedBox(height: 15),
+        CustomFormField(
+          label: "Cluster Incharge Contact No.",
+          initialValue: _displayFormData?['cluster_incharge_contact_no'] ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),

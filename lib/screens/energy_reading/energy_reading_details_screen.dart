@@ -576,6 +576,20 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           },
         ),
         getHeight(15),
+
+        CustomDropdown(
+          label: "EB Meter Display Status",
+          items: _meterStatusOptions,
+          initialValue: _selectedStatus,
+          onChanged: (value) {
+            setState(() {
+              _selectedStatus = value;
+              _onFormChanged();
+            });
+          },
+        ),
+        getHeight(15),
+
         CustomDropdown(
           label: "EB Meter Type",
           items: _meterTypeOptions,
@@ -623,7 +637,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
         CustomFormField(
           label: "EB Meter Reading",
-
           controller: _ebMeterReadingController,
           isRequired: true,
           isEditable: true,
@@ -631,22 +644,129 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           hintText: 'EB Meter Reading',
         ),
         getHeight(15),
+
+        // new addition of fields
+        CustomFormField(
+          label: "CCU EB Reading(kWh)",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "CCU Load(kWh)",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "CCU Solar Load(kWh)",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "CCU Battery Load(kWh)",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "DG Availability",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+          hintText: '',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "DG Run Hour",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+          hintText: 'Text',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "Diesel Stock",
+          controller: _ebMeterReadingController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
+        ),
+        getHeight(15),
+
+        //end
         CustomFormField(
           label: "Consumer No",
           controller: _consumerNoController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: 'Consumer No',
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
         ),
         getHeight(15),
+
+        //new fields
+        CustomFormField(
+          label: "EB KWH in SEB Meter",
+          controller: _ebKwhInCcuController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+          hintText: 'Text',
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "EB KVA in SEB Meter",
+          controller: _ebKwhInCcuController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+          hintText: 'Text',
+        ),
+        getHeight(15),
+
+        // text
         CustomFormField(
           label: "EB KWH in CCU",
           controller: _ebKwhInCcuController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.number,
-          hintText: 'EB KWH in CCU',
+          keyboardType: TextInputType.text,
+          hintText: 'Text',
+        ),
+        getHeight(15),
+
+        //nre field
+        CustomFormField(
+          label: "EB KVA in CCU",
+          controller: _ebKwhInCcuController,
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+          hintText: 'Text',
         ),
         getHeight(15),
 

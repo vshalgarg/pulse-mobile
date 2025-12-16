@@ -169,8 +169,91 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     return 0;
   }
 
-  void _navigateToSite(AllSiteModel site) {
+  void _navigateToSite(AllSiteModel site) async {
     final parentContext = context;
+    
+    // For Site Visit, check if we have stored API data with organisation list
+    if (widget.ActivityType == 'SV') {
+      try {
+        final service = ServiceLocator().centralAssetAuditService;
+        final storedData = await service.getDataFromSqlite(
+          siteAuditSchId: site.siteId.toString(),
+        );
+        
+        if (storedData != null && storedData.apiData.isNotEmpty) {
+          // Use stored API data to create AllSiteModel with all fields
+          final apiData = storedData.apiData;
+          final siteData = AllSiteModel(
+            siteId: apiData['siteId'] ?? site.siteId,
+            entityId: site.entityId,
+            siteCode: apiData['siteCode'] ?? site.siteCode,
+            siteName: apiData['siteName'] ?? site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: apiData['cluster'] ?? site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: apiData['circle'] ?? site.circleStateName,
+            clientId: site.clientId,
+            clientName: apiData['client'] ?? site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+            siteDomainName: site.siteDomainName,
+            distanceKM: site.distanceKM,
+            infraEngineerName: apiData['infraDistrictEngineerName'] ?? site.infraEngineerName,
+            infraEngineerPhone: apiData['infraDistrictEngineerContactNo'] ?? site.infraEngineerPhone,
+            ownerName: apiData['ownerName'] ?? site.ownerName,
+            ownerPhone: apiData['ownerContactNo'] ?? site.ownerPhone,
+            siteVisitLogId: apiData['svlId']?.toString(),
+            siteVisitLogDate: apiData['visitDate']?.toString(),
+            purposeOfVisit: apiData['purposeOfVisit']?.toString(),
+            visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
+            officialIdImageId: apiData['officialIdImageId']?.toString(),
+            aadharCardImageId: apiData['aadharCardImageId']?.toString(),
+            leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
+            visitorName: apiData['visitorName']?.toString() ?? apiData['visitor_name']?.toString(),
+            visitorContactNo: apiData['visitorContactNo']?.toString() ?? apiData['visitor_contact_no']?.toString(),
+            organisationName: apiData['organisationName']?.toString() ?? 
+                apiData['organisation_name']?.toString() ?? 
+                apiData['organizationName']?.toString() ?? 
+                apiData['organization_name']?.toString(),
+            orgId: apiData['orgId'] != null 
+                ? (apiData['orgId'] is int 
+                    ? apiData['orgId'] as int 
+                    : int.tryParse(apiData['orgId'].toString()))
+                : null,
+            roleDesignation: apiData['roleDesignation']?.toString() ?? apiData['role_designation']?.toString(),
+            reportingManager: apiData['reportingManager']?.toString() ?? apiData['reporting_manager']?.toString(),
+          );
+          
+          // Extract organisation list from API response if available
+          final organisationList = apiData['organisationList'] != null
+              ? (apiData['organisationList'] as List)
+                  .map((org) => Map<String, dynamic>.from(org))
+                  .toList()
+              : null;
+          
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => SiteVisitScreen(
+                  siteData: siteData,
+                  parentContext: parentContext,
+                  preloadedOrganisationList: organisationList,
+                ),
+              ),
+            );
+          }
+          return;
+        }
+      } catch (e) {
+        print('Error loading stored data: $e');
+        // Fall through to use basic site data
+      }
+    }
+    
+    // Use basic site data if no stored data available
     Navigator.push(
       context,
       MaterialPageRoute(

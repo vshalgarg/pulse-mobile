@@ -146,6 +146,65 @@ class CentralAssetAuditService {
             ownerContactNo: site.ownerPhone,
           );
 
+      // Also fetch and save the complete site visit data (including organisation list)
+      try {
+        final centralApiService = ServiceLocator().centralApiService;
+        final siteVisitData = await centralApiService.fetchSiteVisitData(
+          siteType: site.siteDomainName ?? 'Telecom',
+          auditSchId: '0', // Default value as we don't have auditSchId from site list
+          siteAuditSchId: site.siteId.toString(),
+        );
+
+        Map<String, dynamic> dataToSave;
+        
+        if (siteVisitData != null) {
+          // Use the fetched site visit data (which already includes organisation list)
+          dataToSave = siteVisitData;
+        } else {
+          // If no existing site visit log, create a basic structure with organisation list
+          final sitesRepository = ServiceLocator().sitesRepository;
+          final organisationList = await sitesRepository.getOrganisationList();
+          
+          dataToSave = {
+            'siteId': site.siteId,
+            'siteCode': site.siteCode,
+            'siteName': site.siteName,
+            'cluster': site.clusterDistrictName,
+            'circle': site.circleStateName,
+            'client': site.clientName,
+            'infraDistrictEngineerName': site.infraEngineerName,
+            'infraDistrictEngineerContactNo': site.infraEngineerPhone,
+            'ownerName': site.ownerName,
+            'ownerContactNo': site.ownerPhone,
+            'organisationList': organisationList,
+          };
+          Logger.debugLog('✅ Created basic data structure with organisation list');
+        }
+
+        // Save the API data to raw_api_data table
+        await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
+          siteAuditSchId: site.siteId.toString(),
+          siteType: site.siteDomainName ?? 'Telecom',
+          auditSchId: '0',
+          activityType: ActivityTypeEnum.siteVisit,
+          latitude: 0.0, // Default value
+          longitude: 0.0, // Default value
+          pvTicketId: '',
+          siteCode: site.siteCode,
+          cluster: site.clusterDistrictName,
+          operator: site.circleStateName,
+          raisedDt: DateTime.now().toIso8601String(),
+          dueDt: DateTime.now().toIso8601String(),
+          status: 'PENDING',
+          isDownloaded: true,
+          apiData: dataToSave,
+        );
+        Logger.debugLog('✅ Site Visit data with organisation list saved to SQLite');
+      } catch (e) {
+        Logger.errorLog('⚠️ Error fetching/saving complete site visit data: $e');
+        // Continue even if this fails, as basic site data is already saved
+      }
+
       Logger.debugLog('✅ Site Visit site data saved successfully to SQLite: $isSaved');
       return isSaved;
     } catch (e) {
