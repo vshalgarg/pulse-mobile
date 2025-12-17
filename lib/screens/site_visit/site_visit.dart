@@ -253,77 +253,124 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     try {
       print("🔍 _loadImage called with imageId: $imageId");
       print("🔍 _loadImage imageId type: ${imageId.runtimeType}");
+      print("🔍 _loadImage isSelfie: $isSelfie, imageType: $imageType");
 
       String? uniqueId;
+      String? imageData;
 
       // Check if this is already a unique ID (offline mode) or a server ID (online mode)
       if (imageId.contains("LOCAL_IMAGE_ID")) {
         // This is already a unique ID from offline mode
         print("🔍 Detected unique ID (offline mode): $imageId");
         uniqueId = imageId;
-      } else {
-        // This is a server ID, try to download from server (online mode)
-        print("🔍 Detected server ID (online mode): $imageId");
-        uniqueId = await ServiceLocator().imageUploadService
-            .downloadImageUsingServerId(
-              imageId,
-              ActivityTypeEnum.siteVisit,
-              widget.siteData.siteId.toString(),
-            );
-        print("🔍 Download result - uniqueId: $uniqueId");
-      }
-
-      if (uniqueId != null) {
-        // Now get the image data using the unique ID
-        final imageData = await _service.getImageAsDataUrl(uniqueId);
-
-        print(
-          "🔍 Image loading result: ${imageData != null ? 'SUCCESS' : 'FAILED'}",
-        );
-        print("🔍 Image data length: ${imageData?.length ?? 0}");
-
-        if (imageData != null) {
-          Logger.debugLog(
-            '✅ Image data received: ${imageData.length} characters',
-          );
-          Logger.debugLog(
-            '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
-          );
-          setState(() {
-            if (isSelfie) {
-              _fetchedImageData = imageData;
-            } else {
-              switch (imageType) {
-                case 'officialId':
-                  _fetchedOfficialIdImageData = imageData;
-                  break;
-                case 'aadharCard':
-                  _fetchedAadharCardImageData = imageData;
-                  break;
-                case 'leavingStatus':
-                  _fetchedLeavingStatusImageData = imageData;
-                  break;
-              }
-            }
-          });
-          Logger.debugLog('✅ Image loaded successfully and state updated');
-          print("✅ Image loaded successfully and state updated");
-        } else {
-          Logger.errorLog(
-            '❌ Failed to load image data with uniqueId $uniqueId - imageData is null',
-          );
-          print(
-            "❌ Failed to load image data with uniqueId $uniqueId - imageData is null",
-          );
+        
+        // For LOCAL_IMAGE_ID, try to get image directly from ImageUploadService
+        imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
+        print("🔍 Direct getImageUsingUniqueId result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
+        
+        // If direct lookup failed, try through getImageAsDataUrl as fallback
+        if (imageData == null || imageData.isEmpty) {
+          print("🔍 Direct lookup failed, trying getImageAsDataUrl as fallback");
+          imageData = await _service.getImageAsDataUrl(uniqueId);
+          print("🔍 getImageAsDataUrl fallback result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
         }
       } else {
-        Logger.errorLog('❌ Failed to get unique ID for image: $imageId');
-        print("❌ Failed to get unique ID for image: $imageId");
+        // This is a server ID, check local SQLite first by server_id
+        print("🔍 Detected server ID (numeric): $imageId");
+        
+        // First try to get from local SQLite by server_id (might already be cached)
+        final imageModel = await ServiceLocator().imageUploadService.getImagesByServerId(imageId);
+        if (imageModel != null && imageModel.imageData != null && imageModel.imageData!.isNotEmpty) {
+          imageData = imageModel.imageData;
+          uniqueId = imageModel.uniqueId;
+          print("🔍 Local lookup by server_id result: SUCCESS (length: ${imageData?.length ?? 0})");
+        } else {
+          print("🔍 Image not found in local SQLite by server_id: $imageId");
+          
+          // Also try by unique_id (in case server_id wasn't set but unique_id matches)
+          imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(imageId);
+          if (imageData != null && imageData.isNotEmpty) {
+            uniqueId = imageId;
+            print("🔍 Local lookup by unique_id result: SUCCESS (length: ${imageData.length})");
+          } else {
+            print("🔍 Image not found locally, will try to download from server if online...");
+            
+            // Only try to download if we have internet connection
+            // Check connectivity before attempting download
+            try {
+              uniqueId = await ServiceLocator().imageUploadService
+                  .downloadImageUsingServerId(
+                    imageId,
+                    ActivityTypeEnum.siteVisit,
+                    widget.siteData.siteId.toString(),
+                  );
+              print("🔍 Download result - uniqueId: $uniqueId");
+              
+              // After download, get the image data
+              if (uniqueId != null) {
+                imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
+                print("🔍 Post-download lookup result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
+              } else {
+                print("⚠️ Download failed (likely offline mode) - image not available");
+              }
+            } catch (e) {
+              Logger.errorLog('❌ Error downloading image from server (likely offline): $e');
+              print("⚠️ Download failed (likely offline mode): $e");
+              // Don't throw error, just log it - image will remain null
+            }
+          }
+        }
+      }
+
+      print(
+        "🔍 Final image loading result: ${imageData != null && imageData.isNotEmpty ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}",
+      );
+
+      if (imageData != null && imageData.isNotEmpty) {
+        Logger.debugLog(
+          '✅ Image data received: ${imageData.length} characters',
+        );
+        Logger.debugLog(
+          '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
+        );
+        setState(() {
+          if (isSelfie) {
+            _fetchedImageData = imageData;
+            print("✅ Selfie image loaded and state updated");
+          } else {
+            switch (imageType) {
+              case 'officialId':
+                _fetchedOfficialIdImageData = imageData;
+                print("✅ Official ID Card image loaded and state updated");
+                break;
+              case 'aadharCard':
+                _fetchedAadharCardImageData = imageData;
+                print("✅ Aadhar Card image loaded and state updated");
+                break;
+              case 'leavingStatus':
+                _fetchedLeavingStatusImageData = imageData;
+                print("✅ Leaving Status image loaded and state updated");
+                break;
+              default:
+                print("⚠️ Unknown imageType: $imageType");
+            }
+          }
+        });
+        Logger.debugLog('✅ Image loaded successfully and state updated');
+        print("✅ Image loaded successfully and state updated");
+      } else {
+        Logger.errorLog(
+          '❌ Failed to load image data with imageId $imageId, uniqueId: $uniqueId - imageData is null or empty',
+        );
+        print(
+          "❌ Failed to load image data with imageId $imageId, uniqueId: $uniqueId - imageData is null or empty",
+        );
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading image: $e');
       Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
       print("❌ Error loading image: $e");
+      print("❌ Stack trace: ${StackTrace.current}");
     }
   }
 
