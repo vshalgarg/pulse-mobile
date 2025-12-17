@@ -273,64 +273,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           print("🔍 Direct lookup failed, trying getImageAsDataUrl as fallback");
           imageData = await _service.getImageAsDataUrl(uniqueId);
           print("🔍 getImageAsDataUrl fallback result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
-
-        }
-      } else {
-        // This is a server ID, try to download from server (online mode)
-        print("🔍 Detected server ID (online mode): $imageId");
-        uniqueId = await ServiceLocator().imageUploadService
-            .downloadImageUsingServerId(
-              imageId,
-              ActivityTypeEnum.siteVisit,
-              widget.siteData.siteId.toString(),
-            );
-        print("🔍 Download result - uniqueId: $uniqueId");
-      }
-
-      if (uniqueId != null) {
-        // Now get the image data using the unique ID
-        imageData = await _service.getImageAsDataUrl(uniqueId);
-
-        print(
-          "🔍 Image loading result: ${imageData != null ? 'SUCCESS' : 'FAILED'}",
-        );
-        print("🔍 Image data length: ${imageData?.length ?? 0}");
-
-        if (imageData != null) {
-          Logger.debugLog(
-            '✅ Image data received: ${imageData.length} characters',
-          );
-          Logger.debugLog(
-            '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
-          );
-          setState(() {
-            if (isSelfie) {
-              _fetchedImageData = imageData;
-            } else {
-              switch (imageType) {
-                case 'officialId':
-                  _fetchedOfficialIdImageData = imageData;
-                  break;
-                case 'aadharCard':
-                  _fetchedAadharCardImageData = imageData;
-                  break;
-                case 'leavingStatus':
-                  _fetchedLeavingStatusImageData = imageData;
-                  break;
-              }
-            }
-          });
-          Logger.debugLog('✅ Image loaded successfully and state updated');
-          print("✅ Image loaded successfully and state updated");
-        } else {
-          Logger.errorLog(
-            '❌ Failed to load image data with uniqueId $uniqueId - imageData is null',
-          );
-          print(
-            "❌ Failed to load image data with uniqueId $uniqueId - imageData is null",
-          );
-
-
         }
       } else {
         // This is a server ID, check local SQLite first by server_id
