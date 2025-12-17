@@ -567,13 +567,6 @@ class CentralAssetAuditService {
                 key == 'maker_selfie_image_id' ||
                 key == 'ebAttachmentFileId' ||
                 key == 'visitingPersonImageId' ||
-                key == 'visiting_person_image_id' ||
-                key == 'officialIdImageId' ||
-                key == 'official_id_image_id' ||
-                key == 'aadharCardImageId' ||
-                key == 'aadhar_card_image_id' ||
-                key == 'leavingStatusImageId' ||
-                key == 'leaving_status_image_id' ||
                 key == 'respPhotoId') &&
             value != null) {
           final serverId = value.toString();

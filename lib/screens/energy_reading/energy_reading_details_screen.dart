@@ -62,7 +62,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   final TextEditingController _ebKvaInSebMeterController =
       TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // New field controllers
   final TextEditingController _ccuEbReadingController = TextEditingController();
   final TextEditingController _ccuLoadController = TextEditingController();
@@ -867,25 +867,25 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
 
         if (_selectedDgAvailability == 'Yes') ...[
-          CustomFormField(
-            label: "DG Run Hour",
+        CustomFormField(
+          label: "DG Run Hour",
             controller: _dgRunHourController,
-            isRequired: true,
-            isEditable: true,
-            keyboardType: TextInputType.text,
-            hintText: 'Text',
-          ),
-          getHeight(15),
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.text,
+          hintText: 'Text',
+        ),
+        getHeight(15),
 
-          CustomFormField(
-            label: "Diesel Stock",
+        CustomFormField(
+          label: "Diesel Stock",
             controller: _dieselStockController,
-            isRequired: true,
-            isEditable: true,
-            keyboardType: TextInputType.number,
-            hintText: 'Numeric',
-          ),
-          getHeight(15),
+          isRequired: true,
+          isEditable: true,
+          keyboardType: TextInputType.number,
+          hintText: 'Numeric',
+        ),
+        getHeight(15),
         ],
 
         //end

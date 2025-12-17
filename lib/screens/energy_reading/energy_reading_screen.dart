@@ -58,9 +58,14 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
 
       final completeData = await ServiceLocator().centralAssetAuditService
           .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
-      final data = completeData?['EBPageData']?.first ?? {};
+      
+      // Check if EBPageData exists and has data
+      final ebPageDataList = completeData?['EBPageData'] as List<dynamic>?;
+      final data = ebPageDataList?.isNotEmpty == true 
+          ? ebPageDataList!.first as Map<String, dynamic>?
+          : null;
 
-      if (data != null) {
+      if (data != null && data.isNotEmpty) {
         final formData = <String, String>{};
         formData['circle'] = data['circle']?.toString() ?? "N/A";
         formData['cluster'] = data['cluster']?.toString() ?? "N/A";
@@ -170,8 +175,8 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
                           textColor: AppColors.buttonColorSite,
                           onPressed: isSubmitting
                               ? null
-                              : () {
-                                  pushPage(
+                              : () async {
+                                  final result = await pushPage(
                                     context,
                                     EnergyReadingDetailScreen(
                                       auditSchId: widget.auditSchId,
@@ -183,6 +188,10 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
                                           widget.parentContext ?? context,
                                     ),
                                   );
+                                  // If submission was successful, pop with result to notify parent
+                                  if (result == true && Navigator.canPop(context)) {
+                                    Navigator.pop(context, true);
+                                  }
                                 },
                         ),
                       ),

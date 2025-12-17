@@ -298,16 +298,16 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             // Only try to download if we have internet connection
             // Check connectivity before attempting download
             try {
-              uniqueId = await ServiceLocator().imageUploadService
-                  .downloadImageUsingServerId(
-                    imageId,
-                    ActivityTypeEnum.siteVisit,
-                    widget.siteData.siteId.toString(),
-                  );
-              print("🔍 Download result - uniqueId: $uniqueId");
-              
+        uniqueId = await ServiceLocator().imageUploadService
+            .downloadImageUsingServerId(
+              imageId,
+              ActivityTypeEnum.siteVisit,
+              widget.siteData.siteId.toString(),
+            );
+        print("🔍 Download result - uniqueId: $uniqueId");
+
               // After download, get the image data
-              if (uniqueId != null) {
+      if (uniqueId != null) {
                 imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
                 print("🔍 Post-download lookup result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
               } else {
@@ -322,49 +322,49 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         }
       }
 
-      print(
+        print(
         "🔍 Final image loading result: ${imageData != null && imageData.isNotEmpty ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}",
-      );
+        );
 
       if (imageData != null && imageData.isNotEmpty) {
-        Logger.debugLog(
-          '✅ Image data received: ${imageData.length} characters',
-        );
-        Logger.debugLog(
-          '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
-        );
-        setState(() {
-          if (isSelfie) {
-            _fetchedImageData = imageData;
+          Logger.debugLog(
+            '✅ Image data received: ${imageData.length} characters',
+          );
+          Logger.debugLog(
+            '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
+          );
+          setState(() {
+            if (isSelfie) {
+              _fetchedImageData = imageData;
             print("✅ Selfie image loaded and state updated");
-          } else {
-            switch (imageType) {
-              case 'officialId':
-                _fetchedOfficialIdImageData = imageData;
+            } else {
+              switch (imageType) {
+                case 'officialId':
+                  _fetchedOfficialIdImageData = imageData;
                 print("✅ Official ID Card image loaded and state updated");
-                break;
-              case 'aadharCard':
-                _fetchedAadharCardImageData = imageData;
+                  break;
+                case 'aadharCard':
+                  _fetchedAadharCardImageData = imageData;
                 print("✅ Aadhar Card image loaded and state updated");
-                break;
-              case 'leavingStatus':
-                _fetchedLeavingStatusImageData = imageData;
+                  break;
+                case 'leavingStatus':
+                  _fetchedLeavingStatusImageData = imageData;
                 print("✅ Leaving Status image loaded and state updated");
-                break;
+                  break;
               default:
                 print("⚠️ Unknown imageType: $imageType");
+              }
             }
-          }
-        });
-        Logger.debugLog('✅ Image loaded successfully and state updated');
-        print("✅ Image loaded successfully and state updated");
-      } else {
-        Logger.errorLog(
+          });
+          Logger.debugLog('✅ Image loaded successfully and state updated');
+          print("✅ Image loaded successfully and state updated");
+        } else {
+          Logger.errorLog(
           '❌ Failed to load image data with imageId $imageId, uniqueId: $uniqueId - imageData is null or empty',
-        );
-        print(
+          );
+          print(
           "❌ Failed to load image data with imageId $imageId, uniqueId: $uniqueId - imageData is null or empty",
-        );
+          );
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading image: $e');

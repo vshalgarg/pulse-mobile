@@ -233,7 +233,7 @@ class _TicketScreenState extends State<TicketScreen> {
         );
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
         final parentContext = context;
-        Navigator.push(
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => EnergyReadingScreen(
@@ -245,6 +245,10 @@ class _TicketScreenState extends State<TicketScreen> {
             ),
           ),
         );
+        // If submission was successful, refresh the ticket list
+        if (result == true) {
+          _loadTickets();
+        }
       } else if (_currentActivityType == ActivityTypeEnum.siteVisit) {
         // Create site data from API response with correct field mapping
         final siteData = AllSiteModel(
