@@ -581,6 +581,8 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         String respValue = "";
         if (item.respType.contains('RADIO')) {
           respValue = response['radio_value'] ?? "";
+        } else if (item.respType.contains('DROPDOWN')) {
+          respValue = response['radio_value'] ?? ""; // Dropdown uses same key as radio
         } else if (item.respType.contains('TEXT')) {
           respValue = response['text_value'] ?? "";
         }
@@ -599,6 +601,29 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           respPhotoId = null;
         }
 
+        // Collect remarks from dependent elements
+        String remarksText = "";
+        if (item.dependentElements != null && item.dependentElements!.isNotEmpty) {
+          // Get widget state to access dependent element data
+          final widgetKey = _widgetKeys[item.giclmId];
+          final widgetState = widgetKey?.currentState;
+          
+          if (widgetState != null) {
+            // Collect all REMARKS from dependent elements
+            List<String> remarksList = [];
+            for (final dependentElement in item.dependentElements!) {
+              if (dependentElement.respType == 'REMARKS') {
+                final remarkValue = widgetState.getDependentRemarks(dependentElement.respType);
+                if (remarkValue != null && remarkValue.trim().isNotEmpty) {
+                  remarksList.add(remarkValue.trim());
+                }
+              }
+            }
+            // Join all remarks with semicolon or newline
+            remarksText = remarksList.join("; ");
+          }
+        }
+
         // Use existing gispId if available (for edit mode), otherwise use 0 (for create mode)
         int gispId = response['gispId'] ?? 0;
 
@@ -613,7 +638,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           "longitude": _longitude?.toString() ?? "0.0",
           "latitude": _latitude?.toString() ?? "0.0",
           "isActive": true,
-          "remarks": "",
+          "remarks": remarksText, // Use collected remarks instead of empty string
         };
         genInspectionSiteRespList.add(respItem);
       }

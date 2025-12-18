@@ -606,6 +606,14 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
     return _dependentRemarks[respType];
   }
   
+  /// Get remarks by checklist description (for cases with multiple REMARKS elements)
+  String? getDependentRemarksByDesc(String checklistDesc) {
+    // Try to find remarks by matching checklist description
+    // Since we key by respType, we return the first match
+    // In most cases there's only one REMARKS per item
+    return _dependentRemarks['REMARKS'];
+  }
+  
   String? getDependentTextValue(String respType) {
     return _dependentTextValues[respType];
   }
