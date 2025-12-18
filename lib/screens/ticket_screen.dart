@@ -244,7 +244,15 @@ class _TicketScreenState extends State<TicketScreen> {
               parentContext: parentContext,
             ),
           ),
-        );
+        ).then((_) {
+          // Refresh ticket list when returning from Energy Reading screen
+          _loadTickets();
+          // Re-initialize downloaded tickets state
+          final currentState = context.read<TicketCubit>().state;
+          if (currentState is TicketSuccess) {
+            _initializeDownloadedTickets(currentState.ticketResponse.tickets);
+          }
+        });
       } else if (_currentActivityType == ActivityTypeEnum.siteVisit) {
         // Create site data from API response with correct field mapping
         final siteData = AllSiteModel(

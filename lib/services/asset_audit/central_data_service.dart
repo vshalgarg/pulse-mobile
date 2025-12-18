@@ -707,6 +707,42 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Update status field in raw_api_data table
+  Future<bool> updateRawApiDataStatus({
+    required String siteAuditSchId,
+    required String status,
+  }) async {
+    try {
+      final db = await database;
+
+      // Update only the status and updated_at fields for the given site_audit_sch_id
+      final result = await db.update(
+        'raw_api_data',
+        {
+          'status': status,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'site_audit_sch_id = ?',
+        whereArgs: [siteAuditSchId],
+      );
+
+      if (result > 0) {
+        Logger.debugLog('✅ Status updated to $status for site $siteAuditSchId');
+        return true;
+      } else {
+        Logger.debugLog(
+          '⚠️ No record found to update status for site $siteAuditSchId',
+        );
+        return false;
+      }
+    } catch (e) {
+      Logger.errorLog(
+        "Exception while updating status in sqlite $siteAuditSchId $e",
+      );
+      return false;
+    }
+  }
+
   /// Get raw API data
   Future<RawApiDataModel?> getRawApiData(String siteAuditSchId) async {
     try {

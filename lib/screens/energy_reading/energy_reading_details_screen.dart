@@ -109,7 +109,10 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       final data = await ServiceLocator().centralAssetAuditService
           .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
 
-      final erData = data?['EnergyReadingData'] ?? {};
+      // Check both key formats for backward compatibility
+      final erData = data?['EnergyReadingData'] ?? 
+                     data?['energyReading'] ?? 
+                     {};
       
       // Also check EBPageData for DG availability if not found in EnergyReadingData
       final ebPageData = data?['EBPageData']?.first as Map<String, dynamic>?;
@@ -321,8 +324,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       );
 
       // Merge the energy reading form data into the existing structure
-      // Store under 'energyReading' key to keep it separate from site info
-      updatedData['energyReading'] = energyReading;
+      // Store under 'EnergyReadingData' key to match what the load function expects
+      updatedData['EnergyReadingData'] = energyReading;
 
       // Also store at root level for backward compatibility
       updatedData.addAll(energyReading);
@@ -367,6 +370,17 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
       Logger.debugLog("✅ Energy Reading posted to server successfully");
       print("✅ Energy Reading posted successfully");
+
+      // Update status in SQLite to "IN PROGRESS" after successful submission
+      try {
+        await ServiceLocator().centralAssetAuditDataService.updateRawApiDataStatus(
+          siteAuditSchId: widget.siteAuditSchId,
+          status: 'IN PROGRESS',
+        );
+        Logger.debugLog("✅ Status updated to IN PROGRESS in SQLite");
+      } catch (e) {
+        Logger.errorLog("⚠️ Failed to update status in SQLite: $e");
+      }
     } catch (e) {
       Logger.errorLog("❌ Error posting Energy Reading: $e");
       print("❌ Error posting Energy Reading: $e");
