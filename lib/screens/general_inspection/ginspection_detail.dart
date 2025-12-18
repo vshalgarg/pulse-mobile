@@ -148,7 +148,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
             if (checklistItem != null) {
               Map<String, dynamic> responseData = {
-                'image_id': response['respPhotoId']?.toString(),
                 'giId': widget.apiResponseData!['giId']
                     ?.toString(), // Include giId
                 'gispId':
@@ -180,8 +179,30 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                 } else {
                   responseData['radio_value'] = respValue;
                 }
+              } else if (checklistItem.respType.contains('DROPDOWN')) {
+                final respValue = response['resp'] as String?;
+                responseData['radio_value'] = respValue; // Dropdown uses same key as radio
               } else if (checklistItem.respType.contains('TEXT')) {
                 responseData['text_value'] = response['resp'] as String?;
+              }
+
+              // Handle image ID - check if main field has IMG type, otherwise it might be for dependent elements
+              final respPhotoId = response['respPhotoId']?.toString();
+              if (respPhotoId != null && respPhotoId.isNotEmpty && respPhotoId != "0") {
+                if (checklistItem.respType.contains('IMG')) {
+                  // Main field has IMG type, so respPhotoId is for the main field
+                  responseData['image_id'] = respPhotoId;
+                } else {
+                  // Main field doesn't have IMG, so respPhotoId might be for dependent IMG elements
+                  // Store it for dependent elements
+                  responseData['dependent_image_id'] = respPhotoId;
+                }
+              }
+
+              // Extract remarks from API response for dependent REMARKS elements
+              final remarksValue = response['remarks']?.toString();
+              if (remarksValue != null && remarksValue.isNotEmpty && remarksValue != "null") {
+                responseData['dependent_remarks'] = remarksValue;
               }
 
               _existingChecklistResponses[giclmId] = responseData;

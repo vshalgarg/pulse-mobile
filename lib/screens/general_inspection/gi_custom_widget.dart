@@ -70,11 +70,44 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
         _textController.text = textValue;
       }
       
-      // Initialize image with existing value
+      // Initialize image with existing value (for main field if it has IMG type)
       final imageId = widget.existingResponse!['image_id']?.toString();
       if (imageId != null && imageId.isNotEmpty && imageId != "0") {
         _uploadedImageId = imageId;
         _loadExistingImage(imageId);
+      }
+      
+      // Initialize dependent elements from existing response
+      // Handle dependent image (if respPhotoId was for dependent element)
+      final dependentImageId = widget.existingResponse!['dependent_image_id']?.toString();
+      if (dependentImageId != null && dependentImageId.isNotEmpty && dependentImageId != "0") {
+        // Check if this checklist item has dependent IMG elements
+        if (widget.checklistItem.dependentElements != null) {
+          for (final element in widget.checklistItem.dependentElements!) {
+            if (element.respType == 'IMG') {
+              _dependentImageIds[element.respType] = dependentImageId;
+              // Load the image data for display
+              _loadDependentImageData(element.respType, dependentImageId);
+              break; // Use first IMG element if multiple exist
+            }
+          }
+        }
+      }
+      
+      // Handle dependent remarks
+      final dependentRemarks = widget.existingResponse!['dependent_remarks']?.toString();
+      if (dependentRemarks != null && dependentRemarks.isNotEmpty && dependentRemarks != "null") {
+        // Check if this checklist item has dependent REMARKS elements
+        if (widget.checklistItem.dependentElements != null) {
+          for (final element in widget.checklistItem.dependentElements!) {
+            if (element.respType == 'REMARKS') {
+              _dependentRemarks[element.respType] = dependentRemarks;
+              // Initialize controller with remarks value if it will be created
+              // The controller will be created in _buildDependentElement and will use this value
+              break; // Use first REMARKS element if multiple exist
+            }
+          }
+        }
       }
       
       // Initialize radio/dropdown button with existing value
