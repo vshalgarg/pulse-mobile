@@ -47,6 +47,9 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
   List<GenInsCheckListData> _checklistItems = [];
   Map<int, Map<String, dynamic>> _checklistResponses =
       {}; // giclm_id -> response data
+  
+  // GlobalKeys to access widget state for validation
+  final Map<int, GlobalKey<GICustomChecklistItemState>> _widgetKeys = {};
 
   // Location data
   double? _latitude;
@@ -61,16 +64,15 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
     // Use the pre-loaded checklist data
     _checklistItems = widget.checklistItems;
+    
+    // Initialize GlobalKeys for each checklist item
+    for (final item in _checklistItems) {
+      _widgetKeys[item.giclmId] = GlobalKey<GICustomChecklistItemState>();
+    }
 
     // Populate existing responses if in edit mode
     if (widget.existingResponses != null) {
       _checklistResponses = Map.from(widget.existingResponses!);
-
-      for (final entry in _checklistResponses.entries) {
-
-      }
-    } else {
-
     }
 
     _getCurrentLocation();
@@ -229,6 +231,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
             child: GICustomChecklistItem(
+              key: _widgetKeys[item.giclmId],
               checklistItem: item,
               siteData: widget.siteData,
               mode: widget.mode,
@@ -267,58 +270,256 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     );
   }
 
-  Future<void> _submitForm() async {
-    // Debug: Print all responses
-
-    for (final entry in _checklistResponses.entries) {
-
-    }
-
-    // Validate checklist items
-    List<String> validationErrors = [];
+  /// Sequential validation: Item-by-item validation
+  /// For each checklist item:
+  ///   1. Validate parent field is_mandatory first
+  ///   2. Then validate dependent elements (only if parent is valid)
+  ///   3. Move to next item only if current item is fully valid
+  /// Returns false on first failure and shows popup
+  bool _validateDependenciesSequentially() {
+    // Loop through checklist items in order (STRICT SEQUENTIAL)
     for (final item in _checklistItems) {
+      // ============================================================
+      // STEP 1: Validate Parent Field Mandatory (is_mandatory)
+      // ============================================================
       if (item.isMandatory) {
         final response = _checklistResponses[item.giclmId];
         bool hasRadio = item.respType.contains('RADIO');
+        bool hasDropdown = item.respType.contains('DROPDOWN');
         bool hasImage = item.respType.contains('IMG');
         bool hasText = item.respType.contains('TEXT');
 
-        if (hasRadio &&
+        // Check if parent field response is missing
+        bool isParentFieldEmpty = false;
+        String? errorMessage;
+
+        if ((hasRadio || hasDropdown) &&
             (response == null ||
                 response['radio_value'] == null ||
                 response['radio_value'].toString().isEmpty)) {
-          validationErrors.add('${item.checklistDesc} is required');
-
-        }
-
-        if (hasText &&
+          isParentFieldEmpty = true;
+          errorMessage = '${item.checklistDesc} is mandatory';
+        } else if (hasText &&
             (response == null ||
                 response['text_value'] == null ||
                 response['text_value'].toString().trim().isEmpty)) {
-          validationErrors.add('${item.checklistDesc} is required');
-          
+          isParentFieldEmpty = true;
+          errorMessage = '${item.checklistDesc} is mandatory';
+        } else if (hasImage) {
+          // Skip image validation if radio_value is 'NA' (case insensitive)
+          final radioValue = response?['radio_value']?.toString().toUpperCase();
+          bool isRadioValueNA = radioValue == 'NA';
+
+          if (!isRadioValueNA &&
+              (response == null ||
+                  response['image_id'] == null ||
+                  response['image_id'].toString().isEmpty)) {
+            isParentFieldEmpty = true;
+            errorMessage = '${item.checklistDesc} is mandatory';
+          }
         }
 
-        // Skip image validation if radio_value is 'NA' (case insensitive)
-        final radioValue = response?['radio_value']?.toString().toUpperCase();
-        bool isRadioValueNA = radioValue == 'NA';
-
-        if (hasImage && !isRadioValueNA &&
-            (response == null ||
-                response['image_id'] == null ||
-                response['image_id'].toString().isEmpty)) {
-          validationErrors.add('${item.checklistDesc} photo is required');
-
+        // If parent field is mandatory and empty, show error and STOP
+        if (isParentFieldEmpty) {
+          _showValidationErrorDialog(errorMessage!);
+          return false; // Stop validation - do not check dependent elements
         }
       }
+
+      // ============================================================
+      // STEP 2: Validate Dependent Elements (only if parent is valid)
+      // ============================================================
+      // Get parent response value for dependent element validation
+      final parentResponse = _getParentResponseValue(item);
+      
+      // Only validate dependent elements if parent field has a response
+      if (parentResponse != null && parentResponse.isNotEmpty) {
+        // Check if this item has dependent elements
+        if (item.dependentElements != null && item.dependentElements!.isNotEmpty) {
+          // Get widget state for accessing dependent element data
+          final widgetKey = _widgetKeys[item.giclmId];
+          final widgetState = widgetKey?.currentState;
+          
+          if (widgetState != null) {
+            // Loop through dependent elements in order
+            for (final dependentElement in item.dependentElements!) {
+              // Determine if this dependent element is mandatory
+              final isMandatory = _isDependentElementMandatory(
+                dependentElement,
+                parentResponse,
+              );
+              
+              // If mandatory, validate the dependent element value
+              if (isMandatory) {
+                final validationError = _validateDependentElementValue(
+                  dependentElement,
+                  widgetState,
+                );
+                
+                // If validation fails, show popup and STOP immediately
+                if (validationError != null) {
+                  _showValidationErrorDialog(validationError);
+                  // Highlight the invalid dependent field in red
+                  widgetState.highlightDependentField(dependentElement.respType);
+                  return false; // Stop validation - do not check other dependencies or next item
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // ============================================================
+      // STEP 3: Move to Next Checklist Item
+      // Only reached if:
+      //   - Parent field is valid (or not mandatory)
+      //   - All mandatory dependent elements are valid
+      // ============================================================
+    }
+    
+    // All checklist items validated successfully
+    return true;
+  }
+  
+  /// Get parent response value for a checklist item
+  String? _getParentResponseValue(GenInsCheckListData item) {
+    final response = _checklistResponses[item.giclmId];
+    if (response == null) return null;
+    
+    // Get value based on response type
+    if (item.respType.contains('RADIO') || item.respType.contains('DROPDOWN')) {
+      return response['radio_value']?.toString();
+    } else if (item.respType.contains('TEXT')) {
+      return response['text_value']?.toString();
+    }
+    
+    return null;
+  }
+  
+  /// Determine if a dependent element is mandatory based on rules
+  /// 
+  /// Rules:
+  /// 1. If mandatoryIfValue == true → Always mandatory (for all parent responses)
+  /// 2. If mandatoryIfValue is a List (e.g., ["No", "Not Ok"]) → Mandatory only when parent response matches
+  /// 
+  /// Example from JSON:
+  /// - Parent field: "DG" with options "OK" and "Not OK"
+  /// - Dependent element: IMG with mandatoryIfValue: ["No", "Not Ok"]
+  /// - Result:
+  ///   * If parent response = "OK" → NOT mandatory (because "OK" is not in ["No", "Not Ok"])
+  ///   * If parent response = "Not OK" → IS mandatory (because "Not OK" matches "Not Ok" case-insensitively)
+  bool _isDependentElementMandatory(
+    DependentElement element,
+    String? parentResponse,
+  ) {
+    final mandatoryIfValue = element.mandatoryIfValue;
+    
+    // Case 1: Boolean mandatory (true = mandatory for all responses)
+    if (mandatoryIfValue is bool && mandatoryIfValue == true) {
+      return true;
+    }
+    
+    // Case 2: Value-based mandatory (array of values)
+    // Example: mandatoryIfValue: ["No", "Not Ok"]
+    // This means: mandatory ONLY when parent response is "No" or "Not Ok"
+    // If parent response is "OK", it should NOT be mandatory
+    if (mandatoryIfValue is List) {
+      if (parentResponse == null || parentResponse.isEmpty) {
+        return false; // No parent response, not mandatory
+      }
+      
+      // Check if parent response matches any value in the array (case-insensitive)
+      // Convert both to lowercase for comparison to handle variations like "Not OK" vs "Not Ok"
+      final mandatoryValues = mandatoryIfValue
+          .map((e) => e.toString().trim().toLowerCase())
+          .toList();
+      final parentValueLower = parentResponse.trim().toLowerCase();
+      
+      // Return true only if parent response matches one of the mandatory values
+      // Example: 
+      //   - mandatoryIfValue: ["No", "Not Ok"]
+      //   - parent = "OK" → returns false (not mandatory)
+      //   - parent = "Not OK" → returns true (mandatory, matches "Not Ok" case-insensitively)
+      return mandatoryValues.contains(parentValueLower);
+    }
+    
+    // Default: not mandatory
+    return false;
+  }
+  
+  /// Validate a single dependent element value
+  /// Returns error message if invalid, null if valid
+  String? _validateDependentElementValue(
+    DependentElement element,
+    GICustomChecklistItemState? widgetState,
+  ) {
+    if (widgetState == null) {
+      return '${element.checklistDesc} is mandatory';
+    }
+    
+    if (element.respType == 'IMG') {
+      // IMG: At least one image must be added
+      final imageId = widgetState.getDependentImageId(element.respType);
+      if (imageId == null || imageId.isEmpty) {
+        return '${element.checklistDesc} is mandatory';
+      }
+    } else if (element.respType == 'REMARKS' || element.respType == 'TEXT') {
+      // REMARKS/TEXT: Non-empty text required
+      final value = element.respType == 'REMARKS'
+          ? widgetState.getDependentRemarks(element.respType)
+          : widgetState.getDependentTextValue(element.respType);
+      
+      if (value == null || value.trim().isEmpty) {
+        return '${element.checklistDesc} is mandatory';
+      }
+    }
+    
+    return null; // Valid
+  }
+  
+  /// Show validation error dialog
+  void _showValidationErrorDialog(String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Validation Error',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            errorMessage,
+            style: const TextStyle(fontSize: 16),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _submitForm() async {
+    // Validate sequentially: Main fields first, then dependent elements
+    // This function handles both main field and dependent element validation
+    if (!_validateDependenciesSequentially()) {
+      return; // Stop if validation fails
     }
 
-    if (validationErrors.isNotEmpty) {
-      showCustomToast(context, validationErrors.first);
-      return;
-    }
-
-    // Submit the form data to API
+    // All validations passed - submit the form data to API
     await _submitGeneralInspectionData();
   }
 
