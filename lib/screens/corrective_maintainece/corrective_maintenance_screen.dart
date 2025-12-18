@@ -141,8 +141,7 @@ class _CorrectiveMaintenanceScreenState
       if (preloadedSite.containsKey('data') && preloadedSite['data'] is Map<String, dynamic>) {
         preloadedSite = Map<String, dynamic>.from(preloadedSite['data']);
       }
-      
-      
+
       // Try both camelCase and snake_case for cmSiteReqId
       cmSiteReqId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
       CMSite site = CMSite(
@@ -599,7 +598,6 @@ class _CorrectiveMaintenanceScreenState
       "✅ [CM] Site selected: ${selectedSite.siteName}, entityId: ${selectedSite.entityId}, mode: ${widget.mode}",
     );
 
-
     setState(() {
       _selectedSite = selectedSite;
       _hasFormDataChanges = true;
@@ -624,14 +622,12 @@ class _CorrectiveMaintenanceScreenState
           "🔄 [CM] Attempting to load checklist data from local database for siteId: ${selectedSite.siteId}",
         );
 
-        
         Map<String, dynamic> checklistData = {};
         
         try {
           // Try to get site data with checklist from local database first
           Logger.infoLog("🔄 [CM] Checking local database for site data with checklist...");
           Logger.infoLog("🆔 [CM] Looking for site ID: ${selectedSite.siteId}, entityId: ${selectedSite.entityId}");
-
 
           final siteDataWithChecklist = await ServiceLocator()
               .centralAssetAuditDataService

@@ -111,7 +111,7 @@ class ApiService {
         statusCode: e.response?.statusCode,
       );
     } catch (e) {
-      print("ApiService: General exception caught - $e");
+
       return ResponseResult.error(
         errorMessage: 'Request failed: $e',
       );
@@ -227,9 +227,6 @@ class ApiService {
 
   void _recordError(DioException error) {
 
-    print("API Error: ${error.message}");
-    print("API Error Type: ${error.type}");
-    print("API Error Response: ${error.response?.data}");
   }
 
   /// Get notifications for a user
@@ -307,10 +304,6 @@ class ApiService {
       );
     }
   }
-
-
-
-
 
 }
 

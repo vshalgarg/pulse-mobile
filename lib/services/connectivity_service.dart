@@ -31,17 +31,14 @@
 //       _connectivitySubscription = _connectivity.onConnectivityChanged.listen(
 //         _onConnectivityChanged,
 //         onError: (error) {
-//           print('ConnectivityService: Error in connectivity stream: $error');
 //           // Switch to fallback service
 //           _switchToFallback();
 //         },
 //         cancelOnError: false, // Don't cancel the stream on error
 //       );
 //     } catch (e) {
-//       print('ConnectivityService: Error initializing connectivity: $e');
 //       // Check if it's a MissingPluginException
 //       if (e.toString().contains('MissingPluginException')) {
-//         print('ConnectivityService: Plugin not registered, switching to fallback service');
 //         _switchToFallback();
 //       } else {
 //         // Fallback to offline mode if initialization fails
@@ -54,7 +51,6 @@
 //   void _switchToFallback() {
 //     if (!_usingFallback) {
 //       _usingFallback = true;
-//       print('ConnectivityService: Switching to fallback connectivity service');
 //
 //       // Initialize fallback service
 //       _fallbackService.initialize();
@@ -74,10 +70,8 @@
 //
 //       _updateConnectivityStatus(isConnected);
 //     } catch (e) {
-//       print('ConnectivityService: Error checking connectivity: $e');
 //       // Check if it's a MissingPluginException
 //       if (e.toString().contains('MissingPluginException')) {
-//         print('ConnectivityService: Plugin not registered, assuming online');
 //         _updateConnectivityStatus(true); // Assume online as fallback
 //       } else {
 //         _updateConnectivityStatus(false);
@@ -96,7 +90,6 @@
 //     if (_isOnline != isOnline) {
 //       _isOnline = isOnline;
 //       _connectivityController.add(_isOnline);
-//       print('ConnectivityService: Connectivity changed to ${_isOnline ? "online" : "offline"}');
 //     }
 //   }
 //
@@ -117,10 +110,8 @@
 //
 //       return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
 //     } catch (e) {
-//       print('ConnectivityService: Internet connection check failed: $e');
 //       // Check if it's a MissingPluginException
 //       if (e.toString().contains('MissingPluginException')) {
-//         print('ConnectivityService: Plugin not registered, assuming online');
 //         return true; // Assume online as fallback
 //       }
 //       return false;
@@ -152,7 +143,6 @@
 //       return await _hasInternetConnection();
 //     } catch (e) {
 //       if (e.toString().contains('MissingPluginException')) {
-//         print('ConnectivityService: Plugin not available, using fallback');
 //         return true; // Assume online as fallback
 //       }
 //       return false;

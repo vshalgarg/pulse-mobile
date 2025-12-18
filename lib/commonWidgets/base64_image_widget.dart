@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
-
 class Base64ImageWidget extends StatelessWidget {
   final String base64Data;
   final double? height;

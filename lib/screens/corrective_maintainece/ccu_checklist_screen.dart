@@ -56,7 +56,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
     
     // If entityId changed, reload data
     if (oldWidget.entityId != widget.entityId) {
-      print('🔄 [CCUChecklist] EntityId changed from ${oldWidget.entityId} to ${widget.entityId}');
+
       if (widget.entityId != null && _isExpanded) {
         _loadChecklistData();
       } else if (widget.entityId == null) {
@@ -80,7 +80,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
 
   Future<void> _loadChecklistData() async {
     if (widget.entityId == null) {
-      print('⚠️ [CCUChecklist] entityId is null, cannot load data');
+
       setState(() {
         _errorMessage = 'Please select a site first';
       });
@@ -93,8 +93,6 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
         _errorMessage = null;
       });
 
-      print('🔄 [CCUChecklist] Loading checklist data for entityId: ${widget.entityId}');
-      
       // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
       //   widget.entityId!,
       // );
@@ -102,9 +100,9 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
       final List<CMChecklistItem> ccuItems = [];
       
       // Debug: Check what we received
-      print('📋 [CCUChecklist] Received ${ccuItems.length} CCU items');
+
       for (var item in ccuItems) {
-        print('🔍 [CCUChecklist] Item: ${item.checklistDesc} | Type: ${item.respType} | Mandatory: ${item.isMandatory}');
+
       }
       
       setState(() {
@@ -129,7 +127,6 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
         _isLoading = false;
       });
 
-      print('✅ [CCUChecklist] Loaded ${ccuItems.length} checklist items');
       widget.onFormChanged();
 
     } catch (e) {
@@ -137,7 +134,7 @@ class _CCUChecklistSectionState extends State<CCUChecklistSection> {
         _errorMessage = 'Failed to load checklist data: $e';
         _isLoading = false;
       });
-      print('❌ [CCUChecklist] Error loading data: $e');
+
     }
   }
 

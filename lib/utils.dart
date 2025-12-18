@@ -65,7 +65,7 @@ class Utils {
       
       return now.isAfter(expiry);
     } catch (e) {
-      print('Error checking token expiration: $e');
+
       return true;
     }
   }
@@ -88,7 +88,7 @@ class Utils {
       
       return DateTime.fromMillisecondsSinceEpoch(exp * 1000);
     } catch (e) {
-      print('Error getting token expiration: $e');
+
       return null;
     }
   }
@@ -104,7 +104,7 @@ class Utils {
         if (parts.length == 2 && parts[1].isNotEmpty) {
           base64Data = parts[1];
         } else {
-          print('Error: Invalid data URL format');
+
           return null;
         }
       } else {
@@ -113,7 +113,7 @@ class Utils {
       }
       
       if (base64Data.isEmpty) {
-        print('Error: Empty base64 data');
+
         return null;
       }
       
@@ -132,7 +132,7 @@ class Utils {
       
       return file;
     } catch (e) {
-      print('Error creating file from bytes data: $e');
+
     }
     return null;
   }

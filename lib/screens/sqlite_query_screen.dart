@@ -86,7 +86,6 @@ SELECT screen_name, COUNT(*) as count FROM form_data GROUP BY screen_name;
 SELECT site_audit_sch_id, image_id, LENGTH(image_data) as size_bytes FROM cached_images LIMIT 10;''';
   }
 
-
   Future<void> _executeQuery() async {
     if (_queryController.text.trim().isEmpty) {
       setState(() {

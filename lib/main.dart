@@ -51,31 +51,31 @@ Future<void> main() async {
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-      print('✅ Firebase initialized successfully');
+
     } else {
-      print('✅ Firebase already initialized');
+
     }
   } catch (e) {
-    print('❌ Firebase initialization error: $e');
+
     // Continue without Firebase if initialization fails
   }
   // Setup Crashlytics only if Firebase is available
   try {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   } catch (e) {
-    print('⚠️ Crashlytics setup failed: $e');
+
   }
 
   // Initialize push notifications only if Firebase is available
   try {
     if (Firebase.apps.isNotEmpty) {
       await PushNotificationApi().initNotifications();
-      print('✅ Push notifications initialized successfully');
+
     } else {
-      print('⚠️ Skipping push notifications - Firebase not available');
+
     }
   } catch (e) {
-    print('❌ Push notification initialization error: $e');
+
   }
 
   // Initialize app configuration
@@ -88,14 +88,14 @@ Future<void> main() async {
   await FileLogger.info('App starting up');
 
   // Initialize all app services
-  print('🔧 Initializing all services...');
+
   await FileLogger.info('Initializing all services');
   final success = await AppInitializationService.initializeApp(globalConfig!.apiService);
   if (!success) {
     await FileLogger.error('Failed to initialize app services');
     throw Exception('Failed to initialize app services');
   }
-  print('✅ All services initialized successfully');
+
   await FileLogger.info('All services initialized successfully');
 
   // Start log push service if enabled
@@ -166,15 +166,15 @@ class MyHttpOverrides extends HttpOverrides {
 // Location permissions
 Future<void> _initializeLocationPermissions() async {
   try {
-    print('Initializing location permissions...');
+
     final permissionResult = await LocationPermissionService.requestLocationPermissions();
     if (permissionResult['success']) {
-      print('Location permissions initialized successfully');
+
     } else {
-      print('Location permissions initialization failed: ${permissionResult['message']}');
+
     }
   } catch (e) {
-    print('Error initializing location permissions: $e');
+
   }
 }
 
@@ -183,12 +183,12 @@ void _checkTokenStatus() async {
   final token = LocalStorageDB.getToken;
   if (token != null) {
     if (Utils.isTokenExpired(token)) {
-      print('Token is expired on app startup');
+
       await LocalStorageDB.logout();
     } else {
-      print('Token is valid on app startup');
+
     }
   } else {
-    print('No token found on app startup');
+
   }
 }

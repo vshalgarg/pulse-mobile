@@ -87,7 +87,6 @@ final defaultPinTheme = PinTheme(
     borderRadius: BorderRadius.circular(AppSizes.ten),
     color: AppColors.blue14
 
-
   ),
 );
 

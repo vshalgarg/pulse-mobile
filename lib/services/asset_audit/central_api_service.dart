@@ -161,8 +161,6 @@ class CentralApiService {
           ? 'OnM/Corrective_Maintenance.rptdesign' : activityType == ActivityTypeEnum.generalInspection ? 'OnM/gen_inspection.rptdesign'
           : 'OnM/Corrective_Maintenance.rptdesign';
 
-      print('Report Path: $reportPath');
-
       // Get user ID from local storage
       final userId = LocalStorageDB.getUserId ?? '0';
       final token = LocalStorageDB.getToken;
@@ -232,8 +230,6 @@ class CentralApiService {
           '🌐 Site Visit data fetched successfully: ${response.data}',
         );
 
-        print("parsedData: site visit log data ${parsedData}");
-
         // Fetch organisation list and map orgId to organisationName
         try {
           
@@ -280,7 +276,6 @@ class CentralApiService {
     required String siteAuditSchId,
   }) async {
     try {
-      print("general inspection called");
 
       final response = await _apiService.get<Map<String, dynamic>>(
         path: '/api/v1/om-schedule/genInspection/$siteAuditSchId',
@@ -289,10 +284,6 @@ class CentralApiService {
       if (response.isSuccess && response.data != null) {
         final Map<String, dynamic> parsedData =
             response.data! as Map<String, dynamic>;
-
-       
-
-        print("parsedData: GI  log data ${parsedData}");
 
         return parsedData;
       } else {

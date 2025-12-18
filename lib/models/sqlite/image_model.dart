@@ -22,7 +22,4 @@ class ImageModel {
     this.schId,
   });
 
-
-
-
 }

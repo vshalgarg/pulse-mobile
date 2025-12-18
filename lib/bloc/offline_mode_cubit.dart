@@ -140,7 +140,6 @@
 //       }
 //       return false;
 //     } catch (e) {
-//       print('OfflineModeCubit: Error checking pending sync data: $e');
 //       return false;
 //     }
 //   }
@@ -170,7 +169,6 @@
 //         'pendingSync': pendingSyncCount,
 //       };
 //     } catch (e) {
-//       print('OfflineModeCubit: Error getting offline data counts: $e');
 //       return {'tickets': 0, 'pendingSync': 0};
 //     }
 //   }
@@ -211,9 +209,6 @@
 //       );
 //
 //       // Debug: Log what we're storing
-//       print('OfflineModeCubit: Storing API response with keys: ${apiResponse.keys.toList()}');
-//       print('OfflineModeCubit: Has pageHeader: ${apiResponse.containsKey('pageHeader')}');
-//       print('OfflineModeCubit: Has responseData: ${apiResponse.containsKey('responseData')}');
 //
 //       // Clear any existing offline data for this ticket first
 //       await HiveDB.deleteOfflineTicket(firstPageHeader['site_audit_sch_id']?.toString() ?? '');

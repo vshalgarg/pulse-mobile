@@ -63,25 +63,18 @@ class NotificationService {
             );
             notifications.add(notification);
           } catch (e) {
-            print(
-              'NotificationService: Error parsing notification at index $i: $e',
-            );
-            print(
-              'NotificationService: Problematic data: ${notificationsData[i]}',
-            );
+
             // Continue with other notifications
           }
         }
 
         return notifications;
       } else {
-        print(
-          'NotificationService: Failed to fetch notifications: ${response.errorMessage}',
-        );
+
         return [];
       }
     } catch (e) {
-      print('NotificationService: Error fetching notifications: $e');
+
       return [];
     }
   }
@@ -103,13 +96,11 @@ class NotificationService {
       if (response.isSuccess && response.data != null) {
         return response.data!;
       } else {
-        print(
-          'NotificationService: Failed to fetch notifications count: ${response.errorMessage}',
-        );
+
         return "0";
       }
     } catch (e) {
-      print('NotificationService: Error fetching notifications count: $e');
+
       return "0";
     }
   }

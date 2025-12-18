@@ -54,8 +54,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
-  
-  
+
   // Photo IDs
   String? _fencingPhotoId;
   String? _overallSitePhotoId;
@@ -465,8 +464,7 @@ class _BoundaryV2ScreenState extends State<BoundaryV2Screen> {
           ),
           getHeight(15),
         ],
-        
-        
+
         // Remarks using CustomRemarksField
         CustomRemarksField(
           label: "Add Remarks",

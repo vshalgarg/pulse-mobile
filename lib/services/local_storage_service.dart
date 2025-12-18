@@ -64,7 +64,7 @@ class LocalStorageService {
       try {
         return Map<String, dynamic>.from(jsonDecode(jsonString));
       } catch (e) {
-        print('Error parsing JSON for key $key: $e');
+
         return null;
       }
     }
@@ -83,7 +83,7 @@ class LocalStorageService {
         final List<dynamic> decoded = jsonDecode(jsonString);
         return decoded.map((item) => Map<String, dynamic>.from(item)).toList();
       } catch (e) {
-        print('Error parsing JSON list for key $key: $e');
+
         return null;
       }
     }

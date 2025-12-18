@@ -99,7 +99,7 @@ class ShowPainterImage extends StatelessWidget {
                   );
                 }
               }).catchError((onError) {
-                print(onError);
+
               });*/
 
               // ScaffoldMessenger.of(context).showSnackBar(

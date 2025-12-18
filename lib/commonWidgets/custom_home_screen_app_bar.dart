@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app/extensions/string_extension.dart';
 
-
 import '../commonWidgets/custom_search_icon.dart';
 import '../commonWidgets/custom_text_widget.dart';
 import '../commonWidgets/notification_badge.dart';

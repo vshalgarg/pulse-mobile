@@ -46,11 +46,9 @@ import 'dart:convert';
 //           );
 //
 //           if (photoId != null) {
-//             print('OfflinePhotoUploadHelper: Photo uploaded successfully to server, photoId: $photoId');
 //             return photoId;
 //           }
 //         } catch (e) {
-//           print('OfflinePhotoUploadHelper: Server upload failed, falling back to offline: $e');
 //         }
 //       }
 //
@@ -58,7 +56,6 @@ import 'dart:convert';
 //       return await _savePhotoOffline(photoFile, schId);
 //
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Error in offline-first photo upload: $e');
 //       return null;
 //     }
 //   }
@@ -84,7 +81,6 @@ import 'dart:convert';
 //       return PhotoIdAdapter.toApiInt(stringPhotoId);
 //
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Error in API-compatible photo upload: $e');
 //       return null;
 //     }
 //   }
@@ -113,17 +109,13 @@ import 'dart:convert';
 //       if (state is AssetAuditPhotoUploadSuccess) {
 //         // Convert server photo ID (int) to String for consistency
 //         final photoId = state.response.imgId;
-//         print('OfflinePhotoUploadHelper: Server photo ID: $photoId (type: ${photoId.runtimeType})');
 //         return photoId; // imgId is already a String from the response
 //       } else if (state is AssetAuditPhotoUploadFailure) {
-//         print('OfflinePhotoUploadHelper: Server upload failed: ${state.errorMessage}');
 //         return null;
 //       } else {
-//         print('OfflinePhotoUploadHelper: Server upload still in progress or unknown state');
 //         return null;
 //       }
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Exception during server upload: $e');
 //       return null;
 //     }
 //   }
@@ -147,11 +139,9 @@ import 'dart:convert';
 //         schId: schId ?? 'unknown',
 //       );
 //
-//       print('OfflinePhotoUploadHelper: Photo saved offline with ID: $localPhotoId');
 //       return localPhotoId;
 //
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Error saving photo offline: $e');
 //       return null;
 //     }
 //   }
@@ -172,12 +162,10 @@ import 'dart:convert';
 //           return await _getServerPhoto(photoId, context);
 //         } else {
 //           // Offline and server photo ID - return null
-//           print('OfflinePhotoUploadHelper: Cannot load server photo while offline: $photoId');
 //           return null;
 //         }
 //       }
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Error getting photo: $e');
 //       return null;
 //     }
 //   }
@@ -194,7 +182,6 @@ import 'dart:convert';
 //       }
 //       return null;
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Error getting offline photo: $e');
 //       return null;
 //     }
 //   }
@@ -203,7 +190,6 @@ import 'dart:convert';
 //   static Future<File?> _getServerPhoto(String photoId, BuildContext context) async {
 //     // This would need to be implemented based on your server API
 //     // For now, return null
-//     print('OfflinePhotoUploadHelper: Server photo loading not implemented yet: $photoId');
 //     return null;
 //   }
 //
@@ -211,7 +197,6 @@ import 'dart:convert';
 //   static Future<void> syncOfflinePhotos() async {
 //     try {
 //       if (!_connectivityService.isOnline) {
-//         print('OfflinePhotoUploadHelper: Cannot sync photos while offline');
 //         return;
 //       }
 //
@@ -228,17 +213,14 @@ import 'dart:convert';
 //           if (await file.exists()) {
 //             // Try to upload to server
 //             // This would need to be implemented based on your upload logic
-//             print('OfflinePhotoUploadHelper: Syncing photo $localPhotoId to server');
 //
 //             // After successful upload, remove from offline storage
 //             // await HiveDB.deleteOfflinePhoto(localPhotoId);
 //           }
 //         } catch (e) {
-//           print('OfflinePhotoUploadHelper: Error syncing photo ${photoData['photoId']}: $e');
 //         }
 //       }
 //     } catch (e) {
-//       print('OfflinePhotoUploadHelper: Error syncing offline photos: $e');
 //     }
 //   }
 // }

@@ -4,8 +4,7 @@ import 'package:geolocator/geolocator.dart';
 class LocationPermissionService {
   /// Request location permissions and return the status
   static Future<Map<String, dynamic>> requestLocationPermissions() async {
-    print('LocationPermissionService: Requesting location permissions...');
-    
+
     Map<String, dynamic> result = {
       'success': false,
       'fineLocation': false,
@@ -17,16 +16,12 @@ class LocationPermissionService {
       // Check current permission status
       final fineLocationStatus = await Permission.locationWhenInUse.status;
       final coarseLocationStatus = await Permission.location.status;
-      
-      print('LocationPermissionService: Current fine location status: $fineLocationStatus');
-      print('LocationPermissionService: Current coarse location status: $coarseLocationStatus');
-      
+
       // Request fine location permission (most accurate)
       if (fineLocationStatus.isDenied) {
-        print('LocationPermissionService: Requesting fine location permission...');
+
         final fineLocationResult = await Permission.locationWhenInUse.request();
-        print('LocationPermissionService: Fine location permission result: $fineLocationResult');
-        
+
         if (fineLocationResult.isGranted) {
           result['fineLocation'] = true;
         } else if (fineLocationResult.isPermanentlyDenied) {
@@ -39,10 +34,9 @@ class LocationPermissionService {
       
       // Request coarse location permission as fallback
       if (coarseLocationStatus.isDenied) {
-        print('LocationPermissionService: Requesting coarse location permission...');
+
         final coarseLocationResult = await Permission.location.request();
-        print('LocationPermissionService: Coarse location permission result: $coarseLocationResult');
-        
+
         if (coarseLocationResult.isGranted) {
           result['coarseLocation'] = true;
         } else if (coarseLocationResult.isPermanentlyDenied) {
@@ -57,15 +51,15 @@ class LocationPermissionService {
       if (result['fineLocation'] || result['coarseLocation']) {
         result['success'] = true;
         result['message'] = 'Location permissions granted successfully';
-        print('LocationPermissionService: Location permissions granted successfully');
+
       } else {
         result['message'] = 'Location permissions denied';
-        print('LocationPermissionService: Location permissions denied');
+
       }
       
     } catch (e) {
       result['message'] = 'Error requesting location permissions: $e';
-      print('LocationPermissionService: Error requesting location permissions: $e');
+
     }
     
     return result;
@@ -79,7 +73,7 @@ class LocationPermissionService {
       
       return fineLocationStatus.isGranted || coarseLocationStatus.isGranted;
     } catch (e) {
-      print('LocationPermissionService: Error checking location permissions: $e');
+
       return false;
     }
   }
@@ -89,7 +83,7 @@ class LocationPermissionService {
     try {
       return await Geolocator.isLocationServiceEnabled();
     } catch (e) {
-      print('LocationPermissionService: Error checking location service: $e');
+
       return false;
     }
   }
@@ -99,7 +93,7 @@ class LocationPermissionService {
     try {
       await openAppSettings();
     } catch (e) {
-      print('LocationPermissionService: Error opening app settings: $e');
+
     }
   }
   
@@ -117,7 +111,7 @@ class LocationPermissionService {
         'hasAnyPermission': fineLocationStatus.isGranted || coarseLocationStatus.isGranted,
       };
     } catch (e) {
-      print('LocationPermissionService: Error getting permission status: $e');
+
       return {
         'fineLocation': 'unknown',
         'coarseLocation': 'unknown',

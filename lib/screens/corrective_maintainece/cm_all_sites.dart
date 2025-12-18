@@ -65,7 +65,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
       } catch (e) {
         // Use default location if GPS fails
         location = LocationModel(latitude: 32.899, longitude: 56.989);
-        print('Using default location: $e');
+
       }
 
       // Add timeout to prevent indefinite loading
@@ -110,7 +110,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         });
       }
     } catch (e) {
-      print('Error loading sites: $e');
+
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
@@ -268,7 +268,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
-      print('Download error: $e');
+
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();

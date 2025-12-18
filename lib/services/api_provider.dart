@@ -79,7 +79,6 @@ class ApiProvider {
     //       );
     //     }
     //
-    //     print(logMessage);
     //   },
     // ));
 
@@ -146,7 +145,7 @@ class ApiProvider {
         pushNamedAndRemoveUntil(navigatorKey.currentContext!, loginScreen);
       }
     } catch (e) {
-      print('Logout failed: $e');
+
     }
   }
 

@@ -103,7 +103,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         });
       }
     } catch (e) {
-      print('Error loading sites: $e');
+
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
@@ -138,18 +138,16 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
 
   void _performSearchAndLoad(String query) {
     final trimmed = query.trim();
-    print('🔍 Search submitted: "$trimmed"');
-    print('🔍 Current site type: $_siteType');
 
     setState(() {
       _searchQuery = trimmed;
     });
 
     if (trimmed.isNotEmpty) {
-      print('🔍 Loading sites with search text: "$trimmed"');
+
       _loadSites(_siteType, searchText: trimmed);
     } else {
-      print('🔍 Search is empty, clearing results');
+
       // If search is empty, reload based on current filter
       if (_siteType == 'ALL') {
         _filteredSites.clear();
@@ -248,7 +246,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           return;
         }
       } catch (e) {
-        print('Error loading stored data: $e');
+
         // Fall through to use basic site data
       }
     }
@@ -346,7 +344,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           );
 
           if (!giDownloaded) {
-            print('Warning: CM site data downloaded but GI checklist failed');
+
             // Still consider it successful since CM data was downloaded
           }
         }
@@ -365,7 +363,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
-      print('Download error: $e');
+
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();

@@ -75,7 +75,6 @@ PageRoute _noSwipeRoute(Widget child, RouteSettings settings) {
   );
 }
 
-
 void navigateBackOrToHome(
   BuildContext context, {
   BuildContext? targetContext,

@@ -39,10 +39,9 @@ class OfflineImageHelper {
         category: category,
       );
 
-      print('OfflineImageHelper: Saved image locally: $filePath');
       return filePath;
     } catch (e) {
-      print('OfflineImageHelper: Error saving image locally: $e');
+
       return null;
     }
   }
@@ -65,40 +64,37 @@ class OfflineImageHelper {
         'siteAuditSchId': siteAuditSchId,
         'savedAt': DateTime.now().millisecondsSinceEpoch,
       });
-      
-      print('OfflineImageHelper: Saved image metadata for photoId: $photoId');
+
     } catch (e) {
-      print('OfflineImageHelper: Error saving image metadata: $e');
+
     }
   }
 
   /// Get local image path for a photo ID
   static String? getLocalImagePath(String siteAuditSchId, String photoId) {
     try {
-      print('OfflineImageHelper: getLocalImagePath - siteAuditSchId: $siteAuditSchId, photoId: $photoId');
+
       final key = 'offline_image_${siteAuditSchId}_$photoId';
-      print('OfflineImageHelper: Looking for key: $key');
+
       final data = LocalStorageService.getJson(key);
-      print('OfflineImageHelper: Data found: ${data != null}');
-      
+
       if (data != null) {
         final metadata = Map<String, dynamic>.from(data);
         final localPath = metadata['localPath'] as String?;
-        print('OfflineImageHelper: Local path: $localPath');
-        
+
         // Check if file still exists
         if (localPath != null && File(localPath).existsSync()) {
-          print('OfflineImageHelper: File exists, returning path');
+
           return localPath;
         } else {
-          print('OfflineImageHelper: File does not exist at path: $localPath');
+
         }
       } else {
-        print('OfflineImageHelper: No metadata found for key: $key');
+
       }
       return null;
     } catch (e) {
-      print('OfflineImageHelper: Error getting local image path: $e');
+
       return null;
     }
   }
@@ -108,29 +104,25 @@ class OfflineImageHelper {
     try {
       final List<Map<String, dynamic>> images = [];
       final keys = LocalStorageService.getKeys();
-      
-      print('OfflineImageHelper: getSavedImages - siteAuditSchId: $siteAuditSchId');
-      print('OfflineImageHelper: Total keys: ${keys.length}');
-      
+
       for (final key in keys) {
-        print('OfflineImageHelper: Checking key: $key');
+
         if (key.startsWith('offline_image_${siteAuditSchId}_')) {
-          print('OfflineImageHelper: Found matching key: $key');
+
           final data = LocalStorageService.getJson(key);
           if (data != null) {
-            print('OfflineImageHelper: Metadata: $data');
+
             if (data['localPath'] != null && File(data['localPath']).existsSync()) {
               images.add(data);
-              print('OfflineImageHelper: Added image: ${data['photoId']}');
+
             }
           }
         }
       }
-      
-      print('OfflineImageHelper: Found ${images.length} images for site $siteAuditSchId');
+
       return images;
     } catch (e) {
-      print('OfflineImageHelper: Error getting saved images: $e');
+
       return [];
     }
   }
@@ -157,10 +149,9 @@ class OfflineImageHelper {
       if (await offlineImagesDir.exists()) {
         await offlineImagesDir.delete(recursive: true);
       }
-      
-      print('OfflineImageHelper: Cleared all images for site $siteAuditSchId');
+
     } catch (e) {
-      print('OfflineImageHelper: Error clearing images: $e');
+
     }
   }
 }

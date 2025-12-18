@@ -228,7 +228,7 @@ class _PMPageRenderState extends State<PMPageRender> {
           ?.toString();
 
       if (siteAuditSchId != null) {
-        print('🔄 Updating PM data in SQLite for site: $siteAuditSchId');
+
         final dataToPost = _pmData['responseData'][_currentPageName];
         // Update data in SQLite
         final success = await ServiceLocator().centralAssetAuditService
@@ -240,13 +240,13 @@ class _PMPageRenderState extends State<PMPageRender> {
         if (success) {
           await _postPmDataToApi(dataToPost);
         } else {
-          print('❌ Failed to update PM data in SQLite');
+
         }
       } else {
-        print('❌ siteAuditSchId not found in PM data');
+
       }
     } catch (e) {
-      print('❌ Error updating PM data in SQLite: $e');
+
     }
   }
 
@@ -255,7 +255,7 @@ class _PMPageRenderState extends State<PMPageRender> {
       LoaderWidget.showLoader(context);
       await _updateDataInSqliteAndCallApi();
     } catch (e) {
-      print('❌ Error in _updateDataInSqliteAndCallApiWithLoader: $e');
+
     } finally {
       LoaderWidget.hideLoader();
     }
@@ -280,7 +280,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   void _clearWidgetState() {
     // Force widget recreation by updating a state variable
     // This ensures all form fields and widgets are cleared
-    print('🧹 Clearing widget state for page: $_currentPageName');
+
     // Reset changes flag when clearing widget state
     _hasChanges = false;
   }

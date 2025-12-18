@@ -112,15 +112,6 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         final lspuAssets = electricalItems['LSPU'] as List<dynamic>? ?? [];
         final remarksData = electricalItems['remarks'] as List<dynamic>? ?? [];
 
-        print("ACDB Assets: $acdbAssets");
-        print("LSPU Assets: $lspuAssets");
-
-       
-       
-          
-        
-
-
         final formData = <String, dynamic>{
           'acdbAssets': acdbAssets
               .where((obj) => obj['photo_id'] != null)
@@ -224,9 +215,6 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       final finalACDBAssets = finalData?['ACDB'] as List<dynamic>? ?? [];
       final finalLSPUAssets = finalData?['LSPU'] as List<dynamic>? ?? [];
-
-      print("finalACDBAssets: $finalACDBAssets");
-      print("finalLSPUAssets: $finalLSPUAssets");
 
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
@@ -490,7 +478,6 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                                   tableTitle: "LSPU Items",
                                 ),
                                 getHeight(20),
-                                
 
                                 // Add Remarks
                                 CustomRemarksField(

@@ -7,8 +7,6 @@ class AppColors {
   static const Color primaryGreen = Color(0xFF54B790);
   static const Color primaryBlue = Color(0xFF00172F);
 
-
-
   // Text Colors
   static const Color textWhite = Colors.white;
   static const Color textWhite70 = Colors.white70;

@@ -14,7 +14,7 @@ class OfflineDataHelper {
       }
       return null;
     } catch (e) {
-      print('OfflineDataHelper: Error getting offline asset audit data: $e');
+
       return null;
     }
   }
@@ -25,7 +25,7 @@ class OfflineDataHelper {
       final offlineTicket = LocalStorageDB.getOfflineTicket(siteAuditSchId);
       return offlineTicket != null;
     } catch (e) {
-      print('OfflineDataHelper: Error checking for offline data: $e');
+
       return false;
     }
   }

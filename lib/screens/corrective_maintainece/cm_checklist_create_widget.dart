@@ -49,7 +49,6 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
     }
   }
 
-
   void _initializeChecklistData() {
     try {
       final data = widget.checklistItemsByApi;

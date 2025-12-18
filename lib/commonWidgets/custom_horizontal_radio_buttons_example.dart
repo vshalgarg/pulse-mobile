@@ -57,7 +57,7 @@ class _CustomHorizontalRadioButtonsExampleState extends State<CustomHorizontalRa
                 setState(() {
                   selectedValue = value;
                 });
-                print('Selected: $value');
+
               },
             ),
             

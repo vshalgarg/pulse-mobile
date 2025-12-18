@@ -33,7 +33,7 @@ class AssetAuditPostService {
         finalLocation = await LocationService.getCurrentLocation();
       } catch (e) {
         Logger.infoLog('Error getting location: $e');
-        print("Error getting location: $e");
+
         Toastbar.showErrorWithoutContext(
           "Please enable your location first to proceed further.",
         );
@@ -76,7 +76,7 @@ class AssetAuditPostService {
       Logger.errorLog(
         'AssetAuditPostService: Exception while posting data: $e',
       );
-      print("error in posting data: $e");
+
       rethrow;
     }
   }
@@ -123,7 +123,7 @@ class AssetAuditPostService {
         return;
       } catch (e) {
         Logger.errorLog("error in posting data: $e");
-        print("error in posting data: $e");
+
       }
     }
     Logger.infoLog(
@@ -138,11 +138,10 @@ class AssetAuditPostService {
         );
     if (isSaved) {
       Logger.infoLog("Data saved to DB successfully");
-      print("Data saved to DB successfully");
 
       Toastbar.showSuccessToastWithoutContext("Data saved to DB successfully");
     } else {
-      print("Failed to save data to database");
+
       throw Exception('Failed to save data to database');
     }
   }
@@ -289,8 +288,6 @@ class AssetAuditPostService {
         processedData['customer_attachment_name'] = customerAttachmentName.toString().trim();
       }
 
-      
-
       // Create CM ticket using the repository
       final response = await ServiceLocator().cmRepository
           .createCorrectiveMaintenance(processedData);
@@ -414,7 +411,6 @@ class AssetAuditPostService {
             Logger.errorLog("Failed to create File for remarks attachment");
           }
         }
-
 
         Logger.infoLog("_uploadCMImagesAndAttachments completed");
 
@@ -794,8 +790,6 @@ class AssetAuditPostService {
         photoId = request['photo_id'] ?? request['photoId'];
       }
 
-      print("photoId: $photoId");
-
       // If no photo_id or photo_id is null/empty, return the request as-is
       if (photoId == null || photoId.toString().isEmpty) {
         return request;
@@ -809,7 +803,7 @@ class AssetAuditPostService {
             .getServerIdFromUniqueIdTryUploading(photoId.toString());
         if (imageModel != null) {
           final serverId = imageModel.serverId;
-          print("serverId: $serverId");
+
           final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
 
           if (request.containsKey("energyReadingId")) {
@@ -830,7 +824,7 @@ class AssetAuditPostService {
           Logger.debugLog(
             "FAILED to get server_id for LOCAL_IMAGE_ID: $photoId",
           );
-          print("FAILED to get server_id for LOCAL_IMAGE_ID: $photoId");
+
         }
       } else {
         // This is already a server_id, just add photo_taken_ts if not present
@@ -843,11 +837,11 @@ class AssetAuditPostService {
       }
     } catch (e) {
       Logger.errorLog("Error processing single request: $e");
-      print("Error processing single request: $e");
+
       return request;
     }
     Logger.infoLog("processAssetAuditRequest COMPLETED - returning: $request");
-    print("processAssetAuditRequest COMPLETED - returning: $request");
+
     return request;
   }
 
@@ -885,14 +879,13 @@ class AssetAuditPostService {
         if (photoId != null &&
             photoId.isNotEmpty &&
             photoId.startsWith('LOCAL_IMAGE_ID_')) {
-          print("Processing respPhotoId: $photoId");
 
           final imageModel = await ServiceLocator().imageUploadService
               .getServerIdFromUniqueIdTryUploading(photoId);
 
           if (imageModel != null) {
             final serverId = imageModel.serverId;
-            print("Replacing respPhotoId $photoId with serverId: $serverId");
+
             obj['respPhotoId'] = serverId;
 
             final timestamp = Utils.getTmeFromMSForAPICall(
@@ -915,14 +908,13 @@ class AssetAuditPostService {
         if (photoId != null &&
             photoId.isNotEmpty &&
             photoId.startsWith('LOCAL_IMAGE_ID_')) {
-          print("Processing photo_id: $photoId");
 
           final imageModel = await ServiceLocator().imageUploadService
               .getServerIdFromUniqueIdTryUploading(photoId);
 
           if (imageModel != null) {
             final serverId = imageModel.serverId;
-            print("Replacing photo_id $photoId with serverId: $serverId");
+
             obj['photo_id'] = serverId;
 
             final timestamp = Utils.getTmeFromMSForAPICall(

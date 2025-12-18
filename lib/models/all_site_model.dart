@@ -22,6 +22,7 @@ class AllSiteModel {
   final String? ownerName;
   final String? ownerPhone;
 
+
   final String? siteVisitLogId;
   final String? siteVisitLogDate;
   final String? purposeOfVisit;
@@ -40,6 +41,13 @@ class AllSiteModel {
 
   final String? svlId;
   final String? giId;
+
+  final String? lastPMDate;
+  final String? lastCMDate;
+  final String? installedAssetDetails;
+  final String? clusterInchargeName;
+  final String? clusterInchargeContactNo;
+
 
   AllSiteModel({
     required this.siteId,
@@ -79,6 +87,12 @@ class AllSiteModel {
     this.orgId,
     this.roleDesignation,
     this.reportingManager,
+
+    this.lastPMDate,
+    this.lastCMDate,
+    this.installedAssetDetails,
+    this.clusterInchargeName,
+    this.clusterInchargeContactNo,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
@@ -114,7 +128,23 @@ class AllSiteModel {
       orgId: json['org_id'] != null ? (json['org_id'] is int ? json['org_id'] as int : int.tryParse(json['org_id'].toString())) : null,
       roleDesignation: json['role_designation']?.toString() ?? '',
       reportingManager: json['reporting_manager']?.toString() ?? '',
+      lastPMDate: json['last_pm_date'] != null
+          ? json['last_pm_date'].toString()
+          : null,
+      lastCMDate: json['last_cm_date'] != null
+          ? json['last_cm_date'].toString()
+          : null,
+      installedAssetDetails: json['installed_asset_details'] != null
+          ? json['installed_asset_details'].toString()
+          : null,
+      clusterInchargeName: json['cluster_incharge_name'] != null
+          ? json['cluster_incharge_name'].toString()
+          : null,
+      clusterInchargeContactNo: json['cluster_incharge_contact_no'] != null
+          ? json['cluster_incharge_contact_no'].toString()
+          : null,
 
+      
 
       // site visit log data
       siteVisitLogId: json['site_visit_log_id'] != null
@@ -195,6 +225,12 @@ class AllSiteModel {
       'org_id': orgId,
       'role_designation': roleDesignation,
       'reporting_manager': reportingManager,
+
+      'last_pm_date': lastPMDate,
+      'last_cm_date': lastCMDate,
+      'installed_asset_details': installedAssetDetails,
+      'cluster_incharge_name': clusterInchargeName,
+      'cluster_incharge_contact_no': clusterInchargeContactNo,
     };
   }
 

@@ -222,7 +222,6 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
         activityType: ActivityTypeEnum.assetAudit,
       );
 
-
       Logger.debugLog('✅ Surveillance V2: Data posted successfully');
       
     } catch (e) {

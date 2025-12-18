@@ -203,9 +203,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   }
 
   Future<void> postCurrentScreenData() async {
-    print(
-      "postCurrentScreenData _assetAuditData : assetAuditData?['responseData']",
-    );
 
     try {
       Logger.debugLog('📤 Boundary V2: Starting postCurrentScreenData');
@@ -223,8 +220,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       final remarksData =
           (finalBoundaryItems['remarks'] as List<dynamic>?) ?? [];
       final assetsData = (finalBoundaryItems['assets'] as List<dynamic>?) ?? [];
-
-      print("finalBoundaryItems: $finalBoundaryItems");
 
       // ===== Boundary Data =====
       final boundaryDataList =
@@ -302,7 +297,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
         activityType: ActivityTypeEnum.assetAudit,
       );
 
-
       Logger.debugLog('✅ Boundary V2: Data posted successfully');
     } catch (e, s) {
       Logger.errorLog('❌ Boundary V2: Error in postCurrentScreenData: $e', s);
@@ -311,9 +305,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   }
 
   // Future<void> postCurrentScreenData() async {
-  //   print(
-  //     "postCurrentScreenData _assetAuditData : assetAuditData?['responseData']",
-  //   );
 
   //   try {
   //     Logger.debugLog('📤 Boundary V2: Starting postCurrentScreenData');
@@ -331,8 +322,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   //     final remarksData = finalBoundaryItems['remarks'] as List<dynamic>;
   //     final assetsData = finalBoundaryItems['assets'] as List<dynamic>;
 
-  //     print("finalBoundaryItems: $finalBoundaryItems");
-
   //     final boundaryDataList = assetsData.isNotEmpty
   //         ? assetsData.where(
   //             (data) =>
@@ -349,8 +338,6 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
   //     final overallSiteData = overallSiteDataList.isNotEmpty
   //         ? overallSiteDataList.first
   //         : null;
-
-  //     print("finalBoundaryItems: $finalBoundaryItems");
 
   //     if (_fencingAvailable == 'Yes') {
   //       if (_fencingPhotoId != null && _fencingStatus.isNotEmpty) {

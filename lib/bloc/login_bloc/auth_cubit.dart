@@ -26,7 +26,6 @@ class AuthCubit extends Cubit<AuthState> {
   }) async {
     if (state is AuthLoading) return;
 
-    print("AuthCubit: Starting login process for username: $username");
     emit(AuthLoading());
 
     try {
@@ -35,12 +34,8 @@ class AuthCubit extends Cubit<AuthState> {
         password: password,
       );
 
-      print(
-        "AuthCubit: Login result - isSuccess: ${result.isSuccess}, errorMessage: ${result.errorMessage}",
-      );
-
       if (result.isSuccess && result.data != null) {
-        print("AuthCubit: Login successful, saving tokens to storage");
+
         // Save tokens to local storage
         await _saveTokensToStorage(result.data!);
 
@@ -50,17 +45,16 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         // Fetch user details and save fullName
-        print("AuthCubit: Fetching user details...");
+
         await _fetchAndSaveUserDetails();
 
-        print("AuthCubit: Emitting AuthSuccess state");
         emit(AuthSuccess(result.data!));
       } else {
-        print("AuthCubit: Login failed, emitting AuthFailure state");
+
         emit(AuthFailure(result.errorMessage ?? somethingWentWrong));
       }
     } catch (e) {
-      print("AuthCubit: Login exception - $e");
+
       emit(AuthFailure('Login failed: $e'));
     }
   }
@@ -118,7 +112,6 @@ class AuthCubit extends Cubit<AuthState> {
   // Logout method
   Future<void> logout() async {
     try {
-      print("AuthCubit: Starting logout process");
 
       // Clear user details
       await UserDetailsService.instance.clearUserDetails();
@@ -126,10 +119,9 @@ class AuthCubit extends Cubit<AuthState> {
       // Clear authentication data
       await LocalStorageDB.logout();
 
-      print("AuthCubit: Logout completed, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {
-      print("AuthCubit: Logout failed - $e");
+
       emit(AuthFailure('Failed to logout'));
     }
   }
@@ -137,24 +129,20 @@ class AuthCubit extends Cubit<AuthState> {
   // Check if user is logged in
   bool get isLoggedIn {
     final token = LocalStorageDB.getToken;
-    print(
-      "AuthCubit: Checking if user is logged in - token: ${token != null ? '${token.substring(0, 20)}...' : 'null'}",
-    );
 
     if (token == null || token.isEmpty) {
-      print("AuthCubit: No token found - user not logged in");
+
       return false;
     }
 
     // Check if token is expired
     if (Utils.isTokenExpired(token)) {
-      print("AuthCubit: Token is expired - clearing token and logging out");
+
       // Clear expired token
       logout();
       return false;
     }
 
-    print("AuthCubit: User is logged in with valid token");
     return true;
   }
 
@@ -183,7 +171,7 @@ class AuthCubit extends Cubit<AuthState> {
         await _saveTokensToStorage(result.data!);
 
         // Fetch user details and save fullName
-        print("AuthCubit: Auto-login - Fetching user details...");
+
         await _fetchAndSaveUserDetails();
 
         emit(AuthSuccess(result.data!));
@@ -219,14 +207,12 @@ class AuthCubit extends Cubit<AuthState> {
     try {
       final userDetails = await UserDetailsService.instance.getUserDetails();
       if (userDetails != null && userDetails.fullName != null) {
-        print(
-          "AuthCubit: User details fetched successfully, fullName: ${userDetails.fullName}",
-        );
+
       } else {
-        print("AuthCubit: Failed to fetch user details or fullName is null");
+
       }
     } catch (e) {
-      print("AuthCubit: Error fetching user details: $e");
+
       // Don't fail the login if user details fetch fails
     }
   }
@@ -236,7 +222,6 @@ class AuthCubit extends Cubit<AuthState> {
 
   Future<void> forceClearAllData() async {
     try {
-      print("AuthCubit: Force clearing all data");
 
       // Clear authentication data
       await LocalStorageDB.logout();
@@ -244,10 +229,9 @@ class AuthCubit extends Cubit<AuthState> {
       // Clear SQLite databases and other services
       await ServiceLocator().centralAssetAuditService.clearAllData();
 
-      print("AuthCubit: All data cleared, emitting AuthInitial state");
       emit(AuthInitial());
     } catch (e) {
-      print("AuthCubit: Force clear failed - $e");
+
       emit(AuthFailure('Failed to clear data'));
     }
   }

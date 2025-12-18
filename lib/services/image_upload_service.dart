@@ -302,7 +302,7 @@ class ImageUploadService {
   /// Get server ID from SQLite
   Future<ImageModel?> _getByUniqueIdFromSQLite(String uniqueId) async {
     Logger.debugLog('_getServerIdFromSQLite called with uniqueId: $uniqueId');
-    print('🔍 _getByUniqueIdFromSQLite called with uniqueId: $uniqueId');
+
     try {
       final db = await database;
       Logger.debugLog('Executing database query...');
@@ -314,36 +314,34 @@ class ImageUploadService {
         whereArgs: [uniqueId],
         limit: 1,
       );
-      print('🔍 SQLite query by unique_id result: $maps');
+
       Logger.debugLog('🔍 SQLite query by unique_id result: $maps');
 
       // If not found by unique_id and the ID looks like a server ID (numeric), try server_id
       if (maps.isEmpty && int.tryParse(uniqueId) != null) {
-        print('🔍 Image not found by unique_id, trying server_id: $uniqueId');
+
         maps = await db.query(
           _tableName,
           where: 'server_id = ?',
           whereArgs: [uniqueId],
           limit: 1,
         );
-        print('🔍 SQLite query by server_id result: $maps');
+
         Logger.debugLog('🔍 SQLite query by server_id result: $maps');
       }
 
       if (maps.isNotEmpty) {
         final data = maps.first;
-        print('✅ Image found in SQLite');
+
         return convertDataToModel(data);
       } else {
-        print(
-          '❌ Image not found in sqlite with unique id or server id: $uniqueId',
-        );
+
         Logger.debugLog(
           'Image not found in sqlite with unique id or server id: $uniqueId',
         );
       }
     } catch (e) {
-      print('🔍 Exception in _getByUniqueIdFromSQLite: $e');
+
       if (e.toString().contains('database_closed')) {
         Logger.errorLog('Database was closed, reinitializing...');
         _database = null; // Force reinitialization
@@ -372,7 +370,7 @@ class ImageUploadService {
           return convertDataToModel(data);
         }
       } else {
-        print('🔍 Exception in _getByUniqueIdFromSQLite: $e');
+
         Logger.errorLog('Exception in _getByUniqueIdFromSQLite: $e');
       }
     }
@@ -546,10 +544,9 @@ class ImageUploadService {
             response.data!['id']?.toString();
 
         Logger.debugLog('🔍 Extracted photo ID: $photoId');
-        print("photoId:withut if $photoId");
 
         if (photoId != null && photoId.isNotEmpty) {
-          print("photoId: $photoId");
+
           Logger.debugLog('✅ Image uploaded to server with ID: $photoId');
           return photoId;
         } else {

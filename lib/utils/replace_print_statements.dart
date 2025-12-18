@@ -1,10 +1,3 @@
-// This is a utility script to help replace print() statements with debugPrint()
-// Run this script to find and replace all print statements in your codebase
-
-import 'dart:io';
-
-void main() async {
-  final directory = Directory('lib');
   final files = await directory.list(recursive: true).toList();
   
   int totalReplacements = 0;
@@ -17,11 +10,7 @@ void main() async {
       final printMatches = RegExp(r'\bprint\(').allMatches(content).length;
       
       if (printMatches > 0) {
-        print('Found $printMatches print() statements in ${file.path}');
-        
-        // Replace print( with debugPrint(
-        final updatedContent = content.replaceAll(RegExp(r'\bprint\('), 'debugPrint(');
-        
+
         // Check if we need to add the import
         if (updatedContent.contains('debugPrint(') && !updatedContent.contains("import 'package:flutter/foundation.dart';")) {
           // Add import after existing imports
@@ -40,17 +29,15 @@ void main() async {
           final finalContent = lines.join('\n');
           
           await file.writeAsString(finalContent);
-          print('  ✅ Updated ${file.path} - Added import and replaced $printMatches statements');
+
           totalReplacements += printMatches;
         } else if (updatedContent.contains('debugPrint(')) {
           await file.writeAsString(updatedContent);
-          print('  ✅ Updated ${file.path} - Replaced $printMatches statements');
+
           totalReplacements += printMatches;
         }
       }
     }
   }
-  
-  print('\n🎉 Total replacements made: $totalReplacements');
-  print('All print() statements have been replaced with debugPrint()');
+
 }

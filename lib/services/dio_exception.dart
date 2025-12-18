@@ -57,7 +57,7 @@ class DioExceptions implements Exception {
           break;
         }
         // Log the actual error for debugging
-        print("DioExceptionType.unknown - Actual error: ${dioError.message}");
+
         message = "Connection failed. Please try again.";
         break;
       default:

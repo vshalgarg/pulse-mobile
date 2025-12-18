@@ -284,7 +284,6 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
 
       if (isSaved) {
         Logger.infoLog("Selfie data saved to DB successfully");
-        print("Selfie data saved to DB successfully");
 
         setState(() {
           _hasFormDataChanges = true;

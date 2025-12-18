@@ -179,7 +179,6 @@ class _DGV2ScreenState extends State<DGV2Screen> {
     return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
   }
 
-
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 DG V2: Starting postCurrentScreenData');

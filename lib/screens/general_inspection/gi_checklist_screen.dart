@@ -65,13 +65,12 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     // Populate existing responses if in edit mode
     if (widget.existingResponses != null) {
       _checklistResponses = Map.from(widget.existingResponses!);
-      print('🔍 Loaded existing responses: $_checklistResponses');
-      print('🔍 Number of existing responses: ${_checklistResponses.length}');
+
       for (final entry in _checklistResponses.entries) {
-        print('  - Item ${entry.key}: ${entry.value}');
+
       }
     } else {
-      print('🔍 No existing responses provided');
+
     }
 
     _getCurrentLocation();
@@ -114,10 +113,6 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     String? imageId,
     String? textValue,
   ) {
-    print('🔍 _onChecklistItemChanged called for giclmId: $giclmId');
-    print('  - radioValue: $radioValue');
-    print('  - imageId: $imageId');
-    print('  - textValue: $textValue');
 
     // Update the response data
     _checklistResponses[giclmId] = {
@@ -128,13 +123,10 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
     // Track form changes
     if (!_hasFormDataChanges) {
-      print("🔍 Checklist item changed - setting _hasFormDataChanges to true");
+
       _hasFormDataChanges = true;
     }
 
-    print(
-      '🔍 Updated _checklistResponses for $giclmId: ${_checklistResponses[giclmId]}',
-    );
   }
 
   @override
@@ -233,10 +225,6 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         // Checklist Items
         ..._checklistItems.map((item) {
           final existingResponse = _checklistResponses[item.giclmId];
-          print(
-            '🔍 Building checklist item ${item.giclmId} (${item.checklistDesc}):',
-          );
-          print('  - existingResponse: $existingResponse');
 
           return Container(
             margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -281,9 +269,9 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
   Future<void> _submitForm() async {
     // Debug: Print all responses
-    print('🔍 All checklist responses:');
+
     for (final entry in _checklistResponses.entries) {
-      print('  Item ${entry.key}: ${entry.value}');
+
     }
 
     // Validate checklist items
@@ -295,21 +283,12 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         bool hasImage = item.respType.contains('IMG');
         bool hasText = item.respType.contains('TEXT');
 
-        print('🔍 Validating ${item.checklistDesc}:');
-        print(
-          '  - hasRadio: $hasRadio, hasImage: $hasImage, hasText: $hasText',
-        );
-        print('  - response: $response');
-        print('  - radio_value: ${response?['radio_value']}');
-        print('  - image_id: ${response?['image_id']}');
-        print('  - text_value: ${response?['text_value']}');
-
         if (hasRadio &&
             (response == null ||
                 response['radio_value'] == null ||
                 response['radio_value'].toString().isEmpty)) {
           validationErrors.add('${item.checklistDesc} is required');
-          print('  ❌ Radio validation failed for ${item.checklistDesc}');
+
         }
 
         if (hasText &&
@@ -329,7 +308,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                 response['image_id'] == null ||
                 response['image_id'].toString().isEmpty)) {
           validationErrors.add('${item.checklistDesc} photo is required');
-          print('  ❌ Image validation failed for ${item.checklistDesc}');
+
         }
       }
     }
@@ -349,9 +328,6 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       // Create the request data
       final requestData = _createRequestData();
 
-      print('🔍 Submitting General Inspection data:');
-      print('Request data: $requestData');
-
       // Submit to API using the same method as site visit
       await ServiceLocator().assetAuditPostService
           .postAssetAuditDataWithPhotoReplacement(
@@ -360,7 +336,6 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
             isLastPage: true,
           );
 
-      print('✅ General inspection submitted successfully');
       showCustomToast(
         context,
         "General inspection checklist submitted successfully",
@@ -391,16 +366,9 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     final now = DateTime.now();
 
     // Debug: Print visiting person image ID
-    print(
-      '🔍 Visiting Person Image ID from previous screen: ${widget.visitingPersonImageId}',
-    );
-    print(
-      '🔍 Visiting Person Image ID type: ${widget.visitingPersonImageId.runtimeType}',
-    );
 
     // Use giId from widget (passed from API response data)
     int giId = widget.giId ?? 0;
-    print('🔍 Using giId: $giId');
 
     // Create genInspectionSiteRespList
     List<Map<String, dynamic>> genInspectionSiteRespList = [];
@@ -478,11 +446,9 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
   }
 
   void _showUnsavedChangesDialog() {
-    print(
-      "🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges",
-    );
+
     if (_hasFormDataChanges) {
-      print("🔍 Showing unsaved changes dialog");
+
       showDialog(
         context: context,
         barrierDismissible: true,

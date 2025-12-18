@@ -45,7 +45,7 @@ class UserNameUtils {
       final userDetails = await UserDetailsService.instance.refreshUserDetails();
       return userDetails?.fullName;
     } catch (e) {
-      print('UserNameUtils: Error refreshing user details: $e');
+
       return null;
     }
   }
@@ -90,7 +90,7 @@ class UserNameUtils {
       // Final fallback
       return "User";
     } catch (e) {
-      print('UserNameUtils: Error getting enhanced display name: $e');
+
       return "User";
     }
   }

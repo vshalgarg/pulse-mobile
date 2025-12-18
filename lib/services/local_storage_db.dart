@@ -114,8 +114,6 @@ class LocalStorageDB {
     );
   }
 
-  
-
   static Future<void> saveUserId(String user_id) async {
     await LocalStorageService.setString(LocalStorageConstants.userId, user_id);
   }
@@ -145,7 +143,7 @@ class LocalStorageDB {
         LocalStorageConstants.energyReadingFormData,
       );
     } catch (e) {
-      print('Error loading energy reading form data: $e');
+
       clearCorruptedEnergyReadingData();
       return null;
     }
@@ -214,16 +212,14 @@ class LocalStorageDB {
       'imageData': imageData,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
-    print(
-      'LocalStorageDB: Saved selfie for site $siteAuditSchId with image ID $imageId',
-    );
+
   }
 
   static Map<String, dynamic>? getAssetAuditSelfie(String siteAuditSchId) {
     final key = '${LocalStorageConstants.assetAuditSelfieKey}$siteAuditSchId';
     final data = LocalStorageService.getJson(key);
     if (data != null) {
-      print('LocalStorageDB: Retrieved selfie for site $siteAuditSchId');
+
       return data;
     }
     return null;
@@ -240,15 +236,13 @@ class LocalStorageDB {
       'imageData': newImageData,
       'timestamp': DateTime.now().millisecondsSinceEpoch,
     });
-    print(
-      'LocalStorageDB: Updated selfie for site $siteAuditSchId with new image ID $newImageId',
-    );
+
   }
 
   static Future<void> clearAssetAuditSelfie(String siteAuditSchId) async {
     final key = '${LocalStorageConstants.assetAuditSelfieKey}$siteAuditSchId';
     await LocalStorageService.remove(key);
-    print('LocalStorageDB: Cleared selfie for site $siteAuditSchId');
+
   }
 
   // Asset Audit Form Data Persistence Methods
@@ -266,11 +260,9 @@ class LocalStorageDB {
         'screenName': screenName,
         'siteAuditSchId': siteAuditSchId,
       });
-      print(
-        'LocalStorageDB: Saved form data for screen $screenName, site $siteAuditSchId',
-      );
+
     } catch (e) {
-      print('LocalStorageDB: Error saving form data: $e');
+
     }
   }
 
@@ -283,14 +275,12 @@ class LocalStorageDB {
           '${LocalStorageConstants.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
       final data = LocalStorageService.getJson(key);
       if (data != null) {
-        print(
-          'LocalStorageDB: Retrieved form data for screen $screenName, site $siteAuditSchId',
-        );
+
         return data;
       }
       return null;
     } catch (e) {
-      print('LocalStorageDB: Error getting form data: $e');
+
       return null;
     }
   }
@@ -309,11 +299,9 @@ class LocalStorageDB {
         'screenName': screenName,
         'siteAuditSchId': siteAuditSchId,
       });
-      print(
-        'LocalStorageDB: Updated form data for screen $screenName, site $siteAuditSchId',
-      );
+
     } catch (e) {
-      print('LocalStorageDB: Error updating form data: $e');
+
     }
   }
 
@@ -324,9 +312,7 @@ class LocalStorageDB {
     final key =
         '${LocalStorageConstants.assetAuditFormDataKey}${siteAuditSchId}_$screenName';
     await LocalStorageService.remove(key);
-    print(
-      'LocalStorageDB: Cleared form data for screen $screenName, site $siteAuditSchId',
-    );
+
   }
 
   static Future<void> clearAllAssetAuditFormData(String siteAuditSchId) async {
@@ -338,7 +324,7 @@ class LocalStorageDB {
         await LocalStorageService.remove(key);
       }
     }
-    print('LocalStorageDB: Cleared all form data for site $siteAuditSchId');
+
   }
 
   // Offline Ticket Management Methods
@@ -353,9 +339,9 @@ class LocalStorageDB {
         'downloadedAt': DateTime.now().millisecondsSinceEpoch,
         'siteAuditSchId': siteAuditSchId,
       });
-      print('LocalStorageDB: Saved offline ticket for site $siteAuditSchId');
+
     } catch (e) {
-      print('LocalStorageDB: Error saving offline ticket: $e');
+
     }
   }
 
@@ -364,14 +350,12 @@ class LocalStorageDB {
       final key = '${LocalStorageConstants.offlineTicketKey}$siteAuditSchId';
       final data = LocalStorageService.getJson(key);
       if (data != null) {
-        print(
-          'LocalStorageDB: Retrieved offline ticket for site $siteAuditSchId',
-        );
+
         return data;
       }
       return null;
     } catch (e) {
-      print('LocalStorageDB: Error retrieving offline ticket: $e');
+
       return null;
     }
   }
@@ -388,9 +372,9 @@ class LocalStorageDB {
         'siteAuditSchId': siteAuditSchId,
         'lastUpdated': DateTime.now().millisecondsSinceEpoch,
       });
-      print('LocalStorageDB: Updated offline ticket for site $siteAuditSchId');
+
     } catch (e) {
-      print('LocalStorageDB: Error updating offline ticket: $e');
+
     }
   }
 
@@ -398,9 +382,9 @@ class LocalStorageDB {
     try {
       final key = '${LocalStorageConstants.offlineTicketKey}$siteAuditSchId';
       await LocalStorageService.remove(key);
-      print('LocalStorageDB: Deleted offline ticket for site $siteAuditSchId');
+
     } catch (e) {
-      print('LocalStorageDB: Error deleting offline ticket: $e');
+
     }
   }
 
@@ -416,10 +400,10 @@ class LocalStorageDB {
           }
         }
       }
-      print('LocalStorageDB: Retrieved ${tickets.length} offline tickets');
+
       return tickets;
     } catch (e) {
-      print('LocalStorageDB: Error retrieving all offline tickets: $e');
+
       return [];
     }
   }
@@ -429,7 +413,7 @@ class LocalStorageDB {
       final key = '${LocalStorageConstants.offlineTicketKey}$siteAuditSchId';
       return LocalStorageService.containsKey(key);
     } catch (e) {
-      print('LocalStorageDB: Error checking if ticket is downloaded: $e');
+
       return false;
     }
   }
@@ -441,9 +425,6 @@ class LocalStorageDB {
 
   // Logout functionality
   static Future<void> logout() async {
-    print(
-      "LocalStorageDB: Starting logout process - clearing all authentication data",
-    );
 
     // Clear all authentication-related data
     await LocalStorageService.remove(LocalStorageConstants.userId);
@@ -460,14 +441,11 @@ class LocalStorageDB {
       await LocalStorageService.remove(LocalStorageConstants.rememberMe);
     }
 
-    print("LocalStorageDB: Logout completed - all authentication data cleared");
   }
 
   // Clear all saved credentials including remember me data
   static Future<void> clearAllCredentials() async {
-    print(
-      "LocalStorageDB: Clearing all credentials including remember me data",
-    );
+
     await LocalStorageService.remove(LocalStorageConstants.username);
     await LocalStorageService.remove(LocalStorageConstants.password);
     await LocalStorageService.remove(LocalStorageConstants.rememberMe);
@@ -477,9 +455,6 @@ class LocalStorageDB {
     await LocalStorageService.remove(LocalStorageConstants.firstName);
     await LocalStorageService.remove(LocalStorageConstants.email);
 
-
-    
-    print("LocalStorageDB: All credentials cleared successfully");
   }
 
   // Headers methods

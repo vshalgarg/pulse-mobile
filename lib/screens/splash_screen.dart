@@ -44,30 +44,25 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(seconds: 3));
 
     if (!mounted || _hasNavigated) {
-      print('⚠️ _checkAuthenticationStatus: Not mounted or already navigated');
+
       return;
     }
 
     final authCubit = context.read<AuthCubit>();
 
-    print('🔍 SplashScreen: Checking authentication status');
-    print('   isLoggedIn: ${authCubit.isLoggedIn}');
-    print('   rememberMe: ${authCubit.getRememberMe}');
-    print('   currentState: ${authCubit.state}');
-
     if (authCubit.isLoggedIn) {
       // User is already logged in, go to pulse dashboard
-      print('✅ User is logged in, navigating to PulseDashboard');
+
       _hasNavigated = true;
       pushAndRemoveUntilPage(context, const PulseDashboard());
     } else if (authCubit.getRememberMe) {
       // Try auto-login if remember me is enabled
-      print('🔄 Remember me is enabled, attempting auto-login');
+
       pushAndRemoveUntilPage(context, const LoginScreen());
       _hasNavigated = true;
     } else {
       // No stored credentials, go to welcome screen
-      print('ℹ️ No credentials stored, navigating to WelcomeScreen');
+
       _hasNavigated = true;
       pushAndRemoveUntilPage(context, const WelcomeScreen());
     }
@@ -89,23 +84,20 @@ class _SplashScreenState extends State<SplashScreen>
           if (_hasNavigated) return;
 
           // Debug logging
-          print(
-            '🔔 SplashScreen BlocListener: state=$state, hasNavigated=$_hasNavigated',
-          );
 
           if (state is AuthSuccess) {
             // Auto-login successful, navigate to pulse dashboard
-            print('✅ AuthSuccess detected, navigating to PulseDashboard');
+
             _hasNavigated = true;
             pushAndRemoveUntilPage(context, const PulseDashboard());
           } else if (state is AuthFailure) {
             // Auto-login failed, navigate to welcome
-            print('❌ AuthFailure detected, navigating to WelcomeScreen');
+
             _hasNavigated = true;
             pushAndRemoveUntilPage(context, const WelcomeScreen());
           } else if (state is AuthInitial) {
             // Initial state - this is normal after logout
-            print('ℹ️ AuthInitial detected - user logged out');
+
             // Don't navigate here, let _checkAuthenticationStatus handle it
           }
         },

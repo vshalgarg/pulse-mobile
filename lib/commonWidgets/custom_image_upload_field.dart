@@ -8,7 +8,6 @@ import 'package:app/utils/logger.dart';
 
 import '../constants/app_colors.dart';
 
-
 class ImageUploadField extends StatefulWidget {
   final String? label;
   final String? placeholder;

@@ -240,8 +240,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     _totalRectifierController.text =
         formData['totalRectifier']?.toString() ?? "";
 
-    print("formData['totalMPPT']: ${formData['totalMPPT']}");
-
     if ((formData['totalMPPT'] ?? 0) != 0) {
       _totalMPPTController.text = formData['totalMPPT'].toString();
     }
@@ -279,7 +277,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     bool? isQRCodeScanned1,
     String? qrCodeScannedTs1,
   ) {
-  
 
     final isValidSerial = _validateCabinetSerialNumber(
       _cabinetSerialController.text,
@@ -443,11 +440,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         }
       }
 
-      print("_assetAuditData: $_assetAuditData ");
-      print(
-        "modifiedAssetsWithAllProperties: $modifiedAssetsWithAllProperties",
-      );
-
       // ===== Update local SQLite with modified data =====
       _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
@@ -456,7 +448,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
       final postObject = [...modifiedAssetsWithAllProperties];
 
-      print("postObject: $postObject ");
       await ServiceLocator().assetAuditPostService
           .postAssetAuditDataWithPhotoReplacement(
             requests: postObject,
@@ -617,9 +608,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
   // Custom validation function for Cabinet serial number
   bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    print("cabinets: ${_displayFormData?['cabinets']}");
-    print("serialNumber: $serialNumber");
-    print("isQRCodeScanned: $isQRCodeScanned");
+
     final cabinets = _displayFormData?['cabinets'] as List<dynamic>?;
 
     // Check if the serial number matches either nexgen_serial_no or mfg_serial_no
@@ -826,7 +815,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
                     if (_hasFormDataChanges) {
-                      print("postCurrentScreenData called : $_assetAuditData");
+
                       await postCurrentScreenData();
                     }
                   },

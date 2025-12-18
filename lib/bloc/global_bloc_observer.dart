@@ -2,7 +2,6 @@ import 'package:bloc/bloc.dart';
 
 import '../constants/constants_methods.dart';
 
-
 class GlobalBlocObserver extends BlocObserver {
   @override
   void onChange(BlocBase bloc, Change change) {

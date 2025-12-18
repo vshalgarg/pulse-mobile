@@ -113,12 +113,12 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
               ? imageData
               : 'data:image/jpeg;base64,$imageData';
         });
-        print('✅ Image loaded successfully for photoId: $photoId');
+
       } else {
-        print('⚠️ No image data found for photoId: $photoId');
+
       }
     } catch (e) {
-      print('❌ Error loading image for photoId $photoId: $e');
+
       // Set a placeholder or error state if needed
       if (mounted) {
         setState(() {

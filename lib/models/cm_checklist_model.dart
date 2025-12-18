@@ -31,8 +31,7 @@ class CMChecklistItem {
 
   factory CMChecklistItem.fromJson(Map<String, dynamic> json) {
     // Debug logging
-    print('🔄 [CMChecklistItem] Parsing: ${json['checklist_desc']}');
-    
+
     String checklistDesc = json['checklist_desc']?.toString() ?? '';
     String respType = json['resp_type']?.toString() ?? '';
     String respTypeValueMap = json['resp_type_value_map']?.toString() ?? '';
@@ -40,25 +39,25 @@ class CMChecklistItem {
     // Fix data inconsistencies from API
     if (checklistDesc == 'Phase (in case of DG)' && respTypeValueMap.isNotEmpty) {
       respType = 'RADIO';
-      print('🔧 [CMChecklistItem] Fixed Phase field to RADIO type');
+
     }
     
     if (checklistDesc == 'DG Canopy Cleanliness') {
       respTypeValueMap = '{"OK": "OK", "Not OK": "Not OK"}';
-      print('🔧 [CMChecklistItem] Fixed DG Canopy Cleanliness radio options');
+
     }
     
     // Fix CCU and SMPS rectifier and MPPT fields to be dropdowns instead of multi-dynamic dropdowns
     if (checklistDesc == 'S No of Faulty Rectifier') {
       respType = 'DROPDOWN';
       respTypeValueMap = '{"SRN-2378": "SRN-2378", "SRN-1463": "SRN-1463", "SRN-9075": "SRN-9075"}';
-      print('🔧 [CMChecklistItem] Fixed S No of Faulty Rectifier to DROPDOWN type');
+
     }
     
     if (checklistDesc == 'S No of Faulty MPPT') {
       respType = 'DROPDOWN';
       respTypeValueMap = '{"SRN-1001": "SRN-1001", "SRN-1002": "SRN-1002", "SRN-1003": "SRN-1003"}';
-      print('🔧 [CMChecklistItem] Fixed S No of Faulty MPPT to DROPDOWN type');
+
     }
     
     return CMChecklistItem(
@@ -83,7 +82,7 @@ class CMChecklistItem {
       final map = json.decode(respTypeValueMap!);
       return Map<String, String>.from(map);
     } catch (e) {
-      print('❌ [CMChecklistItem] Error parsing radio options: $e');
+
       return null;
     }
   }
@@ -105,14 +104,12 @@ class CMChecklistResponse {
   factory CMChecklistResponse.fromJson(Map<String, dynamic> json) {
     final dataMap = <String, List<CMChecklistItem>>{};
     final checkListDetailsMap = <String, List<CMChecklistItem>>{};
-    
-    print('🔄 [CMChecklistResponse] Parsing main data...');
-    
+
     // Parse main data
     if (json['data'] != null) {
       json['data'].forEach((key, value) {
         if (value is List) {
-          print('📋 [CMChecklistResponse] Found key: $key with ${value.length} items');
+
           dataMap[key] = (value as List).map((item) => CMChecklistItem.fromJson(item)).toList();
         }
       });
@@ -122,7 +119,7 @@ class CMChecklistResponse {
     if (json['checkListDetails'] != null) {
       json['checkListDetails'].forEach((key, value) {
         if (value is List) {
-          print('📋 [CMChecklistResponse] Found checkListDetails key: $key with ${value.length} items');
+
           checkListDetailsMap[key] = (value as List).map((item) => CMChecklistItem.fromJson(item)).toList();
         }
       });
@@ -150,10 +147,7 @@ class CMChecklistResponse {
            checkListDetails['Battery'] ??
            checkListDetails['battery'] ?? 
            [];
-    
-    print('🔍 [getBatteryChecklist] Looking for BATTERY key in data: ${data.keys}');
-    print('🔍 [getBatteryChecklist] Found ${result.length} battery items');
-    
+
     return result;
   }
 
@@ -170,10 +164,7 @@ class CMChecklistResponse {
            checkListDetails['Ccu'] ??
            checkListDetails['ccu'] ?? 
            [];
-    
-    print('🔍 [getCCUChecklist] Looking for CCU key in data: ${data.keys}');
-    print('🔍 [getCCUChecklist] Found ${result.length} CCU items');
-    
+
     return result;
   }
 
@@ -194,8 +185,7 @@ class CMChecklistResponse {
     checkListDetails.forEach((key, value) {
       if (value.isNotEmpty && !types.contains(key)) types.add(key);
     });
-    
-    print('📋 [CMChecklistResponse] Available equipment types: $types');
+
     return types;
   }
 

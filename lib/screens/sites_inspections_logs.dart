@@ -85,7 +85,7 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
         });
       }
     } catch (e) {
-      print('Error loading sites: $e');
+
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
@@ -160,7 +160,7 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
-      print('Download error: $e');
+
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();

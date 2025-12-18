@@ -182,8 +182,6 @@ class PMPageHeader extends StatelessWidget {
     );
   }
 
-
-
   String _formatDate(String? dateString) {
     if (dateString == null || dateString.isEmpty) return '';
     

@@ -224,7 +224,7 @@ class CMRepository {
       );
 
       if(response.isSuccess && response.data != null) {
-        print("response from creating cm: $response");
+
         return response.data?['data'];
       } else {
         throw Exception("Error while saving data");
@@ -263,7 +263,7 @@ class CMRepository {
       );
 
       if(response.isSuccess && response.data != null) {
-        print("response from uploading customer photo: $response");
+
         //return response.data?['data'];
       } else {
         throw Exception("Error while saving data");

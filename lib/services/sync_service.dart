@@ -97,7 +97,6 @@ import 'dart:convert';
 //             failedCount++;
 //           }
 //         } catch (e) {
-//           print('SyncService: Error syncing ticket ${ticket.ticketId}: $e');
 //           failedCount++;
 //         }
 //       }
@@ -111,7 +110,6 @@ import 'dart:convert';
 //       }
 //
 //     } catch (e) {
-//       print('SyncService: Error during sync: $e');
 //       _syncStatusController.add(SyncStatus.error(e.toString()));
 //     } finally {
 //       _isSyncing = false;
@@ -138,7 +136,6 @@ import 'dart:convert';
 //
 //       return pendingTickets;
 //     } catch (e) {
-//       print('SyncService: Error getting pending tickets: $e');
 //       return [];
 //     }
 //   }
@@ -160,7 +157,6 @@ import 'dart:convert';
 //
 //       return true;
 //     } catch (e) {
-//       print('SyncService: Error syncing ticket ${ticket.ticketId}: $e');
 //       await _incrementSyncRetryCount(ticket);
 //       return false;
 //     }
@@ -194,7 +190,6 @@ import 'dart:convert';
 //             throw Exception('API call failed: ${result.errorMessage}');
 //           }
 //         } catch (e) {
-//           print('SyncService: Error syncing form data for ${formData.screenName}: $e');
 //           rethrow;
 //         }
 //       }
@@ -211,7 +206,6 @@ import 'dart:convert';
 //           // For now, we'll mark it as uploaded
 //           await _markPhotoAsSynced(ticket, photo);
 //         } catch (e) {
-//           print('SyncService: Error syncing photo ${photo.photoId}: $e');
 //           rethrow;
 //         }
 //       }
@@ -251,7 +245,6 @@ import 'dart:convert';
 //             throw Exception('API call failed: ${result.errorMessage}');
 //           }
 //         } catch (e) {
-//           print('SyncService: Error syncing remark ${remark.remarkId}: $e');
 //           rethrow;
 //         }
 //       }

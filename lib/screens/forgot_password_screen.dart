@@ -30,16 +30,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       backgroundColor: AppColors.primaryBlue,
       body: BlocListener<ForgotPasswordCubit, ForgotPasswordState>(
         listener: (context, state) {
-          print("ForgotPasswordScreen: State changed to ${state.runtimeType}");
+
           if (state is ForgotPasswordSuccess) {
-            print("ForgotPasswordScreen: Success state - showing toast");
+
             showCustomToast(context, 'OTP sent successfully!');
             // Navigate to OTP verification screen with email
             pushPage(context, EnterVerificationCodeScreen(
               email: emailController.text.trim(),
             ));
           } else if (state is ForgotPasswordFailure) {
-            print("ForgotPasswordScreen: Failure state - error message: ${state.errorMessage}");
+
             showCustomToast(context, state.errorMessage);
           }
         },

@@ -107,8 +107,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
         final smpsCabinet = smpsItems['SMPS Cabinet'] as List<dynamic>? ?? [];
         final remarksData = smpsItems['remarks'] as List<dynamic>? ?? [];
 
-        print("smpsCabinet: $smpsCabinet");
-
         final formData = <String, dynamic>{
           'smpsMake': smpsAssets.isNotEmpty
               ? smpsAssets.first['oem_name']?.toString() ?? 'N/A'
@@ -138,7 +136,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           _displayFormData = formData;
           _isLoadingData = false;
         });
-
 
         _initializeFormControllers(formData);
         Logger.debugLog('✅ SMPS V2: Data loaded successfully');
@@ -182,7 +179,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
     });
   }
 
-
   // Validation methods
   bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final savedItems =
@@ -207,7 +203,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
     );
   }
 
-
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 SMPS V2: Starting postCurrentScreenData');
@@ -222,7 +217,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
           finalData?['SMPS Rectifiers'] as List<dynamic>? ?? [];
       final finalSMPSCabinet =
           finalData?['SMPS Cabinet'] as List<dynamic>? ?? [];
-
 
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
@@ -247,7 +241,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
         ),
       );
 
-
       // Update remarks
       final String remark = _remarksController.text;
       if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
@@ -271,7 +264,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
       Logger.debugLog(
         '📤 SMPS V2: Prepared ${postObject.length} items for posting',
       );
-
 
       await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
         requests: postObject,
@@ -462,7 +454,6 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                   ),
                                   getHeight(20),
                                 ],
-
 
                                 // Add Remarks
                                 CustomRemarksField(

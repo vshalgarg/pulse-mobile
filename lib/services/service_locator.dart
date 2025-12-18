@@ -29,15 +29,15 @@ class ServiceLocator {
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
-    print('🔧 ServiceLocator: initializeServices called');
+
     if (_isInitialized) {
-      print('🔧 ServiceLocator: Services already initialized');
+
       Logger.debugLog('✅ Services already initialized');
       return;
     }
 
     try {
-      print('🔧 ServiceLocator: Starting initialization...');
+
       Logger.debugLog('🚀 Initializing all services...');
 
       // Initialize Central Asset Audit Service
@@ -57,14 +57,9 @@ class ServiceLocator {
       _cmRepository = CMRepository(apiService);
       _sitesRepository = SitesRepository(apiService);
       _generalInspectionRepository = GeneralInspectionRepository(apiService);
-      
-      print('🔧 ServiceLocator: SitesRepository initialized');
-      print('🔧 ServiceLocator: _sitesRepository = $_sitesRepository');
-      print('🔧 ServiceLocator: GeneralInspectionRepository initialized');
 
       _isInitialized = true;
-      print('🔧 ServiceLocator: All services initialized successfully');
-      print('🔧 ServiceLocator: _sitesRepository after init = $_sitesRepository');
+
       Logger.debugLog('✅ All services initialized successfully');
     } catch (e) {
       Logger.errorLog('❌ Failed to initialize services: $e');
@@ -82,7 +77,6 @@ class ServiceLocator {
     _ensureInitialized();
     return _centralAssetAuditDataService;
   }
-
 
   /// Get Image Upload Service (guaranteed to be initialized)
   ImageUploadService get imageUploadService {
@@ -118,16 +112,14 @@ class ServiceLocator {
 
   /// Get Sites Repository (guaranteed to be initialized)
   SitesRepository get sitesRepository {
-    print('🔍 ServiceLocator: Accessing sitesRepository');
-    print('🔍 ServiceLocator: _isInitialized = $_isInitialized');
-    print('🔍 ServiceLocator: _sitesRepository = $_sitesRepository');
+
     _ensureInitialized();
     if (_sitesRepository == null) {
-      print('🔧 ServiceLocator: SitesRepository is null, initializing now...');
+
       _sitesRepository = SitesRepository(_apiService);
-      print('🔧 ServiceLocator: SitesRepository initialized on demand');
+
     }
-    print('🔍 ServiceLocator: Returning sitesRepository');
+
     return _sitesRepository!;
   }
 

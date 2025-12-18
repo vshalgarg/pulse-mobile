@@ -23,13 +23,9 @@ class AssetAuditFormPersistenceHelper {
     required Map<String, dynamic> formData,
   }) async {
     if (formData.isEmpty) {
-      print('=== Form Persistence: No data to save ===');
+
       return;
     }
-
-    print('=== Form Persistence: Saving data for $screenName ===');
-    print('Site Audit Sch ID: $siteAuditSchId');
-    print('Data keys: ${formData.keys.toList()}');
 
     // Ensure Hive box is ready before saving
     await ensureHiveBoxReady();
@@ -40,7 +36,6 @@ class AssetAuditFormPersistenceHelper {
       formData: formData,
     );
 
-    print('=== Form Persistence: Data saved successfully ===');
   }
 
   /// Load saved form data from Hive for a specific screen and ticket
@@ -48,8 +43,6 @@ class AssetAuditFormPersistenceHelper {
     required String siteAuditSchId,
     required String screenName,
   }) async {
-    print('=== Form Persistence: Loading data for $screenName ===');
-    print('Site Audit Sch ID: $siteAuditSchId');
 
     // Ensure Hive box is ready before loading
     await ensureHiveBoxReady();
@@ -61,12 +54,10 @@ class AssetAuditFormPersistenceHelper {
 
     if (savedData != null && savedData['formData'] != null) {
       final formData = Map<String, dynamic>.from(savedData['formData'] as Map);
-      print('=== Form Persistence: Found saved data ===');
-      print('Data keys: ${formData.keys.toList()}');
-      print('Timestamp: ${savedData['timestamp']}');
+
       return formData;
     } else {
-      print('=== Form Persistence: No saved data found ===');
+
       return null;
     }
   }
@@ -77,7 +68,6 @@ class AssetAuditFormPersistenceHelper {
     required String screenName,
     required Map<String, dynamic> newFormData,
   }) async {
-    print('=== Form Persistence: Updating data for $screenName ===');
 
     // Ensure Hive box is ready before updating
     await ensureHiveBoxReady();
@@ -88,7 +78,6 @@ class AssetAuditFormPersistenceHelper {
       newFormData: newFormData,
     );
 
-    print('=== Form Persistence: Data updated successfully ===');
   }
 
   /// Clear saved form data for a specific screen
@@ -96,7 +85,6 @@ class AssetAuditFormPersistenceHelper {
     required String siteAuditSchId,
     required String screenName,
   }) async {
-    print('=== Form Persistence: Clearing data for $screenName ===');
 
     // Ensure Hive box is ready before clearing
     await ensureHiveBoxReady();
@@ -106,20 +94,16 @@ class AssetAuditFormPersistenceHelper {
       screenName: screenName,
     );
 
-    print('=== Form Persistence: Data cleared successfully ===');
   }
 
   /// Clear all form data for a specific ticket
   static Future<void> clearAllFormData(String siteAuditSchId) async {
-    print('=== Form Persistence: Clearing all data for ticket ===');
-    print('Site Audit Sch ID: $siteAuditSchId');
 
     // Ensure Hive box is ready before clearing
     await ensureHiveBoxReady();
 
     await LocalStorageDB.clearAllAssetAuditFormData(siteAuditSchId);
 
-    print('=== Form Persistence: All data cleared successfully ===');
   }
 
   /// Get screen display name from internal name
@@ -165,9 +149,9 @@ class AssetAuditFormPersistenceHelper {
   static Future<void> ensureHiveBoxReady() async {
     try {
       // No need to open Hive box - using SharedPreferences now
-      print('=== Form Persistence: Hive box is ready ===');
+
     } catch (e) {
-      print('=== Form Persistence: Error ensuring Hive box ready: $e ===');
+
     }
   }
 }

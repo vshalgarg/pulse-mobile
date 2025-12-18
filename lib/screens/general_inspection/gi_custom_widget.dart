@@ -51,8 +51,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
     
     // Initialize form fields with existing response data if available
     if (widget.existingResponse != null) {
-      print('🔍 Initializing checklist item with existing response: ${widget.existingResponse}');
-      
+
       // Initialize text field with existing value
       final textValue = widget.existingResponse!['text_value']?.toString();
       if (textValue != null && textValue.isNotEmpty) {
@@ -71,7 +70,6 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
       if (radioValue != null && radioValue.isNotEmpty) {
         // Convert to lowercase for comparison
         final lowerRadioValue = radioValue.toLowerCase();
-        print('🔍 Initialized radio button with value: $radioValue (lowercase: $lowerRadioValue)');
         
         // Find matching display value by comparing lowercase values
         if (widget.checklistItem.respTypeValueMap != null) {
@@ -87,11 +85,11 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
             
             if (matchingDisplayValue != null) {
               _selectedRadioValue = matchingDisplayValue;
-              print('🔍 Found matching display value: $matchingDisplayValue');
+
             } else {
               // Fallback to original value
               _selectedRadioValue = radioValue;
-              print('🔍 No matching display value found, using original: $radioValue');
+
             }
           } catch (e) {
             Logger.errorLog('Error decoding resp_type_value_map: $e');
@@ -105,7 +103,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
     
     // Add listener to text controller
     _textController.addListener(() {
-      print('🔍 Text controller changed: "${_textController.text}"');
+
       widget.onTextChanged?.call(_textController.text);
     });
   }
@@ -118,32 +116,27 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
 
   Future<void> _loadExistingImage(String imageId) async {
     try {
-      print("🔍 _loadExistingImage called with imageId: $imageId");
 
       String? uniqueId;
       
       // Check if this is already a unique ID (offline mode) or a server ID (online mode)
       if (imageId.contains("LOCAL_IMAGE_ID")) {
         // This is already a unique ID from offline mode
-        print("🔍 Detected unique ID (offline mode): $imageId");
         uniqueId = imageId;
       } else {
         // This is a server ID, try to download from server (online mode)
-        print("🔍 Detected server ID (online mode): $imageId");
         uniqueId = await ServiceLocator().imageUploadService
             .downloadImageUsingServerId(
               imageId,
               ActivityTypeEnum.generalInspection,
               widget.siteData.siteId.toString(),
             );
-        print("🔍 Download result - uniqueId: $uniqueId");
+
       }
 
       if (uniqueId != null) {
         // Now get the image data using the unique ID
         final imageData = await ServiceLocator().centralAssetAuditService.getImageAsDataUrl(uniqueId);
-
-        print("🔍 Image loading result: ${imageData != null ? 'SUCCESS' : 'FAILED'}");
 
         if (imageData != null) {
           Logger.debugLog('✅ Image data received: ${imageData.length} characters');
@@ -229,11 +222,6 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
         .map((entry) => RadioOption(label: entry.value, value: entry.value))
         .toList();
 
-    print('🔍 Building radio buttons for ${widget.checklistItem.checklistDesc}:');
-    print('  - valueMap: $valueMap');
-    print('  - radioOptions: ${radioOptions.map((opt) => '${opt.label}:${opt.value}').toList()}');
-    print('  - _selectedRadioValue: $_selectedRadioValue');
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: CustomHorizontalRadioButtons(
@@ -244,7 +232,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
         textColor: Colors.white,
         onButtonSelected: isEditable
             ? (value) {
-                print('🔍 Radio button selected: $value');
+
                 // Update the selected value with setState to show visual feedback
                 setState(() {
                   _selectedRadioValue = value;
@@ -256,7 +244,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
                     selectedKey = key;
                   }
                 });
-                print('🔍 Sending selectedKey to parent: $selectedKey');
+
                 widget.onRadioChanged?.call(selectedKey);
               }
             : null, // Disable if not editable
@@ -277,8 +265,7 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
             controller: _textController,
             isDisabled: !isEditable,
           ),
-          
-          
+
         ],
       ),
     );
@@ -354,8 +341,6 @@ class _GICustomChecklistItemState extends State<GICustomChecklistItem> {
         isSelfie: false,
         activityType: ActivityTypeEnum.generalInspection,
       );
-
-      print("imgId: after upload $imgId");
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {

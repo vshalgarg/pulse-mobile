@@ -84,8 +84,6 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
         formData['cluster_incharge_name'] = data['cluster_incharge_name']?.toString() ?? "N/A";
         formData['cluster_incharge_contact_no'] = data['cluster_incharge_contact_no']?.toString() ?? "N/A";
 
-        print("formData: $formData");
-
         setState(() {
           _isLoadingData = false;
           _displayFormData = formData;

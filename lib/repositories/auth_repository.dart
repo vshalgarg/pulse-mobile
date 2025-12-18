@@ -19,7 +19,6 @@ class AuthRepository {
     required String password,
   }) async {
     try {
-      print("AuthRepository: Attempting login for username: $username");
 
       final firebaseToken = LocalStorageDB.getFireBaseToken;
       
@@ -32,17 +31,11 @@ class AuthRepository {
         },
       );
 
-      
-
       if (response.isSuccess && response.data != null) {
         final authModel = AuthModel.fromJson(response.data!);
-        print("AuthRepository: Login successful - token: ${authModel.token.substring(0, 20)}...");
         return ResponseResult.success(authModel, response.statusCode);
       } else {
-        print("🔍 Login failed - response not successful");
-        print("🔍 Response error: ${response.errorMessage}");
-        print("🔍 Status code: ${response.statusCode}");
-        
+
         String errorMessage = 'Login failed';
         if (response.errorMessage != null) {
           if (response.errorMessage!.contains('timeout')) {
@@ -57,7 +50,7 @@ class AuthRepository {
         }
         
         // Send detailed failure logs to server for API failures too
-        print("🔍 Sending login failure logs for API response failure...");
+
         _sendLoginFailureLogs(username, 'API_RESPONSE_FAILURE: ${response.errorMessage}');
         
         return ResponseResult.error(
@@ -66,7 +59,7 @@ class AuthRepository {
         );
       }
     } catch (e) {
-      print("AuthRepository: Login exception - $e");
+
       String errorMessage = 'Login failed';
       
       if (e.toString().contains('timeout')) {
@@ -80,7 +73,7 @@ class AuthRepository {
       }
       
       // Send detailed exception logs to server
-      print("🔍 Login failed, calling _sendLoginFailureLogs...");
+
       _sendLoginFailureLogs(username, e);
       
       return ResponseResult.error(
@@ -101,25 +94,22 @@ class AuthRepository {
         },
       );
 
-    
       // Check if status code is 200 for success
       if (result.isSuccess && result.data != null) {
-        print("Forgot password successful: ${result.data}");
-        
+
         ForgotPasswordModel forgotPasswordModel;
         
         if (result.data is Map<String, dynamic>) {
-          print("Processing as JSON response with message field");
+
           forgotPasswordModel = ForgotPasswordModel.fromJson(result.data);
         } else if (result.data is String) {
-          print("Processing as String response");
+
           forgotPasswordModel = ForgotPasswordModel.fromString(result.data);
         } else {
-          print("Processing as fallback response");
+
           forgotPasswordModel = ForgotPasswordModel.fromString("OTP sent successfully");
         }
-        
-        print("Created model: ${forgotPasswordModel.message}");
+
         return ResponseResult.success(forgotPasswordModel, result.statusCode);
       } else {
         String errorMessage = 'Failed to send OTP';
@@ -135,7 +125,7 @@ class AuthRepository {
         return ResponseResult.error(errorMessage: errorMessage);
       }
     } catch (e) {
-      print("Forgot password error: $e");
+
       String errorMessage = 'We could not process your forgot password request';
       
       if (e.toString().contains('503')) {
@@ -164,29 +154,22 @@ class AuthRepository {
         },
       );
 
-      print("OTP Verification API Response: ${result.data}");
-      print("OTP Verification Is Success: ${result.isSuccess}");
-      print("OTP Verification Status Code: ${result.statusCode}");
-      print("OTP Verification Error Message: ${result.errorMessage}");
-
       // Check if status code is 200 for success
       if (result.isSuccess && result.data != null) {
-        print("OTP verification successful: ${result.data}");
-        
+
         OtpVerificationModel otpVerificationModel;
         
         if (result.data is Map<String, dynamic>) {
-          print("Processing OTP verification as JSON response");
+
           otpVerificationModel = OtpVerificationModel.fromJson(result.data);
         } else if (result.data is String) {
-          print("Processing OTP verification as String response");
+
           otpVerificationModel = OtpVerificationModel.fromString(result.data);
         } else {
-          print("Processing OTP verification as fallback response");
+
           otpVerificationModel = OtpVerificationModel.fromString("OTP verified successfully");
         }
-        
-        print("Created OTP verification model: ${otpVerificationModel.message}");
+
         return ResponseResult.success(otpVerificationModel, result.statusCode);
       } else {
         String errorMessage = 'Failed to verify OTP';
@@ -204,7 +187,7 @@ class AuthRepository {
         return ResponseResult.error(errorMessage: errorMessage);
       }
     } catch (e) {
-      print("OTP verification error: $e");
+
       String errorMessage = 'We could not process your OTP verification request';
       
       if (e.toString().contains('503')) {
@@ -231,29 +214,22 @@ class AuthRepository {
         },
       );
 
-      print("Resend OTP API Response: ${result.data}");
-      print("Resend OTP Is Success: ${result.isSuccess}");
-      print("Resend OTP Status Code: ${result.statusCode}");
-      print("Resend OTP Error Message: ${result.errorMessage}");
-
       // Check if status code is 200 for success
       if (result.isSuccess && result.data != null) {
-        print("Resend OTP successful: ${result.data}");
-        
+
         ForgotPasswordModel forgotPasswordModel;
         
         if (result.data is Map<String, dynamic>) {
-          print("Processing resend OTP as JSON response");
+
           forgotPasswordModel = ForgotPasswordModel.fromJson(result.data);
         } else if (result.data is String) {
-          print("Processing resend OTP as String response");
+
           forgotPasswordModel = ForgotPasswordModel.fromString(result.data);
         } else {
-          print("Processing resend OTP as fallback response");
+
           forgotPasswordModel = ForgotPasswordModel.fromString("OTP resent successfully");
         }
-        
-        print("Created resend OTP model: ${forgotPasswordModel.message}");
+
         return ResponseResult.success(forgotPasswordModel, result.statusCode);
       } else {
         String errorMessage = 'Failed to resend OTP';
@@ -271,7 +247,7 @@ class AuthRepository {
         return ResponseResult.error(errorMessage: errorMessage);
       }
     } catch (e) {
-      print("Resend OTP error: $e");
+
       String errorMessage = 'We could not process your resend OTP request';
       
       if (e.toString().contains('503')) {
@@ -300,29 +276,22 @@ class AuthRepository {
         },
       );
 
-      print("Reset Password API Response: ${result.data}");
-      print("Reset Password Is Success: ${result.isSuccess}");
-      print("Reset Password Status Code: ${result.statusCode}");
-      print("Reset Password Error Message: ${result.errorMessage}");
-
       // Check if status code is 200 for success
       if (result.isSuccess && result.data != null) {
-        print("Reset password successful: ${result.data}");
-        
+
         ResetPasswordModel resetPasswordModel;
         
         if (result.data is Map<String, dynamic>) {
-          print("Processing reset password as JSON response");
+
           resetPasswordModel = ResetPasswordModel.fromJson(result.data);
         } else if (result.data is String) {
-          print("Processing reset password as String response");
+
           resetPasswordModel = ResetPasswordModel.fromString(result.data);
         } else {
-          print("Processing reset password as fallback response");
+
           resetPasswordModel = ResetPasswordModel.fromString("Password changed successfully");
         }
-        
-        print("Created reset password model: ${resetPasswordModel.message}");
+
         return ResponseResult.success(resetPasswordModel, result.statusCode);
       } else {
         String errorMessage = 'Failed to reset password';
@@ -340,7 +309,7 @@ class AuthRepository {
         return ResponseResult.error(errorMessage: errorMessage);
       }
     } catch (e) {
-      print("Reset password error: $e");
+
       String errorMessage = 'We could not process your reset password request';
       
       if (e.toString().contains('503')) {
@@ -357,7 +326,7 @@ class AuthRepository {
 
   /// Helper method to send login failure logs
   void _sendLoginFailureLogs(String username, dynamic exception) {
-    print("🔍 _sendLoginFailureLogs called for username: $username");
+
     try {
       // Create detailed log information
       final logData = {
@@ -375,28 +344,27 @@ class AuthRepository {
       
       // Convert to JSON string
       final logsJson = jsonEncode(logData);
-      print("🔍 Created log data: $logsJson");
-      
+
       // Send logs asynchronously (don't wait for response)
-      print("🔍 Calling sendMobileLogs...");
+
       sendMobileLogs(logs: logsJson).then((result) {
-        print("🔍 sendMobileLogs completed with result: ${result.isSuccess}");
+
         if (result.isSuccess) {
-          print("✅ AuthRepository: Login failure logs sent successfully");
+
         } else {
-          print("❌ AuthRepository: Failed to send login failure logs: ${result.errorMessage}");
+
         }
       }).catchError((error) {
-        print("❌ AuthRepository: Error sending login failure logs: $error");
+
       });
     } catch (e) {
-      print("❌ AuthRepository: Error creating login failure logs: $e");
+
     }
   }
 
   /// Test method to manually send mobile logs (for debugging)
   Future<ResponseResult<bool>> testSendMobileLogs() async {
-    print("🧪 Testing mobile logs API...");
+
     final testLogs = {
       'timestamp': DateTime.now().toIso8601String(),
       'event': 'TEST_LOG',
@@ -407,7 +375,6 @@ class AuthRepository {
       }
     };
     
-    print("🧪 Test logs data: ${jsonEncode(testLogs)}");
     return sendMobileLogs(logs: jsonEncode(testLogs));
   }
 
@@ -415,12 +382,9 @@ class AuthRepository {
   Future<ResponseResult<bool>> sendMobileLogs({
     required String logs,
   }) async {
-    print("🔍 sendMobileLogs method called");
-    print("🔍 Logs data: $logs");
+
     try {
-      print("🔍 AuthRepository: Sending mobile logs to server");
-      print("🔍 API Path: api/v1/mobile/upload/MobileLogs");
-      
+
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'api/v1/mobile/upload/MobileLogs',
         data: {
@@ -428,23 +392,18 @@ class AuthRepository {
         },
       );
 
-      print("🔍 API Response received - Success: ${response.isSuccess}");
-      print("🔍 Status Code: ${response.statusCode}");
-      print("🔍 Error Message: ${response.errorMessage}");
-
       if (response.isSuccess) {
-        print("✅ AuthRepository: Mobile logs sent successfully");
+
         return ResponseResult.success(true, response.statusCode);
       } else {
-        print("❌ AuthRepository: Failed to send mobile logs - ${response.errorMessage}");
+
         return ResponseResult.error(
           errorMessage: response.errorMessage ?? 'Failed to send mobile logs',
           statusCode: response.statusCode,
         );
       }
     } catch (e) {
-      print("❌ AuthRepository: Exception sending mobile logs - $e");
-      print("❌ Exception type: ${e.runtimeType}");
+
       return ResponseResult.error(
         errorMessage: 'Failed to send mobile logs: $e',
       );

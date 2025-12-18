@@ -27,17 +27,17 @@ class AssetAuditPhotoUploadHelper {
       final state = photoUploadCubit.state;
       if (state is AssetAuditPhotoUploadSuccess) {
         final photoId = int.tryParse(state.response.imgId) ?? 0;
-        print('AssetAuditPhotoUploadHelper: Photo uploaded successfully, photoId: $photoId');
+
         return photoId;
       } else if (state is AssetAuditPhotoUploadFailure) {
-        print('AssetAuditPhotoUploadHelper: Failed to upload photo: ${state.errorMessage}');
+
         return null;
       } else {
-        print('AssetAuditPhotoUploadHelper: Upload still in progress or unknown state');
+
         return null;
       }
     } catch (e) {
-      print('AssetAuditPhotoUploadHelper: Error uploading photo: $e');
+
       return null;
     }
   }

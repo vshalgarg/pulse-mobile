@@ -324,7 +324,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     });
   }
 
-
   Widget _buildDropdownField() {
     // Parse resp_type_value_map to get dropdown options
     final valueMap = _currentItem['resp_type_value_map'];

@@ -87,9 +87,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     // Add listener to purpose controller to track changes
     _purposeController.addListener(() {
       if (!_hasFormDataChanges) {
-        print(
-          "🔍 Purpose of visit changed - setting _hasFormDataChanges to true",
-        );
+
         setState(() {
           _hasFormDataChanges = true;
         });
@@ -206,21 +204,15 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     _ownerContactController.text = widget.siteData.ownerPhone ?? "";
    
     // Handle existing image if available
-    print("🔍 visitingPersonImageId: ${widget.siteData.infraEngineerName}");
-    print(
-      "🔍 visitingPersonImageId type: ${widget.siteData.infraEngineerPhone}",
-    );
 
     if (widget.siteData.visitingPersonImageId != null &&
         widget.siteData.visitingPersonImageId!.isNotEmpty) {
       _uploadedImgId = widget.siteData.visitingPersonImageId;
-      print(
-        "🔍 Loading image with ID: ${widget.siteData.visitingPersonImageId}",
-      );
+
       // Load the actual image data
       _loadImage(widget.siteData.visitingPersonImageId!, isSelfie: true);
     } else {
-      print("🔍 No visitingPersonImageId found or empty");
+
       _uploadedImgId = null; // Ensure it's null when no image
     }
 
@@ -228,7 +220,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     if (widget.siteData.officialIdImageId != null &&
         widget.siteData.officialIdImageId!.isNotEmpty) {
       _officialIdImageId = widget.siteData.officialIdImageId;
-      print("🔍 Loading Official ID Card image with ID: ${widget.siteData.officialIdImageId}");
+
       _loadImage(widget.siteData.officialIdImageId!, isSelfie: false, imageType: 'officialId');
     }
 
@@ -236,7 +228,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     if (widget.siteData.aadharCardImageId != null &&
         widget.siteData.aadharCardImageId!.isNotEmpty) {
       _aadharCardImageId = widget.siteData.aadharCardImageId;
-      print("🔍 Loading Aadhar Card image with ID: ${widget.siteData.aadharCardImageId}");
+
       _loadImage(widget.siteData.aadharCardImageId!, isSelfie: false, imageType: 'aadharCard');
     }
 
@@ -244,16 +236,13 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     if (widget.siteData.leavingStatusImageId != null &&
         widget.siteData.leavingStatusImageId!.isNotEmpty) {
       _leavingStatusImageId = widget.siteData.leavingStatusImageId;
-      print("🔍 Loading Leaving Status image with ID: ${widget.siteData.leavingStatusImageId}");
+
       _loadImage(widget.siteData.leavingStatusImageId!, isSelfie: false, imageType: 'leavingStatus');
     }
   }
 
   Future<void> _loadImage(String imageId, {bool isSelfie = true, String? imageType}) async {
     try {
-      print("🔍 _loadImage called with imageId: $imageId");
-      print("🔍 _loadImage imageId type: ${imageId.runtimeType}");
-      print("🔍 _loadImage isSelfie: $isSelfie, imageType: $imageType");
 
       String? uniqueId;
       String? imageData;
@@ -261,40 +250,32 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       // Check if this is already a unique ID (offline mode) or a server ID (online mode)
       if (imageId.contains("LOCAL_IMAGE_ID")) {
         // This is already a unique ID from offline mode
-        print("🔍 Detected unique ID (offline mode): $imageId");
         uniqueId = imageId;
         
         // For LOCAL_IMAGE_ID, try to get image directly from ImageUploadService
         imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
-        print("🔍 Direct getImageUsingUniqueId result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
         
         // If direct lookup failed, try through getImageAsDataUrl as fallback
         if (imageData == null || imageData.isEmpty) {
-          print("🔍 Direct lookup failed, trying getImageAsDataUrl as fallback");
+
           imageData = await _service.getImageAsDataUrl(uniqueId);
-          print("🔍 getImageAsDataUrl fallback result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
         }
       } else {
         // This is a server ID, check local SQLite first by server_id
-        print("🔍 Detected server ID (numeric): $imageId");
         
         // First try to get from local SQLite by server_id (might already be cached)
         final imageModel = await ServiceLocator().imageUploadService.getImagesByServerId(imageId);
         if (imageModel != null && imageModel.imageData != null && imageModel.imageData!.isNotEmpty) {
           imageData = imageModel.imageData;
           uniqueId = imageModel.uniqueId;
-          print("🔍 Local lookup by server_id result: SUCCESS (length: ${imageData?.length ?? 0})");
         } else {
-          print("🔍 Image not found in local SQLite by server_id: $imageId");
-          
+
           // Also try by unique_id (in case server_id wasn't set but unique_id matches)
           imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(imageId);
           if (imageData != null && imageData.isNotEmpty) {
             uniqueId = imageId;
-            print("🔍 Local lookup by unique_id result: SUCCESS (length: ${imageData.length})");
           } else {
-            print("🔍 Image not found locally, will try to download from server if online...");
-            
+
             // Only try to download if we have internet connection
             // Check connectivity before attempting download
             try {
@@ -304,27 +285,19 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
                     ActivityTypeEnum.siteVisit,
                     widget.siteData.siteId.toString(),
                   );
-              print("🔍 Download result - uniqueId: $uniqueId");
-              
+
               // After download, get the image data
               if (uniqueId != null) {
                 imageData = await ServiceLocator().imageUploadService.getImageUsingUniqueId(uniqueId);
-                print("🔍 Post-download lookup result: ${imageData != null ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}");
               } else {
-                print("⚠️ Download failed (likely offline mode) - image not available");
               }
             } catch (e) {
               Logger.errorLog('❌ Error downloading image from server (likely offline): $e');
-              print("⚠️ Download failed (likely offline mode): $e");
               // Don't throw error, just log it - image will remain null
             }
           }
         }
       }
-
-      print(
-        "🔍 Final image loading result: ${imageData != null && imageData.isNotEmpty ? 'SUCCESS (length: ${imageData.length})' : 'FAILED'}",
-      );
 
       if (imageData != null && imageData.isNotEmpty) {
         Logger.debugLog(
@@ -336,41 +309,38 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         setState(() {
           if (isSelfie) {
             _fetchedImageData = imageData;
-            print("✅ Selfie image loaded and state updated");
+
           } else {
             switch (imageType) {
               case 'officialId':
                 _fetchedOfficialIdImageData = imageData;
-                print("✅ Official ID Card image loaded and state updated");
+
                 break;
               case 'aadharCard':
                 _fetchedAadharCardImageData = imageData;
-                print("✅ Aadhar Card image loaded and state updated");
+
                 break;
               case 'leavingStatus':
                 _fetchedLeavingStatusImageData = imageData;
-                print("✅ Leaving Status image loaded and state updated");
+
                 break;
               default:
-                print("⚠️ Unknown imageType: $imageType");
+
             }
           }
         });
         Logger.debugLog('✅ Image loaded successfully and state updated');
-        print("✅ Image loaded successfully and state updated");
+
       } else {
         Logger.errorLog(
           '❌ Failed to load image data with imageId $imageId, uniqueId: $uniqueId - imageData is null or empty',
         );
-        print(
-          "❌ Failed to load image data with imageId $imageId, uniqueId: $uniqueId - imageData is null or empty",
-        );
+
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading image: $e');
       Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
-      print("❌ Error loading image: $e");
-      print("❌ Stack trace: ${StackTrace.current}");
+
     }
   }
 
@@ -459,8 +429,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         activityType: ActivityTypeEnum.siteVisit,
       );
 
-      print("imgId: after upload $imgId");
-
       // Update the database with the new image ID
       final dbData = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteData.siteId.toString(),
@@ -484,7 +452,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
           _uploadedImgId = imgId;
-          print('uploadedImgId: $_uploadedImgId, $imgId');
+
           _hasFormDataChanges = true;
         });
 
@@ -649,8 +617,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "remarks": "",
       };
 
-      print('requestData: $requestData');
-
       await ServiceLocator().assetAuditPostService
           .postAssetAuditDataWithPhotoReplacement(
             requests: [requestData],
@@ -658,7 +624,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             isLastPage: true,
           );
 
-      print('✅ Site visit submitted successfully');
     } catch (e) {
       Logger.errorLog('❌ Error submitting site visit: $e');
       rethrow; // Re-throw the error so UnsavedChangesDialog can handle it
@@ -751,7 +716,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         ),
         const SizedBox(height: 15),
 
-
         // Visitor Name
         CustomFormField(
           label: "Visitor Name",
@@ -801,7 +765,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         ),
         const SizedBox(height: 15),
 
-
         // Role/Designation
         CustomFormField(
           label: "Role/Designation",
@@ -821,7 +784,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           keyboardType: TextInputType.text,
         ),
         const SizedBox(height: 15),
-
 
         // Purpose of Visit (Multi-line)
         CustomRemarksField(
@@ -955,11 +917,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   }
 
   void _showUnsavedChangesDialog() {
-    print(
-      "🔍 _showUnsavedChangesDialog called - _hasFormDataChanges: $_hasFormDataChanges",
-    );
+
     if (_hasFormDataChanges) {
-      print("🔍 Showing unsaved changes dialog");
+
       showDialog(
         context: context,
         barrierDismissible: true,
@@ -974,7 +934,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         ),
       );
     } else {
-      print("🔍 No form changes detected - navigating back directly");
+
       navigateBackOrToHome(
         context,
         targetContext: widget.parentContext ?? context,

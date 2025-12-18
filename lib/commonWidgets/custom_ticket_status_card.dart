@@ -15,7 +15,6 @@ class StatusCard extends StatelessWidget {
     required this.onTap,
   });
 
-
   Color _getBackgroundColor(String title) {
     switch (title.toLowerCase()) {
       case 'all tickets':
@@ -101,7 +100,6 @@ class StatusCard extends StatelessWidget {
         height: 24,
         width: 24,
         errorBuilder: (BuildContext context, Object exception, StackTrace? stackTrace) {
-          // print('Error loading SVG: $icon - $exception');
           return Container(
             height: 24,
             width: 24,

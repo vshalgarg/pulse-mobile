@@ -216,7 +216,6 @@ class PendingRequestsService {
     Logger.debugLog('✅ All data cleared');
   }
 
-
   /// Drop and recreate database with all tables
   Future<void> dropAndRecreateDatabase() async {
     try {
@@ -255,7 +254,6 @@ class PendingRequestsService {
       rethrow;
     }
   }
-
 
   /// Increment retry count for a request (public method)
   Future<int> incrementRetryCount(String requestId) async {
@@ -300,39 +298,20 @@ class PendingRequestsService {
         orderBy: 'created_at DESC',
       );
 
-      print('📋 ===== PENDING REQUESTS TABLE =====');
-      print('📊 Total Records: ${result.length}');
-
       if (result.isEmpty) {
-        print('📝 No pending requests found in the table');
+
       } else {
         for (int i = 0; i < result.length; i++) {
           final request = result[i];
-          print('📝 --- Request ${i + 1} ---');
-          print('   ID: ${request['id']}');
-          print('   Request ID: ${request['request_id']}');
-          print('   URL: ${request['url']}');
-          print('   Status: ${request['status']}');
-          print('   Retry Count: ${request['retry_count']}');
-          print(
-            '   Created At: ${DateTime.fromMillisecondsSinceEpoch(request['created_at'] as int)}',
-          );
+
           if (request['last_retry_at'] != null) {
-            print(
-              '   Last Retry: ${DateTime.fromMillisecondsSinceEpoch(request['last_retry_at'] as int)}',
-            );
           }
           if (request['error_message'] != null) {
-            print('   Error: ${request['error_message']}');
+
           }
-          print('   Headers: ${request['headers']}');
-          print(
-            '   Data Length: ${(request['request_data'] as String).length} characters',
-          );
+
         }
       }
-
-      print('📋 ===== END PENDING REQUESTS TABLE =====');
 
       Logger.infoLog(
         '📋 PendingRequestsService: Logged ${result.length} pending requests',
@@ -341,7 +320,7 @@ class PendingRequestsService {
       Logger.errorLog(
         '❌ PendingRequestsService: Error logging pending requests table: $e',
       );
-      print('❌ ERROR LOGGING PENDING REQUESTS TABLE: $e');
+
     }
   }
 
@@ -350,17 +329,13 @@ class PendingRequestsService {
     try {
       final db = await database;
 
-      print('🗄️ ===== PENDING REQUESTS TABLE INFO =====');
-
       // Get table info
       final tableInfo = await db.rawQuery(
         "PRAGMA table_info(pending_requests)",
       );
-      print('📊 Table Structure:');
+
       for (final column in tableInfo) {
-        print(
-          '   - ${column['name']}: ${column['type']} ${column['notnull'] == 1 ? 'NOT NULL' : ''}',
-        );
+
       }
 
       // Get row count
@@ -368,30 +343,27 @@ class PendingRequestsService {
         "SELECT COUNT(*) as count FROM pending_requests",
       );
       final totalRows = countResult.first['count'] as int;
-      print('📊 Total Rows: $totalRows');
 
       // Get status breakdown
       final statusResult = await db.rawQuery(
         "SELECT status, COUNT(*) as count FROM pending_requests GROUP BY status",
       );
-      print('📊 Status Breakdown:');
+
       for (final row in statusResult) {
-        print('   - ${row['status']}: ${row['count']}');
+
       }
 
-      print('🗄️ ===== END TABLE INFO =====');
     } catch (e) {
       Logger.errorLog('❌ PendingRequestsService: Error logging table info: $e');
-      print('❌ ERROR LOGGING TABLE INFO: $e');
+
     }
   }
 
   /// Test method to verify service is working
   Future<void> testService() async {
-    print('🧪 ===== TESTING PENDING REQUESTS SERVICE =====');
+
     try {
       final db = await database;
-      print('✅ Database connection successful');
 
       // Test insert
       final testRequest = {
@@ -407,11 +379,9 @@ class PendingRequestsService {
       };
 
       await db.insert('pending_requests', testRequest);
-      print('✅ Test insert successful');
 
       // Test query
       final result = await db.query('pending_requests');
-      print('✅ Test query successful - Found ${result.length} records');
 
       // Clean up test data
       await db.delete(
@@ -419,11 +389,11 @@ class PendingRequestsService {
         where: 'request_id LIKE ?',
         whereArgs: ['test_%'],
       );
-      print('✅ Test cleanup successful');
+
     } catch (e) {
-      print('❌ TEST FAILED: $e');
+
     }
-    print('🧪 ===== END TEST =====');
+
   }
 
   /// Close the database

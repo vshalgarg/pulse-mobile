@@ -119,7 +119,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
       if (erData != null) {
         Logger.debugLog('✅ Initializing form with saved data: $erData');
-        print('🔍 DEBUG: Initializing form with: $erData');
 
         // Initialize all form fields with loaded data
         _consumerNoController.text = erData['consumerNo']?.toString() ?? '';
@@ -188,14 +187,10 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         _ERImageID = erData['ebAttachmentFileId']?.toString();
 
         Logger.debugLog('✅ Form fields initialized successfully');
-        print(
-          '🔍 DEBUG: Form initialized - ConsumerNo: ${_consumerNoController.text}, Status: $_selectedStatus',
-        );
       } else {
         Logger.debugLog(
           'ℹ️ No existing energy reading form data found - fresh form',
         );
-        print('🔍 DEBUG: No form data found - showing fresh form');
         
         // Check EBPageData for DG availability even when EnergyReadingData is empty
         if (ebPageData != null) {
@@ -314,14 +309,9 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       };
 
       Logger.debugLog("📤 EnergyReading: $energyReading");
-      print("📤 EnergyReading: $energyReading");
 
       // Get the current full data from SQLite or use existing
       final updatedData = Map<String, dynamic>.from(_energyReadingData ?? {});
-
-      print(
-        "🔍 DEBUG: Current _energyReadingData before save: $_energyReadingData",
-      );
 
       // Merge the energy reading form data into the existing structure
       // Store under 'EnergyReadingData' key to match what the load function expects
@@ -334,10 +324,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       Logger.debugLog(
         "💾 Updated data structure: ${updatedData.keys.toList()}",
       );
-      print(
-        "🔍 DEBUG: Updated data structure keys: ${updatedData.keys.toList()}",
-      );
-      print("🔍 DEBUG: Updated data structure: $updatedData");
 
       // Update data in SQLite before posting to server
       final success = await ServiceLocator().centralAssetAuditService
@@ -348,15 +334,12 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
       if (success) {
         Logger.debugLog("✅ Energy Reading data saved to SQLite successfully");
-        print("✅ Energy Reading data saved to SQLite successfully");
-        print("🔍 DEBUG: Data saved successfully, updating local state");
         // Update local state with saved data
         setState(() {
           _energyReadingData = updatedData;
         });
       } else {
         Logger.errorLog("⚠️ Failed to save Energy Reading data to SQLite");
-        print("⚠️ Failed to save Energy Reading data to SQLite");
       }
 
       // Post data to server
@@ -369,7 +352,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           );
 
       Logger.debugLog("✅ Energy Reading posted to server successfully");
-      print("✅ Energy Reading posted successfully");
 
       // Update status in SQLite to "IN PROGRESS" after successful submission
       try {
@@ -383,7 +365,6 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       }
     } catch (e) {
       Logger.errorLog("❌ Error posting Energy Reading: $e");
-      print("❌ Error posting Energy Reading: $e");
       // Re-throw the error so it can be caught by the calling method
       rethrow;
     }

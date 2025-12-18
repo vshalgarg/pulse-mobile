@@ -52,9 +52,6 @@ class _TicketScreenState extends State<TicketScreen> {
   void initState() {
     super.initState();
 
-    print("widget.auditName: ${widget.auditName}");
-    print("widget.status: ${widget.status}");
-
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
     _loadTickets();
@@ -72,9 +69,6 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _loadTickets() {
-    print(
-      "loading tickets for ${_currentActivityType.value} and ${_currentTicketType}",
-    );
     context.read<TicketCubit>().getTickets(
       activityType: _currentActivityType.value,
       ticketType: _currentTicketType,
@@ -321,9 +315,6 @@ class _TicketScreenState extends State<TicketScreen> {
         // For General Inspection, get checklist data from API response
         final genInspectionData = apiData;
 
-        // Debug: Print the API response data
-        print("🔍 genInspectionData: $genInspectionData");
-
         // Extract the actual data from the nested structure
         final actualData = genInspectionData['data'] as Map<String, dynamic>?;
 
@@ -338,17 +329,6 @@ class _TicketScreenState extends State<TicketScreen> {
         // Extract visiting person image ID from API response
         final visitingPersonImageId = actualData['visitingPersonImageId']
             ?.toString();
-
-        // Debug: Print extracted values
-        print("🔍 visitingPersonImageId: $visitingPersonImageId");
-        print(
-          "🔍 infraDistrictEngineerName: ${actualData['infraDistrictEngineerName']}",
-        );
-        print(
-          "🔍 infraDistrictEngineerContactNo: ${actualData['infraDistrictEngineerContactNo']}",
-        );
-        print("🔍 ownerName: ${actualData['ownerName']}");
-        print("🔍 ownerContactNo: ${actualData['ownerContactNo']}");
 
         // Get checklist data from local database
         final checklistData = await ServiceLocator()
@@ -621,10 +601,6 @@ class _TicketScreenState extends State<TicketScreen> {
             onTap: () => _navigateToAuditScreen(ticket),
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
-                print(
-                  "Opening Google Maps for ${ticket.pvTicketId} at ${ticket.longitude}, ${ticket.latitude}",
-                );
-
                 // Open Google Maps with directions to the site
                 LocationService.openDirectionsToSite(
                   siteLat: ticket.latitude!,
@@ -633,8 +609,6 @@ class _TicketScreenState extends State<TicketScreen> {
                   context: context,
                 );
               } else {
-                print("No coordinates available for ${ticket.pvTicketId}");
-
                 // Show a message to the user
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -653,8 +627,6 @@ class _TicketScreenState extends State<TicketScreen> {
                 bool isDownloaded = false;
 
                 // Handle General Inspection tickets differently
-
-                
 
                 // For other ticket types, use the existing downloadData method
                 isDownloaded = await service.downloadData(
@@ -755,8 +727,6 @@ class _TicketScreenState extends State<TicketScreen> {
 
   // download pdf report
   Future<void> _downloadReport(Ticket ticket) async {
-    print("downloading pdf report for ${ticket.pvTicketId}");
-
     if (_currentActivityType == ActivityTypeEnum.energyReading) {
       Toastbar.showErrorToastbar(
         'PDF report not available for this activity type',
@@ -788,7 +758,6 @@ class _TicketScreenState extends State<TicketScreen> {
         }
 
         Toastbar.showSuccessToastbar(locationMessage, context);
-        print('PDF saved to: $filePath');
 
         // Show additional info about file location
         Future.delayed(const Duration(seconds: 2), () {
@@ -804,7 +773,6 @@ class _TicketScreenState extends State<TicketScreen> {
         Toastbar.showErrorToastbar('Failed to download PDF', context);
       }
     } catch (e) {
-      print('PDF Download Error: $e');
       String errorMessage = 'Error downloading PDF';
 
       if (e.toString().contains('Storage permission denied')) {

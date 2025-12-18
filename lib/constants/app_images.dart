@@ -20,7 +20,6 @@ class AppImages {
   static const String closed = '${_basePath}close.svg';
   static const String trash = '${_basePath}trash.svg';
 
-
   // add images for pulse dashboard
   static const String assetAudit = '${_basePath}assetaudit.svg';
   static const String preventiveMaintenance = '${_basePath}pm.svg';

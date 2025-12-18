@@ -14,9 +14,6 @@ class GISite {
   final String? infraEngineerPhone;
   final String? ownerName;
   final String? ownerPhone;
-  
-  
-
 
   GISite({
     required this.siteId,
@@ -37,8 +34,7 @@ class GISite {
   });
 
   factory GISite.fromJson(Map<String, dynamic> json) {
-    print('🔄 [CMSite] Parsing JSON: $json');
-    
+
     final siteId = json['site_id'] ?? 0;
     final siteName = json['site_name']?.toString() ?? '';
     final siteCode = json['site_code']?.toString() ?? '';

@@ -27,32 +27,15 @@ class TestUserApiResponse {
       "isFirstTimeLogin": false
     };
 
-    print('=== TESTING API RESPONSE PARSING ===');
-    print('Original API response: $apiResponse');
-    
     // Parse the response using our model
     final userDetails = UserDetailsModel.fromJson(apiResponse);
-    
-    print('Parsed UserDetailsModel:');
-    print('  - fullName: ${userDetails.fullName}');
-    print('  - email: ${userDetails.email}');
-    print('  - mobile: ${userDetails.mobile}');
-    print('  - username: ${userDetails.username}');
-    print('  - userId: ${userDetails.userId}');
-    print('  - isActive: ${userDetails.isActive}');
-    print('  - mgrId: ${userDetails.mgrId}');
-    print('  - departmentId: ${userDetails.departmentId}');
-    print('  - designationId: ${userDetails.designationId}');
-    print('  - tenantId: ${userDetails.tenantId}');
-    print('  - isFirstTimeLogin: ${userDetails.isFirstTimeLogin}');
-    
+
     // Test the fullName extraction
     if (userDetails.fullName == "Abhimanyu Sahu") {
-      print('✅ SUCCESS: fullName correctly extracted as "Abhimanyu Sahu"');
+
     } else {
-      print('❌ ERROR: fullName not extracted correctly. Expected "Abhimanyu Sahu", got "${userDetails.fullName}"');
+
     }
-    
-    print('=== END TEST ===');
+
   }
 }

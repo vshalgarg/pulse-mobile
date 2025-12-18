@@ -24,25 +24,22 @@ class UserDetailsService {
     try {
       // Check if ApiService is initialized
       if (_apiService == null) {
-        print('UserDetailsService: ApiService not initialized');
+
         return null;
       }
 
       // Check if fullName is already stored locally
       // final storedFullName = LocalStorageDB.getFullName;
       // if (storedFullName != null && storedFullName.isNotEmpty) {
-      //   print('UserDetailsService: FullName already stored locally: $storedFullName');
       //   return UserDetailsModel(fullName: storedFullName);
       // }
 
       // Check if user is authenticated
       final token = LocalStorageDB.getToken;
       if (token == null || token.isEmpty) {
-        print('UserDetailsService: No token found, user not authenticated');
+
         return null;
       }
-
-      print('UserDetailsService: Fetching user details from API...');
 
       // Call the user details API
       final response = await _apiService!.get<Map<String, dynamic>>(
@@ -54,28 +51,16 @@ class UserDetailsService {
       );
 
       if (response.isSuccess && response.data != null) {
-        print(
-          'UserDetailsService: API call successful, response: ${response.data}',
-        );
-        print(
-          'UserDetailsService: Available fields in response: ${response.data!.keys.toList()}',
-        );
 
         // Parse the response
         final userDetails = UserDetailsModel.fromJson(response.data!);
 
         // Debug: Check what name fields are available
-        print('UserDetailsService: Parsed fullName: ${userDetails.fullName}');
-        print('UserDetailsService: Parsed firstName: ${userDetails.firstName}');
-        print('UserDetailsService: Parsed lastName: ${userDetails.lastName}');
 
         // Save fullName to local storage
         if (userDetails.fullName != null && userDetails.fullName!.isNotEmpty) {
           await LocalStorageDB.saveFullName(userDetails.fullName!);
           await LocalStorageDB.saveUserId(userDetails.userId!);
-          print(
-            'UserDetailsService: FullName saved to local storage: ${userDetails.fullName}',
-          );
 
           // Get user profile picture if userImageName is available
           if (userDetails.userImageName != null &&
@@ -86,16 +71,16 @@ class UserDetailsService {
             );
           }
         } else {
-          print('UserDetailsService: No fullName found in API response');
+
         }
 
         return userDetails;
       } else {
-        print('UserDetailsService: API call failed: ${response.errorMessage}');
+
         return null;
       }
     } catch (e) {
-      print('UserDetailsService: Error fetching user details: $e');
+
       return null;
     }
   }
@@ -109,9 +94,9 @@ class UserDetailsService {
   Future<void> clearUserDetails() async {
     try {
       await LocalStorageService.remove('fullName');
-      print('UserDetailsService: User details cleared from local storage');
+
     } catch (e) {
-      print('UserDetailsService: Error clearing user details: $e');
+
     }
   }
 
@@ -120,18 +105,16 @@ class UserDetailsService {
     try {
       // Check if ApiService is initialized
       if (_apiService == null) {
-        print('UserDetailsService: ApiService not initialized');
+
         return null;
       }
 
       // Check if user is authenticated
       final token = LocalStorageDB.getToken;
       if (token == null || token.isEmpty) {
-        print('UserDetailsService: No token found, user not authenticated');
+
         return null;
       }
-
-      print('UserDetailsService: Force refreshing user details from API...');
 
       // Call the user details API
       final response = await _apiService!.get<Map<String, dynamic>>(
@@ -143,9 +126,6 @@ class UserDetailsService {
       );
 
       if (response.isSuccess && response.data != null) {
-        print(
-          'UserDetailsService: API call successful, response: ${response.data}',
-        );
 
         // Parse the response
         final userDetails = UserDetailsModel.fromJson(response.data!);
@@ -153,18 +133,16 @@ class UserDetailsService {
         // Save fullName to local storage
         if (userDetails.fullName != null && userDetails.fullName!.isNotEmpty) {
           await LocalStorageDB.saveFullName(userDetails.fullName!);
-          print(
-            'UserDetailsService: FullName saved to local storage: ${userDetails.fullName}',
-          );
+
         }
 
         return userDetails;
       } else {
-        print('UserDetailsService: API call failed: ${response.errorMessage}');
+
         return null;
       }
     } catch (e) {
-      print('UserDetailsService: Error refreshing user details: $e');
+
       return null;
     }
   }
@@ -174,14 +152,14 @@ class UserDetailsService {
     try {
       // Check if ApiService is initialized
       if (_apiService == null) {
-        print('UserDetailsService: ApiService not initialized');
+
         return null;
       }
 
       // Check if user is authenticated
       final token = LocalStorageDB.getToken;
       if (token == null || token.isEmpty) {
-        print('UserDetailsService: No token found, user not authenticated');
+
         return null;
       }
 
@@ -190,22 +168,16 @@ class UserDetailsService {
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      print('UserDetailsService: Response: ${response.data['userprofile']}');
-
       if (response.isSuccess && response.data != null) {
         await LocalStorageDB.saveUserProfile(response.data['userprofile']);
-        print(
-          'UserDetailsService: Profile picture fetched successfully, response.data: ${response.data}',
-        );
+
         return response.data['userprofile'];
       } else {
-        print(
-          'UserDetailsService: Failed to fetch profile picture: ${response.errorMessage}',
-        );
+
         return null;
       }
     } catch (e) {
-      print('UserDetailsService: Error fetching user profile picture: $e');
+
       return null;
     }
   }

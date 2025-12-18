@@ -374,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       status: "All Tickets",
                     ),
                   );
-                  print("All Tickets clicked");
+
                 },
               ),
             ),
@@ -391,7 +391,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       status: "In Progress",
                     ),
                   );
-                  print("In Progress clicked");
+
                 },
               ),
             ),
@@ -409,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "Asset Audit", status: "Completed"),
                   );
-                  print("Completed clicked");
+
                 },
               ),
             ),
@@ -423,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "Asset Audit", status: "Closed"),
                   );
-                  print("Closed clicked");
+
                 },
               ),
             ),
@@ -444,7 +444,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       status: "Missed Deadline",
                     ),
                   );
-                  print("Missed Deadline clicked");
+
                 },
               ),
             ),
@@ -503,7 +503,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "PM", status: "All Tickets"),
                   );
-                  print("PM All Tickets clicked");
+
                 },
               ),
             ),
@@ -517,7 +517,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "PM", status: "In Progress"),
                   );
-                  print("PM In Progress clicked");
+
                 },
               ),
             ),
@@ -535,7 +535,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "PM", status: "Completed"),
                   );
-                  print("PM Completed clicked");
+
                 },
               ),
             ),
@@ -549,7 +549,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "PM", status: "Closed"),
                   );
-                  print("PM Closed clicked");
+
                 },
               ),
             ),
@@ -567,7 +567,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "PM", status: "Missed Deadline"),
                   );
-                  print("PM Missed Deadline clicked");
+
                 },
               ),
             ),
@@ -624,7 +624,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "ER", status: "All Tickets"),
                   );
-                  print("Energy Reading All Tickets clicked");
+
                 },
               ),
             ),
@@ -638,7 +638,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "ER", status: "Due"),
                   );
-                  print("Energy Reading Due clicked");
+
                 },
               ),
             ),
@@ -656,7 +656,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "ER", status: "Completed"),
                   );
-                  print("Energy Reading Completed clicked");
+
                 },
               ),
             ),
@@ -670,7 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "ER", status: "Closed"),
                   );
-                  print("Energy Reading Closed clicked");
+
                 },
               ),
             ),
@@ -688,7 +688,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "ER", status: "Missed Deadline"),
                   );
-                  print("Energy Reading Missed Deadline clicked");
+
                 },
               ),
             ),
@@ -741,7 +741,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "CM", status: "All Tickets"),
                   );
-                  print("Corrective Maintenance All Tickets clicked");
+
                 },
               ),
             ),
@@ -755,7 +755,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "CM", status: "In Progress"),
                   );
-                  print("Corrective Maintenance In Progress clicked");
+
                 },
               ),
             ),
@@ -773,7 +773,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "CM", status: "ASSIGNED_TO_ME"),
                   );
-                  print("Corrective Maintenance Assigned to Me clicked");
+
                 },
               ),
             ),
@@ -787,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     context,
                     TicketScreen(auditName: "CM", status: "Closed"),
                   );
-                  print("Corrective Maintenance Closed clicked");
+
                 },
               ),
             ),

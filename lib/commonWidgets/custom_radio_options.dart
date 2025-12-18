@@ -129,7 +129,6 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
   }
 }
 
-
 class OptionItem {
   final String value;
   final String label;
@@ -143,8 +142,6 @@ class OptionItem {
     this.unselectedIcon = Icons.radio_button_unchecked,
   });
 }
-
-
 
 // CustomOptionSelector(
 // label: "Battery ODC Lock status",
@@ -164,7 +161,6 @@ class OptionItem {
 // ),
 // ],
 // onChanged: (value) {
-// print("Selected: $value");
 // setState(() {
 // selectedBatteryStatus = value;
 // hasUnsavedChanges = true;

@@ -23,9 +23,7 @@ class PMNavigationHelper {
     final responseData = pmData['responseData'] as Map<String, dynamic>? ?? {};
     
     // Debug logging
-    print('🔍 PM Data Detection:');
-    print('  - ResponseData keys: ${responseData.keys.toList()}');
-    
+
     // Check for solar-specific page keys (these are the actual API response keys)
     final solarKeys = ['SPV', 'Cables', 'Inverters', 'Transformer', 'BOS', 'Civil & Structures', 'Safety Systems', 'Performance', 'Earthing', 'Hygiene'];
     final hasSolarKeys = solarKeys.any((key) => responseData.containsKey(key));
@@ -33,19 +31,16 @@ class PMNavigationHelper {
     // Check for telecom-specific page keys (these are the actual API response keys)
     final telecomKeys = ['Tower', 'Battery', 'CCU', 'Solar', 'Electrical', 'SEB', 'DG', 'Fire Extinguisher', 'CT'];
     final hasTelecomKeys = telecomKeys.any((key) => responseData.containsKey(key));
-    
-    print('  - Has solar keys: $hasSolarKeys');
-    print('  - Has telecom keys: $hasTelecomKeys');
-    
+
     // If we have solar keys but no telecom keys, it's solar
     if (hasSolarKeys && !hasTelecomKeys) {
-      print('  - Detected as SOLAR PM');
+
       return true;
     }
     
     // If we have telecom keys but no solar keys, it's telecom
     if (hasTelecomKeys && !hasSolarKeys) {
-      print('  - Detected as TELECOM PM');
+
       return false;
     }
     
@@ -54,18 +49,17 @@ class PMNavigationHelper {
     if (pageHeader != null && pageHeader.isNotEmpty) {
       final firstHeader = pageHeader.first as Map<String, dynamic>?;
       final siteTypeName = firstHeader?['site_type_name']?.toString().toLowerCase();
-      print('  - Site type from pageHeader: $siteTypeName');
-      
+
       if (siteTypeName != null) {
         if (siteTypeName.contains('solar') || siteTypeName.contains('spv') || siteTypeName.contains('pv')) {
-          print('  - Detected as SOLAR PM based on site type');
+
           return true;
         }
       }
     }
     
     // Default to telecom for backward compatibility
-    print('  - Defaulting to TELECOM PM');
+
     return false;
   }
 
@@ -114,7 +108,7 @@ class PMNavigationHelper {
       final hasSiteInfo = pmData['pageHeader'] != null && 
                          pmData['pageHeader'] is List && 
                          (pmData['pageHeader'] as List).isNotEmpty;
-      print('🔍 Site Info data available: $hasSiteInfo');
+
       return hasSiteInfo;
     }
 
@@ -124,7 +118,6 @@ class PMNavigationHelper {
                    responseData[dataKey] is List && 
                    (responseData[dataKey] as List).isNotEmpty;
     
-    print('🔍 Screen $screenName (key: $dataKey) data available: $hasData');
     return hasData;
   }
 
@@ -146,15 +139,12 @@ class PMNavigationHelper {
     final availableScreens = pmScreenOrder.where((screen) => _isScreenDataAvailable(pmData, screen)).toList();
     
     // Debug logging
-    print('🔍 Available Screens Detection:');
-    print('  - PM Screen Order: $pmScreenOrder');
-    print('  - Available Screens: $availableScreens');
-    
+
     // If no screens are available, but we have pageHeader, at least show Site Info
     if (availableScreens.isEmpty) {
       final pageHeader = pmData['pageHeader'] as List?;
       if (pageHeader != null && pageHeader.isNotEmpty) {
-        print('  - No screens available, but pageHeader exists, returning Site Info');
+
         return ['Site Info'];
       }
     }

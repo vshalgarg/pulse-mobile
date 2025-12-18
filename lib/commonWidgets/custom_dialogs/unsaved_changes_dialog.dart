@@ -102,9 +102,6 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
     // Use parentContext for navigation, fallback to context if parentContext is null
     final navigationContext = widget.parentContext ?? context;
 
-    print('DEBUG: parentContext is null: ${widget.parentContext == null}');
-    print('DEBUG: Using navigationContext: ${navigationContext.runtimeType}');
-
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -113,18 +110,18 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
         ticketId: widget.siteAuditSchId ?? '',
         message: message,
         onDone: () {
-          print('DEBUG: Success dialog onDone called');
+
           Navigator.of(
             dialogContext,
           ).pop(); // Close the success dialog using dialog context
-          print('DEBUG: About to navigate back');
+
           Future.microtask(() {
             navigateBackOrToHome(
               navigationContext,
               targetContext: widget.parentContext,
             );
           });
-          print('DEBUG: Navigation completed');
+
         },
       ),
     );
@@ -166,8 +163,6 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
 
     // Use parentContext if available, otherwise use the dialog context
     final contextToUse = widget.parentContext ?? context;
-
-    print('DEBUG: contextToUse: ${contextToUse.toString()}');
 
     Future.microtask(() {
       navigateBackOrToHome(
@@ -273,7 +268,6 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: () {
-                  print('Close button tapped!'); // Debug print
                   Navigator.pop(context); // Just close the dialog, no action
                 },
                 borderRadius: BorderRadius.circular(20),

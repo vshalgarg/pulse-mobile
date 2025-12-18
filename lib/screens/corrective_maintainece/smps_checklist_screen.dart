@@ -34,24 +34,20 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
   void initState() {
     super.initState();
     _initializeControllers();
-    
-    print('🔄 [SMPS Checklist] initState called. EntityId: ${widget.entityId}');
-    print('🔄 [SMPS Checklist] EntityId type: ${widget.entityId.runtimeType}');
-    print('🔄 [SMPS Checklist] EntityId is null: ${widget.entityId == null}');
-    
+
     // Set initial state based on entityId
     if (widget.entityId == null) {
       setState(() {
         _errorMessage = 'Please select a site first';
         _isExpanded = false;
       });
-      print('🔄 [SMPS Checklist] Initialized with no entityId - collapsed');
+
     } else {
       setState(() {
         _isExpanded = false; // Always start collapsed
         _errorMessage = null;
       });
-      print('🔄 [SMPS Checklist] Initialized with entityId: ${widget.entityId} - collapsed');
+
     }
   }
 
@@ -64,19 +60,15 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
   @override
   void didUpdateWidget(SMPSChecklistSection oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    print('🔄 [SMPS Checklist] didUpdateWidget called');
-    print('🔄 [SMPS Checklist] Old entityId: ${oldWidget.entityId}');
-    print('🔄 [SMPS Checklist] New entityId: ${widget.entityId}');
-    
+
     // If entityId changed, reload data
     if (oldWidget.entityId != widget.entityId) {
-      print('🔄 [SMPS Checklist] EntityId changed from ${oldWidget.entityId} to ${widget.entityId}');
+
       if (widget.entityId != null && _isExpanded) {
-        print('🔄 [SMPS Checklist] EntityId available and expanded - loading data');
+
         _loadChecklistData();
       } else if (widget.entityId == null) {
-        print('🔄 [SMPS Checklist] EntityId became null - clearing data');
+
         // Clear data if entityId becomes null
         setState(() {
           _checklistItems = [];
@@ -84,7 +76,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
           _isExpanded = false;
         });
       } else {
-        print('🔄 [SMPS Checklist] EntityId available but not expanded - clearing error');
+
         // Clear error message if entityId is now available
         setState(() {
           _errorMessage = null;
@@ -103,7 +95,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
 
   Future<void> _loadChecklistData() async {
     if (widget.entityId == null) {
-      print('⚠️ [SMPS Checklist] entityId is null, cannot load data');
+
       setState(() {
         _errorMessage = 'Please select a site first';
       });
@@ -116,8 +108,6 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
         _errorMessage = null;
       });
 
-      print('🔄 [SMPS Checklist] Loading checklist data for entityId: ${widget.entityId}');
-      
       // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
       //   widget.entityId!,
       // );
@@ -125,9 +115,9 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
       final List<CMChecklistItem> smpsItems = [];
       
       // Debug: Check what we received
-      print('📋 [SMPS Checklist] Received ${smpsItems.length} SMPS items');
+
       for (var item in smpsItems) {
-        print('🔍 [SMPS Checklist] Item: ${item.checklistDesc} | Type: ${item.respType} | Mandatory: ${item.isMandatory}');
+
       }
       
       setState(() {
@@ -143,7 +133,7 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
               defaultValue = ''; // Empty for user input
             }
             _textControllers[item.cmCheckListMstId] = TextEditingController(text: defaultValue);
-            print('🔄 [SMPS Checklist] Initialized ${item.checklistDesc} with value: "${defaultValue.isEmpty ? "empty" : defaultValue}"');
+
           } else if (item.respType == 'DROPDOWN' || 
                      item.respType == 'MULTI_DYNAMIC_DROPDOWN' ||
                      item.respType == 'DYNAMIC_DROPDOWN') {
@@ -159,7 +149,6 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
         _isLoading = false;
       });
 
-      print('✅ [SMPS Checklist] Loaded ${smpsItems.length} checklist items');
       widget.onFormChanged();
 
     } catch (e) {
@@ -167,37 +156,37 @@ class _SMPSChecklistSectionState extends State<SMPSChecklistSection> {
         _errorMessage = 'Failed to load checklist data: $e';
         _isLoading = false;
       });
-      print('❌ [SMPS Checklist] Error loading data: $e');
+
     }
   }
 
   void _toggleExpansion() {
-    print('🔄 [SMPS Checklist] Toggle expansion clicked. Current state: $_isExpanded');
+
     if (_isExpanded) {
       setState(() {
         _isExpanded = false;
       });
-      print('🔄 [SMPS Checklist] Collapsed section');
+
     } else {
       if (widget.entityId == null) {
         setState(() {
           _errorMessage = 'Please select a site first';
           _isExpanded = false;
         });
-        print('⚠️ [SMPS Checklist] Cannot expand - no entityId');
+
         return;
       }
       setState(() {
         _isExpanded = true;
         _errorMessage = null; // Clear any previous error
       });
-      print('🔄 [SMPS Checklist] Expanded section');
+
       // Only load data if we don't have any checklist items yet
       if (_checklistItems.isEmpty) {
-        print('🔄 [SMPS Checklist] Loading data for first time');
+
         _loadChecklistData();
       } else {
-        print('🔄 [SMPS Checklist] Data already loaded, skipping API call');
+
       }
     }
   }

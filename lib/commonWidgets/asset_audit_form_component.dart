@@ -191,27 +191,23 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Runs custom validation on serial number
   bool _validateSerialNumber() {
-    print('🔍 AssetAuditFormComponent - Running custom validation...');
+
     if (widget.customValidator != null) {
-      print(
-        '🔍 Custom validator exists, calling with: "${widget.serialController.text}", QR: $_isQRCodeScanned',
-      );
+
       final isValid = widget.customValidator!(
         widget.serialController.text,
         _isQRCodeScanned,
       );
 
-      print('🔍 Custom validator result: $isValid');
-
       if (!isValid) {
         _validationErrorMessage =
             widget.customValidationErrorMessage ??
             'Invalid serial number. Please check and try again.';
-        print('❌ Custom validation failed: $_validationErrorMessage');
+
         return false;
       }
     } else {
-      print('🔍 No custom validator provided, skipping validation');
+
     }
     return true;
   }
@@ -373,10 +369,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles save button click
   Future<void> _handleSave() async {
-    print('🔍 AssetAuditFormComponent - Save button clicked!');
-    print('🔍 Serial Number: "${widget.serialController.text}"');
-    print('🔍 Photo Path: "$_selectedPhotoPath"');
-    print('🔍 Status: "$_selectedStatus"');
 
     try {
       // Reset validation state
@@ -386,22 +378,20 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       });
 
       // Step 1: Run mandatory checks
-      print('🔍 Running mandatory field validation...');
+
       if (!_validateAllFields()) {
-        print('❌ Mandatory field validation failed');
+
         _showValidationError();
         return;
       }
-      print('✅ Mandatory field validation passed');
 
       // Step 2: Run custom validation on serial number
-      print('🔍 Running custom serial number validation...');
+
       if (!_validateSerialNumber()) {
-        print('❌ Custom serial number validation failed');
+
         _showValidationError();
         return;
       }
-      print('✅ Custom serial number validation passed');
 
       // Step 3: Handle photo upload
       // Use _editingItem if we're editing, otherwise look for existing item
@@ -412,34 +402,22 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               orElse: () => {},
             );
 
-      print(
-        '🔍 Photo handling - isEditing: $_isEditing, existingItem: ${existingItem.isNotEmpty}',
-      );
-      print('🔍 Selected photo path: $_selectedPhotoPath');
-      print('🔍 Uploaded image ID: $_uploadedImageId');
-      print('🔍 Photo data: $_photoData');
-      print('🔍 Has new photo selected: $_hasNewPhotoSelected');
-
       if (_hasNewPhotoSelected &&
           _selectedPhotoPath != null &&
           _selectedPhotoPath!.isNotEmpty) {
         // User actually selected a new photo - upload it
-        print('New photo selected by user, uploading...');
+
         await _uploadPhoto();
       } else {
         // No new photo selected by user
         if (_isEditing && _uploadedImageId != null) {
           // If we're editing and have a preserved photo ID, use it
-          print(
-            'No new photo selected, using preserved photo ID: $_uploadedImageId',
-          );
+
         } else if (existingItem.isNotEmpty &&
             existingItem['photo'] != null &&
             existingItem['photo'].toString().isNotEmpty) {
           // If editing existing item with photo, preserve it
-          print(
-            'No new photo selected, preserving existing photo ID: ${existingItem['photo']}',
-          );
+
           _uploadedImageId = existingItem['photo'];
         }
       }
@@ -481,11 +459,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       }
 
       // Debug logging for photo data
-      print('=== Item Data Debug ===');
-      print('Uploaded Image ID: $_uploadedImageId');
-      print('Selected Photo Path: $_selectedPhotoPath');
-      print('Item Data: $itemData');
-      print('=== End Item Data Debug ===');
 
       // Step 5: Handle save (add new or update existing)
       if (_isEditing && _editingItem != null) {
@@ -557,10 +530,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles photo upload using ImageUploadService
   Future<void> _uploadPhoto() async {
-    print('🔍 _uploadPhoto called with path: $_selectedPhotoPath');
 
     if (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty) {
-      print('❌ No photo path provided, skipping upload');
+
       return;
     }
 
@@ -569,7 +541,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     });
 
     try {
-      print('🔍 Starting photo upload using ImageUploadService...');
 
       // Read image file and convert to base64
       final imageFile = File(_selectedPhotoPath!);
@@ -584,24 +555,21 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         widget.siteAuditSchId,
       );
 
-      print('🔍 Photo upload completed, uniqueId: $uniqueId');
-
       setState(() {
         _isUploading = false;
         _uploadedImageId = uniqueId;
       });
 
       if (uniqueId.isEmpty) {
-        print('❌ Photo upload failed - no unique ID returned');
+
         setState(() {
           _isUploading = false;
         });
         throw Exception('Photo upload failed - no unique ID returned');
       }
 
-      print('✅ Photo upload successful, uniqueId: $uniqueId');
     } catch (e) {
-      print('❌ Photo upload error: $e');
+
       setState(() {
         _isUploading = false;
       });
@@ -641,7 +609,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Starts editing an item
   void _startEditing(Map<String, dynamic> item) async {
-    print('🔍 Starting to edit item: $item');
 
     setState(() {
       _isEditing = true;
@@ -665,14 +632,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         photoPathString.isNotEmpty && 
         photoPathString.startsWith('data:image/')) {
       // We have base64 image data - use it immediately
-      print('✅ Found base64 image data in photoPath - using directly');
+
       _uploadedImageId = photoId != null ? photoId.toString() : null;
       _photoData = photoPathString;
       setState(() {
         _selectedPhotoPath = photoPathString;
         _isUploading = false;
       });
-      print('✅ Photo loaded from saved base64 data');
+
       return; // Exit early - no need to fetch
     }
 
@@ -683,22 +650,22 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         uniqueIdString.isNotEmpty && 
         uniqueIdString != "null" && 
         uniqueIdString != "0") {
-      print('🔍 Loading photo from server with ID: $uniqueIdString');
+
       _uploadedImageId = uniqueIdString; // Store the unique ID as string
       _photoData = null; // No local photo data
       await _fetchAndDisplayServerImage(uniqueIdString);
     } else if (photoPathString != null && photoPathString.isNotEmpty) {
       // Local photo path (not base64)
-      print('🔍 Local photo path: $photoPathString');
+
       _uploadedImageId = null; // No server photo ID
       _photoData = photoPathString; // Store the photo data as string
       setState(() {
         _selectedPhotoPath = photoPathString; // Convert to string
         _isUploading = false;
       });
-      print('🔍 Set photo data: $_photoData');
+
     } else {
-      print('🔍 No photo data found for item');
+
       _uploadedImageId = null;
       _photoData = null;
       setState(() {
@@ -710,7 +677,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Fetches and displays server image for editing using ImageUploadService
   Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
-    print('🔍 _fetchAndDisplayServerImage called with uniqueId: $uniqueId');
+
     try {
       // Show loading indicator
       setState(() {
@@ -723,35 +690,31 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       // Check if this is a server ID (numeric, not LOCAL_IMAGE_ID)
       // If so, try to get from local first, then download from server if not found
       if (!uniqueId.contains("LOCAL_IMAGE_ID") && int.tryParse(uniqueId) != null) {
-        print('🔍 Detected server ID (numeric): $uniqueId');
         
         // Try to get from local SQLite (checks both unique_id and server_id)
         imageData = await _imageUploadService.getImageUsingUniqueId(uniqueId);
         
         if (imageData == null || imageData.isEmpty) {
           // Not found locally, download from server
-          print('🔍 Image not found in local DB, downloading from server...');
+
           finalUniqueId = await _imageUploadService.downloadImageUsingServerId(
             uniqueId,
             ActivityTypeEnum.assetAudit,
             widget.siteAuditSchId,
           );
-          print('🔍 Download result - uniqueId: $finalUniqueId');
-          
+
           // After download, get the image data
           if (finalUniqueId != null) {
             imageData = await _imageUploadService.getImageUsingUniqueId(finalUniqueId);
           }
         } else {
-          print('✅ Image found in local SQLite');
+
         }
       } else {
         // Not a server ID, get directly
-        print('🔍 Calling getImageUsingUniqueId with: $uniqueId');
+
         imageData = await _imageUploadService.getImageUsingUniqueId(uniqueId);
       }
-
-      print('🔍 Image data received: ${imageData != null && imageData.isNotEmpty ? 'SUCCESS (length: ${imageData.length})' : 'NULL or EMPTY'}');
 
       if (mounted && imageData != null && imageData.isNotEmpty) {
         // Ensure the image data has proper data URL format
@@ -759,28 +722,26 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
             ? imageData
             : 'data:image/jpeg;base64,$imageData';
 
-        print('🔍 Setting _selectedPhotoPath with base64 image data');
         setState(() {
           _selectedPhotoPath = finalImageData; // Store as base64 data for display
           _isUploading = false; // Clear loading state
         });
-        print('✅ Photo loaded and displayed successfully');
+
       } else {
-        print('❌ Image data is null or empty');
+
         setState(() {
           _selectedPhotoPath = null; // Clear photo path on failure
           _isUploading = false; // Clear loading state
         });
       }
     } catch (e, stackTrace) {
-      print('❌ Error fetching image: $e');
-      print('❌ Stack trace: $stackTrace');
+
       if (mounted) {
         setState(() {
           _selectedPhotoPath = null; // Don't set to uniqueId - keep null to show error
           _isUploading = false; // Clear loading state
         });
-        print('⚠️ Failed to fetch image, cleared _selectedPhotoPath');
+
       }
     }
   }
@@ -1306,11 +1267,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   /// Builds a table photo cell
   Widget _buildTablePhotoCell(Map<String, dynamic> item, double width) {
     // Debug logging for table photo cell
-    print('=== Table Photo Cell Debug ===');
-    print('Item: $item');
-    print('Photo ID: ${item['photo_id']}');
-    print('Photo Path: ${item['photoPath']}');
-    print('=== End Table Photo Cell Debug ===');
 
     // Convert photo_id to string if it's numeric, and check if valid
     final photoId = item['photo_id'];
@@ -1413,10 +1369,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   /// Shows photo viewer dialog
   Future<void> _showPhotoViewer(BuildContext context, String? photo) async {
     // Debug logging for photo viewer
-    print('=== Photo Viewer Debug ===');
-    print('Received photo: $photo');
-    print('Photo type: ${photo.runtimeType}');
-    print('=== End Photo Viewer Debug ===');
 
     if (photo == null || photo.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1450,49 +1402,45 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       );
 
       try {
-        print('🔍 Photo viewer - Fetching image with ID: $photo');
+
         String? finalUniqueId = photo;
         
         // Check if this is a server ID (numeric, not LOCAL_IMAGE_ID)
         // If so, try to get from local first, then download from server if not found
         if (!photo.contains("LOCAL_IMAGE_ID") && int.tryParse(photo) != null) {
-          print('🔍 Photo viewer - Detected server ID (numeric): $photo');
           
           // Try to get from local SQLite (checks both unique_id and server_id)
           imageData = await _imageUploadService.getImageUsingUniqueId(photo);
           
           if (imageData == null || imageData.isEmpty) {
             // Not found locally, download from server
-            print('🔍 Photo viewer - Image not found in local DB, downloading from server...');
+
             finalUniqueId = await _imageUploadService.downloadImageUsingServerId(
               photo,
               ActivityTypeEnum.assetAudit,
               widget.siteAuditSchId,
             );
-            print('🔍 Photo viewer - Download result - uniqueId: $finalUniqueId');
-            
+
             // After download, get the image data
             if (finalUniqueId != null) {
               imageData = await _imageUploadService.getImageUsingUniqueId(finalUniqueId);
             }
           } else {
-            print('✅ Photo viewer - Image found in local SQLite');
+
           }
         } else {
           // Use ImageUploadService to get image data (handles both numeric and string IDs)
           imageData = await _imageUploadService.getImageUsingUniqueId(photo);
         }
-        
-        print('🔍 Photo viewer - Image data received: ${imageData != null && imageData.isNotEmpty ? 'SUCCESS (length: ${imageData.length})' : 'NULL or EMPTY'}');
 
         if (imageData != null && imageData.isNotEmpty) {
           // Ensure proper data URL format
           imageData = imageData.startsWith('data:image/')
               ? imageData
               : 'data:image/jpeg;base64,$imageData';
-          print('✅ Photo viewer - Image formatted successfully');
+
         } else {
-          print('❌ Photo viewer - Image data is null or empty');
+
         }
 
         // Close loading dialog
@@ -1500,8 +1448,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           Navigator.of(context).pop();
         }
       } catch (e, stackTrace) {
-        print('❌ Photo viewer - Error loading image: $e');
-        print('❌ Photo viewer - Stack trace: $stackTrace');
+
         // Close loading dialog on error
         if (context.mounted) {
           Navigator.of(context).pop();

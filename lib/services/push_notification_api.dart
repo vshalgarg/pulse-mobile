@@ -15,7 +15,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Uncomment if using Firebase services in background
   // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  print('📩 Handling a background message: ${message.messageId}');
   // You can process message.data here if needed
 }
 
@@ -35,7 +34,6 @@ class PushNotificationApi {
   void handleMessage(RemoteMessage? message) {
     if (message == null) return;
 
-    print('📬 Message data: ${message.data}');
     final payload = message.data;
 
     if (payload['ActionId'] == 1) {
@@ -119,16 +117,16 @@ class PushNotificationApi {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      print('❌ Notification permission denied');
+
     } else {
-      print('✅ Notification permission granted');
+
     }
 
     // Get FCM token
     final fcmToken = await _firebaseMessaging.getToken();
     if (fcmToken != null) {
       await LocalStorageService.setString(LocalStorageConstants.firebaseToken, fcmToken);
-      print('📱 Saved Firebase Token: ${LocalStorageDB.getFireBaseToken}');
+
     }
 
     // Initialize local and push notifications

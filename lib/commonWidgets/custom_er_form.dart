@@ -27,8 +27,7 @@ class CustomErForm extends StatefulWidget {
   final String? photoHintText;
   final String? uploadedImageId;
   final Function(String?)? onImageSelected;
-  
-  
+
   final String? statusLabel;
   final bool isStatusRequired;
   final String? statusInitialValue;
@@ -55,9 +54,7 @@ class CustomErForm extends StatefulWidget {
     this.photoHintText,
     this.uploadedImageId,
     this.onImageSelected,
-    
-    
-    
+
     this.statusLabel,
     this.isStatusRequired = false,
     this.statusInitialValue,
@@ -122,7 +119,6 @@ class _CustomErFormState extends State<CustomErForm> {
     }
   }
 
-
   void _onStatusChanged(String? value) {
     setState(() {
       _selectedStatus = value;
@@ -131,7 +127,6 @@ class _CustomErFormState extends State<CustomErForm> {
     // Notify parent component
     widget.onStatusChanged?.call(value);
   }
-
 
   void _showErrorSnackBar(String message) {
     if (mounted) {
@@ -227,8 +222,7 @@ class _CustomErFormState extends State<CustomErForm> {
           ),
           getHeight(15),
         ],
-        
-        
+
         // Status Section (optional)
         if (widget.showStatus && widget.statusLabel != null) ...[
           Row(

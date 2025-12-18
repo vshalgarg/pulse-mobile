@@ -67,12 +67,6 @@ class _EnterVerificationCodeScreenState
   }
 
   // void _logTimerState(String context) {
-  //   print('📊 Timer State [$context]:');
-  //   print('  - _isResendCode: $_isResendCode');
-  //   print('  - _timerRunning: $_globalTimerRunning');
-  //   print('  - _remainingSeconds: $_globalRemainingSeconds');
-  //   print('  - _timerStartTime: $_globalTimerStartTime');
-  //   print('  - _resendTimer: ${_globalResendTimer != null ? "Active" : "Null"}');
   // }
 
   void _resetTimerState() {
@@ -105,17 +99,13 @@ class _EnterVerificationCodeScreenState
           .difference(_globalTimerStartTime!)
           .inSeconds;
 
-      print('🔄 Restoring timer state - elapsed: $elapsedSeconds seconds');
-
       if (elapsedSeconds < 60) {
         _globalRemainingSeconds = 60 - elapsedSeconds;
-        print(
-          '🔄 Restarting timer with $_globalRemainingSeconds seconds remaining',
-        );
+
         _startTimer();
       } else {
         // Timer should have finished
-        print('🔄 Timer should have finished, resetting state');
+
         _resetTimerState();
       }
     }
@@ -169,9 +159,7 @@ class _EnterVerificationCodeScreenState
           } else if (state is ResendOtpFailure) {
             showCustomToast(context, state.errorMessage);
             // _logTimerState('API Failure');
-            print(
-              'API Failure - Timer state: $_isResendCode, Remaining: $_globalRemainingSeconds',
-            );
+
           }
         },
         child: BlocBuilder<OtpVerificationCubit, OtpVerificationState>(
@@ -454,7 +442,6 @@ class _EnterVerificationCodeScreenState
       _isResendCode = true;
     });
 
-
     // Start new timer with simple countdown
     _globalResendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted || !_globalTimerRunning) {
@@ -463,7 +450,6 @@ class _EnterVerificationCodeScreenState
       }
 
       _globalRemainingSeconds--;
-
 
       if (_globalRemainingSeconds <= 0) {
         _globalTimerRunning = false;

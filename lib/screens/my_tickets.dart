@@ -60,7 +60,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       try {
         return ActivityTypeEnum.fromString(activityTypeStr);
       } catch (e) {
-        print('Failed to parse activity type: $activityTypeStr');
+
         return ActivityTypeEnum.correctiveMaintenance; // Default fallback
       }
     }
@@ -407,7 +407,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
 
   // download pdf report
   Future<void> _downloadReport(RawApiDataModel ticket) async {
-    print("downloading pdf report for ${ticket.pvTicketId}");
 
     if (ticket.activityType != ActivityTypeEnum.preventiveMaintenance &&
         ticket.activityType != ActivityTypeEnum.assetAudit) {
@@ -441,7 +440,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         }
 
         Toastbar.showSuccessToastbar(locationMessage, context);
-        print('PDF saved to: $filePath');
 
         // Show additional info about file location
         Future.delayed(const Duration(seconds: 2), () {
@@ -457,7 +455,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         Toastbar.showErrorToastbar('Failed to download PDF', context);
       }
     } catch (e) {
-      print('PDF Download Error: $e');
+
       String errorMessage = 'Error downloading PDF';
 
       if (e.toString().contains('Storage permission denied')) {
@@ -683,9 +681,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             onTap: () => _navigateToAuditScreen(rawTicket),
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
-                print(
-                  "Opening Google Maps for ${ticket.pvTicketId} at ${ticket.longitude}, ${ticket.latitude}",
-                );
 
                 // Open Google Maps with directions to the site
                 LocationService.openDirectionsToSite(
@@ -695,7 +690,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                   context: context,
                 );
               } else {
-                print("No coordinates available for ${ticket.pvTicketId}");
 
                 // Show a message to the user
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -776,7 +770,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             ),
           );
         } catch (e) {
-          print('Error converting site: $e');
+
           return const SizedBox.shrink();
         }
       },

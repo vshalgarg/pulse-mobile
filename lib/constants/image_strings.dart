@@ -34,7 +34,6 @@ class ImageStrings {
   static const String searchIconPng = "${assetImagePathIcons}MagnifyingGlass2.png";
   static const String emptyCartPng = "empty_cart.png";
 
-
   // //SVG images
   // static const String accountMail = "account_mail.svg";
   // static const String address1Icon = "address1icon.svg";

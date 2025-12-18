@@ -48,7 +48,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
     // Clear error message when entityId changes, but don't auto-expand
     if (oldWidget.entityId != widget.entityId) {
       if (widget.entityId != null) {
-        print('🔄 [BatteryChecklist] EntityId changed to ${widget.entityId}, clearing errors');
+
         setState(() {
           _errorMessage = null;
         });
@@ -57,7 +57,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
           _loadChecklistData();
         }
       } else {
-        print('🔄 [BatteryChecklist] EntityId is null, collapsing section');
+
         setState(() {
           _isExpanded = false;
           _errorMessage = null;
@@ -101,7 +101,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
 
   Future<void> _loadChecklistData() async {
     if (widget.entityId == null) {
-      print('⚠️ [BatteryChecklist] entityId is null, cannot load data');
+
       setState(() {
         _errorMessage = 'Please select a site first';
       });
@@ -114,18 +114,15 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         _errorMessage = null;
       });
 
-
       // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
       //   widget.entityId!,
       // );
 
       final List<CMChecklistItem> batteryItems = [];
-      print('📋 [BatteryChecklist] Battery items count: ${batteryItems.length}');
-      
+
       // Debug: Check the type of items being returned
       if (batteryItems.isNotEmpty) {
-        print('🔍 [BatteryChecklist] First item type: ${batteryItems.first.runtimeType}');
-        print('🔍 [BatteryChecklist] First item: ${batteryItems.first}');
+
       }
       
       setState(() {
@@ -135,7 +132,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         for (var item in batteryItems) {
           // Safety check: Ensure item is a CMChecklistItem
           if (item is! CMChecklistItem) {
-            print('❌ [BatteryChecklist] Invalid item type: ${item.runtimeType}');
+
             continue;
           }
           
@@ -156,7 +153,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
             // Make, Rating, No. of Not OK Batteries will have empty defaultValue = ''
             
             _textControllers[item.cmCheckListMstId] = TextEditingController(text: defaultValue);
-            print('🔄 [BatteryChecklist] Initialized ${item.checklistDesc} with value: "${defaultValue.isEmpty ? "empty" : defaultValue}"');
+
           } else if (item.respType == 'DROPDOWN' || item.respType == 'DYNAMIC_DROPDOWN') {
             _dropdownValues[item.cmCheckListMstId] = null;
           }
@@ -168,7 +165,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
             for (var childItem in item.childitemData) {
               // Safety check: Ensure childItem is a CMChecklistItem
               if (childItem is! CMChecklistItem) {
-                print('❌ [BatteryChecklist] Invalid child item type: ${childItem.runtimeType}');
+
                 continue;
               }
               
@@ -184,7 +181,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
                 // Other child items will have empty defaultValue = ''
                 
                 _textControllers[childItem.cmCheckListMstId] = TextEditingController(text: childDefaultValue);
-                print('🔄 [BatteryChecklist] Initialized child ${childItem.checklistDesc} with value: "${childDefaultValue.isEmpty ? "empty" : childDefaultValue}"');
+
               }
             }
           }
@@ -193,7 +190,6 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         _isLoading = false;
       });
 
-      print('✅ [BatteryChecklist] Loaded ${batteryItems.length} checklist items');
       widget.onFormChanged();
 
     } catch (e) {
@@ -201,7 +197,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         _errorMessage = 'Failed to load checklist data: $e';
         _isLoading = false;
       });
-      print('❌ [BatteryChecklist] Error loading data: $e');
+
     }
   }
 
@@ -440,10 +436,9 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
   void _saveBatteryData(int parentId) {
     // This will be called when Save button is pressed
     // Data will be sent to backend
-    print('🔄 [BatteryChecklist] Saving battery data for parent: $parentId');
+
     widget.onFormChanged();
   }
-
 
   @override
   Widget build(BuildContext context) {
