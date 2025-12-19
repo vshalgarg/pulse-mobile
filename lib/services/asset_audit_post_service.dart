@@ -776,6 +776,15 @@ class AssetAuditPostService {
       if (request.containsKey("giId")) {
         await _processNestedObjects(request);
       }
+      // Process site visit image fields (officialIdImageId, aadharCardImageId, leavingStatusImageId)
+      if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId") || request.containsKey("svlId")) {
+        // This is a site visit request - process all image fields
+        Logger.debugLog('🔍 Detected site visit request - processing image fields');
+        // Pass the original request object so changes are reflected
+        await _processSiteVisitImageFields(request);
+        Logger.debugLog('✅ Site visit image fields processed. Request after processing: ${request['officialIdImageId']}, ${request['aadharCardImageId']}, ${request['leavingStatusImageId']}');
+      }
+      
       // Check both snake_case and camelCase field names
       String? photoId = "";
 
@@ -930,6 +939,70 @@ class AssetAuditPostService {
       }
     } catch (e) {
       Logger.errorLog("Error processing image ID in object: $e");
+    }
+  }
+
+  /// Process site visit specific image fields (officialIdImageId, aadharCardImageId, leavingStatusImageId)
+  /// Modifies the request object in place
+  Future<void> _processSiteVisitImageFields(Map<dynamic, dynamic> request) async {
+    try {
+      Logger.debugLog('🔄 Processing site visit image fields...');
+      
+      // List of site visit image fields to process
+      final imageFields = [
+        'officialIdImageId',
+        'aadharCardImageId',
+        'leavingStatusImageId',
+      ];
+
+      for (final fieldName in imageFields) {
+        if (request.containsKey(fieldName)) {
+          final imageId = request[fieldName];
+          
+          Logger.debugLog('📸 Found $fieldName: $imageId');
+          
+          // Skip if null, empty, or 0
+          if (imageId == null || 
+              imageId.toString().isEmpty || 
+              imageId == 0 ||
+              imageId == '0') {
+            Logger.debugLog('⏭️ Skipping $fieldName (null/empty/0)');
+            continue;
+          }
+
+          // Check if it's a LOCAL_IMAGE_ID
+          if (imageId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+            Logger.debugLog('🔄 Processing $fieldName: $imageId');
+            
+            // Upload image and get server ID
+            final imageModel = await ServiceLocator().imageUploadService
+                .getServerIdFromUniqueIdTryUploading(imageId.toString());
+            
+            if (imageModel != null && imageModel.serverId != null) {
+              // Replace LOCAL_IMAGE_ID with server ID (as integer)
+              final serverId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+              request[fieldName] = serverId;
+              Logger.debugLog('✅ $fieldName replaced with server ID: $serverId (was: $imageId)');
+            } else {
+              Logger.errorLog('❌ Failed to upload image for $fieldName: $imageId');
+              // Set to 0 if upload fails (server expects integer, not string)
+              request[fieldName] = 0;
+            }
+          } else {
+            // Already a server ID, ensure it's an integer
+            final serverId = int.tryParse(imageId.toString()) ?? 0;
+            request[fieldName] = serverId;
+            Logger.debugLog('✅ $fieldName already has server ID: $serverId');
+          }
+        } else {
+          Logger.debugLog('⚠️ Field $fieldName not found in request');
+        }
+      }
+      
+      Logger.debugLog('✅ Site visit image fields processing completed');
+    } catch (e) {
+      Logger.errorLog("❌ Error processing site visit image fields: $e");
+      Logger.errorLog("❌ Stack trace: ${StackTrace.current}");
     }
   }
 }

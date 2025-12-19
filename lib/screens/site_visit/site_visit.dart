@@ -586,7 +586,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "visitingPersonName": "",
         "visitingPersonImageId": _uploadedImgId != null
             ? (_uploadedImgId!.contains("LOCAL_IMAGE_ID")
-                  ? _uploadedImgId! // Send local ID as string for offline mode
+                  ? _uploadedImgId! // Will be replaced with server ID by postAssetAuditDataWithPhotoReplacement
                   : (int.tryParse(_uploadedImgId!) ??
                         0)) // Send server ID as int for online mode
             : 0,
@@ -600,17 +600,17 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         "reportingManager": _reportingManagerController.text.trim(),
         "officialIdImageId": _officialIdImageId != null
             ? (_officialIdImageId!.contains("LOCAL_IMAGE_ID")
-                  ? _officialIdImageId! // Send local ID as string for offline mode
+                  ? _officialIdImageId! // Will be replaced with server ID by postAssetAuditDataWithPhotoReplacement
                   : (int.tryParse(_officialIdImageId!) ?? 0)) // Send server ID as int for online mode
             : 0,
         "aadharCardImageId": _aadharCardImageId != null
             ? (_aadharCardImageId!.contains("LOCAL_IMAGE_ID")
-                  ? _aadharCardImageId! // Send local ID as string for offline mode
+                  ? _aadharCardImageId! // Will be replaced with server ID by postAssetAuditDataWithPhotoReplacement
                   : (int.tryParse(_aadharCardImageId!) ?? 0)) // Send server ID as int for online mode
             : 0,
         "leavingStatusImageId": _leavingStatusImageId != null
             ? (_leavingStatusImageId!.contains("LOCAL_IMAGE_ID")
-                  ? _leavingStatusImageId! // Send local ID as string for offline mode
+                  ? _leavingStatusImageId! // Will be replaced with server ID by postAssetAuditDataWithPhotoReplacement
                   : (int.tryParse(_leavingStatusImageId!) ?? 0)) // Send server ID as int for online mode
             : 0,
         "isActive": true,
