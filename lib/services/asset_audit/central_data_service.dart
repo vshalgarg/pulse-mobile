@@ -1022,15 +1022,29 @@ class CentralAssetAuditDataService {
             String? respTypeValueMapJson;
             if (item.respTypeValueMap != null) {
               try {
-                // Try a simpler approach - just convert the value to string
-                respTypeValueMapJson = item.respTypeValueMap!.value;
-                Logger.debugLog('📝 resp_type_value_map (value only): $respTypeValueMapJson');
+                // Use valueAsString which handles both Map (encodes to JSON) and String (returns as-is) cases
+                respTypeValueMapJson = item.respTypeValueMap!.valueAsString;
+                Logger.debugLog('📝 resp_type_value_map (JSON string): $respTypeValueMapJson');
               } catch (jsonError) {
                 Logger.errorLog('❌ JSON serialization error for item ${item.checklistDesc}: $jsonError');
                 respTypeValueMapJson = null;
               }
             } else {
               Logger.debugLog('📝 resp_type_value_map: null');
+            }
+            
+            // Encode dependent_elements to JSON string
+            String? dependentElementsJson;
+            if (item.dependentElements != null && item.dependentElements!.isNotEmpty) {
+              try {
+                dependentElementsJson = jsonEncode(
+                  item.dependentElements!.map((e) => e.toJson()).toList()
+                );
+                Logger.debugLog('📝 dependent_elements (JSON string): $dependentElementsJson');
+              } catch (jsonError) {
+                Logger.errorLog('❌ JSON serialization error for dependent_elements: $jsonError');
+                dependentElementsJson = null;
+              }
             }
             
             final insertData = {
@@ -1044,6 +1058,8 @@ class CentralAssetAuditDataService {
               'resp_type_value_map': respTypeValueMapJson,
               'is_mandatory': item.isMandatory ? 1 : 0,
               'cl_order': item.clOrder,
+              'flag': item.flag,
+              'dependent_elements': dependentElementsJson,
               'activity_type': activityType,
               'is_downloaded': 1,
               'downloaded_at': now,
@@ -1111,6 +1127,8 @@ class CentralAssetAuditDataService {
             resp_type_value_map TEXT,
             is_mandatory INTEGER DEFAULT 0,
             cl_order INTEGER NOT NULL,
+            flag TEXT,
+            dependent_elements TEXT,
             activity_type TEXT NOT NULL,
             is_downloaded INTEGER DEFAULT 1,
             downloaded_at TEXT,
@@ -1127,6 +1145,24 @@ class CentralAssetAuditDataService {
         Logger.debugLog('✅ gen_ins_checklist_data table created successfully');
       } else {
         Logger.debugLog('✅ gen_ins_checklist_data table already exists');
+        
+        // Check if new columns exist and add them if missing (migration)
+        final tableInfo = await db.rawQuery(
+          "PRAGMA table_info(gen_ins_checklist_data)"
+        );
+        final columnNames = tableInfo.map((row) => row['name'] as String).toList();
+        
+        // Add flag column if missing
+        if (!columnNames.contains('flag')) {
+          Logger.debugLog('Adding flag column to gen_ins_checklist_data table...');
+          await db.execute('ALTER TABLE gen_ins_checklist_data ADD COLUMN flag TEXT');
+        }
+        
+        // Add dependent_elements column if missing
+        if (!columnNames.contains('dependent_elements')) {
+          Logger.debugLog('Adding dependent_elements column to gen_ins_checklist_data table...');
+          await db.execute('ALTER TABLE gen_ins_checklist_data ADD COLUMN dependent_elements TEXT');
+        }
       }
     } catch (e) {
       Logger.errorLog('❌ Error ensuring gen_ins_checklist_data table exists: $e');
@@ -1213,7 +1249,7 @@ class CentralAssetAuditDataService {
               // The resp_type_value_map is stored as a JSON string, so we need to parse it
               jsonDecode(map['resp_type_value_map']); // Validate it's valid JSON
               respTypeValueMap = {
-                'type': 'string', // Default type
+                'type': 'jsonb', // Match API format
                 'value': map['resp_type_value_map'], // The original JSON string
                 'null': false,
               };
@@ -1231,6 +1267,8 @@ class CentralAssetAuditDataService {
             'resp_type_value_map': respTypeValueMap,
             'is_mandatory': map['is_mandatory'] == 1,
             'cl_order': map['cl_order'],
+            'flag': map['flag'],
+            'dependent_elements': map['dependent_elements'],
           });
           checklistItems.add(item);
         } catch (e) {
