@@ -263,6 +263,88 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
     return double.tryParse(trimmed);
   }
 
+  /// Save data to SQLite only (without validation or server posting)
+  /// Used for auto-save when navigating back
+  Future<void> _saveDataToSqliteOnly() async {
+    try {
+      final energyReading = {
+        "createdby": null,
+        "createddt": null,
+        "modifiedby": null,
+        "modifieddt": null,
+        "tenantId": null,
+        "energyReadingId": 0,
+        "auditSchId": widget.auditSchId,
+        "siteAuditSchId": widget.siteAuditSchId,
+        "siteId": widget.siteId,
+        "connectionType": _selectedConnectionType?.isNotEmpty == true ? _selectedConnectionType : null,
+        "consumerNo": _consumerNoController.text.trim().isNotEmpty ? _consumerNoController.text.trim() : null,
+        "ebMeterStatus": _selectedStatus?.isNotEmpty == true ? _selectedStatus : null,
+        "ebConnectionType": _selectedEbConnectionType?.isNotEmpty == true ? _selectedEbConnectionType : null,
+        "ebMeterType": _selectedMeterType?.isNotEmpty == true ? _selectedMeterType : null,
+        "ebMeterNo": _meterNoController.text.trim().isNotEmpty ? _meterNoController.text.trim() : null,
+        "ebMeterReading": _parseDouble(_ebMeterReadingController.text),
+        "ebKwhInSebMeter": _parseDouble(_ebKwhInSebMeterController.text),
+        "ebKvaInSebMeter": _parseDouble(_ebKvaInSebMeterController.text),
+        "ebKwhInCcu": _parseDouble(_ebKwhInCcuController.text),
+        "ebKvaInCcu": _parseDouble(_ebKvhInCcuController.text),
+        "voltage": _parseDouble(_voltageController.text),
+        "yPhaseVoltagePn": null,
+        "bPhaseVoltagePn": null,
+        "loadInRPhaseAmpsInEbMeter": null,
+        "loadInYPhaseAmpsInEbMeter": null,
+        "load": _parseDouble(_loadController.text),
+        "rectificationRequired": null,
+        "anyMajorHazardousPunchPoint": _selectedBatteryStatus?.isNotEmpty == true ? _selectedBatteryStatus : null,
+        "ebAttachmentFileId": _ERImageID,
+        "ebBillReadingDisplayStatus": _selectedEbMeterDisplayStatus?.isNotEmpty == true ? _selectedEbMeterDisplayStatus : null,
+        "ccuEbReading": _parseDouble(_ccuEbReadingController.text),
+        "ccuLoad": _parseDouble(_ccuLoadController.text),
+        "ccuSolarLoad": _parseDouble(_ccuSolarLoadController.text),
+        "ccuBatteryLoad": _parseDouble(_ccuBatteryLoadController.text),
+        "dgRunHour": _dgRunHourController.text.trim().isNotEmpty ? _dgRunHourController.text.trim() : null,
+        "dieselStock": _parseDouble(_dieselStockController.text),
+        "isActive": true,
+        "documentName": null,
+        "remarks": _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+        "dgAvailability": _selectedDgAvailability == 'Yes',
+      };
+
+      // Get the current full data from SQLite or use existing
+      final updatedData = Map<String, dynamic>.from(_energyReadingData ?? {});
+
+      // Merge the energy reading form data into the existing structure
+      // Store under 'EnergyReadingData' key to match what the load function expects
+      updatedData['EnergyReadingData'] = energyReading;
+
+      // Also store at root level for backward compatibility
+      updatedData.addAll(energyReading);
+
+      Logger.debugLog("💾 Auto-saving Energy Reading data to SQLite...");
+
+      // Update data in SQLite only (no server posting)
+      final success = await ServiceLocator().centralAssetAuditService
+          .updateDataInSqlite(
+            siteAuditSchId: widget.siteAuditSchId,
+            updatedData: updatedData,
+          );
+
+      if (success) {
+        Logger.debugLog("✅ Energy Reading data auto-saved to SQLite successfully");
+        // Update local state with saved data
+        setState(() {
+          _energyReadingData = updatedData;
+          _hasFormDataChanges = false; // Reset change flag after saving
+        });
+      } else {
+        Logger.errorLog("⚠️ Failed to auto-save Energy Reading data to SQLite");
+      }
+    } catch (e) {
+      Logger.errorLog("❌ Error auto-saving Energy Reading: $e");
+      // Don't rethrow - allow navigation even if auto-save fails
+    }
+  }
+
   Future<void> postCurrentScreenData() async {
     try {
       final energyReading = {
@@ -337,6 +419,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         // Update local state with saved data
         setState(() {
           _energyReadingData = updatedData;
+          _hasFormDataChanges = false; // Reset change flag after saving
         });
       } else {
         Logger.errorLog("⚠️ Failed to save Energy Reading data to SQLite");
@@ -380,16 +463,14 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           section: "Energy Reading",
           parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
-            await postCurrentScreenData();
+            // Auto-save to SQLite only (without validation or server posting)
+            await _saveDataToSqliteOnly();
           },
           onDiscard: () {},
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext ?? context,
-      );
+      Navigator.pop(context);
     }
   }
 
@@ -650,7 +731,12 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                                 isLeftArrow: true,
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
-                                onPressed: () {
+                                onPressed: () async {
+                                  // Auto-save data silently if there are changes
+                                  if (_hasFormDataChanges) {
+                                    await _saveDataToSqliteOnly();
+                                  }
+                                  // Navigate back
                                   Navigator.pop(context);
                                 },
                               ),
