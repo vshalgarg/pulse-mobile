@@ -259,14 +259,34 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   double? _parseDouble(String? value) {
     if (value == null) return null;
     final trimmed = value.trim();
-    if (trimmed.isEmpty) return null;
-    return double.tryParse(trimmed);
+    if (trimmed.isEmpty || trimmed == 'null' || trimmed == 'Null' || trimmed == 'NULL') return null;
+    
+    // Try to parse as double
+    final parsed = double.tryParse(trimmed);
+    if (parsed != null) {
+      return parsed;
+    }
+    
+    // If parsing fails, try to remove any non-numeric characters except decimal point and minus sign
+    final cleaned = trimmed.replaceAll(RegExp(r'[^\d.-]'), '');
+    if (cleaned.isEmpty) return null;
+    
+    return double.tryParse(cleaned);
   }
 
   /// Save data to SQLite only (without validation or server posting)
   /// Used for auto-save when navigating back
   Future<void> _saveDataToSqliteOnly() async {
     try {
+      // Debug: Log controller values before parsing
+      Logger.debugLog('📝 Reading controller values:');
+      Logger.debugLog('  ebMeterReading: "${_ebMeterReadingController.text}"');
+      Logger.debugLog('  ccuEbReading: "${_ccuEbReadingController.text}"');
+      Logger.debugLog('  ebKwhInCcu: "${_ebKwhInCcuController.text}"');
+      Logger.debugLog('  ebKvaInCcu: "${_ebKvhInCcuController.text}"');
+      Logger.debugLog('  voltage: "${_voltageController.text}"');
+      Logger.debugLog('  load: "${_loadController.text}"');
+      
       final energyReading = {
         "createdby": null,
         "createddt": null,
@@ -309,6 +329,15 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         "remarks": _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
         "dgAvailability": _selectedDgAvailability == 'Yes',
       };
+      
+      // Debug: Log parsed values
+      Logger.debugLog('📤 Parsed values:');
+      Logger.debugLog('  ebMeterReading: ${energyReading["ebMeterReading"]}');
+      Logger.debugLog('  ccuEbReading: ${energyReading["ccuEbReading"]}');
+      Logger.debugLog('  ebKwhInCcu: ${energyReading["ebKwhInCcu"]}');
+      Logger.debugLog('  ebKvaInCcu: ${energyReading["ebKvaInCcu"]}');
+      Logger.debugLog('  voltage: ${energyReading["voltage"]}');
+      Logger.debugLog('  load: ${energyReading["load"]}');
 
       // Get the current full data from SQLite or use existing
       final updatedData = Map<String, dynamic>.from(_energyReadingData ?? {});
@@ -347,6 +376,15 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
   Future<void> postCurrentScreenData() async {
     try {
+      // Debug: Log controller values before parsing
+      Logger.debugLog('📝 Reading controller values for submit:');
+      Logger.debugLog('  ebMeterReading: "${_ebMeterReadingController.text}"');
+      Logger.debugLog('  ccuEbReading: "${_ccuEbReadingController.text}"');
+      Logger.debugLog('  ebKwhInCcu: "${_ebKwhInCcuController.text}"');
+      Logger.debugLog('  ebKvaInCcu: "${_ebKvhInCcuController.text}"');
+      Logger.debugLog('  voltage: "${_voltageController.text}"');
+      Logger.debugLog('  load: "${_loadController.text}"');
+      
       final energyReading = {
         "createdby": null,
         "createddt": null,
@@ -389,6 +427,15 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         "remarks": _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
         "dgAvailability": _selectedDgAvailability == 'Yes',
       };
+      
+      // Debug: Log parsed values
+      Logger.debugLog('📤 Parsed values for submit:');
+      Logger.debugLog('  ebMeterReading: ${energyReading["ebMeterReading"]}');
+      Logger.debugLog('  ccuEbReading: ${energyReading["ccuEbReading"]}');
+      Logger.debugLog('  ebKwhInCcu: ${energyReading["ebKwhInCcu"]}');
+      Logger.debugLog('  ebKvaInCcu: ${energyReading["ebKvaInCcu"]}');
+      Logger.debugLog('  voltage: ${energyReading["voltage"]}');
+      Logger.debugLog('  load: ${energyReading["load"]}');
 
       Logger.debugLog("📤 EnergyReading: $energyReading");
 
@@ -986,8 +1033,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKwhInSebMeterController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: 'Text',
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          hintText: 'Numeric',
         ),
         getHeight(15),
 
@@ -996,8 +1043,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKvaInSebMeterController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: 'Text',
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          hintText: 'Numeric',
         ),
         getHeight(15),
 
@@ -1007,8 +1054,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKwhInCcuController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: 'Text',
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          hintText: 'Numeric',
         ),
         getHeight(15),
 
@@ -1018,8 +1065,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           controller: _ebKvhInCcuController,
           isRequired: true,
           isEditable: true,
-          keyboardType: TextInputType.text,
-          hintText: 'Text',
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          hintText: 'Numeric',
         ),
         getHeight(15),
 
