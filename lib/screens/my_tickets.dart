@@ -119,20 +119,51 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       site['activity_type']?.toString() ?? '',
                     ) == activityType)
             .toList();
+        
+        // For Site Visit, filter out duplicates - if a site appears in both tickets and sites,
+        // prefer the site entry (from sv_sites_data) and remove the ticket entry (from raw_api_data)
+        if (activityType == ActivityTypeEnum.siteVisit) {
+          final siteIdsInSites = _filteredSites
+              .map((site) => site['site_id']?.toString())
+              .where((id) => id != null)
+              .toSet();
+          
+          _filteredTickets = _filteredTickets.where((ticket) {
+            // Keep tickets that don't have a corresponding site entry
+            // Tickets from raw_api_data with empty pvTicketId are sites downloaded from "All Sites"
+            final ticketSiteId = ticket.siteAuditSchId;
+            return !siteIdsInSites.contains(ticketSiteId);
+          }).toList();
+        }
       }
     });
   }
 
   int _getTicketCountForActivityType(ActivityTypeEnum activityType) {
-    final ticketCount = _downloadedTickets
+    final filteredTickets = _downloadedTickets
         .where((ticket) => ticket.activityType == activityType)
-        .length;
-    final siteCount = _downloadedSites
+        .toList();
+    final filteredSites = _downloadedSites
         .where((site) => _parseActivityTypeFromString(
                   site['activity_type']?.toString() ?? '',
                 ) == activityType)
-        .length;
-    return ticketCount + siteCount;
+        .toList();
+    
+    // For Site Visit, avoid double-counting duplicates
+    if (activityType == ActivityTypeEnum.siteVisit) {
+      final siteIdsInSites = filteredSites
+          .map((site) => site['site_id']?.toString())
+          .where((id) => id != null)
+          .toSet();
+      
+      final uniqueTickets = filteredTickets.where((ticket) {
+        return !siteIdsInSites.contains(ticket.siteAuditSchId);
+      }).length;
+      
+      return uniqueTickets + filteredSites.length;
+    }
+    
+    return filteredTickets.length + filteredSites.length;
   }
 
   String _getActivityTypeDisplayName(ActivityTypeEnum activityType) {

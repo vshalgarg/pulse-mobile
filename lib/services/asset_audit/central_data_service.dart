@@ -571,10 +571,20 @@ class CentralAssetAuditDataService {
     final db = await database;
 
     await db.transaction((txn) async {
+      // Clear raw API data
       await txn.delete('raw_api_data');
+      
+      // Clear sites data tables
+      await txn.delete('sv_sites_data');
+      await txn.delete('gi_sites_data');
+      await txn.delete('cm_sites_data');
+      
+      // Clear checklist data tables
+      await txn.delete('gen_ins_checklist_data');
+      await txn.delete('cm_checklist_data');
     });
 
-    Logger.debugLog('✅ All data cleared');
+    Logger.debugLog('✅ All data cleared (raw_api_data, sv_sites_data, gi_sites_data, cm_sites_data, gen_ins_checklist_data, cm_checklist_data)');
   }
 
   /// Drop and recreate database with all tables
