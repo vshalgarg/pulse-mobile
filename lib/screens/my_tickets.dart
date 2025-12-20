@@ -149,6 +149,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         return "Site Visit";
       case ActivityTypeEnum.generalInspection:
         return "General Inspection";
+      case ActivityTypeEnum.incident:
+        return "Incident";
     }
   }
 
@@ -382,6 +384,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.generalInspection:
+        _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.incident:
         _navigateToWorkflow(ticket);
         break;
     }

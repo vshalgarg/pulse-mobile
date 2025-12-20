@@ -114,6 +114,8 @@ class _TicketScreenState extends State<TicketScreen> {
         return ActivityTypeEnum.siteVisit;
       case "GI":
         return ActivityTypeEnum.generalInspection;
+      case "Incident":
+        return ActivityTypeEnum.incident;
       default:
         return ActivityTypeEnum.correctiveMaintenance;
     }
@@ -552,6 +554,8 @@ class _TicketScreenState extends State<TicketScreen> {
                       ? "Site Access Logs"
                       : widget.auditName == "GI"
                       ? "General Inspection Logs"
+                      : widget.auditName == "Incident"
+                      ? "Incident Tickets"
                       : "${widget.auditName} - ${widget.status}",
                   style: const TextStyle(
                     color: AppColors.white,
@@ -791,8 +795,12 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   Widget _buildFloatingActionButtons() {
+
+    
+
     if (_currentActivityType == ActivityTypeEnum.siteVisit ||
-        _currentActivityType == ActivityTypeEnum.generalInspection) {
+        _currentActivityType == ActivityTypeEnum.generalInspection ||
+        _currentActivityType == ActivityTypeEnum.incident) {
       // Show both add button and sync button for SV/GI
       return Column(
         mainAxisAlignment: MainAxisAlignment.end,

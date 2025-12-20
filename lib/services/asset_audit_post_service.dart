@@ -108,6 +108,9 @@ class AssetAuditPostService {
       case ActivityTypeEnum.generalInspection:
         url = 'api/v1/om-schedule/genInspection';
         break;
+      case ActivityTypeEnum.incident:
+        url = 'api/v1/om-schedule/incident';
+        break;
     }
 
     if (activityType == ActivityTypeEnum.siteVisit ||
