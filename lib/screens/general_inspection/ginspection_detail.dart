@@ -509,7 +509,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
         // Infra Engineer
         CustomFormField(
-          label: "Infra Engineer",
+          label: "Infra Engineer Name",
           initialValue: widget.siteData.infraEngineerName ?? "N/A",
           isRequired: false,
           isEditable: false,
@@ -528,7 +528,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
         // Cluster Incharge
         CustomFormField(
-          label: "Cluster Incharge",
+          label: "Cluster Incharge Name",
           initialValue: widget.siteData.clusterInchargeName ?? "N/A",
           isRequired: false,
           isEditable: false,

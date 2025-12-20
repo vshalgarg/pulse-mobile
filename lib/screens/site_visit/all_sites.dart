@@ -6,6 +6,7 @@ import 'package:app/models/all_site_model.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/general_inspection/ginspection_detail.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
+import 'package:app/screens/incident_ticket/incident_detail_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils/toastbar.dart';
@@ -103,7 +104,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         });
       }
     } catch (e) {
-
       if (mounted) {
         setState(() {
           _errorMessage = e.toString();
@@ -144,10 +144,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     });
 
     if (trimmed.isNotEmpty) {
-
       _loadSites(_siteType, searchText: trimmed);
     } else {
-
       // If search is empty, reload based on current filter
       if (_siteType == 'ALL') {
         _filteredSites.clear();
@@ -169,7 +167,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
 
   void _navigateToSite(AllSiteModel site) async {
     final parentContext = context;
-    
+
     // For Site Visit, check if we have stored API data with organisation list
     if (widget.ActivityType == 'SV') {
       try {
@@ -177,7 +175,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         final storedData = await service.getDataFromSqlite(
           siteAuditSchId: site.siteId.toString(),
         );
-        
+
         if (storedData != null && storedData.apiData.isNotEmpty) {
           // Use stored API data to create AllSiteModel with all fields
           final apiData = storedData.apiData;
@@ -198,8 +196,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             selfId: site.selfId,
             siteDomainName: site.siteDomainName,
             distanceKM: site.distanceKM,
-            infraEngineerName: apiData['infraDistrictEngineerName'] ?? site.infraEngineerName,
-            infraEngineerPhone: apiData['infraDistrictEngineerContactNo'] ?? site.infraEngineerPhone,
+            infraEngineerName:
+                apiData['infraDistrictEngineerName'] ?? site.infraEngineerName,
+            infraEngineerPhone:
+                apiData['infraDistrictEngineerContactNo'] ??
+                site.infraEngineerPhone,
             ownerName: apiData['ownerName'] ?? site.ownerName,
             ownerPhone: apiData['ownerContactNo'] ?? site.ownerPhone,
             siteVisitLogId: apiData['svlId']?.toString(),
@@ -209,28 +210,37 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             officialIdImageId: apiData['officialIdImageId']?.toString(),
             aadharCardImageId: apiData['aadharCardImageId']?.toString(),
             leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
-            visitorName: apiData['visitorName']?.toString() ?? apiData['visitor_name']?.toString(),
-            visitorContactNo: apiData['visitorContactNo']?.toString() ?? apiData['visitor_contact_no']?.toString(),
-            organisationName: apiData['organisationName']?.toString() ?? 
-                apiData['organisation_name']?.toString() ?? 
-                apiData['organizationName']?.toString() ?? 
+            visitorName:
+                apiData['visitorName']?.toString() ??
+                apiData['visitor_name']?.toString(),
+            visitorContactNo:
+                apiData['visitorContactNo']?.toString() ??
+                apiData['visitor_contact_no']?.toString(),
+            organisationName:
+                apiData['organisationName']?.toString() ??
+                apiData['organisation_name']?.toString() ??
+                apiData['organizationName']?.toString() ??
                 apiData['organization_name']?.toString(),
-            orgId: apiData['orgId'] != null 
-                ? (apiData['orgId'] is int 
-                    ? apiData['orgId'] as int 
-                    : int.tryParse(apiData['orgId'].toString()))
+            orgId: apiData['orgId'] != null
+                ? (apiData['orgId'] is int
+                      ? apiData['orgId'] as int
+                      : int.tryParse(apiData['orgId'].toString()))
                 : null,
-            roleDesignation: apiData['roleDesignation']?.toString() ?? apiData['role_designation']?.toString(),
-            reportingManager: apiData['reportingManager']?.toString() ?? apiData['reporting_manager']?.toString(),
+            roleDesignation:
+                apiData['roleDesignation']?.toString() ??
+                apiData['role_designation']?.toString(),
+            reportingManager:
+                apiData['reportingManager']?.toString() ??
+                apiData['reporting_manager']?.toString(),
           );
-          
+
           // Extract organisation list from API response if available
           final organisationList = apiData['organisationList'] != null
               ? (apiData['organisationList'] as List)
-                  .map((org) => Map<String, dynamic>.from(org))
-                  .toList()
+                    .map((org) => Map<String, dynamic>.from(org))
+                    .toList()
               : null;
-          
+
           if (mounted) {
             Navigator.push(
               context,
@@ -246,21 +256,23 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           return;
         }
       } catch (e) {
-
         // Fall through to use basic site data
       }
     }
-    
+
     // Use basic site data if no stored data available
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => widget.ActivityType == 'SV'
-            ? SiteVisitScreen(
+            ? SiteVisitScreen(siteData: site, parentContext: parentContext)
+            : widget.ActivityType == 'GI'
+            ? GInspectionDetailScreen(
                 siteData: site,
+                mode: CMScreenModeEnum.create,
                 parentContext: parentContext,
               )
-            : GInspectionDetailScreen(
+            : IncidentDetilScreen(
                 siteData: site,
                 mode: CMScreenModeEnum.create,
                 parentContext: parentContext,
@@ -344,7 +356,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           );
 
           if (!giDownloaded) {
-
             // Still consider it successful since CM data was downloaded
           }
         }
@@ -363,7 +374,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
-
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();

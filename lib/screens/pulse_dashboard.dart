@@ -337,14 +337,14 @@ class _PulseDashboardState extends State<PulseDashboard> {
             _buildTaskCard(
               iconPath: AppImages.inspection,
               label: 'General Inspection',
-              onTap: () => _navigateToTask(''),
+              onTap: () => _navigateToTask('GI'),
               isComingSoon: false,
             ),
 
             _buildTaskCard(
               iconPath: AppImages.inspection,
               label: 'Incident',
-              onTap: () => _navigateToTask(''),
+              onTap: () => _navigateToTask('Incident'),
               isComingSoon: false,
             ),
 
