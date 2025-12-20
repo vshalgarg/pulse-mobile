@@ -781,6 +781,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             siteDomainName: site.siteDomainName,
           );
 
+          // For sites, display site name with site code in parentheses if available
+          final siteDisplayName = site.siteName.isNotEmpty
+              ? "${site.siteName} (${site.siteCode})"
+              : site.siteCode;
+
           return Padding(
             padding: EdgeInsets.only(
               bottom: index == _filteredSites.length - 1 ? 0 : 10,
@@ -788,7 +793,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             child: TicketCard(
               ticket: ticket,
               ticketId: ticket.pvTicketId,
-              siteCode: site.siteCode,
+              siteCode: siteDisplayName,
               siteId: site.clusterDistrictName,
               location: site.clusterDistrictName,
               company: site.clientName ?? 'N/A',
