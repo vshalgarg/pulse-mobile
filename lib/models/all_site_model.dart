@@ -47,6 +47,15 @@ class AllSiteModel {
   final String? installedAssetDetails;
   final String? clusterInchargeName;
   final String? clusterInchargeContactNo;
+  final String? lastGIReportDate;
+  final int? lastPMSiteAuditSchId;
+  final int? lastPMAuditSchId;
+  final int? lastCMSiteReqId;
+  final String? lastAADate;
+  final int? lastAASiteAuditSchId;
+  final int? lastAAAuditSchId;
+
+ 
 
 
   AllSiteModel({
@@ -93,6 +102,13 @@ class AllSiteModel {
     this.installedAssetDetails,
     this.clusterInchargeName,
     this.clusterInchargeContactNo,
+    this.lastGIReportDate,
+    this.lastPMSiteAuditSchId,
+    this.lastPMAuditSchId,
+    this.lastCMSiteReqId,
+    this.lastAADate,
+    this.lastAASiteAuditSchId,
+    this.lastAAAuditSchId,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
@@ -143,8 +159,34 @@ class AllSiteModel {
       clusterInchargeContactNo: json['cluster_incharge_contact_no'] != null
           ? json['cluster_incharge_contact_no'].toString()
           : null,
-
-      
+      lastPMSiteAuditSchId: json['last_pm_site_audit_sch_id'] != null
+          ? (json['last_pm_site_audit_sch_id'] is int
+              ? json['last_pm_site_audit_sch_id'] as int
+              : int.tryParse(json['last_pm_site_audit_sch_id'].toString()))
+          : null,
+      lastPMAuditSchId: json['last_pm_audit_sch_id'] != null
+          ? (json['last_pm_audit_sch_id'] is int
+              ? json['last_pm_audit_sch_id'] as int
+              : int.tryParse(json['last_pm_audit_sch_id'].toString()))
+          : null,
+      lastCMSiteReqId: json['last_cm_site_req_id'] != null
+          ? (json['last_cm_site_req_id'] is int
+              ? json['last_cm_site_req_id'] as int
+              : int.tryParse(json['last_cm_site_req_id'].toString()))
+          : null,
+      lastAADate: json['last_aa_date'] != null
+          ? json['last_aa_date'].toString()
+          : null,
+      lastAASiteAuditSchId: json['last_aa_site_audit_sch_id'] != null
+          ? (json['last_aa_site_audit_sch_id'] is int
+              ? json['last_aa_site_audit_sch_id'] as int
+              : int.tryParse(json['last_aa_site_audit_sch_id'].toString()))
+          : null,
+      lastAAAuditSchId: json['last_aa_audit_sch_id'] != null
+          ? (json['last_aa_audit_sch_id'] is int
+              ? json['last_aa_audit_sch_id'] as int
+              : int.tryParse(json['last_aa_audit_sch_id'].toString()))
+          : null,
 
       // site visit log data
       siteVisitLogId: json['site_visit_log_id'] != null
@@ -231,6 +273,12 @@ class AllSiteModel {
       'installed_asset_details': installedAssetDetails,
       'cluster_incharge_name': clusterInchargeName,
       'cluster_incharge_contact_no': clusterInchargeContactNo,
+      'last_pm_site_audit_sch_id': lastPMSiteAuditSchId,
+      'last_pm_audit_sch_id': lastPMAuditSchId,
+      'last_cm_site_req_id': lastCMSiteReqId,
+      'last_aa_date': lastAADate,
+      'last_aa_site_audit_sch_id': lastAASiteAuditSchId,
+      'last_aa_audit_sch_id': lastAAAuditSchId,
     };
   }
 

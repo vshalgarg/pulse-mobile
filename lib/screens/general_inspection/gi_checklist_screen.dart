@@ -137,7 +137,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: "General Inspection Checklist",
+        title: "General Inspection",
         onClose: () => _showUnsavedChangesDialog(),
       ),
       body: Stack(
@@ -229,7 +229,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           final existingResponse = _checklistResponses[item.giclmId];
 
           return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
             child: GICustomChecklistItem(
               key: _widgetKeys[item.giclmId],
               checklistItem: item,
@@ -539,7 +539,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
       showCustomToast(
         context,
-        "General inspection checklist submitted successfully",
+        "General inspection submitted successfully",
       );
 
       // Reset form changes flag after successful submission

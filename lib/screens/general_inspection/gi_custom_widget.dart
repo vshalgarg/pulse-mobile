@@ -265,11 +265,11 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
           // Checklist Description (Label)
           Row(
             children: [
-              Expanded(
+              Flexible(
                 child: Text(
                   widget.checklistItem.checklistDesc,
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.w500,
                     color: shouldHighlight ? AppColors.errorColor : Colors.white,
                   ),
@@ -450,7 +450,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: CustomDropdown(
-        label: "",
+        label: null,
         items: options,
         isRequired: widget.checklistItem.isMandatory,
         initialValue: _selectedDropdownValue,
@@ -480,14 +480,14 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
 
   Widget _buildTextInputField(bool isEditable) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 0.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Text input field without separate label
           CustomRemarksField(
             label: "",
-            hintText: "Enter ${widget.checklistItem.checklistDesc.toLowerCase()}",
+            hintText: "Enter ${widget.checklistItem.checklistDesc}",
             controller: _textController,
             isDisabled: !isEditable,
           ),
@@ -500,55 +500,31 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
   Widget _buildImageUploadField(bool isEditable) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Label with asterisk
-          Row(
-            children: [
-              const Text(
-                "Add a Photo",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.white,
-                ),
-              ),
-              if (widget.checklistItem.isMandatory)
-                const Text(
-                  ' *',
-                  style: TextStyle(color: AppColors.redColor),
-                ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Image upload field
-          ImageUploadField(
-            key: ValueKey('${widget.checklistItem.giclmId}_image'),
-            placeholder: "Add a Photo",
-            isRequired: widget.checklistItem.isMandatory,
-            onImageSelected: isEditable
-                ? (File? file) {
-                    if (file != null) {
-                      setState(() {
-                        _imageFile = file;
-                      });
-                      // Upload image to server
-                      _uploadImage();
-                    } else {
-                      setState(() {
-                        _imageFile = null;
-                        _uploadedImageId = null;
-                        _fetchedImageData = null;
-                      });
-                      widget.onImageChanged?.call(null);
-                    }
-                  }
-                : (File? file) {}, // Provide empty function if not editable
-            externalImageUrl: _fetchedImageData,
-            isDisabled: !isEditable,
-          ),
-        ],
+      child: ImageUploadField(
+        key: ValueKey('${widget.checklistItem.giclmId}_image'),
+        placeholder: "Add a Photo",
+        label: "Add a Photo",
+        isRequired: widget.checklistItem.isMandatory,
+        onImageSelected: isEditable
+            ? (File? file) {
+                if (file != null) {
+                  setState(() {
+                    _imageFile = file;
+                  });
+                  // Upload image to server
+                  _uploadImage();
+                } else {
+                  setState(() {
+                    _imageFile = null;
+                    _uploadedImageId = null;
+                    _fetchedImageData = null;
+                  });
+                  widget.onImageChanged?.call(null);
+                }
+              }
+            : (File? file) {}, // Provide empty function if not editable
+        externalImageUrl: _fetchedImageData,
+        isDisabled: !isEditable,
       ),
     );
   }

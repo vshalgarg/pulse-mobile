@@ -553,7 +553,7 @@ class _TicketScreenState extends State<TicketScreen> {
                   widget.auditName == "SV"
                       ? "Site Access Logs"
                       : widget.auditName == "GI"
-                      ? "General Inspection Logs"
+                      ? "General Inspection"
                       : widget.auditName == "Incident"
                       ? "Incident Tickets"
                       : "${widget.auditName} - ${widget.status}",

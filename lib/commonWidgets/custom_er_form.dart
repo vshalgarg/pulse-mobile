@@ -21,7 +21,7 @@ class CustomErForm extends StatefulWidget {
   final bool isInputEditable;
   final TextEditingController? inputController;
   final Function(String)? onInputChanged;
-  
+
   final String? photoLabel;
   final bool isPhotoRequired;
   final String? photoHintText;
@@ -32,7 +32,7 @@ class CustomErForm extends StatefulWidget {
   final bool isStatusRequired;
   final String? statusInitialValue;
   final Function(String?)? onStatusChanged;
-  
+
   final String siteAuditSchId;
   final bool showTitle;
   final bool showStatus;
@@ -48,7 +48,7 @@ class CustomErForm extends StatefulWidget {
     this.isInputEditable = true,
     this.inputController,
     this.onInputChanged,
-    
+
     this.photoLabel,
     this.isPhotoRequired = false,
     this.photoHintText,
@@ -59,7 +59,7 @@ class CustomErForm extends StatefulWidget {
     this.isStatusRequired = false,
     this.statusInitialValue,
     this.onStatusChanged,
-    
+
     required this.siteAuditSchId,
     this.showTitle = true,
     this.showStatus = true,
@@ -87,11 +87,11 @@ class _CustomErFormState extends State<CustomErForm> {
   Future<void> _onImageSelected(File imageFile) async {
     try {
       Logger.debugLog('📸 CustomAssetAuditFormSection: Starting image upload');
-      
+
       // Get API service from context
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
-      
+
       // Upload image using ImageUploadService
       final uniqueId = await imageUploadService.uploadImage(
         await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
@@ -99,22 +99,28 @@ class _CustomErFormState extends State<CustomErForm> {
         false,
         widget.siteAuditSchId,
       );
-      
+
       if (uniqueId.isNotEmpty) {
         setState(() {
           _uploadedImgId = uniqueId;
         });
-        
+
         // Notify parent component
         widget.onImageSelected?.call(uniqueId);
-        
-        Logger.debugLog('✅ CustomAssetAuditFormSection: Image uploaded successfully with ID: $uniqueId');
+
+        Logger.debugLog(
+          '✅ CustomAssetAuditFormSection: Image uploaded successfully with ID: $uniqueId',
+        );
       } else {
-        Logger.errorLog('❌ CustomAssetAuditFormSection: Failed to upload image');
+        Logger.errorLog(
+          '❌ CustomAssetAuditFormSection: Failed to upload image',
+        );
         _showErrorSnackBar('Failed to upload image');
       }
     } catch (e) {
-      Logger.errorLog('❌ CustomAssetAuditFormSection: Error uploading image: $e');
+      Logger.errorLog(
+        '❌ CustomAssetAuditFormSection: Error uploading image: $e',
+      );
       _showErrorSnackBar('Error uploading image: $e');
     }
   }
@@ -123,7 +129,7 @@ class _CustomErFormState extends State<CustomErForm> {
     setState(() {
       _selectedStatus = value;
     });
-    
+
     // Notify parent component
     widget.onStatusChanged?.call(value);
   }
@@ -131,10 +137,7 @@ class _CustomErFormState extends State<CustomErForm> {
   void _showErrorSnackBar(String message) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: AppColors.errorColor,
-        ),
+        SnackBar(content: Text(message), backgroundColor: AppColors.errorColor),
       );
     }
   }
@@ -143,7 +146,8 @@ class _CustomErFormState extends State<CustomErForm> {
   Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
     try {
       // Use ImageUploadService to get image data
-      final imageData = await ServiceLocator().centralAssetAuditService.getImageAsDataUrl(uniqueId);
+      final imageData = await ServiceLocator().centralAssetAuditService
+          .getImageAsDataUrl(uniqueId);
 
       if (mounted && imageData != null && imageData.isNotEmpty) {
         // Ensure the image data has proper data URL format
@@ -152,7 +156,8 @@ class _CustomErFormState extends State<CustomErForm> {
             : 'data:image/jpeg;base64,$imageData';
 
         setState(() {
-          _selectedPhotoPath = finalImageData; // Store as base64 data for display
+          _selectedPhotoPath =
+              finalImageData; // Store as base64 data for display
         });
       }
     } catch (e) {
@@ -172,27 +177,29 @@ class _CustomErFormState extends State<CustomErForm> {
         // Section Title (optional)
         if (widget.showTitle) ...[
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                widget.sectionTitle,
-                style: const TextStyle(
-                  color: AppColors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+              Flexible(
+                child: Text(
+                  widget.sectionTitle,
+                  style: TextStyle(
+                    color: AppColors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
+
               const Text(
-                " *",
-                style: TextStyle(
-                  color: Colors.red,
-                  fontSize: 16,
-                ),
+                ' *',
+                style: TextStyle(color: Colors.red, fontSize: 16),
               ),
             ],
           ),
+
           getHeight(15),
         ],
-        
+
         // Input Field (optional)
         if (widget.inputLabel != null) ...[
           CustomFormField(
@@ -206,7 +213,7 @@ class _CustomErFormState extends State<CustomErForm> {
           ),
           getHeight(15),
         ],
-        
+
         // Photo Upload Section (optional)
         if (widget.photoLabel != null) ...[
           ImageUploadField(
@@ -218,7 +225,7 @@ class _CustomErFormState extends State<CustomErForm> {
                 _onImageSelected(file);
               }
             },
-            externalImageUrl: _selectedPhotoPath ?? ""
+            externalImageUrl: _selectedPhotoPath ?? "",
           ),
           getHeight(15),
         ],
@@ -238,15 +245,12 @@ class _CustomErFormState extends State<CustomErForm> {
               if (widget.isStatusRequired)
                 const Text(
                   " *",
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: Colors.red, fontSize: 16),
                 ),
             ],
           ),
           getHeight(8),
-          
+
           Row(
             children: [
               Radio<String>(
@@ -257,10 +261,7 @@ class _CustomErFormState extends State<CustomErForm> {
               ),
               const Text(
                 "Ok",
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: AppColors.white, fontSize: 16),
               ),
               const SizedBox(width: 20),
               Radio<String>(
@@ -271,10 +272,7 @@ class _CustomErFormState extends State<CustomErForm> {
               ),
               const Text(
                 "Not Ok",
-                style: TextStyle(
-                  color: AppColors.white,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: AppColors.white, fontSize: 16),
               ),
             ],
           ),

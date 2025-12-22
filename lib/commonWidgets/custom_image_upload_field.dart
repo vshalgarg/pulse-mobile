@@ -119,7 +119,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           Text(
             widget.placeholder ?? '',
             style: const TextStyle(
-              fontWeight: FontWeight.w400,
+              fontWeight: FontWeight.w500,
               color: AppColors.color555555,
               fontFamily: fontFamilyMontserrat,
             ),
@@ -206,31 +206,35 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       children: [
         // Label with required mark
         if(widget.label != null) ...[
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: widget.label,
-                  style: const TextStyle(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  widget.label!,
+                  style: TextStyle(
                     color: AppColors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     fontFamily: fontFamilyMontserrat,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if(widget.isRequired) ...[
-                  const TextSpan(
-                    text: " *",
-                    style: TextStyle(fontSize: 16, color: Colors.red),
+              ),
+              if(widget.isRequired)
+                Text(
+                  ' *',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Colors.red,
+                    fontFamily: fontFamilyMontserrat,
                   ),
-                ],
-              ],
-            ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
+                ),
+            ],
           ),
         ],
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
 
         // Upload box
         GestureDetector(

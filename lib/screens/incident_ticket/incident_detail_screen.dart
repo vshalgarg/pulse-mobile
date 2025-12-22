@@ -13,6 +13,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'incident_checklist.dart';
 
 class IncidentDetilScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -202,6 +203,15 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       return;
     }
 
+    // Check if we have checklist data
+    if (_checklistData.isEmpty) {
+      Toastbar.showErrorToastbar(
+        'No checklist data available. Please try downloading the data first.',
+        context,
+      );
+      return;
+    }
+
     // Validate required fields
     if (_selectedIncidentTicketReason == null ||
         _selectedIncidentTicketReason!.isEmpty) {
@@ -224,32 +234,21 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     }
 
     try {
-      // TODO: Implement API call to save/update incident ticket
-      // For now, just show success message
-      Logger.debugLog('Incident Ticket Data:');
-      Logger.debugLog(
-        '  Incident Ticket Reason: $_selectedIncidentTicketReason',
-      );
-      Logger.debugLog('  Current Site Status: $_selectedCurrentSiteStatus');
-      Logger.debugLog('  Status: $_selectedStatus');
-      Logger.debugLog('  Remarks: ${_remarksController.text}');
-      Logger.debugLog('  Incident Remarks: ${_incidentRemarksController.text}');
-      Logger.debugLog('  Checklist Data: ${_checklistData.length} item types');
-
-      // Show success message
-      Toastbar.showSuccessToastbar(
-        'Incident ticket saved successfully',
+      // Navigate to checklist screen with pre-loaded data
+      Navigator.push(
         context,
-      );
-
-      // Navigate back
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext ?? context,
+        MaterialPageRoute(
+          builder: (_) => IncidentChecklistScreen(
+            siteData: widget.siteData,
+            mode: widget.mode,
+            checklistData: _checklistData,
+            parentContext: widget.parentContext ?? context,
+          ),
+        ),
       );
     } catch (e) {
-      Logger.errorLog('❌ Error submitting incident ticket: $e');
-      Toastbar.showErrorToastbar('Failed to save incident ticket', context);
+      Logger.errorLog('❌ Error in submit process: $e');
+      rethrow; // Re-throw so UnsavedChangesDialog can handle the error
     }
   }
 
@@ -303,11 +302,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   child: CustomSubmitButtonV2(
-                    text: widget.mode == CMScreenModeEnum.create
-                        ? "Next"
-                        : widget.mode == CMScreenModeEnum.edit
-                        ? "Update"
-                        : "Close",
+                    text: "Next",
                     onPressed: _isViewMode || _selectedStatus == 'CLOSE'
                         ? null
                         : _submitForm,

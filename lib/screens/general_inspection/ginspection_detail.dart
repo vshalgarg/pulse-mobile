@@ -181,14 +181,17 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                 }
               } else if (checklistItem.respType.contains('DROPDOWN')) {
                 final respValue = response['resp'] as String?;
-                responseData['radio_value'] = respValue; // Dropdown uses same key as radio
+                responseData['radio_value'] =
+                    respValue; // Dropdown uses same key as radio
               } else if (checklistItem.respType.contains('TEXT')) {
                 responseData['text_value'] = response['resp'] as String?;
               }
 
               // Handle image ID - check if main field has IMG type, otherwise it might be for dependent elements
               final respPhotoId = response['respPhotoId']?.toString();
-              if (respPhotoId != null && respPhotoId.isNotEmpty && respPhotoId != "0") {
+              if (respPhotoId != null &&
+                  respPhotoId.isNotEmpty &&
+                  respPhotoId != "0") {
                 if (checklistItem.respType.contains('IMG')) {
                   // Main field has IMG type, so respPhotoId is for the main field
                   responseData['image_id'] = respPhotoId;
@@ -201,7 +204,9 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
               // Extract remarks from API response for dependent REMARKS elements
               final remarksValue = response['remarks']?.toString();
-              if (remarksValue != null && remarksValue.isNotEmpty && remarksValue != "null") {
+              if (remarksValue != null &&
+                  remarksValue.isNotEmpty &&
+                  remarksValue != "null") {
                 responseData['dependent_remarks'] = remarksValue;
               }
 
@@ -548,7 +553,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Owner
         CustomFormField(
           label: "Owner",
-           initialValue: widget.siteData.ownerName ?? "N/A",
+          initialValue: widget.siteData.ownerName ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
@@ -557,7 +562,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         // Owner Contact No.
         CustomFormField(
           label: "Owner Contact No.",
-           initialValue: widget.siteData.ownerPhone ?? "N/A",
+          initialValue: widget.siteData.ownerPhone ?? "N/A",
           isRequired: false,
           isEditable: false,
           keyboardType: TextInputType.phone,
@@ -568,7 +573,11 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         _buildDownloadSection(
           title: "Installed Asset Details",
           displayText: "Installed Asset Details",
-          onDownload: _downloadInstalledAssetDetails,
+          onDownload: () => _downloadInstalledAssetDetails(
+            ActivityTypeEnum.assetAudit,
+            widget.siteData.siteId,
+            widget.siteData.lastAASiteAuditSchId,
+          ),
           isLightBlue: true,
         ),
         const SizedBox(height: 15),
@@ -577,7 +586,11 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         _buildDownloadSection(
           title: "Last PM Details",
           displayText: _formatDate(widget.siteData.lastPMDate ?? "N/A"),
-          onDownload: _downloadLastPMDetails,
+          onDownload: () => _downloadInstalledAssetDetails(
+            ActivityTypeEnum.preventiveMaintenance,
+            widget.siteData.siteId,
+            widget.siteData.lastPMSiteAuditSchId,
+          ),
           isLightBlue: false,
         ),
         const SizedBox(height: 15),
@@ -586,7 +599,11 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         _buildDownloadSection(
           title: "Last CM Details",
           displayText: _formatDate(widget.siteData.lastCMDate ?? "N/A"),
-          onDownload: _downloadLastCMDetails,
+          onDownload: () => _downloadInstalledAssetDetails(
+            ActivityTypeEnum.preventiveMaintenance,
+            widget.siteData.siteId,
+            widget.siteData.lastCMSiteReqId,
+          ),
           isLightBlue: false,
         ),
         const SizedBox(height: 20),
@@ -930,8 +947,17 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     );
   }
 
-  Future<void> _downloadInstalledAssetDetails() async {
+  Future<void> _downloadInstalledAssetDetails(
+    ActivityTypeEnum activityType,
+    int? siteId,
+    int? siteAuditSchId,
+  ) async {
     try {
+      if (siteAuditSchId == null) {
+        Toastbar.showErrorToastbar('No Report found', context);
+        return;
+      }
+
       LoaderWidget.showLoader(context);
 
       // Download asset audit report for this site
@@ -939,7 +965,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
       final filePath = await service.downloadPdfReport(
         ticketId: widget.siteData.siteCode,
         ticketSchId: widget.siteData.siteId.toString(),
-        activityType: ActivityTypeEnum.assetAudit,
+        activityType: activityType,
       );
 
       if (filePath != null) {
@@ -964,108 +990,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         'Error downloading Installed Asset Details',
         context,
       );
-    } finally {
-      LoaderWidget.hideLoader();
-    }
-  }
-
-  Future<void> _downloadLastPMDetails() async {
-    try {
-      final lastPmDate = widget.apiResponseData?['last_pm_date'];
-      if (lastPmDate == null ||
-          lastPmDate.toString().isEmpty ||
-          lastPmDate.toString() == 'null') {
-        Toastbar.showInfoToastbar(
-          'No PM data available for this site',
-          context,
-        );
-        return;
-      }
-
-      LoaderWidget.showLoader(context);
-
-      // Get PM sch_id from API response if available
-      final pmSchId =
-          widget.apiResponseData?['last_pm_sch_id']?.toString() ??
-          widget.siteData.siteId.toString();
-
-      final service = ServiceLocator().centralApiService;
-      final filePath = await service.downloadPdfReport(
-        ticketId: widget.siteData.siteCode,
-        ticketSchId: pmSchId,
-        activityType: ActivityTypeEnum.preventiveMaintenance,
-      );
-
-      if (filePath != null) {
-        String locationMessage;
-        if (filePath.contains('/Download/')) {
-          locationMessage =
-              'PDF saved to Downloads folder! Open file manager → Downloads to view';
-        } else {
-          locationMessage =
-              'PDF saved to app storage. Check Android → data → com.rapadit.flutter_template_rad → files → Downloads';
-        }
-        Toastbar.showSuccessToastbar(locationMessage, context);
-      } else {
-        Toastbar.showErrorToastbar(
-          'Failed to download Last PM Details',
-          context,
-        );
-      }
-    } catch (e) {
-      Logger.errorLog('Error downloading Last PM Details: $e');
-      Toastbar.showErrorToastbar('Error downloading Last PM Details', context);
-    } finally {
-      LoaderWidget.hideLoader();
-    }
-  }
-
-  Future<void> _downloadLastCMDetails() async {
-    try {
-      final lastCmDate = widget.apiResponseData?['last_cm_date'];
-      if (lastCmDate == null ||
-          lastCmDate.toString().isEmpty ||
-          lastCmDate.toString() == 'null') {
-        Toastbar.showInfoToastbar(
-          'No CM data available for this site',
-          context,
-        );
-        return;
-      }
-
-      LoaderWidget.showLoader(context);
-
-      // Get CM sch_id from API response if available
-      final cmSchId =
-          widget.apiResponseData?['last_cm_sch_id']?.toString() ??
-          widget.siteData.siteId.toString();
-
-      final service = ServiceLocator().centralApiService;
-      final filePath = await service.downloadPdfReport(
-        ticketId: widget.siteData.siteCode,
-        ticketSchId: cmSchId,
-        activityType: ActivityTypeEnum.correctiveMaintenance,
-      );
-
-      if (filePath != null) {
-        String locationMessage;
-        if (filePath.contains('/Download/')) {
-          locationMessage =
-              'PDF saved to Downloads folder! Open file manager → Downloads to view';
-        } else {
-          locationMessage =
-              'PDF saved to app storage. Check Android → data → com.rapadit.flutter_template_rad → files → Downloads';
-        }
-        Toastbar.showSuccessToastbar(locationMessage, context);
-      } else {
-        Toastbar.showErrorToastbar(
-          'Failed to download Last CM Details',
-          context,
-        );
-      }
-    } catch (e) {
-      Logger.errorLog('Error downloading Last CM Details: $e');
-      Toastbar.showErrorToastbar('Error downloading Last CM Details', context);
     } finally {
       LoaderWidget.hideLoader();
     }
