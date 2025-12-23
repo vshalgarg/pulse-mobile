@@ -228,7 +228,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
       Logger.debugLog('  Parent Type: ${submitData['parentIncidentType']}');
       Logger.debugLog('  Selected ICLM IDs: ${submitData['selectedIclmIds']}');
 
-      // Return data to previous screen
+      // Return data to previous screen (detail screen will handle connectivity check)
       Navigator.of(context).pop(submitData);
     } catch (e) {
       Logger.errorLog('❌ Error submitting incident checklist: $e');
@@ -236,21 +236,28 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
     }
   }
 
-  void _showUnsavedChangesDialog() {
+  Future<void> _showUnsavedChangesDialog() async {
     if (_hasFormDataChanges && !_isViewMode) {
-      showDialog(
+      final result = await showDialog<String>(
         context: context,
         barrierDismissible: true,
         builder: (dialogContext) => UnsavedChangesDialog(
-          siteAuditSchId: widget.siteData.siteId.toString(),
+          siteAuditSchId: widget.siteData.siteId.toString(), // prevent dialog success message; detail screen handles UX
           section: "Incident Checklist",
           parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
-            await _submitForm();
+            // Close dialog with a flag; submit happens after dialog is dismissed
+            Navigator.of(dialogContext).pop('save');
           },
-          onDiscard: () {},
+          onDiscard: () {
+            Navigator.of(dialogContext).pop('discard');
+          },
         ),
       );
+
+      if (result == 'save') {
+        await _submitForm();
+      }
     } else {
       navigateBackOrToHome(
         context,

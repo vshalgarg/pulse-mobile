@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/commonWidgets/custom_form_appbar.dart';
@@ -15,6 +16,7 @@ import 'package:app/models/incident_ticket_request_model.dart';
 import 'package:app/repositories/incident_repository.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -391,19 +393,14 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     Map<String, dynamic> checklistData,
   ) async {
     try {
-      // Show loading indicator
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
+      if (!mounted) return;
+      // Check internet connectivity
+      final isConnected = await ConnectivityHelper.isConnected();
+      Logger.debugLog('Internet connectivity: $isConnected');
 
       // Extract checklist responses
       final checklistResponses = checklistData['checklistResponses'] as List?;
       if (checklistResponses == null || checklistResponses.isEmpty) {
-        Navigator.of(context).pop(); // Close loading
         Toastbar.showErrorToastbar(
           'No checklist data to submit',
           context,
@@ -434,31 +431,50 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
       // Get image ID - convert LOCAL_IMAGE_ID to server ID if needed
       int? imageId;
+      String? localImageId; // Store LOCAL_IMAGE_ID for offline mode
+      
+      Logger.debugLog('📸 Checking image ID: _uploadedImgId = $_uploadedImgId');
+      
       if (_uploadedImgId != null && _uploadedImgId!.isNotEmpty) {
+        Logger.debugLog('📸 Image ID found: $_uploadedImgId');
+        
         if (_uploadedImgId!.contains("LOCAL_IMAGE_ID")) {
-          // For offline mode, try to get the server ID by uploading
-          try {
-            final imageModel = await ServiceLocator()
-                .imageUploadService
-                .getServerIdFromUniqueIdTryUploading(_uploadedImgId!);
-            if (imageModel != null && imageModel.serverId != null) {
-              imageId = int.tryParse(imageModel.serverId.toString()) ?? 0;
-              Logger.debugLog(
-                '✅ Converted LOCAL_IMAGE_ID to server ID: $imageId',
-              );
-            } else {
-              Logger.errorLog(
-                '❌ Failed to get server ID for LOCAL_IMAGE_ID: $_uploadedImgId',
-              );
+          Logger.debugLog('📸 Detected LOCAL_IMAGE_ID, isConnected: $isConnected');
+          
+          if (isConnected) {
+            // For online mode, try to get the server ID by uploading
+            try {
+              final imageModel = await ServiceLocator()
+                  .imageUploadService
+                  .getServerIdFromUniqueIdTryUploading(_uploadedImgId!);
+              if (imageModel != null && imageModel.serverId != null) {
+                imageId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+                Logger.debugLog(
+                  '✅ Converted LOCAL_IMAGE_ID to server ID: $imageId',
+                );
+              } else {
+                Logger.errorLog(
+                  '❌ Failed to get server ID for LOCAL_IMAGE_ID: $_uploadedImgId',
+                );
+                imageId = 0;
+              }
+            } catch (e) {
+              Logger.errorLog('❌ Error converting image ID: $e');
               imageId = 0;
             }
-          } catch (e) {
-            Logger.errorLog('❌ Error converting image ID: $e');
-            imageId = 0;
+          } else {
+            // For offline mode, keep LOCAL_IMAGE_ID string for later processing
+            localImageId = _uploadedImgId!;
+            imageId = 0; // Set to 0 initially, will be replaced in JSON
+            Logger.debugLog('📸 Offline mode: Storing LOCAL_IMAGE_ID for later: $localImageId');
           }
         } else {
           imageId = int.tryParse(_uploadedImgId!) ?? 0;
+          Logger.debugLog('📸 Server ID found: $imageId');
         }
+      } else {
+        Logger.errorLog('⚠️ No image ID found! _uploadedImgId is null or empty');
+        imageId = 0;
       }
 
       // Build request
@@ -484,32 +500,173 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         incidentImageName: null,
       );
 
-      Logger.debugLog('Submitting incident ticket: ${request.toJson()}');
-
-      // Call API
-      final response = await _repository.postIncidentTicket(request: request);
-
-      Navigator.of(context).pop(); // Close loading
-
-      Logger.infoLog('✅ Incident ticket submitted successfully: $response');
-
-      Toastbar.showSuccessToastbar(
-        'Incident ticket saved successfully',
-        context,
-      );
-
-      // Navigate back
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext ?? context,
-      );
+      if (!isConnected) {
+        // Save to offline storage - replace imageId with LOCAL_IMAGE_ID string if needed
+        await _saveOffline(request, localImageId);
+      } else {
+        // Submit online
+        await _submitOnline(request);
+      }
     } catch (e) {
-      Navigator.of(context).pop(); // Close loading if still open
+      if (!mounted) return;
       Logger.errorLog('❌ Error submitting incident ticket: $e');
       Toastbar.showErrorToastbar(
         'Failed to save incident ticket: ${e.toString()}',
         context,
       );
+    }
+  }
+
+  Future<void> _submitOnline(IncidentTicketRequest request) async {
+    bool loaderOpen = false;
+    try {
+      if (!mounted) return;
+      // Show loading indicator
+      await Future.microtask(() {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          useRootNavigator: true,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+        loaderOpen = true;
+      });
+
+      Logger.debugLog('Submitting incident ticket online: ${request.toJson()}');
+
+      final response = await _repository.postIncidentTicket(request: request);
+
+      // Close loader
+      if (loaderOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loaderOpen = false;
+      }
+
+      if (!mounted) return;
+
+      Logger.infoLog('✅ Incident ticket submitted successfully: $response');
+
+      // Build toast message with ticketId/siteId if present
+      final dynamic ticketId =
+          response['incidentTicketId'] ?? response['data']?['incidentTicketId'];
+      final toastMsg = ticketId != null
+          ? 'Incident ticket $ticketId saved for Site ${widget.siteData.siteId}'
+          : 'Incident ticket saved for Site ${widget.siteData.siteId}';
+
+      Toastbar.showSuccessToastbar(
+        toastMsg,
+        context,
+      );
+
+      // Navigate back to tickets/home
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
+    } catch (e) {
+      if (loaderOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loaderOpen = false;
+      }
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          'Failed to save incident ticket: ${e.toString()}',
+          context,
+        );
+      }
+      Logger.errorLog('❌ Error submitting incident ticket online: $e');
+    }
+  }
+
+  Future<void> _saveOffline(IncidentTicketRequest request, String? localImageId) async {
+    bool loaderOpen = false;
+    try {
+      // Show loading indicator
+      await Future.microtask(() {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          useRootNavigator: true,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(),
+          ),
+        );
+        loaderOpen = true;
+      });
+
+      // Create a unique request ID for this incident ticket submission
+      final requestId = 'incident_ticket_${widget.siteData.siteId}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Convert request to JSON and wrap in list (as expected by sync service)
+      final requestJson = request.toJson();
+      
+      Logger.debugLog('📸 Before replacement - incidentImgId in JSON: ${requestJson['incidentImgId']}');
+      Logger.debugLog('📸 localImageId value: $localImageId');
+      Logger.debugLog('📸 _uploadedImgId state: $_uploadedImgId');
+      
+      // If we have a LOCAL_IMAGE_ID, replace the incidentImgId (0) with the string
+      // so that the image processor can detect and convert it later
+      if (localImageId != null && localImageId.isNotEmpty) {
+        requestJson['incidentImgId'] = localImageId;
+        Logger.debugLog('📸 ✅ Replaced incidentImgId with LOCAL_IMAGE_ID: $localImageId');
+      } else {
+        Logger.errorLog('⚠️ No localImageId to replace! incidentImgId will remain 0');
+        Logger.errorLog('📸 _uploadedImgId state: $_uploadedImgId');
+        // If _uploadedImgId exists but localImageId is null, try to use _uploadedImgId directly
+        if (_uploadedImgId != null && _uploadedImgId!.isNotEmpty && _uploadedImgId!.contains("LOCAL_IMAGE_ID")) {
+          requestJson['incidentImgId'] = _uploadedImgId!;
+          Logger.debugLog('📸 ✅ Using _uploadedImgId directly: $_uploadedImgId');
+        }
+      }
+      
+      Logger.debugLog('📸 After replacement - incidentImgId in JSON: ${requestJson['incidentImgId']}');
+      
+      final requestList = [requestJson];
+
+      // Save to pending requests for sync when online
+      final url = '/api/v1/om-schedule/incidentTicket';
+      final isSaved = await ServiceLocator().pendingRequestService.savePendingRequest(
+        requestId: requestId,
+        url: url,
+        headers: {},
+        jsonEncodedRequestData: jsonEncode(requestList),
+      );
+
+      // Close loader
+      if (loaderOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loaderOpen = false;
+      }
+
+      if (isSaved && mounted) {
+        Logger.infoLog('✅ Incident ticket data saved to offline storage');
+        Toastbar.showSuccessToastbar(
+          'Data saved offline. Will sync when online.',
+          context,
+        );
+
+        // Navigate back
+        navigateBackOrToHome(
+          context,
+          targetContext: widget.parentContext ?? context,
+        );
+      } else if (!isSaved) {
+        throw Exception('Failed to save incident ticket data to offline storage');
+      }
+    } catch (e) {
+      if (loaderOpen && mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+        loaderOpen = false;
+      }
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          'Failed to save incident ticket offline: ${e.toString()}',
+          context,
+        );
+      }
+      Logger.errorLog('❌ Error saving incident ticket offline: $e');
     }
   }
 

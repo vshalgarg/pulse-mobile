@@ -126,7 +126,6 @@ class AssetAuditPostService {
         return;
       } catch (e) {
         Logger.errorLog("error in posting data: $e");
-
       }
     }
     Logger.infoLog(
@@ -144,7 +143,6 @@ class AssetAuditPostService {
 
       Toastbar.showSuccessToastWithoutContext("Data saved to DB successfully");
     } else {
-
       throw Exception('Failed to save data to database');
     }
   }
@@ -155,7 +153,9 @@ class AssetAuditPostService {
     if (url.contains("api/v1/mobile/uploadsSelfie")) {
       response = await _uploadSelfieWithoutCache(requests);
     } else if (url.contains("api/v1/om-schedule/siteVisitLog") ||
-        url.contains("api/v1/om-schedule/genInspection")) {
+        url.contains("api/v1/om-schedule/genInspection") ||
+        url.contains("api/v1/om-schedule/incidentTicket")) {
+      // These endpoints expect a single object, not an array
       response = await ServiceLocator().apiService.post<dynamic>(
         path: url,
         data: requests.isNotEmpty ? requests.first : {},
@@ -229,6 +229,10 @@ class AssetAuditPostService {
         // Handle remarks upload separately
         await _syncCMRemarksRequestWhenOnline(copiedRequests, requestId);
         return;
+      } else if (url.contains('/incidentTicket')) {
+        // Special handling for incident tickets - expects single object, not array
+        await _syncIncidentTicketRequestWhenOnline(copiedRequests, requestId);
+        return;
       } else {
         await _processRequestsForImages(copiedRequests);
         await _postDataToApi(url, copiedRequests);
@@ -236,6 +240,48 @@ class AssetAuditPostService {
       }
     } catch (e) {
       Logger.errorLog(e.toString());
+    }
+  }
+
+  Future<void> _syncIncidentTicketRequestWhenOnline(
+    List<dynamic> requests,
+    String requestId,
+  ) async {
+    try {
+      Logger.infoLog("Syncing incident ticket request when online");
+
+      if (requests.isEmpty) {
+        Logger.errorLog("Incident ticket requests list is empty!");
+        return;
+      }
+
+      final request = requests.first;
+      Logger.infoLog("Processing incident ticket request: ${request.keys}");
+
+      // Process images in the request (convert LOCAL_IMAGE_ID to server ID)
+      // This will update the request object in place
+      await _processRequestsForImages([request]);
+
+      Logger.infoLog("Processed incident ticket data after image processing");
+
+      // Post to API - send as single object (not array)
+      final response = await ServiceLocator().apiService.post<dynamic>(
+        path: '/api/v1/om-schedule/incidentTicket',
+        data: request, // Send single object, not array
+      );
+
+      if (response.isSuccess && response.data != null) {
+        Logger.infoLog("Incident ticket synced successfully: ${response.data}");
+        Toastbar.showSuccessToastWithoutContext("Incident ticket synced successfully");
+        
+        // Delete from pending requests on success
+        await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+      } else {
+        throw Exception(response.errorMessage ?? 'Unknown error from server');
+      }
+    } catch (e) {
+      Logger.errorLog("Error syncing incident ticket request: $e");
+      rethrow;
     }
   }
 
@@ -260,20 +306,31 @@ class AssetAuditPostService {
       );
 
       // Extract image IDs before removing them from the request
-      final customerPhotoId = processedData['customer_photo_id'] ?? processedData['customerPhotoId'];
-      final customerAttachmentId = processedData['customer_attachment_id'] ?? processedData['customerAttachmentId'];
-      
-      // Extract original file info for customer attachment (to preserve filename)
-      final customerOriginalFilePath = processedData['customer_original_file_path'];
-      final customerOriginalFileName = processedData['customer_original_file_name'];
-      
-      // Extract attachment name if present, or use original filename
-      final customerAttachmentName = processedData['customer_attachmen_name'] ?? 
-                                     processedData['customer_attachment_name'] ??
-                                     customerOriginalFileName;
+      final customerPhotoId =
+          processedData['customer_photo_id'] ??
+          processedData['customerPhotoId'];
+      final customerAttachmentId =
+          processedData['customer_attachment_id'] ??
+          processedData['customerAttachmentId'];
 
-      Logger.infoLog("Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
-      Logger.infoLog("Extracted attachment name - customerAttachmentName: $customerAttachmentName");
+      // Extract original file info for customer attachment (to preserve filename)
+      final customerOriginalFilePath =
+          processedData['customer_original_file_path'];
+      final customerOriginalFileName =
+          processedData['customer_original_file_name'];
+
+      // Extract attachment name if present, or use original filename
+      final customerAttachmentName =
+          processedData['customer_attachmen_name'] ??
+          processedData['customer_attachment_name'] ??
+          customerOriginalFileName;
+
+      Logger.infoLog(
+        "Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
+      );
+      Logger.infoLog(
+        "Extracted attachment name - customerAttachmentName: $customerAttachmentName",
+      );
 
       // Remove image IDs and file info from the request data before creating CM ticket
       processedData.remove('customer_photo_id');
@@ -284,11 +341,16 @@ class AssetAuditPostService {
       processedData.remove('customer_original_file_name');
       processedData.remove('customer_attachmen_name');
       processedData.remove('customer_attachment_name');
-      
+
       // Preserve attachment name in request data if we have it (for API to store the correct name)
-      if (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) {
-        processedData['customer_attachmen_name'] = customerAttachmentName.toString().trim();
-        processedData['customer_attachment_name'] = customerAttachmentName.toString().trim();
+      if (customerAttachmentName != null &&
+          customerAttachmentName.toString().trim().isNotEmpty) {
+        processedData['customer_attachmen_name'] = customerAttachmentName
+            .toString()
+            .trim();
+        processedData['customer_attachment_name'] = customerAttachmentName
+            .toString()
+            .trim();
       }
 
       // Create CM ticket using the repository
@@ -304,7 +366,9 @@ class AssetAuditPostService {
 
         // Upload customer photo and attachments using the extracted IDs
         Logger.infoLog("About to call _uploadCMImagesAndAttachments...");
-        Logger.infoLog("customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
+        Logger.infoLog(
+          "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
+        );
         await _uploadCMImagesAndAttachments(
           customerPhotoId,
           customerAttachmentId,
@@ -314,93 +378,128 @@ class AssetAuditPostService {
         );
 
         // Check for and sync remarks if present
-        final cmRemark = processedData['cmRemark'] ?? processedData['cm_remark'] ?? '';
-        final cmStatus = processedData['cmStatus'] ?? processedData['cm_status'] ?? '';
-        final cmAttachmentId = processedData['cmRemarksFile'] ?? 
-                               processedData['cm_remarks_file'] ??
-                               processedData['cmAttachmentId'] ?? 
-                               processedData['cm_attachment_id'];
-        
-        if ((cmRemark.toString().trim().isNotEmpty || cmStatus.toString().trim().isNotEmpty) && 
-            cmAttachmentId != null && cmAttachmentId.toString().trim().isNotEmpty) {
-          
-          Logger.infoLog("Syncing CM remarks with attachment ID: $cmAttachmentId");
-          
+        final cmRemark =
+            processedData['cmRemark'] ?? processedData['cm_remark'] ?? '';
+        final cmStatus =
+            processedData['cmStatus'] ?? processedData['cm_status'] ?? '';
+        final cmAttachmentId =
+            processedData['cmRemarksFile'] ??
+            processedData['cm_remarks_file'] ??
+            processedData['cmAttachmentId'] ??
+            processedData['cm_attachment_id'];
+
+        if ((cmRemark.toString().trim().isNotEmpty ||
+                cmStatus.toString().trim().isNotEmpty) &&
+            cmAttachmentId != null &&
+            cmAttachmentId.toString().trim().isNotEmpty) {
+          Logger.infoLog(
+            "Syncing CM remarks with attachment ID: $cmAttachmentId",
+          );
+
           // Get attachment file - try original file first, then reconstruct from ImageUploadService
           File? attachmentFile;
-          String? attachmentFileName; // Store the filename to pass to saveRemarks
-          
+          String?
+          attachmentFileName; // Store the filename to pass to saveRemarks
+
           // Check if original file path is stored (preserves extension and filename)
           // Handle both camelCase and snake_case
-          final originalFilePath = processedData['originalFilePath'] ?? processedData['original_file_path'];
-          final originalFileName = processedData['originalFileName'] ?? processedData['original_file_name'];
-          
-          if (originalFilePath != null && originalFilePath.toString().trim().isNotEmpty) {
+          final originalFilePath =
+              processedData['originalFilePath'] ??
+              processedData['original_file_path'];
+          final originalFileName =
+              processedData['originalFileName'] ??
+              processedData['original_file_name'];
+
+          if (originalFilePath != null &&
+              originalFilePath.toString().trim().isNotEmpty) {
             final originalFile = File(originalFilePath.toString());
             if (await originalFile.exists()) {
               Logger.infoLog("Using original file: $originalFilePath");
               attachmentFile = originalFile;
               // Use original filename if available, otherwise use file path
-              attachmentFileName = originalFileName?.toString().trim() ?? originalFile.path.split('/').last;
+              attachmentFileName =
+                  originalFileName?.toString().trim() ??
+                  originalFile.path.split('/').last;
             } else {
-              Logger.infoLog("Original file not found, will reconstruct from ImageUploadService");
+              Logger.infoLog(
+                "Original file not found, will reconstruct from ImageUploadService",
+              );
             }
           }
-          
+
           // If original file not available, reconstruct from ImageUploadService
           if (attachmentFile == null) {
-            Logger.infoLog("Retrieving attachment data from ImageUploadService...");
+            Logger.infoLog(
+              "Retrieving attachment data from ImageUploadService...",
+            );
             final attachmentData = await ServiceLocator().imageUploadService
                 .getImageUsingUniqueId(cmAttachmentId.toString());
-            
+
             if (attachmentData != null) {
-              Logger.infoLog("Attachment data retrieved, converting to File...");
-              
+              Logger.infoLog(
+                "Attachment data retrieved, converting to File...",
+              );
+
               // Decode base64 and write to file first to detect file type
               final bytes = base64Decode(attachmentData);
-              
+
               // Use original filename if available, otherwise detect from binary data
               String fileName;
-              if (originalFileName != null && originalFileName.toString().trim().isNotEmpty) {
+              if (originalFileName != null &&
+                  originalFileName.toString().trim().isNotEmpty) {
                 // Sanitize filename to remove invalid characters but preserve name and extension
                 final originalName = originalFileName.toString().trim();
                 // Remove invalid path characters but keep the name structure
-                fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-                
+                fileName = originalName.replaceAll(
+                  RegExp(r'[<>:"/\\|?*]'),
+                  '_',
+                );
+
                 // If original filename doesn't have extension, detect from binary data
                 if (!fileName.contains('.')) {
                   final detectedExt = _detectFileExtensionFromBytes(bytes);
                   if (detectedExt != null) {
                     fileName = '$fileName$detectedExt';
-                    Logger.infoLog("Added detected extension $detectedExt to filename: $fileName");
+                    Logger.infoLog(
+                      "Added detected extension $detectedExt to filename: $fileName",
+                    );
                   }
                 }
                 Logger.infoLog("Using original filename: $fileName");
               } else {
                 // Detect file type from binary data
                 final detectedExt = _detectFileExtensionFromBytes(bytes);
-                final fileExtension = detectedExt ?? '.pdf'; // Default to PDF if can't detect
-                fileName = 'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
-                Logger.infoLog("Original filename not available, detected type: $fileExtension, using generated name: $fileName");
+                final fileExtension =
+                    detectedExt ?? '.pdf'; // Default to PDF if can't detect
+                fileName =
+                    'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+                Logger.infoLog(
+                  "Original filename not available, detected type: $fileExtension, using generated name: $fileName",
+                );
               }
-              
+
               // Create temporary file with correct filename
               final tempDir = Directory.systemTemp;
               final tempFile = File('${tempDir.path}/$fileName');
-              
+
               await tempFile.writeAsBytes(bytes);
-              
+
               attachmentFile = tempFile;
-              attachmentFileName = fileName; // Store filename for passing to saveRemarks
-              Logger.infoLog("Remarks attachment File created with filename: $fileName");
+              attachmentFileName =
+                  fileName; // Store filename for passing to saveRemarks
+              Logger.infoLog(
+                "Remarks attachment File created with filename: $fileName",
+              );
             } else {
-              Logger.errorLog("Failed to retrieve attachment data for ID: $cmAttachmentId");
+              Logger.errorLog(
+                "Failed to retrieve attachment data for ID: $cmAttachmentId",
+              );
             }
           }
-          
+
           if (attachmentFile != null) {
             Logger.infoLog("Remarks attachment File ready, uploading...");
-            
+
             // Call saveRemarks from repository
             await ServiceLocator().cmRepository.saveRemarks(
               cmSiteReqId,
@@ -421,7 +520,9 @@ class AssetAuditPostService {
         await ServiceLocator().pendingRequestService.deleteRequest(requestId);
         Logger.infoLog("CM sync completed successfully");
       } else {
-        Logger.errorLog("Response does not contain cmSiteReqId, response keys: ${response.keys}");
+        Logger.errorLog(
+          "Response does not contain cmSiteReqId, response keys: ${response.keys}",
+        );
         throw Exception("Failed to create CM ticket");
       }
     } catch (e) {
@@ -439,9 +540,13 @@ class AssetAuditPostService {
     dynamic customerOriginalFileName,
   }) async {
     try {
-      Logger.infoLog("_uploadCMImagesAndAttachments called with cmSiteReqId: $cmSiteReqId");
-      Logger.infoLog("customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId");
-      
+      Logger.infoLog(
+        "_uploadCMImagesAndAttachments called with cmSiteReqId: $cmSiteReqId",
+      );
+      Logger.infoLog(
+        "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
+      );
+
       File? customerPhoto;
       File? attachment;
 
@@ -452,62 +557,81 @@ class AssetAuditPostService {
         final imageData = await ServiceLocator().imageUploadService
             .getImageUsingUniqueId(customerPhotoId);
         if (imageData != null) {
-          Logger.infoLog("Image data retrieved for customer photo, converting to File...");
+          Logger.infoLog(
+            "Image data retrieved for customer photo, converting to File...",
+          );
           customerPhoto = await Utils.buildImageFromBytesData(imageData);
           Logger.infoLog("Customer photo File created successfully");
         } else {
-          Logger.errorLog("Failed to retrieve image data for customer photo ID: $customerPhotoId");
+          Logger.errorLog(
+            "Failed to retrieve image data for customer photo ID: $customerPhotoId",
+          );
         }
       }
 
       // Check for attachment ID
       if (customerAttachmentId != null && customerAttachmentId is String) {
         Logger.infoLog("Retrieving attachment with ID: $customerAttachmentId");
-        
+
         // Try to use original file first if available
-        if (customerOriginalFilePath != null && customerOriginalFilePath.toString().trim().isNotEmpty) {
+        if (customerOriginalFilePath != null &&
+            customerOriginalFilePath.toString().trim().isNotEmpty) {
           final originalFile = File(customerOriginalFilePath.toString());
           if (await originalFile.exists()) {
-            Logger.infoLog("Using original customer attachment file: $customerOriginalFilePath");
+            Logger.infoLog(
+              "Using original customer attachment file: $customerOriginalFilePath",
+            );
             attachment = originalFile;
           } else {
-            Logger.infoLog("Original customer attachment file not found, will reconstruct from ImageUploadService");
+            Logger.infoLog(
+              "Original customer attachment file not found, will reconstruct from ImageUploadService",
+            );
           }
         }
-        
+
         // If original file not available, reconstruct from ImageUploadService
         if (attachment == null) {
           final attachmentData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(customerAttachmentId);
           if (attachmentData != null) {
             Logger.infoLog("Attachment data retrieved, converting to File...");
-            
+
             // Use original filename if available, otherwise generate one
             String fileName;
-            if (customerOriginalFileName != null && customerOriginalFileName.toString().trim().isNotEmpty) {
+            if (customerOriginalFileName != null &&
+                customerOriginalFileName.toString().trim().isNotEmpty) {
               // Sanitize filename to remove invalid characters but preserve name and extension
               final originalName = customerOriginalFileName.toString().trim();
               fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-              Logger.infoLog("Using original customer attachment filename: $fileName");
+              Logger.infoLog(
+                "Using original customer attachment filename: $fileName",
+              );
             } else {
               // Fallback: generate filename with proper extension
               String fileExtension = '.pdf'; // Default for documents
-              fileName = 'customer_attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
-              Logger.infoLog("Original customer attachment filename not available, using generated name: $fileName");
+              fileName =
+                  'customer_attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+              Logger.infoLog(
+                "Original customer attachment filename not available, using generated name: $fileName",
+              );
             }
-            
+
             // Create temporary file with original filename
             final tempDir = Directory.systemTemp;
             final tempFile = File('${tempDir.path}/$fileName');
-            
+
             // Decode base64 and write to file
             final bytes = base64Decode(attachmentData);
             await tempFile.writeAsBytes(bytes);
-            
+
             attachment = tempFile;
-            Logger.infoLog("Customer attachment File created with filename: $fileName");
+            Logger.infoLog(
+              "Customer attachment File created with filename: $fileName",
+            );
           } else {
-            Logger.errorLog("Failed to retrieve image data for attachment ID: $customerAttachmentId");
+            Logger.errorLog(
+              "Failed to retrieve image data for attachment ID: $customerAttachmentId",
+            );
           }
         }
       }
@@ -515,7 +639,9 @@ class AssetAuditPostService {
       // Upload if files exist
       if (customerPhoto != null || attachment != null) {
         Logger.infoLog("Uploading CM images with cmSiteReqId: $cmSiteReqId");
-        Logger.infoLog("customerPhoto: ${customerPhoto != null ? 'exists' : 'null'}, attachment: ${attachment != null ? 'exists' : 'null'}");
+        Logger.infoLog(
+          "customerPhoto: ${customerPhoto != null ? 'exists' : 'null'}, attachment: ${attachment != null ? 'exists' : 'null'}",
+        );
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
           cmSiteReqId,
           customerPhoto,
@@ -554,19 +680,26 @@ class AssetAuditPostService {
       final cmId = request['cmId'] ?? request['cm_id'];
       final cmRemark = request['cmRemark'] ?? request['cm_remark'] ?? '';
       final cmStatus = request['cmStatus'] ?? request['cm_status'] ?? '';
-      
-      // Extract attachment ID - can be cmRemarksFile or cmAttachmentId
-      dynamic attachmentId = request['cmRemarksFile'] ?? 
-                             request['cm_remarks_file'] ??
-                             request['cmAttachmentId'] ?? 
-                             request['cm_attachment_id'];
-      
-      // Extract original file info - handle both camelCase and snake_case
-      final originalFilePath = request['originalFilePath'] ?? request['original_file_path'];
-      final originalFileName = request['originalFileName'] ?? request['original_file_name'];
 
-      Logger.infoLog("Extracted CM remarks data - cmId: $cmId, cmRemark: $cmRemark, cmStatus: $cmStatus, attachmentId: $attachmentId");
-      Logger.infoLog("Extracted original file info - originalFilePath: $originalFilePath, originalFileName: $originalFileName");
+      // Extract attachment ID - can be cmRemarksFile or cmAttachmentId
+      dynamic attachmentId =
+          request['cmRemarksFile'] ??
+          request['cm_remarks_file'] ??
+          request['cmAttachmentId'] ??
+          request['cm_attachment_id'];
+
+      // Extract original file info - handle both camelCase and snake_case
+      final originalFilePath =
+          request['originalFilePath'] ?? request['original_file_path'];
+      final originalFileName =
+          request['originalFileName'] ?? request['original_file_name'];
+
+      Logger.infoLog(
+        "Extracted CM remarks data - cmId: $cmId, cmRemark: $cmRemark, cmStatus: $cmStatus, attachmentId: $attachmentId",
+      );
+      Logger.infoLog(
+        "Extracted original file info - originalFilePath: $originalFilePath, originalFileName: $originalFileName",
+      );
 
       if (cmId == null) {
         Logger.errorLog("CM remarks request missing cmId");
@@ -588,80 +721,105 @@ class AssetAuditPostService {
       String? attachmentFileName; // Store the filename to pass to saveRemarks
       if (attachmentId != null && attachmentId.toString().trim().isNotEmpty) {
         Logger.infoLog("Retrieving remarks attachment with ID: $attachmentId");
-        
+
         // Try to use original file first if available
-        if (originalFilePath != null && originalFilePath.toString().trim().isNotEmpty) {
+        if (originalFilePath != null &&
+            originalFilePath.toString().trim().isNotEmpty) {
           final originalFile = File(originalFilePath.toString());
           if (await originalFile.exists()) {
             Logger.infoLog("Using original remarks file: $originalFilePath");
             attachmentFile = originalFile;
             // Use original filename if available, otherwise use file path
-            attachmentFileName = originalFileName?.toString().trim() ?? originalFile.path.split('/').last;
+            attachmentFileName =
+                originalFileName?.toString().trim() ??
+                originalFile.path.split('/').last;
           } else {
-            Logger.infoLog("Original remarks file not found, will reconstruct from ImageUploadService");
+            Logger.infoLog(
+              "Original remarks file not found, will reconstruct from ImageUploadService",
+            );
           }
         }
-        
+
         // If original file not available, reconstruct from ImageUploadService
         if (attachmentFile == null) {
           final attachmentData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(attachmentId.toString());
-          
+
           if (attachmentData != null) {
             Logger.infoLog("Attachment data retrieved, converting to File...");
-            
+
             // Decode base64 and write to file first to detect file type
             final bytes = base64Decode(attachmentData);
-            
+
             // Use original filename if available, otherwise detect from binary data
             String fileName;
-            if (originalFileName != null && originalFileName.toString().trim().isNotEmpty) {
+            if (originalFileName != null &&
+                originalFileName.toString().trim().isNotEmpty) {
               // Sanitize filename to remove invalid characters but preserve name and extension
               final originalName = originalFileName.toString().trim();
               fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-              
+
               // If original filename doesn't have extension, detect from binary data
               if (!fileName.contains('.')) {
                 final detectedExt = _detectFileExtensionFromBytes(bytes);
                 if (detectedExt != null) {
                   fileName = '$fileName$detectedExt';
-                  Logger.infoLog("Added detected extension $detectedExt to filename: $fileName");
+                  Logger.infoLog(
+                    "Added detected extension $detectedExt to filename: $fileName",
+                  );
                 }
               }
               Logger.infoLog("Using original filename: $fileName");
             } else {
               // Detect file type from binary data
               final detectedExt = _detectFileExtensionFromBytes(bytes);
-              final fileExtension = detectedExt ?? '.pdf'; // Default to PDF if can't detect
-              fileName = 'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
-              Logger.infoLog("Original filename not available, detected type: $fileExtension, using generated name: $fileName");
+              final fileExtension =
+                  detectedExt ?? '.pdf'; // Default to PDF if can't detect
+              fileName =
+                  'cm_remarks_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+              Logger.infoLog(
+                "Original filename not available, detected type: $fileExtension, using generated name: $fileName",
+              );
             }
-            
+
             // Create temporary file with correct filename
             final tempDir = Directory.systemTemp;
             final tempFile = File('${tempDir.path}/$fileName');
-            
+
             await tempFile.writeAsBytes(bytes);
-            
+
             attachmentFile = tempFile;
-            attachmentFileName = fileName; // Store filename for passing to saveRemarks
-            Logger.infoLog("Remarks attachment File created with filename: $fileName");
+            attachmentFileName =
+                fileName; // Store filename for passing to saveRemarks
+            Logger.infoLog(
+              "Remarks attachment File created with filename: $fileName",
+            );
           } else {
-            Logger.errorLog("Failed to retrieve attachment data for ID: $attachmentId");
-            throw Exception("Failed to retrieve attachment file for ID: $attachmentId");
+            Logger.errorLog(
+              "Failed to retrieve attachment data for ID: $attachmentId",
+            );
+            throw Exception(
+              "Failed to retrieve attachment file for ID: $attachmentId",
+            );
           }
         }
       }
 
       // Validate that we have either remark text or attachment
       if (cmRemark.toString().trim().isEmpty && attachmentFile == null) {
-        Logger.errorLog("CM remarks request missing both remark text and attachment");
-        throw Exception("CM remarks request must have either remark text or attachment");
+        Logger.errorLog(
+          "CM remarks request missing both remark text and attachment",
+        );
+        throw Exception(
+          "CM remarks request must have either remark text or attachment",
+        );
       }
 
       // Call saveRemarks from repository
       if (attachmentFile != null) {
-        Logger.infoLog("Uploading CM remarks with cmSiteReqId: $cmSiteReqId, filename: $attachmentFileName");
+        Logger.infoLog(
+          "Uploading CM remarks with cmSiteReqId: $cmSiteReqId, filename: $attachmentFileName",
+        );
         await ServiceLocator().cmRepository.saveRemarks(
           cmSiteReqId,
           cmRemark.toString().trim(),
@@ -673,7 +831,9 @@ class AssetAuditPostService {
       } else {
         // If no attachment but we have remark text, we still need to upload
         // But saveRemarks requires a file. We might need to create an empty file or handle differently
-        Logger.infoLog("CM remarks has text but no attachment - saveRemarks requires a file");
+        Logger.infoLog(
+          "CM remarks has text but no attachment - saveRemarks requires a file",
+        );
         Logger.infoLog("Skipping remarks upload - attachment required by API");
       }
 
@@ -691,25 +851,40 @@ class AssetAuditPostService {
   /// Similar to the method in cm_repository.dart
   String? _detectFileExtensionFromBytes(Uint8List data) {
     if (data.length < 4) return null;
-    
+
     // Check magic bytes for common file types
     // JPEG: FF D8 FF
-    if (data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+    if (data.length >= 3 &&
+        data[0] == 0xFF &&
+        data[1] == 0xD8 &&
+        data[2] == 0xFF) {
       return '.jpg';
     }
-    
+
     // PNG: 89 50 4E 47
-    if (data.length >= 4 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+    if (data.length >= 4 &&
+        data[0] == 0x89 &&
+        data[1] == 0x50 &&
+        data[2] == 0x4E &&
+        data[3] == 0x47) {
       return '.png';
     }
-    
+
     // PDF: 25 50 44 46 (starts with "%PDF")
-    if (data.length >= 4 && data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46) {
+    if (data.length >= 4 &&
+        data[0] == 0x25 &&
+        data[1] == 0x50 &&
+        data[2] == 0x44 &&
+        data[3] == 0x46) {
       return '.pdf';
     }
-    
+
     // DOCX: 50 4B 03 04 (ZIP file format, which DOCX uses)
-    if (data.length >= 4 && data[0] == 0x50 && data[1] == 0x4B && data[2] == 0x03 && data[3] == 0x04) {
+    if (data.length >= 4 &&
+        data[0] == 0x50 &&
+        data[1] == 0x4B &&
+        data[2] == 0x03 &&
+        data[3] == 0x04) {
       try {
         final dataString = String.fromCharCodes(data.take(1000));
         if (dataString.contains('word/') || dataString.contains('xl/')) {
@@ -720,24 +895,38 @@ class AssetAuditPostService {
         return '.docx';
       }
     }
-    
+
     // DOC (older Word format): D0 CF 11 E0
-    if (data.length >= 4 && data[0] == 0xD0 && data[1] == 0xCF && data[2] == 0x11 && data[3] == 0xE0) {
+    if (data.length >= 4 &&
+        data[0] == 0xD0 &&
+        data[1] == 0xCF &&
+        data[2] == 0x11 &&
+        data[3] == 0xE0) {
       return '.doc';
     }
-    
+
     // GIF: 47 49 46 38
-    if (data.length >= 4 && data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38) {
+    if (data.length >= 4 &&
+        data[0] == 0x47 &&
+        data[1] == 0x49 &&
+        data[2] == 0x46 &&
+        data[3] == 0x38) {
       return '.gif';
     }
-    
+
     // WebP: Check for RIFF...WEBP
-    if (data.length >= 12 && 
-        data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
-        data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50) {
+    if (data.length >= 12 &&
+        data[0] == 0x52 &&
+        data[1] == 0x49 &&
+        data[2] == 0x46 &&
+        data[3] == 0x46 &&
+        data[8] == 0x57 &&
+        data[9] == 0x45 &&
+        data[10] == 0x42 &&
+        data[11] == 0x50) {
       return '.webp';
     }
-    
+
     return null; // Could not detect
   }
 
@@ -780,16 +969,22 @@ class AssetAuditPostService {
         await _processNestedObjects(request);
       }
       // Process site visit image fields (officialIdImageId, aadharCardImageId, leavingStatusImageId)
-      if (request.containsKey("visitingPersonName") || request.containsKey("visitingPersonId") || request.containsKey("svlId")) {
+      if (request.containsKey("visitingPersonName") ||
+          request.containsKey("visitingPersonId") ||
+          request.containsKey("svlId")) {
         // This is a site visit request - process all image fields
-        Logger.debugLog('🔍 Detected site visit request - processing image fields');
+        Logger.debugLog(
+          '🔍 Detected site visit request - processing image fields',
+        );
         // Pass the original request object so changes are reflected
         await _processSiteVisitImageFields(request);
-        Logger.debugLog('✅ Site visit image fields processed. Request after processing: ${request['officialIdImageId']}, ${request['aadharCardImageId']}, ${request['leavingStatusImageId']}');
+        Logger.debugLog(
+          '✅ Site visit image fields processed. Request after processing: ${request['officialIdImageId']}, ${request['aadharCardImageId']}, ${request['leavingStatusImageId']}',
+        );
       }
-      
+
       // Check both snake_case and camelCase field names
-      String? photoId = "";
+      dynamic photoId;
 
       if (request.containsKey("energyReadingId")) {
         photoId = request['ebAttachmentFileId'];
@@ -798,12 +993,17 @@ class AssetAuditPostService {
         photoId = request['visitingPersonImageId'];
       } else if (request.containsKey("gispId")) {
         photoId = request['respPhotoId'];
+      } else if (request.containsKey("incidentImgId")) {
+        photoId = request['incidentImgId'];
       } else {
         photoId = request['photo_id'] ?? request['photoId'];
       }
 
-      // If no photo_id or photo_id is null/empty, return the request as-is
-      if (photoId == null || photoId.toString().isEmpty) {
+      // If no photo_id or photo_id is null/empty/0, return the request as-is
+      if (photoId == null || 
+          photoId.toString().isEmpty || 
+          photoId == 0 || 
+          photoId == "0") {
         return request;
       }
 
@@ -825,6 +1025,8 @@ class AssetAuditPostService {
             request['visitingPersonImageId'] = serverId;
           } else if (request.containsKey("gispId")) {
             request['respPhotoId'] = serverId;
+          } else if (request.containsKey("incidentImgId")) {
+            request['incidentImgId'] = serverId;
           } else {
             request['photo_id'] = serverId;
           }
@@ -836,7 +1038,6 @@ class AssetAuditPostService {
           Logger.debugLog(
             "FAILED to get server_id for LOCAL_IMAGE_ID: $photoId",
           );
-
         }
       } else {
         // This is already a server_id, just add photo_taken_ts if not present
@@ -891,7 +1092,6 @@ class AssetAuditPostService {
         if (photoId != null &&
             photoId.isNotEmpty &&
             photoId.startsWith('LOCAL_IMAGE_ID_')) {
-
           final imageModel = await ServiceLocator().imageUploadService
               .getServerIdFromUniqueIdTryUploading(photoId);
 
@@ -920,7 +1120,6 @@ class AssetAuditPostService {
         if (photoId != null &&
             photoId.isNotEmpty &&
             photoId.startsWith('LOCAL_IMAGE_ID_')) {
-
           final imageModel = await ServiceLocator().imageUploadService
               .getServerIdFromUniqueIdTryUploading(photoId);
 
@@ -947,10 +1146,12 @@ class AssetAuditPostService {
 
   /// Process site visit specific image fields (officialIdImageId, aadharCardImageId, leavingStatusImageId)
   /// Modifies the request object in place
-  Future<void> _processSiteVisitImageFields(Map<dynamic, dynamic> request) async {
+  Future<void> _processSiteVisitImageFields(
+    Map<dynamic, dynamic> request,
+  ) async {
     try {
       Logger.debugLog('🔄 Processing site visit image fields...');
-      
+
       // List of site visit image fields to process
       final imageFields = [
         'officialIdImageId',
@@ -961,12 +1162,12 @@ class AssetAuditPostService {
       for (final fieldName in imageFields) {
         if (request.containsKey(fieldName)) {
           final imageId = request[fieldName];
-          
+
           Logger.debugLog('📸 Found $fieldName: $imageId');
-          
+
           // Skip if null, empty, or 0
-          if (imageId == null || 
-              imageId.toString().isEmpty || 
+          if (imageId == null ||
+              imageId.toString().isEmpty ||
               imageId == 0 ||
               imageId == '0') {
             Logger.debugLog('⏭️ Skipping $fieldName (null/empty/0)');
@@ -976,18 +1177,23 @@ class AssetAuditPostService {
           // Check if it's a LOCAL_IMAGE_ID
           if (imageId.toString().startsWith('LOCAL_IMAGE_ID_')) {
             Logger.debugLog('🔄 Processing $fieldName: $imageId');
-            
+
             // Upload image and get server ID
             final imageModel = await ServiceLocator().imageUploadService
                 .getServerIdFromUniqueIdTryUploading(imageId.toString());
-            
+
             if (imageModel != null && imageModel.serverId != null) {
               // Replace LOCAL_IMAGE_ID with server ID (as integer)
-              final serverId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+              final serverId =
+                  int.tryParse(imageModel.serverId.toString()) ?? 0;
               request[fieldName] = serverId;
-              Logger.debugLog('✅ $fieldName replaced with server ID: $serverId (was: $imageId)');
+              Logger.debugLog(
+                '✅ $fieldName replaced with server ID: $serverId (was: $imageId)',
+              );
             } else {
-              Logger.errorLog('❌ Failed to upload image for $fieldName: $imageId');
+              Logger.errorLog(
+                '❌ Failed to upload image for $fieldName: $imageId',
+              );
               // Set to 0 if upload fails (server expects integer, not string)
               request[fieldName] = 0;
             }
@@ -1001,7 +1207,7 @@ class AssetAuditPostService {
           Logger.debugLog('⚠️ Field $fieldName not found in request');
         }
       }
-      
+
       Logger.debugLog('✅ Site visit image fields processing completed');
     } catch (e) {
       Logger.errorLog("❌ Error processing site visit image fields: $e");

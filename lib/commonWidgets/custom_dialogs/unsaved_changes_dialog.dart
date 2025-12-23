@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_dialogs/success_dialog.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/routes/route_generator.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/bloc/audit_schedule_status_cubit.dart';
@@ -64,6 +65,18 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
         } else if (currentState is AuditScheduleStatusError) {
           // Show error message if API call fails
           _showErrorDialog(contextToUse, currentState.error);
+        } else if (widget.section == 'Incident Checklist') {
+          Toastbar.showSuccessToastbar(
+            "Incident Ticket has been recorded and saved.",
+            contextToUse,
+          );
+          Future.microtask(() {
+            navigateBackOrToHome(
+              contextToUse,
+              targetContext: widget.parentContext,
+            );
+            
+          });
         } else {
           // Fallback if state is not what we expect
           _showSuccessDialogWithMessage(
@@ -110,7 +123,6 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
         ticketId: widget.siteAuditSchId ?? '',
         message: message,
         onDone: () {
-
           Navigator.of(
             dialogContext,
           ).pop(); // Close the success dialog using dialog context
@@ -121,7 +133,6 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
               targetContext: widget.parentContext,
             );
           });
-
         },
       ),
     );
@@ -165,10 +176,7 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
     final contextToUse = widget.parentContext ?? context;
 
     Future.microtask(() {
-      navigateBackOrToHome(
-        contextToUse,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(contextToUse, targetContext: widget.parentContext);
       widget.onDiscard();
     });
   }
