@@ -1,6 +1,7 @@
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
+import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
@@ -17,6 +18,7 @@ class IncidentChecklistScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
   final Map<String, List<Map<String, dynamic>>> checklistData;
   final Map<String, List<int>>? existingSelections; // parentType -> [iclm_ids] for edit mode
+  final String? currentStatus; // Status passed from detail screen
   final Map<String, dynamic>? apiResponseData; // API response data for edit/view mode
   final BuildContext? parentContext;
 
@@ -26,6 +28,7 @@ class IncidentChecklistScreen extends StatefulWidget {
     required this.mode,
     required this.checklistData,
     this.existingSelections,
+    this.currentStatus,
     this.apiResponseData,
     this.parentContext,
   });
@@ -50,12 +53,25 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   // Location data
   double? _latitude;
   double? _longitude;
+
+  // Close remarks when status is CLOSE
+  final TextEditingController _closedRemarksController =
+      TextEditingController();
   
   // Check if mode is view (read-only)
   bool get _isViewMode => widget.mode == CMScreenModeEnum.view;
   
   // Check if mode is edit or view (parent checkbox should be disabled)
   bool get _isEditOrViewMode => widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view;
+  
+  // Check if status is CLOSE (all items should be disabled)
+  bool get _isStatusClose => widget.currentStatus == 'CLOSE';
+
+  @override
+  void dispose() {
+    _closedRemarksController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -307,18 +323,85 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
     }
 
     try {
-      final submitData = _prepareSubmitData();
-      
-      Logger.debugLog('Incident Checklist Submit Data:');
-      Logger.debugLog('  Parent Type: ${submitData['parentIncidentType']}');
-      Logger.debugLog('  Selected ICLM IDs: ${submitData['selectedIclmIds']}');
+      // If status is CLOSE, show dialog to get closing remarks
+      if (widget.currentStatus == 'CLOSE') {
+        final closedRemarks = await _showCloseRemarksDialog();
+        if (closedRemarks == null) {
+          // User cancelled the dialog
+          return;
+        }
+        
+        final submitData = _prepareSubmitData();
+        submitData['closedRemarks'] = closedRemarks;
+        
+        Logger.debugLog('Incident Checklist Submit Data:');
+        Logger.debugLog('  Parent Type: ${submitData['parentIncidentType']}');
+        Logger.debugLog('  Selected ICLM IDs: ${submitData['selectedIclmIds']}');
+        Logger.debugLog('  Closed Remarks: $closedRemarks');
 
-      // Return data to previous screen (detail screen will handle connectivity check)
-      Navigator.of(context).pop(submitData);
+        // Return data to previous screen (detail screen will handle connectivity check)
+        Navigator.of(context).pop(submitData);
+      } else {
+        final submitData = _prepareSubmitData();
+        
+        Logger.debugLog('Incident Checklist Submit Data:');
+        Logger.debugLog('  Parent Type: ${submitData['parentIncidentType']}');
+        Logger.debugLog('  Selected ICLM IDs: ${submitData['selectedIclmIds']}');
+
+        // Return data to previous screen (detail screen will handle connectivity check)
+        Navigator.of(context).pop(submitData);
+      }
     } catch (e) {
       Logger.errorLog('❌ Error submitting incident checklist: $e');
       Toastbar.showErrorToastbar('Failed to prepare checklist data', context);
     }
+  }
+
+  Future<String?> _showCloseRemarksDialog() async {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final TextEditingController remarksController = TextEditingController();
+        
+        return AlertDialog(
+          title: const Text('Add Ticket Closing Remark'),
+          content: SingleChildScrollView(
+            child: CustomRemarksField(
+              label: 'Add Ticket Closing Remark',
+              hintText: 'Enter closing remarks',
+              controller: remarksController,
+              maxLines: 4,
+              isDisabled: false,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                remarksController.dispose();
+                Navigator.of(dialogContext).pop(null);
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final remarks = remarksController.text.trim();
+                if (remarks.isEmpty) {
+                  Toastbar.showErrorToastbar(
+                    'Please enter closing remarks',
+                    dialogContext,
+                  );
+                  return;
+                }
+                remarksController.dispose();
+                Navigator.of(dialogContext).pop(remarks);
+              },
+              child: const Text('Submit'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _showUnsavedChangesDialog() async {
@@ -472,10 +555,10 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
              
               child: Row(
                 children: [
-                  // Parent Checkbox - disabled in edit and view mode, enabled in create mode
+                  // Parent Checkbox - disabled in edit, view mode, or when status is CLOSE
                   Checkbox(
                     value: isSelected,
-                    onChanged: _isEditOrViewMode
+                    onChanged: (_isEditOrViewMode || _isStatusClose)
                         ? null
                         : (bool? value) {
                             _onParentCheckboxChanged(parentKey, value);
@@ -486,9 +569,9 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
                   // Parent Label
                   Expanded(
                     child: GestureDetector(
-                      onTap: _isEditOrViewMode
+                      onTap: (_isEditOrViewMode || _isStatusClose)
                           ? () {
-                              // In edit/view mode, only allow toggling expansion
+                              // In edit/view mode or when status is CLOSE, only allow toggling expansion if parent is selected
                               if (isSelected) {
                                 setState(() {
                                   _expandedStates[parentKey] = !isExpanded;
@@ -515,7 +598,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
                       ),
                     ),
                   ),
-                  // Expand/Collapse Icon
+                  // Expand/Collapse Icon - allow expansion even when status is CLOSE for viewing
                   if (isSelected)
                     IconButton(
                       onPressed: _isViewMode
@@ -590,7 +673,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
           ),
           child: CheckboxListTile(
             value: isChecked,
-            onChanged: _isViewMode
+            onChanged: (_isViewMode || _isStatusClose)
                 ? null
                 : (bool? value) {
                     _onChildCheckboxChanged(iclmId, value);

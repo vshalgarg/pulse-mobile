@@ -427,6 +427,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             siteData: widget.siteData,
             mode: widget.mode,
             checklistData: checklistDataForScreen,
+            currentStatus: _selectedStatus ?? 'OPEN',
             apiResponseData: widget.apiResponseData,
             parentContext: widget.parentContext ?? context,
           ),
@@ -537,6 +538,9 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       // In edit mode, preserve incidentTicketId from API response
       final incidentTicketId = widget.apiResponseData?['incidentTicketId'] as int? ?? 0;
       
+      // Get closedRemarks from checklist data if status is CLOSE
+      final closedRemarks = checklistData['closedRemarks']?.toString();
+      
       final request = IncidentTicketRequest(
         incidentTicketId: incidentTicketId,
         incidentItemType: checklistData['parentIncidentType'] as String,
@@ -550,7 +554,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         incidentTicketReason: _selectedIncidentTicketReason ?? '',
         closedBy: null,
         closedDt: null,
-        closedRemarks: null,
+        closedRemarks: closedRemarks?.isNotEmpty == true ? closedRemarks : null,
         isActive: true,
         remarks: _remarksController.text.trim().isEmpty
             ? null
@@ -794,9 +798,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                   padding: const EdgeInsets.all(16),
                   child: CustomSubmitButtonV2(
                     text: "Next",
-                    onPressed: _isViewMode || _selectedStatus == 'CLOSE'
-                        ? null
-                        : _submitForm,
+                    // Disable only in view mode, allow in edit mode even when status is CLOSE
+                    onPressed: _isViewMode ? null : _submitForm,
                   ),
                 ),
               ],
@@ -987,13 +990,12 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             }
             setState(() {
               _selectedStatus = value;
-              // When status changes to CLOSE, mark form as read-only
-              if (value == 'CLOSE') {
-                _hasFormDataChanges = false;
-              }
             });
           },
-          isDisabled: _isViewMode,
+          // Disable in create mode when status is OPEN, disable when status is CLOSE, enable in edit mode otherwise
+          isDisabled: _isViewMode || 
+                     (widget.mode == CMScreenModeEnum.create && _selectedStatus == 'OPEN') ||
+                     _selectedStatus == 'CLOSE',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -1002,7 +1004,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
   }
 
   void _showUnsavedChangesDialog() {
-    if (_hasFormDataChanges && !_isViewMode && _selectedStatus != 'CLOSE') {
+    if (_hasFormDataChanges && !_isViewMode) {
       showDialog(
         context: context,
         barrierDismissible: true,
