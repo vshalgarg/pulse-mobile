@@ -64,8 +64,8 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   // Check if mode is edit or view (parent checkbox should be disabled)
   bool get _isEditOrViewMode => widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view;
   
-  // Check if status is CLOSE (all items should be disabled)
-  bool get _isStatusClose => widget.currentStatus == 'CLOSE';
+  // Check if status is CLOSE AND mode is view (all items should be disabled only in view mode with CLOSE)
+  bool get _isStatusClose => widget.currentStatus == 'CLOSE' && widget.mode == CMScreenModeEnum.view;
 
   @override
   void dispose() {

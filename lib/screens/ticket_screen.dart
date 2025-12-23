@@ -332,39 +332,53 @@ class _TicketScreenState extends State<TicketScreen> {
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.incident) {
-        // For incident tickets, fetch data using the new getIncidentTicket API
+        // For incident tickets, always fetch fresh data from API to get latest status
         Map<String, dynamic>? incidentTicketData;
         
-        // Try to get from local DB first
-        if (data != null && data.isDownloaded) {
-          // Extract data from stored API response
-          final storedData = data.apiData;
-          if (storedData.containsKey('data') && storedData['data'] is Map) {
-            incidentTicketData = storedData['data'] as Map<String, dynamic>;
+        try {
+          // Always fetch fresh data from API to ensure we have the latest status
+          Logger.debugLog('🔄 Fetching fresh incident ticket data from API for ticket ID: ${ticket.ticketSchId}');
+          final response = await ServiceLocator().incidentRepository
+              .getIncidentTicket(incidentTicketId: ticket.ticketSchId);
+          
+          // Extract data from response (response has a 'data' wrapper)
+          if (response.containsKey('data') && response['data'] is Map) {
+            incidentTicketData = response['data'] as Map<String, dynamic>;
           } else {
-            incidentTicketData = storedData;
+            incidentTicketData = response;
           }
-        } else {
-          // Fetch from API using the new getIncidentTicket method
-          try {
-            final response = await ServiceLocator().incidentRepository
-                .getIncidentTicket(incidentTicketId: ticket.ticketSchId);
-            
-            // Extract data from response (response has a 'data' wrapper)
-            if (response.containsKey('data') && response['data'] is Map) {
-              incidentTicketData = response['data'] as Map<String, dynamic>;
+          
+          Logger.debugLog('✅ Successfully fetched fresh incident ticket data. Status: ${incidentTicketData['status']}');
+        } catch (e) {
+          Logger.errorLog('❌ Error fetching fresh incident ticket data: $e');
+          // Fallback to stored data if API call fails
+          if (data != null && data.isDownloaded) {
+            final storedData = data.apiData;
+            if (storedData.containsKey('data') && storedData['data'] is Map) {
+              incidentTicketData = storedData['data'] as Map<String, dynamic>;
             } else {
-              incidentTicketData = response;
+              incidentTicketData = storedData;
             }
-          } catch (e) {
-            Logger.errorLog('❌ Error fetching incident ticket data: $e');
+            Logger.debugLog('⚠️ Using stored data as fallback');
+          } else {
             Toastbar.showErrorToastbar("Failed to load incident ticket data", context);
             return;
           }
         }
         
+        if (incidentTicketData.isEmpty) {
+          LoaderWidget.hideLoader();
+          Toastbar.showErrorToastbar("Failed to load incident ticket data", context);
+          return;
+        }
+        
+        // Get status from fresh API data to determine mode
+        final apiStatus = incidentTicketData['status']?.toString();
+        final currentStatus = (apiStatus != null && apiStatus.isNotEmpty) 
+            ? apiStatus 
+            : (ticket.status != null && ticket.status!.isNotEmpty ? ticket.status! : 'OPEN');
+        
         // Build site data for Incident Ticket
-        // incidentTicketData is guaranteed to be non-null here (either from DB or API)
         final siteData = AllSiteModel(
           siteId: incidentTicketData['siteId'] ?? ticket.ticketSchId,
           entityId: 0,
@@ -383,10 +397,10 @@ class _TicketScreenState extends State<TicketScreen> {
           selfId: 0,
           siteDomainName: ticket.siteDomainName,
           distanceKM: null,
-          infraEngineerName: null,
-          infraEngineerPhone: null,
-          ownerName: null,
-          ownerPhone: null,
+          infraEngineerName: incidentTicketData['infraDistrictEngineerName']?.toString(),
+          infraEngineerPhone: incidentTicketData['infraDistrictEngineerContactNo']?.toString(),
+          ownerName: incidentTicketData['ownerName']?.toString(),
+          ownerPhone: incidentTicketData['ownerContactNo']?.toString(),
           siteVisitLogId: null,
           siteVisitLogDate: null,
           purposeOfVisit: null,
@@ -400,7 +414,8 @@ class _TicketScreenState extends State<TicketScreen> {
           MaterialPageRoute(
             builder: (_) => IncidentDetilScreen(
               siteData: siteData,
-              mode: ticket.status == 'CLOSED'
+              // Use status from fresh API data to determine mode
+              mode: currentStatus == 'CLOSED' || currentStatus == 'CLOSE'
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               apiResponseData: incidentTicketData,

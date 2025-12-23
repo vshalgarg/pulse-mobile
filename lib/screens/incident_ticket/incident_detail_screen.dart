@@ -57,6 +57,9 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
   String? _uploadedImgId;
   String? _fetchedImageData;
 
+  // Closed remarks (read-only, displayed when status is CLOSE)
+  String? _closedRemarks;
+
   bool _hasFormDataChanges = false;
 
   // Checklist data
@@ -118,6 +121,9 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           widget.apiResponseData!['remarks']?.toString() ?? "";
       _incidentRemarksController.text =
           widget.apiResponseData!['incidentRemarks']?.toString() ?? "";
+
+      // Initialize closedRemarks if available
+      _closedRemarks = widget.apiResponseData!['closedRemarks']?.toString();
 
       // Initialize image if available - check for incidentImgId
       final imageId =
@@ -383,24 +389,26 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
     try {
       // In edit/view mode, prepare checklist data from API response
-      Map<String, List<Map<String, dynamic>>> checklistDataForScreen = _checklistData;
-      
-      if (widget.apiResponseData != null && 
+      Map<String, List<Map<String, dynamic>>> checklistDataForScreen =
+          _checklistData;
+
+      if (widget.apiResponseData != null &&
           widget.apiResponseData!.containsKey('incidentCheckListSiteResp')) {
         // Extract checklist items from API response and group by incidentItemType
-        final checklistResponses = widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
+        final checklistResponses =
+            widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
         if (checklistResponses != null && checklistResponses.isNotEmpty) {
           final groupedData = <String, List<Map<String, dynamic>>>{};
-          
+
           for (final item in checklistResponses) {
             final itemMap = item as Map<String, dynamic>;
             final incidentItemType = itemMap['incidentItemType']?.toString();
-            
+
             if (incidentItemType != null) {
               if (!groupedData.containsKey(incidentItemType)) {
                 groupedData[incidentItemType] = [];
               }
-              
+
               // Convert API response format to checklist format
               groupedData[incidentItemType]!.add({
                 'iclm_id': itemMap['iclmId'] as int?,
@@ -411,14 +419,16 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               });
             }
           }
-          
+
           if (groupedData.isNotEmpty) {
             checklistDataForScreen = groupedData;
-            Logger.debugLog('✅ Using checklist data from API response: ${groupedData.keys.toList()}');
+            Logger.debugLog(
+              '✅ Using checklist data from API response: ${groupedData.keys.toList()}',
+            );
           }
         }
       }
-      
+
       // Navigate to checklist screen with pre-loaded data and wait for result
       final result = await Navigator.push<Map<String, dynamic>>(
         context,
@@ -536,11 +546,12 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
       // Build request
       // In edit mode, preserve incidentTicketId from API response
-      final incidentTicketId = widget.apiResponseData?['incidentTicketId'] as int? ?? 0;
-      
+      final incidentTicketId =
+          widget.apiResponseData?['incidentTicketId'] as int? ?? 0;
+
       // Get closedRemarks from checklist data if status is CLOSE
       final closedRemarks = checklistData['closedRemarks']?.toString();
-      
+
       final request = IncidentTicketRequest(
         incidentTicketId: incidentTicketId,
         incidentItemType: checklistData['parentIncidentType'] as String,
@@ -799,7 +810,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                   child: CustomSubmitButtonV2(
                     text: "Next",
                     // Disable only in view mode, allow in edit mode even when status is CLOSE
-                    onPressed: _isViewMode ? null : _submitForm,
+                    onPressed: _submitForm,
                   ),
                 ),
               ],
@@ -902,7 +913,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               _selectedIncidentTicketReason = value;
             });
           },
-          isDisabled: _isViewMode || _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSE
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -912,7 +924,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           label: "Incident Remarks",
           hintText: "Enter incident remarks",
           controller: _incidentRemarksController,
-          isDisabled: _isViewMode || _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSE
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
         ),
         const SizedBox(height: 15),
 
@@ -931,7 +944,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               _selectedCurrentSiteStatus = value;
             });
           },
-          isDisabled: _isViewMode || _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSE
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -941,7 +955,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           label: "Remarks",
           hintText: "Enter remarks",
           controller: _remarksController,
-          isDisabled: _isViewMode || _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSE
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
         ),
         const SizedBox(height: 15),
 
@@ -971,7 +986,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                   });
                 }
               },
-              isDisabled: _isViewMode || _selectedStatus == 'CLOSE',
+              // Only disable when view mode AND status is CLOSE
+              isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
             );
           },
         ),
@@ -992,13 +1008,25 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               _selectedStatus = value;
             });
           },
-          // Disable in create mode when status is OPEN, disable when status is CLOSE, enable in edit mode otherwise
-          isDisabled: _isViewMode || 
-                     (widget.mode == CMScreenModeEnum.create && _selectedStatus == 'OPEN') ||
-                     _selectedStatus == 'CLOSE',
+          // Disable in create mode when status is OPEN, or when view mode AND status is CLOSE
+          isDisabled:
+              (widget.mode == CMScreenModeEnum.create &&
+                  _selectedStatus == 'OPEN') ||
+              (_isViewMode && _selectedStatus == 'CLOSE'),
           isRequired: true,
         ),
         const SizedBox(height: 15),
+
+        // Closed Remarks (only show when status is CLOSE)
+        if (_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED')
+          CustomFormField(
+            label: "Closed Remarks",
+            initialValue: _closedRemarks ?? 'N/A',
+            isRequired: false,
+            isEditable: false, // Always read-only
+          ),
+        if (_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED')
+          const SizedBox(height: 15),
       ],
     );
   }

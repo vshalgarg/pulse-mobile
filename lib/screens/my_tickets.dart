@@ -4,8 +4,10 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
+import 'package:app/repositories/incident_repository.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -374,16 +376,46 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           ),
         );
       } else if (ticket.activityType == ActivityTypeEnum.incident) {
-        // For incident tickets, fetch data using the getIncidentTicket API
+        // For incident tickets, always fetch fresh data from API to get latest status
         Map<String, dynamic>? incidentTicketData;
         
-        // Extract data from stored API response
-        final storedData = data.apiData;
-        if (storedData.containsKey('data') && storedData['data'] is Map) {
-          incidentTicketData = storedData['data'] as Map<String, dynamic>;
-        } else {
-          incidentTicketData = storedData;
+        try {
+          // Always fetch fresh data from API to ensure we have the latest status
+          Logger.debugLog('🔄 Fetching fresh incident ticket data from API for ticket ID: ${ticket.siteAuditSchId}');
+          final response = await ServiceLocator().incidentRepository
+              .getIncidentTicket(incidentTicketId: int.tryParse(ticket.siteAuditSchId) ?? 0);
+          
+          // Extract data from response (response has a 'data' wrapper)
+          if (response.containsKey('data') && response['data'] is Map) {
+            incidentTicketData = response['data'] as Map<String, dynamic>;
+          } else {
+            incidentTicketData = response;
+          }
+          
+          Logger.debugLog('✅ Successfully fetched fresh incident ticket data. Status: ${incidentTicketData['status']}');
+        } catch (e) {
+          Logger.errorLog('❌ Error fetching fresh incident ticket data: $e');
+          // Fallback to stored data if API call fails
+          final storedData = data.apiData;
+          if (storedData.containsKey('data') && storedData['data'] is Map) {
+            incidentTicketData = storedData['data'] as Map<String, dynamic>;
+          } else {
+            incidentTicketData = storedData;
+          }
+          Logger.debugLog('⚠️ Using stored data as fallback');
         }
+        
+        if (incidentTicketData.isEmpty) {
+          LoaderWidget.hideLoader();
+          Toastbar.showErrorToastbar("Failed to load incident ticket data", context);
+          return;
+        }
+        
+        // Get status from fresh API data to determine mode
+        final apiStatus = incidentTicketData['status']?.toString();
+        final currentStatus = (apiStatus != null && apiStatus.isNotEmpty) 
+            ? apiStatus 
+            : (ticket.status.isNotEmpty ? ticket.status : 'OPEN');
         
         // Build site data for Incident Ticket
         final siteData = AllSiteModel(
@@ -421,7 +453,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           MaterialPageRoute(
             builder: (_) => IncidentDetilScreen(
               siteData: siteData,
-              mode: ticket.status == 'CLOSED'
+              // Use status from fresh API data to determine mode
+              mode: currentStatus == 'CLOSED' || currentStatus == 'CLOSE'
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               apiResponseData: incidentTicketData,
