@@ -365,6 +365,21 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       return;
     }
 
+    if (_incidentRemarksController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar('Please enter Incident Remarks', context);
+      return;
+    }
+
+    if (_remarksController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar('Please enter Remarks', context);
+      return;
+    }
+
+    if (_uploadedImgId == null || _uploadedImgId!.isEmpty) {
+      Toastbar.showErrorToastbar('Please add a photo', context);
+      return;
+    }
+
     try {
       // Navigate to checklist screen with pre-loaded data and wait for result
       final result = await Navigator.push<Map<String, dynamic>>(
@@ -389,9 +404,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     }
   }
 
-  Future<void> _submitIncidentTicket(
-    Map<String, dynamic> checklistData,
-  ) async {
+  Future<void> _submitIncidentTicket(Map<String, dynamic> checklistData) async {
     try {
       if (!mounted) return;
       // Check internet connectivity
@@ -401,51 +414,51 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       // Extract checklist responses
       final checklistResponses = checklistData['checklistResponses'] as List?;
       if (checklistResponses == null || checklistResponses.isEmpty) {
-        Toastbar.showErrorToastbar(
-          'No checklist data to submit',
-          context,
-        );
+        Toastbar.showErrorToastbar('No checklist data to submit', context);
         return;
       }
 
       // Convert checklist responses to model objects
       final incidentCheckListSiteResp = checklistResponses
-          .map((item) => IncidentCheckListSiteResp(
-                iclsrId: item['iclsrId'] ?? 0,
-                iclmId: item['iclmId'] as int,
-                siteId: item['siteId'] as int,
-                incidentItemType: item['incidentItemType'] as String,
-                checklistDesc: item['checklistDesc']?.toString(),
-                resp: item['resp'] as String,
-                clOrder: item['clOrder'] as int,
-                longitude: item['longitude']?.toString(),
-                latitude: item['latitude']?.toString(),
-                localAuditLogId: item['localAuditLogId'],
-                localCreatedDt: item['localCreatedDt']?.toString(),
-                localModifiedDt: item['localModifiedDt']?.toString(),
-                syncProcessId: item['syncProcessId'],
-                isActive: item['isActive'] ?? true,
-                remarks: item['remarks']?.toString(),
-              ))
+          .map(
+            (item) => IncidentCheckListSiteResp(
+              iclsrId: item['iclsrId'] ?? 0,
+              iclmId: item['iclmId'] as int,
+              siteId: item['siteId'] as int,
+              incidentItemType: item['incidentItemType'] as String,
+              checklistDesc: item['checklistDesc']?.toString(),
+              resp: item['resp'] as String,
+              clOrder: item['clOrder'] as int,
+              longitude: item['longitude']?.toString(),
+              latitude: item['latitude']?.toString(),
+              localAuditLogId: item['localAuditLogId'],
+              localCreatedDt: item['localCreatedDt']?.toString(),
+              localModifiedDt: item['localModifiedDt']?.toString(),
+              syncProcessId: item['syncProcessId'],
+              isActive: item['isActive'] ?? true,
+              remarks: item['remarks']?.toString(),
+            ),
+          )
           .toList();
 
       // Get image ID - convert LOCAL_IMAGE_ID to server ID if needed
       int? imageId;
       String? localImageId; // Store LOCAL_IMAGE_ID for offline mode
-      
+
       Logger.debugLog('📸 Checking image ID: _uploadedImgId = $_uploadedImgId');
-      
+
       if (_uploadedImgId != null && _uploadedImgId!.isNotEmpty) {
         Logger.debugLog('📸 Image ID found: $_uploadedImgId');
-        
+
         if (_uploadedImgId!.contains("LOCAL_IMAGE_ID")) {
-          Logger.debugLog('📸 Detected LOCAL_IMAGE_ID, isConnected: $isConnected');
-          
+          Logger.debugLog(
+            '📸 Detected LOCAL_IMAGE_ID, isConnected: $isConnected',
+          );
+
           if (isConnected) {
             // For online mode, try to get the server ID by uploading
             try {
-              final imageModel = await ServiceLocator()
-                  .imageUploadService
+              final imageModel = await ServiceLocator().imageUploadService
                   .getServerIdFromUniqueIdTryUploading(_uploadedImgId!);
               if (imageModel != null && imageModel.serverId != null) {
                 imageId = int.tryParse(imageModel.serverId.toString()) ?? 0;
@@ -466,20 +479,25 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             // For offline mode, keep LOCAL_IMAGE_ID string for later processing
             localImageId = _uploadedImgId!;
             imageId = 0; // Set to 0 initially, will be replaced in JSON
-            Logger.debugLog('📸 Offline mode: Storing LOCAL_IMAGE_ID for later: $localImageId');
+            Logger.debugLog(
+              '📸 Offline mode: Storing LOCAL_IMAGE_ID for later: $localImageId',
+            );
           }
         } else {
           imageId = int.tryParse(_uploadedImgId!) ?? 0;
           Logger.debugLog('📸 Server ID found: $imageId');
         }
       } else {
-        Logger.errorLog('⚠️ No image ID found! _uploadedImgId is null or empty');
+        Logger.errorLog(
+          '⚠️ No image ID found! _uploadedImgId is null or empty',
+        );
         imageId = 0;
       }
 
       // Build request
       final request = IncidentTicketRequest(
-        incidentTicketId: widget.apiResponseData?['incidentTicketId'] as int? ?? 0,
+        incidentTicketId:
+            widget.apiResponseData?['incidentTicketId'] as int? ?? 0,
         incidentItemType: checklistData['parentIncidentType'] as String,
         siteId: widget.siteData.siteId,
         currentSiteStatus: _selectedCurrentSiteStatus ?? '',
@@ -527,9 +545,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           context: context,
           barrierDismissible: false,
           useRootNavigator: true,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
         );
         loaderOpen = true;
       });
@@ -555,10 +572,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           ? 'Incident ticket $ticketId saved for Site ${widget.siteData.siteId}'
           : 'Incident ticket saved for Site ${widget.siteData.siteId}';
 
-      Toastbar.showSuccessToastbar(
-        toastMsg,
-        context,
-      );
+      Toastbar.showSuccessToastbar(toastMsg, context);
 
       // Navigate back to tickets/home
       navigateBackOrToHome(
@@ -580,7 +594,10 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     }
   }
 
-  Future<void> _saveOffline(IncidentTicketRequest request, String? localImageId) async {
+  Future<void> _saveOffline(
+    IncidentTicketRequest request,
+    String? localImageId,
+  ) async {
     bool loaderOpen = false;
     try {
       // Show loading indicator
@@ -589,50 +606,63 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           context: context,
           barrierDismissible: false,
           useRootNavigator: true,
-          builder: (context) => const Center(
-            child: CircularProgressIndicator(),
-          ),
+          builder: (context) =>
+              const Center(child: CircularProgressIndicator()),
         );
         loaderOpen = true;
       });
 
       // Create a unique request ID for this incident ticket submission
-      final requestId = 'incident_ticket_${widget.siteData.siteId}_${DateTime.now().millisecondsSinceEpoch}';
+      final requestId =
+          'incident_ticket_${widget.siteData.siteId}_${DateTime.now().millisecondsSinceEpoch}';
 
       // Convert request to JSON and wrap in list (as expected by sync service)
       final requestJson = request.toJson();
-      
-      Logger.debugLog('📸 Before replacement - incidentImgId in JSON: ${requestJson['incidentImgId']}');
+
+      Logger.debugLog(
+        '📸 Before replacement - incidentImgId in JSON: ${requestJson['incidentImgId']}',
+      );
       Logger.debugLog('📸 localImageId value: $localImageId');
       Logger.debugLog('📸 _uploadedImgId state: $_uploadedImgId');
-      
+
       // If we have a LOCAL_IMAGE_ID, replace the incidentImgId (0) with the string
       // so that the image processor can detect and convert it later
       if (localImageId != null && localImageId.isNotEmpty) {
         requestJson['incidentImgId'] = localImageId;
-        Logger.debugLog('📸 ✅ Replaced incidentImgId with LOCAL_IMAGE_ID: $localImageId');
+        Logger.debugLog(
+          '📸 ✅ Replaced incidentImgId with LOCAL_IMAGE_ID: $localImageId',
+        );
       } else {
-        Logger.errorLog('⚠️ No localImageId to replace! incidentImgId will remain 0');
+        Logger.errorLog(
+          '⚠️ No localImageId to replace! incidentImgId will remain 0',
+        );
         Logger.errorLog('📸 _uploadedImgId state: $_uploadedImgId');
         // If _uploadedImgId exists but localImageId is null, try to use _uploadedImgId directly
-        if (_uploadedImgId != null && _uploadedImgId!.isNotEmpty && _uploadedImgId!.contains("LOCAL_IMAGE_ID")) {
+        if (_uploadedImgId != null &&
+            _uploadedImgId!.isNotEmpty &&
+            _uploadedImgId!.contains("LOCAL_IMAGE_ID")) {
           requestJson['incidentImgId'] = _uploadedImgId!;
-          Logger.debugLog('📸 ✅ Using _uploadedImgId directly: $_uploadedImgId');
+          Logger.debugLog(
+            '📸 ✅ Using _uploadedImgId directly: $_uploadedImgId',
+          );
         }
       }
-      
-      Logger.debugLog('📸 After replacement - incidentImgId in JSON: ${requestJson['incidentImgId']}');
-      
+
+      Logger.debugLog(
+        '📸 After replacement - incidentImgId in JSON: ${requestJson['incidentImgId']}',
+      );
+
       final requestList = [requestJson];
 
       // Save to pending requests for sync when online
       final url = '/api/v1/om-schedule/incidentTicket';
-      final isSaved = await ServiceLocator().pendingRequestService.savePendingRequest(
-        requestId: requestId,
-        url: url,
-        headers: {},
-        jsonEncodedRequestData: jsonEncode(requestList),
-      );
+      final isSaved = await ServiceLocator().pendingRequestService
+          .savePendingRequest(
+            requestId: requestId,
+            url: url,
+            headers: {},
+            jsonEncodedRequestData: jsonEncode(requestList),
+          );
 
       // Close loader
       if (loaderOpen && mounted) {
@@ -653,7 +683,9 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           targetContext: widget.parentContext ?? context,
         );
       } else if (!isSaved) {
-        throw Exception('Failed to save incident ticket data to offline storage');
+        throw Exception(
+          'Failed to save incident ticket data to offline storage',
+        );
       }
     } catch (e) {
       if (loaderOpen && mounted) {
@@ -875,7 +907,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             return ImageUploadField(
               label: "Add a Photo",
               placeholder: "Add a Photo",
-              isRequired: false,
+              isRequired: true,
               externalImageUrl: _fetchedImageData,
               onImageSelected: (file) {
                 if (file != null) {
