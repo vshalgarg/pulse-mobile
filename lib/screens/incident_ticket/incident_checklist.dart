@@ -17,6 +17,7 @@ class IncidentChecklistScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
   final Map<String, List<Map<String, dynamic>>> checklistData;
   final Map<String, List<int>>? existingSelections; // parentType -> [iclm_ids] for edit mode
+  final Map<String, dynamic>? apiResponseData; // API response data for edit/view mode
   final BuildContext? parentContext;
 
   const IncidentChecklistScreen({
@@ -25,6 +26,7 @@ class IncidentChecklistScreen extends StatefulWidget {
     required this.mode,
     required this.checklistData,
     this.existingSelections,
+    this.apiResponseData,
     this.parentContext,
   });
 
@@ -51,6 +53,9 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   
   // Check if mode is view (read-only)
   bool get _isViewMode => widget.mode == CMScreenModeEnum.view;
+  
+  // Check if mode is edit or view (parent checkbox should be disabled)
+  bool get _isEditOrViewMode => widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view;
 
   @override
   void initState() {
@@ -103,6 +108,40 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   }
 
   void _loadExistingSelections() {
+    // In edit/view mode, load selections from API response
+    if (widget.apiResponseData != null && 
+        widget.apiResponseData!.containsKey('incidentCheckListSiteResp')) {
+      final checklistResponses = widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
+      
+      if (checklistResponses != null && checklistResponses.isNotEmpty) {
+        // Get the incidentItemType from the first item (all items should have the same type)
+        final firstItem = checklistResponses.first as Map<String, dynamic>;
+        final incidentItemType = firstItem['incidentItemType']?.toString();
+        
+        if (incidentItemType != null) {
+          // Extract selected iclmIds where resp == "true"
+          final selectedIds = <int>[];
+          for (final item in checklistResponses) {
+            final iclmId = item['iclmId'] as int?;
+            final resp = item['resp']?.toString();
+            if (iclmId != null && resp == "true") {
+              selectedIds.add(iclmId);
+            }
+          }
+          
+          setState(() {
+            _selectedParentNode = incidentItemType;
+            _selectedChildChecklistIds = Set<int>.from(selectedIds);
+            _expandedStates[incidentItemType] = true;
+          });
+          
+          Logger.debugLog('✅ Loaded existing selections from API: $incidentItemType with ${selectedIds.length} selected items');
+          return;
+        }
+      }
+    }
+    
+    // Fallback to existing selections if provided
     if (widget.existingSelections != null && widget.existingSelections!.isNotEmpty) {
       // Load existing selections from edit mode
       final existingParent = widget.existingSelections!.keys.first;
@@ -175,21 +214,67 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
     }
 
     final parentType = _selectedParentNode!;
-    final childItems = widget.checklistData[parentType] ?? [];
+    
+    // In edit/view mode, use items from API response if available
+    List<Map<String, dynamic>> childItems = [];
+    
+    if (widget.apiResponseData != null && 
+        widget.apiResponseData!.containsKey('incidentCheckListSiteResp')) {
+      // Use items from API response
+      final checklistResponses = widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
+      if (checklistResponses != null) {
+        for (final item in checklistResponses) {
+          final itemMap = item as Map<String, dynamic>;
+          final itemType = itemMap['incidentItemType']?.toString();
+          if (itemType == parentType) {
+            // Convert API response format to checklist format
+            childItems.add({
+              'iclm_id': itemMap['iclmId'] as int?,
+              'iclmId': itemMap['iclmId'] as int?,
+              'checklist_desc': itemMap['checklistDesc']?.toString(),
+              'cl_order': itemMap['clOrder'] as int? ?? 0,
+              'resp_type': 'CHECKBOX',
+              'incident_item_type': itemType,
+            });
+          }
+        }
+      }
+    }
+    
+    // If no items from API response, use full checklist data
+    if (childItems.isEmpty) {
+      childItems = widget.checklistData[parentType] ?? [];
+    }
 
     // Build checklist responses for all items under the selected parent
     final List<Map<String, dynamic>> checklistResponses = [];
 
     for (final item in childItems) {
-      final iclmId = item['iclm_id'] as int?;
+      final iclmId = item['iclm_id'] as int? ?? item['iclmId'] as int?;
       if (iclmId == null) continue;
 
       final isSelected = _selectedChildChecklistIds.contains(iclmId);
-      final checklistDesc = item['checklist_desc']?.toString();
-      final clOrder = item['cl_order'] as int? ?? 0;
+      final checklistDesc = item['checklist_desc']?.toString() ?? item['checklistDesc']?.toString();
+      final clOrder = item['cl_order'] as int? ?? item['clOrder'] as int? ?? 0;
+      
+      // In edit mode, preserve iclsrId from API response if available
+      int? iclsrId = 0;
+      if (widget.apiResponseData != null && 
+          widget.apiResponseData!.containsKey('incidentCheckListSiteResp')) {
+        final apiResponses = widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
+        if (apiResponses != null) {
+          for (final apiItem in apiResponses) {
+            final apiItemMap = apiItem as Map<String, dynamic>;
+            if (apiItemMap['iclmId'] == iclmId) {
+              iclsrId = apiItemMap['iclsrId'] as int? ?? 0;
+              break;
+            }
+          }
+        }
+      }
 
       checklistResponses.add({
-        'iclsrId': 0,
+        'iclsrId': iclsrId,
         'iclmId': iclmId,
         'siteId': widget.siteData.siteId,
         'incidentItemType': parentType,
@@ -387,31 +472,36 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
              
               child: Row(
                 children: [
-                  // Parent Checkbox
+                  // Parent Checkbox - disabled in edit and view mode, enabled in create mode
                   Checkbox(
                     value: isSelected,
-                    onChanged: _isViewMode
+                    onChanged: _isEditOrViewMode
                         ? null
                         : (bool? value) {
                             _onParentCheckboxChanged(parentKey, value);
                           },
                     activeColor: Colors.white,
-
                     checkColor: const Color(0xFF00695C),
                   ),
                   // Parent Label
                   Expanded(
                     child: GestureDetector(
-                      onTap: _isViewMode
-                          ? null
-                          : () {
+                      onTap: _isEditOrViewMode
+                          ? () {
+                              // In edit/view mode, only allow toggling expansion
                               if (isSelected) {
-                                // Toggle expansion when clicking label of selected parent
+                                setState(() {
+                                  _expandedStates[parentKey] = !isExpanded;
+                                });
+                              }
+                            }
+                          : () {
+                              // In create mode, allow selecting parent
+                              if (isSelected) {
                                 setState(() {
                                   _expandedStates[parentKey] = !isExpanded;
                                 });
                               } else {
-                                // Select parent if not selected
                                 _onParentCheckboxChanged(parentKey, true);
                               }
                             },

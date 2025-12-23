@@ -382,6 +382,43 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     }
 
     try {
+      // In edit/view mode, prepare checklist data from API response
+      Map<String, List<Map<String, dynamic>>> checklistDataForScreen = _checklistData;
+      
+      if (widget.apiResponseData != null && 
+          widget.apiResponseData!.containsKey('incidentCheckListSiteResp')) {
+        // Extract checklist items from API response and group by incidentItemType
+        final checklistResponses = widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
+        if (checklistResponses != null && checklistResponses.isNotEmpty) {
+          final groupedData = <String, List<Map<String, dynamic>>>{};
+          
+          for (final item in checklistResponses) {
+            final itemMap = item as Map<String, dynamic>;
+            final incidentItemType = itemMap['incidentItemType']?.toString();
+            
+            if (incidentItemType != null) {
+              if (!groupedData.containsKey(incidentItemType)) {
+                groupedData[incidentItemType] = [];
+              }
+              
+              // Convert API response format to checklist format
+              groupedData[incidentItemType]!.add({
+                'iclm_id': itemMap['iclmId'] as int?,
+                'checklist_desc': itemMap['checklistDesc']?.toString(),
+                'cl_order': itemMap['clOrder'] as int? ?? 0,
+                'resp_type': 'CHECKBOX',
+                'incident_item_type': incidentItemType,
+              });
+            }
+          }
+          
+          if (groupedData.isNotEmpty) {
+            checklistDataForScreen = groupedData;
+            Logger.debugLog('✅ Using checklist data from API response: ${groupedData.keys.toList()}');
+          }
+        }
+      }
+      
       // Navigate to checklist screen with pre-loaded data and wait for result
       final result = await Navigator.push<Map<String, dynamic>>(
         context,
@@ -389,7 +426,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           builder: (_) => IncidentChecklistScreen(
             siteData: widget.siteData,
             mode: widget.mode,
-            checklistData: _checklistData,
+            checklistData: checklistDataForScreen,
+            apiResponseData: widget.apiResponseData,
             parentContext: widget.parentContext ?? context,
           ),
         ),
@@ -496,9 +534,11 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       }
 
       // Build request
+      // In edit mode, preserve incidentTicketId from API response
+      final incidentTicketId = widget.apiResponseData?['incidentTicketId'] as int? ?? 0;
+      
       final request = IncidentTicketRequest(
-        incidentTicketId:
-            widget.apiResponseData?['incidentTicketId'] as int? ?? 0,
+        incidentTicketId: incidentTicketId,
         incidentItemType: checklistData['parentIncidentType'] as String,
         siteId: widget.siteData.siteId,
         currentSiteStatus: _selectedCurrentSiteStatus ?? '',
