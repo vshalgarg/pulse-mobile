@@ -407,7 +407,15 @@ class _TicketScreenState extends State<TicketScreen> {
               parentContext: parentContext,
             ),
           ),
-        );
+        ).then((_) {
+          // Refresh ticket list when returning from Incident Detail screen
+          _loadTickets();
+          // Re-initialize downloaded tickets state
+          final currentState = context.read<TicketCubit>().state;
+          if (currentState is TicketSuccess) {
+            _initializeDownloadedTickets(currentState.ticketResponse.tickets);
+          }
+        });
       } else if (_currentActivityType == ActivityTypeEnum.generalInspection) {
         // For General Inspection, get checklist data from API response
         final genInspectionData = apiData;

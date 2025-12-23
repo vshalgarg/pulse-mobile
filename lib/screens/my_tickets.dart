@@ -601,6 +601,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       ActivityTypeEnum.energyReading,
       ActivityTypeEnum.siteVisit,
       ActivityTypeEnum.generalInspection,
+      ActivityTypeEnum.incident,
     ];
 
     return Container(

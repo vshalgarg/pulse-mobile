@@ -361,46 +361,10 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
     return showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) {
-        final TextEditingController remarksController = TextEditingController();
-        
-        return AlertDialog(
-          title: const Text('Add Ticket Closing Remark'),
-          content: SingleChildScrollView(
-            child: CustomRemarksField(
-              label: 'Add Ticket Closing Remark',
-              hintText: 'Enter closing remarks',
-              controller: remarksController,
-              maxLines: 4,
-              isDisabled: false,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                remarksController.dispose();
-                Navigator.of(dialogContext).pop(null);
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                final remarks = remarksController.text.trim();
-                if (remarks.isEmpty) {
-                  Toastbar.showErrorToastbar(
-                    'Please enter closing remarks',
-                    dialogContext,
-                  );
-                  return;
-                }
-                remarksController.dispose();
-                Navigator.of(dialogContext).pop(remarks);
-              },
-              child: const Text('Submit'),
-            ),
-          ],
-        );
-      },
+      builder: (dialogContext) => _CloseRemarksDialog(
+        onCancel: () => Navigator.of(dialogContext).pop(null),
+        onSubmit: (remarks) => Navigator.of(dialogContext).pop(remarks),
+      ),
     );
   }
 
@@ -697,6 +661,71 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
       // Fallback for unknown types
       return const SizedBox.shrink();
     }).toList();
+  }
+}
+
+class _CloseRemarksDialog extends StatefulWidget {
+  final VoidCallback onCancel;
+  final Function(String) onSubmit;
+
+  const _CloseRemarksDialog({
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_CloseRemarksDialog> createState() => _CloseRemarksDialogState();
+}
+
+class _CloseRemarksDialogState extends State<_CloseRemarksDialog> {
+  late final TextEditingController _remarksController;
+
+  @override
+  void initState() {
+    super.initState();
+    _remarksController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _remarksController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Ticket Closing Remark'),
+      content: SingleChildScrollView(
+        child: CustomRemarksField(
+          label: 'Add Ticket Closing Remark',
+          hintText: 'Enter closing remarks',
+          controller: _remarksController,
+          maxLines: 4,
+          isDisabled: false,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: widget.onCancel,
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () {
+            final remarks = _remarksController.text.trim();
+            if (remarks.isEmpty) {
+              Toastbar.showErrorToastbar(
+                'Please enter closing remarks',
+                context,
+              );
+              return;
+            }
+            widget.onSubmit(remarks);
+          },
+          child: const Text('Submit'),
+        ),
+      ],
+    );
   }
 }
 
