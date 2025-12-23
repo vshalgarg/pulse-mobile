@@ -18,6 +18,7 @@ import '../services/location_service.dart';
 import 'corrective_maintainece/corrective_maintenance_screen.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'general_inspection/ginspection_detail.dart';
+import 'incident_ticket/incident_detail_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
 import 'site_visit/site_visit.dart';
 import '../enum/corrective_maintenance_screen_mode_enum.dart';
@@ -55,6 +56,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       return ActivityTypeEnum.siteVisit;
     } else if (normalized == 'generalinspection' || normalized == 'gi') {
       return ActivityTypeEnum.generalInspection;
+    } else if (normalized == 'incident' || normalized == 'it') {
+      return ActivityTypeEnum.incident;
     } else {
       // Fallback to try the standard enum conversion
       try {
@@ -120,6 +123,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                     ) == activityType)
             .toList();
         
+        // For Incident, only show sites (not tickets from raw_api_data)
+        // because incident tickets are handled separately
+        if (activityType == ActivityTypeEnum.incident) {
+          _filteredTickets = [];
+        }
+        
         // For Site Visit, filter out duplicates - if a site appears in both tickets and sites,
         // prefer the site entry (from sv_sites_data) and remove the ticket entry (from raw_api_data)
         if (activityType == ActivityTypeEnum.siteVisit) {
@@ -161,6 +170,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       }).length;
       
       return uniqueTickets + filteredSites.length;
+    }
+    
+    // For Incident, only count sites (not tickets from raw_api_data)
+    // because incident tickets should be handled separately
+    if (activityType == ActivityTypeEnum.incident) {
+      return filteredSites.length;
     }
     
     return filteredTickets.length + filteredSites.length;
@@ -366,6 +381,62 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               preloadedSiteData: data.apiData,
+              parentContext: parentContext,
+            ),
+          ),
+        );
+      } else if (ticket.activityType == ActivityTypeEnum.incident) {
+        // For incident tickets, fetch data using the getIncidentTicket API
+        Map<String, dynamic>? incidentTicketData;
+        
+        // Extract data from stored API response
+        final storedData = data.apiData;
+        if (storedData.containsKey('data') && storedData['data'] is Map) {
+          incidentTicketData = storedData['data'] as Map<String, dynamic>;
+        } else {
+          incidentTicketData = storedData;
+        }
+        
+        // Build site data for Incident Ticket
+        final siteData = AllSiteModel(
+          siteId: incidentTicketData['siteId'] ?? int.tryParse(ticket.siteAuditSchId) ?? 0,
+          entityId: 0,
+          siteCode: ticket.siteCode,
+          siteName: ticket.cluster,
+          clusterDistrictId: 0,
+          clusterDistrictName: ticket.cluster,
+          circleStateId: 0,
+          circleStateName: ticket.operator,
+          clientId: null,
+          clientName: ticket.operator,
+          svlId: null,
+          oem: null,
+          oemId: null,
+          self: '',
+          selfId: 0,
+          siteDomainName: ticket.siteType,
+          distanceKM: null,
+          infraEngineerName: incidentTicketData['infraDistrictEngineerName']?.toString(),
+          infraEngineerPhone: incidentTicketData['infraDistrictEngineerContactNo']?.toString(),
+          ownerName: incidentTicketData['ownerName']?.toString(),
+          ownerPhone: incidentTicketData['ownerContactNo']?.toString(),
+          siteVisitLogId: null,
+          siteVisitLogDate: null,
+          purposeOfVisit: null,
+          visitingPersonImageId: null,
+          checklistItems: null,
+        );
+
+        final parentContext = context;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => IncidentDetilScreen(
+              siteData: siteData,
+              mode: ticket.status == 'CLOSED'
+                  ? CMScreenModeEnum.view
+                  : CMScreenModeEnum.edit,
+              apiResponseData: incidentTicketData,
               parentContext: parentContext,
             ),
           ),
@@ -854,6 +925,19 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             builder: (_) => GInspectionDetailScreen(
               siteData: site,
               mode: CMScreenModeEnum.edit,
+              parentContext: parentContext,
+            ),
+          ),
+        );
+        break;
+      case ActivityTypeEnum.incident:
+        final parentContext = context;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => IncidentDetilScreen(
+              siteData: site,
+              mode: CMScreenModeEnum.create,
               parentContext: parentContext,
             ),
           ),

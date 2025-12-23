@@ -726,6 +726,10 @@ class CentralAssetAuditDataService {
       // Clear checklist data tables
       await txn.delete('gen_ins_checklist_data');
       await txn.delete('cm_checklist_data');
+      await txn.delete('incident_checklist_data');
+      await txn.delete('incident_sites_data');
+
+
     });
 
     Logger.debugLog(
@@ -1926,9 +1930,31 @@ class CentralAssetAuditDataService {
         orderBy: 'downloaded_at DESC',
       );
 
+      // Query incident sites table - only get sites with activity_type = 'Incident' (exact match)
+      List<Map<String, dynamic>> incidentMaps = [];
+      try {
+        // Check if incident_sites_data table exists
+        final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='incident_sites_data'",
+        );
+        if (tableCheck.isNotEmpty) {
+          // Only get sites with activity_type exactly matching 'Incident' (the enum value)
+          incidentMaps = await db.query(
+            'incident_sites_data',
+            where: 'is_downloaded = ? AND activity_type = ?',
+            whereArgs: [1, 'Incident'],
+            orderBy: 'downloaded_at DESC',
+          );
+          Logger.debugLog('📊 Found ${incidentMaps.length} incident sites in database');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error querying incident_sites_data: $e');
+      }
+
       allSites.addAll(cmMaps);
       allSites.addAll(svMaps);
       allSites.addAll(giMaps);
+      allSites.addAll(incidentMaps);
 
       // Sort by downloaded_at descending
       allSites.sort((a, b) {
