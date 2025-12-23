@@ -1,5 +1,6 @@
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/repositories/cm_repository.dart';
+import 'package:app/repositories/incident_repository.dart';
 import 'package:app/repositories/sites.repository.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/services/pdf_download_service.dart';
@@ -48,6 +49,10 @@ class CentralApiService {
             auditSchId: auditSchId,
             siteAuditSchId: siteAuditSchId,
           )
+        : activityType == ActivityTypeEnum.incident
+        ? await IncidentRepository(
+            _apiService,
+          ).getIncidentTicket(incidentTicketId: int.parse(siteAuditSchId))
         : activityType == ActivityTypeEnum.correctiveMaintenance
         ? await CMRepository(
             _apiService,
@@ -158,7 +163,9 @@ class CentralApiService {
           : activityType == ActivityTypeEnum.assetAudit
           ? 'OnM/Asset_Audit.rptdesign'
           : activityType == ActivityTypeEnum.correctiveMaintenance
-          ? 'OnM/Corrective_Maintenance.rptdesign' : activityType == ActivityTypeEnum.generalInspection ? 'OnM/gen_inspection.rptdesign'
+          ? 'OnM/Corrective_Maintenance.rptdesign'
+          : activityType == ActivityTypeEnum.generalInspection
+          ? 'OnM/gen_inspection.rptdesign'
           : 'OnM/Corrective_Maintenance.rptdesign';
 
       // Get user ID from local storage
@@ -185,8 +192,9 @@ class CentralApiService {
       final fileName = activityType == ActivityTypeEnum.preventiveMaintenance
           ? 'PM-Report-$ticketId'
           : activityType == ActivityTypeEnum.correctiveMaintenance
-          ? 'CM-Report-$ticketId'  
-          : activityType == ActivityTypeEnum.generalInspection ? 'GI-Report-$ticketId'
+          ? 'CM-Report-$ticketId'
+          : activityType == ActivityTypeEnum.generalInspection
+          ? 'GI-Report-$ticketId'
           : 'AA-Report-$ticketId';
 
       // Download the PDF
@@ -232,14 +240,15 @@ class CentralApiService {
 
         // Fetch organisation list and map orgId to organisationName
         try {
-          
           final sitesRepository = SitesRepository(_apiService);
           final organisationList = await sitesRepository.getOrganisationList();
-          
+
           // Include organisation list in the response so it's available to the screen
           parsedData['organisationList'] = organisationList;
-          Logger.debugLog('✅ Organisation list fetched and included in response: ${organisationList.length} organisations');
-          
+          Logger.debugLog(
+            '✅ Organisation list fetched and included in response: ${organisationList.length} organisations',
+          );
+
           // If response has orgId, find the matching organisation name
           if (parsedData.containsKey('orgId') && parsedData['orgId'] != null) {
             final orgId = parsedData['orgId'];
@@ -248,9 +257,13 @@ class CentralApiService {
                 (org) => org['org_id'] == orgId,
               );
               parsedData['organisationName'] = matchingOrg['org_name'];
-              Logger.debugLog('✅ Mapped orgId $orgId to organisationName: ${matchingOrg['org_name']}');
+              Logger.debugLog(
+                '✅ Mapped orgId $orgId to organisationName: ${matchingOrg['org_name']}',
+              );
             } catch (e) {
-              Logger.debugLog('⚠️ Organisation with orgId $orgId not found in list');
+              Logger.debugLog(
+                '⚠️ Organisation with orgId $orgId not found in list',
+              );
             }
           }
         } catch (e) {
@@ -276,7 +289,6 @@ class CentralApiService {
     required String siteAuditSchId,
   }) async {
     try {
-
       final response = await _apiService.get<Map<String, dynamic>>(
         path: '/api/v1/om-schedule/genInspection/$siteAuditSchId',
       );

@@ -77,6 +77,44 @@ class IncidentRepository {
     }
   }
 
+  Future<Map<String, dynamic>> getIncidentTicket({
+    required int incidentTicketId,
+  }) async {
+    try {
+      Logger.debugLog(
+        '[IncidentRepository] Starting to fetch incident ticket data for ID: $incidentTicketId',
+      );
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/om-schedule/incidentTicket/$incidentTicketId',
+      );
+
+      Logger.debugLog(
+        '[IncidentRepository] API response received - Success: ${response.isSuccess}',
+      );
+
+      if (response.isSuccess && response.data != null) {
+        Logger.infoLog(
+          '[IncidentRepository] Successfully fetched incident ticket data',
+        );
+        return response.data!;
+      } else {
+        Logger.errorLog(
+          '[IncidentRepository] API call failed: - Success: ${response.isSuccess} - Error: ${response.errorMessage} - Status Code: ${response.statusCode}',
+        );
+        throw Exception(
+          'Failed to load incident ticket: ${response.errorMessage}',
+        );
+      }
+    } catch (e) {
+      Logger.errorLog('[IncidentRepository] Exception in getIncidentTicket: $e');
+      Logger.errorLog(
+        '[IncidentRepository] Stack trace: ${StackTrace.current}',
+      );
+      throw Exception('Failed to load incident ticket: $e');
+    }
+  }
+
   Future<Map<String, dynamic>> postIncidentTicket({
     required IncidentTicketRequest request,
   }) async {

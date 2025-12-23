@@ -8,6 +8,7 @@ import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/screens/general_inspection/ginspection_detail.dart';
+import 'package:app/screens/incident_ticket/incident_detail_screen.dart';
 import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/services/service_locator.dart';
@@ -183,48 +184,55 @@ class _TicketScreenState extends State<TicketScreen> {
         siteAuditSchId: ticket.ticketSchId.toString(),
       );
 
-      // If not found in local DB, fetch from API and save
-      if (data == null || !data.isDownloaded) {
-        Logger.infoLog('📥 Data not found in local DB, fetching from API...');
-        final isAvailable = await service.getDataFromApiAndSaveToSqlite(
-          siteType: siteType,
-          auditSchId: ticket.auditSchId?.toString() ?? "",
-          siteAuditSchId: ticket.ticketSchId.toString(),
-          latitude: ticket.latitude ?? 0,
-          longitude: ticket.longitude ?? 0,
-          activityType: _currentActivityType,
-          pvTicketId: ticket.pvTicketId,
-          siteCode: ticket.siteCode ?? "",
-          cluster: ticket.cluster ?? "",
-          operator: ticket.operator ?? "",
-          raisedDt: ticket.raisedDt,
-          dueDt: ticket.dueDt,
-          status: ticket.status ?? "",
-        );
-        if (!isAvailable) {
+      print('data from download: $data');
+
+      // For incident tickets, use special handling
+      if (_currentActivityType == ActivityTypeEnum.incident) {
+        // Skip the general data fetching - will handle in incident-specific branch
+      } else {
+        // If not found in local DB, fetch from API and save
+        if (data == null || !data.isDownloaded) {
+          Logger.infoLog('📥 Data not found in local DB, fetching from API...');
+          final isAvailable = await service.getDataFromApiAndSaveToSqlite(
+            siteType: siteType,
+            auditSchId: ticket.auditSchId?.toString() ?? "",
+            siteAuditSchId: ticket.ticketSchId.toString(),
+            latitude: ticket.latitude ?? 0,
+            longitude: ticket.longitude ?? 0,
+            activityType: _currentActivityType,
+            pvTicketId: ticket.pvTicketId,
+            siteCode: ticket.siteCode ?? "",
+            cluster: ticket.cluster ?? "",
+            operator: ticket.operator ?? "",
+            raisedDt: ticket.raisedDt,
+            dueDt: ticket.dueDt,
+            status: ticket.status ?? "",
+          );
+          if (!isAvailable) {
+            Toastbar.showErrorToastbar("Failed to load data", context);
+            return;
+          }
+
+          // Get the data from local DB after saving
+          data = await service.getDataFromSqlite(
+            siteAuditSchId: ticket.ticketSchId.toString(),
+          );
+        } else {
+          Logger.infoLog('✅ Using data from local database');
+        }
+
+        if (data == null) {
           Toastbar.showErrorToastbar("Failed to load data", context);
           return;
         }
 
-        // Get the data from local DB after saving
-        data = await service.getDataFromSqlite(
-          siteAuditSchId: ticket.ticketSchId.toString(),
+        Logger.infoLog(
+          '✅ Loaded data from ${data.isDownloaded ? 'local database' : 'API'}',
         );
-      } else {
-        Logger.infoLog('✅ Using data from local database');
+        Logger.infoLog('📊 Data keys: ${data.apiData.keys.toList()}');
       }
 
-      if (data == null) {
-        Toastbar.showErrorToastbar("Failed to load data", context);
-        return;
-      }
-
-      Logger.infoLog(
-        '✅ Loaded data from ${data.isDownloaded ? 'local database' : 'API'}',
-      );
-      Logger.infoLog('📊 Data keys: ${data.apiData.keys.toList()}');
-
-      final apiData = data.apiData;
+      final apiData = data?.apiData ?? <String, dynamic>{};
 
       if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
         final parentContext = context;
@@ -320,6 +328,83 @@ class _TicketScreenState extends State<TicketScreen> {
               siteData: siteData,
               parentContext: parentContext,
               preloadedOrganisationList: organisationList,
+            ),
+          ),
+        );
+      } else if (_currentActivityType == ActivityTypeEnum.incident) {
+        // For incident tickets, fetch data using the new getIncidentTicket API
+        Map<String, dynamic>? incidentTicketData;
+        
+        // Try to get from local DB first
+        if (data != null && data.isDownloaded) {
+          // Extract data from stored API response
+          final storedData = data.apiData;
+          if (storedData.containsKey('data') && storedData['data'] is Map) {
+            incidentTicketData = storedData['data'] as Map<String, dynamic>;
+          } else {
+            incidentTicketData = storedData;
+          }
+        } else {
+          // Fetch from API using the new getIncidentTicket method
+          try {
+            final response = await ServiceLocator().incidentRepository
+                .getIncidentTicket(incidentTicketId: ticket.ticketSchId);
+            
+            // Extract data from response (response has a 'data' wrapper)
+            if (response.containsKey('data') && response['data'] is Map) {
+              incidentTicketData = response['data'] as Map<String, dynamic>;
+            } else {
+              incidentTicketData = response;
+            }
+          } catch (e) {
+            Logger.errorLog('❌ Error fetching incident ticket data: $e');
+            Toastbar.showErrorToastbar("Failed to load incident ticket data", context);
+            return;
+          }
+        }
+        
+        // Build site data for Incident Ticket
+        // incidentTicketData is guaranteed to be non-null here (either from DB or API)
+        final siteData = AllSiteModel(
+          siteId: incidentTicketData['siteId'] ?? ticket.ticketSchId,
+          entityId: 0,
+          siteCode: ticket.siteCode ?? '',
+          siteName: ticket.cluster ?? '',
+          clusterDistrictId: 0,
+          clusterDistrictName: ticket.cluster ?? '',
+          circleStateId: 0,
+          circleStateName: ticket.operator ?? '',
+          clientId: null,
+          clientName: ticket.operator,
+          svlId: null,
+          oem: null,
+          oemId: null,
+          self: '',
+          selfId: 0,
+          siteDomainName: ticket.siteDomainName,
+          distanceKM: null,
+          infraEngineerName: null,
+          infraEngineerPhone: null,
+          ownerName: null,
+          ownerPhone: null,
+          siteVisitLogId: null,
+          siteVisitLogDate: null,
+          purposeOfVisit: null,
+          visitingPersonImageId: null,
+          checklistItems: null,
+        );
+
+        final parentContext = context;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => IncidentDetilScreen(
+              siteData: siteData,
+              mode: ticket.status == 'CLOSED'
+                  ? CMScreenModeEnum.view
+                  : CMScreenModeEnum.edit,
+              apiResponseData: incidentTicketData,
+              parentContext: parentContext,
             ),
           ),
         );
@@ -608,7 +693,7 @@ class _TicketScreenState extends State<TicketScreen> {
             company: ticket.operator ?? 'N/A',
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
-            statusText: ticket.status ?? '',
+            statusText: statusText,
             activityType: _currentActivityType,
             isDownloadedFunc: _isTicketDownloaded,
             onPdfDownloadTap: () => _downloadReport(ticket),

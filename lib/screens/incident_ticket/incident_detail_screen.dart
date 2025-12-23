@@ -119,8 +119,9 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       _incidentRemarksController.text =
           widget.apiResponseData!['incidentRemarks']?.toString() ?? "";
 
-      // Initialize image if available
+      // Initialize image if available - check for incidentImgId
       final imageId =
+          widget.apiResponseData!['incidentImgId']?.toString() ??
           widget.apiResponseData!['imageId']?.toString() ??
           widget.apiResponseData!['image_id']?.toString();
       if (imageId != null && imageId.isNotEmpty && imageId != "0") {
