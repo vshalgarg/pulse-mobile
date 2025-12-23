@@ -122,13 +122,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                       site['activity_type']?.toString() ?? '',
                     ) == activityType)
             .toList();
-        
-        // For Incident, only show sites (not tickets from raw_api_data)
-        // because incident tickets are handled separately
-        if (activityType == ActivityTypeEnum.incident) {
-          _filteredTickets = [];
-        }
-        
+
         // For Site Visit, filter out duplicates - if a site appears in both tickets and sites,
         // prefer the site entry (from sv_sites_data) and remove the ticket entry (from raw_api_data)
         if (activityType == ActivityTypeEnum.siteVisit) {
@@ -170,12 +164,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       }).length;
       
       return uniqueTickets + filteredSites.length;
-    }
-    
-    // For Incident, only count sites (not tickets from raw_api_data)
-    // because incident tickets should be handled separately
-    if (activityType == ActivityTypeEnum.incident) {
-      return filteredSites.length;
     }
     
     return filteredTickets.length + filteredSites.length;

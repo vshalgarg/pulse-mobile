@@ -491,6 +491,26 @@ class CentralAssetAuditService {
       }
     }
 
+    // For Incident, also download checklist data
+    if (isSaved && activityType == ActivityTypeEnum.incident) {
+      try {
+        final ticketSchId = int.tryParse(siteAuditSchId) ?? 0;
+        final incidentChecklistDownloaded = await downloadIncidentChecklist(
+          siteId: ticketSchId,
+          siteCode: siteCode,
+          siteName: cluster,
+        );
+
+        if (incidentChecklistDownloaded) {
+          Logger.debugLog('✅ Incident checklist data downloaded successfully');
+        } else {
+          Logger.errorLog('❌ Failed to download Incident checklist data');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error downloading Incident checklist: $e');
+      }
+    }
+
     return isSaved;
   }
 
@@ -604,10 +624,12 @@ class CentralAssetAuditService {
                 key == 'aadhar_card_image_id' ||
                 key == 'leavingStatusImageId' ||
                 key == 'leaving_status_image_id' ||
-                key == 'respPhotoId') &&
+                key == 'respPhotoId' ||
+                key == 'incidentImgId') &&
             value != null) {
           final serverId = value.toString();
-          if (serverId.isNotEmpty) {
+          // Skip if serverId is empty, "0", or "null"
+          if (serverId.isNotEmpty && serverId != "0" && serverId != "null") {
             Logger.debugLog('🖼️ Found $key: $serverId');
 
             // Download image and get unique ID
