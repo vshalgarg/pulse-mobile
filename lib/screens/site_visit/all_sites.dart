@@ -308,13 +308,24 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     }
 
     try {
-      // Always check CM site data first
+      
+
       final cmDownloaded = await ServiceLocator().centralAssetAuditDataService
           .isCMSiteDownloaded(site.siteId);
 
       if (!cmDownloaded) {
         return false;
       }
+
+      // Check site data download status based on activity type
+      if (widget.ActivityType == 'Incident') {
+        // Also check if checklist data is downloaded
+        final incidentChecklistDownloaded = await ServiceLocator()
+            .centralAssetAuditDataService
+            .isIncidentChecklistDownloaded(site.siteId);
+        return incidentChecklistDownloaded;
+      }
+      // For other activity types, check CM site data first
 
       // For GI sites, also check if checklist data is downloaded
       if (widget.ActivityType == 'GI') {
@@ -326,6 +337,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         return cmDownloaded;
       }
     } catch (e) {
+      print('Error checking site download status: $e');
       return false;
     }
   }
@@ -343,10 +355,14 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         isDownloaded = await service.downloadSVSiteData(site: site);
       } else if (widget.ActivityType == 'GI') {
         isDownloaded = await service.downloadGISiteData(site: site);
+      } else if (widget.ActivityType == 'Incident') {
+        print('Downloading incident site data');
+        isDownloaded = await service.downloadIncidentSiteData(site: site);
+        print('Incident site data downloaded: $isDownloaded');
       }
 
       if (isDownloaded) {
-        // If CM site data downloaded successfully, also download GI checklist data for GI sites
+        // If CM site data downloaded successfully, also download checklist data
         if (widget.ActivityType == 'GI') {
           final giDownloaded = await service.downloadGIChecklist(
             siteId: site.siteId,
@@ -356,6 +372,19 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           );
 
           if (!giDownloaded) {
+            // Still consider it successful since CM data was downloaded
+          }
+        } else if (widget.ActivityType == 'Incident') {
+          print('Downloading incident checklist data');
+          final incidentDownloaded = await service.downloadIncidentChecklist(
+            siteId: site.siteId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+          );
+
+          print('Incident checklist data downloaded: $incidentDownloaded');
+
+          if (!incidentDownloaded) {
             // Still consider it successful since CM data was downloaded
           }
         }

@@ -238,6 +238,90 @@ class CentralAssetAuditService {
     }
   }
 
+  /// Download incident site data and save to SQLite
+  Future<bool> downloadIncidentSiteData({
+    required AllSiteModel site,
+  }) async {
+    try {
+      Logger.debugLog(
+        'Starting to download incident site data for site: ${site.siteName}',
+      );
+
+      // Save to SQLite using the site data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMSiteData(
+            siteId: site.siteId,
+            entityId: site.entityId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: site.circleStateName,
+            clientId: site.clientId,
+            clientName: site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+            activityType: ActivityTypeEnum.incident.value,
+            infraDistrictEngineerName: site.infraEngineerName,
+            infraDistrictEngineerContactNo: site.infraEngineerPhone,
+            ownerName: site.ownerName,
+            ownerContactNo: site.ownerPhone,
+          );
+
+      Logger.debugLog('✅ Incident site data saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading incident site data: $e');
+      return false;
+    }
+  }
+
+  /// Download incident checklist data and save to SQLite
+  Future<bool> downloadIncidentChecklist({
+    required int siteId,
+    required String siteCode,
+    required String siteName,
+  }) async {
+    try {
+      print('Downloading incident checklist data');
+      Logger.debugLog(
+        'Starting to download incident checklist data for site: $siteName',
+      );
+
+      // Get checklist data from API
+      final checklistData = await ServiceLocator().incidentRepository
+          .getIncidentChecklist();
+
+      print('Incident checklist data: $checklistData');
+
+      // Save to SQLite using the central data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveIncidentChecklistData(
+            siteId: siteId,
+            siteCode: siteCode,
+            siteName: siteName,
+            checklistData: checklistData,
+            activityType: 'incident',
+          );
+
+      print('Incident checklist data saved: $isSaved');
+
+      Logger.debugLog(
+        '✅ Incident checklist data saved successfully to SQLite: $isSaved',
+      );
+      return isSaved;
+    } catch (e, stackTrace) {
+      Logger.errorLog('❌ Error downloading incident checklist data: $e');
+      Logger.errorLog('❌ Stack trace: $stackTrace');
+      print('❌ Error downloading incident checklist data: $e');
+      print('❌ Stack trace: $stackTrace');
+      return false;
+    }
+  }
+
   /// Download CM checklist data and save to SQLite
   Future<bool> downloadCMChecklist({
     required int siteId,

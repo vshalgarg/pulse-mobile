@@ -10,6 +10,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:geolocator/geolocator.dart';
 
 class IncidentChecklistScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -43,6 +44,10 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   
   // Form change tracking
   bool _hasFormDataChanges = false;
+
+  // Location data
+  double? _latitude;
+  double? _longitude;
   
   // Check if mode is view (read-only)
   bool get _isViewMode => widget.mode == CMScreenModeEnum.view;
@@ -52,6 +57,42 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
     super.initState();
     _initializeExpandedStates();
     _loadExistingSelections();
+    _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          Logger.errorLog('Location permissions are denied');
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        Logger.errorLog(
+          'Location permissions are permanently denied, we cannot request permissions.',
+        );
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+
+      Logger.debugLog(
+        'Location obtained: Lat: $_latitude, Long: $_longitude',
+      );
+    } catch (e) {
+      Logger.errorLog('Error getting location: $e');
+    }
   }
 
   void _initializeExpandedStates() {
@@ -129,9 +170,49 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   }
 
   Map<String, dynamic> _prepareSubmitData() {
+    if (_selectedParentNode == null) {
+      return {};
+    }
+
+    final parentType = _selectedParentNode!;
+    final childItems = widget.checklistData[parentType] ?? [];
+
+    // Build checklist responses for all items under the selected parent
+    final List<Map<String, dynamic>> checklistResponses = [];
+
+    for (final item in childItems) {
+      final iclmId = item['iclm_id'] as int?;
+      if (iclmId == null) continue;
+
+      final isSelected = _selectedChildChecklistIds.contains(iclmId);
+      final checklistDesc = item['checklist_desc']?.toString();
+      final clOrder = item['cl_order'] as int? ?? 0;
+
+      checklistResponses.add({
+        'iclsrId': 0,
+        'iclmId': iclmId,
+        'siteId': widget.siteData.siteId,
+        'incidentItemType': parentType,
+        'checklistDesc': checklistDesc,
+        'resp': isSelected ? 'true' : 'false',
+        'clOrder': clOrder,
+        'longitude': _longitude?.toString() ?? '',
+        'latitude': _latitude?.toString() ?? '',
+        'localAuditLogId': null,
+        'localCreatedDt': null,
+        'localModifiedDt': null,
+        'syncProcessId': null,
+        'isActive': true,
+        'remarks': null,
+      });
+    }
+
     return {
-      'parentIncidentType': _selectedParentNode,
+      'parentIncidentType': parentType,
       'selectedIclmIds': _selectedChildChecklistIds.toList(),
+      'checklistResponses': checklistResponses,
+      'latitude': _latitude,
+      'longitude': _longitude,
     };
   }
 
@@ -147,21 +228,11 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
       Logger.debugLog('  Parent Type: ${submitData['parentIncidentType']}');
       Logger.debugLog('  Selected ICLM IDs: ${submitData['selectedIclmIds']}');
 
-      // TODO: Implement API call to save incident checklist data
-      // For now, just show success message
-      Toastbar.showSuccessToastbar(
-        'Incident checklist saved successfully',
-        context,
-      );
-
-      // Navigate back
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext ?? context,
-      );
+      // Return data to previous screen
+      Navigator.of(context).pop(submitData);
     } catch (e) {
       Logger.errorLog('❌ Error submitting incident checklist: $e');
-      Toastbar.showErrorToastbar('Failed to save incident checklist', context);
+      Toastbar.showErrorToastbar('Failed to prepare checklist data', context);
     }
   }
 

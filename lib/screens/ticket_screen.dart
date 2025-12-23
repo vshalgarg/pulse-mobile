@@ -69,12 +69,22 @@ class _TicketScreenState extends State<TicketScreen> {
   }
 
   void _loadTickets() {
-    context.read<TicketCubit>().getTickets(
-      activityType: _currentActivityType.value,
-      ticketType: _currentTicketType,
-      pageSize: 50,
-      pageNo: 1,
-    );
+
+    if (_currentActivityType == ActivityTypeEnum.incident) {
+      context.read<TicketCubit>().getTickets(
+        activityType: 'IT',
+        ticketType: _currentTicketType,
+        pageSize: 50,
+        pageNo: 1,
+      );
+    } else {
+      context.read<TicketCubit>().getTickets(
+        activityType: _currentActivityType.value,
+        ticketType: _currentTicketType,
+        pageSize: 50,
+        pageNo: 1,
+      );
+    }
   }
 
   void _initializeDownloadedTickets(List<Ticket> tickets) async {

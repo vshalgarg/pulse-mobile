@@ -9,6 +9,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/repositories/cm_repository.dart';
 import 'package:app/repositories/sites.repository.dart';
 import 'package:app/repositories/general_inspection_repository.dart';
+import 'package:app/repositories/incident_repository.dart';
 
 class ServiceLocator {
   static final ServiceLocator _instance = ServiceLocator._internal();
@@ -26,6 +27,7 @@ class ServiceLocator {
   late CMRepository _cmRepository;
   SitesRepository? _sitesRepository;
   late GeneralInspectionRepository _generalInspectionRepository;
+  IncidentRepository? _incidentRepository;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
@@ -57,6 +59,7 @@ class ServiceLocator {
       _cmRepository = CMRepository(apiService);
       _sitesRepository = SitesRepository(apiService);
       _generalInspectionRepository = GeneralInspectionRepository(apiService);
+      _incidentRepository = IncidentRepository(apiService);
 
       _isInitialized = true;
 
@@ -127,6 +130,17 @@ class ServiceLocator {
   GeneralInspectionRepository get generalInspectionRepository {
     _ensureInitialized();
     return _generalInspectionRepository;
+  }
+
+  /// Get Incident Repository (guaranteed to be initialized)
+  IncidentRepository get incidentRepository {
+    _ensureInitialized();
+    // Defensive check: if repository wasn't initialized (e.g., from old initialization), initialize it now
+    if (_incidentRepository == null) {
+      Logger.debugLog('⚠️ IncidentRepository not initialized, initializing now...');
+      _incidentRepository = IncidentRepository(_apiService);
+    }
+    return _incidentRepository!;
   }
 
   /// Check if services are initialized
