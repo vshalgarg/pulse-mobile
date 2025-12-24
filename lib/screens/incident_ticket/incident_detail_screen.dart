@@ -21,6 +21,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import 'incident_checklist.dart';
 
 class IncidentDetilScreen extends StatefulWidget {
@@ -567,6 +568,15 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       // Get closedRemarks from checklist data if status is CLOSE
       final closedRemarks = checklistData['closedRemarks']?.toString();
 
+      // Set closedDt only when status is CLOSE, format: "yyyy-MM-dd HH:mm:ss.SSS"
+      String? closedDt;
+      if (_selectedStatus == 'CLOSE') {
+        final now = DateTime.now().toUtc();
+        final formatter = DateFormat('yyyy-MM-dd HH:mm:ss.SSS');
+        closedDt = formatter.format(now);
+        Logger.debugLog('✅ Setting closedDt: $closedDt');
+      }
+
       final request = IncidentTicketRequest(
         incidentTicketId: incidentTicketId,
         incidentItemType: checklistData['parentIncidentType'] as String,
@@ -579,7 +589,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         incidentImgId: imageId,
         incidentTicketReason: _selectedIncidentTicketReason ?? '',
         closedBy: null,
-        closedDt: null,
+        closedDt: closedDt,
         closedRemarks: closedRemarks?.isNotEmpty == true ? closedRemarks : null,
         isActive: true,
         remarks: _remarksController.text.trim().isEmpty
