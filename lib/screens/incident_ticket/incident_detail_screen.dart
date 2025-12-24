@@ -67,6 +67,9 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
   String? _checklistError;
   Map<String, List<Map<String, dynamic>>> _checklistData = {};
   late IncidentRepository _repository;
+  
+  // Store checklist selections to persist when navigating back
+  Map<String, dynamic>? _storedChecklistSelections;
 
   // Dropdown options
   final List<String> _incidentTicketReasonOptions = ['Site Down', 'Other'];
@@ -440,13 +443,25 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             currentStatus: _selectedStatus ?? 'OPEN',
             apiResponseData: widget.apiResponseData,
             parentContext: widget.parentContext ?? context,
+            storedSelections: _storedChecklistSelections, // Pass stored selections
           ),
         ),
       );
 
-      // If checklist screen returned data, proceed with API call
+      // Store the result if it exists (could be from Previous button or Submit)
       if (result != null && result.isNotEmpty) {
-        await _submitIncidentTicket(result);
+        // Check if this is just navigation (Previous button) or actual submission
+        final isNavigation = result['isNavigation'] == true;
+        
+        if (isNavigation) {
+          // Just save state, don't submit
+          _storedChecklistSelections = result;
+          Logger.debugLog('✅ Saved checklist selections for later (navigation only)');
+        } else {
+          // This is a submit action - proceed with API call
+          _storedChecklistSelections = result; // Also store for potential future use
+          await _submitIncidentTicket(result);
+        }
       }
     } catch (e) {
       Logger.errorLog('❌ Error in submit process: $e');

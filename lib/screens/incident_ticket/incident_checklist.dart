@@ -21,6 +21,7 @@ class IncidentChecklistScreen extends StatefulWidget {
   final String? currentStatus; // Status passed from detail screen
   final Map<String, dynamic>? apiResponseData; // API response data for edit/view mode
   final BuildContext? parentContext;
+  final Map<String, dynamic>? storedSelections; // Stored selections from previous navigation
 
   const IncidentChecklistScreen({
     super.key,
@@ -31,6 +32,7 @@ class IncidentChecklistScreen extends StatefulWidget {
     this.currentStatus,
     this.apiResponseData,
     this.parentContext,
+    this.storedSelections,
   });
 
   @override
@@ -124,7 +126,24 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   }
 
   void _loadExistingSelections() {
-    // In edit/view mode, load selections from API response
+    // First priority: Load from stored selections (when navigating back from detail screen)
+    if (widget.storedSelections != null && widget.storedSelections!.isNotEmpty) {
+      final parentType = widget.storedSelections!['parentIncidentType']?.toString();
+      final selectedIds = widget.storedSelections!['selectedIclmIds'] as List?;
+      
+      if (parentType != null && selectedIds != null) {
+        setState(() {
+          _selectedParentNode = parentType;
+          _selectedChildChecklistIds = Set<int>.from(selectedIds.map((id) => id as int));
+          _expandedStates[parentType] = true;
+        });
+        
+        Logger.debugLog('✅ Loaded stored selections: $parentType with ${selectedIds.length} selected items');
+        return;
+      }
+    }
+    
+    // Second priority: In edit/view mode, load selections from API response
     if (widget.apiResponseData != null && 
         widget.apiResponseData!.containsKey('incidentCheckListSiteResp')) {
       final checklistResponses = widget.apiResponseData!['incidentCheckListSiteResp'] as List?;
@@ -222,6 +241,21 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
       return false;
     }
     return true;
+  }
+
+  // Prepare data for storage (navigation only, no submission)
+  Map<String, dynamic> _prepareStorageData() {
+    if (_selectedParentNode == null) {
+      return {'isNavigation': true};
+    }
+
+    return {
+      'isNavigation': true,
+      'parentIncidentType': _selectedParentNode!,
+      'selectedIclmIds': _selectedChildChecklistIds.toList(),
+      'latitude': _latitude,
+      'longitude': _longitude,
+    };
   }
 
   Map<String, dynamic> _prepareSubmitData() {
@@ -448,7 +482,11 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
                       // Back Button
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: () {
+                            // Return current selections for storage only (no submission)
+                            final currentSelections = _prepareStorageData();
+                            Navigator.of(context).pop(currentSelections);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.buttonColorBg,
                             foregroundColor: Colors.white,
