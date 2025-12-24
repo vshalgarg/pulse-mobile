@@ -568,13 +568,15 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       // Get closedRemarks from checklist data if status is CLOSE
       final closedRemarks = checklistData['closedRemarks']?.toString();
 
-      // Set closedDt only when status is CLOSE, format: "yyyy-MM-dd HH:mm:ss.SSS"
+      // Set closedDt only when status is CLOSE, format: "yyyy-MM-dd HH:mm:ss.SSS" in IST
       String? closedDt;
       if (_selectedStatus == 'CLOSE') {
-        final now = DateTime.now().toUtc();
+        // Convert UTC to IST (UTC+5:30)
+        final utcNow = DateTime.now().toUtc();
+        final istNow = utcNow.add(const Duration(hours: 5, minutes: 30));
         final formatter = DateFormat('yyyy-MM-dd HH:mm:ss.SSS');
-        closedDt = formatter.format(now);
-        Logger.debugLog('✅ Setting closedDt: $closedDt');
+        closedDt = formatter.format(istNow);
+        Logger.debugLog('✅ Setting closedDt (IST): $closedDt');
       }
 
       final request = IncidentTicketRequest(
@@ -1042,15 +1044,15 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         ),
         const SizedBox(height: 15),
 
-        // Closed Remarks (only show when status is CLOSE)
-        if (_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED')
+        // Closed Remarks (only show when status is CLOSE and mode is VIEW)
+        if ((_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED') && _isViewMode)
           CustomFormField(
             label: "Closed Remarks",
             initialValue: _closedRemarks ?? 'N/A',
             isRequired: false,
             isEditable: false, // Always read-only
           ),
-        if (_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED')
+        if ((_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED') && _isViewMode)
           const SizedBox(height: 15),
       ],
     );
