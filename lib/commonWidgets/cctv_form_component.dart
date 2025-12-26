@@ -14,7 +14,7 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
 
 
-class AssetAuditFormComponent extends StatefulWidget {
+class CctvFormComponent extends StatefulWidget {
   /// Unique identifier for this component instance
   final String componentId;
 
@@ -32,12 +32,6 @@ class AssetAuditFormComponent extends StatefulWidget {
 
   /// Value for the disabled text field
   final String? disabledFieldValue;
-
-  /// Label for the second disabled text field (optional)
-  final String? secondDisabledFieldLabel;
-
-  /// Value for the second disabled text field (optional)
-  final String? secondDisabledFieldValue;
 
   /// Controller for the serial number field
   final TextEditingController serialController;
@@ -76,7 +70,16 @@ class AssetAuditFormComponent extends StatefulWidget {
   /// Whether to enable image compression
   final bool enableImageCompression;
 
-  const AssetAuditFormComponent({
+  /// Label for the custom text field (optional)
+  final String? customFieldLabel;
+
+  /// Initial value for the custom text field (optional)
+  final String? customFieldValue;
+
+  /// Whether the custom field is editable (default: true)
+  final bool isCustomFieldEditable;
+
+  const CctvFormComponent({
     super.key,
     required this.componentId,
     required this.serialLabel,
@@ -84,8 +87,6 @@ class AssetAuditFormComponent extends StatefulWidget {
     required this.photoLabel,
     this.disabledFieldLabel,
     this.disabledFieldValue,
-    this.secondDisabledFieldLabel,
-    this.secondDisabledFieldValue,
     required this.serialController,
     required this.initialSavedItems,
     this.onItemSaved,
@@ -97,14 +98,17 @@ class AssetAuditFormComponent extends StatefulWidget {
     this.tableTitle,
     this.imageHeight = 150,
     this.enableImageCompression = true,
+    this.customFieldLabel,
+    this.customFieldValue,
+    this.isCustomFieldEditable = true,
   });
 
   @override
-  State<AssetAuditFormComponent> createState() =>
-      _AssetAuditFormComponentState();
+  State<CctvFormComponent> createState() =>
+      _CCTVFormComponentState();
 }
 
-class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
+class _CCTVFormComponentState extends State<CctvFormComponent> {
   // Form state
   String? _selectedPhotoPath;
   bool? _selectedStatus;
@@ -130,11 +134,21 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   // Image upload service
   late ImageUploadService _imageUploadService;
 
+  // Height field controller
+  final TextEditingController _heightController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     // Initialize internal saved items list
     _savedItems = List<Map<String, dynamic>>.from(widget.initialSavedItems);
+
+    // Initialize height controller with provided value (only if it's a valid value, not 'N/A' or empty)
+    if (widget.customFieldValue != null && 
+        widget.customFieldValue!.isNotEmpty && 
+        widget.customFieldValue!.toUpperCase() != 'N/A') {
+      _heightController.text = widget.customFieldValue!;
+    }
 
     // Listen to serial controller changes to detect manual input vs scanning
     widget.serialController.addListener(_onSerialChanged);
@@ -147,6 +161,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   @override
   void dispose() {
     widget.serialController.removeListener(_onSerialChanged);
+    _heightController.dispose();
     super.dispose();
   }
 
@@ -429,7 +444,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         'qr_code_scanned': _isQRCodeScanned,
         'qr_code_scanned_ts': qrCodeScannedTs,
         'disabledFieldValue': widget.disabledFieldValue,
-        'secondDisabledFieldValue': widget.secondDisabledFieldValue,
+        'customFieldValue': _heightController.text.trim().isNotEmpty 
+            ? _heightController.text.trim() 
+            : null,
         'timestamp': Utils.getCurrentDateTimeForAPICall(),
       };
 
@@ -592,6 +609,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   void _clearForm() {
     setState(() {
       widget.serialController.clear();
+      _heightController.clear();
       _selectedPhotoPath = null;
       _selectedStatus = null;
       _isQRCodeScanned = false;
@@ -613,6 +631,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _isEditing = true;
       _editingItem = item;
       widget.serialController.text = item['mfg_serial_no'] ?? '';
+      _heightController.text = item['customFieldValue']?.toString() ?? '';
       _selectedStatus = item['asset_status'] == 'OK' ? true : false;
       _isQRCodeScanned = item['qr_code_scanned'] ?? false;
       qrCodeScannedTs = item['qr_code_scanned'] == true
@@ -859,6 +878,58 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     );
   }
 
+  /// Builds the height field (similar to serial number field but without QR scanner)
+  Widget _buildHeightField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label (matching CustomInfoCard)
+        Text(
+          widget.customFieldLabel ?? "Height (in Meters)",
+          style: const TextStyle(
+            fontWeight: FontWeight.w400,
+            fontFamily: fontFamilyMontserrat,
+            fontSize: 16,
+            color: AppColors.white,
+          ),
+        ),
+        const SizedBox(height: 6),
+
+        // TextFormField (matching CustomInfoCard)
+        TextFormField(
+          controller: _heightController,
+          readOnly: !widget.isCustomFieldEditable,
+          decoration: InputDecoration(
+            hintText: "Height (in Meters)",
+            hintStyle: TextStyle(
+              fontWeight: FontWeight.w400,
+              fontFamily: fontFamilyMontserrat,
+              fontSize: 16,
+              color: AppColors.color555555,
+            ),
+            filled: true,
+            fillColor: widget.isCustomFieldEditable 
+                ? Colors.white 
+                : AppColors.borderColorE0E0E0, // Grey when not editable
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(5),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          keyboardType: TextInputType.numberWithOptions(decimal: true),
+          style: TextStyle(
+            fontWeight: FontWeight.w400,
+            fontFamily: fontFamilyMontserrat,
+            fontSize: 16,
+            color: widget.isCustomFieldEditable 
+                ? AppColors.color555555 
+                : AppColors.color555555.withOpacity(0.6),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// Builds the photo upload field (matching CustomInfoCard design)
   Widget _buildPhotoUploadField() {
     return Column(
@@ -982,57 +1053,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               borderSide: BorderSide.none,
             ),
             hintText: widget.disabledFieldValue,
-            hintStyle: TextStyle(
-              fontWeight: FontWeight.w400,
-              fontFamily: fontFamilyMontserrat,
-              fontSize: 16,
-              color: AppColors.color555555.withOpacity(0.6),
-            ),
-          ),
-          style: TextStyle(
-            fontWeight: FontWeight.w400,
-            fontFamily: fontFamilyMontserrat,
-            fontSize: 16,
-            color: AppColors.color555555,
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Builds the second disabled text field (matching CustomInfoCard design)
-  Widget _buildSecondDisabledField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label (matching CustomInfoCard)
-        Text(
-          widget.secondDisabledFieldLabel ?? "",
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: Colors.white,
-            fontFamily: fontFamilyMontserrat,
-          ),
-        ),
-        const SizedBox(height: 5),
-
-        // Input field (matching CustomInfoCard)
-        TextFormField(
-          initialValue: widget.secondDisabledFieldValue,
-          readOnly: true,
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: AppColors.borderColorE0E0E0, // Grey when not editable
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 8,
-              horizontal: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(5),
-              borderSide: BorderSide.none,
-            ),
-            hintText: widget.secondDisabledFieldValue,
             hintStyle: TextStyle(
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
@@ -1183,18 +1203,22 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     );
   }
 
-  /// Gets the dynamic label for the second disabled field column header
-  String _getSecondDisabledFieldTableHeader() {
-    if (widget.secondDisabledFieldLabel == null) {
+  /// Gets the dynamic label for the custom field column header
+  String _getCustomFieldTableHeader() {
+    if (widget.customFieldLabel == null) {
       return '';
     }
-    final label = widget.secondDisabledFieldLabel!.toLowerCase();
-    if (label.contains('year') && label.contains('manufactur')) {
-      return 'MFG Year';
-    } 
+    final label = widget.customFieldLabel!.toLowerCase();
+    if (label.contains('height')) {
+      return 'Height';
+    } else if (label.contains('year') && label.contains('manufactur')) {
+      return 'MFGYear';
+    } else if (label.contains('mfg') && label.contains('year')) {
+      return 'MFGYear';
+    }
     // Default: extract first word or use a shortened version
-    final words = widget.secondDisabledFieldLabel!.split(' ');
-    return words.isNotEmpty ? words.first : widget.secondDisabledFieldLabel!;
+    final words = widget.customFieldLabel!.split(' ');
+    return words.isNotEmpty ? words.first : widget.customFieldLabel!;
   }
 
   /// Builds the table of saved items
@@ -1203,14 +1227,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       return const SizedBox.shrink();
     }
 
-    final secondDisabledFieldHeader = _getSecondDisabledFieldTableHeader();
-    final showSecondDisabledFieldColumn = widget.secondDisabledFieldLabel != null && secondDisabledFieldHeader.isNotEmpty;
+    final customFieldHeader = _getCustomFieldTableHeader();
+    final showCustomFieldColumn = widget.customFieldLabel != null && customFieldHeader.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AssetAuditFormComponent.backgroundColor,
+        color: CctvFormComponent.backgroundColor,
         borderRadius: BorderRadius.circular(5),
       ),
       child: Column(
@@ -1236,8 +1260,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                 Row(
                   children: [
                     _buildTableHeaderCell('Serial No.', 200),
-                    if (showSecondDisabledFieldColumn)
-                      _buildTableHeaderCell(secondDisabledFieldHeader, 80),
+                    if (showCustomFieldColumn)
+                      _buildTableHeaderCell(customFieldHeader, 80),
                     _buildTableHeaderCell('Status', 80),
                     _buildTableHeaderCell('Scanned', 80),
                     _buildTableHeaderCell('Photo', 80),
@@ -1276,7 +1300,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Builds a table row
   Widget _buildTableRow(Map<String, dynamic> item) {
-    final showSecondDisabledFieldColumn = widget.secondDisabledFieldLabel != null;
+    final showCustomFieldColumn = widget.customFieldLabel != null;
     
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -1288,8 +1312,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       child: Row(
         children: [
           _buildTableDataCell(item['mfg_serial_no'] ?? '', 200),
-          if (showSecondDisabledFieldColumn)
-            _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
+          if (showCustomFieldColumn)
+            _buildTableDataCell(item['customFieldValue'] ?? 'N/A', 80),
           _buildTableDataCell(item['asset_status'] ?? '', 80),
           _buildTableDataCell(
             item['qr_code_scanned'] == true ? 'Yes' : 'No',
@@ -1401,7 +1425,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           margin: const EdgeInsets.symmetric(vertical: 10),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AssetAuditFormComponent.backgroundColor,
+            color: CctvFormComponent.backgroundColor,
             borderRadius: BorderRadius.circular(5),
           ),
           child: Column(
@@ -1411,9 +1435,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               _buildSerialNumberField(),
               const SizedBox(height: 16),
 
-              // Second disabled field (if provided) - placed just below serial number
-              if (widget.secondDisabledFieldLabel != null && widget.secondDisabledFieldLabel!.isNotEmpty) ...[
-                _buildSecondDisabledField(),
+              // Custom field (if provided) - Height field similar to serial number
+              if (widget.customFieldLabel != null) ...[
+                _buildHeightField(),
                 const SizedBox(height: 16),
               ],
 

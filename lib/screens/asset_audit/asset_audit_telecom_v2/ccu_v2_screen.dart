@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/custom_remark.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -11,6 +13,7 @@ import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
+import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/simple_asset_audit_form_component.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
@@ -89,6 +92,15 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   String? _cabinetImageData;
   bool? isQrCodeScanned = false;
   String? qrCodeScannedTs = null;
+
+  // Rectifier image
+  File? _rectifierImage;
+
+  // MPPT image
+  File? _mpptImage;
+
+  // MPPT remarks controller
+  final TextEditingController _mpptRemarksController = TextEditingController();
 
   @override
   void initState() {
@@ -277,7 +289,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     bool? isQRCodeScanned1,
     String? qrCodeScannedTs1,
   ) {
-
     final isValidSerial = _validateCabinetSerialNumber(
       _cabinetSerialController.text,
       isQRCodeScanned1 ?? false,
@@ -293,7 +304,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
       });
     } else {
       _cabinetSerialController.text = '';
-     
     }
   }
 
@@ -603,12 +613,12 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     _rectifierCapacityController.dispose();
     _mpptSerialController.dispose();
     _mpptCapacityController.dispose();
+    _mpptRemarksController.dispose();
     super.dispose();
   }
 
   // Custom validation function for Cabinet serial number
   bool _validateCabinetSerialNumber(String serialNumber, bool isQRCodeScanned) {
-
     final cabinets = _displayFormData?['cabinets'] as List<dynamic>?;
 
     // Check if the serial number matches either nexgen_serial_no or mfg_serial_no
@@ -621,7 +631,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     // If validation fails, show popup
     if (!isValid && serialNumber.isNotEmpty) {
       _showSerialNumberMismatchDialog(serialNumber);
-    }else{
+    } else {
       serialNumber = '';
     }
 
@@ -815,7 +825,6 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
                     if (_hasFormDataChanges) {
-
                       await postCurrentScreenData();
                     }
                   },
@@ -871,6 +880,28 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           ),
           getHeight(15),
 
+          // Photo of all Rectifier
+          ImageUploadField(
+            label: "Add Photo of all Rectifiers",
+            placeholder: "Add Photo",
+            isRequired: true,
+            onImageSelected: (image) {
+              setState(() {
+                _rectifierImage = image;
+              });
+            },
+          ),
+          getHeight(15),
+
+          // Add Rectifiers Remarks
+          CustomRemarksField(
+            label: "Add Rectifiers Remarks",
+            hintText: "Remarks",
+            controller: _remarksController,
+            initialValue: _displayFormData?['rectifiersRemarks'] ?? '',
+          ),
+           getHeight(15),
+
           // Rectifiers Details Section
           Container(
             child: Column(
@@ -914,6 +945,28 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             initialValue: _displayFormData?['totalMPPT'] ?? "0",
             isRequired: false,
             isEditable: false,
+          ),
+          getHeight(15),
+
+          // Photo of all MPPT
+          ImageUploadField(
+            label: "Add Photo of all MPPT",
+            placeholder: "Add Photo",
+            isRequired: true,
+            onImageSelected: (image) {
+              setState(() {
+                _mpptImage = image;
+              });
+            },
+          ),
+          getHeight(15),
+
+          // Add MPPT Remarks
+          CustomRemarksField(
+            label: "Add MPPT Remarks",
+            hintText: "Remarks",
+            controller: _mpptRemarksController,
+            initialValue: _displayFormData?['mpptRemarks'] ?? '',
           ),
           getHeight(15),
 
@@ -987,10 +1040,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(context, targetContext: widget.parentContext);
     }
   }
 }

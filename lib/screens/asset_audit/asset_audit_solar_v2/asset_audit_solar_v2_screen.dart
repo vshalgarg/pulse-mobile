@@ -129,7 +129,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         setState(() {
           _isLoadingData = false;
           _assetAuditData =
-              data; // Store the full asset audit data for SPV navigation
+              data; 
           _displayFormData =
               formData; // Store the extracted form data for display
         });
@@ -463,6 +463,14 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           isRequired: false,
           isEditable: false,
         ),
+        getHeight(15),
+       CustomFormField(
+          label: "Project Capacity",
+          initialValue: _displayFormData?['siteType'] ?? "N/A",
+          isRequired: false,
+          isEditable: false,
+        ),
+
         getHeight(15),
         CustomFormField(
           label: "Audit Due Date",

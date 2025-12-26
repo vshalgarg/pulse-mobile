@@ -66,7 +66,7 @@ class AssetAuditNavigationHelper {
   // Define the order of all solar screens
   static const List<String> _solarScreenOrder = [
     'GENERAL',
-    'SPV',
+    'Solar',
     'MMS',
     'DCDB',
     'PCU',
@@ -109,7 +109,7 @@ class AssetAuditNavigationHelper {
       case 'Site Info':
         return 'pageHeader';
       case 'Solar Plates':
-        return 'SPV';
+        return 'Solar';
       case 'Fencing':
         return 'Boundary';
       default:
@@ -298,7 +298,7 @@ class AssetAuditNavigationHelper {
           ),
         );
         break;
-      case 'SPV':
+      case 'Solar':
         pushPage(
           context,
           SPVV2Screen(

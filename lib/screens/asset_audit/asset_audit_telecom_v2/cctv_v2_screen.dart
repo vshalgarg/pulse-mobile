@@ -1,5 +1,5 @@
 import 'package:app/app_config.dart';
-import 'package:app/commonWidgets/asset_audit_form_component.dart';
+import 'package:app/commonWidgets/cctv_form_component.dart';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
@@ -45,23 +45,23 @@ class CCTVV2Screen extends StatefulWidget {
 
 class _CCTVV2ScreenState extends State<CCTVV2Screen> {
   final String _screenName = 'CCTV';
-  
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers
   final TextEditingController _cctvSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
-  
+
   // Section visibility states
   bool _showCCTVDetails = false;
 
@@ -96,36 +96,60 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Surveillance V2: Loading data for site ${widget.siteAuditSchId}');
-      
+      Logger.debugLog(
+        '🔄 Surveillance V2: Loading data for site ${widget.siteAuditSchId}',
+      );
+
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final cctvItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
-        as Map<String, dynamic>? ?? {};
+        final cctvItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'TELECOM',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
         // Parse CCTV data
         final cctvAssets = cctvItems['assets'] as List<dynamic>? ?? [];
         final hooterAssets = cctvItems['Hooter'] as List<dynamic>? ?? [];
         final remarksData = cctvItems['remarks'] as List<dynamic>? ?? [];
 
+        // Extract CCTV height from first asset if available
+        String? cctvHeight;
+        if (cctvAssets.isNotEmpty) {
+          final firstAsset = cctvAssets.first as Map<String, dynamic>?;
+          cctvHeight =
+              firstAsset?['capacity']?.toString() ??
+              firstAsset?['height']?.toString() ??
+              firstAsset?['cctv_height']?.toString();
+        }
+
         final formData = <String, dynamic>{
           'hooterAvailable': hooterAssets.isNotEmpty,
           'cctvAvailable': cctvAssets.isNotEmpty ? "Yes" : "No",
           'cctvCount': cctvAssets.length.toString(),
-          'cctvAssets': cctvAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'cctvHeight': cctvHeight ?? 'N/A',
+          'cctvAssets': cctvAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'cctvAllAssets': cctvAssets,
           'remarksAvailable': remarksData.isNotEmpty,
-          'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
+          'remarks': remarksData.isNotEmpty
+              ? remarksData.first['item_type_remark']?.toString() ?? ""
+              : "",
         };
 
         setState(() {
           _isLoadingData = false;
           _assetAuditData = data;
           _displayFormData = formData;
-          hooterAvailableValue = hooterAssets.isNotEmpty ? (hooterAssets.first?['asset_status']?.toString() ?? 'No') : 'No';
+          hooterAvailableValue = hooterAssets.isNotEmpty
+              ? (hooterAssets.first?['asset_status']?.toString() ?? 'No')
+              : 'No';
           _showCCTVDetails = cctvAssets.isNotEmpty;
         });
 
@@ -168,35 +192,50 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
 
   // Validation method
   bool _validateCCTVSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['cctvAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+    final savedItems =
+        _displayFormData?['cctvAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 Surveillance V2: Starting postCurrentScreenData');
-      
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
+
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'TELECOM',
+          )];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       final finalCCTVAssets = finalData?['assets'] as List<dynamic>? ?? [];
       final finalHooterData = finalData?['Hooter'] as List<dynamic>? ?? [];
-      
+
       // Collect modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
 
       //update hooter
-      if(finalHooterData.isNotEmpty) {
+      if (finalHooterData.isNotEmpty) {
         finalHooterData.first['asset_status'] = hooterAvailableValue;
         modifiedAssetsWithAllProperties.add(finalHooterData.first);
       }
 
       // Add CCTV assets
-      final modifiedCCTVAssets = _displayFormData?['cctvAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalCCTVAssets, modifiedCCTVAssets));
+      final modifiedCCTVAssets =
+          _displayFormData?['cctvAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalCCTVAssets,
+          modifiedCCTVAssets,
+        ),
+      );
 
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
           Logger.debugLog('✅ Updated remarks: $remark');
@@ -204,26 +243,33 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
-
-      // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
-
-      Logger.debugLog('📤 Surveillance V2: Prepared ${postObject.length} items for posting');
-      // Post data with photo ID replacement
-      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
       );
 
+      // Prepare data for posting
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
+
+      Logger.debugLog(
+        '📤 Surveillance V2: Prepared ${postObject.length} items for posting',
+      );
+      // Post data with photo ID replacement
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getTelecomNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
+
       Logger.debugLog('✅ Surveillance V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ Surveillance V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -240,23 +286,19 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           section: "Asset Audit",
           parentContext: widget.parentContext,
           onSaveAndExit: () async {
-            if(_hasFormDataChanges) {
+            if (_hasFormDataChanges) {
               await postCurrentScreenData();
             }
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(context, targetContext: widget.parentContext);
     }
   }
 
-  void _onHooterValueChanged (String value) {
+  void _onHooterValueChanged(String value) {
     setState(() {
       hooterAvailableValue = value;
       _hasFormDataChanges = true;
@@ -325,7 +367,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
@@ -376,13 +418,17 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -400,13 +446,13 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom buttons using your specific format
                 AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    if(_hasFormDataChanges) {
+                    if (_hasFormDataChanges) {
                       await postCurrentScreenData();
                     }
                   },
@@ -429,7 +475,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if(_displayFormData?['hooterAvailable'] || false) ...[
+        if (_displayFormData?['hooterAvailable'] || false) ...[
           WidgetHelper.buildRadioField(
             label: "Hooter Available",
             isRequired: true,
@@ -467,28 +513,32 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
             ),
           ),
           getHeight(15),
-          
+
           // CCTV Form Component
-          AssetAuditFormComponent(
+          CctvFormComponent(
             componentId: 'cctv_component',
-            serialLabel: "CCTV - Serial Number *",
+            serialLabel: "CCTV - Serial Number",
             serialHintText: "CCTV Serial Number *",
             photoLabel: "Add a Photo",
             serialController: _cctvSerialController,
-            initialSavedItems: _displayFormData?['cctvAssets'] as List<dynamic>? ?? [],
+            initialSavedItems:
+                _displayFormData?['cctvAssets'] as List<dynamic>? ?? [],
             onItemSaved: _onCCTVItemSaved,
-            onStatusChanged: (status) {
-            },
+            onStatusChanged: (status) {},
             customValidator: _validateCCTVSerialNumber,
-            customValidationErrorMessage: "Invalid CCTV serial number. Please check and try again.",
+            customValidationErrorMessage:
+                "Invalid CCTV serial number. Please check and try again.",
             siteAuditSchId: widget.siteAuditSchId,
             showTable: true,
             tableTitle: "CCTV Items",
+            customFieldLabel: "CCTV Height (in Meter)",
+            customFieldValue:
+                _displayFormData?['dimension_value']?.toString() ?? 'N/A',
           ),
           getHeight(15),
         ],
 
-        if(_displayFormData?['remarksAvailable']! ?? false) ...[
+        if (_displayFormData?['remarksAvailable']! ?? false) ...[
           // Remarks using CustomRemarksField
           CustomRemarksField(
             label: "Add Remarks",

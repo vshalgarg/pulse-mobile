@@ -461,7 +461,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         } else {
           // This is a submit action - proceed with API call
           _storedChecklistSelections = result; // Also store for potential future use
-          await _submitIncidentTicket(result);
+        await _submitIncidentTicket(result);
         }
       }
     } catch (e) {

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
@@ -13,6 +15,7 @@ import '../../../commonWidgets/custom_dialogs/serial_number_mismatch_dialog.dart
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/simple_asset_audit_form_component.dart';
 import '../../../commonWidgets/custom_form_field.dart';
+import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import '../../../constants/app_colors.dart';
@@ -69,6 +72,9 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
 
   // Section visibility states
   bool _showCbmsDetails = false;
+
+  // Battery modules image
+  File? _batteryModulesImage;
 
   @override
   void initState() {
@@ -685,6 +691,19 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
               _displayFormData?['batteryAllAssets']?.length.toString() ?? "0",
           isRequired: false,
           isEditable: false,
+        ),
+        getHeight(15),
+
+        // Photo of Battery Modules
+        ImageUploadField(
+          label: "Add Photo of Battery Modules",
+          placeholder: "Add Photo",
+          isRequired: true,
+          onImageSelected: (image) {
+            setState(() {
+              _batteryModulesImage = image;
+            });
+          },
         ),
         getHeight(15),
 

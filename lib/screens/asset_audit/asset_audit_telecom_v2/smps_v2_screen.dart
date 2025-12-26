@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
@@ -9,6 +11,7 @@ import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
 import '../../../commonWidgets/custom_form_field.dart';
+import '../../../commonWidgets/custom_image_upload_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import '../../../constants/app_colors.dart';
@@ -53,6 +56,10 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
+
+  // Images
+  File? _smpsImage;
+  File? _rectifiersImage;
 
   @override
   void initState() {
@@ -389,6 +396,19 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                     isEditable: false,
                                   ),
                                   getHeight(15),
+
+                                  // Photo of SMPS
+                                  ImageUploadField(
+                                    label: "Add Photo of SMPS",
+                                    placeholder: "Add Photo",
+                                    isRequired: true,
+                                    onImageSelected: (image) {
+                                      setState(() {
+                                        _smpsImage = image;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
                                 ],
 
                                 if (_displayFormData?['smpsCabinetAvailable'] ??
@@ -429,7 +449,20 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                     isRequired: false,
                                     isEditable: false,
                                   ),
-                                  getHeight(20),
+                                  getHeight(15),
+
+                                  // Photo of all Rectifier
+                                  ImageUploadField(
+                                    label: "Add Photo of all Rectifier",
+                                    placeholder: "Add Photo",
+                                    isRequired: true,
+                                    onImageSelected: (image) {
+                                      setState(() {
+                                        _rectifiersImage = image;
+                                      });
+                                    },
+                                  ),
+                                  getHeight(15),
 
                                   // SMPS Rectifiers Section
                                   AssetAuditFormComponent(

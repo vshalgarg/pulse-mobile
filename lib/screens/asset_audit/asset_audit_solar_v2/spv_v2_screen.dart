@@ -53,6 +53,8 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
   // Form controllers
   final TextEditingController _spvSerialController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  final TextEditingController _totalCapacityController =
+      TextEditingController();
 
   // Form data
   bool _hasFormDataChanges = false;
@@ -90,7 +92,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         // Extract SPV items
         final spvItems =
             data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
-                  _screenName,
+                  'Solar',
                   'SOLAR',
                 )]
                 as Map<String, dynamic>? ??
@@ -105,6 +107,8 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         formData['typeOfSpv'] = firstItem['item_type']?.toString() ?? "N/A";
         formData['totalItems'] = spvItems['assets'].length.toString();
         formData['capacity'] = firstItem['capacity']?.toString() ?? "N/A";
+        formData['manufacturing_year'] =
+            firstItem['manufacturing_year']?.toString() ?? "N/A";
         formData['remarks'] =
             spvItems['remarks'].first['item_type_remark']?.toString() ?? "";
         formData['assets'] = spvItems['assets']
@@ -166,7 +170,15 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
     _remarksController.text = remarks;
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
 
+    // Set total capacity controller text
+    final totalCapacity = formData['totalCapacity']?.toString() ?? "";
+    _totalCapacityController.text = totalCapacity;
+    Logger.debugLog(
+      '📝 Initialized total capacity controller with: $totalCapacity',
+    );
+
     _remarksController.addListener(_onFormChanged);
+    _totalCapacityController.addListener(_onFormChanged);
     // Trigger a rebuild to ensure the UI updates
     if (mounted) {
       setState(() {});
@@ -253,6 +265,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
   void dispose() {
     _spvSerialController.dispose();
     _remarksController.dispose();
+    _totalCapacityController.dispose();
     super.dispose();
   }
 
@@ -262,7 +275,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
-        title: 'SPV',
+        title: 'Solar Panel',
         onClose: () {
           _showUnsavedChangesDialog();
         },
@@ -416,21 +429,21 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
       children: [
         // Site information fields (read-only)
         CustomFormField(
-          label: "SPV Make",
+          label: "Solar Panel Make",
           initialValue: _displayFormData?['spvMake'] ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         CustomFormField(
-          label: "Type of SPV",
+          label: "Type of Solar Panel",
           initialValue: _displayFormData?['typeOfSpv'] ?? "N/A",
           isRequired: false,
           isEditable: false,
         ),
         getHeight(15),
         CustomFormField(
-          label: "Total SPV Items",
+          label: "Total Solar Panel Items",
           initialValue: _displayFormData?['totalItems'] ?? "0",
           isRequired: false,
           isEditable: false,
@@ -440,10 +453,10 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         // AssetAuditFormComponent for SPV items
         AssetAuditFormComponent(
           componentId: 'spv_component',
-          serialLabel: "SPV - Serial Number *",
-          serialHintText: "SPV Serial Number *",
+          serialLabel: "Solar Panel - Serial Number *",
+          serialHintText: "Solar Panel Serial Number *",
           photoLabel: "Add a Photo",
-          disabledFieldLabel: "SPV (Watt)",
+          disabledFieldLabel: "Solar Panel (Watt)",
           disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
           serialController: _spvSerialController,
           initialSavedItems:
@@ -455,8 +468,22 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
               "Invalid SPV serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
-          tableTitle: "SPV Items",
+          tableTitle: "Solar Panel Items",
+          secondDisabledFieldLabel: "Year of Manufacturing",
+          secondDisabledFieldValue:
+              _displayFormData?['manufacturing_year'] ?? "N/A",
         ),
+        getHeight(15),
+
+        // Total Capacity of Solar (Kwatt)
+        CustomFormField(
+          label: "Total Capacity of Solar (Kwatt)",
+          controller: _totalCapacityController,
+          isRequired: false,
+          isEditable: true,
+          hintText: "Text",
+        ),
+        getHeight(15),
 
         // Remarks
         CustomRemarksField(
@@ -486,10 +513,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(context, targetContext: widget.parentContext);
     }
   }
 }

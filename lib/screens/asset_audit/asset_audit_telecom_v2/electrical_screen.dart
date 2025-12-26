@@ -51,9 +51,12 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       TextEditingController();
   final TextEditingController _lspuSerialController =
       TextEditingController();
+  final TextEditingController _aviationLampSerialController =
+      TextEditingController();
 
   List<Map<String, dynamic>> _savedACDBs = [];
   List<Map<String, dynamic>> _savedLSPUs = [];
+  List<Map<String, dynamic>> _savedAviationLamps = [];
 
   // State
   bool _isLoadingData = false;
@@ -72,6 +75,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
     _remarksController.dispose();
     _acdbSerialController.dispose();
     _lspuSerialController.dispose();
+    _aviationLampSerialController.dispose();
     super.dispose();
   }
 
@@ -110,6 +114,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         // Parse different asset types
         final acdbAssets = electricalItems['ACDB'] as List<dynamic>? ?? [];
         final lspuAssets = electricalItems['LSPU'] as List<dynamic>? ?? [];
+        final aviationLampAssets = electricalItems['Aviation Lamp'] as List<dynamic>? ?? [];
         final remarksData = electricalItems['remarks'] as List<dynamic>? ?? [];
 
         final formData = <String, dynamic>{
@@ -121,6 +126,10 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
               .where((obj) => obj['photo_id'] != null)
               .toList(),
           'lspuAllAssets': lspuAssets,
+          'aviationLampAssets': aviationLampAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
+          'aviationLampAllAssets': aviationLampAssets,
           'remarks': remarksData.isNotEmpty
               ? remarksData.first['item_type_remark']?.toString() ?? ''
               : '',
@@ -132,6 +141,9 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
           );
           _savedLSPUs = List<Map<String, dynamic>>.from(
             formData['lspuAssets'] ?? [],
+          );
+          _savedAviationLamps = List<Map<String, dynamic>>.from(
+            formData['aviationLampAssets'] ?? [],
           );
 
         setState(() {
@@ -182,6 +194,13 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
     });
   }
 
+  void _onAviationLampItemSaved(List<Map<String, dynamic>> items) {
+    setState(() {
+      _savedAviationLamps = items;
+      _hasFormDataChanges = true;
+    });
+  }
+
   // Validation methods
   bool _validateAcdbSerialNumber(String serialNumber, bool isQRCodeScanned) {
     final savedItems =
@@ -203,6 +222,16 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
     );
   }
 
+  bool _validateAviationLampSerialNumber(String serialNumber, bool isQRCodeScanned) {
+    final savedItems =
+        _displayFormData?['aviationLampAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
+  }
+
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 Electrical: Starting postCurrentScreenData');
@@ -215,6 +244,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
       final finalACDBAssets = finalData?['ACDB'] as List<dynamic>? ?? [];
       final finalLSPUAssets = finalData?['LSPU'] as List<dynamic>? ?? [];
+      final finalAviationLampAssets = finalData?['Aviation Lamp'] as List<dynamic>? ?? [];
 
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
@@ -232,6 +262,14 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
         final modifiedLSPUAssets = _modifyData(finalLSPUAssets, _savedLSPUs);
         modifiedAssetsWithAllProperties.addAll(
           modifiedLSPUAssets.cast<Map<String, dynamic>>(),
+        );
+      }
+
+      // ===== Aviation Lamp Assets =====
+      if (finalAviationLampAssets.isNotEmpty) {
+        final modifiedAviationLampAssets = _modifyData(finalAviationLampAssets, _savedAviationLamps);
+        modifiedAssetsWithAllProperties.addAll(
+          modifiedAviationLampAssets.cast<Map<String, dynamic>>(),
         );
       }
 
@@ -265,6 +303,21 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       for (var asset in finalLSPUAssets) {
         final assetSerialNo = asset['mfg_serial_no']?.toString();
         final modifiedAsset = _savedLSPUs
+            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
+            .firstOrNull;
+
+        if (modifiedAsset != null) {
+          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+          asset['photo_id'] = modifiedAsset['photo_id'];
+          asset['asset_status'] = modifiedAsset['asset_status'];
+        }
+      }
+
+      // Update Aviation Lamp data in _assetAuditData
+      for (var asset in finalAviationLampAssets) {
+        final assetSerialNo = asset['mfg_serial_no']?.toString();
+        final modifiedAsset = _savedAviationLamps
             .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
             .firstOrNull;
 
@@ -436,8 +489,8 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                                 // ACDB Section
                                 AssetAuditFormComponent(
                                   componentId: 'acdb_component',
-                                  serialLabel: "ACDB *",
-                                  serialHintText: "ACDB *",
+                                  serialLabel: "ACDB",
+                                  serialHintText: "ACDB",
                                   photoLabel: "Add Photo of ACDB",
                                   serialController: _acdbSerialController,
                                   initialSavedItems: _savedACDBs,
@@ -459,8 +512,8 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                                 // LSPU Section
                                 AssetAuditFormComponent(
                                   componentId: 'lspu_component',
-                                  serialLabel: "LSPU *",
-                                  serialHintText: "LSPU *",
+                                  serialLabel: "LSPU",
+                                  serialHintText: "LSPU",
                                   photoLabel: "Add Photo of LSPU",
                                   serialController: _lspuSerialController,
                                   initialSavedItems: _savedLSPUs,
@@ -476,6 +529,29 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                                   siteAuditSchId: widget.siteAuditSchId,
                                   showTable: true,
                                   tableTitle: "LSPU Items",
+                                ),
+                                getHeight(20),
+
+                                // Aviation Lamp Section
+                                AssetAuditFormComponent(
+                                  componentId: 'aviation_lamp_component',
+                                  serialLabel: "Aviation Lamp",
+                                  serialHintText: "Aviation Lamp *",
+                                  photoLabel: "Add Photo of Aviation Lamp",
+                                  serialController: _aviationLampSerialController,
+                                  initialSavedItems: _savedAviationLamps,
+                                  onItemSaved: _onAviationLampItemSaved,
+                                  onStatusChanged: (status) {
+                                    setState(() {
+                                      _hasFormDataChanges = true;
+                                    });
+                                  },
+                                  customValidator: _validateAviationLampSerialNumber,
+                                  customValidationErrorMessage:
+                                      "Invalid Aviation Lamp serial number. Please check and try again.",
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  showTable: true,
+                                  tableTitle: "Aviation Lamp Items",
                                 ),
                                 getHeight(20),
 

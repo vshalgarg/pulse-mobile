@@ -515,17 +515,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
           children: [
             Builder(
               builder: (context) {
-                Logger.imageLog(
-                  '🏗️ Building ImageUploadField widget for Telecom',
-                );
-                Logger.imageLog(
-                  'fetchedImageData length: ${_fetchedImageData?.length ?? 0}',
-                );
-                Logger.imageLog(
-                  'fetchedImageData preview: ${_fetchedImageData?.substring(0, _fetchedImageData!.length > 50 ? 50 : _fetchedImageData!.length) ?? 'null'}',
-                );
-                Logger.imageLog('uploadedPhotoPath: ${_selectedImage?.path}');
-                Logger.imageLog('uploadedImgId: $_uploadedImgId');
+               
                 return ImageUploadField(
                   label: "Add a Selfie",
                   placeholder: "Selfie",

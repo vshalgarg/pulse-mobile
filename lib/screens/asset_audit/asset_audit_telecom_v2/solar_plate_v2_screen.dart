@@ -42,22 +42,22 @@ class SolarPlateV2Screen extends StatefulWidget {
 
 class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
   final String _screenName = 'Solar Plates';
-  
+
   // Service
   late CentralAssetAuditService _service;
-  
+
   // Data
   Map<String, dynamic>? _assetAuditData;
   Map<String, dynamic>? _displayFormData;
-  
+
   // Controllers for each section
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // State
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
-  
+
   // Solar panel data
   List<Map<String, dynamic>> _savedSolarPanels = [];
 
@@ -66,7 +66,6 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
     super.initState();
     _service = ServiceLocator().centralAssetAuditService;
     _loadData();
-
   }
 
   @override
@@ -90,26 +89,42 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
         _errorMessage = null;
       });
 
-      Logger.debugLog('🔄 Solar Plate V2: Loading data for site ${widget.siteAuditSchId}');
-      
+      Logger.debugLog(
+        '🔄 Solar Plate V2: Loading data for site ${widget.siteAuditSchId}',
+      );
+
       final data = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteAuditSchId,
       );
 
       if (data != null) {
-        final solarPlateItems = data['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')]
-        as Map<String, dynamic>? ?? {};
+        final solarPlateItems =
+            data['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+                  _screenName,
+                  'TELECOM',
+                )]
+                as Map<String, dynamic>? ??
+            {};
 
         // Parse Solar Plate data
-        final solarPanelAssets = solarPlateItems['assets'] as List<dynamic>? ?? [];
+        final solarPanelAssets =
+            solarPlateItems['assets'] as List<dynamic>? ?? [];
         final remarksData = solarPlateItems['remarks'] as List<dynamic>? ?? [];
 
         final formData = <String, dynamic>{
-          'solarPanelMake': solarPanelAssets.isNotEmpty ? solarPanelAssets.first['oem_name']?.toString() : 'N/A',
-          'capacity': solarPanelAssets.isNotEmpty ? solarPanelAssets.first['capacity']?.toString() : 'N/A',
-          'solarPanelAssets': solarPanelAssets.where((obj) => obj['photo_id'] != null).toList(),
+          'solarPanelMake': solarPanelAssets.isNotEmpty
+              ? solarPanelAssets.first['oem_name']?.toString()
+              : 'N/A',
+          'capacity': solarPanelAssets.isNotEmpty
+              ? solarPanelAssets.first['capacity']?.toString()
+              : 'N/A',
+          'solarPanelAssets': solarPanelAssets
+              .where((obj) => obj['photo_id'] != null)
+              .toList(),
           'solarPanelAllAssets': solarPanelAssets,
-          'remarks': remarksData.isNotEmpty ? remarksData.first['item_type_remark']?.toString() ?? "" : "",
+          'remarks': remarksData.isNotEmpty
+              ? remarksData.first['item_type_remark']?.toString() ?? ""
+              : "",
         };
 
         setState(() {
@@ -152,33 +167,54 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
       _displayFormData?['solarPanelAssets'] = items;
       _hasFormDataChanges = true;
     });
-    Logger.debugLog('✅ Solar Panels updated: ${_savedSolarPanels.length} items');
+    Logger.debugLog(
+      '✅ Solar Panels updated: ${_savedSolarPanels.length} items',
+    );
   }
 
   // Validation methods for solar panel serial number
-  bool _validateSolarPanelSerialNumber(String serialNumber, bool isQRCodeScanned) {
-    final savedItems = _displayFormData?['solarPanelAllAssets'] as List<dynamic>? ?? [];
-    return AssetAuditValidationHelper.validateQRCodeSerialNumber(serialNumber, savedItems, isQRCodeScanned);
+  bool _validateSolarPanelSerialNumber(
+    String serialNumber,
+    bool isQRCodeScanned,
+  ) {
+    final savedItems =
+        _displayFormData?['solarPanelAllAssets'] as List<dynamic>? ?? [];
+    return AssetAuditValidationHelper.validateQRCodeSerialNumber(
+      serialNumber,
+      savedItems,
+      isQRCodeScanned,
+    );
   }
 
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 Solar Plate V2: Starting postCurrentScreenData');
-      
-      final finalData = _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(_screenName, 'TELECOM')];
+
+      final finalData =
+          _assetAuditData?['responseData'][AssetAuditNavigationHelper.dataValueForPage(
+            _screenName,
+            'TELECOM',
+          )];
       final finalRemarks = finalData?['remarks'] as List<dynamic>? ?? [];
-      final finalSolarPanelAssets = finalData?['assets'] as List<dynamic>? ?? [];
-      
+      final finalSolarPanelAssets =
+          finalData?['assets'] as List<dynamic>? ?? [];
+
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
-      
+
       // Add Solar Panel assets
-      final modifiedSolarPanelAssets = _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalSolarPanelAssets, modifiedSolarPanelAssets));
+      final modifiedSolarPanelAssets =
+          _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalSolarPanelAssets,
+          modifiedSolarPanelAssets,
+        ),
+      );
 
       // Update remarks
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
           Logger.debugLog('✅ Updated remarks: $remark');
@@ -186,31 +222,38 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
+
       // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
 
       // Prepare data for posting
-      final postObject = [
-        ...modifiedAssetsWithAllProperties,
-        ...finalRemarks
-      ];
+      final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
 
-      Logger.debugLog('📤 Solar Plate V2: Prepared ${postObject.length} items for posting');
-      
+      Logger.debugLog(
+        '📤 Solar Plate V2: Prepared ${postObject.length} items for posting',
+      );
+
       // Initialize AssetAuditPostService
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
 
       // Post data with photo ID replacement
-      await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
-        requests: postObject,
-        isLastPage: AssetAuditNavigationHelper.getTelecomNextScreenName(_assetAuditData, _screenName) == 'SUBMIT',
-        activityType: ActivityTypeEnum.assetAudit,
-      );
-      
+      await ServiceLocator().assetAuditPostService
+          .postAssetAuditDataWithPhotoReplacement(
+            requests: postObject,
+            isLastPage:
+                AssetAuditNavigationHelper.getTelecomNextScreenName(
+                  _assetAuditData,
+                  _screenName,
+                ) ==
+                'SUBMIT',
+            activityType: ActivityTypeEnum.assetAudit,
+          );
+
       Logger.debugLog('✅ Solar Plate V2: Data posted successfully');
-      
     } catch (e) {
       Logger.errorLog('❌ Solar Plate V2: Error in postCurrentScreenData: $e');
       rethrow;
@@ -227,19 +270,15 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           section: "Asset Audit",
           parentContext: widget.parentContext,
           onSaveAndExit: () async {
-            if(_hasFormDataChanges) {
+            if (_hasFormDataChanges) {
               await postCurrentScreenData();
             }
           },
-          onDiscard: () {
-          },
+          onDiscard: () {},
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(context, targetContext: widget.parentContext);
     }
   }
 
@@ -305,14 +344,16 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
                                 ),
                               ),
                             ),
-                          
+
                           // Show error message
                           if (_errorMessage != null && !_isLoadingData)
                             Container(
                               margin: const EdgeInsets.only(bottom: 20),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppColors.errorColor.withValues(alpha: 0.1),
+                                color: AppColors.errorColor.withValues(
+                                  alpha: 0.1,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: AppColors.errorColor,
@@ -356,13 +397,17 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
                                 ],
                               ),
                             ),
-                          
+
                           // Show form when data is loaded
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData != null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData != null)
                             _buildFormFields(),
-                          
+
                           // Show message when no data
-                          if (!_isLoadingData && _errorMessage == null && _displayFormData == null)
+                          if (!_isLoadingData &&
+                              _errorMessage == null &&
+                              _displayFormData == null)
                             Container(
                               padding: const EdgeInsets.all(20),
                               child: const Center(
@@ -380,13 +425,13 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
                     ),
                   ),
                 ),
-                
+
                 // Bottom buttons using your specific format
                 AssetAuditTelecomBottomButtons(
                   isLoading: _isLoadingData,
                   errorMessage: _errorMessage,
                   onNextButtonClick: () async {
-                    if(_hasFormDataChanges) {
+                    if (_hasFormDataChanges) {
                       await postCurrentScreenData();
                     }
                   },
@@ -437,7 +482,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           ),
         ),
         getHeight(15),
-        
+
         // Solar Panel Form Component
         AssetAuditFormComponent(
           componentId: 'solar_panel_component',
@@ -445,17 +490,21 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           serialHintText: "Solar Panel Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",
-          disabledFieldValue: _displayFormData?['capacity'] ??'N/A',
+          disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
           serialController: TextEditingController(),
-          initialSavedItems: _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [],
+          initialSavedItems:
+              _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [],
           onItemSaved: _onSolarPanelItemSaved,
-          onStatusChanged: (status) {
-          },
+          onStatusChanged: (status) {},
           customValidator: _validateSolarPanelSerialNumber,
-          customValidationErrorMessage: "Invalid Solar Panel serial number. Please check and try again.",
+          customValidationErrorMessage:
+              "Invalid Solar Panel serial number. Please check and try again.",
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "Solar Panel Items",
+          secondDisabledFieldLabel: "Year of Manufacturing",
+          secondDisabledFieldValue:
+              _displayFormData?['manufacturing_year'] ?? "N/A",
         ),
         getHeight(20),
 
@@ -467,7 +516,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-        
+
         // Remarks using CustomRemarksField
         CustomRemarksField(
           label: "Add Remarks",
