@@ -76,6 +76,10 @@ class AssetAuditFormComponent extends StatefulWidget {
   /// Whether to enable image compression
   final bool enableImageCompression;
 
+  /// Optional callback to lookup disabled field values based on serial number
+  /// Returns a map with keys: 'capacity' (or disabledFieldLabel key) and 'manufacturing_year' (or secondDisabledFieldLabel key)
+  final Map<String, String?>? Function(String serialNumber)? onSerialNumberLookup;
+
   const AssetAuditFormComponent({
     super.key,
     required this.componentId,
@@ -97,6 +101,7 @@ class AssetAuditFormComponent extends StatefulWidget {
     this.tableTitle,
     this.imageHeight = 150,
     this.enableImageCompression = true,
+    this.onSerialNumberLookup,
   });
 
   @override
@@ -130,11 +135,23 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   // Image upload service
   late ImageUploadService _imageUploadService;
 
+  // Controllers for disabled fields to make them dynamic
+  TextEditingController? _disabledFieldController;
+  TextEditingController? _secondDisabledFieldController;
+
   @override
   void initState() {
     super.initState();
     // Initialize internal saved items list
     _savedItems = List<Map<String, dynamic>>.from(widget.initialSavedItems);
+
+    // Initialize disabled field controllers
+    _disabledFieldController = TextEditingController(
+      text: widget.disabledFieldValue ?? '',
+    );
+    _secondDisabledFieldController = TextEditingController(
+      text: widget.secondDisabledFieldValue ?? '',
+    );
 
     // Listen to serial controller changes to detect manual input vs scanning
     widget.serialController.addListener(_onSerialChanged);
@@ -147,6 +164,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   @override
   void dispose() {
     widget.serialController.removeListener(_onSerialChanged);
+    _disabledFieldController?.dispose();
+    _secondDisabledFieldController?.dispose();
     super.dispose();
   }
 
@@ -156,6 +175,35 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       setState(() {
         _isQRCodeScanned = false;
         qrCodeScannedTs = null;
+      });
+    }
+
+    // Look up disabled field values based on serial number if callback is provided
+    if (widget.onSerialNumberLookup != null && widget.serialController.text.isNotEmpty) {
+      final lookupResult = widget.onSerialNumberLookup!(widget.serialController.text);
+      if (lookupResult != null) {
+        setState(() {
+          // Update first disabled field (capacity)
+          if (lookupResult.containsKey('capacity')) {
+            _disabledFieldController?.text = lookupResult['capacity'] ?? '';
+          }
+          // Update second disabled field (manufacturing_year)
+          if (lookupResult.containsKey('manufacturing_year')) {
+            _secondDisabledFieldController?.text = lookupResult['manufacturing_year'] ?? '';
+          }
+        });
+      } else {
+        // Clear fields if no match found
+        setState(() {
+          _disabledFieldController?.text = '';
+          _secondDisabledFieldController?.text = '';
+        });
+      }
+    } else if (widget.serialController.text.isEmpty) {
+      // Clear fields when serial number is empty
+      setState(() {
+        _disabledFieldController?.text = '';
+        _secondDisabledFieldController?.text = '';
       });
     }
   }
@@ -428,10 +476,26 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         'photoPath': _selectedPhotoPath, // Local photo path
         'qr_code_scanned': _isQRCodeScanned,
         'qr_code_scanned_ts': qrCodeScannedTs,
-        'disabledFieldValue': widget.disabledFieldValue,
-        'secondDisabledFieldValue': widget.secondDisabledFieldValue,
+        'disabledFieldValue': _disabledFieldController?.text ?? '',
+        'secondDisabledFieldValue': _secondDisabledFieldController?.text ?? '',
         'timestamp': Utils.getCurrentDateTimeForAPICall(),
       };
+
+      // Preserve original capacity field if it exists in the existing item
+      // This is needed for total capacity calculation
+      if (existingItem.isNotEmpty && existingItem['capacity'] != null) {
+        itemData['capacity'] = existingItem['capacity'];
+      } else if (_disabledFieldController?.text != null && _disabledFieldController!.text.isNotEmpty) {
+        // If no original capacity, use the disabled field value as capacity
+        try {
+          final capacityValue = double.tryParse(_disabledFieldController!.text);
+          if (capacityValue != null) {
+            itemData['capacity'] = capacityValue;
+          }
+        } catch (e) {
+          // Ignore parsing errors
+        }
+      }
 
       // Handle photo data properly
       if (_uploadedImageId != null) {
@@ -603,6 +667,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _validationErrorMessage = null;
       _isEditing = false;
       _editingItem = null;
+      _disabledFieldController?.clear();
+      _secondDisabledFieldController?.clear();
     });
   }
 
@@ -619,6 +685,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           ? item['qr_code_scanned_ts']
           : null;
       _hasNewPhotoSelected = false; // Reset flag when starting to edit
+      // Populate disabled fields from saved item
+      _disabledFieldController?.text = item['disabledFieldValue']?.toString() ?? '';
+      _secondDisabledFieldController?.text = item['secondDisabledFieldValue']?.toString() ?? '';
     });
 
     // Handle photo loading for editing
@@ -968,7 +1037,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
         // Input field (matching CustomInfoCard)
         TextFormField(
-          initialValue: widget.disabledFieldValue,
+          controller: _disabledFieldController ??= TextEditingController(),
           readOnly: true,
           decoration: InputDecoration(
             filled: true,
@@ -981,7 +1050,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               borderRadius: BorderRadius.circular(5),
               borderSide: BorderSide.none,
             ),
-            hintText: widget.disabledFieldValue,
+            hintText: '',
             hintStyle: TextStyle(
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
@@ -1019,7 +1088,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
         // Input field (matching CustomInfoCard)
         TextFormField(
-          initialValue: widget.secondDisabledFieldValue,
+          controller: _secondDisabledFieldController ??= TextEditingController(),
           readOnly: true,
           decoration: InputDecoration(
             filled: true,
@@ -1032,7 +1101,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               borderRadius: BorderRadius.circular(5),
               borderSide: BorderSide.none,
             ),
-            hintText: widget.secondDisabledFieldValue,
+            hintText: '',
             hintStyle: TextStyle(
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,

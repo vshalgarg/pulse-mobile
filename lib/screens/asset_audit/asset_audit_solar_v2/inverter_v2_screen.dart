@@ -454,7 +454,7 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
           serialHintText: "Inverter Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
-          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
+          disabledFieldValue: null, // Will be populated dynamically based on serial number
           serialController: _inverterSerialController,
           initialSavedItems: _displayFormData?['assets'] as List<dynamic>? ?? [],
           onItemSaved: _onInverterItemSaved,
@@ -465,6 +465,27 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
           siteAuditSchId: widget.siteAuditSchId,
           showTable: true,
           tableTitle: "Inverter Items",
+          onSerialNumberLookup: (serialNumber) {
+            // Look up values from allAssets based on serial number
+            final allAssets = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+            try {
+              final matchingItem = allAssets.firstWhere(
+                (item) {
+                  final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                  final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                  return mfgSerial == serialNumber || nexgenSerial == serialNumber;
+                },
+              );
+
+              return {
+                'capacity': matchingItem['capacity']?.toString() ?? '',
+              };
+            } catch (e) {
+              // No matching item found
+              Logger.debugLog('No matching item found for serial number: $serialNumber');
+              return null;
+            }
+          },
         ),
         getHeight(15),
         

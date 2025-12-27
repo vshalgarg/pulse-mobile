@@ -108,6 +108,10 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           formData['siteType'] =
               pageHeader['site_type_name']?.toString() ?? "N/A";
           formData['status'] = pageHeader['status']?.toString() ?? "N/A";
+          formData['project_capacity'] =
+              pageHeader['project_capacity']?.toString() ?? "0";
+
+          print("pc_Activity: ${pageHeader['project_capacity']}");
 
           // Format audit due date
           String formattedAuditDueDate = "N/A";
@@ -128,8 +132,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
 
         setState(() {
           _isLoadingData = false;
-          _assetAuditData =
-              data; 
+          _assetAuditData = data;
           _displayFormData =
               formData; // Store the extracted form data for display
         });
@@ -209,14 +212,16 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
             : null;
         if (pageHeader != null) {
           pageHeader['maker_selfie_image_id'] = imgId;
-          
+
           // Save the updated data back to the database
           await _service.updateDataInSqlite(
             siteAuditSchId: widget.siteAuditSchId,
             updatedData: dbData,
           );
-          
-          Logger.debugLog('✅ Updated maker_selfie_image_id in database: $imgId');
+
+          Logger.debugLog(
+            '✅ Updated maker_selfie_image_id in database: $imgId',
+          );
         }
       }
       if (imgId != null) {
@@ -464,9 +469,9 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           isEditable: false,
         ),
         getHeight(15),
-       CustomFormField(
+        CustomFormField(
           label: "Project Capacity",
-          initialValue: _displayFormData?['siteType'] ?? "N/A",
+          initialValue: _displayFormData?['project_capacity'] ?? '0',
           isRequired: false,
           isEditable: false,
         ),
@@ -575,10 +580,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext,
-      );
+      navigateBackOrToHome(context, targetContext: widget.parentContext);
     }
   }
 }

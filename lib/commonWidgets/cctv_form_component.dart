@@ -924,8 +924,8 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
             color: widget.isCustomFieldEditable 
                 ? AppColors.color555555 
                 : AppColors.color555555.withOpacity(0.6),
+            ),
           ),
-        ),
       ],
     );
   }

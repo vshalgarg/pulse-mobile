@@ -97,6 +97,8 @@ class AssetAuditNavigationHelper {
         return 'pageHeader';
       case 'Surveillance':
         return 'CCTV';
+      case 'Solar':
+        return 'Solar';
       default:
         return page;
     }

@@ -45,7 +45,7 @@ class SPVV2Screen extends StatefulWidget {
 }
 
 class _SPVV2ScreenState extends State<SPVV2Screen> {
-  String _screenName = 'SPV';
+  String _screenName = 'Solar';
   // Loading states
   bool _isLoadingData = true;
   String? _errorMessage;
@@ -154,13 +154,38 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
     );
   }
 
+  // Calculate total capacity from saved items
+  double _calculateTotalCapacity(List<Map<String, dynamic>> items) {
+    double total = 0.0;
+    for (var item in items) {
+      // Check both 'capacity' (from API) and 'disabledFieldValue' (from saved form data)
+      final capacity = item['capacity'] ?? item['disabledFieldValue'];
+      if (capacity != null && capacity.toString().isNotEmpty) {
+        try {
+          final capacityValue = double.tryParse(capacity.toString()) ?? 0.0;
+          total += capacityValue;
+        } catch (e) {
+          Logger.errorLog('❌ Error parsing capacity: $e');
+        }
+      }
+    }
+    Logger.debugLog('📊 Calculated total capacity: $total from ${items.length} items');
+    return total;
+  }
+
   // Callback when SPV item is saved
   void _onSPVItemSaved(List<Map<String, dynamic>> items) {
     _displayFormData?['assets'] = [...items];
+    
+    // Calculate and update total capacity
+    final totalCapacity = _calculateTotalCapacity(items);
+    _totalCapacityController.text = totalCapacity.toStringAsFixed(2);
+    
     setState(() {
       _hasFormDataChanges = true;
     });
     Logger.debugLog('📝 SPV items updated: ${items.length} items');
+    Logger.debugLog('📊 Total capacity calculated: $totalCapacity Kwatt');
   }
 
   // Initialize form controllers with loaded data
@@ -170,12 +195,25 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
     _remarksController.text = remarks;
     Logger.debugLog('📝 Initialized remarks controller with: $remarks');
 
-    // Set total capacity controller text
-    final totalCapacity = formData['totalCapacity']?.toString() ?? "";
-    _totalCapacityController.text = totalCapacity;
-    Logger.debugLog(
-      '📝 Initialized total capacity controller with: $totalCapacity',
-    );
+    // Calculate total capacity from saved items if available
+    final savedItems = formData['assets'] as List<dynamic>? ?? [];
+    if (savedItems.isNotEmpty) {
+      final itemsList = savedItems
+          .map((item) => item as Map<String, dynamic>)
+          .toList();
+      final totalCapacity = _calculateTotalCapacity(itemsList);
+      _totalCapacityController.text = totalCapacity.toStringAsFixed(2);
+      Logger.debugLog(
+        '📝 Initialized total capacity from saved items: $totalCapacity Kwatt',
+      );
+    } else {
+      // Set total capacity from formData if no saved items
+      final totalCapacity = formData['totalCapacity']?.toString() ?? "";
+      _totalCapacityController.text = totalCapacity;
+      Logger.debugLog(
+        '📝 Initialized total capacity controller with: $totalCapacity',
+      );
+    }
 
     _remarksController.addListener(_onFormChanged);
     _totalCapacityController.addListener(_onFormChanged);
@@ -457,7 +495,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           serialHintText: "Solar Panel Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",
-          disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
+          disabledFieldValue: null, // Will be populated dynamically based on serial number
           serialController: _spvSerialController,
           initialSavedItems:
               _displayFormData?['assets'] as List<dynamic>? ?? [],
@@ -470,8 +508,29 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           showTable: true,
           tableTitle: "Solar Panel Items",
           secondDisabledFieldLabel: "Year of Manufacturing",
-          secondDisabledFieldValue:
-              _displayFormData?['manufacturing_year'] ?? "N/A",
+          secondDisabledFieldValue: null, // Will be populated dynamically based on serial number
+          onSerialNumberLookup: (serialNumber) {
+            // Look up values from allAssets based on serial number
+            final allAssets = _displayFormData?['allAssets'] as List<dynamic>? ?? [];
+            try {
+              final matchingItem = allAssets.firstWhere(
+                (item) {
+                  final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                  final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                  return mfgSerial == serialNumber || nexgenSerial == serialNumber;
+                },
+              );
+
+              return {
+                'capacity': matchingItem['capacity']?.toString() ?? '',
+                'manufacturing_year': matchingItem['manufacturing_year']?.toString() ?? '',
+              };
+            } catch (e) {
+              // No matching item found
+              Logger.debugLog('No matching item found for serial number: $serialNumber');
+              return null;
+            }
+          },
         ),
         getHeight(15),
 
