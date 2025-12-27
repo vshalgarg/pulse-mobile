@@ -128,15 +128,25 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
               firstAsset?['cctv_height']?.toString();
         }
 
+        // Map dimension_value to customFieldValue for saved items
+        final cctvAssetsWithCustomField = cctvAssets.map((asset) {
+          final assetMap = Map<String, dynamic>.from(asset);
+          // Map dimension_value to customFieldValue for form component
+          if (assetMap['dimension_value'] != null) {
+            assetMap['customFieldValue'] = assetMap['dimension_value'];
+          }
+          return assetMap;
+        }).toList();
+
         final formData = <String, dynamic>{
           'hooterAvailable': hooterAssets.isNotEmpty,
           'cctvAvailable': cctvAssets.isNotEmpty ? "Yes" : "No",
           'cctvCount': cctvAssets.length.toString(),
           'cctvHeight': cctvHeight ?? 'N/A',
-          'cctvAssets': cctvAssets
+          'cctvAssets': cctvAssetsWithCustomField
               .where((obj) => obj['photo_id'] != null)
               .toList(),
-          'cctvAllAssets': cctvAssets,
+          'cctvAllAssets': cctvAssetsWithCustomField,
           'remarksAvailable': remarksData.isNotEmpty,
           'remarks': remarksData.isNotEmpty
               ? remarksData.first['item_type_remark']?.toString() ?? ""

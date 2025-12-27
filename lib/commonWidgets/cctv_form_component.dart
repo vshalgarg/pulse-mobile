@@ -631,7 +631,9 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
       _isEditing = true;
       _editingItem = item;
       widget.serialController.text = item['mfg_serial_no'] ?? '';
-      _heightController.text = item['customFieldValue']?.toString() ?? '';
+      // Check both customFieldValue and dimension_value for height
+      _heightController.text = item['customFieldValue']?.toString() ?? 
+                               item['dimension_value']?.toString() ?? '';
       _selectedStatus = item['asset_status'] == 'OK' ? true : false;
       _isQRCodeScanned = item['qr_code_scanned'] ?? false;
       qrCodeScannedTs = item['qr_code_scanned'] == true

@@ -22,6 +22,10 @@ class DataTransformationHelper {
           asset['qr_code_scanned_ts'] = data['qr_code_scanned_ts'];
           asset['photo_id'] = data['photo_id'];
           asset['asset_status'] = data['asset_status'];
+          // Map customFieldValue to dimension_value if it exists (for CCTV height)
+          if(data['customFieldValue'] != null && data['customFieldValue'].toString().isNotEmpty) {
+            asset['dimension_value'] = data['customFieldValue'];
+          }
           modifiedDataToReturn.add(asset);
         }
       }

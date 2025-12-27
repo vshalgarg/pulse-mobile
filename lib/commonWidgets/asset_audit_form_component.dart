@@ -13,7 +13,6 @@ import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
 
-
 class AssetAuditFormComponent extends StatefulWidget {
   /// Unique identifier for this component instance
   final String componentId;
@@ -78,7 +77,8 @@ class AssetAuditFormComponent extends StatefulWidget {
 
   /// Optional callback to lookup disabled field values based on serial number
   /// Returns a map with keys: 'capacity' (or disabledFieldLabel key) and 'manufacturing_year' (or secondDisabledFieldLabel key)
-  final Map<String, String?>? Function(String serialNumber)? onSerialNumberLookup;
+  final Map<String, String?>? Function(String serialNumber)?
+  onSerialNumberLookup;
 
   const AssetAuditFormComponent({
     super.key,
@@ -179,8 +179,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     }
 
     // Look up disabled field values based on serial number if callback is provided
-    if (widget.onSerialNumberLookup != null && widget.serialController.text.isNotEmpty) {
-      final lookupResult = widget.onSerialNumberLookup!(widget.serialController.text);
+    if (widget.onSerialNumberLookup != null &&
+        widget.serialController.text.isNotEmpty) {
+      final lookupResult = widget.onSerialNumberLookup!(
+        widget.serialController.text,
+      );
       if (lookupResult != null) {
         setState(() {
           // Update first disabled field (capacity)
@@ -189,7 +192,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           }
           // Update second disabled field (manufacturing_year)
           if (lookupResult.containsKey('manufacturing_year')) {
-            _secondDisabledFieldController?.text = lookupResult['manufacturing_year'] ?? '';
+            _secondDisabledFieldController?.text =
+                lookupResult['manufacturing_year'] ?? '';
           }
         });
       } else {
@@ -237,9 +241,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Runs custom validation on serial number
   bool _validateSerialNumber() {
-
     if (widget.customValidator != null) {
-
       final isValid = widget.customValidator!(
         widget.serialController.text,
         _isQRCodeScanned,
@@ -252,9 +254,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
         return false;
       }
-    } else {
-
-    }
+    } else {}
     return true;
   }
 
@@ -415,7 +415,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles save button click
   Future<void> _handleSave() async {
-
     try {
       // Reset validation state
       setState(() {
@@ -426,7 +425,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       // Step 1: Run mandatory checks
 
       if (!_validateAllFields()) {
-
         _showValidationError();
         return;
       }
@@ -434,7 +432,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       // Step 2: Run custom validation on serial number
 
       if (!_validateSerialNumber()) {
-
         _showValidationError();
         return;
       }
@@ -458,7 +455,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         // No new photo selected by user
         if (_isEditing && _uploadedImageId != null) {
           // If we're editing and have a preserved photo ID, use it
-
         } else if (existingItem.isNotEmpty &&
             existingItem['photo'] != null &&
             existingItem['photo'].toString().isNotEmpty) {
@@ -485,7 +481,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       // This is needed for total capacity calculation
       if (existingItem.isNotEmpty && existingItem['capacity'] != null) {
         itemData['capacity'] = existingItem['capacity'];
-      } else if (_disabledFieldController?.text != null && _disabledFieldController!.text.isNotEmpty) {
+      } else if (_disabledFieldController?.text != null &&
+          _disabledFieldController!.text.isNotEmpty) {
         // If no original capacity, use the disabled field value as capacity
         try {
           final capacityValue = double.tryParse(_disabledFieldController!.text);
@@ -502,13 +499,16 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         // We have a photo ID from server
         itemData['photo_id'] = _uploadedImageId;
         // Store photoPath - if we have base64 image data, keep it; otherwise use photo_id
-        if (_selectedPhotoPath != null && _selectedPhotoPath!.startsWith('data:image/')) {
+        if (_selectedPhotoPath != null &&
+            _selectedPhotoPath!.startsWith('data:image/')) {
           // We have base64 image data - store it for instant display next time
           itemData['photoPath'] = _selectedPhotoPath;
-        } else if (_photoData != null && _photoData.toString().startsWith('data:image/')) {
+        } else if (_photoData != null &&
+            _photoData.toString().startsWith('data:image/')) {
           // We have cached base64 data
           itemData['photoPath'] = _photoData;
-        } else if (existingItem.isNotEmpty && existingItem['photoPath'] != null) {
+        } else if (existingItem.isNotEmpty &&
+            existingItem['photoPath'] != null) {
           // Keep original photoPath (might be base64 or path)
           itemData['photoPath'] = existingItem['photoPath'];
         } else {
@@ -593,9 +593,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles photo upload using ImageUploadService
   Future<void> _uploadPhoto() async {
-
     if (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty) {
-
       return;
     }
 
@@ -604,7 +602,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     });
 
     try {
-
       // Read image file and convert to base64
       final imageFile = File(_selectedPhotoPath!);
       final imageBytes = await imageFile.readAsBytes();
@@ -624,15 +621,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       });
 
       if (uniqueId.isEmpty) {
-
         setState(() {
           _isUploading = false;
         });
         throw Exception('Photo upload failed - no unique ID returned');
       }
-
     } catch (e) {
-
       setState(() {
         _isUploading = false;
       });
@@ -674,7 +668,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Starts editing an item
   void _startEditing(Map<String, dynamic> item) async {
-
     setState(() {
       _isEditing = true;
       _editingItem = item;
@@ -686,18 +679,22 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           : null;
       _hasNewPhotoSelected = false; // Reset flag when starting to edit
       // Populate disabled fields from saved item
-      _disabledFieldController?.text = item['disabledFieldValue']?.toString() ?? '';
-      _secondDisabledFieldController?.text = item['secondDisabledFieldValue']?.toString() ?? '';
+      _disabledFieldController?.text =
+          item['disabledFieldValue']?.toString() ?? '';
+      _secondDisabledFieldController?.text =
+          item['secondDisabledFieldValue']?.toString() ?? '';
     });
 
     // Handle photo loading for editing
-    final photoId = item['photo_id']; // This could be numeric (server ID) or string (local ID)
-    final photoPath = item['photoPath']; // This is the local path or base64 data
+    final photoId =
+        item['photo_id']; // This could be numeric (server ID) or string (local ID)
+    final photoPath =
+        item['photoPath']; // This is the local path or base64 data
 
     // Check if photoPath is base64 data first (faster, no fetch needed)
     final photoPathString = photoPath != null ? photoPath.toString() : null;
-    if (photoPathString != null && 
-        photoPathString.isNotEmpty && 
+    if (photoPathString != null &&
+        photoPathString.isNotEmpty &&
         photoPathString.startsWith('data:image/')) {
       // We have base64 image data - use it immediately
 
@@ -714,11 +711,10 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     // Convert photo_id to string if it's numeric
     final uniqueIdString = photoId != null ? photoId.toString() : null;
 
-    if (uniqueIdString != null && 
-        uniqueIdString.isNotEmpty && 
-        uniqueIdString != "null" && 
+    if (uniqueIdString != null &&
+        uniqueIdString.isNotEmpty &&
+        uniqueIdString != "null" &&
         uniqueIdString != "0") {
-
       _uploadedImageId = uniqueIdString; // Store the unique ID as string
       _photoData = null; // No local photo data
       await _fetchAndDisplayServerImage(uniqueIdString);
@@ -731,9 +727,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         _selectedPhotoPath = photoPathString; // Convert to string
         _isUploading = false;
       });
-
     } else {
-
       _uploadedImageId = null;
       _photoData = null;
       setState(() {
@@ -745,7 +739,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Fetches and displays server image for editing using ImageUploadService
   Future<void> _fetchAndDisplayServerImage(String uniqueId) async {
-
     try {
       // Show loading indicator
       setState(() {
@@ -754,14 +747,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
       String? imageData;
       String? finalUniqueId = uniqueId;
-      
+
       // Check if this is a server ID (numeric, not LOCAL_IMAGE_ID)
       // If so, try to get from local first, then download from server if not found
-      if (!uniqueId.contains("LOCAL_IMAGE_ID") && int.tryParse(uniqueId) != null) {
-        
+      if (!uniqueId.contains("LOCAL_IMAGE_ID") &&
+          int.tryParse(uniqueId) != null) {
         // Try to get from local SQLite (checks both unique_id and server_id)
         imageData = await _imageUploadService.getImageUsingUniqueId(uniqueId);
-        
+
         if (imageData == null || imageData.isEmpty) {
           // Not found locally, download from server
 
@@ -773,11 +766,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
           // After download, get the image data
           if (finalUniqueId != null) {
-            imageData = await _imageUploadService.getImageUsingUniqueId(finalUniqueId);
+            imageData = await _imageUploadService.getImageUsingUniqueId(
+              finalUniqueId,
+            );
           }
-        } else {
-
-        }
+        } else {}
       } else {
         // Not a server ID, get directly
 
@@ -791,25 +784,23 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
             : 'data:image/jpeg;base64,$imageData';
 
         setState(() {
-          _selectedPhotoPath = finalImageData; // Store as base64 data for display
+          _selectedPhotoPath =
+              finalImageData; // Store as base64 data for display
           _isUploading = false; // Clear loading state
         });
-
       } else {
-
         setState(() {
           _selectedPhotoPath = null; // Clear photo path on failure
           _isUploading = false; // Clear loading state
         });
       }
     } catch (e, stackTrace) {
-
       if (mounted) {
         setState(() {
-          _selectedPhotoPath = null; // Don't set to uniqueId - keep null to show error
+          _selectedPhotoPath =
+              null; // Don't set to uniqueId - keep null to show error
           _isUploading = false; // Clear loading state
         });
-
       }
     }
   }
@@ -879,6 +870,26 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                       qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
                       _showValidationErrors = false;
                     });
+                    // Explicitly trigger lookup after QR scan to ensure fields are populated
+                    // The listener should also trigger this, but this ensures it happens
+                    if (widget.onSerialNumberLookup != null &&
+                        widget.serialController.text.isNotEmpty) {
+                      final lookupResult = widget.onSerialNumberLookup!(
+                        widget.serialController.text,
+                      );
+                      if (lookupResult != null) {
+                        setState(() {
+                          if (lookupResult.containsKey('capacity')) {
+                            _disabledFieldController?.text =
+                                lookupResult['capacity'] ?? '';
+                          }
+                          if (lookupResult.containsKey('manufacturing_year')) {
+                            _secondDisabledFieldController?.text =
+                                lookupResult['manufacturing_year'] ?? '';
+                          }
+                        });
+                      }
+                    }
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -1088,7 +1099,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
         // Input field (matching CustomInfoCard)
         TextFormField(
-          controller: _secondDisabledFieldController ??= TextEditingController(),
+          controller: _secondDisabledFieldController ??=
+              TextEditingController(),
           readOnly: true,
           decoration: InputDecoration(
             filled: true,
@@ -1260,7 +1272,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     final label = widget.secondDisabledFieldLabel!.toLowerCase();
     if (label.contains('year') && label.contains('manufactur')) {
       return 'MFG Year';
-    } 
+    }
     // Default: extract first word or use a shortened version
     final words = widget.secondDisabledFieldLabel!.split(' ');
     return words.isNotEmpty ? words.first : widget.secondDisabledFieldLabel!;
@@ -1273,7 +1285,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     }
 
     final secondDisabledFieldHeader = _getSecondDisabledFieldTableHeader();
-    final showSecondDisabledFieldColumn = widget.secondDisabledFieldLabel != null && secondDisabledFieldHeader.isNotEmpty;
+    final showSecondDisabledFieldColumn =
+        widget.secondDisabledFieldLabel != null &&
+        secondDisabledFieldHeader.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: 20),
@@ -1345,8 +1359,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Builds a table row
   Widget _buildTableRow(Map<String, dynamic> item) {
-    final showSecondDisabledFieldColumn = widget.secondDisabledFieldLabel != null;
-    
+    final showSecondDisabledFieldColumn =
+        widget.secondDisabledFieldLabel != null;
+
     return Container(
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1413,19 +1428,22 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     // Convert photo_id to string if it's numeric, and check if valid
     final photoId = item['photo_id'];
     final photoIdString = photoId != null ? photoId.toString() : null;
-    final hasValidPhotoId = photoIdString != null && 
-                           photoIdString.isNotEmpty && 
-                           photoIdString != "null" && 
-                           photoIdString != "0";
-    
+    final hasValidPhotoId =
+        photoIdString != null &&
+        photoIdString.isNotEmpty &&
+        photoIdString != "null" &&
+        photoIdString != "0";
+
     // Check photoPath
     final photoPath = item['photoPath'];
     final photoPathString = photoPath != null ? photoPath.toString() : null;
-    final hasValidPhotoPath = photoPathString != null && photoPathString.isNotEmpty;
-    
+    final hasValidPhotoPath =
+        photoPathString != null && photoPathString.isNotEmpty;
+
     // Determine which photo to show (prefer photo_id over photoPath)
-    final photoToShow = hasValidPhotoId ? photoIdString : 
-                       (hasValidPhotoPath ? photoPathString : null);
+    final photoToShow = hasValidPhotoId
+        ? photoIdString
+        : (hasValidPhotoPath ? photoPathString : null);
 
     return Container(
       width: width,
@@ -1481,7 +1499,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               const SizedBox(height: 16),
 
               // Second disabled field (if provided) - placed just below serial number
-              if (widget.secondDisabledFieldLabel != null && widget.secondDisabledFieldLabel!.isNotEmpty) ...[
+              if (widget.secondDisabledFieldLabel != null &&
+                  widget.secondDisabledFieldLabel!.isNotEmpty) ...[
                 _buildSecondDisabledField(),
                 const SizedBox(height: 16),
               ],
@@ -1550,32 +1569,31 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       );
 
       try {
-
         String? finalUniqueId = photo;
-        
+
         // Check if this is a server ID (numeric, not LOCAL_IMAGE_ID)
         // If so, try to get from local first, then download from server if not found
         if (!photo.contains("LOCAL_IMAGE_ID") && int.tryParse(photo) != null) {
-          
           // Try to get from local SQLite (checks both unique_id and server_id)
           imageData = await _imageUploadService.getImageUsingUniqueId(photo);
-          
+
           if (imageData == null || imageData.isEmpty) {
             // Not found locally, download from server
 
-            finalUniqueId = await _imageUploadService.downloadImageUsingServerId(
-              photo,
-              ActivityTypeEnum.assetAudit,
-              widget.siteAuditSchId,
-            );
+            finalUniqueId = await _imageUploadService
+                .downloadImageUsingServerId(
+                  photo,
+                  ActivityTypeEnum.assetAudit,
+                  widget.siteAuditSchId,
+                );
 
             // After download, get the image data
             if (finalUniqueId != null) {
-              imageData = await _imageUploadService.getImageUsingUniqueId(finalUniqueId);
+              imageData = await _imageUploadService.getImageUsingUniqueId(
+                finalUniqueId,
+              );
             }
-          } else {
-
-          }
+          } else {}
         } else {
           // Use ImageUploadService to get image data (handles both numeric and string IDs)
           imageData = await _imageUploadService.getImageUsingUniqueId(photo);
@@ -1586,17 +1604,13 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           imageData = imageData.startsWith('data:image/')
               ? imageData
               : 'data:image/jpeg;base64,$imageData';
-
-        } else {
-
-        }
+        } else {}
 
         // Close loading dialog
         if (context.mounted) {
           Navigator.of(context).pop();
         }
       } catch (e, stackTrace) {
-
         // Close loading dialog on error
         if (context.mounted) {
           Navigator.of(context).pop();

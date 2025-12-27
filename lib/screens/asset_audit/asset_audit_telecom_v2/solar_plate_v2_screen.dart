@@ -16,11 +16,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
-import '../../../services/asset_audit_post_service.dart';
-import '../../../services/image_upload_service.dart';
-import '../../../app_config.dart';
 
 class SolarPlateV2Screen extends StatefulWidget {
   final String siteAuditSchId;
@@ -52,6 +48,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
 
   // Controllers for each section
   final TextEditingController _remarksController = TextEditingController();
+  final TextEditingController _solarPanelSerialController = TextEditingController();
 
   // State
   bool _isLoadingData = false;
@@ -71,6 +68,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
   @override
   void dispose() {
     _remarksController.dispose();
+    _solarPanelSerialController.dispose();
     super.dispose();
   }
 
@@ -186,6 +184,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
     );
   }
 
+
   Future<void> postCurrentScreenData() async {
     try {
       Logger.debugLog('📤 Solar Plate V2: Starting postCurrentScreenData');
@@ -235,10 +234,6 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
       Logger.debugLog(
         '📤 Solar Plate V2: Prepared ${postObject.length} items for posting',
       );
-
-      // Initialize AssetAuditPostService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
 
       // Post data with photo ID replacement
       await ServiceLocator().assetAuditPostService
@@ -490,8 +485,8 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           serialHintText: "Solar Panel Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",
-          disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
-          serialController: TextEditingController(),
+          disabledFieldValue: null, // Start blank, will be populated on serial lookup
+          serialController: _solarPanelSerialController,
           initialSavedItems:
               _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [],
           onItemSaved: _onSolarPanelItemSaved,
@@ -503,8 +498,31 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           showTable: true,
           tableTitle: "Solar Panel Items",
           secondDisabledFieldLabel: "Year of Manufacturing",
-          secondDisabledFieldValue:
-              _displayFormData?['manufacturing_year'] ?? "N/A",
+          secondDisabledFieldValue: null, // Start blank, will be populated on serial lookup
+          onSerialNumberLookup: (serialNumber) {
+            // Look up values from allAssets based on serial number (matching SPV screen implementation)
+            final allAssets = _displayFormData?['solarPanelAllAssets'] as List<dynamic>? ?? [];
+            try {
+              final matchingItem = allAssets.firstWhere(
+                (item) {
+                  final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                  final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                  // Case-insensitive comparison to handle QR scan uppercase
+                  return mfgSerial.toUpperCase() == serialNumber.toUpperCase() || 
+                         nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
+                },
+              );
+
+              return {
+                'capacity': matchingItem['capacity']?.toString() ?? '',
+                'manufacturing_year': matchingItem['manufacturing_year']?.toString() ?? '',
+              };
+            } catch (e) {
+              // No matching item found
+              Logger.debugLog('No matching item found for serial number: $serialNumber');
+              return null;
+            }
+          },
         ),
         getHeight(20),
 

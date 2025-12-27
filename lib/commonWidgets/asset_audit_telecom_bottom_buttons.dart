@@ -83,6 +83,7 @@ class AssetAuditTelecomBottomButtons extends StatelessWidget {
                 try {
                   await onNextButtonClick();
 
+                  // Only navigate if no error occurred
                   AssetAuditNavigationHelper.navigateToNextTelecomScreen(
                     context,
                     assetAuditData,
@@ -92,6 +93,9 @@ class AssetAuditTelecomBottomButtons extends StatelessWidget {
                     auditSchId,
                     parentContext,
                   );
+                } catch (e) {
+                  // Error already handled in postCurrentScreenData, don't navigate
+                  // Loader will be hidden in finally block
                 } finally {
                   LoaderWidget.hideLoader();
                 }

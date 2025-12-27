@@ -25,6 +25,13 @@ class AssetAuditPostService {
     required ActivityTypeEnum activityType,
     required bool isLastPage,
   }) async {
+    // Prevent posting empty arrays to avoid server errors
+    if (requests.isEmpty) {
+      Logger.errorLog('❌ AssetAuditPostService: Attempted to post empty array, aborting to prevent server error');
+      Logger.errorLog('❌ This indicates a bug in the calling code - empty arrays should be filtered before calling this service');
+      return;
+    }
+    
     try {
       // Get current location with offline support
       LocationModel finalLocation;
