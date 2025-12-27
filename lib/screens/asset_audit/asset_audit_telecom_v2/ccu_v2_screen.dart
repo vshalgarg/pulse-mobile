@@ -439,8 +439,15 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         for (var cabinet in ccuCabinetList) {
           final cabinetMap = Map<String, dynamic>.from(cabinet);
 
-          if (_cabinetSerialController.text.isNotEmpty &&
-              _cabinetPhotoId != null) {
+          // Always update photo_id if it exists, regardless of serial number
+          if (_cabinetPhotoId != null && _cabinetPhotoId!.isNotEmpty) {
+            cabinetMap['photo_id'] = _cabinetPhotoId;
+            cabinetMap['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+            Logger.debugLog('✅ Updated CCU Cabinet with photo_id: $_cabinetPhotoId');
+          }
+
+          // Update serial number and validate if serial controller has text
+          if (_cabinetSerialController.text.isNotEmpty) {
             bool isValid = _validateCabinetSerialNumber(
               _cabinetSerialController.text,
               isQrCodeScanned ?? false,
@@ -450,16 +457,21 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
               throw Exception("Please select cabinet serial number");
             }
 
-            cabinetMap['photo_id'] = _cabinetPhotoId;
+            cabinetMap['mfg_serial_no'] = _cabinetSerialController.text;
             cabinetMap['asset_status'] = 'OK';
 
             if (isQrCodeScanned ?? false) {
               cabinetMap['qr_code_scanned'] = true;
               cabinetMap['qr_code_scanned_ts'] = qrCodeScannedTs;
             }
+          } else if (cabinetMap['mfg_serial_no'] != null && cabinetMap['mfg_serial_no'].toString().isNotEmpty) {
+            // If serial number already exists in data but controller is empty, preserve it
+            cabinetMap['asset_status'] = cabinetMap['asset_status'] ?? 'OK';
+          }
 
-            cabinetMap['mfg_serial_no'] = _cabinetSerialController.text;
-
+          // Always add cabinet to modified assets if photo_id exists or if it has a serial number
+          if ((_cabinetPhotoId != null && _cabinetPhotoId!.isNotEmpty) ||
+              (cabinetMap['mfg_serial_no'] != null && cabinetMap['mfg_serial_no'].toString().isNotEmpty)) {
             modifiedAssetsWithAllProperties.add(cabinetMap);
           }
         }
@@ -600,10 +612,16 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           ccuCabinetList is List &&
           ccuCabinetList.isNotEmpty) {
         for (int i = 0; i < ccuCabinetList.length; i++) {
-          if (_cabinetSerialController.text.isNotEmpty &&
-              _cabinetPhotoId != null) {
-            ccuCabinetList[i]['mfg_serial_no'] = _cabinetSerialController.text;
+          // Always update photo_id if it exists
+          if (_cabinetPhotoId != null && _cabinetPhotoId!.isNotEmpty) {
             ccuCabinetList[i]['photo_id'] = _cabinetPhotoId;
+            ccuCabinetList[i]['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+            Logger.debugLog('✅ Updated CCU Cabinet in _assetAuditData with photo_id: $_cabinetPhotoId');
+          }
+
+          // Update serial number if controller has text
+          if (_cabinetSerialController.text.isNotEmpty) {
+            ccuCabinetList[i]['mfg_serial_no'] = _cabinetSerialController.text;
             ccuCabinetList[i]['asset_status'] = 'OK';
             if (isQrCodeScanned ?? false) {
               ccuCabinetList[i]['qr_code_scanned'] = true;
