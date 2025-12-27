@@ -674,52 +674,50 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                 ),
                                 getHeight(15),
 
-                                // Count of SMPS (readonly)
-                                if (_displayFormData?['smpsCount'] != "0") ...[
-                                  CustomFormField(
-                                    label: "Count of SMPS",
-                                    hintText:
-                                        _displayFormData?['smpsCount'] ?? "0",
-                                    isRequired: false,
-                                    isEditable: false,
-                                  ),
-                                  getHeight(15),
+                                // Count of SMPS (readonly) - Always show
+                                CustomFormField(
+                                  label: "Count of SMPS",
+                                  hintText:
+                                      _displayFormData?['smpsCount'] ?? "0",
+                                  isRequired: false,
+                                  isEditable: false,
+                                ),
+                                getHeight(15),
 
-                                  // Photo of SMPS
-                                  ImageUploadField(
-                                    label: "Add Photo of SMPS",
-                                    placeholder: "Add Photo",
-                                    isRequired: true,
-                                    externalImageUrl: _smpsImageData,
-                                    onImageSelected: (image) async {
-                                      if (image != null) {
-                                        setState(() {
-                                          _smpsImage = image;
-                                        });
-                                        // Upload image and get photo_id
-                                        try {
-                                          final photoId = await _service.uploadImage(
-                                            siteAuditSchId: widget.siteAuditSchId,
-                                            imageFile: image,
-                                            isSelfie: false,
-                                            activityType: ActivityTypeEnum.assetAudit,
-                                          );
-                                          if (photoId != null && photoId.isNotEmpty) {
-                                            setState(() {
-                                              _smpsImagePhotoId = photoId;
-                                              _smpsImageData = null; // Clear old image data when new image is uploaded
-                                              _hasFormDataChanges = true;
-                                            });
-                                            Logger.debugLog('✅ SMPS image uploaded with ID: $photoId');
-                                          }
-                                        } catch (e) {
-                                          Logger.errorLog('❌ Error uploading SMPS image: $e');
+                                // Photo of SMPS - Always show
+                                ImageUploadField(
+                                  label: "Add Photo of SMPS",
+                                  placeholder: "Add Photo",
+                                  isRequired: true,
+                                  externalImageUrl: _smpsImageData,
+                                  onImageSelected: (image) async {
+                                    if (image != null) {
+                                      setState(() {
+                                        _smpsImage = image;
+                                      });
+                                      // Upload image and get photo_id
+                                      try {
+                                        final photoId = await _service.uploadImage(
+                                          siteAuditSchId: widget.siteAuditSchId,
+                                          imageFile: image,
+                                          isSelfie: false,
+                                          activityType: ActivityTypeEnum.assetAudit,
+                                        );
+                                        if (photoId != null && photoId.isNotEmpty) {
+                                          setState(() {
+                                            _smpsImagePhotoId = photoId;
+                                            _smpsImageData = null; // Clear old image data when new image is uploaded
+                                            _hasFormDataChanges = true;
+                                          });
+                                          Logger.debugLog('✅ SMPS image uploaded with ID: $photoId');
                                         }
+                                      } catch (e) {
+                                        Logger.errorLog('❌ Error uploading SMPS image: $e');
                                       }
-                                    },
-                                  ),
-                                  getHeight(15),
-                                ],
+                                    }
+                                  },
+                                ),
+                                getHeight(15),
 
                                 if (_displayFormData?['smpsCabinetAvailable'] ??
                                     false) ...[
@@ -748,77 +746,74 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                   getHeight(20),
                                 ],
 
-                                if (_displayFormData?['smpsRectifiersCount'] !=
-                                    "0") ...[
-                                  // Count of SMPS Rectifiers (readonly)
-                                  CustomFormField(
-                                    label: "Count of Rectifiers",
-                                    hintText:
-                                        _displayFormData?['smpsRectifiersCount'] ??
-                                        "0",
-                                    isRequired: false,
-                                    isEditable: false,
-                                  ),
-                                  getHeight(15),
+                                // Count of SMPS Rectifiers (readonly) - Always show
+                                CustomFormField(
+                                  label: "Count of Rectifiers",
+                                  hintText:
+                                      _displayFormData?['smpsRectifiersCount'] ??
+                                      "0",
+                                  isRequired: false,
+                                  isEditable: false,
+                                ),
+                                getHeight(15),
 
-                                  // Photo of all Rectifier
-                                  ImageUploadField(
-                                    label: "Add Photo of all Rectifier",
-                                    placeholder: "Add Photo",
-                                    isRequired: true,
-                                    externalImageUrl: _rectifiersImageData,
-                                    onImageSelected: (image) async {
-                                      if (image != null) {
-                                        setState(() {
-                                          _rectifiersImage = image;
-                                        });
-                                        // Upload image and get photo_id
-                                        try {
-                                          final photoId = await _service.uploadImage(
-                                            siteAuditSchId: widget.siteAuditSchId,
-                                            imageFile: image,
-                                            isSelfie: false,
-                                            activityType: ActivityTypeEnum.assetAudit,
-                                          );
-                                          if (photoId != null && photoId.isNotEmpty) {
-                                            setState(() {
-                                              _rectifiersImagePhotoId = photoId;
-                                              _rectifiersImageData = null; // Clear old image data when new image is uploaded
-                                              _hasFormDataChanges = true;
-                                            });
-                                            Logger.debugLog('✅ SMPS Rectifiers image uploaded with ID: $photoId');
-                                          }
-                                        } catch (e) {
-                                          Logger.errorLog('❌ Error uploading SMPS Rectifiers image: $e');
+                                // Photo of all Rectifier - Always show
+                                ImageUploadField(
+                                  label: "Add Photo of all Rectifier",
+                                  placeholder: "Add Photo",
+                                  isRequired: true,
+                                  externalImageUrl: _rectifiersImageData,
+                                  onImageSelected: (image) async {
+                                    if (image != null) {
+                                      setState(() {
+                                        _rectifiersImage = image;
+                                      });
+                                      // Upload image and get photo_id
+                                      try {
+                                        final photoId = await _service.uploadImage(
+                                          siteAuditSchId: widget.siteAuditSchId,
+                                          imageFile: image,
+                                          isSelfie: false,
+                                          activityType: ActivityTypeEnum.assetAudit,
+                                        );
+                                        if (photoId != null && photoId.isNotEmpty) {
+                                          setState(() {
+                                            _rectifiersImagePhotoId = photoId;
+                                            _rectifiersImageData = null; // Clear old image data when new image is uploaded
+                                            _hasFormDataChanges = true;
+                                          });
+                                          Logger.debugLog('✅ SMPS Rectifiers image uploaded with ID: $photoId');
                                         }
+                                      } catch (e) {
+                                        Logger.errorLog('❌ Error uploading SMPS Rectifiers image: $e');
                                       }
-                                    },
-                                  ),
-                                  getHeight(15),
+                                    }
+                                  },
+                                ),
+                                getHeight(15),
 
-                                  // SMPS Rectifiers Section
-                                  AssetAuditFormComponent(
-                                    componentId: 'smps_rectifiers_component',
-                                    serialLabel: "Rectifier - Serial Number *",
-                                    serialHintText: "Rectifier Serial Number *",
-                                    photoLabel: "Add a Photo",
-                                    serialController: TextEditingController(),
-                                    initialSavedItems:
-                                        _displayFormData?['smpsRectifiers']
-                                            as List<dynamic>? ??
-                                        [],
-                                    onItemSaved: _onSMPSRectifierItemSaved,
-                                    onStatusChanged: (status) {},
-                                    customValidator:
-                                        _validateRectifierSerialNumber,
-                                    customValidationErrorMessage:
-                                        "Invalid SMPS Rectifiers serial number. Please check and try again.",
-                                    siteAuditSchId: widget.siteAuditSchId,
-                                    showTable: true,
-                                    tableTitle: "SMPS Rectifiers",
-                                  ),
-                                  getHeight(20),
-                                ],
+                                // SMPS Rectifiers Section - Always show
+                                AssetAuditFormComponent(
+                                  componentId: 'smps_rectifiers_component',
+                                  serialLabel: "Rectifier - Serial Number *",
+                                  serialHintText: "Rectifier Serial Number *",
+                                  photoLabel: "Add a Photo",
+                                  serialController: TextEditingController(),
+                                  initialSavedItems:
+                                      _displayFormData?['smpsRectifiers']
+                                          as List<dynamic>? ??
+                                      [],
+                                  onItemSaved: _onSMPSRectifierItemSaved,
+                                  onStatusChanged: (status) {},
+                                  customValidator:
+                                      _validateRectifierSerialNumber,
+                                  customValidationErrorMessage:
+                                      "Invalid SMPS Rectifiers serial number. Please check and try again.",
+                                  siteAuditSchId: widget.siteAuditSchId,
+                                  showTable: true,
+                                  tableTitle: "SMPS Rectifiers",
+                                ),
+                                getHeight(20),
 
                                 // Add Remarks
                                 CustomRemarksField(
