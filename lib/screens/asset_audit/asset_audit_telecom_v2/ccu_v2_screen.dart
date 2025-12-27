@@ -23,6 +23,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
+import '../../../utils.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
@@ -101,6 +102,19 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
   // MPPT remarks controller
   final TextEditingController _mpptRemarksController = TextEditingController();
+
+  // Rectifier remarks controller
+  final TextEditingController _rectifierRemarksController = TextEditingController();
+
+  // Rectifier image photo ID
+  String? _rectifierImagePhotoId;
+
+  // MPPT image photo ID
+  String? _mpptImagePhotoId;
+  String? _mpptImageData;
+
+  // Rectifier image data
+  String? _rectifierImageData;
 
   @override
   void initState() {
@@ -181,21 +195,63 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           // Extract Rectifiers data
           final rectifiers = ccuData['CCU Rectifiers'] as List<dynamic>? ?? [];
           formData['totalRectifier'] = rectifiers.length.toString();
+          // Filter out "Overall Dtl" items from saved items list
           formData['rectifiers'] = rectifiers
-              .where((item) => item['photo_id'] != null)
+              .where((item) => 
+                  item['photo_id'] != null && 
+                  item['record_type'] != 'Overall Dtl of CCU Rectifiers')
               .toList();
           formData['allRectifiers'] = rectifiers;
+
+          // Extract rectifier remarks and photo from "Overall Dtl of CCU Rectifiers"
+          try {
+            final overallDtlItem = rectifiers.firstWhere(
+              (item) => item['record_type'] == 'Overall Dtl of CCU Rectifiers',
+            );
+            if (overallDtlItem != null) {
+              formData['rectifiersRemarks'] = overallDtlItem['item_type_remark']?.toString() ?? '';
+              if (overallDtlItem['photo_id'] != null) {
+                _rectifierImagePhotoId = overallDtlItem['photo_id']?.toString();
+                // Fetch image data for display
+                _loadRectifierImage(_rectifierImagePhotoId!);
+              }
+            }
+          } catch (e) {
+            // No "Overall Dtl of CCU Rectifiers" item found
+            Logger.debugLog('No Overall Dtl of CCU Rectifiers item found');
+          }
 
           // Extract MPPT data
           final mppts = ccuData['CCU MPPT'] as List<dynamic>? ?? [];
           formData['totalMPPT'] = mppts.length.toString();
+          // Filter out "Overall Dtl" items from saved items list
           formData['mppts'] = mppts
-              .where((item) => item['photo_id'] != null)
+              .where((item) => 
+                  item['photo_id'] != null && 
+                  item['record_type'] != 'Overall Dtl of CCU MPPT')
               .toList();
           formData['allMppts'] = mppts;
           formData['mpptCapacity'] = mppts.isNotEmpty
               ? mppts.first['capacity']
               : 'N/A';
+
+          // Extract MPPT remarks and photo from "Overall Dtl of CCU MPPT"
+          try {
+            final overallMpptDtlItem = mppts.firstWhere(
+              (item) => item['record_type'] == 'Overall Dtl of CCU MPPT',
+            );
+            if (overallMpptDtlItem != null) {
+              formData['mpptRemarks'] = overallMpptDtlItem['item_type_remark']?.toString() ?? '';
+              if (overallMpptDtlItem['photo_id'] != null) {
+                _mpptImagePhotoId = overallMpptDtlItem['photo_id']?.toString();
+                // Fetch image data for display
+                _loadMpptImage(_mpptImagePhotoId!);
+              }
+            }
+          } catch (e) {
+            // No "Overall Dtl of CCU MPPT" item found
+            Logger.debugLog('No Overall Dtl of CCU MPPT item found');
+          }
 
           // Extract remarks
           final remarks = ccuData['remarks'] as List<dynamic>? ?? [];
@@ -264,6 +320,15 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
     _remarksController.text = formData['remarks']?.toString() ?? "";
     _remarksController.addListener(_onFormChanged);
+    
+    // Initialize rectifier remarks controller
+    _rectifierRemarksController.text = formData['rectifiersRemarks']?.toString() ?? '';
+    _rectifierRemarksController.addListener(_onFormChanged);
+    
+    // Initialize MPPT remarks controller
+    _mpptRemarksController.text = formData['mpptRemarks']?.toString() ?? '';
+    _mpptRemarksController.addListener(_onFormChanged);
+    
     if (mounted) {
       setState(() {});
     }
@@ -289,21 +354,67 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     bool? isQRCodeScanned1,
     String? qrCodeScannedTs1,
   ) {
-    final isValidSerial = _validateCabinetSerialNumber(
-      _cabinetSerialController.text,
-      isQRCodeScanned1 ?? false,
-    );
-
-    if (isValidSerial) {
+    // Always save photo_id and image data when provided, regardless of serial validation
+    // This allows photo to be uploaded before serial number is entered
+    if (photoId != null) {
       setState(() {
         _cabinetPhotoId = photoId;
         _cabinetImageData = imageData;
         _hasFormDataChanges = true;
+      });
+    }
+
+    // Update QR code scan info if provided
+    if (isQRCodeScanned1 != null || qrCodeScannedTs1 != null) {
+      setState(() {
         isQrCodeScanned = isQRCodeScanned1 ?? false;
         qrCodeScannedTs = qrCodeScannedTs1;
+        _hasFormDataChanges = true;
       });
-    } else {
-      _cabinetSerialController.text = '';
+    }
+
+    // Validate serial number only if it's not empty
+    if (_cabinetSerialController.text.isNotEmpty) {
+      final isValidSerial = _validateCabinetSerialNumber(
+        _cabinetSerialController.text,
+        isQRCodeScanned1 ?? false,
+      );
+
+      if (!isValidSerial) {
+        setState(() {
+          _cabinetSerialController.text = '';
+        });
+      }
+    }
+  }
+
+  /// Load rectifier image data from photo_id
+  Future<void> _loadRectifierImage(String photoId) async {
+    try {
+      final imageData = await _service.getImageAsDataUrl(photoId);
+      if (imageData != null && imageData.isNotEmpty) {
+        setState(() {
+          _rectifierImageData = imageData;
+        });
+        Logger.debugLog('✅ Rectifier image loaded successfully');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading rectifier image: $e');
+    }
+  }
+
+  /// Load MPPT image data from photo_id
+  Future<void> _loadMpptImage(String photoId) async {
+    try {
+      final imageData = await _service.getImageAsDataUrl(photoId);
+      if (imageData != null && imageData.isNotEmpty) {
+        setState(() {
+          _mpptImageData = imageData;
+        });
+        Logger.debugLog('✅ MPPT image loaded successfully');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error loading MPPT image: $e');
     }
   }
 
@@ -363,6 +474,54 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         modifiedAssetsWithAllProperties.addAll(
           modifiedRectifiers.cast<Map<String, dynamic>>(),
         );
+
+        // Update "Overall Dtl of CCU Rectifiers" item with photo and remarks
+        try {
+          final overallDtlItem = rectifierList.firstWhere(
+            (item) => item['record_type'] == 'Overall Dtl of CCU Rectifiers',
+          );
+
+          if (overallDtlItem != null) {
+          final overallDtlMap = Map<String, dynamic>.from(overallDtlItem);
+          
+          // Update photo_id if rectifier image was uploaded
+          if (_rectifierImagePhotoId != null && _rectifierImagePhotoId!.isNotEmpty) {
+            overallDtlMap['photo_id'] = _rectifierImagePhotoId;
+            overallDtlMap['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+            Logger.debugLog('✅ Updated Overall Dtl of CCU Rectifiers with photo_id: $_rectifierImagePhotoId');
+          }
+
+          // Update item_type_remark if rectifier remarks were added
+          final rectifierRemarks = _rectifierRemarksController.text;
+          if (rectifierRemarks.isNotEmpty) {
+            overallDtlMap['item_type_remark'] = rectifierRemarks;
+            Logger.debugLog('✅ Updated Overall Dtl of CCU Rectifiers with remarks: $rectifierRemarks');
+          }
+
+          // Add to modified assets if there are changes
+          if ((_rectifierImagePhotoId != null && _rectifierImagePhotoId!.isNotEmpty) ||
+              rectifierRemarks.isNotEmpty) {
+            modifiedAssetsWithAllProperties.add(overallDtlMap);
+          }
+
+          // Also update in _assetAuditData for local storage
+          final overallDtlIndex = rectifierList.indexWhere(
+            (item) => item['record_type'] == 'Overall Dtl of CCU Rectifiers',
+          );
+          if (overallDtlIndex != -1) {
+            if (_rectifierImagePhotoId != null && _rectifierImagePhotoId!.isNotEmpty) {
+              rectifierList[overallDtlIndex]['photo_id'] = _rectifierImagePhotoId;
+              rectifierList[overallDtlIndex]['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+            }
+            if (rectifierRemarks.isNotEmpty) {
+              rectifierList[overallDtlIndex]['item_type_remark'] = rectifierRemarks;
+            }
+          }
+          }
+        } catch (e) {
+          // No "Overall Dtl of CCU Rectifiers" item found
+          Logger.debugLog('No Overall Dtl of CCU Rectifiers item found: $e');
+        }
       }
 
       // ===== CCU MPPT =====
@@ -372,6 +531,54 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         modifiedAssetsWithAllProperties.addAll(
           modifiedMppts.cast<Map<String, dynamic>>(),
         );
+
+        // Update "Overall Dtl of CCU MPPT" item with photo and remarks
+        try {
+          final overallMpptDtlItem = mpptList.firstWhere(
+            (item) => item['record_type'] == 'Overall Dtl of CCU MPPT',
+          );
+
+          if (overallMpptDtlItem != null) {
+            final overallMpptDtlMap = Map<String, dynamic>.from(overallMpptDtlItem);
+            
+            // Update photo_id if MPPT image was uploaded
+            if (_mpptImagePhotoId != null && _mpptImagePhotoId!.isNotEmpty) {
+              overallMpptDtlMap['photo_id'] = _mpptImagePhotoId;
+              overallMpptDtlMap['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+              Logger.debugLog('✅ Updated Overall Dtl of CCU MPPT with photo_id: $_mpptImagePhotoId');
+            }
+
+            // Update item_type_remark if MPPT remarks were added
+            final mpptRemarks = _mpptRemarksController.text;
+            if (mpptRemarks.isNotEmpty) {
+              overallMpptDtlMap['item_type_remark'] = mpptRemarks;
+              Logger.debugLog('✅ Updated Overall Dtl of CCU MPPT with remarks: $mpptRemarks');
+            }
+
+            // Add to modified assets if there are changes
+            if ((_mpptImagePhotoId != null && _mpptImagePhotoId!.isNotEmpty) ||
+                mpptRemarks.isNotEmpty) {
+              modifiedAssetsWithAllProperties.add(overallMpptDtlMap);
+            }
+
+            // Also update in _assetAuditData for local storage
+            final overallMpptDtlIndex = mpptList.indexWhere(
+              (item) => item['record_type'] == 'Overall Dtl of CCU MPPT',
+            );
+            if (overallMpptDtlIndex != -1) {
+              if (_mpptImagePhotoId != null && _mpptImagePhotoId!.isNotEmpty) {
+                mpptList[overallMpptDtlIndex]['photo_id'] = _mpptImagePhotoId;
+                mpptList[overallMpptDtlIndex]['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+              }
+              if (mpptRemarks.isNotEmpty) {
+                mpptList[overallMpptDtlIndex]['item_type_remark'] = mpptRemarks;
+              }
+            }
+          }
+        } catch (e) {
+          // No "Overall Dtl of CCU MPPT" item found
+          Logger.debugLog('No Overall Dtl of CCU MPPT item found: $e');
+        }
       }
 
       // ===== Remarks =====
@@ -614,6 +821,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
     _mpptSerialController.dispose();
     _mpptCapacityController.dispose();
     _mpptRemarksController.dispose();
+    _rectifierRemarksController.dispose();
     super.dispose();
   }
 
@@ -885,10 +1093,32 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             label: "Add Photo of all Rectifiers",
             placeholder: "Add Photo",
             isRequired: true,
-            onImageSelected: (image) {
-              setState(() {
-                _rectifierImage = image;
-              });
+            externalImageUrl: _rectifierImageData,
+            onImageSelected: (image) async {
+              if (image != null) {
+                setState(() {
+                  _rectifierImage = image;
+                });
+                // Upload image and get photo_id
+                try {
+                  final photoId = await _service.uploadImage(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    imageFile: image,
+                    isSelfie: false,
+                    activityType: ActivityTypeEnum.assetAudit,
+                  );
+                  if (photoId != null && photoId.isNotEmpty) {
+                    setState(() {
+                      _rectifierImagePhotoId = photoId;
+                      _rectifierImageData = null; // Clear old image data when new image is uploaded
+                      _hasFormDataChanges = true;
+                    });
+                    Logger.debugLog('✅ Rectifier image uploaded with ID: $photoId');
+                  }
+                } catch (e) {
+                  Logger.errorLog('❌ Error uploading rectifier image: $e');
+                }
+              }
             },
           ),
           getHeight(15),
@@ -897,7 +1127,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
           CustomRemarksField(
             label: "Add Rectifiers Remarks",
             hintText: "Remarks",
-            controller: _remarksController,
+            controller: _rectifierRemarksController,
             initialValue: _displayFormData?['rectifiersRemarks'] ?? '',
           ),
            getHeight(15),
@@ -953,10 +1183,32 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
             label: "Add Photo of all MPPT",
             placeholder: "Add Photo",
             isRequired: true,
-            onImageSelected: (image) {
-              setState(() {
-                _mpptImage = image;
-              });
+            externalImageUrl: _mpptImageData,
+            onImageSelected: (image) async {
+              if (image != null) {
+                setState(() {
+                  _mpptImage = image;
+                });
+                // Upload image and get photo_id
+                try {
+                  final photoId = await _service.uploadImage(
+                    siteAuditSchId: widget.siteAuditSchId,
+                    imageFile: image,
+                    isSelfie: false,
+                    activityType: ActivityTypeEnum.assetAudit,
+                  );
+                  if (photoId != null && photoId.isNotEmpty) {
+                    setState(() {
+                      _mpptImagePhotoId = photoId;
+                      _mpptImageData = null; // Clear old image data when new image is uploaded
+                      _hasFormDataChanges = true;
+                    });
+                    Logger.debugLog('✅ MPPT image uploaded with ID: $photoId');
+                  }
+                } catch (e) {
+                  Logger.errorLog('❌ Error uploading MPPT image: $e');
+                }
+              }
             },
           ),
           getHeight(15),

@@ -23,6 +23,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
+import '../../../utils.dart';
 import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
@@ -75,6 +76,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
 
   // Battery modules image
   File? _batteryModulesImage;
+  String? _batteryModulesPhotoId;
+  String? _batteryModulesImageData;
 
   @override
   void initState() {
@@ -162,6 +165,29 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           Logger.debugLog('📸 No photo_id found for battery cabinet');
         }
 
+        // Extract battery modules photo and remarks from "Overall Dtl of Battery"
+        String? batteryModulesImageData;
+        try {
+          final overallDtlItem = batteryAssets.firstWhere(
+            (item) => item['record_type'] == 'Overall Dtl of Battery',
+          );
+          if (overallDtlItem != null) {
+            if (overallDtlItem['photo_id'] != null) {
+              final photoId = overallDtlItem['photo_id'].toString();
+              Logger.debugLog('📸 Loading battery modules image with photo_id: $photoId');
+              try {
+                batteryModulesImageData = await _service.getImageAsDataUrl(photoId);
+                Logger.debugLog('✅ Successfully loaded battery modules image');
+              } catch (e) {
+                Logger.errorLog('❌ Error loading battery modules image: $e');
+              }
+            }
+          }
+        } catch (e) {
+          // No "Overall Dtl of Battery" item found
+          Logger.debugLog('No Overall Dtl of Battery item found');
+        }
+
         final formData = <String, dynamic>{
           'cbmsAvailable': cbmsAssets.isNotEmpty ? "Yes" : "No",
           'capacity': batteryAssets.isNotEmpty ? batteryAssets.first['capacity'] : null,
@@ -177,14 +203,31 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
               .where((obj) => obj['photo_id'] != null)
               .toList(),
           'cbmsAllAssets': cbmsAssets,
+          // Filter out "Overall Dtl" items from saved items list
           'batteryAssets': batteryAssets
-              .where((obj) => obj['photo_id'] != null)
+              .where((obj) => 
+                  obj['photo_id'] != null && 
+                  obj['record_type'] != 'Overall Dtl of Battery')
               .toList(),
           'batteryAllAssets': batteryAssets,
+          'batteryModulesImageData': batteryModulesImageData,
           'remarks': remarksData.isNotEmpty
               ? remarksData.first['item_type_remark']?.toString() ?? ""
               : "",
         };
+
+        // Store battery modules photo_id if exists
+        try {
+          final overallDtlItem = batteryAssets.firstWhere(
+            (item) => item['record_type'] == 'Overall Dtl of Battery',
+          );
+          if (overallDtlItem != null && overallDtlItem['photo_id'] != null) {
+            _batteryModulesPhotoId = overallDtlItem['photo_id'].toString();
+            _batteryModulesImageData = batteryModulesImageData;
+          }
+        } catch (e) {
+          // No "Overall Dtl of Battery" item found
+        }
 
         setState(() {
           _isLoadingData = false;
@@ -355,6 +398,43 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           modifiedBatteryAssets,
         ),
       );
+
+      // Update "Overall Dtl of Battery" item with photo
+      try {
+        final overallDtlItem = finalBatteryAssets.firstWhere(
+          (item) => item['record_type'] == 'Overall Dtl of Battery',
+        );
+
+        if (overallDtlItem != null) {
+          final overallDtlMap = Map<String, dynamic>.from(overallDtlItem);
+          
+          // Update photo_id if battery modules image was uploaded
+          if (_batteryModulesPhotoId != null && _batteryModulesPhotoId!.isNotEmpty) {
+            overallDtlMap['photo_id'] = _batteryModulesPhotoId;
+            overallDtlMap['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+            Logger.debugLog('✅ Updated Overall Dtl of Battery with photo_id: $_batteryModulesPhotoId');
+          }
+
+          // Add to modified assets if there are changes
+          if (_batteryModulesPhotoId != null && _batteryModulesPhotoId!.isNotEmpty) {
+            modifiedAssetsWithAllProperties.add(overallDtlMap);
+          }
+
+          // Also update in _assetAuditData for local storage
+          final overallDtlIndex = finalBatteryAssets.indexWhere(
+            (item) => item['record_type'] == 'Overall Dtl of Battery',
+          );
+          if (overallDtlIndex != -1) {
+            if (_batteryModulesPhotoId != null && _batteryModulesPhotoId!.isNotEmpty) {
+              finalBatteryAssets[overallDtlIndex]['photo_id'] = _batteryModulesPhotoId;
+              finalBatteryAssets[overallDtlIndex]['photo_taken_ts'] = Utils.getCurrentDateTimeForAPICall();
+            }
+          }
+        }
+      } catch (e) {
+        // No "Overall Dtl of Battery" item found
+        Logger.debugLog('No Overall Dtl of Battery item found: $e');
+      }
 
       // Update remarks
       final String remark = _remarksController.text;
@@ -684,11 +764,13 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           ),
           getHeight(20),
         ],
-        // Count of Battery Modules
+        // Count of Battery Modules (excluding "Overall Dtl" items)
         CustomFormField(
           label: "Count of Battery Modules",
-          initialValue:
-              _displayFormData?['batteryAllAssets']?.length.toString() ?? "0",
+          initialValue: ((_displayFormData?['batteryAllAssets'] as List<dynamic>?)
+                  ?.where((item) => item['record_type'] != 'Overall Dtl of Battery')
+                  .length ?? 0)
+              .toString(),
           isRequired: false,
           isEditable: false,
         ),
@@ -699,10 +781,32 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           label: "Add Photo of Battery Modules",
           placeholder: "Add Photo",
           isRequired: true,
-          onImageSelected: (image) {
-            setState(() {
-              _batteryModulesImage = image;
-            });
+          externalImageUrl: _batteryModulesImageData,
+          onImageSelected: (image) async {
+            if (image != null) {
+              setState(() {
+                _batteryModulesImage = image;
+              });
+              // Upload image and get photo_id
+              try {
+                final photoId = await _service.uploadImage(
+                  siteAuditSchId: widget.siteAuditSchId,
+                  imageFile: image,
+                  isSelfie: false,
+                  activityType: ActivityTypeEnum.assetAudit,
+                );
+                if (photoId != null && photoId.isNotEmpty) {
+                  setState(() {
+                    _batteryModulesPhotoId = photoId;
+                    _batteryModulesImageData = null; // Clear old image data when new image is uploaded
+                    _hasFormDataChanges = true;
+                  });
+                  Logger.debugLog('✅ Battery modules image uploaded with ID: $photoId');
+                }
+              } catch (e) {
+                Logger.errorLog('❌ Error uploading battery modules image: $e');
+              }
+            }
           },
         ),
         getHeight(15),
