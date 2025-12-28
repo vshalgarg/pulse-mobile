@@ -43,19 +43,24 @@ class TicketScreen extends StatefulWidget {
   State<TicketScreen> createState() => _TicketScreenState();
 }
 
-class _TicketScreenState extends State<TicketScreen> {
+class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver {
   late String _currentTicketType;
   late ActivityTypeEnum _currentActivityType;
   final Set<int> _downloadedTicketIds = <int>{};
   bool _isInitializingDownloadedTickets = false;
+  bool _hasLoadedOnce = false; // Track if tickets have been loaded at least once
+  DateTime? _lastRefreshTime; // Track last refresh time to prevent too frequent refreshes
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
     _loadTickets();
+    _hasLoadedOnce = true;
+    _lastRefreshTime = DateTime.now();
 
     // Initialize downloaded tickets state after a short delay to ensure tickets are loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -66,6 +71,57 @@ class _TicketScreenState extends State<TicketScreen> {
           _initializeDownloadedTickets(currentState.ticketResponse.tickets);
         }
       });
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh when app comes back to foreground
+    if (state == AppLifecycleState.resumed && _hasLoadedOnce && mounted) {
+      _refreshTicketsIfNeeded();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh tickets when screen becomes visible (user returns from navigation)
+    // Add a small delay to prevent refresh during initial build
+    if (_hasLoadedOnce && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _refreshTicketsIfNeeded();
+        }
+      });
+    }
+  }
+
+  void _refreshTicketsIfNeeded() {
+    // Prevent too frequent refreshes (at least 500ms between refreshes)
+    final now = DateTime.now();
+    if (_lastRefreshTime != null &&
+        now.difference(_lastRefreshTime!).inMilliseconds < 500) {
+      return;
+    }
+
+    _lastRefreshTime = now;
+    _loadTickets();
+
+    // Re-initialize downloaded tickets state after a short delay
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        final currentState = context.read<TicketCubit>().state;
+        if (currentState is TicketSuccess) {
+          _initializeDownloadedTickets(currentState.ticketResponse.tickets);
+        }
+      }
     });
   }
 
