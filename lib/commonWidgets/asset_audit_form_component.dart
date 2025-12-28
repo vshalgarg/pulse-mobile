@@ -145,13 +145,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     // Initialize internal saved items list
     _savedItems = List<Map<String, dynamic>>.from(widget.initialSavedItems);
 
-    // Initialize disabled field controllers
-    _disabledFieldController = TextEditingController(
-      text: widget.disabledFieldValue ?? '',
-    );
-    _secondDisabledFieldController = TextEditingController(
-      text: widget.secondDisabledFieldValue ?? '',
-    );
+    // Initialize disabled field controllers with 'N/A' initially
+    _disabledFieldController = TextEditingController(text: 'N/A');
+    _secondDisabledFieldController = TextEditingController(text: 'N/A');
 
     // Listen to serial controller changes to detect manual input vs scanning
     widget.serialController.addListener(_onSerialChanged);
@@ -178,33 +174,64 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       });
     }
 
-    // Look up disabled field values based on serial number if callback is provided
-    if (widget.onSerialNumberLookup != null &&
-        widget.serialController.text.isNotEmpty) {
-      final lookupResult = widget.onSerialNumberLookup!(
-        widget.serialController.text,
-      );
+    final serialNumber = widget.serialController.text;
+    
+    // If serial number is empty, reset fields to 'N/A'
+    if (serialNumber.isEmpty) {
+      setState(() {
+        _disabledFieldController?.text = 'N/A';
+        _secondDisabledFieldController?.text = 'N/A';
+      });
+      return;
+    }
+
+    // Validate serial number if custom validator is provided
+    bool isValid = true;
+    if (widget.customValidator != null) {
+      isValid = widget.customValidator!(serialNumber, _isQRCodeScanned);
+    }
+
+    if (!isValid) {
+      // If serial number is invalid, clear fields (blank, not 'N/A')
+      setState(() {
+        _disabledFieldController?.text = '';
+        _secondDisabledFieldController?.text = '';
+      });
+      return;
+    }
+
+    // Serial number is valid - look up disabled field values if callback is provided
+    if (widget.onSerialNumberLookup != null) {
+      final lookupResult = widget.onSerialNumberLookup!(serialNumber);
       if (lookupResult != null) {
         setState(() {
-          // Update first disabled field (capacity)
-          if (lookupResult.containsKey('capacity')) {
-            _disabledFieldController?.text = lookupResult['capacity'] ?? '';
+          // Update first disabled field only if value exists
+          if (lookupResult.containsKey('capacity') && 
+              lookupResult['capacity'] != null && 
+              lookupResult['capacity'].toString().isNotEmpty) {
+            _disabledFieldController?.text = lookupResult['capacity'].toString();
+          } else {
+            _disabledFieldController?.text = '';
           }
-          // Update second disabled field (manufacturing_year)
-          if (lookupResult.containsKey('manufacturing_year')) {
-            _secondDisabledFieldController?.text =
-                lookupResult['manufacturing_year'] ?? '';
+          // Update second disabled field only if value exists
+          if (lookupResult.containsKey('manufacturing_year') && 
+              lookupResult['manufacturing_year'] != null && 
+              lookupResult['manufacturing_year'].toString().isNotEmpty) {
+            _secondDisabledFieldController?.text = 
+                lookupResult['manufacturing_year'].toString();
+          } else {
+            _secondDisabledFieldController?.text = '';
           }
         });
       } else {
-        // Clear fields if no match found
+        // No lookup result - clear fields
         setState(() {
           _disabledFieldController?.text = '';
           _secondDisabledFieldController?.text = '';
         });
       }
-    } else if (widget.serialController.text.isEmpty) {
-      // Clear fields when serial number is empty
+    } else {
+      // No lookup callback - clear fields
       setState(() {
         _disabledFieldController?.text = '';
         _secondDisabledFieldController?.text = '';
