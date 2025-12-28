@@ -190,7 +190,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
 
         final formData = <String, dynamic>{
           'cbmsAvailable': cbmsAssets.isNotEmpty ? "Yes" : "No",
-          'capacity': batteryAssets.isNotEmpty ? batteryAssets.first['capacity'] : null,
+          'capacity': batteryAssets.isNotEmpty ? batteryAssets.first['capacity']?.toString() ?? 'N/A' : 'N/A',
           'batteryCabinetAssets': batteryCabinetAssets
               .where((obj) => obj['photo_id'] != null)
               .toList(),
@@ -669,6 +669,13 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   }
 
   Widget _buildFormFields() {
+    // Calculate Battery Modules count only for items with record_type == "Asset"
+    final allBatteries = _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
+    final batteryCount = allBatteries
+        .where((item) => item['record_type']?.toString() == 'Asset')
+        .length
+        .toString();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -764,13 +771,10 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           ),
           getHeight(20),
         ],
-        // Count of Battery Modules (excluding "Overall Dtl" items)
+        // Count of Battery Modules (only items with record_type == "Asset")
         CustomFormField(
           label: "Count of Battery Modules",
-          initialValue: ((_displayFormData?['batteryAllAssets'] as List<dynamic>?)
-                  ?.where((item) => item['record_type'] != 'Overall Dtl of Battery')
-                  .length ?? 0)
-              .toString(),
+          initialValue: batteryCount,
           isRequired: false,
           isEditable: false,
         ),
@@ -829,8 +833,6 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             serialLabel: "Battery - Serial Number *",
             serialHintText: "Battery Serial Number *",
             photoLabel: "Add a Photo",
-            disabledFieldLabel: "Capacity *",
-            disabledFieldValue: _displayFormData?['capacity'] ?? 'N/A',
             serialController: _batterySerialController,
             initialSavedItems:
                 _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
