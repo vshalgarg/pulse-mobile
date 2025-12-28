@@ -2,6 +2,7 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
+import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -250,28 +251,28 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       final modifiedAssetsWithAllProperties = <dynamic>[];
 
       // ===== ACDB Assets =====
-      if (finalACDBAssets.isNotEmpty) {
-        final modifiedACDBAssets = _modifyData(finalACDBAssets, _savedACDBs);
-        modifiedAssetsWithAllProperties.addAll(
-          modifiedACDBAssets.cast<Map<String, dynamic>>(),
-        );
-      }
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalACDBAssets,
+          _savedACDBs,
+        ),
+      );
 
       // ===== LSPU Assets =====
-      if (finalLSPUAssets.isNotEmpty) {
-        final modifiedLSPUAssets = _modifyData(finalLSPUAssets, _savedLSPUs);
-        modifiedAssetsWithAllProperties.addAll(
-          modifiedLSPUAssets.cast<Map<String, dynamic>>(),
-        );
-      }
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalLSPUAssets,
+          _savedLSPUs,
+        ),
+      );
 
       // ===== Aviation Lamp Assets =====
-      if (finalAviationLampAssets.isNotEmpty) {
-        final modifiedAviationLampAssets = _modifyData(finalAviationLampAssets, _savedAviationLamps);
-        modifiedAssetsWithAllProperties.addAll(
-          modifiedAviationLampAssets.cast<Map<String, dynamic>>(),
-        );
-      }
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(
+          finalAviationLampAssets,
+          _savedAviationLamps,
+        ),
+      );
 
       // ===== Remarks =====
       if (finalRemarks.isNotEmpty) {
@@ -362,37 +363,6 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
     }
   }
 
-  // Helper method to modify data (similar to CCU screen)
-  List<dynamic> _modifyData(
-    List<dynamic> actualData,
-    List<dynamic> modifiedData,
-  ) {
-    List<dynamic> modifiedDataToReturn = [];
-    for (dynamic asset in actualData) {
-      try {
-        final assetSerialNo = asset['mfg_serial_no']?.toString();
-        final modifiedAsset = modifiedData
-            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
-            .firstOrNull;
-
-        if (modifiedAsset != null) {
-          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-          asset['photo_id'] = modifiedAsset['photo_id'];
-          asset['asset_status'] = modifiedAsset['asset_status'];
-          modifiedDataToReturn.add(asset);
-          Logger.debugLog('✅ Updated asset: $assetSerialNo');
-        } else {
-          Logger.debugLog(
-            '⚠️ No modified asset found for serial: $assetSerialNo',
-          );
-        }
-      } catch (e) {
-        Logger.errorLog('❌ Error updating asset: $e');
-      }
-    }
-    return modifiedDataToReturn;
-  }
 
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
