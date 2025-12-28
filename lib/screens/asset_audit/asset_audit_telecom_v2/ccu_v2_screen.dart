@@ -1070,6 +1070,20 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
   }
 
   Widget _buildFormFields() {
+    // Calculate Rectifier count only for items with record_type == "Asset"
+    final allRectifiers = _displayFormData?['allRectifiers'] as List<dynamic>? ?? [];
+    final rectifierCount = allRectifiers
+        .where((item) => item['record_type']?.toString() == 'Asset')
+        .length
+        .toString();
+
+    // Calculate MPPT count only for items with record_type == "Asset"
+    final allMppts = _displayFormData?['allMppts'] as List<dynamic>? ?? [];
+    final mpptCount = allMppts
+        .where((item) => item['record_type']?.toString() == 'Asset')
+        .length
+        .toString();
+
     return Column(
       children: [
         // Hybrid CCU Make
@@ -1100,7 +1114,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         if (_displayFormData?['totalRectifier'] != "0") ...[
           CustomFormField(
             label: "Total Count of Rectifier",
-            initialValue: _displayFormData?['totalRectifier'] ?? "0",
+            initialValue: rectifierCount,
             isRequired: false,
             isEditable: false,
           ),
@@ -1190,7 +1204,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         if (_displayFormData?['totalMPPT'] != "0") ...[
           CustomFormField(
             label: "Total Count of MPPT",
-            initialValue: _displayFormData?['totalMPPT'] ?? "0",
+            initialValue: mpptCount,
             isRequired: false,
             isEditable: false,
           ),
