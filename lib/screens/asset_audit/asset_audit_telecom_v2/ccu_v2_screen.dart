@@ -1288,6 +1288,29 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   siteAuditSchId: widget.siteAuditSchId,
                   showTable: true,
                   tableTitle: "MPPTs",
+                  onSerialNumberLookup: (serialNumber) {
+                    // Look up capacity from allMppts based on serial number
+                    final allMppts = _displayFormData?['allMppts'] as List<dynamic>? ?? [];
+                    try {
+                      final matchingItem = allMppts.firstWhere(
+                        (item) {
+                          final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                          final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                          // Case-insensitive comparison to handle QR scan uppercase
+                          return mfgSerial.toUpperCase() == serialNumber.toUpperCase() || 
+                                 nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
+                        },
+                      );
+
+                      return {
+                        'capacity': matchingItem['capacity']?.toString() ?? '',
+                      };
+                    } catch (e) {
+                      // No matching item found
+                      Logger.debugLog('No matching MPPT found for serial number: $serialNumber');
+                      return null;
+                    }
+                  },
                 ),
               ],
             ),
