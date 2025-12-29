@@ -199,6 +199,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           'batteryCabinetSerial': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['mfg_serial_no'] : null,
           'batteryCabinetPhotoId': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['photo_id'] : null,
           'batteryCabinetImageData': batteryCabinetImageData,
+          'batteryCabinetOemName': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['oem_name']?.toString() ?? '' : '',
           'cbmsAssets': cbmsAssets
               .where((obj) => obj['photo_id'] != null)
               .toList(),
@@ -720,6 +721,14 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           getHeight(20),
         ],
         if (_displayFormData?['batteryCabinetAvailable'] || false) ...[
+          // Battery Make field
+          CustomFormField(
+            label: "Battery Make",
+            initialValue: _displayFormData?['batteryCabinetOemName']?.toString() ?? '',
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
           const Text(
             "Battery Cabinet Details",
             style: TextStyle(
