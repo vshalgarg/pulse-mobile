@@ -9,6 +9,7 @@ import '../../commonWidgets/custom_pm_bottom_buttons.dart';
 import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../routes/route_generator.dart';
+import '../../custom_widgets/pm_custom_form_component.dart';
 
 class PMPageWidget extends StatefulWidget {
   final List<Map<String, dynamic>> pmItems;
@@ -403,6 +404,29 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                                         pmItem['pm_check_list_site_resp_id'],
                                   );
 
+                                  // Check if this is a grouped item with resp_dtl_checklist
+                                  final isGroup = pmItem['is_group'] == true;
+                                  final hasRespDtlChecklist = pmItem['resp_dtl_checklist'] != null;
+
+                                  // Use PMCustomFormComponent for grouped items with resp_dtl_checklist
+                                  if (isGroup && hasRespDtlChecklist) {
+                                    return PMCustomFormComponent(
+                                      key: ValueKey(
+                                        'pm_form_${pmItem['pm_check_list_site_resp_id']}_$index',
+                                      ),
+                                      checklistItem: pmItem,
+                                      onChange: (updatedItem) {
+                                        if (mounted) {
+                                          _onItemChanged(
+                                            originalIndex,
+                                            updatedItem,
+                                          );
+                                        }
+                                      },
+                                    );
+                                  }
+
+                                  // Use regular PMCustomWidget for non-grouped items
                                   return PMCustomWidget(
                                     key: ValueKey(
                                       'pm_item_${pmItem['pm_check_list_site_resp_id']}_$index',
