@@ -672,10 +672,10 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   Widget _buildFormFields() {
     // Calculate Battery Modules count only for items with record_type == "Asset"
     final allBatteries = _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
-    final batteryCount = allBatteries
+    final batteryCountInt = allBatteries
         .where((item) => item['record_type']?.toString() == 'Asset')
-        .length
-        .toString();
+        .length;
+    final batteryCount = batteryCountInt.toString();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -703,8 +703,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           // CBMS Form Component
           AssetAuditFormComponent(
             componentId: 'cbms_component',
-            serialLabel: "CBMS - Serial Number *",
-            serialHintText: "CBMS Serial Number *",
+            serialLabel: "CBMS - Serial Number",
+            serialHintText: "CBMS Serial Number",
             photoLabel: "Add a Photo",
             serialController: _cbmsSerialController,
             initialSavedItems:
@@ -741,8 +741,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           // Battery Cabinet Form Component
           SimpleAssetAuditFormComponent(
             componentId: 'battery_cabinet_component',
-            serialLabel: "Battery Cabinet - Serial Number *",
-            serialHintText: "Battery Cabinet Serial Number *",
+            serialLabel: "Battery Cabinet - Serial Number",
+            serialHintText: "Battery Cabinet Serial Number",
             photoLabel: "Add a Photo",
             serialController: _batteryCabinetSerialController,
             initialSerialValue: _getBatteryCabinetValue('mfg_serial_no'),
@@ -824,9 +824,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         ),
         getHeight(15),
 
-        // Battery Details Section - only show if battery assets exist
-        if (_displayFormData?['batteryAllAssets'] != null && 
-            (_displayFormData?['batteryAllAssets'] as List).isNotEmpty) ...[
+        // Battery Details Section - only show if batteryCount > 0
+        if (batteryCountInt > 0) ...[
           const Text(
             "Battery Details",
             style: TextStyle(
@@ -839,8 +838,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           // Battery Form Component
           AssetAuditFormComponent(
             componentId: 'battery_component',
-            serialLabel: "Battery - Serial Number *",
-            serialHintText: "Battery Serial Number *",
+            serialLabel: "Battery - Serial Number",
+            serialHintText: "Battery Serial Number",
             photoLabel: "Add a Photo",
             serialController: _batterySerialController,
             initialSavedItems:

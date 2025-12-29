@@ -1188,8 +1188,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
                 AssetAuditFormComponent(
                   componentId: 'rectifier_component',
-                  serialLabel: "Rectifier - Serial Number *",
-                  serialHintText: "Rectifier Serial Number *",
+                  serialLabel: "Rectifier - Serial Number",
+                  serialHintText: "Rectifier Serial Number",
                   photoLabel: "Add a Photo",
                   serialController: _rectifierSerialController,
                   initialSavedItems: _savedRectifiers,
@@ -1278,8 +1278,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
                 AssetAuditFormComponent(
                   componentId: 'mppt_component',
-                  serialLabel: "MPPT - Serial Number *",
-                  serialHintText: "MPPT Serial Number *",
+                  serialLabel: "MPPT - Serial Number",
+                  serialHintText: "MPPT Serial Number",
                   photoLabel: "Add a Photo",
                   disabledFieldLabel: "Capacity",
                   disabledFieldValue:
