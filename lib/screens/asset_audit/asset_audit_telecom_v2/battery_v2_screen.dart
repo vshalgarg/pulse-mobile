@@ -841,6 +841,9 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             serialLabel: "Battery - Serial Number",
             serialHintText: "Battery Serial Number",
             photoLabel: "Add a Photo",
+            disabledFieldLabel: "Capacity",
+            disabledFieldValue:
+                _displayFormData?['capacity']?.toString() ?? 'N/A',
             serialController: _batterySerialController,
             initialSavedItems:
                 _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
@@ -852,6 +855,29 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             siteAuditSchId: widget.siteAuditSchId,
             showTable: true,
             tableTitle: "Battery Items",
+            onSerialNumberLookup: (serialNumber) {
+              // Look up capacity from batteryAllAssets based on serial number
+              final allBatteries = _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
+              try {
+                final matchingItem = allBatteries.firstWhere(
+                  (item) {
+                    final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                    final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                    // Case-insensitive comparison to handle QR scan uppercase
+                    return mfgSerial.toUpperCase() == serialNumber.toUpperCase() || 
+                           nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
+                  },
+                );
+
+                return {
+                  'capacity': matchingItem['capacity']?.toString() ?? '',
+                };
+              } catch (e) {
+                // No matching item found
+                Logger.debugLog('No matching Battery found for serial number: $serialNumber');
+                return null;
+              }
+            },
           ),
           getHeight(20),
         ],
