@@ -131,6 +131,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
               .where((obj) => obj['photo_id'] != null)
               .toList(),
           'aviationLampAllAssets': aviationLampAssets,
+          'aviationLampAvailable': aviationLampAssets.isNotEmpty,
           'remarks': remarksData.isNotEmpty
               ? remarksData.first['item_type_remark']?.toString() ?? ''
               : '',
@@ -502,28 +503,30 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                                 ),
                                 getHeight(20),
 
-                                // Aviation Lamp Section
-                                AssetAuditFormComponent(
-                                  componentId: 'aviation_lamp_component',
-                                  serialLabel: "Aviation Lamp",
-                                  serialHintText: "Aviation Lamp *",
-                                  photoLabel: "Add Photo of Aviation Lamp",
-                                  serialController: _aviationLampSerialController,
-                                  initialSavedItems: _savedAviationLamps,
-                                  onItemSaved: _onAviationLampItemSaved,
-                                  onStatusChanged: (status) {
-                                    setState(() {
-                                      _hasFormDataChanges = true;
-                                    });
-                                  },
-                                  customValidator: _validateAviationLampSerialNumber,
-                                  customValidationErrorMessage:
-                                      "Invalid Aviation Lamp serial number. Please check and try again.",
-                                  siteAuditSchId: widget.siteAuditSchId,
-                                  showTable: true,
-                                  tableTitle: "Aviation Lamp Items",
-                                ),
-                                getHeight(20),
+                                // Aviation Lamp Section (only show if Aviation Lamp data exists)
+                                if (_displayFormData?['aviationLampAvailable'] == true) ...[
+                                  AssetAuditFormComponent(
+                                    componentId: 'aviation_lamp_component',
+                                    serialLabel: "Aviation Lamp",
+                                    serialHintText: "Aviation Lamp *",
+                                    photoLabel: "Add Photo of Aviation Lamp",
+                                    serialController: _aviationLampSerialController,
+                                    initialSavedItems: _savedAviationLamps,
+                                    onItemSaved: _onAviationLampItemSaved,
+                                    onStatusChanged: (status) {
+                                      setState(() {
+                                        _hasFormDataChanges = true;
+                                      });
+                                    },
+                                    customValidator: _validateAviationLampSerialNumber,
+                                    customValidationErrorMessage:
+                                        "Invalid Aviation Lamp serial number. Please check and try again.",
+                                    siteAuditSchId: widget.siteAuditSchId,
+                                    showTable: true,
+                                    tableTitle: "Aviation Lamp Items",
+                                  ),
+                                  getHeight(20),
+                                ],
 
                                 // Add Remarks
                                 CustomRemarksField(
