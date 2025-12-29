@@ -1095,6 +1095,14 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         ),
         getHeight(15),
         if (_displayFormData?['ccuCabinetAvailable'] ?? false) ...[
+          // Hybrid CCU Count
+          CustomFormField(
+            label: "Hybrid CCU Count",
+            initialValue: (_displayFormData?['cabinets'] as List<dynamic>? ?? []).length.toString(),
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
           // Cabinet Serial Number and Photo using SimpleAssetAuditFormComponent
           SimpleAssetAuditFormComponent(
             componentId: 'cabinet_component',
