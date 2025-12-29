@@ -1316,6 +1316,11 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         widget.secondDisabledFieldLabel != null &&
         secondDisabledFieldHeader.isNotEmpty;
 
+    // Show first disabled field column if disabledFieldLabel is provided
+    final showFirstDisabledFieldColumn =
+        widget.disabledFieldLabel != null &&
+        widget.disabledFieldLabel!.isNotEmpty;
+
     return Container(
       margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.all(16),
@@ -1346,6 +1351,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                 Row(
                   children: [
                     _buildTableHeaderCell('Serial No.', 200),
+                    if (showFirstDisabledFieldColumn)
+                      _buildTableHeaderCell(widget.disabledFieldLabel ?? '', 100),
                     if (showSecondDisabledFieldColumn)
                       _buildTableHeaderCell(secondDisabledFieldHeader, 80),
                     _buildTableHeaderCell('Status', 80),
@@ -1388,6 +1395,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   Widget _buildTableRow(Map<String, dynamic> item) {
     final showSecondDisabledFieldColumn =
         widget.secondDisabledFieldLabel != null;
+    final showFirstDisabledFieldColumn =
+        widget.disabledFieldLabel != null &&
+        widget.disabledFieldLabel!.isNotEmpty;
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -1399,6 +1409,13 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       child: Row(
         children: [
           _buildTableDataCell(item['mfg_serial_no'] ?? '', 200),
+          if (showFirstDisabledFieldColumn)
+            _buildTableDataCell(
+              item['disabledFieldValue'] ?? 
+              item['capacity']?.toString() ?? 
+              'N/A', 
+              100
+            ),
           if (showSecondDisabledFieldColumn)
             _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
           _buildTableDataCell(item['asset_status'] ?? '', 80),
