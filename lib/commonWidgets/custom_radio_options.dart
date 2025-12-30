@@ -11,6 +11,7 @@ class CustomRadioButton extends StatefulWidget {
   final bool isRequired;
   final double horizontalSpacing;
   final double iconTextSpacing;
+  final Color? textColor;
 
   const CustomRadioButton({
     super.key,
@@ -21,6 +22,7 @@ class CustomRadioButton extends StatefulWidget {
     this.isRequired = false,
     this.horizontalSpacing = 60.0,
     this.iconTextSpacing = 15.0,
+    this.textColor,
   });
 
   @override
@@ -95,10 +97,10 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
 
                     Text(
                       option.label,
-                      style: const TextStyle(
+                      style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w400,
-                          color: Colors.white,
+                          color: widget.textColor ?? Colors.white,
                           fontFamily: fontFamilyMontserrat
                       ),
                     ),
