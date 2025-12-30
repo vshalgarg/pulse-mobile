@@ -207,7 +207,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
               isRequired: true,
               isEditable: !isReadonly,
               inputType: InputType.number,
-              hintText: 'Enter numeric value',
+              hintText: 'Enter Number',
             )
           else if (respType == 'TEXT')
             CustomFormField(

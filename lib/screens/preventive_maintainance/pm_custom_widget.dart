@@ -200,6 +200,11 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       return '$checklistDesc is required';
     }
 
+    if (respTypes.contains('NUMERIC') &&
+        (respValue == null || respValue.toString().trim().isEmpty)) {
+      return '$checklistDesc is required';
+    }
+
     if (respTypes.contains('IMG') &&
         (respValue == null || respValue.toString().isEmpty)) {
       return '$checklistDesc is required';
@@ -334,6 +339,17 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     );
   }
 
+  Widget _buildNumericField() {
+    return CustomFormField(
+      initialValue: _textValue,
+      controller: _textController,
+      onChanged: _onTextChanged,
+      isRequired: true,
+      inputType: InputType.number,
+      hintText: 'Enter Number',
+    );
+  }
+
   Widget _buildImageField() {
     return ImageUploadField(
       placeholder: 'Upload Photos',
@@ -426,12 +442,22 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
           _buildImageField(),
         ],
       );
+    } else if (respTypes.contains('NUMERIC') && respTypes.contains('IMG')) {
+      return Column(
+        children: [
+          _buildNumericField(),
+          const SizedBox(height: 12),
+          _buildImageField(),
+        ],
+      );
     } else if (respTypes.contains('DROPDOWN')) {
       return _buildDropdownField();
     } else if (respTypes.contains('RADIO')) {
       return _buildRadioField();
     } else if (respTypes.contains('TEXT')) {
       return _buildTextField();
+    } else if (respTypes.contains('NUMERIC')) {
+      return _buildNumericField();
     } else if (respTypes.contains('IMG')) {
       return _buildImageField();
     } else {
@@ -455,9 +481,11 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final isReadonly = widget.readonlyFields.contains(
+    final isReadonlyFromList = widget.readonlyFields.contains(
       _currentItem['checklist_desc']?.toString(),
     );
+    final isReadonlyFromItem = _currentItem['is_readonly'] == true;
+    final isReadonly = isReadonlyFromList || isReadonlyFromItem;
     final respTypeList = _currentItem['resp_type'];
     final checklistDesc = _currentItem['checklist_desc']?.toString() ?? '';
 
@@ -504,6 +532,8 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
               initialValue: _currentItem['resp']?.toString() ?? 'N/A',
               isRequired: true,
               isEditable: false,
+              inputType: respTypes.contains('NUMERIC') ? InputType.number : null,
+              hintText: respTypes.contains('NUMERIC') ? 'Enter Number' : null,
             )
           else if (checklistDesc.toLowerCase().contains(
             'rectification remarks',
