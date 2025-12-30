@@ -7,6 +7,7 @@ import '../constants/constants_methods.dart';
 import '../commonWidgets/custom_form_field.dart';
 import '../commonWidgets/custom_form_dropdown.dart';
 import '../commonWidgets/custom_radio_options.dart';
+import '../utils/logger.dart';
 
 class PMCustomFormComponent extends StatefulWidget {
   /// The checklist item containing resp_dtl_checklist and response_details
@@ -101,11 +102,19 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     return widget.checklistItem['resp_type']?.toString() ?? '';
   }
 
+  /// Check if parent field has a value
+  bool get _isParentFieldEmpty {
+    final resp = widget.checklistItem['resp'];
+    return resp == null || resp.toString().isEmpty;
+  }
+
   /// Handle parent field value change
   void _onParentValueChanged(String value) {
     final updatedItem = Map<String, dynamic>.from(widget.checklistItem);
     updatedItem['resp'] = value.isEmpty ? null : value;
     widget.onChange(updatedItem);
+    // Trigger rebuild to enable/disable child fields
+    setState(() {});
   }
 
   /// Get all mfg_serial_no values from response_details for NUMERIC type with serial numbers
@@ -277,6 +286,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     }
 
     final currentValue = _formValues[pmCheckListMstId]?['value'] as String?;
+    final isDisabled = _isParentFieldEmpty;
 
     return CustomRadioButton(
       key: ValueKey('radio_${pmCheckListMstId}_$_resetCounter'),
@@ -289,7 +299,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           )
           .toList(),
       initialValue: currentValue,
-      onChanged: (value) {
+      onChanged: isDisabled ? null : (value) {
         setState(() {
           _formValues[pmCheckListMstId] = {'value': value};
         });
@@ -352,6 +362,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     }
 
     final currentValue = _formValues[pmCheckListMstId]?['value'] as String?;
+    final isDisabled = _isParentFieldEmpty;
 
     return CustomDropdown(
       key: ValueKey('dropdown_${pmCheckListMstId}_$_resetCounter'),
@@ -364,6 +375,8 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           _formValues[pmCheckListMstId] = {'value': mappedValue};
         });
       },
+      isRequired: true,
+      isDisabled: isDisabled,
     );
   }
 
@@ -424,8 +437,10 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                   }
                 });
               },
+              isRequired: true,
+              isDisabled: _isParentFieldEmpty,
             ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
           // Numeric input
           CustomFormField(
@@ -439,6 +454,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
               });
             },
             isRequired: true,
+            isEditable: !_isParentFieldEmpty,
             inputType: InputType.number,
             hintText: 'Enter numeric value',
           ),
@@ -454,6 +470,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           });
         },
         isRequired: true,
+        isEditable: !_isParentFieldEmpty,
         inputType: InputType.number,
         hintText: 'Enter numeric value',
       );
@@ -476,6 +493,44 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           return item;
         }),
       );
+    }
+
+    // Get parent object values
+    final parentPmCheckListSiteRespId = widget.checklistItem['pm_check_list_site_resp_id'];
+    final parentChecklistRef = widget.checklistItem['checklist_ref']?.toString() ?? 
+                               widget.checklistItem['pm_item_type']?.toString() ?? '';
+    final parentClOrder = widget.checklistItem['cl_order'];
+
+    // Count how many unique checklist_ref values exist (this tells us how many "batches" have been saved)
+    // Each save operation creates entries with the same checklist_ref sequence number for all items
+    Set<String> existingChecklistRefs = {};
+    for (final detail in updatedResponseDetails) {
+      final checklistRef = detail['checklist_ref']?.toString();
+      if (checklistRef != null && checklistRef.isNotEmpty) {
+        existingChecklistRefs.add(checklistRef);
+      }
+    }
+
+    // Determine the next sequence number based on existing checklist_ref values
+    // Extract numbers from existing checklist_refs like "Earth Pit 1", "Earth Pit 2", etc.
+    int nextSequenceNumber = 1;
+    if (existingChecklistRefs.isNotEmpty && parentChecklistRef.isNotEmpty) {
+      List<int> sequenceNumbers = [];
+      for (final ref in existingChecklistRefs) {
+        // Try to extract number from checklist_ref (e.g., "Earth Pit 1" -> 1)
+        final match = RegExp(r'(\d+)$').firstMatch(ref);
+        if (match != null) {
+          final num = int.tryParse(match.group(1) ?? '');
+          if (num != null) {
+            sequenceNumbers.add(num);
+          }
+        }
+      }
+      if (sequenceNumbers.isNotEmpty) {
+        nextSequenceNumber = sequenceNumbers.reduce((a, b) => a > b ? a : b) + 1;
+      } else {
+        nextSequenceNumber = existingChecklistRefs.length + 1;
+      }
     }
 
     // Process each resp_dtl_checklist item
@@ -507,12 +562,13 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           return;
         }
 
-        // Find and update matching entry
+        // Find and update matching entry by mfg_serial_no and pm_check_list_mst_id
         bool found = false;
         for (int i = 0; i < updatedResponseDetails.length; i++) {
           final detail = updatedResponseDetails[i];
           if (detail['mfg_serial_no']?.toString() == serialNumber &&
               detail['pm_check_list_mst_id'] == pmCheckListMstId) {
+            // Update existing entry
             updatedResponseDetails[i] = {
               ...detail,
               'resp': value,
@@ -523,19 +579,85 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         }
 
         if (!found) {
-          // Create new entry
-          final newEntry = Map<String, dynamic>.from(item);
-          newEntry['mfg_serial_no'] = serialNumber;
-          newEntry['resp'] = value;
-          updatedResponseDetails.add(newEntry);
+          // Find an existing entry with this serial number to copy structure
+          Map<String, dynamic>? existingEntryWithSerial;
+          for (final detail in updatedResponseDetails) {
+            if (detail['mfg_serial_no']?.toString() == serialNumber) {
+              existingEntryWithSerial = detail;
+              break;
+            }
+          }
+
+          if (existingEntryWithSerial != null) {
+            // Use existing entry structure and update resp
+            final newEntry = Map<String, dynamic>.from(existingEntryWithSerial);
+            newEntry['resp'] = value;
+            newEntry['pm_check_list_mst_id'] = pmCheckListMstId;
+            updatedResponseDetails.add(newEntry);
+          } else {
+            // Create new entry from resp_dtl_checklist item
+            final newEntry = Map<String, dynamic>.from(item);
+            newEntry['resp'] = value;
+            newEntry['mfg_serial_no'] = serialNumber;
+            newEntry['nexgen_serial_no'] = serialNumber;
+            newEntry['cl_order'] = item['cl_order'] ?? parentClOrder;
+            newEntry['pclsrd_id'] = existingEntryWithSerial?['pclsrd_id'] ?? 0;
+            newEntry['checklist_ref'] = '$parentChecklistRef $nextSequenceNumber';
+            newEntry['item_instance_id'] = null;
+            newEntry['response_dtl_images'] = '';
+            newEntry['pm_check_list_site_resp_id'] = parentPmCheckListSiteRespId;
+            updatedResponseDetails.add(newEntry);
+          }
         }
       } else {
-        // Other types - add new entry
-        final newEntry = Map<String, dynamic>.from(item);
-        newEntry['resp'] = value;
-        updatedResponseDetails.add(newEntry);
+        // Other types (RADIO, TEXT, DROPDOWN) - find existing entry with same pm_check_list_mst_id
+        // and update resp, or create new entry if not found
+        bool found = false;
+        
+        // Find first entry with matching pm_check_list_mst_id that has null or empty resp
+        for (int i = 0; i < updatedResponseDetails.length; i++) {
+          final detail = updatedResponseDetails[i];
+          if (detail['pm_check_list_mst_id'] == pmCheckListMstId &&
+              (detail['resp'] == null || detail['resp'].toString().isEmpty)) {
+            // Update existing entry with null/empty resp
+            updatedResponseDetails[i] = {
+              ...detail,
+              'resp': value,
+            };
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          // Create new entry from resp_dtl_checklist item
+          final newEntry = Map<String, dynamic>.from(item);
+          newEntry['resp'] = value;
+          newEntry['cl_order'] = item['cl_order'] ?? parentClOrder;
+          newEntry['pclsrd_id'] = 0;
+          newEntry['checklist_ref'] = '$parentChecklistRef $nextSequenceNumber';
+          newEntry['item_instance_id'] = null;
+          newEntry['response_dtl_images'] = null;
+          newEntry['pm_check_list_site_resp_id'] = parentPmCheckListSiteRespId;
+          
+          // Remove mfg_serial_no and nexgen_serial_no if they don't exist in response_details
+          final hasSerialNumbers = updatedResponseDetails.any((detail) {
+            return detail['mfg_serial_no'] != null || detail['nexgen_serial_no'] != null;
+          });
+          
+          if (!hasSerialNumbers) {
+            newEntry.remove('mfg_serial_no');
+            newEntry.remove('nexgen_serial_no');
+          }
+          
+          updatedResponseDetails.add(newEntry);
+        }
       }
     }
+
+    // Console log the response_details array
+    Logger.infoLog('response_details after save: ${jsonEncode(updatedResponseDetails)}');
+    print('response_details after save: ${jsonEncode(updatedResponseDetails)}');
 
     // Update the checklist item
     final updatedItem = Map<String, dynamic>.from(widget.checklistItem);
@@ -712,19 +834,24 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                 Align(
                   alignment: Alignment.bottomRight,
                   child: ElevatedButton.icon(
-                    onPressed: _onSaveAllEntries,
-                    icon: const Icon(Icons.save, color: Colors.white),
-                    label: const Text(
+                    onPressed: _isParentFieldEmpty ? null : _onSaveAllEntries,
+                    icon: Icon(
+                      Icons.save,
+                      color: _isParentFieldEmpty ? Colors.grey : Colors.white,
+                    ),
+                    label: Text(
                       'Save',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _isParentFieldEmpty ? Colors.grey : Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         fontFamily: fontFamilyMontserrat,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
+                      backgroundColor: _isParentFieldEmpty
+                          ? Colors.grey.shade400
+                          : AppColors.primaryGreen,
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(5),
