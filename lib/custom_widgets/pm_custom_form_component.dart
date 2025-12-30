@@ -521,8 +521,8 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     );
   }
 
-  /// Build saved items table - Only shows items with saved resp values
-  Widget _buildSavedItemsTable() {
+  /// Build saved items table - Only shows items with saved resp values (without outer container)
+  Widget _buildSavedItemsTableContent() {
     final responseDetails = widget.checklistItem['response_details'];
     if (responseDetails == null || responseDetails is! List) {
       return const SizedBox.shrink();
@@ -550,52 +550,73 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       }
     }
 
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Table header
+        Row(
+          children: [
+            Expanded(
+              child: _buildTableHeaderCell('Checklist Name'),
+            ),
+            Expanded(
+              child: _buildTableHeaderCell('Value'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Table rows - Only show saved items
+        ...savedItems.map((item) {
+          if (item is! Map<String, dynamic>) return const SizedBox.shrink();
+
+          // Get checklist name from pm_check_list_mst_id
+          final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
+          final checklistName = pmCheckListMstId != null
+              ? (checklistNameMap[pmCheckListMstId] ?? item['checklist_desc']?.toString() ?? '')
+              : (item['checklist_desc']?.toString() ?? '');
+
+          // Get the value to display
+          String displayValue = '';
+          if (_isCase1Battery) {
+            // For Battery: Show the resp value (numeric value saved)
+            displayValue = item['resp']?.toString() ?? '';
+          } else if (_isCase2Earthing) {
+            // For Earthing: Show the resp value (radio selection)
+            displayValue = item['resp']?.toString() ?? '';
+          }
+
+          return _buildTableRow(checklistName, displayValue);
+        }).toList(),
+      ],
+    );
+  }
+
+  /// Build saved items table in separate white box
+  Widget _buildSavedItemsTable() {
+    final responseDetails = widget.checklistItem['response_details'];
+    if (responseDetails == null || responseDetails is! List) {
+      return const SizedBox.shrink();
+    }
+
+    // Filter only items that have been saved (have resp value)
+    final savedItems = responseDetails.where((item) {
+      if (item is! Map<String, dynamic>) return false;
+      final resp = item['resp'];
+      return resp != null && resp.toString().isNotEmpty;
+    }).toList();
+
+    if (savedItems.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
-      margin: const EdgeInsets.only(top: 20),
+      margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.colorF5F5F5, // Dull white background
         borderRadius: BorderRadius.circular(5),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Table header
-          Row(
-            children: [
-              Expanded(
-                child: _buildTableHeaderCell('Checklist Name'),
-              ),
-              Expanded(
-                child: _buildTableHeaderCell('Value'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          // Table rows - Only show saved items
-          ...savedItems.map((item) {
-            if (item is! Map<String, dynamic>) return const SizedBox.shrink();
-
-            // Get checklist name from pm_check_list_mst_id
-            final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
-            final checklistName = pmCheckListMstId != null
-                ? (checklistNameMap[pmCheckListMstId] ?? item['checklist_desc']?.toString() ?? '')
-                : (item['checklist_desc']?.toString() ?? '');
-
-            // Get the value to display
-            String displayValue = '';
-            if (_isCase1Battery) {
-              // For Battery: Show the resp value (numeric value saved)
-              displayValue = item['resp']?.toString() ?? '';
-            } else if (_isCase2Earthing) {
-              // For Earthing: Show the resp value (radio selection)
-              displayValue = item['resp']?.toString() ?? '';
-            }
-
-            return _buildTableRow(checklistName, displayValue);
-          }).toList(),
-        ],
-      ),
+      child: _buildSavedItemsTableContent(),
     );
   }
 
@@ -656,7 +677,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         // 1. Parent field OUTSIDE white box (e.g., "Number of Battery Modules")
         _buildParentField(),
 
-        // 2. White box containing resp_dtl_checklist items and table
+        // 2. First white box containing resp_dtl_checklist items (form fields only)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -671,12 +692,12 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                 _buildCase1BatteryForm()
               else if (_isCase2Earthing)
                 _buildCase2EarthingForm(),
-
-              // Saved items table (only shows items with saved values)
-              _buildSavedItemsTable(),
             ],
           ),
         ),
+
+        // 3. Second white box containing saved items table (separate from form fields)
+        _buildSavedItemsTable(),
       ],
     );
   }
