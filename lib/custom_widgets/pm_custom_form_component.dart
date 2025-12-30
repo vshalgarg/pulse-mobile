@@ -101,63 +101,6 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     return widget.checklistItem['resp_type']?.toString() ?? '';
   }
 
-  /// Get parent resp value as count (max allowed entries per checklist item)
-  int? get _maxAllowedEntriesPerItem {
-    final resp = widget.checklistItem['resp'];
-    if (resp == null || resp.toString().isEmpty) return null;
-    return int.tryParse(resp.toString());
-  }
-
-  /// Get current response_details count for a specific checklist item
-  int _getCurrentEntriesCountForChecklist(int pmCheckListMstId) {
-    final responseDetails = widget.checklistItem['response_details'];
-    if (responseDetails == null || responseDetails is! List) {
-      return 0;
-    }
-    return responseDetails.where((item) {
-      if (item is! Map<String, dynamic>) return false;
-      return item['pm_check_list_mst_id'] == pmCheckListMstId;
-    }).length;
-  }
-
-  /// Check if we can add more entries for a specific checklist item
-  bool _canAddMoreEntriesForChecklist(int pmCheckListMstId) {
-    final maxEntries = _maxAllowedEntriesPerItem;
-    if (maxEntries == null || maxEntries == 0) {
-      // If parent resp is null/0, allow unlimited entries
-      return true;
-    }
-    return _getCurrentEntriesCountForChecklist(pmCheckListMstId) < maxEntries;
-  }
-
-  /// Check if save button should be enabled
-  /// Returns false if any field with a value has reached its maximum entries
-  bool _isSaveButtonEnabled() {
-    final respDtlChecklistItems = _respDtlChecklistItems;
-    
-    // Check each field that has a value
-    for (final item in respDtlChecklistItems) {
-      final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
-      if (pmCheckListMstId == null) continue;
-      
-      final formValue = _formValues[pmCheckListMstId];
-      if (formValue == null) continue;
-      
-      final valueObj = formValue['value'];
-      if (valueObj == null) continue;
-      
-      final value = valueObj.toString();
-      if (value.isEmpty) continue;
-      
-      // If this field has a value but max entries reached, disable save
-      if (!_canAddMoreEntriesForChecklist(pmCheckListMstId)) {
-        return false;
-      }
-    }
-    
-    return true;
-  }
-
   /// Handle parent field value change
   void _onParentValueChanged(String value) {
     final updatedItem = Map<String, dynamic>.from(widget.checklistItem);
@@ -167,7 +110,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
   /// Get all mfg_serial_no values from response_details for NUMERIC type with serial numbers
   List<String> _getAvailableSerialNumbers(int pmCheckListMstId) {
-    final responseDetails = widget.checklistItem['response_details'];
+        final responseDetails = widget.checklistItem['response_details'];
     if (responseDetails == null || responseDetails is! List) {
       return [];
     }
@@ -218,34 +161,34 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
     if (respType.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // Label
-          RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: checklistDesc,
-                  style: const TextStyle(
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: checklistDesc,
+                    style: const TextStyle(
                     color: AppColors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: fontFamilyMontserrat,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
                   ),
-                ),
-                const TextSpan(
-                  text: " *",
-                  style: TextStyle(fontSize: 16, color: Colors.red),
-                ),
-              ],
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(fontSize: 16, color: Colors.red),
+                  ),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
 
           // Field based on resp_type
           if (respType == 'NUMERIC')
@@ -266,10 +209,10 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
               inputType: InputType.text,
               hintText: 'Enter text',
             ),
-        ],
-      ),
-    );
-  }
+          ],
+        ),
+      );
+    }
 
   /// Build field for a resp_dtl_checklist item based on its resp_type
   Widget _buildFieldForItem(Map<String, dynamic> item) {
@@ -287,19 +230,19 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Label
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.black,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              fontFamily: fontFamilyMontserrat,
-            ),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            fontFamily: fontFamilyMontserrat,
           ),
-          const SizedBox(height: 8),
+        ),
+        const SizedBox(height: 8),
 
           // Build field based on resp_type
           if (respType == 'RADIO')
@@ -587,20 +530,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           updatedResponseDetails.add(newEntry);
         }
       } else {
-        // Other types - check if we can add more entries
-        if (!_canAddMoreEntriesForChecklist(pmCheckListMstId)) {
-          final maxEntries = _maxAllowedEntriesPerItem;
-          final checklistDesc = item['checklist_desc']?.toString() ?? 'this item';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Maximum entries reached for $checklistDesc (${maxEntries})'),
-              backgroundColor: AppColors.errorColor,
-            ),
-          );
-          return;
-        }
-
-        // Add new entry
+        // Other types - add new entry
         final newEntry = Map<String, dynamic>.from(item);
         newEntry['resp'] = value;
         updatedResponseDetails.add(newEntry);
@@ -680,90 +610,29 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
             ],
           ),
           const SizedBox(height: 8),
-          // Table rows with sequence numbers
-          ..._buildTableRowsWithSequence(savedItems, checklistNameMap),
+          // Table rows
+          ...savedItems.map((item) {
+            if (item is! Map<String, dynamic>) return const SizedBox.shrink();
+
+            final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
+            final checklistName = pmCheckListMstId != null
+                ? (checklistNameMap[pmCheckListMstId] ??
+                      item['checklist_desc']?.toString() ??
+                      '')
+                : (item['checklist_desc']?.toString() ?? '');
+
+            String displayValue = item['resp']?.toString() ?? '';
+            // If has mfg_serial_no, include it in display
+            if (item['mfg_serial_no'] != null) {
+              final serial = item['mfg_serial_no']?.toString() ?? '';
+              displayValue = '$serial: $displayValue';
+            }
+
+            return _buildTableRow(checklistName, displayValue);
+          }).toList(),
         ],
       ),
     );
-  }
-
-  /// Build table rows with sequence numbers for each checklist item
-  List<Widget> _buildTableRowsWithSequence(
-    List<dynamic> savedItems,
-    Map<int, String> checklistNameMap,
-  ) {
-    // Group items by pm_check_list_mst_id
-    final Map<int, List<Map<String, dynamic>>> groupedItems = {};
-    
-    for (final item in savedItems) {
-      if (item is! Map<String, dynamic>) continue;
-      final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
-      if (pmCheckListMstId == null) continue;
-      
-      if (!groupedItems.containsKey(pmCheckListMstId)) {
-        groupedItems[pmCheckListMstId] = [];
-      }
-      groupedItems[pmCheckListMstId]!.add(item);
-    }
-
-    // Build rows with sequence numbers
-    List<Widget> rows = [];
-    
-    // Get max entries to determine how many sequence numbers we need
-    final maxEntries = _maxAllowedEntriesPerItem;
-    if (maxEntries == null || maxEntries == 0) {
-      // If no limit, just show all items without sequence numbers
-      for (final item in savedItems) {
-        if (item is! Map<String, dynamic>) continue;
-        final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
-        final checklistName = pmCheckListMstId != null
-            ? (checklistNameMap[pmCheckListMstId] ??
-                  item['checklist_desc']?.toString() ??
-                  '')
-            : (item['checklist_desc']?.toString() ?? '');
-        
-        String displayValue = item['resp']?.toString() ?? '';
-        if (item['mfg_serial_no'] != null) {
-          final serial = item['mfg_serial_no']?.toString() ?? '';
-          displayValue = '$serial: $displayValue';
-        }
-        rows.add(_buildTableRow(checklistName, displayValue));
-      }
-      return rows;
-    }
-    
-    // For each sequence number (1 to maxEntries)
-    for (int seq = 1; seq <= maxEntries; seq++) {
-      // For each checklist item in resp_dtl_checklist order
-      final respDtlChecklistItems = _respDtlChecklistItems;
-      for (final checklistItem in respDtlChecklistItems) {
-        final pmCheckListMstId = checklistItem['pm_check_list_mst_id'] as int?;
-        if (pmCheckListMstId == null) continue;
-        
-        final items = groupedItems[pmCheckListMstId] ?? [];
-        
-        // Get the item at this sequence position (seq - 1 because it's 0-indexed)
-        if (seq <= items.length) {
-          final item = items[seq - 1];
-          final checklistName = checklistNameMap[pmCheckListMstId] ??
-              item['checklist_desc']?.toString() ??
-              '';
-          
-          String displayValue = item['resp']?.toString() ?? '';
-          // If has mfg_serial_no, include it in display
-          if (item['mfg_serial_no'] != null) {
-            final serial = item['mfg_serial_no']?.toString() ?? '';
-            displayValue = '$serial: $displayValue';
-          }
-          
-          // Add sequence number to checklist name
-          final checklistNameWithSeq = '$checklistName $seq';
-          rows.add(_buildTableRow(checklistNameWithSeq, displayValue));
-        }
-      }
-    }
-    
-    return rows;
   }
 
   /// Build table header cell
@@ -827,15 +696,15 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
         // 2. White box containing resp_dtl_checklist items (form fields)
         if (respDtlChecklistItems.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
               color: AppColors.colorF5F5F5,
-              borderRadius: BorderRadius.circular(5),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                 // All resp_dtl_checklist fields
                 ...respDtlChecklistItems.map((item) => _buildFieldForItem(item)).toList(),
 
@@ -843,24 +712,19 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                 Align(
                   alignment: Alignment.bottomRight,
                   child: ElevatedButton.icon(
-                    onPressed: _isSaveButtonEnabled() ? _onSaveAllEntries : null,
-                    icon: Icon(
-                      Icons.save,
-                      color: _isSaveButtonEnabled() ? Colors.white : Colors.grey,
-                    ),
-                    label: Text(
+                    onPressed: _onSaveAllEntries,
+                    icon: const Icon(Icons.save, color: Colors.white),
+                    label: const Text(
                       'Save',
                       style: TextStyle(
-                        color: _isSaveButtonEnabled() ? Colors.white : Colors.grey,
+                        color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         fontFamily: fontFamilyMontserrat,
                       ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isSaveButtonEnabled()
-                          ? AppColors.primaryGreen
-                          : Colors.grey.shade400,
+                      backgroundColor: AppColors.primaryGreen,
                       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(5),
@@ -868,9 +732,9 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                     ),
                   ),
                 ),
-              ],
-            ),
+            ],
           ),
+        ),
 
         // 3. Saved items table in separate white box
         _buildSavedItemsTable(),
