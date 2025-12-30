@@ -462,8 +462,8 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
           // Transformer Form Component
           AssetAuditFormComponent(
             componentId: 'transformer_component',
-            serialLabel: "Transformer - Serial Number *",
-            serialHintText: "Transformer Serial Number *",
+            serialLabel: "Transformer - Serial Number ",
+            serialHintText: "Transformer Serial Number ",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Rating",
             disabledFieldValue: _displayFormData?['capacity']?.toString() ??

@@ -442,8 +442,8 @@ class _VCBV2ScreenState extends State<VCBV2Screen> {
         // VCB Form Component
         AssetAuditFormComponent(
           componentId: 'vcb_component',
-          serialLabel: "VCB - Serial Number *",
-          serialHintText: "VCB Serial Number *",
+          serialLabel: "VCB - Serial Number ",
+          serialHintText: "VCB Serial Number ",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
           disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "5 KW",

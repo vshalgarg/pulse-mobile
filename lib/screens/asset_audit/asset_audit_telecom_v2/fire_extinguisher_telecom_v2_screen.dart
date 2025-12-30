@@ -579,8 +579,8 @@ class _FireExtinguisherTelecomV2ScreenState
           // Fire Extinguisher Form Component
           AssetAuditFormComponent(
             componentId: 'fire_extinguisher_component',
-            serialLabel: "Fire Extinguisher - Serial Number *",
-            serialHintText: "Fire Extinguisher Serial Number *",
+            serialLabel: "Fire Extinguisher - Serial Number",
+            serialHintText: "Fire Extinguisher Serial Number",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Capacity of Fire Extinguisher (In Kg)",
             serialController: _fireExtinguisherSerialController,
@@ -688,8 +688,8 @@ class _FireExtinguisherTelecomV2ScreenState
           // Sand Bucket Form Component
           AssetAuditFormComponent(
             componentId: 'sand_bucket_component',
-            serialLabel: "Sand Buckets - Serial Number *",
-            serialHintText: "Sand Buckets Serial Number *",
+            serialLabel: "Sand Buckets - Serial Number ",
+            serialHintText: "Sand Buckets Serial Number ",
             photoLabel: "Add a Photo",
             serialController: _sandBucketSerialController,
             initialSavedItems:

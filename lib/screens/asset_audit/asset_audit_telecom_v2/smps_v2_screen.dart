@@ -724,8 +724,8 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
                                   // SMPS Cabinet Section
                                   AssetAuditFormComponent(
                                     componentId: 'smps_cabinet_component',
-                                    serialLabel: "Cabinet - Serial Number *",
-                                    serialHintText: "Cabinet Serial Number *",
+                                    serialLabel: "Cabinet - Serial Number ",
+                                    serialHintText: "Cabinet Serial Number ",
                                     photoLabel:
                                         "Add Photo of Cabinet Serial Number",
                                     serialController: TextEditingController(),

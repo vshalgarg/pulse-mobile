@@ -457,8 +457,8 @@ class _DCDBV2ScreenState extends State<DCDBV2Screen> {
         // DCDB Form Component
         AssetAuditFormComponent(
           componentId: 'dcdb_component',
-          serialLabel: "DCDB - Serial Number *",
-          serialHintText: "DCDB Serial Number *",
+          serialLabel: "DCDB - Serial Number",
+          serialHintText: "DCDB Serial Number",
           photoLabel: "Add a Photo",
           serialController: _dcdbSerialController,
           initialSavedItems:

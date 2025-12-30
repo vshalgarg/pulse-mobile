@@ -488,8 +488,8 @@ class _FireExtinguisherV2ScreenState extends State<FireExtinguisherV2Screen> {
           // Fire Extinguisher Form Component
           AssetAuditFormComponent(
             componentId: 'fire_extinguisher_component',
-            serialLabel: "Fire Extinguisher - Serial Number *",
-            serialHintText: "Fire Extinguisher Serial Number *",
+            serialLabel: "Fire Extinguisher - Serial Number ",
+            serialHintText: "Fire Extinguisher Serial Number",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Capacity of Fire Extinguisher (In Kg)",
             disabledFieldValue: _displayFormData?['capacity'],

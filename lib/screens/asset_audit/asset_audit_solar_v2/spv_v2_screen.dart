@@ -491,8 +491,8 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
         // AssetAuditFormComponent for SPV items
         AssetAuditFormComponent(
           componentId: 'spv_component',
-          serialLabel: "Solar Panel - Serial Number *",
-          serialHintText: "Solar Panel Serial Number *",
+          serialLabel: "Solar Panel - Serial Number ",
+          serialHintText: "Solar Panel Serial Number ",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",
           disabledFieldValue: null, // Will be populated dynamically based on serial number

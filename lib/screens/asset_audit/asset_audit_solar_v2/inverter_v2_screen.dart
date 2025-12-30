@@ -450,8 +450,8 @@ class _InverterV2ScreenState extends State<InverterV2Screen> {
         // Inverter Form Component
         AssetAuditFormComponent(
           componentId: 'inverter_component',
-          serialLabel: "Inverter - Serial Number *",
-          serialHintText: "Inverter Serial Number *",
+          serialLabel: "Inverter - Serial Number ",
+          serialHintText: "Inverter Serial Number",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
           disabledFieldValue: null, // Will be populated dynamically based on serial number

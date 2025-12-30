@@ -459,8 +459,8 @@ class _PcuV2ScreenState extends State<PcuV2Screen> {
         // Inverter Form Component
         AssetAuditFormComponent(
           componentId: 'inverter_component',
-          serialLabel: "Inverter - Serial Number *",
-          serialHintText: "Inverter Serial Number *",
+          serialLabel: "Inverter - Serial Number ",
+          serialHintText: "Inverter Serial Number ",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
           disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",
