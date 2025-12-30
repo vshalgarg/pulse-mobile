@@ -21,6 +21,7 @@ class PMConstants {
 
   // Telecom PM Page Order Configuration
   static const Map<String, String> telecomPageOrder = {
+    PMTelecomPagesConstants.earthing: 'Earthing',
     PMTelecomPagesConstants.tower: 'Tower',
     PMTelecomPagesConstants.battery: 'Battery',
     PMTelecomPagesConstants.ccu: 'CCU',
@@ -28,7 +29,7 @@ class PMConstants {
     PMTelecomPagesConstants.electrical: 'Electrical',
     PMTelecomPagesConstants.seb: 'SEB',
     PMTelecomPagesConstants.dg: 'DG',
-    PMTelecomPagesConstants.earthing: 'Earthing',
+    
     PMTelecomPagesConstants.hygiene: 'Hygiene',
     PMTelecomPagesConstants.fireExtinguisher: 'Fire Extinguisher',
     PMTelecomPagesConstants.ct: 'CT',

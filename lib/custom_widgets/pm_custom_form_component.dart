@@ -8,6 +8,7 @@ import '../commonWidgets/custom_form_field.dart';
 import '../commonWidgets/custom_form_dropdown.dart';
 import '../commonWidgets/custom_radio_options.dart';
 import '../utils/logger.dart';
+import '../utils/toastbar.dart';
 
 class PMCustomFormComponent extends StatefulWidget {
   /// The checklist item containing resp_dtl_checklist and response_details
@@ -31,12 +32,14 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
   final TextEditingController _parentController = TextEditingController();
 
   // Store form values for each resp_dtl_checklist item
-  // Key: pm_check_list_mst_id, Value: Map containing field values
-  Map<int, Map<String, dynamic>> _formValues = {};
+  // Key: pm_check_list_mst_id (as String) or 'pmCheckListMstId_sectionIndex' for sections, Value: Map containing field values
+  Map<String, Map<String, dynamic>> _formValues = <String, Map<String, dynamic>>{};
 
-  // Controllers for each field type
-  Map<int, TextEditingController> _textControllers = {};
-  Map<int, TextEditingController> _numericControllers = {};
+  // Controllers for each field type (using String keys to support both int keys and section keys like 'pmCheckListMstId_sectionIndex')
+  Map<String, TextEditingController> _textControllers = {};
+  Map<String, TextEditingController> _numericControllers = {};
+  // Controllers for serial number inputs (key: 'pmCheckListMstId_serialNumber')
+  Map<String, TextEditingController> _serialNumberControllers = {};
 
   // Reset counter to force widget rebuild when form is cleared
   int _resetCounter = 0;
@@ -56,6 +59,9 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     for (final controller in _numericControllers.values) {
       controller.dispose();
     }
+    for (final controller in _serialNumberControllers.values) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -72,14 +78,14 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     for (final item in respDtlChecklistItems) {
       final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
       if (pmCheckListMstId != null) {
-        _formValues[pmCheckListMstId] = {};
+        _formValues[pmCheckListMstId.toString()] = {};
         
-        // Initialize controllers
+        // Initialize controllers (using string key for compatibility)
         final respType = item['resp_type']?.toString() ?? '';
         if (respType == 'TEXT') {
-          _textControllers[pmCheckListMstId] = TextEditingController();
+          _textControllers[pmCheckListMstId.toString()] = TextEditingController();
         } else if (respType == 'NUMERIC') {
-          _numericControllers[pmCheckListMstId] = TextEditingController();
+          _numericControllers[pmCheckListMstId.toString()] = TextEditingController();
         }
       }
     }
@@ -115,6 +121,291 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     widget.onChange(updatedItem);
     // Trigger rebuild to enable/disable child fields
     setState(() {});
+  }
+
+  /// Check if should show multiple sections (RADIO type, no serial numbers, no response_details initially)
+  bool _shouldShowMultipleSections(List<Map<String, dynamic>> respDtlChecklistItems) {
+    if (_isParentFieldEmpty) return false;
+    
+    // Check if we have response_details with mfg_serial_no (if so, don't use multiple sections)
+    final responseDetails = widget.checklistItem['response_details'];
+    if (responseDetails != null && responseDetails is List && responseDetails.isNotEmpty) {
+      // Check if any response_detail has mfg_serial_no
+      final hasSerialNumbers = responseDetails.any((detail) {
+        if (detail is! Map<String, dynamic>) return false;
+        return detail['mfg_serial_no'] != null && detail['mfg_serial_no'].toString().isNotEmpty;
+      });
+      if (hasSerialNumbers) return false; // NUMERIC with serial numbers uses its own UI
+    }
+    
+    // Check if all items are RADIO type
+    bool hasRadioItems = false;
+    for (final item in respDtlChecklistItems) {
+      final respType = item['resp_type']?.toString() ?? '';
+      if (respType == 'RADIO') {
+        hasRadioItems = true;
+      } else if (respType == 'NUMERIC' && _shouldShowSerialNumberDropdown(item)) {
+        // NUMERIC with serial numbers uses its own UI, don't use multiple sections
+        return false;
+      }
+    }
+    
+    return hasRadioItems;
+  }
+
+  /// Get save button text based on checklist_desc from NUMERIC item with serial numbers
+  String _getSaveButtonText() {
+    final respDtlChecklistItems = _respDtlChecklistItems;
+    for (final item in respDtlChecklistItems) {
+      final respType = item['resp_type']?.toString() ?? '';
+      if (respType == 'NUMERIC' && _shouldShowSerialNumberDropdown(item)) {
+        final checklistDesc = item['checklist_desc']?.toString() ?? '';
+        if (checklistDesc.isNotEmpty) {
+          return 'Save $checklistDesc';
+        }
+      }
+    }
+    
+    // For RADIO type with multiple sections, use parent checklist_desc
+    if (_shouldShowMultipleSections(respDtlChecklistItems)) {
+      final parentChecklistDesc = widget.checklistItem['checklist_desc']?.toString() ?? '';
+      if (parentChecklistDesc.isNotEmpty) {
+        return 'Save $parentChecklistDesc';
+      }
+    }
+    
+    return 'Save';
+  }
+
+  /// Get section heading based on checklist_ref and count
+  String _getSectionHeading(int sectionIndex) {
+    final parentChecklistRef = widget.checklistItem['checklist_ref']?.toString() ?? 
+                               widget.checklistItem['pm_item_type']?.toString() ?? '';
+    if (parentChecklistRef.isNotEmpty) {
+      return '$parentChecklistRef ${sectionIndex + 1}';
+    }
+    return 'Section ${sectionIndex + 1}';
+  }
+
+  /// Build multiple sections for RADIO type
+  Widget _buildMultipleSections(List<Map<String, dynamic>> respDtlChecklistItems) {
+    final parentResp = widget.checklistItem['resp'];
+    if (parentResp == null) return const SizedBox.shrink();
+    
+    final count = int.tryParse(parentResp.toString()) ?? 0;
+    if (count <= 0) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(count, (index) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Section heading
+              Text(
+                _getSectionHeading(index),
+                style: const TextStyle(
+                  color: AppColors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  fontFamily: fontFamilyMontserrat,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Fields for this section
+              ...respDtlChecklistItems.map((item) => _buildFieldForItemWithSection(item, index)).toList(),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  /// Build field for a resp_dtl_checklist item with section index
+  Widget _buildFieldForItemWithSection(Map<String, dynamic> item, int sectionIndex) {
+    final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
+    if (pmCheckListMstId == null) return const SizedBox.shrink();
+
+    final label = item['checklist_desc']?.toString() ?? '';
+    final respType = item['resp_type']?.toString() ?? '';
+
+    // Initialize form value if not exists (with section index)
+    final sectionKey = '${pmCheckListMstId}_$sectionIndex';
+    if (!_formValues.containsKey(sectionKey)) {
+      _formValues[sectionKey] = {};
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Label
+        Text(
+          label,
+          style: const TextStyle(
+            color: AppColors.black,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            fontFamily: fontFamilyMontserrat,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+          // Build field based on resp_type (using section key)
+          if (respType == 'RADIO')
+            _buildRadioFieldWithSection(item, pmCheckListMstId, sectionIndex)
+          else if (respType == 'TEXT')
+            _buildTextFieldWithSection(item, pmCheckListMstId, sectionIndex)
+          else if (respType == 'DROPDOWN')
+            _buildDropdownFieldWithSection(item, pmCheckListMstId, sectionIndex)
+          else if (respType == 'NUMERIC')
+            _buildNumericFieldWithSection(item, pmCheckListMstId, sectionIndex),
+        ],
+      ),
+    );
+  }
+
+  /// Build Radio field with section index
+  Widget _buildRadioFieldWithSection(Map<String, dynamic> item, int pmCheckListMstId, int sectionIndex) {
+    final respTypeValueMap = item['resp_type_value_map'];
+
+    // Parse radio options from resp_type_value_map
+    Map<String, dynamic> valueMap = {};
+    if (respTypeValueMap is Map<String, dynamic>) {
+      valueMap = respTypeValueMap;
+    } else if (respTypeValueMap is String) {
+      try {
+        valueMap = jsonDecode(respTypeValueMap) as Map<String, dynamic>;
+      } catch (e) {
+        valueMap = {'OK': 'OK', 'Not Ok': 'Not Ok'};
+      }
+    } else {
+      valueMap = {'OK': 'OK', 'Not Ok': 'Not Ok'};
+    }
+
+    final sectionKey = '${pmCheckListMstId}_$sectionIndex';
+    final currentValue = _formValues[sectionKey]?['value'] as String?;
+    final isDisabled = _isParentFieldEmpty;
+
+    return CustomRadioButton(
+      key: ValueKey('radio_${pmCheckListMstId}_${sectionIndex}_$_resetCounter'),
+      options: valueMap.entries
+          .map(
+            (entry) => OptionItem(
+              label: entry.key,
+              value: entry.value.toString(),
+            ),
+          )
+          .toList(),
+      initialValue: currentValue,
+      onChanged: isDisabled ? null : (value) {
+        setState(() {
+          _formValues[sectionKey] = {'value': value};
+        });
+      },
+      isRequired: true,
+      textColor: AppColors.black,
+    );
+  }
+
+  /// Build Text field with section index
+  Widget _buildTextFieldWithSection(Map<String, dynamic> item, int pmCheckListMstId, int sectionIndex) {
+    final sectionKey = '${pmCheckListMstId}_$sectionIndex';
+    if (!_textControllers.containsKey(sectionKey)) {
+      _textControllers[sectionKey] = TextEditingController();
+    }
+
+    final controller = _textControllers[sectionKey]!;
+
+    return CustomFormField(
+      controller: controller,
+      onChanged: (value) {
+        setState(() {
+          _formValues[sectionKey] = {'value': value};
+        });
+      },
+      isRequired: true,
+      inputType: InputType.text,
+      hintText: 'Enter text',
+    );
+  }
+
+  /// Build Dropdown field with section index
+  Widget _buildDropdownFieldWithSection(Map<String, dynamic> item, int pmCheckListMstId, int sectionIndex) {
+    final respTypeValueMap = item['resp_type_value_map'];
+
+    // Parse dropdown options from resp_type_value_map
+    List<String> dropdownOptions = [];
+    Map<String, String> valueMap = {};
+
+    if (respTypeValueMap is Map<String, dynamic>) {
+      respTypeValueMap.forEach((key, value) {
+        dropdownOptions.add(key);
+        valueMap[key] = value.toString();
+      });
+    } else if (respTypeValueMap is String) {
+      try {
+        final parsedMap = jsonDecode(respTypeValueMap) as Map<String, dynamic>;
+        parsedMap.forEach((key, value) {
+          dropdownOptions.add(key);
+          valueMap[key] = value.toString();
+        });
+      } catch (e) {
+        dropdownOptions = ['OK', 'Not Ok'];
+        valueMap = {'OK': 'OK', 'Not Ok': 'Not Ok'};
+      }
+    }
+
+    if (dropdownOptions.isEmpty) {
+      dropdownOptions = ['OK', 'Not Ok'];
+      valueMap = {'OK': 'OK', 'Not Ok': 'Not Ok'};
+    }
+
+    final sectionKey = '${pmCheckListMstId}_$sectionIndex';
+    final currentValue = _formValues[sectionKey]?['value'] as String?;
+    final isDisabled = _isParentFieldEmpty;
+
+    return CustomDropdown(
+      key: ValueKey('dropdown_${pmCheckListMstId}_${sectionIndex}_$_resetCounter'),
+      items: dropdownOptions,
+      initialValue: currentValue,
+      onChanged: (value) {
+        setState(() {
+          // Use mapped value if available, otherwise use the label
+          final mappedValue = valueMap[value] ?? value;
+          _formValues[sectionKey] = {'value': mappedValue};
+        });
+      },
+      isRequired: true,
+      isDisabled: isDisabled,
+    );
+  }
+
+  /// Build Numeric field with section index
+  Widget _buildNumericFieldWithSection(Map<String, dynamic> item, int pmCheckListMstId, int sectionIndex) {
+    final sectionKey = '${pmCheckListMstId}_$sectionIndex';
+    if (!_numericControllers.containsKey(sectionKey)) {
+      _numericControllers[sectionKey] = TextEditingController();
+    }
+
+    final controller = _numericControllers[sectionKey]!;
+
+    return CustomFormField(
+      controller: controller,
+      onChanged: (value) {
+        setState(() {
+          _formValues[sectionKey] = {'value': value};
+        });
+      },
+      isRequired: true,
+      isEditable: !_isParentFieldEmpty,
+      inputType: InputType.number,
+      hintText: 'Enter numeric value',
+    );
   }
 
   /// Get all mfg_serial_no values from response_details for NUMERIC type with serial numbers
@@ -232,26 +523,32 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     final respType = item['resp_type']?.toString() ?? '';
 
     // Initialize form value if not exists
-    if (!_formValues.containsKey(pmCheckListMstId)) {
-      _formValues[pmCheckListMstId] = {};
+    final key = pmCheckListMstId.toString();
+    if (!_formValues.containsKey(key)) {
+      _formValues[key] = {};
     }
+
+    // For NUMERIC with serial numbers, don't show the label here (it's shown in _buildSerialNumberListField)
+    final shouldShowLabel = !(respType == 'NUMERIC' && _shouldShowSerialNumberDropdown(item));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label
-        Text(
-          label,
-          style: const TextStyle(
-            color: AppColors.black,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            fontFamily: fontFamilyMontserrat,
+        // Label (only show if not NUMERIC with serial numbers)
+        if (shouldShowLabel) ...[
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.black,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              fontFamily: fontFamilyMontserrat,
+            ),
           ),
-        ),
-        const SizedBox(height: 8),
+          const SizedBox(height: 8),
+        ],
 
           // Build field based on resp_type
           if (respType == 'RADIO')
@@ -285,7 +582,8 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       valueMap = {'OK': 'OK', 'Not Ok': 'Not Ok'};
     }
 
-    final currentValue = _formValues[pmCheckListMstId]?['value'] as String?;
+    final key = pmCheckListMstId.toString();
+    final currentValue = _formValues[key]?['value'] as String?;
     final isDisabled = _isParentFieldEmpty;
 
     return CustomRadioButton(
@@ -301,7 +599,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       initialValue: currentValue,
       onChanged: isDisabled ? null : (value) {
         setState(() {
-          _formValues[pmCheckListMstId] = {'value': value};
+          _formValues[key] = {'value': value};
         });
       },
       isRequired: true,
@@ -311,17 +609,19 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
   /// Build Text field
   Widget _buildTextField(Map<String, dynamic> item, int pmCheckListMstId) {
-    if (!_textControllers.containsKey(pmCheckListMstId)) {
-      _textControllers[pmCheckListMstId] = TextEditingController();
+    final key = pmCheckListMstId.toString();
+    if (!_textControllers.containsKey(key)) {
+      _textControllers[key] = TextEditingController();
     }
 
-    final controller = _textControllers[pmCheckListMstId]!;
+    final controller = _textControllers[key]!;
 
     return CustomFormField(
       controller: controller,
       onChanged: (value) {
         setState(() {
-          _formValues[pmCheckListMstId] = {'value': value};
+          final key = pmCheckListMstId.toString();
+          _formValues[key] = {'value': value};
         });
       },
       isRequired: true,
@@ -361,7 +661,8 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       valueMap = {'OK': 'OK', 'Not Ok': 'Not Ok'};
     }
 
-    final currentValue = _formValues[pmCheckListMstId]?['value'] as String?;
+    final key = pmCheckListMstId.toString();
+    final currentValue = _formValues[key]?['value'] as String?;
     final isDisabled = _isParentFieldEmpty;
 
     return CustomDropdown(
@@ -372,7 +673,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         setState(() {
           // Use mapped value if available, otherwise use the label
           final mappedValue = valueMap[value] ?? value;
-          _formValues[pmCheckListMstId] = {'value': mappedValue};
+          _formValues[key] = {'value': mappedValue};
         });
       },
       isRequired: true,
@@ -380,101 +681,146 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     );
   }
 
-  /// Build Numeric field (may include serial number dropdown)
+  /// Build Numeric field (may include serial number list)
   Widget _buildNumericField(Map<String, dynamic> item, int pmCheckListMstId) {
-    if (!_numericControllers.containsKey(pmCheckListMstId)) {
-      _numericControllers[pmCheckListMstId] = TextEditingController();
+    // Check if should show serial number list instead of dropdown
+    if (_shouldShowSerialNumberDropdown(item)) {
+      return _buildSerialNumberListField(item, pmCheckListMstId);
     }
 
-    final controller = _numericControllers[pmCheckListMstId]!;
+    // Simple numeric input (no serial numbers)
+    final key = pmCheckListMstId.toString();
+    if (!_numericControllers.containsKey(key)) {
+      _numericControllers[key] = TextEditingController();
+    }
 
-    // Check if should show serial number dropdown
-    if (_shouldShowSerialNumberDropdown(item)) {
-      final serialNumbers = _getAvailableSerialNumbers(pmCheckListMstId);
-      final currentSerial = _formValues[pmCheckListMstId]?['serialNumber'] as String?;
+    final controller = _numericControllers[key]!;
 
-      return Column(
+    return CustomFormField(
+      controller: controller,
+      onChanged: (value) {
+        setState(() {
+          final key = pmCheckListMstId.toString();
+          _formValues[key] = {'value': value};
+        });
+      },
+      isRequired: true,
+      isEditable: !_isParentFieldEmpty,
+      inputType: InputType.number,
+      hintText: 'Enter numeric value',
+    );
+  }
+
+  /// Build serial number list field (new UI with list of serial numbers and text fields)
+  Widget _buildSerialNumberListField(Map<String, dynamic> item, int pmCheckListMstId) {
+    final checklistDesc = item['checklist_desc']?.toString() ?? '';
+    final serialNumbers = _getAvailableSerialNumbers(pmCheckListMstId);
+    
+    if (serialNumbers.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Initialize controllers for each serial number if not exists
+    final responseDetails = widget.checklistItem['response_details'] as List?;
+    for (final serialNumber in serialNumbers) {
+      final controllerKey = '${pmCheckListMstId}_$serialNumber';
+      if (!_serialNumberControllers.containsKey(controllerKey)) {
+        _serialNumberControllers[controllerKey] = TextEditingController();
+        
+        // Load existing value if available
+        if (responseDetails != null) {
+          final matchingItem = responseDetails.firstWhere(
+            (detail) =>
+                detail is Map<String, dynamic> &&
+                detail['mfg_serial_no']?.toString() == serialNumber &&
+                detail['pm_check_list_mst_id'] == pmCheckListMstId &&
+                detail['resp'] != null &&
+                detail['resp'].toString().isNotEmpty,
+            orElse: () => null,
+          );
+          if (matchingItem != null && matchingItem is Map<String, dynamic>) {
+            _serialNumberControllers[controllerKey]!.text = matchingItem['resp']?.toString() ?? '';
+          }
+        }
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Serial number dropdown
-          if (serialNumbers.isNotEmpty)
-            CustomDropdown(
-              key: ValueKey('serial_dropdown_${pmCheckListMstId}_$_resetCounter'),
-              items: serialNumbers,
-              initialValue: (currentSerial != null && serialNumbers.contains(currentSerial))
-                  ? currentSerial
-                  : null,
-              onChanged: (value) {
-                setState(() {
-                  _formValues[pmCheckListMstId] = {
-                    ..._formValues[pmCheckListMstId] ?? {},
-                    'serialNumber': value,
-                  };
-
-                  // Load existing value if available
-                  if (value != null) {
-                    final responseDetails = widget.checklistItem['response_details'];
-                    if (responseDetails is List) {
-                      final matchingItem = responseDetails.firstWhere(
-                        (detail) =>
-                            detail is Map<String, dynamic> &&
-                            detail['mfg_serial_no']?.toString() == value &&
-                            detail['pm_check_list_mst_id'] == pmCheckListMstId &&
-                            detail['resp'] != null &&
-                            detail['resp'].toString().isNotEmpty,
-                        orElse: () => null,
-                      );
-                      if (matchingItem != null && matchingItem is Map<String, dynamic>) {
-                        controller.text = matchingItem['resp']?.toString() ?? '';
-                        _formValues[pmCheckListMstId] = {
-                          ..._formValues[pmCheckListMstId] ?? {},
-                          'value': matchingItem['resp']?.toString(),
-                        };
-                      } else {
-                        controller.clear();
-                      }
-                    }
-                  }
-                });
-              },
-              isRequired: true,
-              isDisabled: _isParentFieldEmpty,
+          // Title/Header (checklist_desc)
+          Text(
+            checklistDesc,
+            style: const TextStyle(
+              color: AppColors.black,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              fontFamily: fontFamilyMontserrat,
             ),
-            const SizedBox(height: 12),
-
-          // Numeric input
-          CustomFormField(
-            controller: controller,
-            onChanged: (value) {
-              setState(() {
-                _formValues[pmCheckListMstId] = {
-                  ..._formValues[pmCheckListMstId] ?? {},
-                  'value': value,
-                };
-              });
-            },
-            isRequired: true,
-            isEditable: !_isParentFieldEmpty,
-            inputType: InputType.number,
-            hintText: 'Enter numeric value',
           ),
+          const SizedBox(height: 16),
+          
+          // Serial number list with text fields
+          ...serialNumbers.map((serialNumber) {
+            final controllerKey = '${pmCheckListMstId}_$serialNumber';
+            final controller = _serialNumberControllers[controllerKey]!;
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  // Serial number label
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      serialNumber,
+                      style: const TextStyle(
+                        color: AppColors.black,
+                        fontSize: 16,
+                        fontFamily: fontFamilyMontserrat,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Numeric input field
+                  Expanded(
+                    flex: 1,
+                    child: CustomFormField(
+                      controller: controller,
+                      onChanged: (value) {
+                        setState(() {
+                          // Store value in formValues with serial number key
+                          final key = pmCheckListMstId.toString();
+                          if (!_formValues.containsKey(key)) {
+                            _formValues[key] = {};
+                          }
+                          final serialValues = _formValues[key]?['serialValues'] as Map<String, String>? ?? {};
+                          if (value.isEmpty) {
+                            serialValues.remove(serialNumber);
+                          } else {
+                            serialValues[serialNumber] = value;
+                          }
+                          _formValues[key] = {
+                            ..._formValues[key] ?? {},
+                            'serialValues': serialValues,
+                          };
+                        });
+                      },
+                      isRequired: false,
+                      isEditable: !_isParentFieldEmpty,
+                      inputType: InputType.number,
+                      hintText: '',
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
         ],
-      );
-    } else {
-      // Simple numeric input
-      return CustomFormField(
-        controller: controller,
-        onChanged: (value) {
-          setState(() {
-            _formValues[pmCheckListMstId] = {'value': value};
-          });
-        },
-        isRequired: true,
-        isEditable: !_isParentFieldEmpty,
-        inputType: InputType.number,
-        hintText: 'Enter numeric value',
-      );
-    }
+      ),
+    );
   }
 
   /// Handle save button click - saves all filled fields
@@ -533,85 +879,161 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       }
     }
 
+    // Check if should handle multiple sections (need to do this before the loop)
+    final shouldHandleMultipleSections = _shouldShowMultipleSections(respDtlChecklistItems);
+
     // Process each resp_dtl_checklist item
     for (final item in respDtlChecklistItems) {
       final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
       if (pmCheckListMstId == null) continue;
 
-      final formValue = _formValues[pmCheckListMstId];
-      if (formValue == null) continue;
-
-      final valueObj = formValue['value'];
-      if (valueObj == null) continue;
-      
-      final value = valueObj.toString();
-      if (value.isEmpty) continue;
-
       final respType = item['resp_type']?.toString() ?? '';
 
+      // Handle multiple sections case (RADIO type with sections)
+      if (shouldHandleMultipleSections && respType == 'RADIO') {
+        // Handle multiple sections - save all sections at once
+        final parentResp = widget.checklistItem['resp'];
+        final count = int.tryParse(parentResp?.toString() ?? '0') ?? 0;
+        
+        for (int sectionIndex = 0; sectionIndex < count; sectionIndex++) {
+          final sectionKey = '${pmCheckListMstId}_$sectionIndex';
+          final sectionFormValue = _formValues[sectionKey];
+          if (sectionFormValue == null) continue;
+          
+          final valueObj = sectionFormValue['value'];
+          if (valueObj == null) continue;
+          
+          final value = valueObj.toString();
+          if (value.isEmpty) continue;
+          
+          final sectionChecklistRef = _getSectionHeading(sectionIndex);
+          
+          // Find existing entry with matching checklist_ref and pm_check_list_mst_id
+          bool found = false;
+          for (int i = 0; i < updatedResponseDetails.length; i++) {
+            final detail = updatedResponseDetails[i];
+            if (detail['checklist_ref']?.toString() == sectionChecklistRef &&
+                detail['pm_check_list_mst_id'] == pmCheckListMstId) {
+              // Update existing entry
+              updatedResponseDetails[i] = {
+                ...detail,
+                'resp': value,
+              };
+              found = true;
+              break;
+            }
+          }
+          
+          if (!found) {
+            // Create new entry from resp_dtl_checklist item
+            final newEntry = Map<String, dynamic>.from(item);
+            newEntry['resp'] = value;
+            newEntry['cl_order'] = item['cl_order'] ?? parentClOrder;
+            newEntry['pclsrd_id'] = 0;
+            newEntry['checklist_ref'] = sectionChecklistRef;
+            newEntry['item_instance_id'] = null;
+            newEntry['response_dtl_images'] = null;
+            newEntry['pm_check_list_site_resp_id'] = parentPmCheckListSiteRespId;
+            
+            // Remove mfg_serial_no and nexgen_serial_no if they don't exist in response_details
+            final hasSerialNumbers = updatedResponseDetails.any((detail) {
+              return detail['mfg_serial_no'] != null || detail['nexgen_serial_no'] != null;
+            });
+            
+            if (!hasSerialNumbers) {
+              newEntry.remove('mfg_serial_no');
+              newEntry.remove('nexgen_serial_no');
+            }
+            
+            updatedResponseDetails.add(newEntry);
+          }
+        }
+        continue; // Skip to next resp_dtl_checklist item
+      }
+
+      // For non-multiple-sections case, use simple key
+      final key = pmCheckListMstId.toString();
+      final formValue = _formValues[key];
+      if (formValue == null) continue;
+
       if (respType == 'NUMERIC' && _shouldShowSerialNumberDropdown(item)) {
-        // NUMERIC with serial number - update existing entry
-        final serialNumber = formValue['serialNumber']?.toString();
-        if (serialNumber == null || serialNumber.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please select a serial number'),
-              backgroundColor: AppColors.errorColor,
-            ),
-          );
+        // NUMERIC with serial numbers - save all serial numbers with their values
+        final serialValues = formValue['serialValues'] as Map<String, String>?;
+        if (serialValues == null || serialValues.isEmpty) {
+          if (mounted) {
+            try {
+              Toastbar.showErrorToastbar('Please enter values for at least one serial number', context);
+            } catch (e) {
+              Logger.errorLog('Error showing error toast: $e');
+            }
+          }
           return;
         }
 
-        // Find and update matching entry by mfg_serial_no and pm_check_list_mst_id
-        bool found = false;
-        for (int i = 0; i < updatedResponseDetails.length; i++) {
-          final detail = updatedResponseDetails[i];
-          if (detail['mfg_serial_no']?.toString() == serialNumber &&
-              detail['pm_check_list_mst_id'] == pmCheckListMstId) {
-            // Update existing entry
-            updatedResponseDetails[i] = {
-              ...detail,
-              'resp': value,
-            };
-            found = true;
-            break;
-          }
-        }
+        // Process each serial number and its value
+        for (final entry in serialValues.entries) {
+          final serialNumber = entry.key;
+          final serialValue = entry.value;
+          
+          if (serialValue.isEmpty) continue; // Skip empty values
 
-        if (!found) {
-          // Find an existing entry with this serial number to copy structure
-          Map<String, dynamic>? existingEntryWithSerial;
-          for (final detail in updatedResponseDetails) {
-            if (detail['mfg_serial_no']?.toString() == serialNumber) {
-              existingEntryWithSerial = detail;
+          // Find and update matching entry by mfg_serial_no and pm_check_list_mst_id
+          bool found = false;
+          for (int i = 0; i < updatedResponseDetails.length; i++) {
+            final detail = updatedResponseDetails[i];
+            if (detail['mfg_serial_no']?.toString() == serialNumber &&
+                detail['pm_check_list_mst_id'] == pmCheckListMstId) {
+              // Update existing entry
+              updatedResponseDetails[i] = {
+                ...detail,
+                'resp': serialValue,
+              };
+              found = true;
               break;
             }
           }
 
-          if (existingEntryWithSerial != null) {
-            // Use existing entry structure and update resp
-            final newEntry = Map<String, dynamic>.from(existingEntryWithSerial);
-            newEntry['resp'] = value;
-            newEntry['pm_check_list_mst_id'] = pmCheckListMstId;
-            updatedResponseDetails.add(newEntry);
-          } else {
-            // Create new entry from resp_dtl_checklist item
-            final newEntry = Map<String, dynamic>.from(item);
-            newEntry['resp'] = value;
-            newEntry['mfg_serial_no'] = serialNumber;
-            newEntry['nexgen_serial_no'] = serialNumber;
-            newEntry['cl_order'] = item['cl_order'] ?? parentClOrder;
-            newEntry['pclsrd_id'] = existingEntryWithSerial?['pclsrd_id'] ?? 0;
-            newEntry['checklist_ref'] = '$parentChecklistRef $nextSequenceNumber';
-            newEntry['item_instance_id'] = null;
-            newEntry['response_dtl_images'] = '';
-            newEntry['pm_check_list_site_resp_id'] = parentPmCheckListSiteRespId;
-            updatedResponseDetails.add(newEntry);
+          if (!found) {
+            // Find an existing entry with this serial number to copy structure
+            Map<String, dynamic>? existingEntryWithSerial;
+            for (final detail in updatedResponseDetails) {
+              if (detail['mfg_serial_no']?.toString() == serialNumber) {
+                existingEntryWithSerial = detail;
+                break;
+              }
+            }
+
+            if (existingEntryWithSerial != null) {
+              // Use existing entry structure and update resp
+              final newEntry = Map<String, dynamic>.from(existingEntryWithSerial);
+              newEntry['resp'] = serialValue;
+              newEntry['pm_check_list_mst_id'] = pmCheckListMstId;
+              updatedResponseDetails.add(newEntry);
+            } else {
+              // Create new entry from resp_dtl_checklist item
+              final newEntry = Map<String, dynamic>.from(item);
+              newEntry['resp'] = serialValue;
+              newEntry['mfg_serial_no'] = serialNumber;
+              newEntry['nexgen_serial_no'] = serialNumber;
+              newEntry['cl_order'] = item['cl_order'] ?? parentClOrder;
+              newEntry['pclsrd_id'] = existingEntryWithSerial?['pclsrd_id'] ?? 0;
+              newEntry['checklist_ref'] = '$parentChecklistRef $nextSequenceNumber';
+              newEntry['item_instance_id'] = null;
+              newEntry['response_dtl_images'] = '';
+              newEntry['pm_check_list_site_resp_id'] = parentPmCheckListSiteRespId;
+              updatedResponseDetails.add(newEntry);
+            }
           }
         }
       } else {
-        // Other types (RADIO, TEXT, DROPDOWN) - find existing entry with same pm_check_list_mst_id
+        // Other types (RADIO single section, TEXT, DROPDOWN, NUMERIC without serial numbers) - find existing entry with same pm_check_list_mst_id
         // and update resp, or create new entry if not found
+        final valueObj = formValue['value'];
+        if (valueObj == null) continue;
+        
+        final value = valueObj.toString();
+        if (value.isEmpty) continue;
+
         bool found = false;
         
         // Find first entry with matching pm_check_list_mst_id that has null or empty resp
@@ -673,16 +1095,22 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       for (final controller in _numericControllers.values) {
         controller.clear();
       }
+      for (final controller in _serialNumberControllers.values) {
+        controller.clear();
+      }
+      _textControllers.clear();
+      _numericControllers.clear();
       _resetCounter++; // Increment to force widgets to rebuild with new keys
     });
 
     // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Saved successfully'),
-        backgroundColor: AppColors.primaryGreen,
-      ),
-    );
+    if (mounted) {
+      try {
+        Toastbar.showSuccessToastbar('Saved successfully', context);
+      } catch (e) {
+        Logger.errorLog('Error showing success toast: $e');
+      }
+    }
   }
 
   /// Build saved items table
@@ -816,8 +1244,8 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         // 1. Parent field OUTSIDE white box
         _buildParentField(),
 
-        // 2. White box containing resp_dtl_checklist items (form fields)
-        if (respDtlChecklistItems.isNotEmpty)
+        // 2. White box containing resp_dtl_checklist items (form fields) - only show if parent field has value
+        if (respDtlChecklistItems.isNotEmpty && !_isParentFieldEmpty)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -827,34 +1255,35 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                // All resp_dtl_checklist fields
-                ...respDtlChecklistItems.map((item) => _buildFieldForItem(item)).toList(),
+                // Check if should show multiple sections (RADIO type without serial numbers)
+                if (_shouldShowMultipleSections(respDtlChecklistItems))
+                  _buildMultipleSections(respDtlChecklistItems)
+                else
+                  // All resp_dtl_checklist fields (original single section)
+                  ...respDtlChecklistItems.map((item) => _buildFieldForItem(item)).toList(),
 
-                // Save button at bottom right
+                // Save button at bottom
                 Align(
-                  alignment: Alignment.bottomRight,
-                  child: ElevatedButton.icon(
+                  alignment: Alignment.center,
+                  child: ElevatedButton(
                     onPressed: _isParentFieldEmpty ? null : _onSaveAllEntries,
-                    icon: Icon(
-                      Icons.save,
-                      color: _isParentFieldEmpty ? Colors.grey : Colors.white,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isParentFieldEmpty
+                          ? Colors.grey.shade400
+                          : AppColors.primaryGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      minimumSize: const Size(double.infinity, 48),
                     ),
-                    label: Text(
-                      'Save',
+                    child: Text(
+                      _getSaveButtonText(),
                       style: TextStyle(
                         color: _isParentFieldEmpty ? Colors.grey : Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                         fontFamily: fontFamilyMontserrat,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isParentFieldEmpty
-                          ? Colors.grey.shade400
-                          : AppColors.primaryGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5),
                       ),
                     ),
                   ),
