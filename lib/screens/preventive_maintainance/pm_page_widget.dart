@@ -4,12 +4,13 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 import '../../constants/constants_methods.dart';
 import '../../constants/pm_constants.dart';
-import 'pm_custom_widget.dart';
 import '../../commonWidgets/custom_pm_bottom_buttons.dart';
 import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../routes/route_generator.dart';
 import '../../custom_widgets/pm_custom_form_component.dart';
+import 'pm_custom_widget.dart' show PMCustomWidget, PMCustomWidgetState;
+import 'pm_dependent_element_helpers.dart' show parseDependentElements, isDependentElementMandatory;
 
 class PMPageWidget extends StatefulWidget {
   final List<Map<String, dynamic>> pmItems;
@@ -89,11 +90,22 @@ class PMPageWidget extends StatefulWidget {
 class _PMPageWidgetState extends State<PMPageWidget> {
   late List<Map<String, dynamic>> _pmItems;
   bool _hasChanges = false;
+  
+  // GlobalKeys to access widget state for validation
+  final Map<int, GlobalKey<PMCustomWidgetState>> _widgetKeys = {};
 
   @override
   void initState() {
     super.initState();
     _pmItems = List<Map<String, dynamic>>.from(widget.pmItems);
+    
+    // Initialize GlobalKeys for each PM item
+    for (final item in _pmItems) {
+      final pmCheckListSiteRespId = item['pm_check_list_site_resp_id'] as int?;
+      if (pmCheckListSiteRespId != null) {
+        _widgetKeys[pmCheckListSiteRespId] = GlobalKey<PMCustomWidgetState>();
+      }
+    }
   }
 
   @override
@@ -125,17 +137,27 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     });
   }
 
-  /// Validate all form fields
+  /// Sequential validation: Item-by-item validation with dependent elements
+  /// For each checklist item:
+  ///   1. Validate parent field first
+  ///   2. Then validate dependent elements (only if parent is valid)
+  ///   3. Move to next item only if current item is fully valid
+  /// Returns false on first failure and shows popup
   bool _validateAllFields() {
-    bool isValid = true;
-
     // Get filtered items (excluding conditionally hidden fields)
     final filteredItems = _filterItemsByConditions(
       widget.sectionName,
       _pmItems,
     );
 
+    // Loop through PM items in order (STRICT SEQUENTIAL)
     for (final pmItem in filteredItems) {
+      final pmCheckListSiteRespId = pmItem['pm_check_list_site_resp_id'] as int?;
+      if (pmCheckListSiteRespId == null) continue;
+
+      // ============================================================
+      // STEP 1: Validate Parent Field (basic validation)
+      // ============================================================
       final respValue = pmItem['resp'];
       final respTypeList = pmItem['resp_type'];
 
@@ -147,33 +169,144 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         respTypes = respTypeList.split(",");
       }
 
-      // Check if any required field is empty
+      // Check if any required field is empty (basic validation)
+      bool isParentFieldEmpty = false;
+      String? errorMessage;
+      final checklistDesc = pmItem['checklist_desc']?.toString() ?? 'This field';
+
       if (respTypes.contains('DROPDOWN') &&
           (respValue == null || respValue.toString().isEmpty)) {
-        isValid = false;
-        break;
-      }
-
-      if (respTypes.contains('RADIO') &&
+        isParentFieldEmpty = true;
+        errorMessage = '$checklistDesc is required';
+      } else if (respTypes.contains('RADIO') &&
           (respValue == null || respValue.toString().isEmpty)) {
-        isValid = false;
-        break;
-      }
-
-      if (respTypes.contains('TEXT') &&
+        isParentFieldEmpty = true;
+        errorMessage = '$checklistDesc is required';
+      } else if (respTypes.contains('TEXT') &&
           (respValue == null || respValue.toString().trim().isEmpty)) {
-        isValid = false;
-        break;
+        isParentFieldEmpty = true;
+        errorMessage = '$checklistDesc is required';
+      } else if (respTypes.contains('NUMERIC') &&
+          (respValue == null || respValue.toString().trim().isEmpty)) {
+        isParentFieldEmpty = true;
+        errorMessage = '$checklistDesc is required';
+      } else if (respTypes.contains('IMG') &&
+          (respValue == null || respValue.toString().isEmpty)) {
+        isParentFieldEmpty = true;
+        errorMessage = '$checklistDesc is required';
       }
 
-      if (respTypes.contains('IMG') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        isValid = false;
-        break;
+      // If parent field is empty, show error and STOP
+      if (isParentFieldEmpty) {
+        _showValidationErrorDialog(errorMessage!);
+        return false;
+      }
+
+      // ============================================================
+      // STEP 2: Validate Dependent Elements (only if parent is valid)
+      // ============================================================
+      // Get parent response value for dependent element validation
+      final parentResponse = _getParentResponseValue(pmItem);
+      
+      // Only validate dependent elements if parent field has a response
+      if (parentResponse != null && parentResponse.isNotEmpty) {
+        // Check if this item has dependent elements
+        final dependentElements = parseDependentElements(pmItem);
+        if (dependentElements != null && dependentElements.isNotEmpty) {
+          // Get widget state for accessing dependent element data
+          final widgetKey = _widgetKeys[pmCheckListSiteRespId];
+          final widgetState = widgetKey?.currentState;
+          
+          if (widgetState != null) {
+            // Loop through dependent elements in order
+            for (final dependentElement in dependentElements) {
+              // Determine if this dependent element is mandatory
+              final isMandatory = isDependentElementMandatory(
+                dependentElement,
+                parentResponse,
+              );
+              
+              // If mandatory, validate the dependent element value
+              if (isMandatory) {
+                final validationError = _validateDependentElementValue(
+                  dependentElement,
+                  widgetState,
+                  parentResponse,
+                );
+                
+                // If validation fails, show popup and STOP immediately
+                if (validationError != null) {
+                  _showValidationErrorDialog(validationError);
+                  // Highlight the invalid dependent field
+                  final respType = dependentElement['resp_type']?.toString() ?? '';
+                  final elementChecklistDesc = dependentElement['checklist_desc']?.toString() ?? '';
+                  final elementKey = '${respType}_${elementChecklistDesc}';
+                  widgetState.highlightDependentField(elementKey);
+                  return false; // Stop validation - do not check other dependencies or next item
+                }
+              }
+            }
+          }
+        }
       }
     }
-
-    return isValid;
+    
+    // All PM items validated successfully
+    return true;
+  }
+  
+  /// Get parent response value for a PM item
+  String? _getParentResponseValue(Map<String, dynamic> pmItem) {
+    final respValue = pmItem['resp'];
+    final respTypeList = pmItem['resp_type'];
+    
+    // Handle resp_type as array or string
+    List<String> respTypes = [];
+    if (respTypeList is List) {
+      respTypes = respTypeList.map((e) => e.toString()).toList();
+    } else if (respTypeList is String) {
+      respTypes = respTypeList.split(",");
+    }
+    
+    // Get value based on response type
+    if (respTypes.contains('RADIO') || respTypes.contains('DROPDOWN')) {
+      return respValue?.toString();
+    } else if (respTypes.contains('TEXT') || respTypes.contains('NUMERIC')) {
+      return respValue?.toString();
+    }
+    
+    return null;
+  }
+  
+  /// Validate a single dependent element value
+  /// Returns error message if invalid, null if valid
+  String? _validateDependentElementValue(
+    Map<String, dynamic> dependentElement,
+    PMCustomWidgetState widgetState,
+    String? parentResponse,
+  ) {
+    final respType = dependentElement['resp_type']?.toString() ?? '';
+    final checklistDesc = dependentElement['checklist_desc']?.toString() ?? '';
+    final elementKey = '${respType}_${checklistDesc}';
+    
+    if (respType == 'IMG') {
+      // IMG: At least one image must be added
+      final imageId = widgetState.getDependentImageId(elementKey);
+      if (imageId == null || imageId.isEmpty) {
+        return '$checklistDesc is required';
+      }
+    } else if (respType == 'REMARKS' || respType == 'TEXT') {
+      // REMARKS/TEXT: Non-empty text required
+      final value = respType == 'REMARKS'
+          ? widgetState.getDependentRemarks(elementKey)
+          : widgetState.getDependentTextValue(elementKey);
+      
+      if (value == null || value.trim().isEmpty) {
+        return '$checklistDesc is required';
+      }
+    }
+    
+    return null; // Valid
   }
 
   /// Get validation error messages for all fields
@@ -226,32 +359,33 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   }
 
   /// Show validation error dialog
-  void _showValidationErrorDialog(List<String> errors) {
+  void _showValidationErrorDialog(String errorMessage) {
     showDialog(
       context: context,
+      barrierDismissible: true,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Validation Error'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Please fill in all required fields:'),
-              const SizedBox(height: 16),
-              ...errors
-                  .map(
-                    (error) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Text('• $error'),
-                    ),
-                  )
-                  .toList(),
-            ],
+          title: const Text(
+            'Validation Error',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            errorMessage,
+            style: const TextStyle(fontSize: 16),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
+              child: const Text(
+                'OK',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
           ],
         );
@@ -261,6 +395,10 @@ class _PMPageWidgetState extends State<PMPageWidget> {
 
   /// Handle right button press with validation
   void _handleRightButtonPress() {
+    // Validate all fields including dependent elements
+    if (!_validateAllFields()) {
+      return; // Stop if validation fails
+    }
     // If validation passes, proceed with the original callback
     widget.onRightButtonPressed();
   }
@@ -427,9 +565,19 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                                   }
 
                                   // Use regular PMCustomWidget for non-grouped items
+                                  final pmCheckListSiteRespId = pmItem['pm_check_list_site_resp_id'] as int?;
+                                  final widgetKey = pmCheckListSiteRespId != null 
+                                      ? _widgetKeys[pmCheckListSiteRespId] 
+                                      : null;
+                                  
+                                  // Create GlobalKey if it doesn't exist
+                                  if (pmCheckListSiteRespId != null && widgetKey == null) {
+                                    _widgetKeys[pmCheckListSiteRespId] = GlobalKey<PMCustomWidgetState>();
+                                  }
+                                  
                                   return PMCustomWidget(
-                                    key: ValueKey(
-                                      'pm_item_${pmItem['pm_check_list_site_resp_id']}_$index',
+                                    key: widgetKey ?? ValueKey(
+                                      'pm_item_${pmCheckListSiteRespId}_$index',
                                     ),
                                     pmItem: pmItem,
                                     readonlyFields: widget.readonlyFields,

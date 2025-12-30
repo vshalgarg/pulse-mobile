@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:app/screens/asset_audit/asset_audit_widget_helper/WidgetHelper.dart';
 import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/constants_strings.dart';
@@ -11,6 +10,11 @@ import '../../commonWidgets/custom_remark.dart';
 import '../../commonWidgets/custom_form_field.dart';
 import '../../commonWidgets/custom_form_dropdown.dart';
 import '../../commonWidgets/custom_image_upload_field.dart';
+import '../../commonWidgets/custom_radio_options.dart';
+import '../../utils/logger.dart';
+import '../../utils/toastbar.dart';
+import '../../utils.dart';
+import 'pm_dependent_element_helpers.dart';
 
 class PMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
@@ -25,10 +29,10 @@ class PMCustomWidget extends StatefulWidget {
   });
 
   @override
-  State<PMCustomWidget> createState() => _PMCustomWidgetState();
+  State<PMCustomWidget> createState() => PMCustomWidgetState();
 }
 
-class _PMCustomWidgetState extends State<PMCustomWidget> {
+class PMCustomWidgetState extends State<PMCustomWidget> {
   late Map<String, dynamic> _currentItem;
   String? _selectedDropdownValue;
   String? _selectedRadioValue;
@@ -36,6 +40,17 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   String? _imageData;
   final TextEditingController _textController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
+  
+  // Dependent elements state - keyed by dependent element respType or a unique key
+  Map<String, String?> _dependentImageIds = {}; // key -> imageId
+  Map<String, String?> _dependentImageData = {}; // key -> imageDataUrl (for display)
+  Map<String, String> _dependentRemarks = {}; // key -> remarks text
+  Map<String, String> _dependentTextValues = {}; // key -> text value
+  Map<String, TextEditingController> _dependentControllers = {}; // key -> controller
+  Map<String, File?> _dependentImageFiles = {}; // key -> image file
+  
+  // Track which dependent fields should be highlighted (for validation errors)
+  Set<String> _highlightedDependentFields = {};
 
   @override
   void initState() {
@@ -53,6 +68,11 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   void dispose() {
     _textController.dispose();
     _remarksController.dispose();
+    // Dispose all dependent element controllers
+    for (final controller in _dependentControllers.values) {
+      controller.dispose();
+    }
+    _dependentControllers.clear();
     super.dispose();
   }
 
@@ -73,14 +93,12 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       _selectedDropdownValue = _getDisplayLabelForValue(respValue);
     }
 
-    // Initialize radio value - convert 1/0 to Yes/No
+    // Initialize radio value from resp
     if (respTypes.contains('RADIO')) {
-      _selectedRadioValue = respValue == null || respValue.isEmpty
-          ? 'Yes'
-          : respValue;
-      if (respValue == null || respValue.isEmpty) {
-        _onRadioChanged('Yes');
+      if (respValue != null && respValue.toString().isNotEmpty) {
+        _selectedRadioValue = respValue.toString();
       }
+      // Don't set a default value - let user select
     }
 
     // Initialize text value
@@ -90,8 +108,15 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
     // Initialize remarks value
     _remarksController.text = respValue?.toString() ?? '';
 
-    // Load image data if photo_id exists
-    if (_currentItem['photo_id'] != null) {
+    // Load image data from responseImages array
+    final responseImages = _currentItem['responseImages'] as List?;
+    if (responseImages != null && responseImages.isNotEmpty) {
+      final firstImage = responseImages[0];
+      if (firstImage is Map && firstImage['photoId'] != null) {
+        _loadImageFromPhotoId(firstImage['photoId'].toString());
+      }
+    } else if (_currentItem['photo_id'] != null) {
+      // Fallback for backward compatibility
       _loadImageFromPhotoId(_currentItem['photo_id'].toString());
     }
   }
@@ -126,6 +151,35 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
         });
       }
     }
+  }
+
+  /// Add or update image in responseImages array
+  void _addImageToResponseImages(String photoId) {
+    if (!_currentItem.containsKey('responseImages') || 
+        _currentItem['responseImages'] == null) {
+      _currentItem['responseImages'] = [];
+    }
+    
+    List<Map<String, dynamic>> responseImages = 
+        List<Map<String, dynamic>>.from(_currentItem['responseImages'] ?? []);
+    
+    // Check if photoId already exists, update it; otherwise add new
+    final existingIndex = responseImages.indexWhere(
+      (img) => img['photoId'] == photoId,
+    );
+    
+    final imageData = {
+      'photoId': photoId,
+      'photoTakenTs': Utils.getCurrentDateTimeForAPICall(),
+    };
+    
+    if (existingIndex >= 0) {
+      responseImages[existingIndex] = imageData;
+    } else {
+      responseImages.add(imageData);
+    }
+    
+    _currentItem['responseImages'] = responseImages;
   }
 
   void _notifyValueChanged() {
@@ -224,15 +278,19 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       }
     });
     _notifyValueChanged();
+    // Trigger rebuild to update dependent elements visibility
+    setState(() {});
   }
 
   void _onRadioChanged(String? value) {
     setState(() {
       _selectedRadioValue = value;
-      // Convert Yes/No to 1/0 for API compatibility
+      // Store the selected value directly (value comes from resp_type_value_map)
       _currentItem['resp'] = value;
     });
     _notifyValueChanged();
+    // Trigger rebuild to update dependent elements visibility
+    setState(() {});
   }
 
   void _onTextChanged(String value) {
@@ -241,6 +299,8 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
       _currentItem['resp'] = value;
     });
     _notifyValueChanged();
+    // Trigger rebuild to update dependent elements visibility
+    setState(() {});
   }
 
   void _onRemarksChanged(String value) {
@@ -323,10 +383,61 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
   }
 
   Widget _buildRadioField() {
-    return WidgetHelper.buildRadioField(
+    // Parse resp_type_value_map to get radio options
+    List<OptionItem> radioOptions = [];
+    Map<String, String> valueMap = {};
+    
+    try {
+      final respTypeValueMap = _currentItem['resp_type_value_map'];
+      if (respTypeValueMap != null) {
+        Map<String, dynamic>? parsedMap;
+        
+        // Try direct Map first (for RADIO types)
+        if (respTypeValueMap is Map<String, dynamic>) {
+          parsedMap = respTypeValueMap;
+        } else if (respTypeValueMap is Map && respTypeValueMap.containsKey('value')) {
+          // Try nested structure with 'value' key (for dropdown-style)
+          final value = respTypeValueMap['value'];
+          if (value is Map<String, dynamic>) {
+            parsedMap = value;
+          } else if (value is String) {
+            parsedMap = Map<String, dynamic>.from(jsonDecode(value));
+          }
+        }
+        
+        if (parsedMap != null && parsedMap.isNotEmpty) {
+          // Convert map entries to OptionItem list
+          // For radio buttons, both key and value are the same (e.g., "OK": "OK")
+          parsedMap.forEach((key, value) {
+            final optionValue = value.toString();
+            radioOptions.add(
+              OptionItem(
+                value: optionValue,
+                label: key,
+              ),
+            );
+            valueMap[key] = optionValue;
+          });
+        }
+      }
+    } catch (e) {
+      // If parsing fails, use default options
+    }
+    
+    // If no options found, use default Yes/No
+    if (radioOptions.isEmpty) {
+      radioOptions = [
+        OptionItem(value: 'Yes', label: 'Yes'),
+        OptionItem(value: 'No', label: 'No'),
+      ];
+      valueMap = {'Yes': 'Yes', 'No': 'No'};
+    }
+    
+    return CustomRadioButton(
+      options: radioOptions,
+      initialValue: _selectedRadioValue,
+      onChanged: (value) => _onRadioChanged(value),
       isRequired: true,
-      initialSelectedValue: _selectedRadioValue ?? 'Yes',
-      onChanged: _onRadioChanged,
     );
   }
 
@@ -373,31 +484,27 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
 
             if (photoId.isNotEmpty) {
               setState(() {
-                _currentItem['photo_id'] = photoId;
-                _imageData = imageData.toString().startsWith('data:image/')
-                    ? imageData.toString()
-                    : 'data:image/jpeg;base64,$imageData';
+                _addImageToResponseImages(photoId);
+                _imageData = 'data:image/jpeg;base64,${base64Encode(imageData)}';
               });
 
               _notifyValueChanged();
 
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Image uploaded successfully'),
-                    backgroundColor: AppColors.primaryGreen,
-                  ),
-                );
+                try {
+                  Toastbar.showSuccessToastbar('Image uploaded successfully', context);
+                } catch (err) {
+                  Logger.errorLog('Error showing success toast: $err');
+                }
               }
             }
           } catch (e) {
             if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Error uploading image: $e'),
-                  backgroundColor: AppColors.errorColor,
-                ),
-              );
+              try {
+                Toastbar.showErrorToastbar('Error uploading image', context);
+              } catch (err) {
+                Logger.errorLog('Error showing error toast: $err');
+              }
             }
           }
         }
@@ -540,9 +647,364 @@ class _PMCustomWidgetState extends State<PMCustomWidget> {
           ))
             _buildRemarksField()
           else
-            _buildFieldByType(respTypes),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFieldByType(respTypes),
+                // Render dependent elements (pass !isReadonly as isEditable)
+                ..._buildDependentElements(!isReadonly),
+              ],
+            ),
         ],
       ),
     );
+  }
+
+  /// Get current main field response value for dependent elements visibility
+  String? _getCurrentMainResponse() {
+    final respTypeList = _currentItem['resp_type'];
+    List<String> respTypes = [];
+    if (respTypeList is List) {
+      respTypes = respTypeList.map((e) => e.toString()).toList();
+    } else if (respTypeList is String) {
+      respTypes = respTypeList.split(",");
+    }
+    
+    if (respTypes.contains('RADIO')) {
+      return _selectedRadioValue;
+    } else if (respTypes.contains('DROPDOWN')) {
+      return _selectedDropdownValue;
+    } else if (respTypes.contains('TEXT') || respTypes.contains('NUMERIC')) {
+      return _textController.text;
+    }
+    
+    return null;
+  }
+
+  /// Build dependent elements widgets
+  List<Widget> _buildDependentElements(bool isEditable) {
+    final dependentElements = parseDependentElements(_currentItem);
+    if (dependentElements == null || dependentElements.isEmpty) {
+      return [];
+    }
+    
+    final currentMainResponse = _getCurrentMainResponse();
+    List<Widget> widgets = [];
+    
+    for (final element in dependentElements) {
+      final shouldShow = shouldDependentElementBeVisible(element, currentMainResponse);
+      if (!shouldShow) continue;
+      
+      widgets.add(_buildDependentElement(element, isEditable, currentMainResponse));
+    }
+    
+    return widgets;
+  }
+
+  /// Build a single dependent element widget
+  Widget _buildDependentElement(
+    Map<String, dynamic> element,
+    bool isEditable,
+    String? parentResponse,
+  ) {
+    final respType = element['resp_type']?.toString() ?? '';
+    final checklistDesc = element['checklist_desc']?.toString() ?? '';
+    final isMandatory = isDependentElementMandatory(element, parentResponse);
+    final elementKey = '${respType}_${checklistDesc}'; // Create unique key
+    final shouldHighlight = _highlightedDependentFields.contains(elementKey);
+    
+    if (respType == 'IMG') {
+      return Padding(
+        padding: const EdgeInsets.only(top: 12.0, bottom: 16.0),
+        child: Container(
+          decoration: shouldHighlight
+              ? BoxDecoration(
+                  border: Border.all(color: AppColors.errorColor, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.errorColor.withOpacity(0.1),
+                )
+              : null,
+          padding: shouldHighlight ? const EdgeInsets.all(8.0) : null,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    checklistDesc,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: shouldHighlight ? AppColors.errorColor : Colors.white,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+                  if (isMandatory)
+                    const Text(
+                      ' *',
+                      style: TextStyle(color: AppColors.redColor),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ImageUploadField(
+                key: ValueKey('${_currentItem['pm_check_list_site_resp_id']}_${elementKey}_image'),
+                placeholder: checklistDesc,
+                isRequired: isMandatory,
+                onImageSelected: isEditable
+                    ? (File? file) {
+                        if (file != null) {
+                          _uploadDependentImage(elementKey, file);
+                          // Clear highlight when image is added
+                          _clearDependentFieldHighlight(elementKey);
+                        } else {
+                          setState(() {
+                            _dependentImageIds[elementKey] = null;
+                            _dependentImageFiles[elementKey] = null;
+                          });
+                        }
+                      }
+                    : (File? file) {},
+                externalImageUrl: _dependentImageData[elementKey],
+                isDisabled: !isEditable,
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (respType == 'REMARKS' || respType == 'TEXT') {
+      // Get or create controller for this dependent element
+      if (!_dependentControllers.containsKey(elementKey)) {
+        _dependentControllers[elementKey] = TextEditingController(
+          text: respType == 'REMARKS'
+              ? (_dependentRemarks[elementKey] ?? '')
+              : (_dependentTextValues[elementKey] ?? ''),
+        );
+        _dependentControllers[elementKey]!.addListener(() {
+          final value = _dependentControllers[elementKey]?.text ?? '';
+          if (respType == 'REMARKS') {
+            _dependentRemarks[elementKey] = value;
+          } else {
+            _dependentTextValues[elementKey] = value;
+          }
+          // Clear highlight when text is entered
+          if (value.isNotEmpty) {
+            _clearDependentFieldHighlight(elementKey);
+          }
+          _notifyValueChanged();
+        });
+      }
+      
+      return Padding(
+        padding: const EdgeInsets.only(top: 12.0, bottom: 16.0),
+        child: Container(
+          decoration: shouldHighlight
+              ? BoxDecoration(
+                  border: Border.all(color: AppColors.errorColor, width: 2),
+                  borderRadius: BorderRadius.circular(8),
+                  color: AppColors.errorColor.withOpacity(0.1),
+                )
+              : null,
+          padding: shouldHighlight ? const EdgeInsets.all(8.0) : null,
+          child: CustomRemarksField(
+            label: checklistDesc,
+            hintText: "Enter ${checklistDesc.toLowerCase()}",
+            controller: _dependentControllers[elementKey]!,
+            isDisabled: !isEditable,
+          ),
+        ),
+      );
+    }
+    
+    return const SizedBox.shrink();
+  }
+
+  /// Upload dependent image
+  Future<void> _uploadDependentImage(String elementKey, File imageFile) async {
+    try {
+      setState(() {
+        _dependentImageFiles[elementKey] = imageFile;
+        _dependentImageData[elementKey] = null; // Clear previous image
+      });
+
+      // Get site data - we need siteId from current item
+      final siteAuditSchId = _currentItem['site_audit_sch_id']?.toString() ?? '';
+      
+      if (siteAuditSchId.isEmpty) {
+        if (mounted) {
+          try {
+            Toastbar.showErrorToastbar('Site ID not available', context);
+          } catch (e) {
+            // Context might be deactivated, ignore
+          }
+        }
+        return;
+      }
+
+      // Use ImageUploadService like the main image field
+      if (!mounted) return;
+      final apiService = AppConfig.of(context).apiService;
+      final imageUploadService = ImageUploadService(apiService: apiService);
+
+      final imageData = await imageFile.readAsBytes();
+      final photoId = await imageUploadService.uploadImage(
+        base64Encode(imageData),
+        ActivityTypeEnum.preventiveMaintenance,
+        false,
+        siteAuditSchId,
+      );
+
+      if (photoId.isNotEmpty) {
+        setState(() {
+          _dependentImageIds[elementKey] = photoId;
+          // Store base64 image data for display
+          _dependentImageData[elementKey] = 'data:image/jpeg;base64,${base64Encode(imageData)}';
+          // Add to responseImages array
+          _addImageToResponseImages(photoId);
+        });
+        
+        _notifyValueChanged();
+        
+        // Show success message
+        if (mounted) {
+          try {
+            Toastbar.showSuccessToastbar('Image uploaded successfully', context);
+          } catch (e) {
+            Logger.errorLog('Error showing success toast: $e');
+          }
+        }
+      } else {
+        Logger.errorLog('❌ Failed to get image ID after upload');
+        if (mounted) {
+          try {
+            Toastbar.showErrorToastbar('Failed to upload photo', context);
+          } catch (e) {
+            Logger.errorLog('Error showing error toast: $e');
+          }
+        }
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading dependent image: $e');
+      if (mounted) {
+        setState(() {
+          _dependentImageIds[elementKey] = null;
+          _dependentImageData[elementKey] = null;
+          _dependentImageFiles[elementKey] = null;
+        });
+      }
+      if (mounted) {
+        try {
+          Toastbar.showErrorToastbar('Error uploading image', context);
+        } catch (err) {
+          Logger.errorLog('Error showing error toast: $err');
+        }
+      }
+    }
+  }
+
+  /// Highlight a dependent field (called from parent validation)
+  void highlightDependentField(String elementKey) {
+    setState(() {
+      _highlightedDependentFields.add(elementKey);
+    });
+  }
+  
+  /// Clear highlight for a dependent field
+  void _clearDependentFieldHighlight(String elementKey) {
+    setState(() {
+      _highlightedDependentFields.remove(elementKey);
+    });
+  }
+
+  /// Get dependent image ID by element key
+  String? getDependentImageId(String elementKey) {
+    return _dependentImageIds[elementKey];
+  }
+  
+  /// Get dependent remarks by element key
+  String? getDependentRemarks(String elementKey) {
+    return _dependentRemarks[elementKey];
+  }
+  
+  /// Get dependent text value by element key
+  String? getDependentTextValue(String elementKey) {
+    return _dependentTextValues[elementKey];
+  }
+
+  /// Validate dependent elements
+  List<String> validateDependentElements(String? parentResponse) {
+    final dependentElements = parseDependentElements(_currentItem);
+    if (dependentElements == null || dependentElements.isEmpty) {
+      return [];
+    }
+    
+    List<String> errors = [];
+    
+    for (final element in dependentElements) {
+      final respType = element['resp_type']?.toString() ?? '';
+      final checklistDesc = element['checklist_desc']?.toString() ?? '';
+      final elementKey = '${respType}_${checklistDesc}';
+      
+      final isMandatory = isDependentElementMandatory(element, parentResponse);
+      if (!isMandatory) continue;
+      
+      if (respType == 'IMG') {
+        final imageId = _dependentImageIds[elementKey];
+        if (imageId == null || imageId.isEmpty) {
+          errors.add('$checklistDesc is required');
+        }
+      } else if (respType == 'REMARKS' || respType == 'TEXT') {
+        final value = respType == 'REMARKS'
+            ? _dependentRemarks[elementKey]
+            : _dependentTextValues[elementKey];
+        if (value == null || value.trim().isEmpty) {
+          errors.add('$checklistDesc is required');
+        }
+      }
+    }
+    
+    return errors;
+  }
+
+  /// Get current values including dependent elements for form submission
+  Map<String, dynamic> getCurrentValuesWithDependentElements() {
+    final values = Map<String, dynamic>.from(_currentItem);
+    
+    // Add dependent elements data to response_details or remarks
+    final dependentElements = parseDependentElements(_currentItem);
+    if (dependentElements != null && dependentElements.isNotEmpty) {
+      List<String> remarksList = [];
+      
+      for (final element in dependentElements) {
+        final respType = element['resp_type']?.toString() ?? '';
+        final checklistDesc = element['checklist_desc']?.toString() ?? '';
+        final elementKey = '${respType}_${checklistDesc}';
+        
+        if (respType == 'IMG') {
+          final imageId = _dependentImageIds[elementKey];
+          // Store dependent image ID - could be added to response_details if needed
+          values['dependent_${elementKey}_image_id'] = imageId;
+        } else if (respType == 'REMARKS') {
+          final remarks = _dependentRemarks[elementKey];
+          if (remarks != null && remarks.trim().isNotEmpty) {
+            remarksList.add(remarks.trim());
+          }
+        } else if (respType == 'TEXT') {
+          final textValue = _dependentTextValues[elementKey];
+          values['dependent_${elementKey}_text'] = textValue;
+        }
+      }
+      
+      // Add remarks to current item if any exist
+      if (remarksList.isNotEmpty) {
+        final existingRemarks = values['remarks']?.toString() ?? '';
+        final combinedRemarks = existingRemarks.isNotEmpty
+            ? '$existingRemarks; ${remarksList.join("; ")}'
+            : remarksList.join("; ");
+        values['remarks'] = combinedRemarks;
+      }
+    }
+    
+    return values;
   }
 }

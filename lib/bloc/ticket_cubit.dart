@@ -18,11 +18,7 @@ class TicketCubit extends Cubit<TicketState> {
     int? pageNo,
   }) async {
     try {
-      debugPrint("🔍 TicketCubit: Fetching tickets with parameters:");
-      debugPrint("   Activity Type: $activityType");
-      debugPrint("   Ticket Type: $ticketType");
-      debugPrint("   Page Size: $pageSize");
-      debugPrint("   Page No: $pageNo");
+     
       
       emit(const TicketLoading());
 
@@ -37,9 +33,7 @@ class TicketCubit extends Cubit<TicketState> {
 
       if (result.isSuccess) {
         final ticketResponse = result.data as TicketResponse;
-        debugPrint("🔍 TicketCubit: API call successful!");
-        debugPrint("   Total tickets received: ${ticketResponse.tickets.length}");
-
+      
         emit(TicketSuccess(
           ticketResponse: ticketResponse,
           activityType: activityType,
