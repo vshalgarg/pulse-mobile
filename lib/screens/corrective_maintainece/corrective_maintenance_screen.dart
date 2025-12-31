@@ -62,7 +62,9 @@ class _CorrectiveMaintenanceScreenState
     'assigned_to': TextEditingController(),
     'oem_ticket_id': TextEditingController(),
     'priority': TextEditingController(),
+    'fault_description': TextEditingController(),
     'nature_of_failure': TextEditingController(),
+    'scope_of_ticket': TextEditingController(),
     'action_taken': TextEditingController(),
     'rca': TextEditingController(),
     'customer_name': TextEditingController(),
@@ -78,6 +80,12 @@ class _CorrectiveMaintenanceScreenState
   final TextEditingController _clusterDistrictController =
       TextEditingController();
   final TextEditingController _customerController = TextEditingController();
+  final TextEditingController _cmTicketNoController = TextEditingController();
+  final TextEditingController _infraEngineerNameController = TextEditingController();
+  final TextEditingController _infraEngineerContactNoController = TextEditingController();
+  final TextEditingController _clusterInchargeNameController = TextEditingController();
+  final TextEditingController _clusterInchargeContactNoController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
 
   final TextEditingController _statusController = TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
@@ -108,6 +116,7 @@ class _CorrectiveMaintenanceScreenState
   final List<String> _priorityOptions = ['Critical', 'Non Critical'];
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
+  final List<String> _scopeOfTicketOptions = ['AMC', 'Paid', 'FOC'];
   final List<String> _statusOptions = ['Open', 'In Progress', 'Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
@@ -159,6 +168,11 @@ class _CorrectiveMaintenanceScreenState
         oemId: preloadedSite['oem_id'],
         self: preloadedSite['assigned_to_name'] ?? preloadedSite['self'] ?? '',
         selfId: preloadedSite['assigned_to'] ?? preloadedSite['self_id'] ?? 0,
+        infraEngineerName: preloadedSite['infra_engineer_name']?.toString() ?? preloadedSite['infraEngineerName']?.toString(),
+        infraEngineerContactNo: preloadedSite['infra_engineer_contact_no']?.toString() ?? preloadedSite['infraEngineerContactNo']?.toString(),
+        clusterInchargeName: preloadedSite['cluster_incharge_name']?.toString() ?? preloadedSite['clusterInchargeName']?.toString(),
+        clusterInchargeContactNo: preloadedSite['cluster_incharge_contact_no']?.toString() ?? preloadedSite['clusterInchargeContactNo']?.toString(),
+        category: preloadedSite['category']?.toString(),
       );
       _siteOptions = [site];
       _initializeTicketControllers(preloadedSite);
@@ -529,6 +543,15 @@ class _CorrectiveMaintenanceScreenState
   }
 
   void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
+    // Initialize CM Ticket No if cmSiteReqId is available (try both camelCase and snake_case)
+    final ticketId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
+    if (ticketId != null && ticketId.toString().trim().isNotEmpty) {
+      _cmTicketNoController.text = ticketId.toString();
+      Logger.infoLog("✅ [CM] CM Ticket No initialized: ${_cmTicketNoController.text}");
+    } else {
+      Logger.errorLog("❌ [CM] CM Ticket No not found in preloadedSite. Available keys: ${preloadedSite.keys}");
+    }
+    
     controllers['responsible_party']!.text =
         preloadedSite['responsible_party']?.toString() ?? '';
     controllers['assigned_to']!.text =
@@ -536,8 +559,12 @@ class _CorrectiveMaintenanceScreenState
     controllers['priority']!.text = preloadedSite['priority']?.toString() ?? '';
     controllers['oem_ticket_id']!.text =
         preloadedSite['oem_ticket_id']?.toString() ?? '';
+    controllers['fault_description']!.text =
+        preloadedSite['fault_description']?.toString() ?? '';
     controllers['nature_of_failure']!.text =
         preloadedSite['nature_of_failure']?.toString() ?? '';
+    controllers['scope_of_ticket']!.text =
+        preloadedSite['scope_of_ticket']?.toString() ?? '';
     controllers['action_taken']!.text =
         preloadedSite['action_taken']?.toString() ?? '';
     controllers['rca']!.text = preloadedSite['rca']?.toString() ?? '';
@@ -608,6 +635,11 @@ class _CorrectiveMaintenanceScreenState
       _circleStateController.text = selectedSite.circleStateName;
       _clusterDistrictController.text = selectedSite.clusterDistrictName;
       _customerController.text = selectedSite.clientName ?? '';
+      _infraEngineerNameController.text = selectedSite.infraEngineerName ?? '';
+      _infraEngineerContactNoController.text = selectedSite.infraEngineerContactNo ?? '';
+      _clusterInchargeNameController.text = selectedSite.clusterInchargeName ?? '';
+      _clusterInchargeContactNoController.text = selectedSite.clusterInchargeContactNo ?? '';
+      _categoryController.text = selectedSite.category ?? '';
       controllers['site_id']!.text = selectedSite.siteId.toString();
     });
 
@@ -758,6 +790,12 @@ class _CorrectiveMaintenanceScreenState
     _circleStateController.dispose();
     _clusterDistrictController.dispose();
     _customerController.dispose();
+    _cmTicketNoController.dispose();
+    _infraEngineerNameController.dispose();
+    _infraEngineerContactNoController.dispose();
+    _clusterInchargeNameController.dispose();
+    _clusterInchargeContactNoController.dispose();
+    _categoryController.dispose();
     for (var a in controllers.values) {
       a.dispose();
     }
@@ -941,6 +979,10 @@ class _CorrectiveMaintenanceScreenState
   }
 
   Widget _buildFormFields() {
+    // Ensure all controllers are initialized
+    controllers['fault_description'] ??= TextEditingController();
+    controllers['scope_of_ticket'] ??= TextEditingController();
+    
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -956,7 +998,18 @@ class _CorrectiveMaintenanceScreenState
         //     isRequired: true,
         //     isDisabled: true // Always disabled - cannot be clicked
         // ),
+
+      // add a CM Ticket No field if case of mode is not create get cm_site_req_id from ticket response
+      if (widget.mode != CMScreenModeEnum.create) ...[
         CustomFormField(
+          label: "CM Ticket No",
+          controller: _cmTicketNoController,
+          isEditable: false,
+        ),
+        getHeight(15),
+      ],
+
+      CustomFormField(
           label: "Site Name",
           controller: _siteNameController,
           isEditable: false,
@@ -991,8 +1044,38 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
+        CustomFormField(
+          label: "Infra Engineer Name",
+          controller: _infraEngineerNameController,
+          isEditable: false,
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "Infra Engineer Contact No",
+          controller: _infraEngineerContactNoController,
+          isEditable: false,
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "Cluster Incharge Name",
+          controller: _clusterInchargeNameController,
+          isEditable: false,
+        ),
+        getHeight(15),
+
+        CustomFormField(
+          label: "Cluster Incharge Contact No",
+          controller: _clusterInchargeContactNoController,
+          isEditable: false,
+        ),
+        getHeight(15),
+
+        
+
         CustomDropdown(
-          label: "Responsible Party",
+          label: "Category",
           items: _responsiblePartyOptions,
           initialValue: controllers['responsible_party']!.text,
           isRequired: true,
@@ -1043,6 +1126,14 @@ class _CorrectiveMaintenanceScreenState
         _buildEquipmentTypeRadioButtons(),
         getHeight(15),
 
+        CustomRemarksField(
+          label: "Fault Description *",
+          hintText: "Enter fault description",
+          controller: controllers['fault_description']!,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
+        ),
+        getHeight(15),
+
         CustomDropdown(
           label: "Nature of Failure",
           items: _natureOfFailureOptions,
@@ -1051,6 +1142,21 @@ class _CorrectiveMaintenanceScreenState
           onChanged: (value) {
             setState(() {
               controllers['nature_of_failure']!.text = value ?? "";
+              _onFormChanged();
+            });
+          },
+          isDisabled: widget.mode == CMScreenModeEnum.view,
+        ),
+        getHeight(15),
+
+        CustomDropdown(
+          label: "Scope of Ticket",
+          items: _scopeOfTicketOptions,
+          initialValue: controllers['scope_of_ticket']!.text,
+          isRequired: true,
+          onChanged: (value) {
+            setState(() {
+              controllers['scope_of_ticket']!.text = value ?? "";
               _onFormChanged();
             });
           },

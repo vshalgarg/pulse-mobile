@@ -168,9 +168,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       (img) => img['photoId'] == photoId,
     );
     
+    // Get pclsriId from currentItem, default to 0 if null
+    final pclsriId = 0;
+    
     final imageData = {
       'photoId': photoId,
       'photoTakenTs': Utils.getCurrentDateTimeForAPICall(),
+      'pclsriId': pclsriId,
     };
     
     if (existingIndex >= 0) {

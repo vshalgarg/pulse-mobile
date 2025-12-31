@@ -13,6 +13,11 @@ class CMSite {
   final int? oemId;
   final String self;
   final int selfId;
+  final String? infraEngineerName;
+  final String? infraEngineerContactNo;
+  final String? clusterInchargeName;
+  final String? clusterInchargeContactNo;
+  final String? category;
 
   CMSite({
     required this.siteId,
@@ -29,6 +34,11 @@ class CMSite {
     this.oemId,
     required this.self,
     required this.selfId,
+    this.infraEngineerName,
+    this.infraEngineerContactNo,
+    this.clusterInchargeName,
+    this.clusterInchargeContactNo,
+    this.category,
   });
 
   factory CMSite.fromJson(Map<String, dynamic> json) {
@@ -52,6 +62,11 @@ class CMSite {
       oemId: json['oem_id'],
       self: json['self']?.toString() ?? '',
       selfId: json['self_id'] ?? 0,
+      infraEngineerName: json['infra_engineer_name']?.toString() ?? json['infraEngineerName']?.toString(),
+      infraEngineerContactNo: json['infra_engineer_contact_no']?.toString() ?? json['infraEngineerContactNo']?.toString(),
+      clusterInchargeName: json['cluster_incharge_name']?.toString() ?? json['clusterInchargeName']?.toString(),
+      clusterInchargeContactNo: json['cluster_incharge_contact_no']?.toString() ?? json['clusterInchargeContactNo']?.toString(),
+      category: json['category']?.toString(),
     );
   }
 
@@ -71,6 +86,11 @@ class CMSite {
       'oem_id': oemId,
       'self': self,
       'self_id': selfId,
+      'infra_engineer_name': infraEngineerName,
+      'infra_engineer_contact_no': infraEngineerContactNo,
+      'cluster_incharge_name': clusterInchargeName,
+      'cluster_incharge_contact_no': clusterInchargeContactNo,
+      'category': category,
     };
   }
 
