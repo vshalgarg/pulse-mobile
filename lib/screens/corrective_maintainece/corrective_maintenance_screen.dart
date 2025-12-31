@@ -67,6 +67,9 @@ class _CorrectiveMaintenanceScreenState
     'scope_of_ticket': TextEditingController(),
     'action_taken': TextEditingController(),
     'rca': TextEditingController(),
+    'closure_date': TextEditingController(),
+    'oem_representative': TextEditingController(),
+    'oem_representative_contact': TextEditingController(),
     'customer_name': TextEditingController(),
     'contact_no': TextEditingController(),
     'customer_remarks': TextEditingController(),
@@ -568,6 +571,15 @@ class _CorrectiveMaintenanceScreenState
     controllers['action_taken']!.text =
         preloadedSite['action_taken']?.toString() ?? '';
     controllers['rca']!.text = preloadedSite['rca']?.toString() ?? '';
+    controllers['closure_date']!.text =
+        preloadedSite['closure_date']?.toString() ?? 
+        preloadedSite['closureDate']?.toString() ?? '';
+    controllers['oem_representative']!.text =
+        preloadedSite['oem_representative']?.toString() ?? 
+        preloadedSite['oemRepresentative']?.toString() ?? '';
+    controllers['oem_representative_contact']!.text =
+        preloadedSite['oem_representative_contact']?.toString() ?? 
+        preloadedSite['oemRepresentativeContact']?.toString() ?? '';
     controllers['customer_name']!.text =
         preloadedSite['customer_name']?.toString() ?? '';
     controllers['contact_no']!.text =
@@ -1179,6 +1191,38 @@ class _CorrectiveMaintenanceScreenState
           isRequired: true,
         ),
         getHeight(15),
+
+        // Closure Date - only visible in view mode
+        if (widget.mode == CMScreenModeEnum.view) ...[
+          CustomFormField(
+            label: "Closure Date",
+            controller: controllers['closure_date'],
+            isEditable: false,
+            isRequired: true,
+          ),
+          getHeight(15),
+        ],
+
+        // Show these fields only in edit and view mode
+        if (widget.mode != CMScreenModeEnum.create) ...[
+          CustomFormField(
+            label: "OEM Representative",
+            controller: controllers['oem_representative'],
+            isEditable: widget.mode != CMScreenModeEnum.view,
+            isRequired: true,
+          ),
+          getHeight(15),
+
+          CustomFormField(
+            label: "OEM Representative Contact",
+            controller: controllers['oem_representative_contact'],
+            isEditable: widget.mode != CMScreenModeEnum.view,
+            isRequired: true,
+            inputType: InputType.number,
+            maxLength: 10,
+          ),
+          getHeight(15),
+        ],
 
         CustomFormField(
           label: "Customer Name",
