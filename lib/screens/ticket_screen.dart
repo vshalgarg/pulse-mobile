@@ -83,21 +83,30 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
-    // Refresh when app comes back to foreground
+    // Refresh when app comes back to foreground, but only if this screen is visible
     if (state == AppLifecycleState.resumed && _hasLoadedOnce && mounted) {
-      _refreshTicketsIfNeeded();
+      // Check if this route is currently active before refreshing
+      final route = ModalRoute.of(context);
+      if (route != null && route.isCurrent) {
+        _refreshTicketsIfNeeded();
+      }
     }
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Refresh tickets when screen becomes visible (user returns from navigation)
-    // Add a small delay to prevent refresh during initial build
+    // Only refresh if this route is actually the current route (visible)
+    // This prevents unnecessary API calls when user is on other screens (like PM pages)
     if (_hasLoadedOnce && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _refreshTicketsIfNeeded();
+          // Check if this route is currently active/visible before refreshing
+          // This prevents API calls when user is on other screens
+          final route = ModalRoute.of(context);
+          if (route != null && route.isCurrent) {
+            _refreshTicketsIfNeeded();
+          }
         }
       });
     }

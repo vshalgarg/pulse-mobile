@@ -142,7 +142,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     bool hasRadioItems = false;
     for (final item in respDtlChecklistItems) {
       final respType = item['resp_type']?.toString() ?? '';
-      if (respType == 'RADIO') {
+      if (respType == 'RADIO' || respType == 'Radio') {
         hasRadioItems = true;
       } else if (respType == 'NUMERIC' && _shouldShowSerialNumberDropdown(item)) {
         // NUMERIC with serial numbers uses its own UI, don't use multiple sections
@@ -256,7 +256,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         const SizedBox(height: 8),
 
           // Build field based on resp_type (using section key)
-          if (respType == 'RADIO')
+          if (respType == 'RADIO' || respType == 'Radio')
             _buildRadioFieldWithSection(item, pmCheckListMstId, sectionIndex)
           else if (respType == 'TEXT')
             _buildTextFieldWithSection(item, pmCheckListMstId, sectionIndex)
@@ -551,7 +551,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         ],
 
           // Build field based on resp_type
-          if (respType == 'RADIO')
+          if (respType == 'RADIO' || respType == 'Radio')
             _buildRadioField(item, pmCheckListMstId)
           else if (respType == 'TEXT')
             _buildTextField(item, pmCheckListMstId)

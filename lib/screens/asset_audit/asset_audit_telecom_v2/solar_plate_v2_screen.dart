@@ -48,7 +48,8 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
 
   // Controllers for each section
   final TextEditingController _remarksController = TextEditingController();
-  final TextEditingController _solarPanelSerialController = TextEditingController();
+  final TextEditingController _solarPanelSerialController =
+      TextEditingController();
 
   // State
   bool _isLoadingData = false;
@@ -113,6 +114,11 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           'solarPanelMake': solarPanelAssets.isNotEmpty
               ? solarPanelAssets.first['oem_name']?.toString()
               : 'N/A',
+
+          'solarPanelType': solarPanelAssets.isNotEmpty
+              ? solarPanelAssets.first['spv_type']?.toString()
+              : 'N/A',
+
           'capacity': solarPanelAssets.isNotEmpty
               ? solarPanelAssets.first['capacity']?.toString()
               : 'N/A',
@@ -183,7 +189,6 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
       isQRCodeScanned,
     );
   }
-
 
   Future<void> postCurrentScreenData() async {
     try {
@@ -458,6 +463,14 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
         ),
         getHeight(15),
 
+        CustomFormField(
+          label: "Solar Panel Type",
+          initialValue: _displayFormData?['solarPanelType'],
+          isEditable: false,
+          isRequired: true,
+        ),
+        getHeight(15),
+
         // Count of Solar Panel
         CustomFormField(
           label: "Count of Solar Panel",
@@ -485,7 +498,8 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           serialHintText: "Solar Panel Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",
-          disabledFieldValue: null, // Start blank, will be populated on serial lookup
+          disabledFieldValue:
+              null, // Start blank, will be populated on serial lookup
           serialController: _solarPanelSerialController,
           initialSavedItems:
               _displayFormData?['solarPanelAssets'] as List<dynamic>? ?? [],
@@ -498,28 +512,32 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           showTable: true,
           tableTitle: "Solar Panel Items",
           secondDisabledFieldLabel: "Year of Manufacturing",
-          secondDisabledFieldValue: null, // Start blank, will be populated on serial lookup
+          secondDisabledFieldValue:
+              null, // Start blank, will be populated on serial lookup
           onSerialNumberLookup: (serialNumber) {
             // Look up values from allAssets based on serial number (matching SPV screen implementation)
-            final allAssets = _displayFormData?['solarPanelAllAssets'] as List<dynamic>? ?? [];
+            final allAssets =
+                _displayFormData?['solarPanelAllAssets'] as List<dynamic>? ??
+                [];
             try {
-              final matchingItem = allAssets.firstWhere(
-                (item) {
-                  final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
-                  final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
-                  // Case-insensitive comparison to handle QR scan uppercase
-                  return mfgSerial.toUpperCase() == serialNumber.toUpperCase() || 
-                         nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
-                },
-              );
+              final matchingItem = allAssets.firstWhere((item) {
+                final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                // Case-insensitive comparison to handle QR scan uppercase
+                return mfgSerial.toUpperCase() == serialNumber.toUpperCase() ||
+                    nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
+              });
 
               return {
                 'capacity': matchingItem['capacity']?.toString() ?? '',
-                'manufacturing_year': matchingItem['manufacturing_year']?.toString() ?? '',
+                'manufacturing_year':
+                    matchingItem['manufacturing_year']?.toString() ?? '',
               };
             } catch (e) {
               // No matching item found
-              Logger.debugLog('No matching item found for serial number: $serialNumber');
+              Logger.debugLog(
+                'No matching item found for serial number: $serialNumber',
+              );
               return null;
             }
           },

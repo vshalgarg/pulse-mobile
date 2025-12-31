@@ -219,7 +219,8 @@ class _PMPageWidgetState extends State<PMPageWidget> {
           
           if (widgetState != null) {
             // Loop through dependent elements in order
-            for (final dependentElement in dependentElements) {
+            for (int index = 0; index < dependentElements.length; index++) {
+              final dependentElement = dependentElements[index];
               // Determine if this dependent element is mandatory
               final isMandatory = isDependentElementMandatory(
                 dependentElement,
@@ -232,6 +233,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                   dependentElement,
                   widgetState,
                   parentResponse,
+                  index,
                 );
                 
                 // If validation fails, show popup and STOP immediately
@@ -240,7 +242,8 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                   // Highlight the invalid dependent field
                   final respType = dependentElement['resp_type']?.toString() ?? '';
                   final elementChecklistDesc = dependentElement['checklist_desc']?.toString() ?? '';
-                  final elementKey = '${respType}_${elementChecklistDesc}';
+                  // Include index to make key unique when multiple elements have same resp_type and checklist_desc
+                  final elementKey = '${respType}_${elementChecklistDesc}_$index';
                   widgetState.highlightDependentField(elementKey);
                   return false; // Stop validation - do not check other dependencies or next item
                 }
@@ -284,15 +287,52 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     Map<String, dynamic> dependentElement,
     PMCustomWidgetState widgetState,
     String? parentResponse,
+    int elementIndex,
   ) {
     final respType = dependentElement['resp_type']?.toString() ?? '';
     final checklistDesc = dependentElement['checklist_desc']?.toString() ?? '';
-    final elementKey = '${respType}_${checklistDesc}';
+    // Include index to make key unique when multiple elements have same resp_type and checklist_desc
+    final elementKey = '${respType}_${checklistDesc}_$elementIndex';
     
     if (respType == 'IMG') {
-      // IMG: At least one image must be added
+      // IMG: Check if image exists in either:
+      // 1. _dependentImageIds (newly uploaded)
+      // 2. _dependentImageData (display data)
+      // 3. response_images (from server) - check by index
       final imageId = widgetState.getDependentImageId(elementKey);
-      if (imageId == null || imageId.isEmpty) {
+      final imageData = widgetState.getDependentImageData(elementKey);
+      final hasUploadedImage = (imageId != null && imageId.isNotEmpty) || 
+                              (imageData != null && imageData.isNotEmpty);
+      
+      // Also check response_images from the pmItem - check if image exists at this element's index
+      final pmItem = widgetState.getCurrentItem();
+      final responseImages = pmItem['response_images'] ?? pmItem['responseImages'];
+      bool hasServerImage = false;
+      if (responseImages != null && responseImages is List) {
+        // Count how many IMG elements come before this one to find the correct image index
+        final dependentElements = parseDependentElements(pmItem);
+        if (dependentElements != null) {
+          int imgElementCount = 0;
+          for (int i = 0; i < elementIndex && i < dependentElements.length; i++) {
+            if (dependentElements[i]['resp_type']?.toString() == 'IMG') {
+              imgElementCount++;
+            }
+          }
+          // Check if response_images has an image at the corresponding index
+          if (imgElementCount < responseImages.length) {
+            final imageAtIndex = responseImages[imgElementCount];
+            if (imageAtIndex is Map) {
+              final photoId = imageAtIndex['photo_id'] ?? imageAtIndex['photoId'];
+              hasServerImage = photoId != null && 
+                              photoId.toString().trim().isNotEmpty && 
+                              photoId.toString() != '0' && 
+                              photoId.toString() != 'null';
+            }
+          }
+        }
+      }
+      
+      if (!hasUploadedImage && !hasServerImage) {
         return '$checklistDesc is required';
       }
     } else if (respType == 'REMARKS' || respType == 'TEXT') {
@@ -425,7 +465,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
               'ct availability',
             ) ??
             false,
-        orElse: () => {},
+        orElse: () => <String, dynamic>{},
       );
 
       // If CT availability is "No", filter out CT Name and CT Contact Number

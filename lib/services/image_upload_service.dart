@@ -247,10 +247,13 @@ class ImageUploadService {
 
   /// 4. Get image data using unique ID
   Future<String?> getImageUsingUniqueId(String uniqueId) async {
+    Logger.debugLog('🖼️ getImageUsingUniqueId called with uniqueId: $uniqueId');
     final result = await _getByUniqueIdFromSQLite(uniqueId);
     if (result != null) {
+      Logger.debugLog('🖼️ getImageUsingUniqueId: Found image data, length: ${result.imageData?.length ?? 0}');
       return result.imageData;
     }
+    Logger.debugLog('🖼️ getImageUsingUniqueId: No image data found for uniqueId: $uniqueId');
     return null;
   }
 

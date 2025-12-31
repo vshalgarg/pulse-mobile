@@ -199,6 +199,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           'batteryCabinetSerial': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['mfg_serial_no'] : null,
           'batteryCabinetPhotoId': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['photo_id'] : null,
           'batteryCabinetImageData': batteryCabinetImageData,
+          'batteryCabinetOemName': batteryCabinetAssets.isNotEmpty ? batteryCabinetAssets.first['oem_name']?.toString() ?? '' : '',
           'cbmsAssets': cbmsAssets
               .where((obj) => obj['photo_id'] != null)
               .toList(),
@@ -671,10 +672,10 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
   Widget _buildFormFields() {
     // Calculate Battery Modules count only for items with record_type == "Asset"
     final allBatteries = _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
-    final batteryCount = allBatteries
+    final batteryCountInt = allBatteries
         .where((item) => item['record_type']?.toString() == 'Asset')
-        .length
-        .toString();
+        .length;
+    final batteryCount = batteryCountInt.toString();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,8 +703,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           // CBMS Form Component
           AssetAuditFormComponent(
             componentId: 'cbms_component',
-            serialLabel: "CBMS - Serial Number *",
-            serialHintText: "CBMS Serial Number *",
+            serialLabel: "CBMS - Serial Number",
+            serialHintText: "CBMS Serial Number",
             photoLabel: "Add a Photo",
             serialController: _cbmsSerialController,
             initialSavedItems:
@@ -720,6 +721,14 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           getHeight(20),
         ],
         if (_displayFormData?['batteryCabinetAvailable'] || false) ...[
+          // Battery Make field
+          CustomFormField(
+            label: "Battery Make",
+            initialValue: _displayFormData?['batteryCabinetOemName']?.toString() ?? '',
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
           const Text(
             "Battery Cabinet Details",
             style: TextStyle(
@@ -732,8 +741,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           // Battery Cabinet Form Component
           SimpleAssetAuditFormComponent(
             componentId: 'battery_cabinet_component',
-            serialLabel: "Battery Cabinet - Serial Number *",
-            serialHintText: "Battery Cabinet Serial Number *",
+            serialLabel: "Battery Cabinet - Serial Number",
+            serialHintText: "Battery Cabinet Serial Number",
             photoLabel: "Add a Photo",
             serialController: _batteryCabinetSerialController,
             initialSerialValue: _getBatteryCabinetValue('mfg_serial_no'),
@@ -815,9 +824,8 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         ),
         getHeight(15),
 
-        // Battery Details Section - only show if battery assets exist
-        if (_displayFormData?['batteryAllAssets'] != null && 
-            (_displayFormData?['batteryAllAssets'] as List).isNotEmpty) ...[
+        // Battery Details Section - only show if batteryCount > 0
+        if (batteryCountInt > 0) ...[
           const Text(
             "Battery Details",
             style: TextStyle(
@@ -830,9 +838,12 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
           // Battery Form Component
           AssetAuditFormComponent(
             componentId: 'battery_component',
-            serialLabel: "Battery - Serial Number *",
-            serialHintText: "Battery Serial Number *",
+            serialLabel: "Battery - Serial Number",
+            serialHintText: "Battery Serial Number",
             photoLabel: "Add a Photo",
+            disabledFieldLabel: "Capacity",
+            disabledFieldValue:
+                _displayFormData?['capacity']?.toString() ?? 'N/A',
             serialController: _batterySerialController,
             initialSavedItems:
                 _displayFormData?['batteryAssets'] as List<dynamic>? ?? [],
@@ -844,6 +855,29 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
             siteAuditSchId: widget.siteAuditSchId,
             showTable: true,
             tableTitle: "Battery Items",
+            onSerialNumberLookup: (serialNumber) {
+              // Look up capacity from batteryAllAssets based on serial number
+              final allBatteries = _displayFormData?['batteryAllAssets'] as List<dynamic>? ?? [];
+              try {
+                final matchingItem = allBatteries.firstWhere(
+                  (item) {
+                    final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                    final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                    // Case-insensitive comparison to handle QR scan uppercase
+                    return mfgSerial.toUpperCase() == serialNumber.toUpperCase() || 
+                           nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
+                  },
+                );
+
+                return {
+                  'capacity': matchingItem['capacity']?.toString() ?? '',
+                };
+              } catch (e) {
+                // No matching item found
+                Logger.debugLog('No matching Battery found for serial number: $serialNumber');
+                return null;
+              }
+            },
           ),
           getHeight(20),
         ],

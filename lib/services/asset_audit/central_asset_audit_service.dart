@@ -612,8 +612,42 @@ class CentralAssetAuditService {
         final key = entry.key;
         final value = entry.value;
 
+        // Special handling for response_images array (PM data structure)
+        if ((key == 'response_images' || key == 'responseImages') && value is List) {
+          Logger.debugLog('🖼️ Found response_images array, processing ${value.length} images');
+          for (var i = 0; i < value.length; i++) {
+            final imageItem = value[i];
+            if (imageItem is Map<String, dynamic>) {
+              final photoId = imageItem['photo_id'] ?? imageItem['photoId'];
+              if (photoId != null) {
+                final serverId = photoId.toString();
+                // Skip if serverId is empty, "0", or "null"
+                if (serverId.isNotEmpty && serverId != "0" && serverId != "null") {
+                  Logger.debugLog('🖼️ Found photo_id in response_images[$i]: $serverId');
+
+                  // Download image and get unique ID
+                  final uniqueId = await _downloadImageAndGetUniqueId(
+                    serverId,
+                    activityType,
+                    siteAuditSchId,
+                  );
+                  if (uniqueId != null) {
+                    // Replace server ID with unique ID in the response_images array
+                    imageItem['photo_id'] = uniqueId;
+                    imageItem['photoId'] = uniqueId;
+                    Logger.debugLog(
+                      '✅ Replaced response_images[$i] photo_id $serverId with unique ID: $uniqueId',
+                    );
+                  } else {
+                    Logger.errorLog('❌ Failed to download image for response_images[$i]: $serverId');
+                  }
+                }
+              }
+            }
+          }
+        }
         // Check if this is a photo_id or maker_selfie_image_id field
-        if ((key == 'photo_id' ||
+        else if ((key == 'photo_id' ||
                 key == 'maker_selfie_image_id' ||
                 key == 'ebAttachmentFileId' ||
                 key == 'visitingPersonImageId' ||
@@ -715,11 +749,14 @@ class CentralAssetAuditService {
   /// Get image as data URL
   Future<String?> getImageAsDataUrl(String imageId) async {
     try {
+      Logger.debugLog('🖼️ getImageAsDataUrl called with imageId: $imageId');
       final imageData = await ServiceLocator().imageUploadService
           .getImageUsingUniqueId(imageId);
       if (imageData != null) {
+        Logger.debugLog('🖼️ getImageAsDataUrl: Found image data, length: ${imageData.length}');
         return imageData; // Already a base64 string
       }
+      Logger.debugLog('🖼️ getImageAsDataUrl: No image data found for imageId: $imageId');
       return null;
     } catch (e) {
       Logger.errorLog('❌ Error getting image: $e');

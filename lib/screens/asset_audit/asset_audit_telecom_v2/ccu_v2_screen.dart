@@ -1095,6 +1095,14 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         ),
         getHeight(15),
         if (_displayFormData?['ccuCabinetAvailable'] ?? false) ...[
+          // Hybrid CCU Count
+          CustomFormField(
+            label: "Hybrid CCU Count",
+            initialValue: (_displayFormData?['cabinets'] as List<dynamic>? ?? []).length.toString(),
+            isRequired: false,
+            isEditable: false,
+          ),
+          getHeight(15),
           // Cabinet Serial Number and Photo using SimpleAssetAuditFormComponent
           SimpleAssetAuditFormComponent(
             componentId: 'cabinet_component',
@@ -1180,8 +1188,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
                 AssetAuditFormComponent(
                   componentId: 'rectifier_component',
-                  serialLabel: "Rectifier - Serial Number *",
-                  serialHintText: "Rectifier Serial Number *",
+                  serialLabel: "Rectifier - Serial Number",
+                  serialHintText: "Rectifier Serial Number",
                   photoLabel: "Add a Photo",
                   serialController: _rectifierSerialController,
                   initialSavedItems: _savedRectifiers,
@@ -1270,8 +1278,8 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
 
                 AssetAuditFormComponent(
                   componentId: 'mppt_component',
-                  serialLabel: "MPPT - Serial Number *",
-                  serialHintText: "MPPT Serial Number *",
+                  serialLabel: "MPPT - Serial Number",
+                  serialHintText: "MPPT Serial Number",
                   photoLabel: "Add a Photo",
                   disabledFieldLabel: "Capacity",
                   disabledFieldValue:
@@ -1288,6 +1296,29 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
                   siteAuditSchId: widget.siteAuditSchId,
                   showTable: true,
                   tableTitle: "MPPTs",
+                  onSerialNumberLookup: (serialNumber) {
+                    // Look up capacity from allMppts based on serial number
+                    final allMppts = _displayFormData?['allMppts'] as List<dynamic>? ?? [];
+                    try {
+                      final matchingItem = allMppts.firstWhere(
+                        (item) {
+                          final mfgSerial = item['mfg_serial_no']?.toString() ?? '';
+                          final nexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+                          // Case-insensitive comparison to handle QR scan uppercase
+                          return mfgSerial.toUpperCase() == serialNumber.toUpperCase() || 
+                                 nexgenSerial.toUpperCase() == serialNumber.toUpperCase();
+                        },
+                      );
+
+                      return {
+                        'capacity': matchingItem['capacity']?.toString() ?? '',
+                      };
+                    } catch (e) {
+                      // No matching item found
+                      Logger.debugLog('No matching MPPT found for serial number: $serialNumber');
+                      return null;
+                    }
+                  },
                 ),
               ],
             ),

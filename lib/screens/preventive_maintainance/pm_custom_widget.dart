@@ -14,6 +14,7 @@ import '../../commonWidgets/custom_radio_options.dart';
 import '../../utils/logger.dart';
 import '../../utils/toastbar.dart';
 import '../../utils.dart';
+import '../../services/service_locator.dart';
 import 'pm_dependent_element_helpers.dart';
 
 class PMCustomWidget extends StatefulWidget {
@@ -62,6 +63,157 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     _remarksController.addListener(() {
       _onRemarksChanged(_remarksController.text);
     });
+    
+    // Check for images after a delay (in case they're being downloaded in background)
+    // This handles the case where response_images is null initially but images are downloaded later
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Check multiple times with increasing delays to catch images that are downloaded asynchronously
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        if (mounted) {
+          _checkForDownloadedImages();
+        }
+      });
+      Future.delayed(const Duration(milliseconds: 3000), () {
+        if (mounted) {
+          _checkForDownloadedImages();
+        }
+      });
+      Future.delayed(const Duration(milliseconds: 5000), () {
+        if (mounted) {
+          _checkForDownloadedImages();
+        }
+      });
+    });
+  }
+  
+  /// Check if images have been downloaded and cached, even if response_images is null
+  Future<void> _checkForDownloadedImages() async {
+    try {
+      // If we already have image data, don't check again
+      if (_imageData != null && _imageData!.isNotEmpty) {
+        Logger.infoLog('[PM] Image already loaded, skipping check');
+        print('[PM] Image already loaded, skipping check');
+        return;
+      }
+      
+      // Check response_images again (might have been updated)
+      final responseImages = _currentItem['response_images'] ?? _currentItem['responseImages'];
+      Logger.infoLog('[PM] 🔍 Checking for images - response_images: $responseImages');
+      print('[PM] 🔍 Checking for images - response_images: $responseImages');
+      
+      if (responseImages != null && responseImages is List && responseImages.isNotEmpty) {
+        final firstImage = responseImages[0];
+        if (firstImage is Map) {
+          final photoId = firstImage['photo_id'] ?? firstImage['photoId'];
+          if (photoId != null && photoId.toString().trim().isNotEmpty) {
+            Logger.infoLog('[PM] ✅ Found photo_id in delayed check: $photoId');
+            print('[PM] ✅ Found photo_id in delayed check: $photoId');
+            await _loadImageFromServerPhotoId(photoId.toString());
+            return;
+          }
+        }
+      }
+      
+      // Also check if photo_id exists directly on the item (might have been processed)
+      final directPhotoId = _currentItem['photo_id'];
+      if (directPhotoId != null && directPhotoId.toString().trim().isNotEmpty && 
+          directPhotoId.toString() != '0' && directPhotoId.toString() != 'null') {
+        Logger.infoLog('[PM] ✅ Found photo_id directly on item in delayed check: $directPhotoId');
+        print('[PM] ✅ Found photo_id directly on item in delayed check: $directPhotoId');
+        await _loadImageFromServerPhotoId(directPhotoId.toString());
+        return;
+      }
+      
+      Logger.infoLog('[PM] ⚠️ No images found - response_images is null and no photo_id on item');
+      print('[PM] ⚠️ No images found - response_images is null and no photo_id on item');
+    } catch (e) {
+      Logger.errorLog('[PM] ❌ Error checking for downloaded images: $e');
+      print('[PM] ❌ Error checking for downloaded images: $e');
+    }
+  }
+
+  @override
+  void didUpdateWidget(PMCustomWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Check if pmItem has changed
+    if (widget.pmItem != oldWidget.pmItem) {
+      Logger.infoLog('[PM] Widget updated with new pmItem data');
+      
+      // Get old and new response_images for comparison
+      final oldResponseImages = oldWidget.pmItem['response_images'] ?? oldWidget.pmItem['responseImages'];
+      final newResponseImages = widget.pmItem['response_images'] ?? widget.pmItem['responseImages'];
+      
+      // Update current item
+      _currentItem = Map<String, dynamic>.from(widget.pmItem);
+      
+      // Check if response_images has changed (including null -> non-null)
+      bool imagesChanged = false;
+      if (oldResponseImages != newResponseImages) {
+        // Clear current image data before loading new one
+        setState(() {
+          _imageData = null;
+        });
+        imagesChanged = true;
+        Logger.infoLog('[PM] Response images changed, will reload image');
+        Logger.infoLog('[PM] Old response_images: $oldResponseImages');
+        Logger.infoLog('[PM] New response_images: $newResponseImages');
+      }
+      
+      // Also check if response_images was null before but is now populated
+      if (!imagesChanged && 
+          (oldResponseImages == null || (oldResponseImages is List && oldResponseImages.isEmpty)) &&
+          newResponseImages != null && 
+          newResponseImages is List && 
+          newResponseImages.isNotEmpty) {
+        Logger.infoLog('[PM] Response images populated (was null/empty, now has data)');
+        imagesChanged = true;
+        setState(() {
+          _imageData = null;
+        });
+      }
+      
+      // Reload values including images if they changed
+      if (imagesChanged) {
+        _initializeValues();
+      } else {
+        // Just update other values without reloading images
+        _updateNonImageValues();
+      }
+    }
+  }
+  
+  /// Update values without reloading images (used when only non-image data changes)
+  void _updateNonImageValues() {
+    final respValue = _currentItem['resp'];
+    final respTypeList = _currentItem['resp_type'];
+
+    // Handle resp_type as array or string
+    List<String> respTypes = [];
+    if (respTypeList is List) {
+      respTypes = respTypeList.map((e) => e.toString()).toList();
+    } else if (respTypeList is String) {
+      respTypes = respTypeList.split(",");
+    }
+
+    // Update dropdown value
+    if (respTypes.contains('DROPDOWN')) {
+      _selectedDropdownValue = _getDisplayLabelForValue(respValue);
+    }
+
+    // Update radio value
+    if (respTypes.contains('RADIO')) {
+      if (respValue != null && respValue.toString().isNotEmpty) {
+        _selectedRadioValue = respValue.toString();
+      }
+    }
+
+    // Update text value
+    _textValue = respValue?.toString();
+    _textController.text = _textValue ?? '';
+
+    // Update remarks value
+    _remarksController.text = respValue?.toString() ?? '';
   }
 
   @override
@@ -77,6 +229,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   }
 
   void _initializeValues() {
+    Logger.infoLog('[PM] ========== _initializeValues called ==========');
+    Logger.infoLog('[PM] pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
+    Logger.infoLog('[PM] checklist_desc: ${_currentItem['checklist_desc']}');
+
+    // here print complete currentItem
+    print('[PM] currentItem: ${_currentItem}');
+    
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
 
@@ -108,43 +267,355 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     // Initialize remarks value
     _remarksController.text = respValue?.toString() ?? '';
 
-    // Load image data from responseImages array
-    final responseImages = _currentItem['responseImages'] as List?;
-    if (responseImages != null && responseImages.isNotEmpty) {
-      final firstImage = responseImages[0];
-      if (firstImage is Map && firstImage['photoId'] != null) {
-        _loadImageFromPhotoId(firstImage['photoId'].toString());
+    // Load image data from response_images array (snake_case from API) or responseImages (camelCase)
+    final responseImages = _currentItem['response_images'] ?? _currentItem['responseImages'];
+    
+    Logger.infoLog('[PM] ========== _initializeValues - Image Loading ==========');
+    print('[PM] ========== _initializeValues - Image Loading ==========');
+    Logger.infoLog('[PM] Checking for images...');
+    print('[PM] Checking for images...');
+    Logger.infoLog('[PM] response_images type: ${responseImages}');
+    Logger.infoLog('[PM] response_images value: $responseImages');
+    print('[PM] response_images value: $responseImages');
+    Logger.infoLog('[PM] response_images is List: ${responseImages is List}');
+    print('[PM] response_images is List: ${responseImages is List}');
+    if (responseImages is List) {
+      Logger.infoLog('[PM] response_images isNotEmpty: ${responseImages.isNotEmpty}');
+      print('[PM] response_images isNotEmpty: ${responseImages.isNotEmpty}');
+      Logger.infoLog('[PM] response_images length: ${responseImages.length}');
+      print('[PM] response_images length: ${responseImages.length}');
+      if (responseImages.isNotEmpty) {
+        Logger.infoLog('[PM] response_images[0]: ${responseImages[0]}');
+        print('[PM] response_images[0]: ${responseImages[0]}');
       }
-    } else if (_currentItem['photo_id'] != null) {
-      // Fallback for backward compatibility
-      _loadImageFromPhotoId(_currentItem['photo_id'].toString());
     }
+    
+    // Load images from response_images and map them to dependent elements by index
+    final dependentElements = parseDependentElements(_currentItem);
+    
+    if (responseImages != null && responseImages is List && responseImages.isNotEmpty) {
+      // Map each image in response_images to the corresponding IMG element by index
+      int imgElementIndex = 0; // Track which IMG element we're on
+      
+      for (int i = 0; i < responseImages.length; i++) {
+        final imageData = responseImages[i];
+        if (imageData is Map) {
+          final photoId = imageData['photo_id'] ?? imageData['photoId'];
+          if (photoId != null && photoId.toString().trim().isNotEmpty && 
+              photoId.toString() != '0' && photoId.toString() != 'null') {
+            // Find the corresponding IMG element at this index
+            String? dependentElementKey;
+            if (dependentElements != null && dependentElements.isNotEmpty) {
+              int currentImgIndex = 0;
+              for (int j = 0; j < dependentElements.length; j++) {
+                final element = dependentElements[j];
+                if (element['resp_type']?.toString() == 'IMG') {
+                  if (currentImgIndex == imgElementIndex) {
+                    // This is the IMG element that corresponds to this image index
+                    final checklistDesc = element['checklist_desc']?.toString() ?? '';
+                    dependentElementKey = 'IMG_${checklistDesc}_$currentImgIndex';
+                    Logger.infoLog('[PM] 🎯 Mapping response_images[$i] (photo_id: $photoId) to IMG element at index $currentImgIndex, key: $dependentElementKey');
+                    print('[PM] 🎯 Mapping response_images[$i] (photo_id: $photoId) to IMG element at index $currentImgIndex, key: $dependentElementKey');
+                    
+                    // Load this image with the correct elementKey
+                    final photoIdStr = photoId.toString();
+                    _loadImageFromServerPhotoId(photoIdStr, dependentElementKey: dependentElementKey).then((_) {
+                      Logger.infoLog('[PM] ✅ Image loading completed for photo_id: $photoIdStr, elementKey: $dependentElementKey');
+                      print('[PM] ✅ Image loading completed for photo_id: $photoIdStr, elementKey: $dependentElementKey');
+                    }).catchError((e) {
+                      Logger.errorLog('[PM] ❌ Error loading image for photo_id $photoIdStr: $e');
+                      print('[PM] ❌ Error loading image for photo_id $photoIdStr: $e');
+                    });
+                    break;
+                  }
+                  currentImgIndex++;
+                }
+              }
+            }
+            imgElementIndex++; // Move to next IMG element for next image
+          }
+        }
+      }
+      // Return early since we've handled all images from response_images
+      Logger.infoLog('[PM] ========== _initializeValues completed ==========');
+      print('[PM] ========== _initializeValues completed ==========');
+      return;
+    }
+    
+    // Fallback: check for direct photo_id on item (for non-dependent element images)
+    String? photoIdToLoad;
+    if (_currentItem['photo_id'] != null) {
+      final directPhotoId = _currentItem['photo_id'].toString();
+      if (directPhotoId.isNotEmpty && directPhotoId != '0' && directPhotoId != 'null') {
+        photoIdToLoad = directPhotoId;
+        Logger.infoLog('[PM] ✅ Found photo_id directly on item: $photoIdToLoad');
+        print('[PM] ✅ Found photo_id directly on item: $photoIdToLoad');
+      }
+    }
+    
+    // Load image if we found a photo_id (for main field, not dependent elements)
+    if (photoIdToLoad != null) {
+      Logger.infoLog('[PM] 🚀 Starting image load for photo_id: $photoIdToLoad');
+      print('[PM] 🚀 Starting image load for photo_id: $photoIdToLoad');
+      
+      // Load image asynchronously - don't await to avoid blocking UI
+      _loadImageFromServerPhotoId(photoIdToLoad).then((_) {
+        Logger.infoLog('[PM] ✅ Image loading completed for photo_id: $photoIdToLoad');
+        print('[PM] ✅ Image loading completed for photo_id: $photoIdToLoad');
+      }).catchError((e) {
+        Logger.errorLog('[PM] ❌ Error loading image for photo_id $photoIdToLoad: $e');
+        print('[PM] ❌ Error loading image for photo_id $photoIdToLoad: $e');
+      });
+    } else {
+      Logger.infoLog('[PM] ❌ No response_images or photo_id found in item');
+      print('[PM] ❌ No response_images or photo_id found in item');
+      Logger.infoLog('[PM] Item keys: ${_currentItem.keys.toList()}');
+      print('[PM] Item keys: ${_currentItem.keys.toList()}');
+      Logger.infoLog('[PM] response_images value: ${_currentItem['response_images']}');
+      print('[PM] response_images value: ${_currentItem['response_images']}');
+      Logger.infoLog('[PM] responseImages value: ${_currentItem['responseImages']}');
+      print('[PM] responseImages value: ${_currentItem['responseImages']}');
+      Logger.infoLog('[PM] photo_id value: ${_currentItem['photo_id']}');
+      print('[PM] photo_id value: ${_currentItem['photo_id']}');
+    }
+    
+    Logger.infoLog('[PM] ========== _initializeValues completed ==========');
+    print('[PM] ========== _initializeValues completed ==========');
   }
 
-  Future<void> _loadImageFromPhotoId(String photoId) async {
+  /// Load image from photo_id (unique ID from database or server ID)
+  /// Uses the same approach as asset audit - getImageAsDataUrl handles both server IDs and unique IDs
+  /// If dependentElementKey is provided, also sets the image in _dependentImageData
+  Future<void> _loadImageFromServerPhotoId(String photoId, {String? dependentElementKey}) async {
     try {
-      if (photoId.isEmpty) return;
-
-      // Initialize ImageUploadService
-      final apiService = AppConfig.of(context).apiService;
-      final imageUploadService = ImageUploadService(apiService: apiService);
-
-      // Get image data using the photoId
-      final imageData = await imageUploadService.getImageUsingUniqueId(photoId);
-
-      if (imageData != null && mounted) {
-        setState(() {
-          _imageData = imageData.startsWith('data:image/')
-              ? imageData
-              : 'data:image/jpeg;base64,$imageData';
-        });
-
-      } else {
-
+      if (photoId.isEmpty || photoId == '0' || photoId == 'null') {
+        Logger.infoLog('[PM] Invalid photo ID: $photoId');
+        print('Invalid photo ID: $photoId');
+        return;
       }
-    } catch (e) {
 
-      // Set a placeholder or error state if needed
+      Logger.infoLog('[PM] 🔄 Loading image from photo_id: $photoId');
+
+      print('photoId: $photoId');
+      
+      String? imageDataLocal;
+      
+      // Check if this is a numeric server ID (needs download) or unique ID (already cached)
+      if (int.tryParse(photoId) != null && !photoId.contains("LOCAL_IMAGE_ID")) {
+        // This is a numeric server ID - download it first to get unique ID
+        Logger.infoLog('[PM] 📥 Detected numeric server ID: $photoId, checking cache first...');
+        print('[PM] 📥 Detected numeric server ID: $photoId, checking cache first...');
+        
+        
+        // First, check if already cached by server ID
+        final cachedImage = await ServiceLocator()
+            .imageUploadService
+            .getImagesByServerId(photoId);
+        
+        if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
+          // Found in cache
+          imageDataLocal = cachedImage.imageData;
+          Logger.infoLog('[PM] ✅ Image found in cache by server ID, data length: ${imageDataLocal?.length ?? 0}');
+          print('[PM] ✅ Image found in cache by server ID, data length: ${imageDataLocal?.length ?? 0}');
+        } else {
+          // Not in cache, download from server
+          Logger.infoLog('[PM] ⬇️ Image not in cache, downloading from server...');
+          print('[PM] ⬇️ Image not in cache, downloading from server...');
+          
+          final uniqueId = await ServiceLocator()
+              .imageUploadService
+              .downloadImageUsingServerId(
+                photoId,
+                ActivityTypeEnum.preventiveMaintenance,
+                _currentItem['site_audit_sch_id']?.toString() ?? '',
+              );
+          
+          if (uniqueId != null) {
+            Logger.infoLog('[PM] ✅ Image downloaded, uniqueId: $uniqueId');
+            print('[PM] ✅ Image downloaded, uniqueId: $uniqueId');
+            // Get image data using unique ID via getImageAsDataUrl (same as asset audit)
+            imageDataLocal = await ServiceLocator()
+                .centralAssetAuditService
+                .getImageAsDataUrl(uniqueId);
+            
+            if (imageDataLocal == null || imageDataLocal.isEmpty) {
+              // Fallback: try direct getImageUsingUniqueId
+              Logger.infoLog('[PM] 🔄 Fallback: trying getImageUsingUniqueId with uniqueId');
+              print('[PM] 🔄 Fallback: trying getImageUsingUniqueId with uniqueId');
+              imageDataLocal = await ServiceLocator()
+                  .imageUploadService
+                  .getImageUsingUniqueId(uniqueId);
+            }
+          } else {
+            Logger.errorLog('[PM] ❌ Failed to download image - uniqueId is null');
+            print('[PM] ❌ Failed to download image - uniqueId is null');
+          }
+        }
+      } else {
+        // This is a unique ID (LOCAL_IMAGE_ID or processed unique ID) - use getImageAsDataUrl
+        Logger.infoLog('[PM] 🔑 Using unique ID: $photoId, loading via getImageAsDataUrl');
+        print('[PM] 🔑 Using unique ID: $photoId, loading via getImageAsDataUrl');
+        
+        imageDataLocal = await ServiceLocator()
+            .centralAssetAuditService
+            .getImageAsDataUrl(photoId);
+        
+        Logger.infoLog('[PM] 🔑 getImageAsDataUrl result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
+        print('[PM] 🔑 getImageAsDataUrl result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
+        
+        if (imageDataLocal == null || imageDataLocal.isEmpty) {
+          // Fallback: try direct getImageUsingUniqueId
+          Logger.infoLog('[PM] 🔄 Fallback: trying getImageUsingUniqueId');
+          print('[PM] 🔄 Fallback: trying getImageUsingUniqueId');
+          imageDataLocal = await ServiceLocator()
+              .imageUploadService
+              .getImageUsingUniqueId(photoId);
+          
+          Logger.infoLog('[PM] 🔄 getImageUsingUniqueId result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
+          print('[PM] 🔄 getImageUsingUniqueId result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
+          
+          if (imageDataLocal == null || imageDataLocal.isEmpty) {
+            // Second fallback: try getImagesByServerId (in case it's stored by server ID)
+            Logger.infoLog('[PM] 🔄 Second fallback: trying getImagesByServerId');
+            print('[PM] 🔄 Second fallback: trying getImagesByServerId');
+            final cachedImage = await ServiceLocator()
+                .imageUploadService
+                .getImagesByServerId(photoId);
+            
+            if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
+              imageDataLocal = cachedImage.imageData;
+              Logger.infoLog('[PM] 🔄 Found via getImagesByServerId, data length: ${imageDataLocal?.length ?? 0}');
+              print('[PM] 🔄 Found via getImagesByServerId, data length: ${imageDataLocal?.length ?? 0}');
+            }
+          }
+        }
+      }
+      
+      // Format and set image data
+      if (imageDataLocal != null && imageDataLocal.isNotEmpty) {
+        // Clean the image data
+        String cleanedData = imageDataLocal.trim();
+        
+        // Validate base64 data before formatting
+        try {
+          // Try to decode a small portion to validate it's valid base64
+          String base64ToValidate = cleanedData;
+          if (cleanedData.startsWith('data:image/')) {
+            final parts = cleanedData.split(',');
+            if (parts.length > 1) {
+              base64ToValidate = parts[1];
+            }
+          }
+          
+          // Validate by trying to decode first 100 chars
+          if (base64ToValidate.length > 100) {
+            base64Decode(base64ToValidate.substring(0, 100));
+          } else {
+            base64Decode(base64ToValidate);
+          }
+          
+          Logger.infoLog('[PM] ✅ Base64 data validated successfully');
+          print('[PM] ✅ Base64 data validated successfully');
+        } catch (e) {
+          Logger.errorLog('[PM] ❌ Invalid base64 data: $e');
+          print('[PM] ❌ Invalid base64 data: $e');
+          Logger.errorLog('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
+          print('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
+          if (mounted) {
+            setState(() {
+              _imageData = null;
+            });
+          }
+          return;
+        }
+        
+        // Format as data URL if not already
+        String formattedImageData;
+        if (cleanedData.startsWith('data:image/')) {
+          // Normalize image/jpg to image/jpeg for consistency
+          if (cleanedData.startsWith('data:image/jpg')) {
+            formattedImageData = cleanedData.replaceFirst('data:image/jpg', 'data:image/jpeg');
+          } else {
+            formattedImageData = cleanedData;
+          }
+        } else {
+          formattedImageData = 'data:image/jpeg;base64,$cleanedData';
+        }
+        
+        Logger.infoLog('[PM] ✅ Image data loaded successfully');
+        print('[PM] ✅ Image data loaded successfully');
+        Logger.infoLog('[PM] Original data length: ${imageDataLocal.length}');
+        print('[PM] Original data length: ${imageDataLocal.length}');
+        Logger.infoLog('[PM] Formatted data length: ${formattedImageData.length}');
+        print('[PM] Formatted data length: ${formattedImageData.length}');
+        Logger.infoLog('[PM] Formatted data starts with: ${formattedImageData.substring(0, formattedImageData.length > 100 ? 100 : formattedImageData.length)}');
+        print('[PM] Formatted data starts with: ${formattedImageData.substring(0, formattedImageData.length > 100 ? 100 : formattedImageData.length)}');
+        
+        if (mounted) {
+          Logger.infoLog('[PM] 🔄 About to set image data in state...');
+          print('[PM] 🔄 About to set image data in state...');
+          
+          // Set image data and trigger rebuild
+          setState(() {
+            _imageData = formattedImageData;
+            Logger.infoLog('[PM] 🔄 Inside setState: _imageData set to ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+            print('[PM] 🔄 Inside setState: _imageData set to ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+            
+            // If this image is for a dependent element, also set it in _dependentImageData
+            if (dependentElementKey != null && formattedImageData.isNotEmpty) {
+              _dependentImageData[dependentElementKey] = formattedImageData;
+              Logger.infoLog('[PM] 🎯 Also set _dependentImageData[$dependentElementKey] to ${formattedImageData.length} chars');
+              print('[PM] 🎯 Also set _dependentImageData[$dependentElementKey] to ${formattedImageData.length} chars');
+            }
+          });
+          
+          Logger.infoLog('[PM] ✅ Image data set in state successfully');
+          print('[PM] ✅ Image data set in state successfully');
+          Logger.infoLog('[PM] _imageData is now: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+          print('[PM] _imageData is now: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+          
+          // Force multiple rebuilds to ensure ImageUploadField gets the update
+          // Sometimes Flutter needs multiple frames to properly update nested widgets
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Logger.infoLog('[PM] 🔄 PostFrameCallback 1: About to force rebuild');
+              print('[PM] 🔄 PostFrameCallback 1: About to force rebuild');
+              setState(() {
+                Logger.infoLog('[PM] 🔄 PostFrameCallback 1: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+                print('[PM] 🔄 PostFrameCallback 1: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+              });
+              
+              // Second callback after a short delay
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (mounted) {
+                  Logger.infoLog('[PM] 🔄 PostFrameCallback 2: About to force rebuild');
+                  print('[PM] 🔄 PostFrameCallback 2: About to force rebuild');
+                  setState(() {
+                    Logger.infoLog('[PM] 🔄 PostFrameCallback 2: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+                    print('[PM] 🔄 PostFrameCallback 2: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+                  });
+                }
+              });
+            }
+          });
+        } else {
+          Logger.errorLog('[PM] ❌ Widget not mounted, cannot set state');
+          print('[PM] ❌ Widget not mounted, cannot set state');
+        }
+      } else {
+        Logger.errorLog('[PM] ❌ Failed to load image: No data retrieved');
+        print('[PM] ❌ Failed to load image: No data retrieved');
+        Logger.errorLog('[PM] imageDataLocal is: ${imageDataLocal != null ? "NOT NULL but empty (length: ${imageDataLocal.length})" : "NULL"}');
+        print('[PM] imageDataLocal is: ${imageDataLocal != null ? "NOT NULL but empty (length: ${imageDataLocal.length})" : "NULL"}');
+        if (mounted) {
+          setState(() {
+            _imageData = null;
+          });
+        }
+      }
+    } catch (e, stackTrace) {
+      Logger.errorLog('[PM] ❌ Error loading image from photo_id: $e');
+      Logger.errorLog('[PM] Stack trace: $stackTrace');
       if (mounted) {
         setState(() {
           _imageData = null;
@@ -153,36 +624,67 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     }
   }
 
-  /// Add or update image in responseImages array
-  void _addImageToResponseImages(String photoId) {
-    if (!_currentItem.containsKey('responseImages') || 
-        _currentItem['responseImages'] == null) {
-      _currentItem['responseImages'] = [];
+  /// Add or update image in response_images array
+  /// Supports both snake_case (response_images) and camelCase (responseImages) formats
+  /// If replaceExisting is true, replaces all existing images; otherwise updates by photoId or adds new
+  /// If elementIndex is provided, replaces/updates the image at that specific index
+  void _addImageToResponseImages(String photoId, {bool replaceExisting = false, int? elementIndex}) {
+    // Use snake_case for API compatibility (response_images)
+    if (!_currentItem.containsKey('response_images') || 
+        _currentItem['response_images'] == null) {
+      _currentItem['response_images'] = [];
     }
     
     List<Map<String, dynamic>> responseImages = 
-        List<Map<String, dynamic>>.from(_currentItem['responseImages'] ?? []);
+        List<Map<String, dynamic>>.from(_currentItem['response_images'] ?? []);
     
-    // Check if photoId already exists, update it; otherwise add new
-    final existingIndex = responseImages.indexWhere(
-      (img) => img['photoId'] == photoId,
-    );
-    
-    // Get pclsriId from currentItem, default to 0 if null
-    final pclsriId = 0;
-    
+    // Store in snake_case format for API compatibility
     final imageData = {
-      'photoId': photoId,
-      'photoTakenTs': Utils.getCurrentDateTimeForAPICall(),
-      'pclsriId': pclsriId,
+      'photo_id': photoId,
+      'photo_taken_ts': Utils.getCurrentDateTimeForAPICall(),
+      'pclsri_id': 0, // Default to 0 for new uploads
     };
     
-    if (existingIndex >= 0) {
-      responseImages[existingIndex] = imageData;
+    if (replaceExisting) {
+      if (elementIndex != null) {
+        // Replace image at specific index
+        // Ensure list is large enough
+        while (responseImages.length <= elementIndex) {
+          responseImages.add(<String, dynamic>{});
+        }
+        responseImages[elementIndex] = imageData;
+        Logger.infoLog('[PM] 🔄 Replaced image at index $elementIndex with new image: $photoId');
+        print('[PM] 🔄 Replaced image at index $elementIndex with new image: $photoId');
+      } else {
+        // Replace all existing images with the new one
+        responseImages = [imageData];
+        Logger.infoLog('[PM] 🔄 Replaced all existing images with new image: $photoId');
+        print('[PM] 🔄 Replaced all existing images with new image: $photoId');
+      }
     } else {
-      responseImages.add(imageData);
+      // Check if photoId already exists, update it; otherwise add new
+      // Check both snake_case and camelCase photo_id fields
+      final existingIndex = responseImages.indexWhere(
+        (img) => (img['photo_id'] ?? img['photoId'])?.toString() == photoId,
+      );
+      
+      // Get pclsriId from existing image if found, otherwise use 0
+      if (existingIndex >= 0) {
+        final existingPclsriId = responseImages[existingIndex]['pclsri_id'] ?? 
+                                 responseImages[existingIndex]['pclsriId'] ?? 0;
+        imageData['pclsri_id'] = existingPclsriId;
+        responseImages[existingIndex] = imageData;
+        Logger.infoLog('[PM] 🔄 Updated existing image at index $existingIndex: $photoId');
+        print('[PM] 🔄 Updated existing image at index $existingIndex: $photoId');
+      } else {
+        responseImages.add(imageData);
+        Logger.infoLog('[PM] ➕ Added new image: $photoId');
+        print('[PM] ➕ Added new image: $photoId');
+      }
     }
     
+    _currentItem['response_images'] = responseImages;
+    // Also update camelCase version for backward compatibility
     _currentItem['responseImages'] = responseImages;
   }
 
@@ -466,7 +968,56 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   }
 
   Widget _buildImageField() {
+    // Use a more reliable key that changes when image data changes
+    // Include the length and first few chars to ensure uniqueness
+    final imageKey = _imageData != null && _imageData!.isNotEmpty
+        ? 'pm_image_${_currentItem['pm_check_list_site_resp_id']}_${_imageData!.length}_${_imageData!.substring(0, _imageData!.length > 20 ? 20 : _imageData!.length)}'
+        : 'pm_image_${_currentItem['pm_check_list_site_resp_id']}_null';
+    
+    Logger.infoLog('[PM] 🖼️ Building ImageUploadField');
+    print('[PM] 🖼️ Building ImageUploadField');
+    Logger.infoLog('[PM] 🖼️ _imageData in _buildImageField: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    print('[PM] 🖼️ _imageData in _buildImageField: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    Logger.infoLog('[PM] 🖼️ externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    print('[PM] 🖼️ externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    if (_imageData != null && _imageData!.isNotEmpty) {
+      Logger.infoLog('[PM] 🖼️ externalImageUrl preview: ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}...');
+      print('[PM] 🖼️ externalImageUrl preview: ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}...');
+    }
+    Logger.infoLog('[PM] 🖼️ Image key: $imageKey');
+    print('[PM] 🖼️ Image key: $imageKey');
+    Logger.infoLog('[PM] 🖼️ pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
+    print('[PM] 🖼️ pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
+    
+    // Force a unique key that changes when _imageData changes to ensure widget rebuilds
+    // Use a combination of length and hash to create a stable but changing key
+    // Also include a timestamp or counter to force rebuild when data changes
+    final imageDataHash = _imageData != null && _imageData!.isNotEmpty
+        ? '${_imageData!.length}_${_imageData!.substring(0, _imageData!.length > 50 ? 50 : _imageData!.length).hashCode}'
+        : 'null';
+    final uniqueKey = 'pm_img_${_currentItem['pm_check_list_site_resp_id']}_$imageDataHash';
+    
+    Logger.infoLog('[PM] 🖼️ Using unique key: $uniqueKey');
+    print('[PM] 🖼️ Using unique key: $uniqueKey');
+    Logger.infoLog('[PM] 🖼️ imageDataHash: $imageDataHash');
+    print('[PM] 🖼️ imageDataHash: $imageDataHash');
+    Logger.infoLog('[PM] 🖼️ _imageData is: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    print('[PM] 🖼️ _imageData is: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    
+    // CRITICAL: Pass _imageData directly to externalImageUrl
+    // The key will force a rebuild, but we also need to ensure the prop is passed correctly
+    Logger.infoLog('[PM] 🖼️ About to create ImageUploadField with externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    print('[PM] 🖼️ About to create ImageUploadField with externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    if (_imageData != null && _imageData!.isNotEmpty) {
+      Logger.infoLog('[PM] 🖼️ externalImageUrl preview (first 100 chars): ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}');
+      print('[PM] 🖼️ externalImageUrl preview (first 100 chars): ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}');
+    }
+    
+    // Create a StatefulBuilder to ensure the widget rebuilds when _imageData changes
+    // Use a more aggressive key that includes actual data content to force rebuild
+    final String finalImageData = _imageData ?? '';
     return ImageUploadField(
+      key: ValueKey('${uniqueKey}_${finalImageData.length > 0 ? finalImageData.substring(0, finalImageData.length > 20 ? 20 : finalImageData.length).hashCode : 0}'),
       placeholder: 'Upload Photos',
       isRequired: true,
       externalImageUrl: _imageData,
@@ -488,7 +1039,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
             if (photoId.isNotEmpty) {
               setState(() {
-                _addImageToResponseImages(photoId);
+                // Replace existing images with the new one
+                _addImageToResponseImages(photoId, replaceExisting: true);
                 _imageData = 'data:image/jpeg;base64,${base64Encode(imageData)}';
               });
 
@@ -524,9 +1076,17 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   }
 
   Widget _buildFieldByType(List<String> respTypesArr) {
+    Logger.infoLog('[PM] 🔧 _buildFieldByType called with respTypesArr: $respTypesArr');
+    print('[PM] 🔧 _buildFieldByType called with respTypesArr: $respTypesArr');
     final respTypes = respTypesArr.first.split(",");
+    Logger.infoLog('[PM] 🔧 respTypes after split: $respTypes');
+    print('[PM] 🔧 respTypes after split: $respTypes');
+    Logger.infoLog('[PM] 🔧 _imageData in _buildFieldByType: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    print('[PM] 🔧 _imageData in _buildFieldByType: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     // Handle combined types like DROPDOWN,IMG
     if (respTypes.contains('DROPDOWN') && respTypes.contains('IMG')) {
+      Logger.infoLog('[PM] 🔧 Building DROPDOWN+IMG field');
+      print('[PM] 🔧 Building DROPDOWN+IMG field');
       return Column(
         children: [
           _buildDropdownField(),
@@ -538,6 +1098,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         ],
       );
     } else if (respTypes.contains('RADIO') && respTypes.contains('IMG')) {
+      Logger.infoLog('[PM] 🔧 Building RADIO+IMG field');
+      print('[PM] 🔧 Building RADIO+IMG field');
       return Column(
         children: [
           _buildRadioField(),
@@ -570,6 +1132,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     } else if (respTypes.contains('NUMERIC')) {
       return _buildNumericField();
     } else if (respTypes.contains('IMG')) {
+      Logger.infoLog('[PM] 🔧 Building IMG-only field');
+      print('[PM] 🔧 Building IMG-only field');
       return _buildImageField();
     } else {
       return Container(
@@ -592,6 +1156,11 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
   @override
   Widget build(BuildContext context) {
+    Logger.infoLog('[PM] 🔨 build() called for pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
+    print('[PM] 🔨 build() called for pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
+    Logger.infoLog('[PM] 🔨 _imageData in build(): ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    print('[PM] 🔨 _imageData in build(): ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
+    
     final isReadonlyFromList = widget.readonlyFields.contains(
       _currentItem['checklist_desc']?.toString(),
     );
@@ -695,11 +1264,12 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     final currentMainResponse = _getCurrentMainResponse();
     List<Widget> widgets = [];
     
-    for (final element in dependentElements) {
+    for (int index = 0; index < dependentElements.length; index++) {
+      final element = dependentElements[index];
       final shouldShow = shouldDependentElementBeVisible(element, currentMainResponse);
       if (!shouldShow) continue;
       
-      widgets.add(_buildDependentElement(element, isEditable, currentMainResponse));
+      widgets.add(_buildDependentElement(element, isEditable, currentMainResponse, index));
     }
     
     return widgets;
@@ -710,14 +1280,39 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     Map<String, dynamic> element,
     bool isEditable,
     String? parentResponse,
+    int elementIndex,
   ) {
     final respType = element['resp_type']?.toString() ?? '';
     final checklistDesc = element['checklist_desc']?.toString() ?? '';
     final isMandatory = isDependentElementMandatory(element, parentResponse);
-    final elementKey = '${respType}_${checklistDesc}'; // Create unique key
+    // Include index to make key unique when multiple elements have same resp_type and checklist_desc
+    final elementKey = '${respType}_${checklistDesc}_$elementIndex';
     final shouldHighlight = _highlightedDependentFields.contains(elementKey);
     
     if (respType == 'IMG') {
+      // Check if image already exists (from server or newly uploaded)
+      final imageId = _dependentImageIds[elementKey];
+      final imageData = _dependentImageData[elementKey];
+      final hasUploadedImage = (imageId != null && imageId.isNotEmpty) || 
+                              (imageData != null && imageData.isNotEmpty);
+      final responseImages = _currentItem['response_images'] ?? _currentItem['responseImages'];
+      final hasServerImage = responseImages != null && 
+                             responseImages is List && 
+                             responseImages.isNotEmpty;
+      final hasExistingImage = hasUploadedImage || hasServerImage;
+      
+      Logger.infoLog('[PM] 🎨 Building IMG element: $elementKey');
+      Logger.infoLog('[PM] 🎨 hasUploadedImage: $hasUploadedImage (imageId: $imageId, imageData: ${imageData != null ? "exists" : "null"})');
+      Logger.infoLog('[PM] 🎨 hasServerImage: $hasServerImage');
+      Logger.infoLog('[PM] 🎨 hasExistingImage: $hasExistingImage');
+      Logger.infoLog('[PM] 🎨 isMandatory: $isMandatory');
+      Logger.infoLog('[PM] 🎨 shouldShowAsRequired: ${isMandatory && !hasExistingImage}');
+      print('[PM] 🎨 Building IMG element: $elementKey');
+      print('[PM] 🎨 hasExistingImage: $hasExistingImage, shouldShowAsRequired: ${isMandatory && !hasExistingImage}');
+      
+      // Only show as required if it's mandatory AND no image exists
+      final shouldShowAsRequired = isMandatory && !hasExistingImage;
+      
       return Padding(
         padding: const EdgeInsets.only(top: 12.0, bottom: 16.0),
         child: Container(
@@ -743,7 +1338,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                       fontFamily: fontFamilyMontserrat,
                     ),
                   ),
-                  if (isMandatory)
+                  if (shouldShowAsRequired)
                     const Text(
                       ' *',
                       style: TextStyle(color: AppColors.redColor),
@@ -754,7 +1349,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
               ImageUploadField(
                 key: ValueKey('${_currentItem['pm_check_list_site_resp_id']}_${elementKey}_image'),
                 placeholder: checklistDesc,
-                isRequired: isMandatory,
+                isRequired: shouldShowAsRequired,
                 onImageSelected: isEditable
                     ? (File? file) {
                         if (file != null) {
@@ -765,6 +1360,11 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                           setState(() {
                             _dependentImageIds[elementKey] = null;
                             _dependentImageFiles[elementKey] = null;
+                            _dependentImageData[elementKey] = null;
+                            // Also clear response_images if image is removed
+                            _currentItem['response_images'] = [];
+                            _currentItem['responseImages'] = [];
+                            _notifyValueChanged();
                           });
                         }
                       }
@@ -859,12 +1459,26 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       );
 
       if (photoId.isNotEmpty) {
+        // Extract index from elementKey (format: IMG_Add a photo_0, IMG_Add a photo_1, etc.)
+        int? elementIndex;
+        try {
+          final parts = elementKey.split('_');
+          if (parts.length >= 3) {
+            elementIndex = int.tryParse(parts.last);
+          }
+        } catch (e) {
+          Logger.errorLog('[PM] ❌ Error extracting index from elementKey $elementKey: $e');
+          print('[PM] ❌ Error extracting index from elementKey $elementKey: $e');
+        }
+        
         setState(() {
           _dependentImageIds[elementKey] = photoId;
           // Store base64 image data for display
           _dependentImageData[elementKey] = 'data:image/jpeg;base64,${base64Encode(imageData)}';
-          // Add to responseImages array
-          _addImageToResponseImages(photoId);
+          // Replace existing image at the specific index in responseImages array
+          _addImageToResponseImages(photoId, replaceExisting: true, elementIndex: elementIndex);
+          // Clear any validation highlight since image is now present
+          _highlightedDependentFields.remove(elementKey);
         });
         
         _notifyValueChanged();
@@ -925,6 +1539,16 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     return _dependentImageIds[elementKey];
   }
   
+  /// Get dependent image data by element key
+  String? getDependentImageData(String elementKey) {
+    return _dependentImageData[elementKey];
+  }
+  
+  /// Get current item data
+  Map<String, dynamic> getCurrentItem() {
+    return _currentItem;
+  }
+  
   /// Get dependent remarks by element key
   String? getDependentRemarks(String elementKey) {
     return _dependentRemarks[elementKey];
@@ -944,18 +1568,46 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     
     List<String> errors = [];
     
-    for (final element in dependentElements) {
+    for (int index = 0; index < dependentElements.length; index++) {
+      final element = dependentElements[index];
       final respType = element['resp_type']?.toString() ?? '';
       final checklistDesc = element['checklist_desc']?.toString() ?? '';
-      final elementKey = '${respType}_${checklistDesc}';
+      // Include index to make key unique when multiple elements have same resp_type and checklist_desc
+      final elementKey = '${respType}_${checklistDesc}_$index';
       
       final isMandatory = isDependentElementMandatory(element, parentResponse);
       if (!isMandatory) continue;
       
       if (respType == 'IMG') {
+        // Check if image exists in either:
+        // 1. _dependentImageIds (newly uploaded ID)
+        // 2. _dependentImageData (display data - newly uploaded or loaded from server)
+        // 3. response_images (from server)
         final imageId = _dependentImageIds[elementKey];
-        if (imageId == null || imageId.isEmpty) {
+        final imageData = _dependentImageData[elementKey];
+        final hasUploadedImage = (imageId != null && imageId.isNotEmpty) || 
+                                (imageData != null && imageData.isNotEmpty);
+        
+        // Check if image exists in response_images
+        final responseImages = _currentItem['response_images'] ?? _currentItem['responseImages'];
+        final hasServerImage = responseImages != null && 
+                               responseImages is List && 
+                               responseImages.isNotEmpty;
+        
+        Logger.infoLog('[PM] 🔍 Validation for IMG element: $elementKey');
+        Logger.infoLog('[PM] 🔍 hasUploadedImage: $hasUploadedImage (imageId: $imageId, imageData: ${imageData != null ? "exists (${imageData.length} chars)" : "null"})');
+        Logger.infoLog('[PM] 🔍 hasServerImage: $hasServerImage (response_images: $responseImages)');
+        print('[PM] 🔍 Validation for IMG element: $elementKey');
+        print('[PM] 🔍 hasUploadedImage: $hasUploadedImage');
+        print('[PM] 🔍 hasServerImage: $hasServerImage');
+        
+        if (!hasUploadedImage && !hasServerImage) {
           errors.add('$checklistDesc is required');
+          Logger.infoLog('[PM] ❌ Validation error: $checklistDesc is required');
+          print('[PM] ❌ Validation error: $checklistDesc is required');
+        } else {
+          Logger.infoLog('[PM] ✅ Validation passed: Image exists');
+          print('[PM] ✅ Validation passed: Image exists');
         }
       } else if (respType == 'REMARKS' || respType == 'TEXT') {
         final value = respType == 'REMARKS'

@@ -647,8 +647,8 @@ class _FireExtinguisherTelecomV2ScreenState
           // Flood Light Form Component
           AssetAuditFormComponent(
             componentId: 'flood_light_component',
-            serialLabel: "Flood Light - Serial Number *",
-            serialHintText: "Flood Light Serial Number *",
+            serialLabel: "Flood Light - Serial Number",
+            serialHintText: "Flood Light Serial Number",
             photoLabel: "Add a Photo",
             serialController: _floodLightSerialController,
             initialSavedItems:

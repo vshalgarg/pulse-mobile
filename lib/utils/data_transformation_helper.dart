@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:app/models/location_model.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -34,10 +32,29 @@ class DataTransformationHelper {
   }
 
   static Map<String, dynamic> convertKeysToCamelCase(Map<String, dynamic> json) {
-    return json.map((key, value) {
-      final newKey = _snakeToCamel(key);
-        return MapEntry(newKey, value);
+    final Map<String, dynamic> result = {};
+    
+    json.forEach((key, value) {
+      final String camelKey = _snakeToCamel(key);
+      
+      if (value is Map<String, dynamic>) {
+        // Recursively convert nested maps
+        result[camelKey] = convertKeysToCamelCase(value);
+      } else if (value is List) {
+        // Convert each item in the list
+        result[camelKey] = value.map((item) {
+          if (item is Map<String, dynamic>) {
+            return convertKeysToCamelCase(item);
+          }
+          return item;
+        }).toList();
+      } else {
+        // Keep primitive values as is
+        result[camelKey] = value;
+      }
     });
+    
+    return result;
   }
 
   static String _snakeToCamel(String snake) {
