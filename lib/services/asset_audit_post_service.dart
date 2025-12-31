@@ -27,11 +27,15 @@ class AssetAuditPostService {
   }) async {
     // Prevent posting empty arrays to avoid server errors
     if (requests.isEmpty) {
-      Logger.errorLog('❌ AssetAuditPostService: Attempted to post empty array, aborting to prevent server error');
-      Logger.errorLog('❌ This indicates a bug in the calling code - empty arrays should be filtered before calling this service');
+      Logger.errorLog(
+        '❌ AssetAuditPostService: Attempted to post empty array, aborting to prevent server error',
+      );
+      Logger.errorLog(
+        '❌ This indicates a bug in the calling code - empty arrays should be filtered before calling this service',
+      );
       return;
     }
-    
+
     try {
       // Get current location with offline support
       LocationModel finalLocation;
@@ -279,8 +283,10 @@ class AssetAuditPostService {
 
       if (response.isSuccess && response.data != null) {
         Logger.infoLog("Incident ticket synced successfully: ${response.data}");
-        Toastbar.showSuccessToastWithoutContext("Incident ticket synced successfully");
-        
+        Toastbar.showSuccessToastWithoutContext(
+          "Incident ticket synced successfully",
+        );
+
         // Delete from pending requests on success
         await ServiceLocator().pendingRequestService.deleteRequest(requestId);
       } else {
@@ -971,6 +977,19 @@ class AssetAuditPostService {
         return request; // Not a Map, return as-is
       }
 
+      // add code here to check for IMAGE CONTAIED IN PM reyqest IN "response_images": [
+      //   {
+      //     "photo_id": "LOCAL_IMAGE..",
+      //     "pclsri_id": 16,
+      //     "photo_taken_ts": "2025-12-31T15:03:52.399"
+      //   },
+      //   {
+      //     "photo_id": "LOCAL_IMAGE..",
+      //     "pclsri_id": 21,
+      //     "photo_taken_ts": "2025-12-31T16:18:36.428"
+      //   }
+      // ],
+
       // First, process nested objects/arrays recursively
       if (request.containsKey("giId")) {
         await _processNestedObjects(request);
@@ -980,19 +999,72 @@ class AssetAuditPostService {
           request.containsKey("visitingPersonId") ||
           request.containsKey("svlId")) {
         // This is a site visit request - process all image fields
-        Logger.debugLog(
-          '🔍 Detected site visit request - processing image fields',
-        );
         // Pass the original request object so changes are reflected
         await _processSiteVisitImageFields(request);
-        Logger.debugLog(
-          '✅ Site visit image fields processed. Request after processing: ${request['officialIdImageId']}, ${request['aadharCardImageId']}, ${request['leavingStatusImageId']}',
-        );
       }
 
       // Check both snake_case and camelCase field names
       dynamic photoId;
 
+      // Handle response_images array (for PM and similar requests)
+      if (request.containsKey("response_images")) {
+        final responseImages = request['response_images'];
+        if (responseImages != null && responseImages is List) {
+          // Process each image in the response_images array
+          for (int i = 0; i < responseImages.length; i++) {
+            final responseImage = responseImages[i];
+            if (responseImage is Map<String, dynamic>) {
+              final currentPhotoId = responseImage['photo_id'] ?? responseImage['photoId'];
+              
+              // Only process LOCAL_IMAGE_ID entries (skip already uploaded server IDs)
+              if (currentPhotoId != null && 
+                  currentPhotoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+                // This is a unique_id, get the server_id using ImageUploadService
+                final imageModel = await ServiceLocator().imageUploadService
+                    .getServerIdFromUniqueIdTryUploading(currentPhotoId.toString());
+                
+                if (imageModel != null) {
+                  final serverId = imageModel.serverId;
+                  final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
+                  
+                  // Update the photo_id in this specific response_images item
+                  responseImage['photo_id'] = serverId;
+                  // Also update camelCase version if it exists
+                  if (responseImage.containsKey('photoId')) {
+                    responseImage['photoId'] = serverId;
+                  }
+                  
+                  // Update timestamp if available
+                  if (timestamp != null) {
+                    responseImage['photo_taken_ts'] = timestamp;
+                  }
+                  
+                  Logger.debugLog(
+                    "✅ Uploaded LOCAL_IMAGE_ID $currentPhotoId -> server_id $serverId in response_images[$i]",
+                  );
+                } else {
+                  Logger.debugLog(
+                    "❌ FAILED to get server_id for LOCAL_IMAGE_ID: $currentPhotoId in response_images[$i]",
+                  );
+                }
+              } else {
+                // Already a server ID (numeric), skip upload
+                Logger.debugLog(
+                  "⏭️ Skipping response_images[$i] - already has server_id: $currentPhotoId",
+                );
+              }
+            }
+          }
+          // Update the request with the modified response_images array
+          request['response_images'] = responseImages;
+          // Also update camelCase version for backward compatibility
+          request['responseImages'] = responseImages;
+        }
+        // After processing response_images, return early (don't process single photo_id)
+        return request;
+      }
+
+      // Handle single photo_id fields (for other request types)
       if (request.containsKey("energyReadingId")) {
         photoId = request['ebAttachmentFileId'];
       } else if (request.containsKey("visitingPersonName") ||
@@ -1007,9 +1079,9 @@ class AssetAuditPostService {
       }
 
       // If no photo_id or photo_id is null/empty/0, return the request as-is
-      if (photoId == null || 
-          photoId.toString().isEmpty || 
-          photoId == 0 || 
+      if (photoId == null ||
+          photoId.toString().isEmpty ||
+          photoId == 0 ||
           photoId == "0") {
         return request;
       }
