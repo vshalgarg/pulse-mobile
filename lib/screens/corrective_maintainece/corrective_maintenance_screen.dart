@@ -718,8 +718,20 @@ class _CorrectiveMaintenanceScreenState
                 // If online, allow API call even if site is not downloaded
                 if (isOnline) {
                   Logger.infoLog("🌐 [CM] Online mode - fetching checklist from API");
-                  checklistData = await ServiceLocator().cmRepository
+                  final apiResponse = await ServiceLocator().cmRepository
                       .getChecklistData(selectedSite.entityId);
+                  
+                  // API now returns both checkListDetails and siteDeployedItems
+                  if (apiResponse.containsKey('checkListDetails')) {
+                    checklistData = Map<String, dynamic>.from(apiResponse['checkListDetails']);
+                    // Add siteDeployedItems to checklistData
+                    if (apiResponse.containsKey('siteDeployedItems')) {
+                      checklistData['siteDeployedItems'] = apiResponse['siteDeployedItems'];
+                    }
+                  } else {
+                    // Fallback for old format
+                    checklistData = apiResponse;
+                  }
                   
                   Logger.infoLog("✅ [CM] Checklist data fetched from API");
                   

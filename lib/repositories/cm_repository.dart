@@ -72,13 +72,53 @@ class CMRepository {
       Logger.infoLog('[CMRepository] API Response - Success: ${response.isSuccess}, Has Data: ${response.data != null}');
       
       if (response.isSuccess && response.data != null) {
-        final data = response.data?['data']?['checkListDetails'] as Map<String, dynamic>?;
+        final responseData = response.data?['data'] as Map<String, dynamic>?;
+        if (responseData == null) {
+          Logger.errorLog('[CMRepository] ❌ data not found in response');
+          throw Exception('data not found in response');
+        }
+        
+        final data = responseData['checkListDetails'] as Map<String, dynamic>?;
         if (data == null) {
           Logger.errorLog('[CMRepository] ❌ checkListDetails not found in response');
           throw Exception('checkListDetails not found in response');
         }
+        
+        // Get siteDeployedItems from response
+        final siteDeployedItems = responseData['siteDeployedItems'] as Map<String, dynamic>? ?? {};
+        
+        // Debug: Log raw API response for CHECKBOX items to check for dependent_elements
+        // Also log the full raw response structure
+        Logger.infoLog('[CMRepository] 🔍 Full raw response.data structure: ${response.data?.keys.toList()}');
+        Logger.infoLog('[CMRepository] 🔍 response.data[data] keys: ${responseData.keys.toList()}');
+        Logger.infoLog('[CMRepository] 🔍 siteDeployedItems keys: ${siteDeployedItems.keys.toList()}');
+        
+        data.forEach((equipmentType, items) {
+          if (items is List) {
+            for (var item in items) {
+              if (item is Map && (item['resp_type'] == 'CHECKBOX' || item['resp_type'] == 'CHECKBOX_NUMERIC')) {
+                Logger.infoLog('[CMRepository] 🔍 CHECKBOX item found - checklist_desc: ${item['checklist_desc']}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item keys: ${item.keys.toList()}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item[dependent_elements]: ${item['dependent_elements']}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item[dependentElements]: ${item['dependentElements']}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item full data: $item');
+                if (item['dependent_elements'] != null) {
+                  Logger.infoLog('[CMRepository] ✅ dependent_elements found in raw API response!');
+                } else {
+                  Logger.errorLog('[CMRepository] ❌ dependent_elements is NULL in API response for: ${item['checklist_desc']}');
+                }
+              }
+            }
+          }
+        });
+        
         Logger.infoLog('[CMRepository] ✅ Checklist data received with ${data.keys.length} keys');
-        return data;
+        
+        // Return both checkListDetails and siteDeployedItems
+        return {
+          'checkListDetails': data,
+          'siteDeployedItems': siteDeployedItems,
+        };
       } else {
         Logger.errorLog('[CMRepository] ❌ Failed to load checklist: ${response.errorMessage}');
         throw Exception('Failed to load checklist data: ${response.errorMessage}');

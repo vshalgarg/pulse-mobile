@@ -57,6 +57,35 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
       _checklistItems = data.map((item) {
         final Map<String, dynamic> pmItem = Map<String, dynamic>.from(item);
 
+        // Debug logging for dependent_elements
+        if (pmItem['resp_type'] == 'CHECKBOX' || pmItem['resp_type'] == 'CHECKBOX_NUMERIC') {
+          print('[CM] _initializeChecklistData - item keys: ${item.keys.toList()}');
+          print('[CM] _initializeChecklistData - item[dependent_elements]: ${item['dependent_elements']}');
+          print('[CM] _initializeChecklistData - item[dependentElements]: ${item['dependentElements']}');
+          print('[CM] _initializeChecklistData - pmItem keys: ${pmItem.keys.toList()}');
+          print('[CM] _initializeChecklistData - pmItem[dependent_elements]: ${pmItem['dependent_elements']}');
+        }
+
+        // Ensure dependent_elements is preserved (try both field names)
+        if (item['dependent_elements'] != null && pmItem['dependent_elements'] == null) {
+          pmItem['dependent_elements'] = item['dependent_elements'];
+        }
+        if (item['dependentElements'] != null && pmItem['dependentElements'] == null) {
+          pmItem['dependentElements'] = item['dependentElements'];
+        }
+        
+        // Ensure impacted_item_check_list is preserved (replaces childitemData)
+        if (item['impacted_item_check_list'] != null) {
+          pmItem['impacted_item_check_list'] = item['impacted_item_check_list'];
+          // Also keep childitemData for backward compatibility
+          if (pmItem['childitemData'] == null) {
+            pmItem['childitemData'] = item['impacted_item_check_list'];
+          }
+        } else if (item['childitemData'] != null) {
+          // Fallback: if impacted_item_check_list doesn't exist, use childitemData
+          pmItem['childitemData'] = item['childitemData'];
+        }
+
         // Parse resp_type_value_map for radio and dropdown options
         if (pmItem['resp_type'] == 'RADIO' || pmItem['resp_type'] == 'DROPDOWN') {
           final valueMapStr = pmItem['resp_type_value_map']?.toString();
@@ -78,6 +107,12 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
         // Add required fields for pm_custom_widget compatibility
         pmItem['pm_check_list_site_resp_id'] = pmItem['item_type_id'] ?? DateTime.now().millisecondsSinceEpoch;
         pmItem['site_audit_sch_id'] = widget.entityId;
+
+        // Final check for dependent_elements
+        if ((pmItem['resp_type'] == 'CHECKBOX' || pmItem['resp_type'] == 'CHECKBOX_NUMERIC') && 
+            pmItem['dependent_elements'] != null) {
+          print('[CM] _initializeChecklistData - Final pmItem[dependent_elements]: ${pmItem['dependent_elements']}');
+        }
 
         return pmItem;
       }).toList();

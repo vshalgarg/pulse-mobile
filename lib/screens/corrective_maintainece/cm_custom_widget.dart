@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/constants_strings.dart';
 import '../../commonWidgets/custom_remark.dart';
-import '../../commonWidgets/custom_form_field.dart';
+import '../../commonWidgets/custom_form_field.dart' show CustomFormField, InputType;
 import '../../commonWidgets/custom_form_dropdown.dart';
 import '../../commonWidgets/custom_image_upload_field.dart';
 
@@ -55,11 +55,40 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   List<Map<String, dynamic>> _selectedMultiItems = [];
   List<Map<String, dynamic>> _availableMultiOptions = [];
   bool _isMultiDropdownOpen = false;
+  
+  // Checkbox specific variables
+  bool _isCheckboxChecked = false;
+  final TextEditingController _checkboxNumericController = TextEditingController();
+  
+  // Dependent elements state - keyed by dependent element index
+  Map<String, String?> _dependentImageIds = {}; // key -> imageId
+  Map<String, String?> _dependentImageData = {}; // key -> imageDataUrl (for display)
+  Map<String, File?> _dependentImageFiles = {}; // key -> image file
 
   @override
   void initState() {
     super.initState();
     _currentItem = Map<String, dynamic>.from(widget.pmItem);
+    
+    // Explicitly preserve dependent_elements if it exists
+    if (widget.pmItem['dependent_elements'] != null) {
+      _currentItem['dependent_elements'] = widget.pmItem['dependent_elements'];
+    }
+    if (widget.pmItem['dependentElements'] != null) {
+      _currentItem['dependentElements'] = widget.pmItem['dependentElements'];
+    }
+    
+    // Debug logging to check if dependent_elements is present
+    if (_currentItem['resp_type'] == 'CHECKBOX' || _currentItem['resp_type'] == 'CHECKBOX_NUMERIC') {
+      print('[CM] initState - widget.pmItem keys: ${widget.pmItem.keys.toList()}');
+      print('[CM] initState - widget.pmItem[dependent_elements]: ${widget.pmItem['dependent_elements']}');
+      print('[CM] initState - widget.pmItem[dependentElements]: ${widget.pmItem['dependentElements']}');
+      print('[CM] initState - _currentItem[dependent_elements]: ${_currentItem['dependent_elements']}');
+      print('[CM] initState - _currentItem[dependentElements]: ${_currentItem['dependentElements']}');
+      print('[CM] initState - _currentItem[resp_type]: ${_currentItem['resp_type']}');
+      print('[CM] initState - _currentItem[checklist_desc]: ${_currentItem['checklist_desc']}');
+    }
+    
     _initializeValues();
 
     // Add listener for remarks controller
@@ -75,6 +104,15 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     if (oldWidget.pmItem != widget.pmItem) {
       setState(() {
         _currentItem = Map<String, dynamic>.from(widget.pmItem);
+        
+        // Explicitly preserve dependent_elements if it exists
+        if (widget.pmItem['dependent_elements'] != null) {
+          _currentItem['dependent_elements'] = widget.pmItem['dependent_elements'];
+        }
+        if (widget.pmItem['dependentElements'] != null) {
+          _currentItem['dependentElements'] = widget.pmItem['dependentElements'];
+        }
+        
         _initializeValues();
       });
     }
@@ -85,6 +123,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _textController.dispose();
     _remarksController.dispose();
     _serialNumberController.dispose();
+    _checkboxNumericController.dispose();
     _childFieldControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
   }
@@ -110,6 +149,19 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Initialize remarks value
     _remarksController.text = respValue?.toString() ?? '';
 
+    // Initialize checkbox value
+    if (respType == 'CHECKBOX' || respType == 'CHECKBOX_NUMERIC') {
+      _isCheckboxChecked = respValue == 'true' || respValue == true || respValue == 'True' || respValue == 'TRUE';
+      if (respType == 'CHECKBOX_NUMERIC' && _isCheckboxChecked) {
+        // For CHECKBOX_NUMERIC, the numeric value might be stored separately
+        // Check if there's a numeric value in the response
+        final numericValue = _currentItem['numeric_value'] ?? _currentItem['resp_numeric'];
+        if (numericValue != null) {
+          _checkboxNumericController.text = numericValue.toString();
+        }
+      }
+    }
+
     // Initialize dynamic dropdown
     if (respType == 'DYNAMIC_DROPDOWN') {
       _initializeDynamicDropdown();
@@ -119,11 +171,52 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     if (respType == 'MULTI_DYNAMIC_DROPDOWN') {
       _initializeMultiDynamicDropdown();
     }
+    
+    // Initialize dependent elements if checkbox is checked
+    if ((respType == 'CHECKBOX' || respType == 'CHECKBOX_NUMERIC') && _isCheckboxChecked) {
+      _initializeDependentElements();
+    }
+  }
+  
+  void _initializeDependentElements() {
+    // Try to get dependent_elements from _currentItem, fallback to widget.pmItem
+    List<dynamic> dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? 
+                                     _currentItem['dependentElements'] as List<dynamic>? ?? [];
+    
+    if (dependentElements.isEmpty) {
+      dependentElements = widget.pmItem['dependent_elements'] as List<dynamic>? ?? 
+                          widget.pmItem['dependentElements'] as List<dynamic>? ?? [];
+      
+      // If found in widget.pmItem but not in _currentItem, preserve it
+      if (dependentElements.isNotEmpty) {
+        _currentItem['dependent_elements'] = dependentElements;
+      }
+    }
+    
+    final responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
+    
+    print('[CM] _initializeDependentElements - dependentElements.length: ${dependentElements.length}');
+    
+    // Initialize dependent image data from response_images
+    for (int i = 0; i < dependentElements.length; i++) {
+      final elementKey = '${_currentItem['cm_check_list_mst_id']}_$i';
+      
+      // Check if there's a corresponding image in response_images
+      if (i < responseImages.length) {
+        final imageData = responseImages[i];
+        final photoId = imageData['photo_id']?.toString();
+        if (photoId != null && photoId.isNotEmpty) {
+          _dependentImageIds[elementKey] = photoId;
+          // Image data will be loaded asynchronously if needed
+        }
+      }
+    }
   }
 
   void _initializeDynamicDropdown() {
-    // Initialize child field controllers
-    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    // Initialize child field controllers - use impacted_item_check_list instead of childitemData
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                       _currentItem['childitemData'] as List<dynamic>? ?? [];
     for (var childItem in childItems) {
       final fieldName = childItem['checklist_desc']?.toString() ?? '';
       if (fieldName.isNotEmpty) {
@@ -135,12 +228,26 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   void _initializeMultiDynamicDropdown() {
-    // Get sub_item_type to filter options from originalCmImpactedItemMap
+    // Get sub_item_type and item_type to filter options from originalCmImpactedItemMap
     final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
+    final itemType = _currentItem['item_type']?.toString() ?? '';
     
-    // Get available options from originalCmImpactedItemMap based on sub_item_type
+    // Get available options from originalCmImpactedItemMap
+    List<dynamic>? options;
+    
+    // First try the subItemType as-is
     if (widget.originalCmImpactedItemMap.containsKey(subItemType)) {
-      final options = widget.originalCmImpactedItemMap[subItemType] as List<dynamic>? ?? [];
+      options = widget.originalCmImpactedItemMap[subItemType] as List<dynamic>?;
+    } 
+    // If not found, try mapping from item_type (parent node)
+    else if (itemType.isNotEmpty) {
+      final mappedType = _mapItemTypeToSiteDeployedKey(itemType);
+      if (widget.originalCmImpactedItemMap.containsKey(mappedType)) {
+        options = widget.originalCmImpactedItemMap[mappedType] as List<dynamic>?;
+      }
+    }
+    
+    if (options != null && options.isNotEmpty) {
       _availableMultiOptions = options.map((item) => Map<String, dynamic>.from(item)).toList();
     }
     
@@ -153,7 +260,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
 
   // Helper method to get field names from childItemsData
   Map<String, String> _getFieldNamesFromChildItems() {
-    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    // Use impacted_item_check_list instead of childitemData
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                      _currentItem['childitemData'] as List<dynamic>? ?? [];
     final fieldNames = <String, String>{};
     
     for (var childItem in childItems) {
@@ -205,6 +314,94 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     });
     _notifyValueChanged();
   }
+  
+  void _onCheckboxChanged(bool? value) {
+    print('[CM] _onCheckboxChanged called - value: $value');
+    setState(() {
+      _isCheckboxChecked = value ?? false;
+      _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
+      
+      print('[CM] _onCheckboxChanged - _isCheckboxChecked set to: $_isCheckboxChecked');
+      print('[CM] _onCheckboxChanged - _currentItem[resp] set to: ${_currentItem['resp']}');
+      
+      // Clear dependent elements if unchecked
+      if (!_isCheckboxChecked) {
+        _dependentImageIds.clear();
+        _dependentImageData.clear();
+        _dependentImageFiles.clear();
+        _currentItem['response_images'] = null;
+      } else {
+        // Initialize dependent elements when checked
+        _initializeDependentElements();
+      }
+    });
+    _notifyValueChanged();
+  }
+  
+  void _onCheckboxNumericChanged(String value) {
+    setState(() {
+      _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
+      _currentItem['numeric_value'] = value;
+      // Also store in resp_numeric for compatibility
+      _currentItem['resp_numeric'] = value;
+    });
+    _notifyValueChanged();
+  }
+  
+  Future<void> _uploadDependentImage(String elementKey, File imageFile) async {
+    try {
+      // Read file as bytes and encode to base64
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      // Store image data for display
+      setState(() {
+        _dependentImageFiles[elementKey] = imageFile;
+        _dependentImageData[elementKey] = 'data:image/jpeg;base64,$base64Image';
+      });
+      
+      // Add image to response_images array
+      _addImageToResponseImages(elementKey, base64Image);
+      
+      _notifyValueChanged();
+      
+      if (mounted) {
+        Toastbar.showSuccessToastbar("Image uploaded successfully", context);
+      }
+    } catch (e) {
+      if (mounted) {
+        Toastbar.showErrorToastbar("Error uploading image: $e", context);
+      }
+    }
+  }
+  
+  void _addImageToResponseImages(String elementKey, String base64Image) {
+    // Extract index from elementKey (format: cm_check_list_mst_id_index)
+    final parts = elementKey.split('_');
+    final index = parts.isNotEmpty ? int.tryParse(parts.last) ?? 0 : 0;
+    
+    // Get or create response_images array
+    List<dynamic> responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
+    
+    // Ensure array is large enough
+    while (responseImages.length <= index) {
+      responseImages.add({
+        'photo_id': 'LOCAL_IMAGE_ID',
+        'pclsri_id': _currentItem['cm_check_list_mst_id'],
+        'photo_taken_ts': DateTime.now().toIso8601String(),
+      });
+    }
+    
+    // Update the image at the specific index
+    responseImages[index] = {
+      'photo_id': 'LOCAL_IMAGE_ID',
+      'pclsri_id': _currentItem['cm_check_list_mst_id'],
+      'photo_taken_ts': DateTime.now().toIso8601String(),
+      'image_data': base64Image, // Store base64 for offline support
+    };
+    
+    _currentItem['response_images'] = responseImages;
+  }
 
   void _onRemarksChanged(String value) {
     // Defer state update to avoid setState during build
@@ -223,10 +420,44 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _validateAndSetSerialNumber(scannedCode, true);
   }
 
+  // Helper method to map item_type from checkListDetails to siteDeployedItems key format
+  String _mapItemTypeToSiteDeployedKey(String itemType) {
+    // Map parent node names: "BATTERY" -> "Battery", "CCU MPPT" -> "CCU MPPT", etc.
+    final mapping = {
+      'BATTERY': 'Battery',
+      'DG': 'DG',
+      'CCU': 'CCU',
+      'CCU MPPT': 'CCU MPPT',
+      'SOLAR': 'Solar',
+      'SMPS': 'SMPS',
+    };
+    
+    return mapping[itemType] ?? itemType;
+  }
+
   void _validateAndSetSerialNumber(String serialNo, bool isQrCodeScanned) {
     final siteDeployedItems = widget.originalCmImpactedItemMap as Map<String, dynamic>? ?? {};
     final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
-    final deployedItems = siteDeployedItems[subItemType] as List<dynamic>? ?? [];
+    final itemType = _currentItem['item_type']?.toString() ?? '';
+    
+    // Map parent node name from checkListDetails to siteDeployedItems format
+    // e.g., "BATTERY" -> "Battery", "DG" -> "DG", etc.
+    List<dynamic>? deployedItems;
+    
+    // First try the subItemType as-is
+    if (siteDeployedItems.containsKey(subItemType)) {
+      deployedItems = siteDeployedItems[subItemType] as List<dynamic>?;
+    } 
+    // If not found, try mapping from item_type (parent node)
+    else if (itemType.isNotEmpty) {
+      // Map common patterns: "BATTERY" -> "Battery", etc.
+      final mappedType = _mapItemTypeToSiteDeployedKey(itemType);
+      if (siteDeployedItems.containsKey(mappedType)) {
+        deployedItems = siteDeployedItems[mappedType] as List<dynamic>?;
+      }
+    }
+    
+    deployedItems ??= [];
 
     Map<String, dynamic>? matchingItem = AssetAuditValidationHelper.findItemWithSerialNumber(serialNo, deployedItems, isQrCodeScanned);
     if (matchingItem != null) {
@@ -253,8 +484,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       }
     }
 
-    // Validate child fields
-    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    // Validate child fields - use impacted_item_check_list instead of childitemData
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                       _currentItem['childitemData'] as List<dynamic>? ?? [];
     for (var childItem in childItems) {
       final fieldName = childItem['checklist_desc']?.toString() ?? '';
       final isMandatory = childItem['is_mandatory'] == true;
@@ -448,7 +680,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   Widget _buildDynamicDropdownField() {
-    final childItems = _currentItem['childitemData'] as List<dynamic>? ?? [];
+    // Use impacted_item_check_list instead of childitemData
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                       _currentItem['childitemData'] as List<dynamic>? ?? [];
     
     return
       Container(
@@ -717,6 +951,340 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _notifyValueChanged();
   }
 
+  Widget _buildCheckboxField() {
+    // Always get dependent_elements from widget.pmItem (source of truth)
+    // Try both snake_case and camelCase
+    dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
+    
+    // Convert to List if it's not null
+    List<dynamic> dependentElements = [];
+    if (rawDependentElements != null) {
+      if (rawDependentElements is List) {
+        dependentElements = rawDependentElements;
+      } else {
+        // Try to parse if it's a string
+        try {
+          final parsed = jsonDecode(rawDependentElements.toString());
+          if (parsed is List) {
+            dependentElements = parsed;
+          }
+        } catch (e) {
+          print('[CM] Error parsing dependent_elements: $e');
+        }
+      }
+    }
+    
+    // Also store in _currentItem for future reference
+    if (dependentElements.isNotEmpty && _currentItem['dependent_elements'] == null) {
+      _currentItem['dependent_elements'] = dependentElements;
+    }
+    
+    // Get parent response value (checkbox checked = "true", unchecked = null/empty)
+    final parentResponse = _isCheckboxChecked ? 'true' : null;
+    
+    // Debug logging
+    print('[CM] _buildCheckboxField - _isCheckboxChecked: $_isCheckboxChecked');
+    print('[CM] _buildCheckboxField - widget.pmItem keys: ${widget.pmItem.keys.toList()}');
+    print('[CM] _buildCheckboxField - widget.pmItem[dependent_elements]: ${widget.pmItem['dependent_elements']}');
+    print('[CM] _buildCheckboxField - widget.pmItem[dependentElements]: ${widget.pmItem['dependentElements']}');
+    print('[CM] _buildCheckboxField - dependentElements.length: ${dependentElements.length}');
+    if (dependentElements.isNotEmpty) {
+      print('[CM] _buildCheckboxField - dependentElements[0]: ${dependentElements[0]}');
+    }
+    
+    return Column(
+      key: ValueKey('checkbox_${_currentItem['cm_check_list_mst_id']}_$_isCheckboxChecked'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Checkbox
+        Row(
+          children: [
+            Checkbox(
+              value: _isCheckboxChecked,
+              onChanged: (bool? value) {
+                print('[CM] Checkbox clicked - value: $value');
+                _onCheckboxChanged(value);
+              },
+            ),
+            Expanded(
+              child: Text(
+                _currentItem['checklist_desc']?.toString() ?? '',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: _currentItem['is_mandatory'] == true 
+                      ? FontWeight.w600 
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (_currentItem['is_mandatory'] == true)
+              const Text(
+                ' *',
+                style: TextStyle(color: Colors.red),
+              ),
+          ],
+        ),
+        
+        // Dependent elements (shown when checkbox is checked)
+        if (_isCheckboxChecked && dependentElements.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...dependentElements.asMap().entries.map((entry) {
+            final index = entry.key;
+            final element = entry.value;
+            
+            // Handle both Map and dynamic types
+            Map<String, dynamic> elementMap;
+            if (element is Map<String, dynamic>) {
+              elementMap = element;
+            } else {
+              elementMap = Map<String, dynamic>.from(element as Map);
+            }
+            
+            final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
+            final respType = elementMap['resp_type']?.toString() ?? '';
+            
+            print('[CM] Processing dependent element $index - respType: $respType, elementKey: $elementKey');
+            print('[CM] Element data: $elementMap');
+            
+            // Show all dependent elements when checkbox is checked
+            if (respType == 'IMG') {
+              final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Add a photo';
+              final mandatoryIfValue = elementMap['mandatoryIfValue'];
+              final isMandatory = _isDependentElementMandatory(mandatoryIfValue, parentResponse);
+              
+              print('[CM] Building IMG field - checklistDesc: $checklistDesc, isMandatory: $isMandatory');
+              
+              return Padding(
+                padding: const EdgeInsets.only(left: 32, bottom: 16),
+                child: ImageUploadField(
+                  key: ValueKey('dependent_image_$elementKey'),
+                  label: checklistDesc,
+                  placeholder: checklistDesc,
+                  isRequired: isMandatory,
+                  externalImageUrl: _dependentImageData[elementKey],
+                  onImageSelected: (File? file) async {
+                    if (file != null) {
+                      await _uploadDependentImage(elementKey, file);
+                    }
+                  },
+                ),
+              );
+            }
+            
+            return const SizedBox.shrink();
+          }).toList(),
+        ],
+      ],
+    );
+  }
+  
+  Widget _buildCheckboxNumericField() {
+    final dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? [];
+    // Get parent response value (checkbox checked = "true", unchecked = null/empty)
+    final parentResponse = _isCheckboxChecked ? 'true' : null;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Checkbox
+        Row(
+          children: [
+            Checkbox(
+              value: _isCheckboxChecked,
+              onChanged: (bool? value) {
+                _onCheckboxChanged(value);
+              },
+            ),
+            Expanded(
+              child: Text(
+                _currentItem['checklist_desc']?.toString() ?? '',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: _currentItem['is_mandatory'] == true 
+                      ? FontWeight.w600 
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+            if (_currentItem['is_mandatory'] == true)
+              const Text(
+                ' *',
+                style: TextStyle(color: Colors.red),
+              ),
+          ],
+        ),
+        
+        // Numeric field (shown when checkbox is checked)
+        if (_isCheckboxChecked) ...[
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(left: 32),
+            child: CustomFormField(
+              label: 'Count',
+              controller: _checkboxNumericController,
+              onChanged: _onCheckboxNumericChanged,
+              isRequired: _currentItem['is_mandatory'] == true,
+              inputType: InputType.number,
+            ),
+          ),
+        ],
+        
+        // Dependent elements (shown when checkbox is checked and element should be visible)
+        if (_isCheckboxChecked && dependentElements.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...dependentElements.asMap().entries.map((entry) {
+            final index = entry.key;
+            final element = entry.value as Map<String, dynamic>;
+            final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
+            final respType = element['resp_type']?.toString() ?? '';
+            
+            // Check if this dependent element should be visible based on parent response
+            final shouldShow = _shouldDependentElementBeVisible(element, parentResponse);
+            if (!shouldShow) return const SizedBox.shrink();
+            
+            if (respType == 'IMG') {
+              final checklistDesc = element['checklist_desc']?.toString() ?? 'Add a photo';
+              final mandatoryIfValue = element['mandatoryIfValue'];
+              final isMandatory = _isDependentElementMandatory(mandatoryIfValue, parentResponse);
+              
+              return Padding(
+                padding: const EdgeInsets.only(left: 32, bottom: 16),
+                child: ImageUploadField(
+                  label: checklistDesc,
+                  placeholder: checklistDesc,
+                  isRequired: isMandatory,
+                  externalImageUrl: _dependentImageData[elementKey],
+                  onImageSelected: (File? file) async {
+                    if (file != null) {
+                      await _uploadDependentImage(elementKey, file);
+                    }
+                  },
+                ),
+              );
+            }
+            
+            return const SizedBox.shrink();
+          }).toList(),
+        ],
+      ],
+    );
+  }
+  
+  /// Check if a dependent element should be visible based on parent response
+  /// Similar to DependentElement.shouldBeVisible() in GI
+  bool _shouldDependentElementBeVisible(Map<String, dynamic> element, String? parentResponse) {
+    final visibleIfValue = element['visibleIfValue'];
+    final mandatoryIfValue = element['mandatoryIfValue'];
+    
+    print('[CM] _shouldDependentElementBeVisible - visibleIfValue: $visibleIfValue, mandatoryIfValue: $mandatoryIfValue, parentResponse: $parentResponse');
+    
+    // If visibleIfValue is specified, use it
+    if (visibleIfValue != null) {
+      // Case 1: Boolean true - show when parent has a response
+      if (visibleIfValue is bool && visibleIfValue == true) {
+        final result = parentResponse != null && parentResponse.isNotEmpty;
+        print('[CM] visibleIfValue is bool true, returning: $result');
+        return result;
+      }
+      
+      // Case 2: Boolean false - never show
+      if (visibleIfValue is bool && visibleIfValue == false) {
+        print('[CM] visibleIfValue is bool false, returning: false');
+        return false;
+      }
+      
+      // Case 3: Array of values - show only when parent response matches
+      if (visibleIfValue is List) {
+        if (parentResponse == null || parentResponse.isEmpty) {
+          print('[CM] visibleIfValue is List but parentResponse is empty, returning: false');
+          return false;
+        }
+        
+        final visibleValues = visibleIfValue
+            .map((e) => e.toString().trim().toLowerCase())
+            .toList();
+        final parentValueLower = parentResponse.trim().toLowerCase();
+        
+        final result = visibleValues.contains(parentValueLower);
+        print('[CM] visibleIfValue is List: $visibleValues, parentValueLower: $parentValueLower, returning: $result');
+        return result;
+      }
+    }
+    
+    // If no visibleIfValue, check mandatoryIfValue as fallback
+    // If mandatoryIfValue exists, show when parent response matches
+    if (mandatoryIfValue != null) {
+      // Case 1: Boolean true - show when parent has any response
+      if (mandatoryIfValue is bool && mandatoryIfValue == true) {
+        final result = parentResponse != null && parentResponse.isNotEmpty;
+        print('[CM] mandatoryIfValue is bool true, returning: $result');
+        return result;
+      }
+      
+      // Case 2: Array of values - show only when parent response matches
+      if (mandatoryIfValue is List) {
+        if (parentResponse == null || parentResponse.isEmpty) {
+          print('[CM] mandatoryIfValue is List but parentResponse is empty, returning: false');
+          return false;
+        }
+        
+        final mandatoryValues = mandatoryIfValue
+            .map((e) => e.toString().trim().toLowerCase())
+            .toList();
+        final parentValueLower = parentResponse.trim().toLowerCase();
+        
+        final result = mandatoryValues.contains(parentValueLower);
+        print('[CM] mandatoryIfValue is List: $mandatoryValues, parentValueLower: $parentValueLower, returning: $result');
+        return result;
+      }
+    }
+    
+    // Default: show if parent has a response (for checkboxes, this means checked)
+    final defaultResult = parentResponse != null && parentResponse.isNotEmpty;
+    print('[CM] Using default logic, returning: $defaultResult');
+    return defaultResult;
+  }
+  
+  /// Determine if a dependent element is mandatory based on parent response
+  /// Similar to DependentElement.isMandatoryForResponse() in GI
+  bool _isDependentElementMandatory(dynamic mandatoryIfValue, String? parentResponse) {
+    if (mandatoryIfValue == null) return false;
+    
+    // Case 1: Boolean mandatory (true = mandatory for all responses)
+    if (mandatoryIfValue is bool && mandatoryIfValue == true) {
+      return true;
+    }
+    
+    // Case 2: Value-based mandatory (array of values)
+    // Example: mandatoryIfValue: ["true", "Not Ok"]
+    // This means: mandatory ONLY when parent response is "true" or "Not Ok"
+    if (mandatoryIfValue is List) {
+      if (parentResponse == null || parentResponse.isEmpty) {
+        return false; // No parent response, not mandatory
+      }
+      
+      // Check if parent response matches any value in the array (case-insensitive)
+      final mandatoryValues = mandatoryIfValue
+          .map((e) => e.toString().trim().toLowerCase())
+          .toList();
+      final parentValueLower = parentResponse.trim().toLowerCase();
+      
+      // Return true only if parent response matches one of the mandatory values
+      return mandatoryValues.contains(parentValueLower);
+    }
+    
+    // Case 3: String format: "true"
+    if (mandatoryIfValue is String) {
+      if (parentResponse == null || parentResponse.isEmpty) {
+        return false;
+      }
+      return mandatoryIfValue.toLowerCase() == parentResponse.toLowerCase();
+    }
+    
+    // Default: not mandatory
+    return false;
+  }
+  
   Widget _buildFieldByType(String respType) {
     switch (respType) {
       case 'DROPDOWN':
@@ -725,6 +1293,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         return _buildRadioField();
       case 'TEXT':
         return _buildTextField();
+      case 'NUMERIC':
+        return _buildNumericField();
+      case 'CHECKBOX':
+        return _buildCheckboxField();
+      case 'CHECKBOX_NUMERIC':
+        return _buildCheckboxNumericField();
       case 'IMG':
         return _buildImageField();
       case 'REMARKS':
@@ -750,6 +1324,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           ),
         );
     }
+  }
+  
+  Widget _buildNumericField() {
+    return CustomFormField(
+      label: _currentItem['checklist_desc']?.toString() ?? '',
+      initialValue: _textValue,
+      controller: _textController,
+      onChanged: _onTextChanged,
+      isRequired: _currentItem['is_mandatory'] == true,
+      inputType: InputType.number,
+    );
   }
 
   @override

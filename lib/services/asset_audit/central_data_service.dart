@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 13;
+  static const int _databaseVersion = 14;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -219,6 +219,7 @@ class CentralAssetAuditDataService {
         cm_check_list_mst_id INTEGER NOT NULL,
         is_mandatory INTEGER DEFAULT 0,
         childitem_data TEXT,
+        dependent_elements TEXT,
         cl_order INTEGER NOT NULL,
         sub_item_type TEXT NOT NULL,
         activity_type TEXT NOT NULL,
@@ -706,6 +707,28 @@ class CentralAssetAuditDataService {
         Logger.debugLog('✅ Successfully created incident_sites_data table');
       } catch (e) {
         Logger.errorLog('❌ Error creating incident_sites_data table: $e');
+      }
+    }
+
+    if (oldVersion < 14) {
+      // For version 14, add dependent_elements column to cm_checklist_data table
+      try {
+        // Check if column already exists
+        final tableInfo = await db.rawQuery("PRAGMA table_info(cm_checklist_data)");
+        final existingColumns = tableInfo
+            .map((col) => col['name'] as String)
+            .toList();
+
+        if (!existingColumns.contains('dependent_elements')) {
+          await db.execute(
+            'ALTER TABLE cm_checklist_data ADD COLUMN dependent_elements TEXT',
+          );
+          Logger.debugLog(
+            '✅ Added dependent_elements column to cm_checklist_data table',
+          );
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error adding dependent_elements column: $e');
       }
     }
   }
@@ -2012,10 +2035,35 @@ class CentralAssetAuditDataService {
             itemIndex++;
 
             try {
+              // Handle impacted_item_check_list (replaces childitemData) - can be List or already JSON string
               String? childitemDataJson;
-              if (item['childitemData'] != null &&
+              if (item['impacted_item_check_list'] != null) {
+                if (item['impacted_item_check_list'] is List) {
+                  childitemDataJson = jsonEncode(item['impacted_item_check_list']);
+                } else if (item['impacted_item_check_list'] is String) {
+                  childitemDataJson = item['impacted_item_check_list'];
+                }
+              } else if (item['childitemData'] != null &&
                   item['childitemData'] is List) {
+                // Fallback to childitemData for backward compatibility
                 childitemDataJson = jsonEncode(item['childitemData']);
+              }
+
+              // Handle dependent_elements - can be List or already JSON string
+              String? dependentElementsJson;
+              if (item['dependent_elements'] != null) {
+                if (item['dependent_elements'] is List) {
+                  dependentElementsJson = jsonEncode(item['dependent_elements']);
+                } else if (item['dependent_elements'] is String) {
+                  dependentElementsJson = item['dependent_elements'];
+                }
+              } else if (item['dependentElements'] != null) {
+                // Try camelCase version
+                if (item['dependentElements'] is List) {
+                  dependentElementsJson = jsonEncode(item['dependentElements']);
+                } else if (item['dependentElements'] is String) {
+                  dependentElementsJson = item['dependentElements'];
+                }
               }
 
               final insertData = {
@@ -2034,6 +2082,7 @@ class CentralAssetAuditDataService {
                 'cm_check_list_mst_id': item['cm_check_list_mst_id'] ?? 0,
                 'is_mandatory': (item['is_mandatory'] ?? false) ? 1 : 0,
                 'childitem_data': childitemDataJson,
+                'dependent_elements': dependentElementsJson,
                 'cl_order': item['cl_order'] ?? 0,
                 'sub_item_type': item['sub_item_type']?.toString() ?? '',
                 'activity_type': activityType,
@@ -2097,7 +2146,20 @@ class CentralAssetAuditDataService {
           }
         }
 
-        checklistByType[itemType]!.add({
+        // Parse dependent_elements from JSON string
+        List<dynamic>? dependentElements;
+        if (map['dependent_elements'] != null) {
+          try {
+            final parsed = jsonDecode(map['dependent_elements']);
+            if (parsed is List) {
+              dependentElements = parsed;
+            }
+          } catch (e) {
+            Logger.errorLog('❌ Error parsing dependent_elements: $e');
+          }
+        }
+
+        final itemData = {
           'checklist_desc': map['checklist_desc'],
           'resp_type': map['resp_type'],
           'resp_type_value_map': map['resp_type_value_map'],
@@ -2107,10 +2169,18 @@ class CentralAssetAuditDataService {
           'check_list_group_id': map['check_list_group_id'],
           'cm_check_list_mst_id': map['cm_check_list_mst_id'],
           'is_mandatory': map['is_mandatory'] == 1,
-          'childitemData': childitemData,
+          'childitemData': childitemData, // Keep for backward compatibility
+          'impacted_item_check_list': childitemData, // New field name
           'cl_order': map['cl_order'],
           'sub_item_type': map['sub_item_type'],
-        });
+        };
+
+        // Add dependent_elements if it exists
+        if (dependentElements != null) {
+          itemData['dependent_elements'] = dependentElements;
+        }
+
+        checklistByType[itemType]!.add(itemData);
       }
 
       Logger.debugLog(
