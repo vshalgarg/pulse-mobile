@@ -72,7 +72,11 @@ class CMRepository {
       Logger.infoLog('[CMRepository] API Response - Success: ${response.isSuccess}, Has Data: ${response.data != null}');
       
       if (response.isSuccess && response.data != null) {
-        final data = response.data?['data'] as Map<String, dynamic>;
+        final data = response.data?['data']?['checkListDetails'] as Map<String, dynamic>?;
+        if (data == null) {
+          Logger.errorLog('[CMRepository] ❌ checkListDetails not found in response');
+          throw Exception('checkListDetails not found in response');
+        }
         Logger.infoLog('[CMRepository] ✅ Checklist data received with ${data.keys.length} keys');
         return data;
       } else {
