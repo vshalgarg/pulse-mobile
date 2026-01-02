@@ -1551,21 +1551,51 @@ class _CorrectiveMaintenanceScreenState
     // Process child item images from _impactedItemList (dynamic dropdown data)
     Logger.infoLog('[CM] Processing child item images from impacted item list (${_impactedItemList.length} items)...');
     for (var impactedItem in _impactedItemList) {
-      final childItemResponses = impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+      // Handle both camelCase and snake_case field names
+      final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                 impactedItem['child_item_responses'] as List<dynamic>? ?? [];
       
-      Logger.infoLog('[CM] Processing ${childItemResponses.length} child item responses for impacted item');
+      Logger.infoLog('[CM] Processing ${childItemResponses.length} child item responses for impacted item: ${impactedItem['mfgSerialNo'] ?? impactedItem['mfg_serial_no']}');
       
       for (var childResponse in childItemResponses) {
         if (childResponse is Map<String, dynamic>) {
-          final childResponseImages = childResponse['response_images'] as List<dynamic>? ?? [];
+          // Handle both camelCase and snake_case field names
+          final childResponseImages = childResponse['responseImages'] as List<dynamic>? ?? 
+                                     childResponse['response_images'] as List<dynamic>? ?? [];
           
-          Logger.infoLog('[CM] Processing ${childResponseImages.length} images for child item ${childResponse['cm_check_list_mst_id']}');
+          final checklistDesc = childResponse['checklistDesc']?.toString() ?? 
+                               childResponse['checklist_desc']?.toString() ?? 
+                               'child item ${childResponse['cmCheckListMstId'] ?? childResponse['cm_check_list_mst_id']}';
+          
+          Logger.infoLog('[CM] Processing ${childResponseImages.length} images for: $checklistDesc');
           
           for (var childImageData in childResponseImages) {
             if (childImageData is Map<String, dynamic>) {
+              // Get base64 from imageData field (camelCase) or image_data (snake_case)
+              var base64Image = childImageData['imageData']?.toString() ?? 
+                               childImageData['image_data']?.toString();
+              
+              // If base64 is not directly available, try to extract from data URL
+              if (base64Image == null || base64Image.isEmpty) {
+                // Check if there's a data URL format
+                final imageUrl = childImageData['imageUrl']?.toString() ?? 
+                                childImageData['image_url']?.toString();
+                if (imageUrl != null && imageUrl.startsWith('data:image')) {
+                  final parts = imageUrl.split(',');
+                  if (parts.length > 1) {
+                    base64Image = parts[1];
+                  }
+                }
+              }
+              
+              // Store base64 in image_data for the upload function
+              if (base64Image != null && base64Image.isNotEmpty) {
+                childImageData['image_data'] = base64Image;
+              }
+              
               await _uploadSingleImage(
                 childImageData,
-                'child item ${childResponse['cm_check_list_mst_id']}',
+                '$checklistDesc (impacted item)',
               );
             }
           }
@@ -1574,6 +1604,106 @@ class _CorrectiveMaintenanceScreenState
     }
     
     Logger.infoLog('[CM] Finished uploading checklist images');
+  }
+
+  /// Upload all impacted item images that have LOCAL_IMAGE_ID and replace with actual photo IDs
+  Future<void> _uploadImpactedItemImagesAndUpdateIds(
+    List<Map<String, dynamic>> impactedItemList,
+  ) async {
+    Logger.infoLog('[CM] Starting to upload impacted item images...');
+    
+    // Helper function to upload a single image
+    Future<String?> _uploadSingleImage(Map<String, dynamic> imageData, String context) async {
+      final photoId = imageData['photoId']?.toString() ?? 
+                     imageData['photo_id']?.toString();
+      
+      // Only upload if it's a LOCAL_IMAGE_ID
+      if (photoId != 'LOCAL_IMAGE_ID' && (photoId == null || !photoId.startsWith('LOCAL_IMAGE_ID'))) {
+        return null; // Not a local image, skip
+      }
+      
+      try {
+        // Get base64 image data - check both camelCase and snake_case
+        var base64Image = imageData['imageData']?.toString() ?? 
+                         imageData['image_data']?.toString();
+        
+        // If image_data is a data URL, extract the base64 part
+        if (base64Image != null && base64Image.startsWith('data:image')) {
+          final parts = base64Image.split(',');
+          if (parts.length > 1) {
+            base64Image = parts[1];
+          }
+        }
+        
+        if (base64Image == null || base64Image.isEmpty) {
+          Logger.errorLog('[CM] No imageData/image_data found for LOCAL_IMAGE_ID in $context');
+          return null;
+        }
+        
+        Logger.infoLog('[CM] Uploading impacted item image for: $context');
+        
+        // Upload image using ImageUploadService
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+          base64Image,
+          ActivityTypeEnum.correctiveMaintenance,
+          false, // not a selfie
+          _selectedSite?.siteId.toString(),
+        );
+        
+        if (serverPhotoId.isNotEmpty) {
+          // Replace LOCAL_IMAGE_ID with actual server photo ID (update both field names)
+          imageData['photoId'] = serverPhotoId;
+          imageData['photo_id'] = serverPhotoId;
+          
+          Logger.infoLog('[CM] ✅ Impacted item image uploaded successfully. Photo ID: $serverPhotoId');
+          return serverPhotoId;
+        } else {
+          Logger.errorLog('[CM] ❌ Failed to upload impacted item image - empty photo ID returned');
+          return null;
+        }
+      } catch (e) {
+        Logger.errorLog('[CM] ❌ Error uploading impacted item image: $e');
+        return null;
+      }
+    }
+    
+    // Process each impacted item
+    for (var impactedItem in impactedItemList) {
+      // Handle both camelCase and snake_case field names
+      final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                 impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+      
+      final mfgSerialNo = impactedItem['mfgSerialNo']?.toString() ?? 
+                         impactedItem['mfg_serial_no']?.toString() ?? 
+                         'unknown';
+      
+      Logger.infoLog('[CM] Processing impacted item: $mfgSerialNo (${childItemResponses.length} child responses)');
+      
+      for (var childResponse in childItemResponses) {
+        if (childResponse is Map<String, dynamic>) {
+          // Handle both camelCase and snake_case field names
+          final responseImages = childResponse['responseImages'] as List<dynamic>? ?? 
+                                childResponse['response_images'] as List<dynamic>? ?? [];
+          
+          final checklistDesc = childResponse['checklistDesc']?.toString() ?? 
+                               childResponse['checklist_desc']?.toString() ?? 
+                               'child item ${childResponse['cmCheckListMstId'] ?? childResponse['cm_check_list_mst_id']}';
+          
+          Logger.infoLog('[CM] Processing ${responseImages.length} images for: $checklistDesc');
+          
+          for (var imageData in responseImages) {
+            if (imageData is Map<String, dynamic>) {
+              await _uploadSingleImage(
+                imageData,
+                '$checklistDesc (impacted item: $mfgSerialNo)',
+              );
+            }
+          }
+        }
+      }
+    }
+    
+    Logger.infoLog('[CM] Finished uploading impacted item images');
   }
 
   /// Transform checklist data to the API required format
@@ -1943,6 +2073,9 @@ class _CorrectiveMaintenanceScreenState
         requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
         requestData['customer_attachment_name'] = attachmentName; // Correct spelling
       }
+      
+      // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
+      await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
       // Set impacted item list
       requestData['cm_impacted_item_list'] =
@@ -2369,6 +2502,9 @@ class _CorrectiveMaintenanceScreenState
         requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
         requestData['customer_attachment_name'] = attachmentName; // Correct spelling
       }
+      
+      // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
+      await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
       // Set impacted item list
       requestData['cm_impacted_item_list'] =

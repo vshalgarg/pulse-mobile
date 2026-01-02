@@ -637,16 +637,22 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       dataEntry[fieldKey] = controller?.text ?? '';
     }
     
+    // Get parent's check_list_group_id (this should be used for child items' cmCheckListMstId)
+    final parentCheckListGroupId = _currentItem['check_list_group_id'] as int? ?? 
+                                   _currentItem['cm_check_list_mst_id'] as int? ?? 0;
+    
     // Add child item responses (for new structure with CHECKBOX, CHECKBOX_NUMERIC, etc.)
     final childItemResponses = <Map<String, dynamic>>[];
     for (var childItem in childItems) {
       final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
       final respType = childItem['resp_type']?.toString() ?? '';
+      final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
       
       if (respType == 'CHECKBOX') {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         childItemResponses.add({
-          'cm_check_list_mst_id': childId,
+          'cm_check_list_mst_id': parentCheckListGroupId, // Use parent's check_list_group_id instead of child's ID
+          'checklist_desc': checklistDesc, // Add checklist_desc
           'resp': isChecked ? 'true' : 'false',
           'resp_type': respType,
         });
@@ -654,7 +660,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         final numericValue = _childItemNumericValues[childId] ?? '';
         childItemResponses.add({
-          'cm_check_list_mst_id': childId,
+          'cm_check_list_mst_id': parentCheckListGroupId, // Use parent's check_list_group_id instead of child's ID
+          'checklist_desc': checklistDesc, // Add checklist_desc
           'resp': isChecked ? 'true' : 'false',
           'resp_numeric': numericValue,
           'numeric_value': numericValue,
@@ -679,7 +686,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             
             dependentImages.add({
               'photo_id': 'LOCAL_IMAGE_ID',
-              'pclsri_id': childId,
+              'pclsri_id': parentCheckListGroupId, // Use parent's check_list_group_id
               'photo_taken_ts': DateTime.now().toIso8601String(),
               'image_data': base64Image, // Store base64 for upload
             });
