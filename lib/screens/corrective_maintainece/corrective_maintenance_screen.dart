@@ -33,6 +33,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../models/cm_site_model.dart';
+import '../../../routes/route_generator.dart';
 
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
@@ -2253,14 +2254,14 @@ class _CorrectiveMaintenanceScreenState
       }
       
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      // if (shouldNavigate && mounted) {
-      //   Future.microtask(() {
-      //     navigateBackOrToHome(
-      //       context,
-      //       targetContext: widget.parentContext ?? context,
-      //     );
-      //   });
-      // }
+      if (shouldNavigate && mounted) {
+        Future.microtask(() {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        });
+      }
     } catch (e) {
       Logger.errorLog("Error in online edit submission: $e");
       rethrow;
@@ -2396,14 +2397,14 @@ class _CorrectiveMaintenanceScreenState
           "Data saved offline. Will sync when online.",
           context,
         );
-        // if (shouldNavigate && mounted) {
-        //   Future.microtask(() {
-        //     navigateBackOrToHome(
-        //       context,
-        //       targetContext: widget.parentContext ?? context,
-        //     );
-        //   });
-        // }
+        if (shouldNavigate && mounted) {
+          Future.microtask(() {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          });
+        }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -2594,14 +2595,14 @@ class _CorrectiveMaintenanceScreenState
       }
 
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      // if (shouldNavigate && mounted) {
-      //   Future.microtask(() {
-      //     navigateBackOrToHome(
-      //       context,
-      //       targetContext: widget.parentContext ?? context,
-      //     );
-      //   });
-      // }
+      if (shouldNavigate && mounted) {
+        Future.microtask(() {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        });
+      }
     } catch (e) {
       Logger.errorLog("Error in online submission: $e");
       rethrow;
@@ -2680,14 +2681,14 @@ class _CorrectiveMaintenanceScreenState
           "Data saved offline. Will sync when online.",
           context,
         );
-        // if (shouldNavigate && mounted) {
-        //   Future.microtask(() {
-        //     navigateBackOrToHome(
-        //       context,
-        //       targetContext: widget.parentContext ?? context,
-        //     );
-        //   });
-        // }
+        if (shouldNavigate && mounted) {
+          Future.microtask(() {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          });
+        }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -2739,10 +2740,10 @@ class _CorrectiveMaintenanceScreenState
         ),
       );
     } else {
-      // navigateBackOrToHome(
-      //   context,
-      //   targetContext: widget.parentContext ?? context,
-      // );
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 }

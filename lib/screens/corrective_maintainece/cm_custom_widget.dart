@@ -50,6 +50,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   final TextEditingController _serialNumberController = TextEditingController();
   final Map<String, TextEditingController> _childFieldControllers = {};
   Map<String, dynamic>? _selectedItemData;
+  String? _previousSelectedSerialNumber; // Track previous selection to clear old data
   
   // Multi dynamic dropdown specific variables
   List<Map<String, dynamic>> _selectedMultiItems = [];
@@ -106,8 +107,23 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   @override
   void didUpdateWidget(CMCustomWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Re-initialize if pmItem has changed
-    if (oldWidget.pmItem != widget.pmItem) {
+    // Check if checklist ID or equipment type actually changed
+    final oldChecklistId = oldWidget.pmItem['cm_check_list_mst_id'];
+    final newChecklistId = widget.pmItem['cm_check_list_mst_id'];
+    final oldItemType = oldWidget.pmItem['item_type']?.toString() ?? '';
+    final newItemType = widget.pmItem['item_type']?.toString() ?? '';
+    final oldSubItemType = oldWidget.pmItem['sub_item_type']?.toString() ?? '';
+    final newSubItemType = widget.pmItem['sub_item_type']?.toString() ?? '';
+    
+    final checklistIdChanged = oldChecklistId != newChecklistId;
+    final itemTypeChanged = oldItemType != newItemType || oldSubItemType != newSubItemType;
+    
+    // Only clear state if checklist ID or equipment type actually changed
+    // Don't clear just because object reference changed (parent rebuild)
+    if (checklistIdChanged || itemTypeChanged) {
+      // Clear all state before re-initializing
+      _clearAllState();
+      
       setState(() {
         _currentItem = Map<String, dynamic>.from(widget.pmItem);
         
@@ -119,9 +135,78 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           _currentItem['dependentElements'] = widget.pmItem['dependentElements'];
         }
         
+        // Clear response data when switching checklist items to ensure fresh start
+        _currentItem['resp'] = null;
+        _currentItem['response_images'] = null;
+        _currentItem['numeric_value'] = null;
+        _currentItem['resp_numeric'] = null;
+        _currentItem['child_item_responses'] = null;
+        
+        print('[CM] didUpdateWidget - Cleared response data. Old ID: $oldChecklistId, New ID: $newChecklistId, Checklist changed: $checklistIdChanged, ItemType changed: $itemTypeChanged');
+        
         _initializeValues();
       });
+    } else {
+      // If only reference changed but data is the same, just update _currentItem without clearing state
+      setState(() {
+        _currentItem = Map<String, dynamic>.from(widget.pmItem);
+        
+        // Preserve dependent_elements
+        if (widget.pmItem['dependent_elements'] != null) {
+          _currentItem['dependent_elements'] = widget.pmItem['dependent_elements'];
+        }
+        if (widget.pmItem['dependentElements'] != null) {
+          _currentItem['dependentElements'] = widget.pmItem['dependentElements'];
+        }
+      });
     }
+  }
+  
+  /// Clears all state when equipment type changes
+  void _clearAllState() {
+    // Clear checkbox states
+    _isCheckboxChecked = false;
+    _checkboxNumericController.clear();
+    
+    // Clear text values
+    _textValue = null;
+    _textController.clear();
+    _remarksController.clear();
+    
+    // Clear dropdown/radio values
+    _selectedDropdownValue = null;
+    _selectedRadioValue = null;
+    
+    // Clear dependent elements
+    _dependentImageIds.clear();
+    _dependentImageData.clear();
+    _dependentImageFiles.clear();
+    
+    // Clear dynamic dropdown data
+    _dynamicDropdownData.clear();
+    _selectedItemData = null;
+    _previousSelectedSerialNumber = null;
+    _serialNumberController.clear();
+    _childFieldControllers.values.forEach((controller) => controller.clear());
+    
+    // Clear child item states
+    _childItemCheckboxStates.clear();
+    _childItemNumericValues.clear();
+    _childItemDependentImageData.clear();
+    _childItemDependentImageFiles.clear();
+    
+    // Clear multi dynamic dropdown
+    _selectedMultiItems.clear();
+    _availableMultiOptions.clear();
+    _isMultiDropdownOpen = false;
+    
+    // Clear response_images from current item
+    _currentItem['response_images'] = null;
+    _currentItem['resp'] = null;
+    _currentItem['numeric_value'] = null;
+    _currentItem['resp_numeric'] = null;
+    
+    print('[CM] Cleared all state - checklist item or equipment type changed');
   }
 
   @override
@@ -520,6 +605,16 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     final subItemType = _currentItem['sub_item_type']?.toString() ?? '';
     final itemType = _currentItem['item_type']?.toString() ?? '';
     
+    // Check if this is a different serial number than previously selected
+    final currentSerialNo = serialNo.toLowerCase().trim();
+    final previousSerialNo = _previousSelectedSerialNumber?.toLowerCase().trim();
+    final isNewSelection = previousSerialNo != null && previousSerialNo != currentSerialNo;
+    
+    // If user is selecting a different checklist, clear previous response data
+    if (isNewSelection) {
+      _clearPreviousChecklistResponse();
+    }
+    
     // Map parent node name from checkListDetails to siteDeployedItems format
     // e.g., "BATTERY" -> "Battery", "DG" -> "DG", etc.
     List<dynamic>? deployedItems;
@@ -543,13 +638,42 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     if (matchingItem != null) {
       setState(() {
         _selectedItemData = Map<String, dynamic>.from(matchingItem);
-        _serialNumberController.text = matchingItem['mfg_serial_no']?.toString() ?? '';
+        final mfgSerialNo = matchingItem['mfg_serial_no']?.toString() ?? '';
+        _serialNumberController.text = mfgSerialNo;
+        _previousSelectedSerialNumber = mfgSerialNo; // Update tracked serial number
       });
     } else {
       if(isQrCodeScanned) {
         Toastbar.showErrorToastbar('Serial number is invalid', context);
       }
     }
+  }
+  
+  /// Clears all response data for the previous checklist selection
+  void _clearPreviousChecklistResponse() {
+    // Clear child item checkbox states
+    _childItemCheckboxStates.clear();
+    
+    // Clear child item numeric values
+    _childItemNumericValues.clear();
+    
+    // Clear child item dependent images
+    _childItemDependentImageData.clear();
+    _childItemDependentImageFiles.clear();
+    
+    // Clear child field controllers (for TEXT/NUMERIC fields)
+    _childFieldControllers.values.forEach((controller) => controller.clear());
+    
+    // Clear selected item data
+    _selectedItemData = null;
+    
+    // Clear serial number controller
+    _serialNumberController.clear();
+    
+    // Notify parent widget of the change
+    _notifyValueChanged();
+    
+    print('[CM] Cleared previous checklist response data');
   }
 
   void _saveDynamicDropdownData() {
@@ -715,6 +839,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _serialNumberController.clear();
     _childFieldControllers.values.forEach((controller) => controller.clear());
     _selectedItemData = null;
+    _previousSelectedSerialNumber = null; // Reset tracked serial number after save
     
     // Clear child item states
     _childItemCheckboxStates.clear();
