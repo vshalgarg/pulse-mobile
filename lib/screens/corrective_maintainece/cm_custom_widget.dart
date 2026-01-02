@@ -666,10 +666,22 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       if (_childItemDependentImageData.containsKey(childId)) {
         _childItemDependentImageData[childId]!.forEach((elementKey, imageData) {
           if (imageData != null) {
+            // Extract base64 from data URL if needed
+            String? base64Image;
+            if (imageData.startsWith('data:image')) {
+              final parts = imageData.split(',');
+              if (parts.length > 1) {
+                base64Image = parts[1];
+              }
+            } else {
+              base64Image = imageData;
+            }
+            
             dependentImages.add({
               'photo_id': 'LOCAL_IMAGE_ID',
               'pclsri_id': childId,
               'photo_taken_ts': DateTime.now().toIso8601String(),
+              'image_data': base64Image, // Store base64 for upload
             });
           }
         });

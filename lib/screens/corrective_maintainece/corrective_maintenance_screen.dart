@@ -21,6 +21,7 @@ import 'package:app/utils/toastbar.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:intl/intl.dart';
 import '../../../services/file_download_service.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
@@ -1440,6 +1441,255 @@ class _CorrectiveMaintenanceScreenState
     );
   }
 
+  /// Format date to dd/MM/yyyy format as required by API
+  String _formatDateForApi(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  /// Format date string to dd/MM/yyyy format
+  String _formatDateStringForApi(String? dateString) {
+    if (dateString == null || dateString.isEmpty) {
+      return _formatDateForApi(DateTime.now());
+    }
+    try {
+      // Try to parse the date string
+      DateTime date;
+      if (dateString.contains('T')) {
+        // ISO format
+        date = DateTime.parse(dateString);
+      } else if (dateString.contains('/')) {
+        // Already in dd/MM/yyyy format
+        return dateString;
+      } else {
+        // Try parsing as is
+        date = DateTime.parse(dateString);
+      }
+      return _formatDateForApi(date);
+    } catch (e) {
+      Logger.errorLog('[CM] Error formatting date: $dateString, error: $e');
+      return _formatDateForApi(DateTime.now());
+    }
+  }
+
+  /// Upload all checklist images that have LOCAL_IMAGE_ID and replace with actual photo IDs
+  Future<void> _uploadChecklistImagesAndUpdateIds(
+    List<dynamic> checklistData,
+  ) async {
+    Logger.infoLog('[CM] Starting to upload checklist images...');
+    
+    // Helper function to upload a single image
+    Future<String?> _uploadSingleImage(Map<String, dynamic> imageData, String context) async {
+      final photoId = imageData['photo_id']?.toString() ?? imageData['photoId']?.toString();
+      
+      // Only upload if it's a LOCAL_IMAGE_ID
+      if (photoId != 'LOCAL_IMAGE_ID' && (photoId == null || !photoId.startsWith('LOCAL_IMAGE_ID'))) {
+        return null; // Not a local image, skip
+      }
+      
+      try {
+        // Get base64 image data
+        var base64Image = imageData['image_data']?.toString();
+        
+        // If image_data is a data URL, extract the base64 part
+        if (base64Image != null && base64Image.startsWith('data:image')) {
+          final parts = base64Image.split(',');
+          if (parts.length > 1) {
+            base64Image = parts[1];
+          }
+        }
+        
+        if (base64Image == null || base64Image.isEmpty) {
+          Logger.errorLog('[CM] No image_data found for LOCAL_IMAGE_ID in $context');
+          return null;
+        }
+        
+        Logger.infoLog('[CM] Uploading image for: $context');
+        
+        // Upload image using ImageUploadService
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+          base64Image,
+          ActivityTypeEnum.correctiveMaintenance,
+          false, // not a selfie
+          _selectedSite?.siteId.toString(),
+        );
+        
+        if (serverPhotoId.isNotEmpty) {
+          // Replace LOCAL_IMAGE_ID with actual server photo ID
+          imageData['photo_id'] = serverPhotoId;
+          imageData['photoId'] = serverPhotoId;
+          
+          Logger.infoLog('[CM] ✅ Image uploaded successfully. Photo ID: $serverPhotoId');
+          return serverPhotoId;
+        } else {
+          Logger.errorLog('[CM] ❌ Failed to upload image - empty photo ID returned');
+          return null;
+        }
+      } catch (e) {
+        Logger.errorLog('[CM] ❌ Error uploading image: $e');
+        return null;
+      }
+    }
+    
+    // Process main checklist items
+    for (var item in checklistData) {
+      final Map<String, dynamic> checklistItem = Map<String, dynamic>.from(item);
+      
+      // Process main item images
+      final responseImages = checklistItem['response_images'] as List<dynamic>? ?? [];
+      
+      if (responseImages.isNotEmpty) {
+        for (int i = 0; i < responseImages.length; i++) {
+          final imageData = responseImages[i] as Map<String, dynamic>;
+          await _uploadSingleImage(
+            imageData,
+            'checklist item ${checklistItem['checklist_desc']} - image ${i + 1}',
+          );
+        }
+      }
+    }
+    
+    // Process child item images from _impactedItemList (dynamic dropdown data)
+    Logger.infoLog('[CM] Processing child item images from impacted item list (${_impactedItemList.length} items)...');
+    for (var impactedItem in _impactedItemList) {
+      final childItemResponses = impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+      
+      Logger.infoLog('[CM] Processing ${childItemResponses.length} child item responses for impacted item');
+      
+      for (var childResponse in childItemResponses) {
+        if (childResponse is Map<String, dynamic>) {
+          final childResponseImages = childResponse['response_images'] as List<dynamic>? ?? [];
+          
+          Logger.infoLog('[CM] Processing ${childResponseImages.length} images for child item ${childResponse['cm_check_list_mst_id']}');
+          
+          for (var childImageData in childResponseImages) {
+            if (childImageData is Map<String, dynamic>) {
+              await _uploadSingleImage(
+                childImageData,
+                'child item ${childResponse['cm_check_list_mst_id']}',
+              );
+            }
+          }
+        }
+      }
+    }
+    
+    Logger.infoLog('[CM] Finished uploading checklist images');
+  }
+
+  /// Transform checklist data to the API required format
+  List<Map<String, dynamic>> _transformChecklistDataToApiFormat(
+    List<dynamic> checklistData,
+    LocationModel location,
+  ) {
+    final transformedList = <Map<String, dynamic>>[];
+    final now = DateTime.now();
+    
+    for (var item in checklistData) {
+      final Map<String, dynamic> checklistItem = Map<String, dynamic>.from(item);
+      
+      // Get response value based on resp_type
+      String? respValue;
+      final respType = checklistItem['resp_type']?.toString() ?? '';
+      
+      if (respType == 'CHECKBOX') {
+        // For checkbox, resp should be "true" or "false"
+        final resp = checklistItem['resp']?.toString() ?? '';
+        respValue = (resp == 'true' || resp == 'True' || resp == 'TRUE') ? 'true' : 'false';
+      } else if (respType == 'CHECKBOX_NUMERIC') {
+        // For checkbox numeric, resp should be "true" or "false" (checkbox state)
+        final resp = checklistItem['resp']?.toString() ?? '';
+        respValue = (resp == 'true' || resp == 'True' || resp == 'TRUE') ? 'true' : 'false';
+        // Note: numeric_value is stored separately
+      } else if (respType == 'TEXT' || respType == 'NUMERIC') {
+        // For text/numeric, resp is the actual value
+        respValue = checklistItem['resp']?.toString() ?? '';
+      } else if (respType == 'RADIO' || respType == 'DROPDOWN') {
+        // For radio/dropdown, resp is the selected value
+        respValue = checklistItem['resp']?.toString() ?? '';
+      } else if (respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') {
+        // For dynamic dropdowns, we might need to handle differently
+        // For now, use resp if available
+        respValue = checklistItem['resp']?.toString();
+      }
+      
+      // Skip items without a response (unless they're required)
+      if (respValue == null || respValue.isEmpty) {
+        // Only skip if it's not a mandatory field or if it's a checkbox that's unchecked
+        if (respType != 'CHECKBOX' && respType != 'CHECKBOX_NUMERIC') {
+          continue; // Skip items without responses
+        }
+      }
+      
+      // Transform response_images to cmCheckListSiteRespImagesList
+      final List<Map<String, dynamic>> imageList = [];
+      final responseImages = checklistItem['response_images'] as List<dynamic>? ?? [];
+      
+      for (var imageData in responseImages) {
+        final Map<String, dynamic> imageItem = Map<String, dynamic>.from(imageData);
+        
+        // Format photoTakenTs to dd/MM/yyyy format
+        final photoTakenTs = imageItem['photo_taken_ts'] ?? 
+                            imageItem['photoTakenTs'];
+        final formattedPhotoTakenTs = photoTakenTs != null 
+            ? _formatDateStringForApi(photoTakenTs.toString())
+            : _formatDateForApi(now);
+        
+        final transformedImage = {
+          'cclsriId': 0, // New image, so ID is 0
+          'photoId': imageItem['photo_id'] ?? imageItem['photoId'],
+          'photoTakenTs': formattedPhotoTakenTs,
+          'isActive': true,
+          'remarks': imageItem['remarks'] ?? 'string',
+        };
+        
+        imageList.add(transformedImage);
+      }
+      
+      // Get cmItemType
+      final cmItemType = checklistItem['cmItemType'] ?? 
+                        checklistItem['subItemType'] ?? 
+                        checklistItem['sub_item_type'] ??
+                        _selectedEquipmentType;
+      
+      // Build the transformed item
+      final transformedItem = {
+        'cmCheckListSiteRespId': checklistItem['cm_check_list_site_resp_id'] ?? 
+                                 checklistItem['cmCheckListSiteRespId'] ?? 
+                                 0, // 0 for new items
+        'cmCheckListMstId': checklistItem['cm_check_list_mst_id'] ?? 
+                           checklistItem['cmCheckListMstId'] ??
+                           checklistItem['item_type_id'],
+        'cmItemType': cmItemType.toString(),
+        'checklistDesc': checklistItem['checklist_desc'] ?? 
+                        checklistItem['checklistDesc'] ?? 
+                        '',
+        'resp': respValue ?? '',
+        'clOrder': checklistItem['cl_order'] ?? 
+                  checklistItem['clOrder'] ?? 
+                  0,
+        'longitude': location.longitude.toString(),
+        'latitude': location.latitude.toString(),
+        'active': true,
+        'cmCheckListSiteRespImagesList': imageList,
+      };
+      
+      // Add numeric_value for CHECKBOX_NUMERIC if present
+      if (respType == 'CHECKBOX_NUMERIC') {
+        final numericValue = checklistItem['numeric_value'] ?? 
+                            checklistItem['numericValue'] ??
+                            checklistItem['resp_numeric'];
+        if (numericValue != null) {
+          transformedItem['numericValue'] = numericValue.toString();
+        }
+      }
+      
+      transformedList.add(transformedItem);
+    }
+    
+    Logger.infoLog('[CM] Transformed ${transformedList.length} checklist items for API');
+    return transformedList;
+  }
+
   /// Validate all required fields (except checklist)
   /// Returns true if all validations pass, false otherwise
   bool _validateRequiredFields() {
@@ -1675,13 +1925,13 @@ class _CorrectiveMaintenanceScreenState
           final closureDate = DateTime.parse(controllers['closure_date']!.text);
           final now = DateTime.now();
           final daysDifference = closureDate.difference(now).inDays;
-          requestData['end_dt'] = closureDate.toIso8601String();
+          requestData['end_dt'] = _formatDateForApi(closureDate);
           requestData['no_of_days'] = daysDifference > 0 ? daysDifference : 0;
         } catch (e) {
           Logger.errorLog("Error parsing closure date: $e");
         }
       }
-      requestData['start_dt'] = DateTime.now().toIso8601String();
+      requestData['start_dt'] = _formatDateForApi(DateTime.now());
       
       // Set customer photo and attachment names (will be updated after upload)
       if (customerPhoto != null) {
@@ -1707,6 +1957,15 @@ class _CorrectiveMaintenanceScreenState
             selectedCheckListData,
             finalLocation,
           );
+          
+          // Upload all checklist images first and replace LOCAL_IMAGE_ID with actual photo IDs
+          await _uploadChecklistImagesAndUpdateIds(selectedCheckListData);
+          
+          // Transform checklist data to required format (with updated photo IDs)
+          requestData['cm_check_list_site_resp_list'] = _transformChecklistDataToApiFormat(
+            selectedCheckListData,
+            finalLocation,
+          );
         } catch (e) {
           Logger.infoLog('Error getting location: $e');
           Toastbar.showErrorToastbar(
@@ -1715,18 +1974,6 @@ class _CorrectiveMaintenanceScreenState
           );
           return;
         }
-        
-        // Add cmItemType to each checklist item if not already present
-        for (var item in selectedCheckListData) {
-          if (item['cmItemType'] == null || item['cmItemType'].toString().isEmpty) {
-            item['cmItemType'] = item['subItemType'] ?? _selectedEquipmentType;
-          }
-        }
-        
-        requestData['cm_check_list_site_resp_list'] =
-            DataTransformationHelper.convertListToCamelCase(
-              selectedCheckListData,
-            );
       }
       
       // Add remarks to request data
@@ -2104,13 +2351,13 @@ class _CorrectiveMaintenanceScreenState
           final closureDate = DateTime.parse(controllers['closure_date']!.text);
           final now = DateTime.now();
           final daysDifference = closureDate.difference(now).inDays;
-          requestData['end_dt'] = closureDate.toIso8601String();
+          requestData['end_dt'] = _formatDateForApi(closureDate);
           requestData['no_of_days'] = daysDifference > 0 ? daysDifference : 0;
         } catch (e) {
           Logger.errorLog("Error parsing closure date: $e");
         }
       }
-      requestData['start_dt'] = DateTime.now().toIso8601String();
+      requestData['start_dt'] = _formatDateForApi(DateTime.now());
       
       // Set customer photo and attachment names (will be updated after upload)
       if (customerPhoto != null) {
@@ -2144,17 +2391,14 @@ class _CorrectiveMaintenanceScreenState
         return;
       }
       
-      // Add cmItemType to each checklist item if not already present
-      for (var item in selectedCheckListData) {
-        if (item['cmItemType'] == null || item['cmItemType'].toString().isEmpty) {
-          item['cmItemType'] = item['subItemType'] ?? _selectedEquipmentType;
-        }
-      }
+      // Upload all checklist images first and replace LOCAL_IMAGE_ID with actual photo IDs
+      await _uploadChecklistImagesAndUpdateIds(selectedCheckListData);
       
-      requestData['cm_check_list_site_resp_list'] =
-          DataTransformationHelper.convertListToCamelCase(
-            selectedCheckListData,
-          );
+      // Transform checklist data to required format (with updated photo IDs)
+      requestData['cm_check_list_site_resp_list'] = _transformChecklistDataToApiFormat(
+        selectedCheckListData,
+        finalLocation,
+      );
       Logger.infoLog("requestData: $requestData");
 
       if (isConnected) {
