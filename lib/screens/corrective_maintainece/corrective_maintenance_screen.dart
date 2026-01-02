@@ -1440,7 +1440,165 @@ class _CorrectiveMaintenanceScreenState
     );
   }
 
+  /// Validate all required fields (except checklist)
+  /// Returns true if all validations pass, false otherwise
+  bool _validateRequiredFields() {
+    final errors = <String>[];
+    
+    // Site selection - always required
+    if (_selectedSite == null) {
+      errors.add('Please select a site');
+    }
+    
+    // Equipment type - always required
+    if (_selectedEquipmentType.isEmpty) {
+      errors.add('Please select an equipment type');
+    }
+    
+    // Category (responsible_party) - always required
+    if (controllers['responsible_party']!.text.trim().isEmpty) {
+      errors.add('Category is required');
+    }
+    
+  
+    
+    // OEM Ticket ID - required only when Category is 'OEM'
+    if (controllers['responsible_party']!.text.trim() == 'OEM' &&
+        controllers['oem_ticket_id']!.text.trim().isEmpty) {
+      errors.add('OEM Ticket ID is required when Category is OEM');
+    }
+    
+    // Priority - always required
+    if (controllers['priority']!.text.trim().isEmpty) {
+      errors.add('Priority is required');
+    }
+    
+    // Fault Description - always required
+    final faultDescriptionController = controllers['fault_description'];
+    if (faultDescriptionController == null) {
+      Logger.errorLog('[CM] fault_description controller is null!');
+      errors.add('Fault Description is required');
+    } else {
+      final faultDescription = faultDescriptionController.text.trim();
+      Logger.infoLog('[CM] Validating Fault Description - value: "$faultDescription", isEmpty: ${faultDescription.isEmpty}');
+      if (faultDescription.isEmpty) {
+        errors.add('Fault Description is required');
+      }
+    }
+    
+    // Nature of Failure - always required
+    if (controllers['nature_of_failure']!.text.trim().isEmpty) {
+      errors.add('Nature of Failure is required');
+    }
+    
+    // Scope of Ticket - always required
+    if (controllers['scope_of_ticket']!.text.trim().isEmpty) {
+      errors.add('Scope of Ticket is required');
+    }
+    
+    // Action Taken - always required
+    if (controllers['action_taken']!.text.trim().isEmpty) {
+      errors.add('Action Taken is required');
+    }
+    
+    // RCA - always required
+    if (controllers['rca']!.text.trim().isEmpty) {
+      errors.add('RCA is required');
+    }
+    
+    // Customer Name - always required
+    if (controllers['customer_name']!.text.trim().isEmpty) {
+      errors.add('Customer Name is required');
+    }
+    
+    // Contact No - always required
+    if (controllers['contact_no']!.text.trim().isEmpty) {
+      errors.add('Contact No. is required');
+    }
+    
+    // Edit/View mode specific validations
+    if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+      // OEM Representative - required in edit/view mode
+      if (controllers['oem_representative']!.text.trim().isEmpty) {
+        errors.add('OEM Representative is required');
+      }
+      
+      // OEM Representative Contact - required in edit/view mode
+      if (controllers['oem_representative_contact']!.text.trim().isEmpty) {
+        errors.add('OEM Representative Contact is required');
+      }
+      
+      // Status - required in edit mode
+      if (widget.mode == CMScreenModeEnum.edit && _statusController.text.trim().isEmpty) {
+        errors.add('Status is required');
+      }
+      
+      // Remarks attachment - required in edit mode
+      if (widget.mode == CMScreenModeEnum.edit && _remarksAttachments.isEmpty) {
+        errors.add('Remarks attachment is required');
+      }
+    }
+    
+    // Show error message if validation fails
+    if (errors.isNotEmpty) {
+      Logger.errorLog('[CM] Validation failed with ${errors.length} error(s)');
+      for (var i = 0; i < errors.length; i++) {
+        Logger.errorLog('[CM] Error ${i + 1}: ${errors[i]}');
+      }
+      
+      // Show all errors in a snackbar (more visible than toast)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Please fill all required fields:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 8),
+                ...errors.map((error) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('• $error'),
+                )),
+              ],
+            ),
+            duration: const Duration(seconds: 5),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      
+      // Also show first error in toast for immediate feedback
+      Toastbar.showErrorToastbar(
+        errors.first,
+        context,
+      );
+      
+      return false;
+    }
+    
+    Logger.infoLog('[CM] All validations passed');
+    return true;
+  }
+
   Future<void> _validateAndSubmit({bool shouldNavigate = true}) async {
+    Logger.infoLog('[CM] _validateAndSubmit called - mode: ${widget.mode}');
+    
+    // Validate all required fields before submission
+    final isValid = _validateRequiredFields();
+    Logger.infoLog('[CM] Validation result: $isValid');
+    
+    if (!isValid) {
+      Logger.errorLog('[CM] Validation failed - stopping submission');
+      return; // Stop submission if validation fails
+    }
+    
+    Logger.infoLog('[CM] Validation passed - proceeding with submission');
+    
     if (widget.mode == CMScreenModeEnum.create) {
       await _submitFormData(shouldNavigate: shouldNavigate);
     } else if (widget.mode == CMScreenModeEnum.edit) {
