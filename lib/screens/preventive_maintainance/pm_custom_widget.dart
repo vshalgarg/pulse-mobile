@@ -470,7 +470,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           imageDataLocal = await ServiceLocator()
               .imageUploadService
               .getImageUsingUniqueId(photoId);
-          
+
           Logger.infoLog('[PM] 🔄 getImageUsingUniqueId result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
           print('[PM] 🔄 getImageUsingUniqueId result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
           
@@ -522,7 +522,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           Logger.errorLog('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
           print('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
           if (mounted) {
-            setState(() {
+        setState(() {
               _imageData = null;
             });
           }
@@ -535,9 +535,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           // Normalize image/jpg to image/jpeg for consistency
           if (cleanedData.startsWith('data:image/jpg')) {
             formattedImageData = cleanedData.replaceFirst('data:image/jpg', 'data:image/jpeg');
-          } else {
+      } else {
             formattedImageData = cleanedData;
-          }
+      }
         } else {
           formattedImageData = 'data:image/jpeg;base64,$cleanedData';
         }
@@ -662,22 +662,22 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         print('[PM] 🔄 Replaced all existing images with new image: $photoId');
       }
     } else {
-      // Check if photoId already exists, update it; otherwise add new
+    // Check if photoId already exists, update it; otherwise add new
       // Check both snake_case and camelCase photo_id fields
-      final existingIndex = responseImages.indexWhere(
+    final existingIndex = responseImages.indexWhere(
         (img) => (img['photo_id'] ?? img['photoId'])?.toString() == photoId,
-      );
-      
+    );
+    
       // Get pclsriId from existing image if found, otherwise use 0
-      if (existingIndex >= 0) {
+    if (existingIndex >= 0) {
         final existingPclsriId = responseImages[existingIndex]['pclsri_id'] ?? 
                                  responseImages[existingIndex]['pclsriId'] ?? 0;
         imageData['pclsri_id'] = existingPclsriId;
-        responseImages[existingIndex] = imageData;
+      responseImages[existingIndex] = imageData;
         Logger.infoLog('[PM] 🔄 Updated existing image at index $existingIndex: $photoId');
         print('[PM] 🔄 Updated existing image at index $existingIndex: $photoId');
-      } else {
-        responseImages.add(imageData);
+    } else {
+      responseImages.add(imageData);
         Logger.infoLog('[PM] ➕ Added new image: $photoId');
         print('[PM] ➕ Added new image: $photoId');
       }

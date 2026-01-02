@@ -915,9 +915,12 @@ class _CorrectiveMaintenanceScreenState
             cmImpactedItemList: _impactedItemList,
             onImpactedItemListChanged:
                 (List<Map<String, dynamic>> impactedItems) {
+                  Logger.infoLog('[CM] onImpactedItemListChanged called with ${impactedItems.length} items');
+                  Logger.infoLog('[CM] onImpactedItemListChanged data: $impactedItems');
                   setState(() {
                     _impactedItemList = impactedItems;
                   });
+                  Logger.infoLog('[CM] _impactedItemList updated. New length: ${_impactedItemList.length}');
                 },
             originalCmImpactedItemMap:
                 _checklistData['siteDeployedItems'] ?? {},
@@ -1719,18 +1722,29 @@ class _CorrectiveMaintenanceScreenState
       final Map<String, dynamic> checklistItem = Map<String, dynamic>.from(item);
       
       // Get response value based on resp_type
-      String? respValue;
+      dynamic respValue;
       final respType = checklistItem['resp_type']?.toString() ?? '';
       
       if (respType == 'CHECKBOX') {
         // For checkbox, resp should be "true" or "false"
         final resp = checklistItem['resp']?.toString() ?? '';
         respValue = (resp == 'true' || resp == 'True' || resp == 'TRUE') ? 'true' : 'false';
-      } else if (respType == 'CHECKBOX_NUMERIC') {
-        // For checkbox numeric, resp should be "true" or "false" (checkbox state)
-        final resp = checklistItem['resp']?.toString() ?? '';
-        respValue = (resp == 'true' || resp == 'True' || resp == 'TRUE') ? 'true' : 'false';
-        // Note: numeric_value is stored separately
+      } else if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+        // For CHECKBOX_NUMERIC and CHECKBOX_TEXT, resp should be the same as respNumeric (numeric value) when checked, "0" when unchecked
+        final numericValue = checklistItem['numeric_value'] ?? 
+                            checklistItem['numericValue'] ??
+                            checklistItem['resp_numeric'] ??
+                            checklistItem['respNumeric'] ??
+                            '';
+        final resp = checklistItem['resp'];
+        // If checkbox is checked and numeric value exists, use numeric value; otherwise use "0"
+        if (resp == 1 || resp == '1' || resp == 'true' || resp == true || resp == 'True' || resp == 'TRUE' || (resp != null && resp != '0' && resp != 0)) {
+          // Checkbox is checked - use numeric value if available, otherwise use resp value
+          respValue = numericValue.toString().isNotEmpty ? numericValue.toString() : (resp?.toString() ?? '0');
+        } else {
+          respValue = '0'; // Save as string "0" when unchecked
+        }
+        // Note: numeric_value is stored separately for CHECKBOX_NUMERIC
       } else if (respType == 'TEXT' || respType == 'NUMERIC') {
         // For text/numeric, resp is the actual value
         respValue = checklistItem['resp']?.toString() ?? '';
@@ -1744,9 +1758,9 @@ class _CorrectiveMaintenanceScreenState
       }
       
       // Skip items without a response (unless they're required)
-      if (respValue == null || respValue.isEmpty) {
+      if (respValue == null || (respValue is String && respValue.isEmpty)) {
         // Only skip if it's not a mandatory field or if it's a checkbox that's unchecked
-        if (respType != 'CHECKBOX' && respType != 'CHECKBOX_NUMERIC') {
+        if (respType != 'CHECKBOX' && respType != 'CHECKBOX_NUMERIC' && respType != 'CHECKBOX_TEXT') {
           continue; // Skip items without responses
         }
       }
@@ -1794,7 +1808,7 @@ class _CorrectiveMaintenanceScreenState
         'checklistDesc': checklistItem['checklist_desc'] ?? 
                         checklistItem['checklistDesc'] ?? 
                         '',
-        'resp': respValue ?? '',
+        'resp': respValue ?? (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT' ? '0' : ''),
         'clOrder': checklistItem['cl_order'] ?? 
                   checklistItem['clOrder'] ?? 
                   0,
@@ -2079,8 +2093,12 @@ class _CorrectiveMaintenanceScreenState
       await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
       // Set impacted item list
-      requestData['cm_impacted_item_list'] =
-          DataTransformationHelper.convertListToCamelCase(_impactedItemList);
+      Logger.infoLog('[CM] _impactedItemList before conversion (edit): ${_impactedItemList.length} items');
+      Logger.infoLog('[CM] _impactedItemList content (edit): $_impactedItemList');
+      final convertedImpactedItems = DataTransformationHelper.convertListToCamelCase(_impactedItemList);
+      Logger.infoLog('[CM] Converted impacted items (edit): $convertedImpactedItems');
+      requestData['cm_impacted_item_list'] = convertedImpactedItems;
+      Logger.infoLog('[CM] requestData[cm_impacted_item_list] set (edit): ${requestData['cm_impacted_item_list']}');
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel? finalLocation;
 
@@ -2192,6 +2210,17 @@ class _CorrectiveMaintenanceScreenState
     try {
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
+      
+      Logger.infoLog('[CM] Final processedData keys: ${processedData.keys.toList()}');
+      Logger.infoLog('[CM] Final processedData[cmImpactedItemList]: ${processedData['cmImpactedItemList']}');
+      
+      // API expects CmImpactedItemList (PascalCase), so move from cmImpactedItemList and remove duplicate
+      if (processedData['cmImpactedItemList'] != null) {
+        processedData['CmImpactedItemList'] = processedData['cmImpactedItemList'];
+        processedData.remove('cmImpactedItemList'); // Remove camelCase version to avoid duplicate
+        Logger.infoLog('[CM] Set CmImpactedItemList (PascalCase) and removed cmImpactedItemList duplicate');
+      }
+      
       await ServiceLocator().cmRepository.createCorrectiveMaintenance(
         processedData,
       );
@@ -2254,14 +2283,14 @@ class _CorrectiveMaintenanceScreenState
       }
       
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      if (shouldNavigate && mounted) {
-        Future.microtask(() {
-          navigateBackOrToHome(
-            context,
-            targetContext: widget.parentContext ?? context,
-          );
-        });
-      }
+      // if (shouldNavigate && mounted) {
+      //   Future.microtask(() {
+      //     navigateBackOrToHome(
+      //       context,
+      //       targetContext: widget.parentContext ?? context,
+      //     );
+      //   });
+      // }
     } catch (e) {
       Logger.errorLog("Error in online edit submission: $e");
       rethrow;
@@ -2397,14 +2426,14 @@ class _CorrectiveMaintenanceScreenState
           "Data saved offline. Will sync when online.",
           context,
         );
-        if (shouldNavigate && mounted) {
-          Future.microtask(() {
-            navigateBackOrToHome(
-              context,
-              targetContext: widget.parentContext ?? context,
-            );
-          });
-        }
+        // if (shouldNavigate && mounted) {
+        //   Future.microtask(() {
+        //     navigateBackOrToHome(
+        //       context,
+        //       targetContext: widget.parentContext ?? context,
+        //     );
+        //   });
+        // }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -2508,8 +2537,12 @@ class _CorrectiveMaintenanceScreenState
       await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
       // Set impacted item list
-      requestData['cm_impacted_item_list'] =
-          DataTransformationHelper.convertListToCamelCase(_impactedItemList);
+      Logger.infoLog('[CM] _impactedItemList before conversion (create): ${_impactedItemList.length} items');
+      Logger.infoLog('[CM] _impactedItemList content (create): $_impactedItemList');
+      final convertedImpactedItems = DataTransformationHelper.convertListToCamelCase(_impactedItemList);
+      Logger.infoLog('[CM] Converted impacted items (create): $convertedImpactedItems');
+      requestData['cm_impacted_item_list'] = convertedImpactedItems;
+      Logger.infoLog('[CM] requestData[cm_impacted_item_list] set (create): ${requestData['cm_impacted_item_list']}');
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel finalLocation;
 
@@ -2576,6 +2609,16 @@ class _CorrectiveMaintenanceScreenState
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
       
+      Logger.infoLog('[CM] Final processedData keys (create): ${processedData.keys.toList()}');
+      Logger.infoLog('[CM] Final processedData[cmImpactedItemList] (create): ${processedData['cmImpactedItemList']}');
+      
+      // API expects CmImpactedItemList (PascalCase), so move from cmImpactedItemList and remove duplicate
+      if (processedData['cmImpactedItemList'] != null) {
+        processedData['CmImpactedItemList'] = processedData['cmImpactedItemList'];
+        processedData.remove('cmImpactedItemList'); // Remove camelCase version to avoid duplicate
+        Logger.infoLog('[CM] Set CmImpactedItemList (PascalCase) and removed cmImpactedItemList duplicate (create)');
+      }
+      
       // Create CM ticket first
       final response = await ServiceLocator().cmRepository.createCorrectiveMaintenance(processedData);
       
@@ -2595,14 +2638,14 @@ class _CorrectiveMaintenanceScreenState
       }
 
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      if (shouldNavigate && mounted) {
-        Future.microtask(() {
-          navigateBackOrToHome(
-            context,
-            targetContext: widget.parentContext ?? context,
-          );
-        });
-      }
+      // if (shouldNavigate && mounted) {
+      //   Future.microtask(() {
+      //     navigateBackOrToHome(
+      //       context,
+      //       targetContext: widget.parentContext ?? context,
+      //     );
+      //   });
+      // }
     } catch (e) {
       Logger.errorLog("Error in online submission: $e");
       rethrow;
@@ -2681,14 +2724,14 @@ class _CorrectiveMaintenanceScreenState
           "Data saved offline. Will sync when online.",
           context,
         );
-        if (shouldNavigate && mounted) {
-          Future.microtask(() {
-            navigateBackOrToHome(
-              context,
-              targetContext: widget.parentContext ?? context,
-            );
-          });
-        }
+        // if (shouldNavigate && mounted) {
+        //   Future.microtask(() {
+        //     navigateBackOrToHome(
+        //       context,
+        //       targetContext: widget.parentContext ?? context,
+        //     );
+        //   });
+        // }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -2740,10 +2783,10 @@ class _CorrectiveMaintenanceScreenState
         ),
       );
     } else {
-      navigateBackOrToHome(
-        context,
-        targetContext: widget.parentContext ?? context,
-      );
+      // navigateBackOrToHome(
+      //   context,
+      //   targetContext: widget.parentContext ?? context,
+      // );
     }
   }
 }

@@ -241,10 +241,16 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _remarksController.text = respValue?.toString() ?? '';
 
     // Initialize checkbox value
-    if (respType == 'CHECKBOX' || respType == 'CHECKBOX_NUMERIC') {
-      _isCheckboxChecked = respValue == 'true' || respValue == true || respValue == 'True' || respValue == 'TRUE';
-      if (respType == 'CHECKBOX_NUMERIC' && _isCheckboxChecked) {
-        // For CHECKBOX_NUMERIC, the numeric value might be stored separately
+    if (respType == 'CHECKBOX' || respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+      // Handle both string "true"/"false" and string "1"/"0" for CHECKBOX_NUMERIC and CHECKBOX_TEXT
+      if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+        _isCheckboxChecked = respValue == 1 || respValue == '1' || respValue == 'true' || respValue == true || respValue == 'True' || respValue == 'TRUE';
+      } else {
+        _isCheckboxChecked = respValue == 'true' || respValue == true || respValue == 'True' || respValue == 'TRUE';
+      }
+      
+      if ((respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') && _isCheckboxChecked) {
+        // For CHECKBOX_NUMERIC and CHECKBOX_TEXT, the numeric value might be stored separately
         // Check if there's a numeric value in the response
         final numericValue = _currentItem['numeric_value'] ?? _currentItem['resp_numeric'];
         if (numericValue != null) {
@@ -339,10 +345,15 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         );
         
         if (existingResponse.isNotEmpty) {
-          final resp = existingResponse['resp']?.toString() ?? '';
-          _childItemCheckboxStates[childId] = resp == 'true' || resp == 'True' || resp == 'TRUE';
+          final resp = existingResponse['resp'];
+          // Handle both string "true"/"false" and string "1"/"0" for CHECKBOX_NUMERIC and CHECKBOX_TEXT
+          if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+            _childItemCheckboxStates[childId] = resp == 1 || resp == '1' || resp == 'true' || resp == true || resp == 'True' || resp == 'TRUE';
+          } else {
+            _childItemCheckboxStates[childId] = resp == 'true' || resp == 'True' || resp == 'TRUE';
+          }
           
-          if (respType == 'CHECKBOX_NUMERIC') {
+          if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
             final numericValue = existingResponse['numeric_value'] ?? existingResponse['resp_numeric'];
             if (numericValue != null) {
               _childItemNumericValues[childId] = numericValue.toString();
@@ -484,7 +495,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     print('[CM] _onCheckboxChanged called - value: $value');
     setState(() {
       _isCheckboxChecked = value ?? false;
-      _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
+      final respType = _currentItem['resp_type']?.toString() ?? '';
+      
+      // For CHECKBOX_NUMERIC and CHECKBOX_TEXT, resp should be the same as respNumeric (numeric value) when checked, "0" when unchecked
+      // For regular CHECKBOX, save as string "true"/"false"
+      if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+        // Get the numeric value if checkbox is checked, otherwise "0"
+        final numericValue = _checkboxNumericController.text.trim();
+        _currentItem['resp'] = _isCheckboxChecked && numericValue.isNotEmpty ? numericValue : '0';
+      } else {
+        _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
+      }
       
       print('[CM] _onCheckboxChanged - _isCheckboxChecked set to: $_isCheckboxChecked');
       print('[CM] _onCheckboxChanged - _currentItem[resp] set to: ${_currentItem['resp']}');
@@ -505,7 +526,16 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   
   void _onCheckboxNumericChanged(String value) {
     setState(() {
-      _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
+      final respType = _currentItem['resp_type']?.toString() ?? '';
+      
+      // For CHECKBOX_NUMERIC and CHECKBOX_TEXT, resp should be the same as respNumeric (numeric value) when checked, "0" when unchecked
+      if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+        // resp should be the numeric value when checked, "0" when unchecked
+        _currentItem['resp'] = _isCheckboxChecked && value.trim().isNotEmpty ? value.trim() : '0';
+      } else {
+        _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
+      }
+      
       _currentItem['numeric_value'] = value;
       // Also store in resp_numeric for compatibility
       _currentItem['resp_numeric'] = value;
@@ -780,13 +810,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           'resp': isChecked ? 'true' : 'false',
           'resp_type': respType,
         });
-      } else if (respType == 'CHECKBOX_NUMERIC') {
+      } else if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         final numericValue = _childItemNumericValues[childId] ?? '';
+        // resp should be the same as respNumeric (numeric value) when checked, "0" when unchecked
         childItemResponses.add({
           'cm_check_list_mst_id': parentCheckListGroupId, // Use parent's check_list_group_id instead of child's ID
           'checklist_desc': checklistDesc, // Add checklist_desc
-          'resp': isChecked ? 'true' : 'false',
+          'resp': isChecked && numericValue.isNotEmpty ? numericValue : '0', // resp should be same as numeric value when checked
           'resp_numeric': numericValue,
           'numeric_value': numericValue,
           'resp_type': respType,
@@ -833,6 +864,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       }
       _dynamicDropdownData.add(dataEntry);
     });
+    print('[CM] _saveDynamicDropdownData - Calling onImpactedItemListChanged with ${_dynamicDropdownData.length} items');
+    print('[CM] _saveDynamicDropdownData - Data: $_dynamicDropdownData');
     widget.onImpactedItemListChanged.call(_dynamicDropdownData);
 
     // Clear form

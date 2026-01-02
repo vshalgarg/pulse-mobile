@@ -204,20 +204,20 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         Logger.imageLog('🖼️ Decoding base64 data, length: ${base64Data.length}');
         print('🖼️ [ImageUploadField] Decoding base64 data, length: ${base64Data.length}');
         try {
-          final bytes = base64Decode(base64Data);
+        final bytes = base64Decode(base64Data);
           Logger.imageLog('✅ Base64 decoded successfully, bytes length: ${bytes.length}');
           print('🖼️ [ImageUploadField] ✅ Base64 decoded successfully, bytes length: ${bytes.length}');
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            errorBuilder: (context, error, stackTrace) {
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          errorBuilder: (context, error, stackTrace) {
               Logger.errorLog('❌ Error displaying base64 image: $error');
               print('🖼️ [ImageUploadField] ❌ Error displaying base64 image: $error');
               Logger.errorLog('❌ Stack trace: $stackTrace');
-              return _buildPlaceholder();
-            },
-          );
+            return _buildPlaceholder();
+          },
+        );
         } catch (e) {
           Logger.errorLog('❌ Error decoding base64: $e');
           print('🖼️ [ImageUploadField] ❌ Error decoding base64: $e');

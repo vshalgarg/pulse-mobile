@@ -88,7 +88,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
       // Check if this route is currently active before refreshing
       final route = ModalRoute.of(context);
       if (route != null && route.isCurrent) {
-        _refreshTicketsIfNeeded();
+      _refreshTicketsIfNeeded();
       }
     }
   }
@@ -105,7 +105,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           // This prevents API calls when user is on other screens
           final route = ModalRoute.of(context);
           if (route != null && route.isCurrent) {
-            _refreshTicketsIfNeeded();
+          _refreshTicketsIfNeeded();
           }
         }
       });
