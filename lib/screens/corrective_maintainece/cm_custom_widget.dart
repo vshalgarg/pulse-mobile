@@ -183,8 +183,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       _initializeDependentElements();
     }
     
-    // Initialize dependent elements for NUMERIC fields if value exists
-    if (respType == 'NUMERIC' && _textValue != null && _textValue!.isNotEmpty) {
+    // Initialize dependent elements for NUMERIC and TEXT fields if value exists
+    if ((respType == 'NUMERIC' || respType == 'TEXT') && _textValue != null && _textValue!.isNotEmpty) {
       _initializeDependentElements();
     }
   }
@@ -370,18 +370,28 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   void _onTextChanged(String value) {
+    print('[CM] _onTextChanged - value: $value, resp_type: ${_currentItem['resp_type']}, old _textValue: $_textValue');
+    
     setState(() {
       _textValue = value;
       _currentItem['resp'] = value;
       
-      print('[CM] _onTextChanged - value: $value, resp_type: ${_currentItem['resp_type']}');
-      
-      // For NUMERIC fields, initialize dependent elements if value is not empty
-      if (_currentItem['resp_type'] == 'NUMERIC' && value.isNotEmpty) {
-        print('[CM] _onTextChanged - Initializing dependent elements for NUMERIC field');
+      // For NUMERIC and TEXT fields, initialize dependent elements if value is not empty
+      if ((_currentItem['resp_type'] == 'NUMERIC' || _currentItem['resp_type'] == 'TEXT') && value.isNotEmpty) {
+        print('[CM] _onTextChanged - Initializing dependent elements for ${_currentItem['resp_type']} field');
         _initializeDependentElements();
       }
     });
+    
+    // Force a rebuild after state update to ensure dependent elements show/hide
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          // Trigger rebuild to show/hide dependent elements
+        });
+      }
+    });
+    
     _notifyValueChanged();
   }
   
@@ -791,12 +801,113 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   Widget _buildTextField() {
-    return CustomFormField(
-      label: _currentItem['checklist_desc']?.toString() ?? '',
-      initialValue: _textValue,
-      controller: _textController,
-      onChanged: _onTextChanged,
-      isRequired: _currentItem['is_mandatory'] == true,
+    // Always get dependent_elements from widget.pmItem (source of truth)
+    dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
+    
+    // Convert to List if it's not null
+    List<dynamic> dependentElements = [];
+    if (rawDependentElements != null) {
+      if (rawDependentElements is List) {
+        dependentElements = rawDependentElements;
+      } else {
+        try {
+          final parsed = jsonDecode(rawDependentElements.toString());
+          if (parsed is List) {
+            dependentElements = parsed;
+          }
+        } catch (e) {
+          print('[CM] Error parsing dependent_elements in TEXT: $e');
+        }
+      }
+    }
+    
+    // Also try from _currentItem as fallback
+    if (dependentElements.isEmpty) {
+      dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? [];
+    }
+    
+    // Store in _currentItem for future reference
+    if (dependentElements.isNotEmpty && _currentItem['dependent_elements'] == null) {
+      _currentItem['dependent_elements'] = dependentElements;
+    }
+    
+    // Get parent response value (for TEXT, use the text value)
+    final parentResponse = _textValue != null && _textValue!.isNotEmpty ? _textValue : null;
+    
+    print('[CM] _buildTextField - _textValue: $_textValue');
+    print('[CM] _buildTextField - dependentElements.length: ${dependentElements.length}');
+    
+    // Create unique key that includes value and dependent_elements
+    final dependentElementsHash = dependentElements.isNotEmpty 
+        ? dependentElements.length.toString() 
+        : '0';
+    final textKey = 'text_${_currentItem['cm_check_list_mst_id']}_${_textValue?.length ?? 0}_$dependentElementsHash';
+    
+    return Column(
+      key: ValueKey(textKey),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Text field
+        CustomFormField(
+          label: _currentItem['checklist_desc']?.toString() ?? '',
+          initialValue: _textValue,
+          controller: _textController,
+          onChanged: _onTextChanged,
+          isRequired: _currentItem['is_mandatory'] == true,
+        ),
+        
+        // Show dependent_elements when value is not empty
+        if (dependentElements.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...dependentElements.asMap().entries.map((entry) {
+            final index = entry.key;
+            final element = entry.value;
+            
+            // Handle both Map and dynamic types
+            Map<String, dynamic> elementMap;
+            if (element is Map<String, dynamic>) {
+              elementMap = element;
+            } else {
+              elementMap = Map<String, dynamic>.from(element as Map);
+            }
+            
+            final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
+            final respType = elementMap['resp_type']?.toString() ?? '';
+            
+            // For TEXT fields, show dependent element when value is not empty
+            final shouldShow = parentResponse != null && parentResponse.isNotEmpty;
+            
+            print('[CM] TEXT dependent element $index - respType: $respType, shouldShow: $shouldShow, parentResponse: $parentResponse');
+            
+            if (respType == 'IMG' && shouldShow) {
+              final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Upload photo';
+              final isRequired = _isDependentElementMandatory(
+                elementMap['mandatoryIfValue'],
+                parentResponse,
+              );
+              
+              print('[CM] Building TEXT IMG field - checklistDesc: $checklistDesc, isRequired: $isRequired');
+              
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ImageUploadField(
+                  key: ValueKey('text_dependent_${elementKey}_${_textValue?.length ?? 0}'),
+                  label: checklistDesc,
+                  placeholder: 'Upload Photos',
+                  isRequired: isRequired,
+                  externalImageUrl: _dependentImageData[elementKey],
+                  onImageSelected: (File? file) async {
+                    if (file != null) {
+                      await _uploadDependentImage(elementKey, file);
+                    }
+                  },
+                ),
+              );
+            }
+            return const SizedBox.shrink();
+          }),
+        ],
+      ],
     );
   }
 
@@ -1829,10 +1940,16 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     }
     
     // Create unique key that includes value and dependent_elements
+    // Use the actual value (or hash) to ensure rebuild when value changes
+    final valueHash = _textValue != null && _textValue!.isNotEmpty 
+        ? _textValue.hashCode.toString() 
+        : 'empty';
     final dependentElementsHash = dependentElements.isNotEmpty 
         ? dependentElements.length.toString() 
         : '0';
-    final numericKey = 'numeric_${_currentItem['cm_check_list_mst_id']}_${_textValue?.length ?? 0}_$dependentElementsHash';
+    final numericKey = 'numeric_${_currentItem['cm_check_list_mst_id']}_${valueHash}_$dependentElementsHash';
+    
+    print('[CM] _buildNumericField - Building with key: $numericKey, _textValue: $_textValue');
     
     return Column(
       key: ValueKey(numericKey),
@@ -1840,6 +1957,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       children: [
         // Numeric field
         CustomFormField(
+          key: ValueKey('numeric_input_${_currentItem['cm_check_list_mst_id']}_$valueHash'),
           label: _currentItem['checklist_desc']?.toString() ?? '',
           initialValue: _textValue,
           controller: _textController,
@@ -1848,8 +1966,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           inputType: InputType.number,
         ),
         
-        // Show dependent_elements based on visibility logic
-        if (dependentElements.isNotEmpty) ...[
+        // Show dependent_elements when value is not empty
+        if (dependentElements.isNotEmpty && parentResponse != null && parentResponse.isNotEmpty) ...[
           const SizedBox(height: 16),
           ...dependentElements.asMap().entries.map((entry) {
             final index = entry.key;
@@ -1866,8 +1984,10 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
             final respType = elementMap['resp_type']?.toString() ?? '';
             
-            // Check if this dependent element should be visible
-            final shouldShow = _shouldDependentElementBeVisible(elementMap, parentResponse);
+            // For NUMERIC fields, show dependent element when value is not empty
+            // The mandatoryIfValue only determines if it's required, not visibility
+            // parentResponse is already checked in the outer if, so it's guaranteed to be non-null here
+            final shouldShow = true; // Already checked in outer if condition
             
             print('[CM] NUMERIC dependent element $index - respType: $respType, shouldShow: $shouldShow, parentResponse: $parentResponse');
             
