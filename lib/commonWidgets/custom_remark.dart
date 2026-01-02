@@ -10,6 +10,7 @@ class CustomRemarksField extends StatelessWidget {
   final int maxLines;
   final String? initialValue;
   final bool isDisabled;
+  final bool isRequired;
 
   const CustomRemarksField({
     super.key,
@@ -19,6 +20,7 @@ class CustomRemarksField extends StatelessWidget {
     this.initialValue,
     this.maxLines = 4,
     this.isDisabled = false,
+    this.isRequired = false,
   });
 
   @override
@@ -27,15 +29,33 @@ class CustomRemarksField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label
-        if(label != null) ...[
-          Text(
-            label ?? '',
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: AppColors.white,
-              fontFamily: fontFamilyMontserrat,
+        if (label != null) ...[
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: label ?? '',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
+                ),
+                if (isRequired)
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.red,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+              ],
             ),
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
           ),
         ],
         const SizedBox(height: 5),

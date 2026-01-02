@@ -11,7 +11,6 @@ import 'package:app/constants/exception_constants.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/location_model.dart';
-import 'package:app/routes/route_generator.dart';
 import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
 import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
 import 'package:app/services/location_service.dart';
@@ -1151,7 +1150,8 @@ class _CorrectiveMaintenanceScreenState
         getHeight(15),
 
         CustomRemarksField(
-          label: "Fault Description *",
+          label: "Fault Description",
+          isRequired: true,
           hintText: "Enter fault description",
           controller: controllers['fault_description']!,
           isDisabled: widget.mode == CMScreenModeEnum.view,
@@ -1461,16 +1461,82 @@ class _CorrectiveMaintenanceScreenState
       
       final requestData = <String, dynamic>{};
       requestData['cm_site_req_id'] = cmSiteReqId;
+      
+      // Add all controller fields
+      // This includes:
+      // - scope_of_ticket: from "Scope of Ticket" dropdown
+      // - fault_description: from "Fault Description" field
+      // - responsible_party: from "Category" dropdown
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;
       }
-      // Add status to request data
-      requestData['status'] = _statusController.text;
+      
+      // Explicitly ensure these key fields are set
+      requestData['scope_of_ticket'] = controllers['scope_of_ticket']!.text;
+      requestData['fault_description'] = controllers['fault_description']!.text;
+      requestData['responsible_party'] = controllers['responsible_party']!.text; // Value from Category dropdown
+      
+      // Set assigned_to based on responsible_party
       if (controllers['responsible_party']!.text == 'OEM') {
         requestData['assigned_to'] = _selectedSite!.oemId;
       } else if (controllers['responsible_party']!.text == 'Self') {
         requestData['assigned_to'] = _selectedSite!.selfId;
       }
+      
+      // Set equipment type flags
+      requestData['isDg'] = _selectedEquipmentType == 'DG';
+      requestData['isBattery'] = _selectedEquipmentType == 'BATTERY';
+      requestData['isCcu'] = _selectedEquipmentType == 'CCU';
+      requestData['isSmps'] = _selectedEquipmentType == 'SMPS';
+      requestData['isSolar'] = _selectedEquipmentType == 'SOLAR';
+      
+      // Set site information
+      if (_selectedSite != null) {
+        requestData['site_id'] = _selectedSite!.siteId;
+        requestData['site_name'] = _selectedSite!.siteName;
+        requestData['site_code'] = _selectedSite!.siteCode;
+        requestData['entity_id'] = _selectedSite!.entityId;
+        requestData['circle'] = _selectedSite!.circleStateName;
+        requestData['cluster'] = _selectedSite!.clusterDistrictName;
+        requestData['client'] = _selectedSite!.clientName ?? '';
+        requestData['assigned_to_name'] = controllers['responsible_party']!.text == 'OEM' 
+            ? _selectedSite!.oem 
+            : _selectedSite!.self;
+      }
+      
+      // Set status and remarks
+      requestData['status'] = _statusController.text.isNotEmpty 
+          ? _statusController.text 
+          : 'Open';
+      requestData['remarks'] = _remarksController.text;
+      requestData['is_active'] = true;
+      
+      // Set dates (if closure_date is provided, calculate noOfDays)
+      if (controllers['closure_date']!.text.isNotEmpty) {
+        try {
+          final closureDate = DateTime.parse(controllers['closure_date']!.text);
+          final now = DateTime.now();
+          final daysDifference = closureDate.difference(now).inDays;
+          requestData['end_dt'] = closureDate.toIso8601String();
+          requestData['no_of_days'] = daysDifference > 0 ? daysDifference : 0;
+        } catch (e) {
+          Logger.errorLog("Error parsing closure date: $e");
+        }
+      }
+      requestData['start_dt'] = DateTime.now().toIso8601String();
+      
+      // Set customer photo and attachment names (will be updated after upload)
+      if (customerPhoto != null) {
+        final photoName = customerPhoto!.path.split('/').last;
+        requestData['customer_photo_name'] = photoName;
+      }
+      if (_uploadedAttachments.isNotEmpty) {
+        final attachmentName = _uploadedAttachments.first.path.split('/').last;
+        requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
+        requestData['customer_attachment_name'] = attachmentName; // Correct spelling
+      }
+      
+      // Set impacted item list
       requestData['cm_impacted_item_list'] =
           DataTransformationHelper.convertListToCamelCase(_impactedItemList);
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
@@ -1821,26 +1887,85 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog("CM form submission - Connected: $isConnected");
 
       final requestData = <String, dynamic>{};
+      
+      // Add all controller fields
+      // This includes:
+      // - scope_of_ticket: from "Scope of Ticket" dropdown
+      // - fault_description: from "Fault Description" field
+      // - responsible_party: from "Category" dropdown
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;
       }
+      
+      // Explicitly ensure these key fields are set
+      requestData['scope_of_ticket'] = controllers['scope_of_ticket']!.text;
+      requestData['fault_description'] = controllers['fault_description']!.text;
+      requestData['responsible_party'] = controllers['responsible_party']!.text; // Value from Category dropdown
+      
+      // Set assigned_to based on responsible_party
       if (controllers['responsible_party']!.text == 'OEM') {
         requestData['assigned_to'] = _selectedSite!.oemId;
       } else if (controllers['responsible_party']!.text == 'Self') {
         requestData['assigned_to'] = _selectedSite!.selfId;
       }
-      if (_selectedEquipmentType == 'DG') {
-        requestData['isDg'] = true;
-      } else if (_selectedEquipmentType == 'BATTERY') {
-        requestData['isBattery'] = true;
-      } else if (_selectedEquipmentType == 'CCU') {
-        requestData['isCcu'] = true;
-      } else if (_selectedEquipmentType == 'SMPS') {
-        requestData['isSmps'] = true;
-      } else if (_selectedEquipmentType == 'SOLAR') {
-        requestData['isSolar'] = true;
+      
+      // Set equipment type flags
+      requestData['isDg'] = _selectedEquipmentType == 'DG';
+      requestData['isBattery'] = _selectedEquipmentType == 'BATTERY';
+      requestData['isCcu'] = _selectedEquipmentType == 'CCU';
+      requestData['isSmps'] = _selectedEquipmentType == 'SMPS';
+      requestData['isSolar'] = _selectedEquipmentType == 'SOLAR';
+      
+      // Set CM site request ID (0 for new, existing ID for edit)
+      requestData['cm_site_req_id'] = cmSiteReqId ?? 0;
+      
+      // Set site information
+      if (_selectedSite != null) {
+        requestData['site_id'] = _selectedSite!.siteId;
+        requestData['site_name'] = _selectedSite!.siteName;
+        requestData['site_code'] = _selectedSite!.siteCode;
+        requestData['entity_id'] = _selectedSite!.entityId;
+        requestData['circle'] = _selectedSite!.circleStateName;
+        requestData['cluster'] = _selectedSite!.clusterDistrictName;
+        requestData['client'] = _selectedSite!.clientName ?? '';
+        requestData['assigned_to_name'] = controllers['responsible_party']!.text == 'OEM' 
+            ? _selectedSite!.oem 
+            : _selectedSite!.self;
       }
-      requestData['cm_site_req_id'] = 0;
+      
+      // Set status and remarks
+      requestData['status'] = _statusController.text.isNotEmpty 
+          ? _statusController.text 
+          : 'Open';
+      requestData['remarks'] = _remarksController.text;
+      requestData['is_active'] = true;
+      
+      // Set dates (if closure_date is provided, calculate noOfDays)
+      if (controllers['closure_date']!.text.isNotEmpty) {
+        try {
+          final closureDate = DateTime.parse(controllers['closure_date']!.text);
+          final now = DateTime.now();
+          final daysDifference = closureDate.difference(now).inDays;
+          requestData['end_dt'] = closureDate.toIso8601String();
+          requestData['no_of_days'] = daysDifference > 0 ? daysDifference : 0;
+        } catch (e) {
+          Logger.errorLog("Error parsing closure date: $e");
+        }
+      }
+      requestData['start_dt'] = DateTime.now().toIso8601String();
+      
+      // Set customer photo and attachment names (will be updated after upload)
+      if (customerPhoto != null) {
+        final photoName = customerPhoto!.path.split('/').last;
+        requestData['customer_photo_name'] = photoName;
+      }
+      if (_uploadedAttachments.isNotEmpty) {
+        final attachmentName = _uploadedAttachments.first.path.split('/').last;
+        requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
+        requestData['customer_attachment_name'] = attachmentName; // Correct spelling
+      }
+      
+      // Set impacted item list
       requestData['cm_impacted_item_list'] =
           DataTransformationHelper.convertListToCamelCase(_impactedItemList);
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
@@ -1974,9 +2099,31 @@ class _CorrectiveMaintenanceScreenState
       // Add image IDs to request data
       if (customerPhotoId != null) {
         requestData['customer_photo_id'] = customerPhotoId;
+        // Add customer photo name if available
+        if (customerPhoto != null) {
+          final photoName = customerPhoto!.path.split('/').last;
+          requestData['customer_photo_name'] = photoName;
+        }
       }
       if (attachmentId != null) {
         requestData['customer_attachment_id'] = attachmentId;
+        // Add customer attachment name if available
+        if (_uploadedAttachments.isNotEmpty) {
+          final attachmentName = _uploadedAttachments.first.path.split('/').last;
+          requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
+          requestData['customer_attachment_name'] = attachmentName; // Correct spelling
+        }
+      }
+      
+      // Add status and remarks if not already in requestData
+      if (!requestData.containsKey('status') || requestData['status'] == null || requestData['status'].toString().isEmpty) {
+        requestData['status'] = _statusController.text.isNotEmpty ? _statusController.text : 'Open';
+      }
+      if (!requestData.containsKey('remarks') || requestData['remarks'] == null) {
+        requestData['remarks'] = _remarksController.text;
+      }
+      if (!requestData.containsKey('is_active')) {
+        requestData['is_active'] = true;
       }
 
       // Save to pending requests for sync when online
