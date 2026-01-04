@@ -103,6 +103,19 @@ class _CorrectiveMaintenanceScreenState
   String customerPhotoByteData = "";
   // Store original photo ID to reload if needed after submission
   dynamic _originalCustomerPhotoId;
+  
+  // New photo fields: Identification, FSR, Time Stamp Photo
+  File? identificationPhoto;
+  String identificationPhotoByteData = "";
+  dynamic _originalIdentificationPhotoId;
+  
+  File? fsrPhoto;
+  String fsrPhotoByteData = "";
+  dynamic _originalFsrPhotoId;
+  
+  File? timestampPhoto;
+  String timestampPhotoByteData = "";
+  dynamic _originalTimestampPhotoId;
   final List<File> _uploadedAttachments = [];
   final List<File> _remarksAttachments = [];
   
@@ -210,63 +223,41 @@ class _CorrectiveMaintenanceScreenState
     // Store original photo ID to preserve it after form submission
     _originalCustomerPhotoId = customerPhotoId;
     
+    // Load Identification Photo
+    dynamic identificationPhotoId = preloadedSite['identificationImgId'] ?? preloadedSite['identification_img_id'];
+    _originalIdentificationPhotoId = identificationPhotoId;
+    if (identificationPhotoId != null && identificationPhotoId.toString().trim().isNotEmpty) {
+      await _loadPhotoFromServer(identificationPhotoId, (file, byteData) {
+        identificationPhoto = file;
+        identificationPhotoByteData = byteData;
+      }, 'Identification');
+    }
+    
+    // Load FSR Photo
+    dynamic fsrPhotoId = preloadedSite['fsrAttachmentId'] ?? preloadedSite['fsr_attachment_id'];
+    _originalFsrPhotoId = fsrPhotoId;
+    if (fsrPhotoId != null && fsrPhotoId.toString().trim().isNotEmpty) {
+      await _loadPhotoFromServer(fsrPhotoId, (file, byteData) {
+        fsrPhoto = file;
+        fsrPhotoByteData = byteData;
+      }, 'FSR');
+    }
+    
+    // Load Time Stamp Photo
+    dynamic timestampPhotoId = preloadedSite['timestampImgId'] ?? preloadedSite['timestamp_img_id'];
+    _originalTimestampPhotoId = timestampPhotoId;
+    if (timestampPhotoId != null && timestampPhotoId.toString().trim().isNotEmpty) {
+      await _loadPhotoFromServer(timestampPhotoId, (file, byteData) {
+        timestampPhoto = file;
+        timestampPhotoByteData = byteData;
+      }, 'Time Stamp');
+    }
+    
     if (customerPhotoId != null && customerPhotoId.toString().trim().isNotEmpty) {
-      String? customerPhotoByteDataLocal;
-      
-      try {
-        // First, check if image is already cached locally (works in offline mode)
-        final cachedImage = await ServiceLocator()
-            .imageUploadService
-            .getImagesByServerId(customerPhotoId.toString());
-        
-        if (cachedImage != null && cachedImage.imageData != null) {
-          // Image found in local cache - use it (works offline)
-          Logger.infoLog('[CM] Customer photo found in local cache (offline mode supported)');
-          customerPhotoByteDataLocal = cachedImage.imageData;
-        } else {
-          // Not in cache, check if we're online and try to download
-          final isOnline = await ConnectivityHelper.isConnected();
-          
-          if (isOnline) {
-            // Online: try to download from server and cache it
-            Logger.infoLog('[CM] Customer photo not in cache, downloading from server (online mode)');
-            
-            // Use downloadImageUsingServerId which handles caching
-            final uniqueId = await ServiceLocator()
-                .imageUploadService
-                .downloadImageUsingServerId(
-                  customerPhotoId.toString(),
-                  ActivityTypeEnum.correctiveMaintenance,
-                  _selectedSite?.siteId.toString() ?? '',
-                );
-            
-            if (uniqueId != null) {
-              // Get the image data using the unique ID
-              customerPhotoByteDataLocal = await ServiceLocator()
-                  .imageUploadService
-                  .getImageUsingUniqueId(uniqueId);
-            }
-          } else {
-            // Offline and not in cache - cannot load image
-            Logger.errorLog('[CM] Customer photo not in cache and device is offline - cannot load');
-          }
-        }
-        
-        // If we got image data (from cache or download), process it
-        if (customerPhotoByteDataLocal != null && customerPhotoByteDataLocal.isNotEmpty) {
-          File? imageFile = await Utils.buildImageFromBytesData(
-            customerPhotoByteDataLocal,
-          );
-          customerPhoto = imageFile;
-          setState(() {
-            customerPhotoByteData = customerPhotoByteDataLocal!;
-          });
-        } else {
-          Logger.errorLog('[CM] Failed to load customer photo: No data retrieved');
-        }
-      } catch (e) {
-        Logger.errorLog('[CM] Error loading customer photo: $e');
-      }
+      await _loadPhotoFromServer(customerPhotoId, (file, byteData) {
+        customerPhoto = file;
+        customerPhotoByteData = byteData;
+      }, 'Customer');
     }
     
     // Extract customer attachment info (only for edit/view mode, not create)
@@ -426,6 +417,75 @@ class _CorrectiveMaintenanceScreenState
       }
     } catch (e) {
       Logger.errorLog('[CM] Error reloading customer photo after submission: $e');
+    }
+  }
+
+  /// Helper method to load photo from server/cache
+  Future<void> _loadPhotoFromServer(
+    dynamic photoId,
+    Function(File?, String) onLoaded,
+    String photoName,
+  ) async {
+    if (photoId == null || photoId.toString().trim().isEmpty) {
+      return;
+    }
+    
+    String? photoByteDataLocal;
+    
+    try {
+      // First, check if image is already cached locally (works in offline mode)
+      final cachedImage = await ServiceLocator()
+          .imageUploadService
+          .getImagesByServerId(photoId.toString());
+      
+      if (cachedImage != null && cachedImage.imageData != null) {
+        // Image found in local cache - use it (works offline)
+        Logger.infoLog('[CM] $photoName photo found in local cache (offline mode supported)');
+        photoByteDataLocal = cachedImage.imageData;
+      } else {
+        // Not in cache, check if we're online and try to download
+        final isOnline = await ConnectivityHelper.isConnected();
+        
+        if (isOnline) {
+          // Online: try to download from server and cache it
+          Logger.infoLog('[CM] $photoName photo not in cache, downloading from server (online mode)');
+          
+          // Use downloadImageUsingServerId which handles caching
+          final uniqueId = await ServiceLocator()
+              .imageUploadService
+              .downloadImageUsingServerId(
+                photoId.toString(),
+                ActivityTypeEnum.correctiveMaintenance,
+                _selectedSite?.siteId.toString() ?? '',
+              );
+          
+          if (uniqueId != null) {
+            // Get the cached image data
+            photoByteDataLocal = await ServiceLocator()
+                .imageUploadService
+                .getImageUsingUniqueId(uniqueId);
+          }
+        } else {
+          // Offline and not in cache - cannot load image
+          Logger.errorLog('[CM] $photoName photo not in cache and device is offline - cannot load');
+        }
+      }
+      
+      // If we got image data (from cache or download), process it
+      if (photoByteDataLocal != null && photoByteDataLocal.isNotEmpty) {
+        File? imageFile = await Utils.buildImageFromBytesData(
+          photoByteDataLocal,
+        );
+        if (mounted) {
+          setState(() {
+            onLoaded(imageFile, photoByteDataLocal!);
+          });
+        }
+      } else {
+        Logger.errorLog('[CM] Failed to load $photoName photo: No data retrieved');
+      }
+    } catch (e) {
+      Logger.errorLog('[CM] Error loading $photoName photo: $e');
     }
   }
 
@@ -1626,6 +1686,96 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
+        // Identification Photo
+        ImageUploadField(
+          label: "Identification",
+          placeholder: "Add a Photo",
+          isRequired: false,
+          onImageSelected: (File? file) async {
+            if (file != null) {
+              final bytes = await file.readAsBytes();
+              final encodedData = base64Encode(bytes);
+              setState(() {
+                identificationPhoto = file;
+                identificationPhotoByteData = encodedData;
+              });
+              
+              // Upload immediately if online
+              await _uploadPhotoImmediately(
+                file,
+                encodedData,
+                'Identification',
+                (photoId) {
+                  _originalIdentificationPhotoId = photoId;
+                },
+              );
+            }
+          },
+          externalImageUrl: identificationPhotoByteData,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
+        ),
+        getHeight(15),
+
+        // FSR Photo
+        ImageUploadField(
+          label: "FSR",
+          placeholder: "Add a Photo",
+          isRequired: false,
+          onImageSelected: (File? file) async {
+            if (file != null) {
+              final bytes = await file.readAsBytes();
+              final encodedData = base64Encode(bytes);
+              setState(() {
+                fsrPhoto = file;
+                fsrPhotoByteData = encodedData;
+              });
+              
+              // Upload immediately if online
+              await _uploadPhotoImmediately(
+                file,
+                encodedData,
+                'FSR',
+                (photoId) {
+                  _originalFsrPhotoId = photoId;
+                },
+              );
+            }
+          },
+          externalImageUrl: fsrPhotoByteData,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
+        ),
+        getHeight(15),
+
+        // Time Stamp Photo
+        ImageUploadField(
+          label: "Time Stamp Photo",
+          placeholder: "Add a Photo",
+          isRequired: false,
+          onImageSelected: (File? file) async {
+            if (file != null) {
+              final bytes = await file.readAsBytes();
+              final encodedData = base64Encode(bytes);
+              setState(() {
+                timestampPhoto = file;
+                timestampPhotoByteData = encodedData;
+              });
+              
+              // Upload immediately if online
+              await _uploadPhotoImmediately(
+                file,
+                encodedData,
+                'Time Stamp',
+                (photoId) {
+                  _originalTimestampPhotoId = photoId;
+                },
+              );
+            }
+          },
+          externalImageUrl: timestampPhotoByteData,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
+        ),
+        getHeight(15),
+
         CustomFileUploadNew(
           label: "Attachments",
           placeholder: "Upload File",
@@ -1943,7 +2093,158 @@ class _CorrectiveMaintenanceScreenState
     Logger.infoLog('[CM] Finished uploading checklist images');
   }
 
-  /// Upload all impacted item images that have LOCAL_IMAGE_ID and replace with actual photo IDs
+  /// Upload a photo immediately when selected (if online)
+  Future<void> _uploadPhotoImmediately(
+    File file,
+    String base64Image,
+    String photoName,
+    Function(String) onPhotoIdReceived,
+  ) async {
+    try {
+      // Check if online
+      final isOnline = await ConnectivityHelper.isConnected();
+      
+      if (!isOnline) {
+        Logger.infoLog('[CM] Device is offline - $photoName photo will be uploaded later');
+        return;
+      }
+      
+      Logger.infoLog('[CM] Uploading $photoName photo immediately (online mode)...');
+      
+      final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+        base64Image,
+        ActivityTypeEnum.correctiveMaintenance,
+        false, // not a selfie
+        _selectedSite?.siteId.toString(),
+      );
+      
+      if (serverPhotoId.isNotEmpty) {
+        onPhotoIdReceived(serverPhotoId);
+        Logger.infoLog('[CM] ✅ $photoName photo uploaded immediately. Photo ID: $serverPhotoId');
+        
+        if (mounted) {
+          setState(() {}); // Update UI to reflect photo ID is set
+        }
+      } else {
+        Logger.errorLog('[CM] ❌ Failed to upload $photoName photo - empty photo ID returned');
+      }
+    } catch (e, stackTrace) {
+      Logger.errorLog('[CM] ❌ Error uploading $photoName photo immediately: $e');
+      Logger.errorLog('[CM] Stack trace: $stackTrace');
+    }
+  }
+
+  /// Upload the three new photo fields (Identification, FSR, Time Stamp) before main API call
+  /// This method only uploads photos that haven't been uploaded yet (no photo ID set)
+  Future<void> _uploadAdditionalPhotos() async {
+    Logger.infoLog('[CM] Starting to upload additional photos (Identification, FSR, Time Stamp)...');
+    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), FSR: ${fsrPhoto != null ? "present" : "null"} (ID: $_originalFsrPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId)');
+    
+    // Upload Identification Photo (only if not already uploaded)
+    if (identificationPhoto != null && (_originalIdentificationPhotoId == null || _originalIdentificationPhotoId.toString().trim().isEmpty)) {
+      try {
+        Logger.infoLog('[CM] Reading Identification photo bytes...');
+        final bytes = await identificationPhoto!.readAsBytes();
+        final base64Image = base64Encode(bytes);
+        Logger.infoLog('[CM] Identification photo encoded, size: ${base64Image.length} chars');
+        
+        Logger.infoLog('[CM] Uploading Identification photo to server...');
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+          base64Image,
+          ActivityTypeEnum.correctiveMaintenance,
+          false, // not a selfie
+          _selectedSite?.siteId.toString(),
+        );
+        
+        if (serverPhotoId.isNotEmpty) {
+          _originalIdentificationPhotoId = serverPhotoId;
+          Logger.infoLog('[CM] ✅ Identification photo uploaded successfully. Photo ID: $serverPhotoId');
+        } else {
+          Logger.errorLog('[CM] ❌ Failed to upload Identification photo - empty photo ID returned');
+          _originalIdentificationPhotoId = null;
+        }
+      } catch (e, stackTrace) {
+        Logger.errorLog('[CM] ❌ Error uploading Identification photo: $e');
+        Logger.errorLog('[CM] Stack trace: $stackTrace');
+        _originalIdentificationPhotoId = null;
+      }
+    } else if (identificationPhoto != null) {
+      Logger.infoLog('[CM] ⏭️ Identification photo already uploaded (ID: $_originalIdentificationPhotoId) - skipping');
+    } else {
+      Logger.infoLog('[CM] ⚠️ Identification photo is null - skipping upload');
+    }
+    
+    // Upload FSR Photo (only if not already uploaded)
+    if (fsrPhoto != null && (_originalFsrPhotoId == null || _originalFsrPhotoId.toString().trim().isEmpty)) {
+      try {
+        Logger.infoLog('[CM] Reading FSR photo bytes...');
+        final bytes = await fsrPhoto!.readAsBytes();
+        final base64Image = base64Encode(bytes);
+        Logger.infoLog('[CM] FSR photo encoded, size: ${base64Image.length} chars');
+        
+        Logger.infoLog('[CM] Uploading FSR photo to server...');
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+          base64Image,
+          ActivityTypeEnum.correctiveMaintenance,
+          false, // not a selfie
+          _selectedSite?.siteId.toString(),
+        );
+        
+        if (serverPhotoId.isNotEmpty) {
+          _originalFsrPhotoId = serverPhotoId;
+          Logger.infoLog('[CM] ✅ FSR photo uploaded successfully. Photo ID: $serverPhotoId');
+        } else {
+          Logger.errorLog('[CM] ❌ Failed to upload FSR photo - empty photo ID returned');
+          _originalFsrPhotoId = null;
+        }
+      } catch (e, stackTrace) {
+        Logger.errorLog('[CM] ❌ Error uploading FSR photo: $e');
+        Logger.errorLog('[CM] Stack trace: $stackTrace');
+        _originalFsrPhotoId = null;
+      }
+    } else if (fsrPhoto != null) {
+      Logger.infoLog('[CM] ⏭️ FSR photo already uploaded (ID: $_originalFsrPhotoId) - skipping');
+    } else {
+      Logger.infoLog('[CM] ⚠️ FSR photo is null - skipping upload');
+    }
+    
+    // Upload Time Stamp Photo (only if not already uploaded)
+    if (timestampPhoto != null && (_originalTimestampPhotoId == null || _originalTimestampPhotoId.toString().trim().isEmpty)) {
+      try {
+        Logger.infoLog('[CM] Reading Time Stamp photo bytes...');
+        final bytes = await timestampPhoto!.readAsBytes();
+        final base64Image = base64Encode(bytes);
+        Logger.infoLog('[CM] Time Stamp photo encoded, size: ${base64Image.length} chars');
+        
+        Logger.infoLog('[CM] Uploading Time Stamp photo to server...');
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+          base64Image,
+          ActivityTypeEnum.correctiveMaintenance,
+          false, // not a selfie
+          _selectedSite?.siteId.toString(),
+        );
+        
+        if (serverPhotoId.isNotEmpty) {
+          _originalTimestampPhotoId = serverPhotoId;
+          Logger.infoLog('[CM] ✅ Time Stamp photo uploaded successfully. Photo ID: $serverPhotoId');
+        } else {
+          Logger.errorLog('[CM] ❌ Failed to upload Time Stamp photo - empty photo ID returned');
+          _originalTimestampPhotoId = null;
+        }
+      } catch (e, stackTrace) {
+        Logger.errorLog('[CM] ❌ Error uploading Time Stamp photo: $e');
+        Logger.errorLog('[CM] Stack trace: $stackTrace');
+        _originalTimestampPhotoId = null;
+      }
+    } else if (timestampPhoto != null) {
+      Logger.infoLog('[CM] ⏭️ Time Stamp photo already uploaded (ID: $_originalTimestampPhotoId) - skipping');
+    } else {
+      Logger.infoLog('[CM] ⚠️ Time Stamp photo is null - skipping upload');
+    }
+    
+    Logger.infoLog('[CM] Additional photos upload completed. Final IDs - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+  }
+
   Future<void> _uploadImpactedItemImagesAndUpdateIds(
     List<Map<String, dynamic>> impactedItemList,
   ) async {
@@ -2592,6 +2893,45 @@ class _CorrectiveMaintenanceScreenState
         requestData['customer_attachment_name'] = attachmentName; // Correct spelling
       }
       
+      // Upload additional photos (Identification, FSR, Time Stamp) first
+      await _uploadAdditionalPhotos();
+      
+      // Add the three new photo IDs to requestData (after upload)
+      Logger.infoLog('[CM] Adding additional photo IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      
+      if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
+        requestData['identificationImgId'] = _originalIdentificationPhotoId;
+        Logger.infoLog('[CM] ✅ Added identificationImgId to requestData: $_originalIdentificationPhotoId');
+        if (identificationPhoto != null) {
+          final photoName = identificationPhoto!.path.split('/').last;
+          requestData['identificationImgName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - not adding to requestData');
+      }
+      
+      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
+        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
+        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_originalFsrPhotoId');
+        if (fsrPhoto != null) {
+          final photoName = fsrPhoto!.path.split('/').last;
+          requestData['fsrAttachmentName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ fsrAttachmentId is null or empty - not adding to requestData');
+      }
+      
+      if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
+        requestData['timestampImgId'] = _originalTimestampPhotoId;
+        Logger.infoLog('[CM] ✅ Added timestampImgId to requestData: $_originalTimestampPhotoId');
+        if (timestampPhoto != null) {
+          final photoName = timestampPhoto!.path.split('/').last;
+          requestData['timestampImgName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - not adding to requestData');
+      }
+      
       // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
       await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
@@ -2838,6 +3178,19 @@ class _CorrectiveMaintenanceScreenState
         requestData['customer_photo_id'] = _originalCustomerPhotoId;
       }
       
+      // Add the three new photo IDs
+      if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
+        requestData['identificationImgId'] = _originalIdentificationPhotoId;
+      }
+      
+      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
+        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
+      }
+      
+      if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
+        requestData['timestampImgId'] = _originalTimestampPhotoId;
+      }
+      
       if (attachmentId != null) {
         requestData['customer_attachment_id'] = attachmentId;
         // Store original file path and name to preserve extension and filename
@@ -3030,6 +3383,45 @@ class _CorrectiveMaintenanceScreenState
         requestData['customer_attachment_name'] = attachmentName; // Correct spelling
       }
       
+      // Upload additional photos (Identification, FSR, Time Stamp) first
+      await _uploadAdditionalPhotos();
+      
+      // Add the three new photo IDs to requestData (after upload, before online/offline decision)
+      Logger.infoLog('[CM] Adding additional photo IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      
+      if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
+        requestData['identificationImgId'] = _originalIdentificationPhotoId;
+        Logger.infoLog('[CM] ✅ Added identificationImgId to requestData: $_originalIdentificationPhotoId');
+        if (identificationPhoto != null) {
+          final photoName = identificationPhoto!.path.split('/').last;
+          requestData['identificationImgName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - not adding to requestData');
+      }
+      
+      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
+        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
+        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_originalFsrPhotoId');
+        if (fsrPhoto != null) {
+          final photoName = fsrPhoto!.path.split('/').last;
+          requestData['fsrAttachmentName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ fsrAttachmentId is null or empty - not adding to requestData');
+      }
+      
+      if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
+        requestData['timestampImgId'] = _originalTimestampPhotoId;
+        Logger.infoLog('[CM] ✅ Added timestampImgId to requestData: $_originalTimestampPhotoId');
+        if (timestampPhoto != null) {
+          final photoName = timestampPhoto!.path.split('/').last;
+          requestData['timestampImgName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - not adding to requestData');
+      }
+      
       // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
       await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
@@ -3176,6 +3568,42 @@ class _CorrectiveMaintenanceScreenState
           final photoName = customerPhoto!.path.split('/').last;
           requestData['customer_photo_name'] = photoName;
         }
+      }
+      
+      // Add the three new photo IDs
+      Logger.infoLog('[CM] Checking additional photo IDs - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      
+      if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
+        requestData['identificationImgId'] = _originalIdentificationPhotoId;
+        Logger.infoLog('[CM] ✅ Added identificationImgId: $_originalIdentificationPhotoId');
+        if (identificationPhoto != null) {
+          final photoName = identificationPhoto!.path.split('/').last;
+          requestData['identificationImgName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - photo may not have been uploaded');
+      }
+      
+      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
+        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
+        Logger.infoLog('[CM] ✅ Added fsrAttachmentId: $_originalFsrPhotoId');
+        if (fsrPhoto != null) {
+          final photoName = fsrPhoto!.path.split('/').last;
+          requestData['fsrAttachmentName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ fsrAttachmentId is null or empty - photo may not have been uploaded');
+      }
+      
+      if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
+        requestData['timestampImgId'] = _originalTimestampPhotoId;
+        Logger.infoLog('[CM] ✅ Added timestampImgId: $_originalTimestampPhotoId');
+        if (timestampPhoto != null) {
+          final photoName = timestampPhoto!.path.split('/').last;
+          requestData['timestampImgName'] = photoName;
+        }
+      } else {
+        Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - photo may not have been uploaded');
       }
       if (attachmentId != null) {
         requestData['customer_attachment_id'] = attachmentId;
