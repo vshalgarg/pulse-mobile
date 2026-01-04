@@ -1072,6 +1072,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     return CustomRemarksField(
       hintText: 'Remarks',
       controller: _remarksController,
+      isRequired: false, // REMARKS fields are always optional
     );
   }
 
@@ -1284,7 +1285,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   ) {
     final respType = element['resp_type']?.toString() ?? '';
     final checklistDesc = element['checklist_desc']?.toString() ?? '';
-    final isMandatory = isDependentElementMandatory(element, parentResponse);
+    // REMARKS fields are always non-mandatory, regardless of mandatoryIfValue
+    final isMandatory = respType == 'REMARKS' 
+        ? false 
+        : isDependentElementMandatory(element, parentResponse);
     // Include index to make key unique when multiple elements have same resp_type and checklist_desc
     final elementKey = '${respType}_${checklistDesc}_$elementIndex';
     final shouldHighlight = _highlightedDependentFields.contains(elementKey);
@@ -1415,6 +1419,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
             hintText: "Enter ${checklistDesc.toLowerCase()}",
             controller: _dependentControllers[elementKey]!,
             isDisabled: !isEditable,
+            isRequired: false, // REMARKS fields are always optional
           ),
         ),
       );
@@ -1575,6 +1580,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       // Include index to make key unique when multiple elements have same resp_type and checklist_desc
       final elementKey = '${respType}_${checklistDesc}_$index';
       
+      // REMARKS fields are always non-mandatory, skip validation
+      if (respType == 'REMARKS') continue;
+      
       final isMandatory = isDependentElementMandatory(element, parentResponse);
       if (!isMandatory) continue;
       
@@ -1609,14 +1617,14 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           Logger.infoLog('[PM] ✅ Validation passed: Image exists');
           print('[PM] ✅ Validation passed: Image exists');
         }
-      } else if (respType == 'REMARKS' || respType == 'TEXT') {
-        final value = respType == 'REMARKS'
-            ? _dependentRemarks[elementKey]
-            : _dependentTextValues[elementKey];
+      } else if (respType == 'TEXT') {
+        // TEXT: Non-empty text required (REMARKS are optional)
+        final value = _dependentTextValues[elementKey];
         if (value == null || value.trim().isEmpty) {
           errors.add('$checklistDesc is required');
         }
       }
+      // REMARKS fields are optional - no validation needed
     }
     
     return errors;

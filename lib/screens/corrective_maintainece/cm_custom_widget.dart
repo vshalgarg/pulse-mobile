@@ -306,10 +306,19 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       // Check if there's a corresponding image in response_images
       if (i < responseImages.length) {
         final imageData = responseImages[i];
-        final photoId = imageData['photo_id']?.toString();
-        if (photoId != null && photoId.isNotEmpty) {
-          _dependentImageIds[elementKey] = photoId;
-          // Image data will be loaded asynchronously if needed
+        if (imageData is Map<String, dynamic>) {
+          final photoId = imageData['photo_id']?.toString();
+          final imageDataBase64 = imageData['image_data']?.toString();
+          
+          if (photoId != null && photoId.isNotEmpty) {
+            _dependentImageIds[elementKey] = photoId;
+            
+            // If image_data is already loaded (from server), use it directly
+            if (imageDataBase64 != null && imageDataBase64.isNotEmpty) {
+              _dependentImageData[elementKey] = imageDataBase64;
+            }
+            // Otherwise, image data will be loaded asynchronously if needed
+          }
         }
       }
     }
@@ -367,11 +376,21 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             for (int i = 0; i < dependentElements.length && i < responseImages.length; i++) {
               final elementKey = '${childId}_$i';
               final imageData = responseImages[i];
-              final photoId = imageData['photo_id']?.toString();
-              if (photoId != null && photoId.isNotEmpty) {
-                // Store photoId for later loading
-                _childItemDependentImageData[childId] ??= {};
-                _childItemDependentImageData[childId]![elementKey] = null; // Will be loaded asynchronously
+              if (imageData is Map<String, dynamic>) {
+                final photoId = imageData['photo_id']?.toString();
+                final imageDataBase64 = imageData['image_data']?.toString();
+                
+                if (photoId != null && photoId.isNotEmpty) {
+                  _childItemDependentImageData[childId] ??= {};
+                  
+                  // If image_data is already loaded (from server), use it directly
+                  if (imageDataBase64 != null && imageDataBase64.isNotEmpty) {
+                    _childItemDependentImageData[childId]![elementKey] = imageDataBase64;
+                  } else {
+                    // Otherwise, will be loaded asynchronously if needed
+                    _childItemDependentImageData[childId]![elementKey] = null;
+                  }
+                }
               }
             }
           }
@@ -916,7 +935,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     });
   }
 
-  Widget _buildDropdownField() {
+  Widget _buildDropdownField({bool isReadonly = false}) {
     // Parse resp_type_value_map to get dropdown options
     final valueMap = _currentItem['resp_type_value_map'];
     List<String> dropdownOptions = [];
@@ -938,12 +957,13 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       label: _currentItem['checklist_desc']?.toString() ?? '',
       items: dropdownOptions,
       initialValue: _selectedDropdownValue,
-      onChanged: (value) => _onDropdownChanged(value),
+      onChanged: isReadonly ? (value) {} : (value) => _onDropdownChanged(value),
       isRequired: _currentItem['is_mandatory'] == true,
+      isDisabled: isReadonly,
     );
   }
 
-  Widget _buildRadioField() {
+  Widget _buildRadioField({bool isReadonly = false}) {
     // Parse resp_type_value_map to get radio options
     final valueMap = _currentItem['resp_type_value_map'];
     List<OptionItem> radioOptions = [];
@@ -985,14 +1005,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             label: _currentItem['checklist_desc'],
             options: radioOptions,
             initialValue: _selectedRadioValue,
-            onChanged: (value) => _onRadioChanged(value),
+            onChanged: isReadonly ? null : (value) => _onRadioChanged(value),
             isRequired: _currentItem['is_mandatory'] == true,
           ),
       ],
     );
   }
 
-  Widget _buildTextField() {
+  Widget _buildTextField({bool isReadonly = false}) {
     // Always get dependent_elements from widget.pmItem (source of truth)
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
     
@@ -1044,8 +1064,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           label: _currentItem['checklist_desc']?.toString() ?? '',
           initialValue: _textValue,
           controller: _textController,
-          onChanged: _onTextChanged,
+          onChanged: isReadonly ? null : _onTextChanged,
           isRequired: _currentItem['is_mandatory'] == true,
+          isEditable: !isReadonly,
         ),
         
         // Show dependent_elements when value is not empty
@@ -1080,6 +1101,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               
               print('[CM] Building TEXT IMG field - checklistDesc: $checklistDesc, isRequired: $isRequired');
               
+              final isReadonly = widget.readonlyFields.contains(
+                _currentItem['checklist_desc']?.toString(),
+              );
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: ImageUploadField(
@@ -1088,7 +1112,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   placeholder: 'Upload Photos',
                   isRequired: isRequired,
                   externalImageUrl: _dependentImageData[elementKey],
-                  onImageSelected: (File? file) async {
+                  isDisabled: isReadonly,
+                  onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                     if (file != null) {
                       await _uploadDependentImage(elementKey, file);
                     }
@@ -1103,13 +1128,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     );
   }
 
-  Widget _buildImageField() {
+  Widget _buildImageField({bool isReadonly = false}) {
     return ImageUploadField(
       label: _currentItem['checklist_desc']?.toString() ?? '',
       placeholder: 'Upload Photos',
       isRequired: _currentItem['is_mandatory'] == true,
       externalImageUrl: _imageData,
-      onImageSelected: (File? file) async {
+      isDisabled: isReadonly,
+      onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
         if (file != null) {
           try {
             // TODO: Implement image upload logic
@@ -1132,16 +1158,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     );
   }
 
-  Widget _buildRemarksField() {
+  Widget _buildRemarksField({bool isReadonly = false}) {
     return CustomRemarksField(
       label: _currentItem['checklist_desc']?.toString() ?? '',
       hintText: 'Remarks',
       controller: _remarksController,
+      isDisabled: isReadonly,
     );
   }
 
   // Helper method to build a field widget from a child item in impacted_item_check_list
-  Widget _buildChildItemField(Map<String, dynamic> childItem, int parentId) {
+  Widget _buildChildItemField(Map<String, dynamic> childItem, int parentId, {bool isReadonly = false}) {
     final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
     final respType = childItem['resp_type']?.toString() ?? '';
     final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
@@ -1185,7 +1212,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             CheckboxListTile(
               title: Text(checklistDesc),
               value: isChecked,
-              onChanged: (bool? value) {
+              onChanged: isReadonly ? null : (bool? value) {
                 setState(() {
                   _childItemCheckboxStates[childId] = value ?? false;
                   print('[CM] Child CHECKBOX $childId changed to: $value');
@@ -1201,6 +1228,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 final element = entry.value as Map<String, dynamic>;
                 final elementKey = '${childId}_$index';
                 final elementRespType = element['resp_type']?.toString() ?? '';
+                final isReadonly = widget.readonlyFields.contains(
+                  _currentItem['checklist_desc']?.toString(),
+                );
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
@@ -1217,7 +1247,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       placeholder: 'Upload Photos',
                       isRequired: isRequired,
                       externalImageUrl: _childItemDependentImageData[childId]![elementKey],
-                      onImageSelected: (File? file) async {
+                      isDisabled: isReadonly,
+                      onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                         if (file != null) {
                           await _uploadChildItemDependentImage(childId, elementKey, file);
                         }
@@ -1245,7 +1276,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             CheckboxListTile(
               title: Text(checklistDesc),
               value: isChecked,
-              onChanged: (bool? value) {
+              onChanged: isReadonly ? null : (bool? value) {
                 setState(() {
                   _childItemCheckboxStates[childId] = value ?? false;
                   print('[CM] Child CHECKBOX_NUMERIC $childId changed to: $value');
@@ -1260,13 +1291,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 child: CustomFormField(
                   label: 'Enter value',
                   initialValue: numericValue,
-                  onChanged: (String value) {
+                  onChanged: isReadonly ? null : (String value) {
                     setState(() {
                       _childItemNumericValues[childId] = value;
                     });
                   },
                   isRequired: isMandatory,
                   inputType: InputType.number,
+                  isEditable: !isReadonly,
                 ),
               ),
             ],
@@ -1278,6 +1310,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 final element = entry.value as Map<String, dynamic>;
                 final elementKey = '${childId}_$index';
                 final elementRespType = element['resp_type']?.toString() ?? '';
+                final isReadonly = widget.readonlyFields.contains(
+                  _currentItem['checklist_desc']?.toString(),
+                );
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
@@ -1294,7 +1329,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       placeholder: 'Upload Photos',
                       isRequired: isRequired,
                       externalImageUrl: _childItemDependentImageData[childId]![elementKey],
-                      onImageSelected: (File? file) async {
+                      isDisabled: isReadonly,
+                      onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                         if (file != null) {
                           await _uploadChildItemDependentImage(childId, elementKey, file);
                         }
@@ -1322,6 +1358,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               controller: controller,
               isRequired: isMandatory,
               inputType: respType == 'NUMERIC' ? InputType.number : InputType.text,
+              isEditable: !isReadonly,
             ),
           );
         }
@@ -1333,6 +1370,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               label: checklistDesc,
               isRequired: isMandatory,
               inputType: respType == 'NUMERIC' ? InputType.number : InputType.text,
+              isEditable: !isReadonly,
             ),
             if (dependentElements.isNotEmpty) ...[
               const SizedBox(height: 8),
@@ -1344,6 +1382,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
+                  final isReadonly = widget.readonlyFields.contains(
+                    _currentItem['checklist_desc']?.toString(),
+                  );
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: ImageUploadField(
@@ -1355,7 +1396,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                         null,
                       ),
                       externalImageUrl: _childItemDependentImageData[childId]![elementKey],
-                      onImageSelected: (File? file) async {
+                      isDisabled: isReadonly,
+                      onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                         if (file != null) {
                           await _uploadChildItemDependentImage(childId, elementKey, file);
                         }
@@ -1399,7 +1441,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     }
   }
 
-  Widget _buildDynamicDropdownField() {
+  Widget _buildDynamicDropdownField({bool isReadonly = false}) {
     // Use impacted_item_check_list instead of childitemData
     final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
                        _currentItem['childitemData'] as List<dynamic>? ?? [];
@@ -1419,7 +1461,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         SerialNumberField(
           label: '${_currentItem['sub_item_type'] ?? 'Item'} - Serial Number',
           controller: _serialNumberController,
-          onQRScanned: _onQRScanned,
+          onQRScanned: isReadonly ? null : _onQRScanned,
         ),
         const SizedBox(height: 16),
         
@@ -1427,23 +1469,24 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         ...childItems.map((childItem) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: _buildChildItemField(childItem as Map<String, dynamic>, parentId),
+            child: _buildChildItemField(childItem as Map<String, dynamic>, parentId, isReadonly: isReadonly),
           );
         }),
         
         // Save button
-        Align(
-          alignment: Alignment.centerRight,
-          child: ElevatedButton(
-            onPressed: _saveDynamicDropdownData,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryColor,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        if (!isReadonly)
+          Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton(
+              onPressed: _saveDynamicDropdownData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              ),
+              child: const Text('Save'),
             ),
-            child: const Text('Save'),
           ),
-        ),
         
         const SizedBox(height: 16),
 
@@ -1505,7 +1548,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       );
   }
 
-  Widget _buildMultiDynamicDropdownField() {
+  Widget _buildMultiDynamicDropdownField({bool isReadonly = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1538,7 +1581,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         ),
             // Multi-select dropdown
             InkWell(
-              onTap: () {
+              onTap: isReadonly ? null : () {
                 setState(() {
                   _isMultiDropdownOpen = !_isMultiDropdownOpen;
                 });
@@ -1599,7 +1642,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                         title: Text(option['mfg_serial_no']?.toString() ?? 'Unknown'),
                         subtitle: Text(option['item_type']?.toString() ?? ''),
                         value: isSelected,
-                        onChanged: (bool? value) {
+                        onChanged: isReadonly ? null : (bool? value) {
                           setState(() {
                             if (value == true) {
                               _selectedMultiItems.add(Map<String, dynamic>.from(option));
@@ -1640,17 +1683,18 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                         style: const TextStyle(fontSize: 14),
                       ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 16),
-                      onPressed: () {
-                        setState(() {
-                          _selectedMultiItems.removeWhere((selected) => 
-                            selected['item_instance_id'] == item['item_instance_id']
-                          );
-                          _onMultiSelectionChanged();
-                        });
-                      },
-                    ),
+                    if (!isReadonly)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 16),
+                        onPressed: () {
+                          setState(() {
+                            _selectedMultiItems.removeWhere((selected) => 
+                              selected['item_instance_id'] == item['item_instance_id']
+                            );
+                            _onMultiSelectionChanged();
+                          });
+                        },
+                      ),
                   ],
                 ),
               )),
@@ -1664,7 +1708,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _notifyValueChanged();
   }
 
-  Widget _buildCheckboxField() {
+  Widget _buildCheckboxField({bool isReadonly = false}) {
     // Always get dependent_elements from widget.pmItem (source of truth)
     // Try both snake_case and camelCase
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
@@ -1720,7 +1764,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           children: [
             Checkbox(
               value: _isCheckboxChecked,
-              onChanged: (bool? value) {
+              onChanged: isReadonly ? null : (bool? value) {
                 print('[CM] Checkbox clicked - value: $value');
                 print('[CM] Checkbox - dependentElements.length: ${dependentElements.length}');
                 _onCheckboxChanged(value);
@@ -1771,6 +1815,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Add a photo';
               final mandatoryIfValue = elementMap['mandatoryIfValue'];
               final isMandatory = _isDependentElementMandatory(mandatoryIfValue, parentResponse);
+              final isReadonly = widget.readonlyFields.contains(
+                _currentItem['checklist_desc']?.toString(),
+              );
               
               print('[CM] Building IMG field - checklistDesc: $checklistDesc, isMandatory: $isMandatory');
               
@@ -1782,7 +1829,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   placeholder: checklistDesc,
                   isRequired: isMandatory,
                   externalImageUrl: _dependentImageData[elementKey],
-                  onImageSelected: (File? file) async {
+                  isDisabled: isReadonly,
+                  onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                     if (file != null) {
                       await _uploadDependentImage(elementKey, file);
                     }
@@ -1798,7 +1846,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     );
   }
   
-  Widget _buildCheckboxNumericField() {
+  Widget _buildCheckboxNumericField({bool isReadonly = false}) {
     // Always get dependent_elements from widget.pmItem (source of truth)
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
     
@@ -1847,7 +1895,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           children: [
             Checkbox(
               value: _isCheckboxChecked,
-              onChanged: (bool? value) {
+              onChanged: isReadonly ? null : (bool? value) {
                 _onCheckboxChanged(value);
               },
             ),
@@ -1878,9 +1926,10 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             child: CustomFormField(
               label: 'Count',
               controller: _checkboxNumericController,
-              onChanged: _onCheckboxNumericChanged,
+              onChanged: isReadonly ? null : _onCheckboxNumericChanged,
               isRequired: _currentItem['is_mandatory'] == true,
               inputType: InputType.number,
+              isEditable: !isReadonly,
             ),
           ),
         ],
@@ -1902,6 +1951,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               final checklistDesc = element['checklist_desc']?.toString() ?? 'Add a photo';
               final mandatoryIfValue = element['mandatoryIfValue'];
               final isMandatory = _isDependentElementMandatory(mandatoryIfValue, parentResponse);
+              final isReadonly = widget.readonlyFields.contains(
+                _currentItem['checklist_desc']?.toString(),
+              );
               
               return Padding(
                 padding: const EdgeInsets.only(left: 32, bottom: 16),
@@ -1910,7 +1962,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   placeholder: checklistDesc,
                   isRequired: isMandatory,
                   externalImageUrl: _dependentImageData[elementKey],
-                  onImageSelected: (File? file) async {
+                  isDisabled: isReadonly,
+                  onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                     if (file != null) {
                       await _uploadDependentImage(elementKey, file);
                     }
@@ -2041,28 +2094,28 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     return false;
   }
   
-  Widget _buildFieldByType(String respType) {
+  Widget _buildFieldByType(String respType, {bool isReadonly = false}) {
     switch (respType) {
       case 'DROPDOWN':
-        return _buildDropdownField();
+        return _buildDropdownField(isReadonly: isReadonly);
       case 'RADIO':
-        return _buildRadioField();
+        return _buildRadioField(isReadonly: isReadonly);
       case 'TEXT':
-        return _buildTextField();
+        return _buildTextField(isReadonly: isReadonly);
       case 'NUMERIC':
-        return _buildNumericField();
+        return _buildNumericField(isReadonly: isReadonly);
       case 'CHECKBOX':
-        return _buildCheckboxField();
+        return _buildCheckboxField(isReadonly: isReadonly);
       case 'CHECKBOX_NUMERIC':
-        return _buildCheckboxNumericField();
+        return _buildCheckboxNumericField(isReadonly: isReadonly);
       case 'IMG':
-        return _buildImageField();
+        return _buildImageField(isReadonly: isReadonly);
       case 'REMARKS':
-        return _buildRemarksField();
+        return _buildRemarksField(isReadonly: isReadonly);
       case 'DYNAMIC_DROPDOWN':
-        return _buildDynamicDropdownField();
+        return _buildDynamicDropdownField(isReadonly: isReadonly);
       case 'MULTI_DYNAMIC_DROPDOWN':
-        return _buildMultiDynamicDropdownField();
+        return _buildMultiDynamicDropdownField(isReadonly: isReadonly);
       default:
         return Container(
           decoration: BoxDecoration(
@@ -2082,7 +2135,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     }
   }
   
-  Widget _buildNumericField() {
+  Widget _buildNumericField({bool isReadonly = false}) {
     // Always get dependent_elements from widget.pmItem (source of truth)
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
     
@@ -2153,9 +2206,10 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           label: _currentItem['checklist_desc']?.toString() ?? '',
           initialValue: _textValue,
           controller: _textController,
-          onChanged: _onTextChanged,
+          onChanged: isReadonly ? null : _onTextChanged,
           isRequired: _currentItem['is_mandatory'] == true,
           inputType: InputType.number,
+          isEditable: !isReadonly,
         ),
         
         // Show dependent_elements when value is not empty
@@ -2189,6 +2243,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 elementMap['mandatoryIfValue'],
                 parentResponse,
               );
+              final isReadonly = widget.readonlyFields.contains(
+                _currentItem['checklist_desc']?.toString(),
+              );
               
               print('[CM] Building NUMERIC IMG field - checklistDesc: $checklistDesc, isRequired: $isRequired');
               
@@ -2200,7 +2257,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   placeholder: 'Upload Photos',
                   isRequired: isRequired,
                   externalImageUrl: _dependentImageData[elementKey],
-                  onImageSelected: (File? file) async {
+                  isDisabled: isReadonly,
+                  onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
                     if (file != null) {
                       await _uploadDependentImage(elementKey, file);
                     }
@@ -2228,18 +2286,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Field based on resp_type
-          if (isReadonly)
-            CustomFormField(
-              label: checklistDesc,
-              initialValue: _currentItem['resp']?.toString() ?? 'N/A',
-              isRequired: _currentItem['is_mandatory'] == true,
-              isEditable: false,
-            )
-          else if (checklistDesc.toLowerCase().contains('remarks'))
-            _buildRemarksField()
+          // Field based on resp_type - show actual field type even when readonly, but disabled
+          if (checklistDesc.toLowerCase().contains('remarks'))
+            _buildRemarksField(isReadonly: isReadonly)
           else
-            _buildFieldByType(respType),
+            _buildFieldByType(respType, isReadonly: isReadonly),
         ],
       ),
     );

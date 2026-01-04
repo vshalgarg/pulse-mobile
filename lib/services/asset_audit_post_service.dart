@@ -325,12 +325,23 @@ class AssetAuditPostService {
       final customerAttachmentId =
           processedData['customer_attachment_id'] ??
           processedData['customerAttachmentId'];
+      final fsrAttachmentId =
+          processedData['fsr_attachment_id'] ??
+          processedData['fsrAttachmentId'];
 
       // Extract original file info for customer attachment (to preserve filename)
       final customerOriginalFilePath =
           processedData['customer_original_file_path'];
       final customerOriginalFileName =
           processedData['customer_original_file_name'];
+
+      // Extract FSR attachment file info
+      final fsrOriginalFilePath =
+          processedData['fsr_original_file_path'];
+      final fsrOriginalFileName =
+          processedData['fsr_original_file_name'] ??
+          processedData['fsrAttachmentName'] ??
+          processedData['fsr_attachment_name'];
 
       // Extract attachment name if present, or use original filename
       final customerAttachmentName =
@@ -339,10 +350,10 @@ class AssetAuditPostService {
           customerOriginalFileName;
 
       Logger.infoLog(
-        "Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
+        "Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId, fsrAttachmentId: $fsrAttachmentId",
       );
       Logger.infoLog(
-        "Extracted attachment name - customerAttachmentName: $customerAttachmentName",
+        "Extracted attachment names - customerAttachmentName: $customerAttachmentName, fsrAttachmentName: $fsrOriginalFileName",
       );
 
       // Remove image IDs and file info from the request data before creating CM ticket
@@ -354,6 +365,12 @@ class AssetAuditPostService {
       processedData.remove('customer_original_file_name');
       processedData.remove('customer_attachmen_name');
       processedData.remove('customer_attachment_name');
+      processedData.remove('fsr_attachment_id');
+      processedData.remove('fsrAttachmentId');
+      processedData.remove('fsr_original_file_path');
+      processedData.remove('fsr_original_file_name');
+      processedData.remove('fsr_attachment_name');
+      processedData.remove('fsrAttachmentName');
 
       // Preserve attachment name in request data if we have it (for API to store the correct name)
       if (customerAttachmentName != null &&
@@ -380,7 +397,7 @@ class AssetAuditPostService {
         // Upload customer photo and attachments using the extracted IDs
         Logger.infoLog("About to call _uploadCMImagesAndAttachments...");
         Logger.infoLog(
-          "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
+          "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId, fsrAttachmentId: $fsrAttachmentId",
         );
         await _uploadCMImagesAndAttachments(
           customerPhotoId,
@@ -388,6 +405,9 @@ class AssetAuditPostService {
           cmSiteReqId,
           customerOriginalFilePath: customerOriginalFilePath,
           customerOriginalFileName: customerOriginalFileName,
+          fsrAttachmentId: fsrAttachmentId,
+          fsrOriginalFilePath: fsrOriginalFilePath,
+          fsrOriginalFileName: fsrOriginalFileName,
         );
 
         // Check for and sync remarks if present
@@ -551,17 +571,21 @@ class AssetAuditPostService {
     int cmSiteReqId, {
     dynamic customerOriginalFilePath,
     dynamic customerOriginalFileName,
+    dynamic fsrAttachmentId,
+    dynamic fsrOriginalFilePath,
+    dynamic fsrOriginalFileName,
   }) async {
     try {
       Logger.infoLog(
         "_uploadCMImagesAndAttachments called with cmSiteReqId: $cmSiteReqId",
       );
       Logger.infoLog(
-        "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
+        "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId, fsrAttachmentId: $fsrAttachmentId",
       );
 
       File? customerPhoto;
       File? attachment;
+      File? fsrAttachment;
 
       // Check for customer photo ID
       if (customerPhotoId != null && customerPhotoId is String) {
@@ -649,20 +673,88 @@ class AssetAuditPostService {
         }
       }
 
+      // Check for FSR attachment ID
+      if (fsrAttachmentId != null && fsrAttachmentId is String) {
+        Logger.infoLog("Retrieving FSR attachment with ID: $fsrAttachmentId");
+
+        // Try to use original file first if available
+        if (fsrOriginalFilePath != null &&
+            fsrOriginalFilePath.toString().trim().isNotEmpty) {
+          final originalFile = File(fsrOriginalFilePath.toString());
+          if (await originalFile.exists()) {
+            Logger.infoLog(
+              "Using original FSR attachment file: $fsrOriginalFilePath",
+            );
+            fsrAttachment = originalFile;
+          } else {
+            Logger.infoLog(
+              "Original FSR attachment file not found, will reconstruct from ImageUploadService",
+            );
+          }
+        }
+
+        // If original file not available, reconstruct from ImageUploadService
+        if (fsrAttachment == null) {
+          final attachmentData = await ServiceLocator().imageUploadService
+              .getImageUsingUniqueId(fsrAttachmentId);
+          if (attachmentData != null) {
+            Logger.infoLog("FSR attachment data retrieved, converting to File...");
+
+            // Use original filename if available, otherwise generate one
+            String fileName;
+            if (fsrOriginalFileName != null &&
+                fsrOriginalFileName.toString().trim().isNotEmpty) {
+              // Sanitize filename to remove invalid characters but preserve name and extension
+              final originalName = fsrOriginalFileName.toString().trim();
+              fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+              Logger.infoLog(
+                "Using original FSR attachment filename: $fileName",
+              );
+            } else {
+              // Fallback: generate filename with proper extension
+              String fileExtension = '.pdf'; // Default for documents
+              fileName =
+                  'fsr_attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+              Logger.infoLog(
+                "Original FSR attachment filename not available, using generated name: $fileName",
+              );
+            }
+
+            // Create temporary file with original filename
+            final tempDir = Directory.systemTemp;
+            final tempFile = File('${tempDir.path}/$fileName');
+
+            // Decode base64 and write to file
+            final bytes = base64Decode(attachmentData);
+            await tempFile.writeAsBytes(bytes);
+
+            fsrAttachment = tempFile;
+            Logger.infoLog(
+              "FSR attachment File created with filename: $fileName",
+            );
+          } else {
+            Logger.errorLog(
+              "Failed to retrieve image data for FSR attachment ID: $fsrAttachmentId",
+            );
+          }
+        }
+      }
+
       // Upload if files exist
-      if (customerPhoto != null || attachment != null) {
+      if (customerPhoto != null || attachment != null || fsrAttachment != null) {
         Logger.infoLog("Uploading CM images with cmSiteReqId: $cmSiteReqId");
         Logger.infoLog(
-          "customerPhoto: ${customerPhoto != null ? 'exists' : 'null'}, attachment: ${attachment != null ? 'exists' : 'null'}",
+          "customerPhoto: ${customerPhoto != null ? 'exists' : 'null'}, attachment: ${attachment != null ? 'exists' : 'null'}, fsrAttachment: ${fsrAttachment != null ? 'exists' : 'null'}",
         );
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
           cmSiteReqId,
           customerPhoto,
           attachment,
+          fsrAttachment,
         );
         Logger.infoLog("CM images uploaded successfully");
       } else {
-        Logger.infoLog("No images to upload for CM - both are null");
+        Logger.infoLog("No images to upload for CM - all are null");
       }
     } catch (e) {
       Logger.errorLog("Error uploading CM images: $e");

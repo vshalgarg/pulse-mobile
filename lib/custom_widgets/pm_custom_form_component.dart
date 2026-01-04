@@ -155,25 +155,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
   /// Get save button text based on checklist_desc from NUMERIC item with serial numbers
   String _getSaveButtonText() {
-    final respDtlChecklistItems = _respDtlChecklistItems;
-    for (final item in respDtlChecklistItems) {
-      final respType = item['resp_type']?.toString() ?? '';
-      if (respType == 'NUMERIC' && _shouldShowSerialNumberDropdown(item)) {
-        final checklistDesc = item['checklist_desc']?.toString() ?? '';
-        if (checklistDesc.isNotEmpty) {
-          return 'Save $checklistDesc';
-        }
-      }
-    }
-    
-    // For RADIO type with multiple sections, use parent checklist_desc
-    if (_shouldShowMultipleSections(respDtlChecklistItems)) {
-      final parentChecklistDesc = widget.checklistItem['checklist_desc']?.toString() ?? '';
-      if (parentChecklistDesc.isNotEmpty) {
-        return 'Save $parentChecklistDesc';
-      }
-    }
-    
+    // Always return 'Save' regardless of checklist description
     return 'Save';
   }
 
@@ -1262,26 +1244,26 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                   // All resp_dtl_checklist fields (original single section)
                   ...respDtlChecklistItems.map((item) => _buildFieldForItem(item)).toList(),
 
-                // Save button at bottom
+                // Save button at bottom right
                 Align(
-                  alignment: Alignment.center,
+                  alignment: Alignment.centerRight,
                   child: ElevatedButton(
                     onPressed: _isParentFieldEmpty ? null : _onSaveAllEntries,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _isParentFieldEmpty
                           ? Colors.grey.shade400
                           : AppColors.primaryGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 40),
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(5),
                       ),
-                      minimumSize: const Size(double.infinity, 48),
+                      minimumSize: const Size(0, 36),
                     ),
                     child: Text(
                       _getSaveButtonText(),
                       style: TextStyle(
                         color: _isParentFieldEmpty ? Colors.grey : Colors.white,
-                        fontSize: 16,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                         fontFamily: fontFamilyMontserrat,
                       ),

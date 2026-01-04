@@ -281,7 +281,7 @@ class CMRepository {
   }
 
   Future<void> saveCustomerPhotoAndAttachments(int cmSiteReqId, File? customerPhoto,
-      File? uploadedAttachment) async {
+      File? uploadedAttachment, File? fsrAttachmemt) async {
 
     try {
       final customerPhotoMultipartFile = customerPhoto == null ? null
@@ -296,11 +296,18 @@ class CMRepository {
         filename: uploadedAttachment.path.split('/').last,
       );
 
+      final fsrAttachmemtMultipartFile = fsrAttachmemt == null ? null
+          : await MultipartFile.fromFile(
+        fsrAttachmemt.path,
+        filename: fsrAttachmemt.path.split('/').last,
+      );
+
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'api/v1/mobile/correctiveMaintenance/upload',
         data: {
           'customerPhoto': customerPhotoMultipartFile,
           'attachments': uploadedAttachmentMultipartFile,
+          'fsrAttachments': fsrAttachmemtMultipartFile,
           'cmId': cmSiteReqId,
         },
         useFormDataFormat: true,

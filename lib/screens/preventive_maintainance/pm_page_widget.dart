@@ -221,6 +221,11 @@ class _PMPageWidgetState extends State<PMPageWidget> {
             // Loop through dependent elements in order
             for (int index = 0; index < dependentElements.length; index++) {
               final dependentElement = dependentElements[index];
+              final respType = dependentElement['resp_type']?.toString() ?? '';
+              
+              // REMARKS fields are always non-mandatory, skip validation
+              if (respType == 'REMARKS') continue;
+              
               // Determine if this dependent element is mandatory
               final isMandatory = isDependentElementMandatory(
                 dependentElement,
@@ -335,16 +340,15 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       if (!hasUploadedImage && !hasServerImage) {
         return '$checklistDesc is required';
       }
-    } else if (respType == 'REMARKS' || respType == 'TEXT') {
-      // REMARKS/TEXT: Non-empty text required
-      final value = respType == 'REMARKS'
-          ? widgetState.getDependentRemarks(elementKey)
-          : widgetState.getDependentTextValue(elementKey);
+    } else if (respType == 'TEXT') {
+      // TEXT: Non-empty text required (REMARKS are optional)
+      final value = widgetState.getDependentTextValue(elementKey);
       
       if (value == null || value.trim().isEmpty) {
         return '$checklistDesc is required';
       }
     }
+    // REMARKS fields are optional - no validation needed
     
     return null; // Valid
   }

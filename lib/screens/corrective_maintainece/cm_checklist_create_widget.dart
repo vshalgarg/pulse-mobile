@@ -11,6 +11,7 @@ class ChecklistCreateWidget extends StatefulWidget {
   final List<Map<String, dynamic>> cmImpactedItemList;
   final Map<String, dynamic> originalCmImpactedItemMap;
   final Function(List<Map<String, dynamic>>, String) onMultiDynamicDropdownValueChanged;
+  final bool isEditable;
 
   const ChecklistCreateWidget({
     super.key,
@@ -22,6 +23,7 @@ class ChecklistCreateWidget extends StatefulWidget {
     required this.cmImpactedItemList,
     required this.originalCmImpactedItemMap,
     required this.onMultiDynamicDropdownValueChanged,
+    this.isEditable = true,
   });
 
   @override
@@ -211,12 +213,20 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
                           final index = entry.key;
                           final checklistItem = entry.value;
 
+                          // If not editable (edit/view mode), add all checklist descriptions to readonlyFields
+                          final readonlyFields = !widget.isEditable
+                              ? _checklistItems
+                                  .map((item) => item['checklist_desc']?.toString() ?? '')
+                                  .where((desc) => desc.isNotEmpty)
+                                  .toList()
+                              : <String>[];
+
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 16.0),
                             child: CMCustomWidget(
                               key: ValueKey('checklist_item_${checklistItem['item_type_id']}_$index'),
                               pmItem: checklistItem,
-                              readonlyFields: [], // No readonly fields for corrective maintenance
+                              readonlyFields: readonlyFields,
                               onValueChanged: (updatedItem) {
                                 _onItemChanged(index, updatedItem);
                               },

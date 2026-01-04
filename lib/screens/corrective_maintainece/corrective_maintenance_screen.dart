@@ -12,7 +12,6 @@ import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
-import 'package:app/screens/corrective_maintainece/cm_view_widget.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -104,24 +103,26 @@ class _CorrectiveMaintenanceScreenState
   // Store original photo ID to reload if needed after submission
   dynamic _originalCustomerPhotoId;
   
-  // New photo fields: Identification, FSR, Time Stamp Photo
+  // New photo fields: Identification, Time Stamp Photo (only in edit/view mode)
   File? identificationPhoto;
   String identificationPhotoByteData = "";
   dynamic _originalIdentificationPhotoId;
   
-  File? fsrPhoto;
-  String fsrPhotoByteData = "";
-  dynamic _originalFsrPhotoId;
-  
   File? timestampPhoto;
   String timestampPhotoByteData = "";
   dynamic _originalTimestampPhotoId;
+  
   final List<File> _uploadedAttachments = [];
   final List<File> _remarksAttachments = [];
+  final List<File> _fsrAttachments = []; // FSR as file attachment
   
   // Store server attachment info (ID and filename)
   String? _customerAttachmentName;
   dynamic _customerAttachmentId;
+  
+  // Store FSR attachment info (ID and filename)
+  String? _fsrAttachmentName;
+  dynamic _fsrAttachmentId;
   
   // Store remarks attachment info (for edit mode)
   String? _remarksAttachmentName;
@@ -233,16 +234,6 @@ class _CorrectiveMaintenanceScreenState
       }, 'Identification');
     }
     
-    // Load FSR Photo
-    dynamic fsrPhotoId = preloadedSite['fsrAttachmentId'] ?? preloadedSite['fsr_attachment_id'];
-    _originalFsrPhotoId = fsrPhotoId;
-    if (fsrPhotoId != null && fsrPhotoId.toString().trim().isNotEmpty) {
-      await _loadPhotoFromServer(fsrPhotoId, (file, byteData) {
-        fsrPhoto = file;
-        fsrPhotoByteData = byteData;
-      }, 'FSR');
-    }
-    
     // Load Time Stamp Photo
     dynamic timestampPhotoId = preloadedSite['timestampImgId'] ?? preloadedSite['timestamp_img_id'];
     _originalTimestampPhotoId = timestampPhotoId;
@@ -318,6 +309,41 @@ class _CorrectiveMaintenanceScreenState
         setState(() {
           _customerAttachmentId = customerAttachmentId;
           _customerAttachmentName = nameToSet;
+        });
+      }
+      
+      // Load FSR attachment info (only for edit/view mode, not create)
+      // Try all possible field name variations for FSR attachment ID
+      dynamic fsrAttachmentId = preloadedSite['fsrAttachmentId'] ?? 
+                                preloadedSite['fsr_attachment_id'];
+      
+      // Convert to int if it's a string
+      if (fsrAttachmentId != null && fsrAttachmentId is String && fsrAttachmentId.trim().isNotEmpty) {
+        try {
+          fsrAttachmentId = int.parse(fsrAttachmentId.trim());
+        } catch (e) {
+          Logger.errorLog('[CM] Failed to parse FSR attachment ID as int: $fsrAttachmentId');
+          fsrAttachmentId = null;
+        }
+      }
+      
+      // Try all possible field name variations for FSR attachment name
+      dynamic fsrAttachmentName = preloadedSite['fsrAttachmentName'] ?? 
+                                   preloadedSite['fsr_attachment_name'];
+      
+      // Set FSR attachment if ID is valid
+      if (fsrAttachmentId != null && fsrAttachmentId != 0) {
+        // If name is null or empty, use attachment ID as the name
+        final nameToSet = (fsrAttachmentName != null && fsrAttachmentName.toString().trim().isNotEmpty) 
+            ? fsrAttachmentName.toString().trim() 
+            : fsrAttachmentId.toString(); // Use ID as name if name is not available
+        
+        Logger.infoLog('[CM] Setting FSR attachment - ID: $fsrAttachmentId, Name: $nameToSet');
+        
+        // Set state directly
+        setState(() {
+          _fsrAttachmentId = fsrAttachmentId;
+          _fsrAttachmentName = nameToSet;
         });
       }
       
@@ -1008,8 +1034,8 @@ class _CorrectiveMaintenanceScreenState
           
           Logger.infoLog('[CM] Found ${existingResponses.length} existing checklist responses');
           
-          // Merge existing responses with checklist template
-          final mergedChecklistData = _mergeChecklistWithResponses(
+          // Merge existing responses with checklist template (async - loads images)
+          final mergedChecklistData = await _mergeChecklistWithResponses(
             checklistTemplate,
             existingResponses,
           );
@@ -1043,10 +1069,10 @@ class _CorrectiveMaintenanceScreenState
   }
 
   /// Merge existing checklist responses with template checklist data
-  Map<String, dynamic> _mergeChecklistWithResponses(
+  Future<Map<String, dynamic>> _mergeChecklistWithResponses(
     Map<String, dynamic> checklistTemplate,
     List<dynamic> existingResponses,
-  ) {
+  ) async {
     final mergedData = <String, dynamic>{};
     
     // Copy siteDeployedItems if present
@@ -1070,9 +1096,12 @@ class _CorrectiveMaintenanceScreenState
     }
     
     // Merge each equipment type
-    checklistTemplate.forEach((equipmentType, templateItems) {
+    for (var entry in checklistTemplate.entries) {
+      final equipmentType = entry.key;
+      final templateItems = entry.value;
+      
       if (equipmentType == 'siteDeployedItems') {
-        return; // Skip, already handled
+        continue; // Skip, already handled
       }
       
       if (templateItems is List) {
@@ -1105,24 +1134,146 @@ class _CorrectiveMaintenanceScreenState
               mergedItem['cm_check_list_site_resp_id'] = existingResponse['cmCheckListSiteRespId'] ?? 
                                                          existingResponse['cm_check_list_site_resp_id'];
               
-              // Merge images
+              // Merge images and load image data from server
               final existingImages = existingResponse['CmCheckListSiteRespImagesList'] ?? 
                                     existingResponse['cmCheckListSiteRespImagesList'] ?? 
                                     existingResponse['cm_check_list_site_resp_images_list'] ?? [];
               
               if (existingImages is List && existingImages.isNotEmpty) {
-                // Convert to response_images format
-                final responseImages = existingImages.map((img) {
+                // Convert to response_images format and load image data
+                final responseImages = <Map<String, dynamic>>[];
+                for (var img in existingImages) {
                   if (img is Map<String, dynamic>) {
-                    return {
-                      'photo_id': img['photoId'] ?? img['photo_id'],
-                      'pclsri_id': mergedItem['cm_check_list_mst_id'] ?? mergedItem['cmCheckListMstId'],
-                      'photo_taken_ts': img['photoTakenTs'] ?? img['photo_taken_ts'],
-                    };
+                    final photoId = img['photoId'] ?? img['photo_id'];
+                    if (photoId != null) {
+                      // Load image data from server/cache
+                      String? imageData;
+                      try {
+                        // First check cache
+                        final cachedImage = await ServiceLocator()
+                            .imageUploadService
+                            .getImagesByServerId(photoId.toString());
+                        
+                        if (cachedImage != null && cachedImage.imageData != null) {
+                          imageData = cachedImage.imageData;
+                        } else {
+                          // Try to download if online
+                          final isOnline = await ConnectivityHelper.isConnected();
+                          if (isOnline) {
+                            final uniqueId = await ServiceLocator()
+                                .imageUploadService
+                                .downloadImageUsingServerId(
+                                  photoId.toString(),
+                                  ActivityTypeEnum.correctiveMaintenance,
+                                  _selectedSite?.siteId.toString() ?? '',
+                                );
+                            
+                            if (uniqueId != null) {
+                              imageData = await ServiceLocator()
+                                  .imageUploadService
+                                  .getImageUsingUniqueId(uniqueId);
+                            }
+                          }
+                        }
+                      } catch (e) {
+                        Logger.errorLog('[CM] Error loading image $photoId: $e');
+                      }
+                      
+                      responseImages.add({
+                        'photo_id': photoId,
+                        'pclsri_id': mergedItem['cm_check_list_mst_id'] ?? mergedItem['cmCheckListMstId'],
+                        'photo_taken_ts': img['photoTakenTs'] ?? img['photo_taken_ts'],
+                        'image_data': imageData, // Add base64 image data for display
+                      });
+                    }
                   }
-                  return img;
-                }).toList();
+                }
                 mergedItem['response_images'] = responseImages;
+              }
+              
+              // Merge impacted items (for dynamic dropdowns) and load their images
+              final impactedItems = existingResponse['CmImpactedItemList'] ?? 
+                                   existingResponse['cmImpactedItemList'] ?? 
+                                   existingResponse['cm_impacted_item_list'] ?? [];
+              
+              if (impactedItems is List && impactedItems.isNotEmpty) {
+                final processedImpactedItems = <Map<String, dynamic>>[];
+                for (var impactedItem in impactedItems) {
+                  if (impactedItem is Map<String, dynamic>) {
+                    final processedItem = Map<String, dynamic>.from(impactedItem);
+                    
+                    // Process child item responses and load their images
+                    final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                               impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+                    
+                    if (childItemResponses.isNotEmpty) {
+                      final processedChildResponses = <Map<String, dynamic>>[];
+                      for (var childResponse in childItemResponses) {
+                        if (childResponse is Map<String, dynamic>) {
+                          final processedChild = Map<String, dynamic>.from(childResponse);
+                          
+                          // Load images for child response
+                          final childImages = childResponse['cmCheckListSiteRespImagesList'] ?? 
+                                            childResponse['cm_check_list_site_resp_images_list'] ?? [];
+                          
+                          if (childImages is List && childImages.isNotEmpty) {
+                            final processedChildImages = <Map<String, dynamic>>[];
+                            for (var childImg in childImages) {
+                              if (childImg is Map<String, dynamic>) {
+                                final photoId = childImg['photoId'] ?? childImg['photo_id'];
+                                if (photoId != null) {
+                                  // Load image data from server/cache
+                                  String? imageData;
+                                  try {
+                                    final cachedImage = await ServiceLocator()
+                                        .imageUploadService
+                                        .getImagesByServerId(photoId.toString());
+                                    
+                                    if (cachedImage != null && cachedImage.imageData != null) {
+                                      imageData = cachedImage.imageData;
+                                    } else {
+                                      final isOnline = await ConnectivityHelper.isConnected();
+                                      if (isOnline) {
+                                        final uniqueId = await ServiceLocator()
+                                            .imageUploadService
+                                            .downloadImageUsingServerId(
+                                              photoId.toString(),
+                                              ActivityTypeEnum.correctiveMaintenance,
+                                              _selectedSite?.siteId.toString() ?? '',
+                                            );
+                                        
+                                        if (uniqueId != null) {
+                                          imageData = await ServiceLocator()
+                                              .imageUploadService
+                                              .getImageUsingUniqueId(uniqueId);
+                                        }
+                                      }
+                                    }
+                                  } catch (e) {
+                                    Logger.errorLog('[CM] Error loading child image $photoId: $e');
+                                  }
+                                  
+                                  processedChildImages.add({
+                                    'photo_id': photoId,
+                                    'photo_taken_ts': childImg['photoTakenTs'] ?? childImg['photo_taken_ts'],
+                                    'image_data': imageData,
+                                  });
+                                }
+                              }
+                            }
+                            processedChild['response_images'] = processedChildImages;
+                          }
+                          
+                          processedChildResponses.add(processedChild);
+                        }
+                      }
+                      processedItem['child_item_responses'] = processedChildResponses;
+                    }
+                    
+                    processedImpactedItems.add(processedItem);
+                  }
+                }
+                mergedItem['siteDeployedItems'] = processedImpactedItems;
               }
               
               // Merge numeric values if present
@@ -1142,7 +1293,7 @@ class _CorrectiveMaintenanceScreenState
       } else {
         mergedData[equipmentType] = templateItems;
       }
-    });
+    }
     
     Logger.infoLog('[CM] Merged checklist data: ${mergedData.keys.toList()}');
     return mergedData;
@@ -1256,6 +1407,7 @@ class _CorrectiveMaintenanceScreenState
             equipmentType: _selectedEquipmentType,
             checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
             entityId: _selectedSite?.entityId.toString(),
+            isEditable: true, // Editable in create mode
             onChecklistDataChanged: (List<dynamic> updatedData) {
               setState(() {
                 _onFormChanged();
@@ -1291,7 +1443,7 @@ class _CorrectiveMaintenanceScreenState
                   });
                 },
           ),
-        // In edit mode, use ChecklistCreateWidget (editable) with merged data
+        // In edit mode, use ChecklistCreateWidget (read-only) with merged data
         if (widget.mode == CMScreenModeEnum.edit &&
             _selectedEquipmentType.isNotEmpty &&
             _checklistData[_selectedEquipmentType] != null)
@@ -1302,6 +1454,7 @@ class _CorrectiveMaintenanceScreenState
             equipmentType: _selectedEquipmentType,
             checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
             entityId: _selectedSite?.entityId.toString(),
+            isEditable: false, // Not editable in edit mode (fields disabled, images shown but upload disabled)
             onChecklistDataChanged: (List<dynamic> updatedData) {
               setState(() {
                 _onFormChanged();
@@ -1332,15 +1485,32 @@ class _CorrectiveMaintenanceScreenState
                   });
                 },
           ),
-        // In view mode, use ChecklistCreateWidgetView (read-only)
-        if (widget.mode == CMScreenModeEnum.view)
-          ChecklistCreateWidgetView(
+        // In view mode, use ChecklistCreateWidget with isReadOnly: true (read-only with images)
+        if (widget.mode == CMScreenModeEnum.view &&
+            _selectedEquipmentType.isNotEmpty &&
+            _checklistData[_selectedEquipmentType] != null)
+          ChecklistCreateWidget(
+            key: ValueKey(
+              'checklist_view_${_selectedEquipmentType}_${_selectedSite?.entityId}',
+            ),
             equipmentType: _selectedEquipmentType,
-            checklistItemsByApi:
-                widget.preloadedSiteData?['cmCheckListSiteRespList'] ?? 
-                widget.preloadedSiteData?['cm_check_list_site_resp_list'] ?? [],
+            checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
+            entityId: _selectedSite?.entityId.toString(),
+            isEditable: false, // Not editable in view mode (fields disabled, images shown but upload disabled)
+            onChecklistDataChanged: (List<dynamic> updatedData) {
+              // No-op in view mode
+            },
+            cmImpactedItemList: _impactedItemList,
+            onImpactedItemListChanged:
+                (List<Map<String, dynamic>> impactedItems) {
+                  // No-op in view mode
+                },
             originalCmImpactedItemMap:
                 _checklistData['siteDeployedItems'] ?? {},
+            onMultiDynamicDropdownValueChanged:
+                (List<Map<String, dynamic>> impactedItems, String dropdownId) {
+                  // No-op in view mode
+                },
           ),
       ],
     );
@@ -1686,95 +1856,114 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        // Identification Photo
-        ImageUploadField(
-          label: "Identification",
-          placeholder: "Add a Photo",
-          isRequired: false,
-          onImageSelected: (File? file) async {
-            if (file != null) {
-              final bytes = await file.readAsBytes();
-              final encodedData = base64Encode(bytes);
-              setState(() {
-                identificationPhoto = file;
-                identificationPhotoByteData = encodedData;
-              });
-              
-              // Upload immediately if online
-              await _uploadPhotoImmediately(
-                file,
-                encodedData,
-                'Identification',
-                (photoId) {
-                  _originalIdentificationPhotoId = photoId;
-                },
-              );
-            }
-          },
-          externalImageUrl: identificationPhotoByteData,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+        // Show these fields only in edit and view mode
+        if (widget.mode != CMScreenModeEnum.create) ...[
+          // Identification Photo
+          ImageUploadField(
+            label: "Identification",
+            placeholder: "Add a Photo",
+            isRequired: false,
+            onImageSelected: (File? file) async {
+              if (file != null) {
+                final bytes = await file.readAsBytes();
+                final encodedData = base64Encode(bytes);
+                setState(() {
+                  identificationPhoto = file;
+                  identificationPhotoByteData = encodedData;
+                });
+                
+                // Upload immediately if online
+                await _uploadPhotoImmediately(
+                  file,
+                  encodedData,
+                  'Identification',
+                  (photoId) {
+                    _originalIdentificationPhotoId = photoId;
+                  },
+                );
+              }
+            },
+            externalImageUrl: identificationPhotoByteData,
+            isDisabled: widget.mode == CMScreenModeEnum.view,
+          ),
+          getHeight(15),
 
-        // FSR Photo
-        ImageUploadField(
-          label: "FSR",
-          placeholder: "Add a Photo",
-          isRequired: false,
-          onImageSelected: (File? file) async {
-            if (file != null) {
-              final bytes = await file.readAsBytes();
-              final encodedData = base64Encode(bytes);
+          // FSR Attachment (file attachment, not photo)
+          CustomFileUploadNew(
+            label: "FSR",
+            placeholder: "Upload File",
+            uploadedFiles: _fsrAttachments,
+            serverAttachmentName: _fsrAttachmentName != null && 
+                _fsrAttachmentName!.trim().isNotEmpty
+                ? _fsrAttachmentName!.trim()
+                : null,
+            serverAttachmentId: _fsrAttachmentId != null && 
+                _fsrAttachmentId != 0
+                ? _fsrAttachmentId
+                : null,
+            onServerAttachmentClicked: widget.mode != CMScreenModeEnum.create
+                ? (attachmentId) async {
+                    LoaderWidget.showLoader(context);
+                    try {
+                      await _loadAttachmentFromDocumentId(attachmentId);
+                    } finally {
+                      LoaderWidget.hideLoader();
+                    }
+                  }
+                : null,
+            onFileSelected: (File? file) {
+              if (file != null) {
+                setState(() {
+                  // Clear existing FSR attachment info when new file is selected
+                  _fsrAttachmentId = null;
+                  _fsrAttachmentName = null;
+                  // Clear existing attachments and add new one
+                  _fsrAttachments.clear();
+                  _fsrAttachments.add(file);
+                  _hasFormDataChanges = true;
+                });
+              }
+            },
+            onFileDeleted: (File file) {
               setState(() {
-                fsrPhoto = file;
-                fsrPhotoByteData = encodedData;
+                _fsrAttachments.remove(file);
+                _hasFormDataChanges = true;
               });
-              
-              // Upload immediately if online
-              await _uploadPhotoImmediately(
-                file,
-                encodedData,
-                'FSR',
-                (photoId) {
-                  _originalFsrPhotoId = photoId;
-                },
-              );
-            }
-          },
-          externalImageUrl: fsrPhotoByteData,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+            },
+            isDisabled: widget.mode == CMScreenModeEnum.view,
+          ),
+          getHeight(15),
 
-        // Time Stamp Photo
-        ImageUploadField(
-          label: "Time Stamp Photo",
-          placeholder: "Add a Photo",
-          isRequired: false,
-          onImageSelected: (File? file) async {
-            if (file != null) {
-              final bytes = await file.readAsBytes();
-              final encodedData = base64Encode(bytes);
-              setState(() {
-                timestampPhoto = file;
-                timestampPhotoByteData = encodedData;
-              });
-              
-              // Upload immediately if online
-              await _uploadPhotoImmediately(
-                file,
-                encodedData,
-                'Time Stamp',
-                (photoId) {
-                  _originalTimestampPhotoId = photoId;
-                },
-              );
-            }
-          },
-          externalImageUrl: timestampPhotoByteData,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+          // Time Stamp Photo
+          ImageUploadField(
+            label: "Time Stamp Photo",
+            placeholder: "Add a Photo",
+            isRequired: false,
+            onImageSelected: (File? file) async {
+              if (file != null) {
+                final bytes = await file.readAsBytes();
+                final encodedData = base64Encode(bytes);
+                setState(() {
+                  timestampPhoto = file;
+                  timestampPhotoByteData = encodedData;
+                });
+                
+                // Upload immediately if online
+                await _uploadPhotoImmediately(
+                  file,
+                  encodedData,
+                  'Time Stamp',
+                  (photoId) {
+                    _originalTimestampPhotoId = photoId;
+                  },
+                );
+              }
+            },
+            externalImageUrl: timestampPhotoByteData,
+            isDisabled: widget.mode == CMScreenModeEnum.view,
+          ),
+          getHeight(15),
+        ],
 
         CustomFileUploadNew(
           label: "Attachments",
@@ -2134,11 +2323,12 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  /// Upload the three new photo fields (Identification, FSR, Time Stamp) before main API call
+  /// Upload the two new photo fields (Identification, Time Stamp) before main API call
   /// This method only uploads photos that haven't been uploaded yet (no photo ID set)
+  /// Note: FSR is now handled as a file attachment, not a photo
   Future<void> _uploadAdditionalPhotos() async {
-    Logger.infoLog('[CM] Starting to upload additional photos (Identification, FSR, Time Stamp)...');
-    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), FSR: ${fsrPhoto != null ? "present" : "null"} (ID: $_originalFsrPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId)');
+    Logger.infoLog('[CM] Starting to upload additional photos (Identification, Time Stamp)...');
+    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId)');
     
     // Upload Identification Photo (only if not already uploaded)
     if (identificationPhoto != null && (_originalIdentificationPhotoId == null || _originalIdentificationPhotoId.toString().trim().isEmpty)) {
@@ -2174,39 +2364,7 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] ⚠️ Identification photo is null - skipping upload');
     }
     
-    // Upload FSR Photo (only if not already uploaded)
-    if (fsrPhoto != null && (_originalFsrPhotoId == null || _originalFsrPhotoId.toString().trim().isEmpty)) {
-      try {
-        Logger.infoLog('[CM] Reading FSR photo bytes...');
-        final bytes = await fsrPhoto!.readAsBytes();
-        final base64Image = base64Encode(bytes);
-        Logger.infoLog('[CM] FSR photo encoded, size: ${base64Image.length} chars');
-        
-        Logger.infoLog('[CM] Uploading FSR photo to server...');
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
-          base64Image,
-          ActivityTypeEnum.correctiveMaintenance,
-          false, // not a selfie
-          _selectedSite?.siteId.toString(),
-        );
-        
-        if (serverPhotoId.isNotEmpty) {
-          _originalFsrPhotoId = serverPhotoId;
-          Logger.infoLog('[CM] ✅ FSR photo uploaded successfully. Photo ID: $serverPhotoId');
-        } else {
-          Logger.errorLog('[CM] ❌ Failed to upload FSR photo - empty photo ID returned');
-          _originalFsrPhotoId = null;
-        }
-      } catch (e, stackTrace) {
-        Logger.errorLog('[CM] ❌ Error uploading FSR photo: $e');
-        Logger.errorLog('[CM] Stack trace: $stackTrace');
-        _originalFsrPhotoId = null;
-      }
-    } else if (fsrPhoto != null) {
-      Logger.infoLog('[CM] ⏭️ FSR photo already uploaded (ID: $_originalFsrPhotoId) - skipping');
-    } else {
-      Logger.infoLog('[CM] ⚠️ FSR photo is null - skipping upload');
-    }
+    // Note: FSR is now handled as a file attachment (uploaded with customer attachments via saveCustomerPhotoAndAttachments)
     
     // Upload Time Stamp Photo (only if not already uploaded)
     if (timestampPhoto != null && (_originalTimestampPhotoId == null || _originalTimestampPhotoId.toString().trim().isEmpty)) {
@@ -2242,7 +2400,7 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] ⚠️ Time Stamp photo is null - skipping upload');
     }
     
-    Logger.infoLog('[CM] Additional photos upload completed. Final IDs - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+    Logger.infoLog('[CM] Additional photos upload completed. Final IDs - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
   }
 
   Future<void> _uploadImpactedItemImagesAndUpdateIds(
@@ -2896,8 +3054,8 @@ class _CorrectiveMaintenanceScreenState
       // Upload additional photos (Identification, FSR, Time Stamp) first
       await _uploadAdditionalPhotos();
       
-      // Add the three new photo IDs to requestData (after upload)
-      Logger.infoLog('[CM] Adding additional photo IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      // Add the two new photo IDs to requestData (after upload)
+      Logger.infoLog('[CM] Adding additional photo IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -2910,15 +3068,25 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - not adding to requestData');
       }
       
-      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
-        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
-        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_originalFsrPhotoId');
-        if (fsrPhoto != null) {
-          final photoName = fsrPhoto!.path.split('/').last;
-          requestData['fsrAttachmentName'] = photoName;
+      // Add FSR attachment info (file attachment, not photo)
+      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_fsrAttachmentId');
+        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
+          requestData['fsrAttachmentName'] = _fsrAttachmentName;
+          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $_fsrAttachmentName');
+        } else if (_fsrAttachments.isNotEmpty) {
+          final attachmentName = _fsrAttachments.first.path.split('/').last;
+          requestData['fsrAttachmentName'] = attachmentName;
+          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $attachmentName');
         }
+      } else if (_fsrAttachments.isNotEmpty) {
+        // FSR attachment was selected but not yet uploaded - will be uploaded with customer attachments
+        final attachmentName = _fsrAttachments.first.path.split('/').last;
+        requestData['fsrAttachmentName'] = attachmentName;
+        Logger.infoLog('[CM] ⚠️ FSR attachment selected but not uploaded yet, adding name: $attachmentName');
       } else {
-        Logger.infoLog('[CM] ⚠️ fsrAttachmentId is null or empty - not adding to requestData');
+        Logger.infoLog('[CM] ⚠️ FSR attachment is null or empty - not adding to requestData');
       }
       
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
@@ -3069,13 +3237,15 @@ class _CorrectiveMaintenanceScreenState
       // it means they weren't changed, so we should preserve them by not calling this method
       final hasNewPhoto = customerPhoto != null;
       final hasNewAttachment = _uploadedAttachments.isNotEmpty;
+      final hasNewFsrAttachment = _fsrAttachments.isNotEmpty;
       
-      if (hasNewPhoto || hasNewAttachment) {
-        Logger.infoLog('[CM] Uploading changed photo/attachment - Photo: $hasNewPhoto, Attachment: $hasNewAttachment');
+      if (hasNewPhoto || hasNewAttachment || hasNewFsrAttachment) {
+        Logger.infoLog('[CM] Uploading changed photo/attachment - Photo: $hasNewPhoto, Attachment: $hasNewAttachment, FSR: $hasNewFsrAttachment');
         await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
           cmSiteReqId!,
           customerPhoto, // Will be null if not changed, which is fine - API won't update it
           _uploadedAttachments.firstOrNull, // Will be null if not changed, which is fine - API won't update it
+          _fsrAttachments.firstOrNull, // FSR attachment
         );
       } else {
         Logger.infoLog('[CM] No changes to photo or attachment, skipping upload to preserve existing ones');
@@ -3178,17 +3348,55 @@ class _CorrectiveMaintenanceScreenState
         requestData['customer_photo_id'] = _originalCustomerPhotoId;
       }
       
-      // Add the three new photo IDs
+      // Add the two new photo IDs (Identification and Time Stamp)
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
       }
       
-      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
-        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
-      }
-      
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
         requestData['timestampImgId'] = _originalTimestampPhotoId;
+      }
+      
+      // Upload FSR attachment if provided (file attachment, not photo)
+      String? fsrAttachmentId;
+      if (_fsrAttachments.isNotEmpty) {
+        fsrAttachmentId = await _uploadImageWithOfflineSupport(
+          _fsrAttachments.first,
+          ActivityTypeEnum.correctiveMaintenance,
+        );
+        if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
+          _fsrAttachmentId = int.tryParse(fsrAttachmentId) ?? fsrAttachmentId;
+          _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
+          Logger.infoLog('[CM] ✅ FSR attachment uploaded. ID: $_fsrAttachmentId, Name: $_fsrAttachmentName');
+        }
+      }
+      
+      // Add FSR attachment info to request data
+      if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
+        requestData['fsrAttachmentId'] = fsrAttachmentId;
+        requestData['fsrAttachmentName'] = _fsrAttachmentName ?? _fsrAttachments.first.path.split('/').last;
+        // Store original file path and name for offline sync
+        if (_fsrAttachments.isNotEmpty) {
+          final originalFile = _fsrAttachments.first;
+          requestData['fsr_original_file_path'] = originalFile.path;
+          requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
+        }
+        Logger.infoLog('[CM] ✅ Added FSR attachment to requestData - ID: $fsrAttachmentId, Name: ${requestData['fsrAttachmentName']}');
+      } else if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
+        // Preserve existing FSR attachment ID if not changed
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
+          requestData['fsrAttachmentName'] = _fsrAttachmentName;
+        }
+        Logger.infoLog('[CM] ✅ Preserved existing FSR attachment in requestData - ID: $_fsrAttachmentId, Name: $_fsrAttachmentName');
+      } else if (_fsrAttachments.isNotEmpty) {
+        // FSR attachment was selected but upload failed - still add name
+        requestData['fsrAttachmentName'] = _fsrAttachments.first.path.split('/').last;
+        // Store original file path and name for offline sync
+        final originalFile = _fsrAttachments.first;
+        requestData['fsr_original_file_path'] = originalFile.path;
+        requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
+        Logger.infoLog('[CM] ⚠️ FSR attachment selected but upload failed, adding name only: ${requestData['fsrAttachmentName']}');
       }
       
       if (attachmentId != null) {
@@ -3386,8 +3594,8 @@ class _CorrectiveMaintenanceScreenState
       // Upload additional photos (Identification, FSR, Time Stamp) first
       await _uploadAdditionalPhotos();
       
-      // Add the three new photo IDs to requestData (after upload, before online/offline decision)
-      Logger.infoLog('[CM] Adding additional photo IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      // Add the two new photo IDs to requestData (after upload, before online/offline decision)
+      Logger.infoLog('[CM] Adding additional photo IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -3400,15 +3608,25 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - not adding to requestData');
       }
       
-      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
-        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
-        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_originalFsrPhotoId');
-        if (fsrPhoto != null) {
-          final photoName = fsrPhoto!.path.split('/').last;
-          requestData['fsrAttachmentName'] = photoName;
+      // Add FSR attachment info (file attachment, not photo)
+      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_fsrAttachmentId');
+        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
+          requestData['fsrAttachmentName'] = _fsrAttachmentName;
+          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $_fsrAttachmentName');
+        } else if (_fsrAttachments.isNotEmpty) {
+          final attachmentName = _fsrAttachments.first.path.split('/').last;
+          requestData['fsrAttachmentName'] = attachmentName;
+          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $attachmentName');
         }
+      } else if (_fsrAttachments.isNotEmpty) {
+        // FSR attachment was selected but not yet uploaded - will be uploaded with customer attachments
+        final attachmentName = _fsrAttachments.first.path.split('/').last;
+        requestData['fsrAttachmentName'] = attachmentName;
+        Logger.infoLog('[CM] ⚠️ FSR attachment selected but not uploaded yet, adding name: $attachmentName');
       } else {
-        Logger.infoLog('[CM] ⚠️ fsrAttachmentId is null or empty - not adding to requestData');
+        Logger.infoLog('[CM] ⚠️ FSR attachment is null or empty - not adding to requestData');
       }
       
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
@@ -3509,13 +3727,15 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog("CM ticket created with ID: $cmSiteReqId");
         
         // Upload customer photo and attachments after creating the ticket
-        if (customerPhoto != null || _uploadedAttachments.isNotEmpty) {
+        // Upload customer photo, customer attachment, and FSR attachment
+        if (customerPhoto != null || _uploadedAttachments.isNotEmpty || _fsrAttachments.isNotEmpty) {
           await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
             cmSiteReqId,
             customerPhoto,
             _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
+            _fsrAttachments.isNotEmpty ? _fsrAttachments.first : null,
           );
-          Logger.infoLog("CM images uploaded successfully");
+          Logger.infoLog("CM customer photo, attachment, and FSR attachment uploaded successfully");
         }
       }
 
@@ -3570,8 +3790,8 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Add the three new photo IDs
-      Logger.infoLog('[CM] Checking additional photo IDs - Identification: $_originalIdentificationPhotoId, FSR: $_originalFsrPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      // Add the two new photo IDs (Identification and Time Stamp)
+      Logger.infoLog('[CM] Checking additional photo IDs - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -3584,15 +3804,29 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - photo may not have been uploaded');
       }
       
-      if (_originalFsrPhotoId != null && _originalFsrPhotoId.toString().trim().isNotEmpty) {
-        requestData['fsrAttachmentId'] = _originalFsrPhotoId;
-        Logger.infoLog('[CM] ✅ Added fsrAttachmentId: $_originalFsrPhotoId');
-        if (fsrPhoto != null) {
-          final photoName = fsrPhoto!.path.split('/').last;
-          requestData['fsrAttachmentName'] = photoName;
+      // Add FSR attachment info (file attachment, not photo)
+      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        Logger.infoLog('[CM] ✅ Added fsrAttachmentId: $_fsrAttachmentId');
+        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
+          requestData['fsrAttachmentName'] = _fsrAttachmentName;
+          Logger.infoLog('[CM] ✅ Added fsrAttachmentName: $_fsrAttachmentName');
+        } else if (_fsrAttachments.isNotEmpty) {
+          final attachmentName = _fsrAttachments.first.path.split('/').last;
+          requestData['fsrAttachmentName'] = attachmentName;
+          Logger.infoLog('[CM] ✅ Added fsrAttachmentName: $attachmentName');
         }
+      } else if (_fsrAttachments.isNotEmpty) {
+        // FSR attachment was selected but not yet uploaded
+        final attachmentName = _fsrAttachments.first.path.split('/').last;
+        requestData['fsrAttachmentName'] = attachmentName;
+        // Store original file path and name for offline sync
+        final originalFile = _fsrAttachments.first;
+        requestData['fsr_original_file_path'] = originalFile.path;
+        requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
+        Logger.infoLog('[CM] ⚠️ FSR attachment selected but not uploaded yet, adding name: $attachmentName');
       } else {
-        Logger.infoLog('[CM] ⚠️ fsrAttachmentId is null or empty - photo may not have been uploaded');
+        Logger.infoLog('[CM] ⚠️ FSR attachment is null or empty - not adding to requestData');
       }
       
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
