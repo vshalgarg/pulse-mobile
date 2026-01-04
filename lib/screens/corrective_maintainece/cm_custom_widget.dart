@@ -771,16 +771,24 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     final fieldNames = _getFieldNamesFromChildItems();
     
     // Create data entry with dynamic field names
+    final mfgSerialNo = _selectedItemData!['mfg_serial_no']?.toString() ?? '';
+    final cmItemType = _selectedItemData!['item_type']?.toString() ?? _currentItem['sub_item_type']?.toString() ?? '';
+    
+    // Generate checklistRef (e.g., "Battery-1", "Battery-2") based on existing items
+    final existingItemsCount = _dynamicDropdownData.length;
+    final checklistRef = '$cmItemType-${existingItemsCount + 1}';
+    
     final dataEntry = {
       "cmImpactedItemId": 0,
       "itemInstanceId": _selectedItemData!['item_instance_id'],
-      "mfgSerialNo": _selectedItemData!['mfg_serial_no'],
+      "mfgSerialNo": mfgSerialNo,
       "nexgenSerialNo": _selectedItemData!['nexgen_serial_no'],
-      "cmItemType": _selectedItemData!['item_type'],
+      "cmItemType": cmItemType,
       "isActive": true,
       "remarks": "",
       "subItemType": _currentItem['sub_item_type'],
       "respType": _currentItem['resp_type'],
+      "checklistRef": checklistRef,
     };
     
     // Add dynamic fields based on impacted_item_value_map (old behavior for TEXT fields)
@@ -802,25 +810,32 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       final respType = childItem['resp_type']?.toString() ?? '';
       final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
       
+      final clOrder = childItem['cl_order'] as int? ?? 
+                     childItem['clOrder'] as int? ?? 0;
+      
       if (respType == 'CHECKBOX') {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         childItemResponses.add({
-          'cm_check_list_mst_id': parentCheckListGroupId, // Use parent's check_list_group_id instead of child's ID
-          'checklist_desc': checklistDesc, // Add checklist_desc
+          'cm_check_list_mst_id': childId, // Child's actual ID (for the impacted item entry)
+          'parent_cm_check_list_mst_id': parentCheckListGroupId, // Parent's ID (for grouping)
+          'checklist_desc': checklistDesc,
           'resp': isChecked ? 'true' : 'false',
           'resp_type': respType,
+          'cl_order': clOrder,
         });
       } else if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         final numericValue = _childItemNumericValues[childId] ?? '';
         // resp should be the same as respNumeric (numeric value) when checked, "0" when unchecked
         childItemResponses.add({
-          'cm_check_list_mst_id': parentCheckListGroupId, // Use parent's check_list_group_id instead of child's ID
-          'checklist_desc': checklistDesc, // Add checklist_desc
-          'resp': isChecked && numericValue.isNotEmpty ? numericValue : '0', // resp should be same as numeric value when checked
+          'cm_check_list_mst_id': childId, // Child's actual ID (for the impacted item entry)
+          'parent_cm_check_list_mst_id': parentCheckListGroupId, // Parent's ID (for grouping)
+          'checklist_desc': checklistDesc,
+          'resp': isChecked && numericValue.isNotEmpty ? numericValue : '0',
           'resp_numeric': numericValue,
           'numeric_value': numericValue,
           'resp_type': respType,
+          'cl_order': clOrder,
         });
       }
       // Add dependent images for this child item

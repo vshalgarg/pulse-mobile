@@ -33,7 +33,6 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../models/cm_site_model.dart';
-import '../../../routes/route_generator.dart';
 
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
@@ -126,13 +125,20 @@ class _CorrectiveMaintenanceScreenState
   List<Map<String, dynamic>> _impactedItemList = [];
 
   bool _hasFormDataChanges = false;
+  bool _isSubmitting = false; // Flag to prevent duplicate submissions
 
   @override
   void initState() {
     super.initState();
     // Use preloaded sites if available, otherwise load them
 
-    controllers['responsible_party']!.addListener(_updateAssignedToField);
+    controllers['responsible_party']!.addListener(() {
+      _updateAssignedToField();
+      // Trigger rebuild when responsible party changes to show/hide OEM fields
+      if (mounted) {
+        setState(() {});
+      }
+    });
     if (widget.preloadedSites != null) {
       Logger.infoLog("🔄 [CM] Preloaded sites: ${widget.preloadedSites}");
 
@@ -157,25 +163,38 @@ class _CorrectiveMaintenanceScreenState
 
       // Try both camelCase and snake_case for cmSiteReqId
       cmSiteReqId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
+      
+      // Helper function to get value with fallback for both camelCase and snake_case
+      T _getSiteValue<T>(Map<String, dynamic> map, String camelCaseKey, String snakeCaseKey, T defaultValue) {
+        final value = map[camelCaseKey] ?? map[snakeCaseKey];
+        return value != null ? value as T : defaultValue;
+      }
+      
       CMSite site = CMSite(
-        siteId: preloadedSite['site_id'] ?? 0,
-        entityId: preloadedSite['entity_id'] ?? 0,
-        siteCode: preloadedSite['site_code'] ?? '',
-        siteName: preloadedSite['site_name'] ?? '',
-        clusterDistrictId: preloadedSite['cluster_district_id'] ?? 0,
-        clusterDistrictName: preloadedSite['cluster_district_name'] ?? preloadedSite['cluster'] ?? '',
-        circleStateId: preloadedSite['circle_state_id'] ?? 0,
-        circleStateName: preloadedSite['circle_state_name'] ?? preloadedSite['circle'] ?? '',
-        clientId: preloadedSite['client_id'],
-        clientName: preloadedSite['client_name']?.toString(),
+        siteId: _getSiteValue(preloadedSite, 'siteId', 'site_id', 0),
+        entityId: _getSiteValue(preloadedSite, 'entityId', 'entity_id', 0),
+        siteCode: _getSiteValue(preloadedSite, 'siteCode', 'site_code', '').toString(),
+        siteName: _getSiteValue(preloadedSite, 'siteName', 'site_name', '').toString(),
+        clusterDistrictId: _getSiteValue(preloadedSite, 'clusterDistrictId', 'cluster_district_id', 0),
+        clusterDistrictName: _getSiteValue(preloadedSite, 'clusterDistrictName', 'cluster_district_name', '').toString().isEmpty
+            ? (preloadedSite['cluster']?.toString() ?? '')
+            : _getSiteValue(preloadedSite, 'clusterDistrictName', 'cluster_district_name', '').toString(),
+        circleStateId: _getSiteValue(preloadedSite, 'circleStateId', 'circle_state_id', 0),
+        circleStateName: _getSiteValue(preloadedSite, 'circleStateName', 'circle_state_name', '').toString().isEmpty
+            ? (preloadedSite['circle']?.toString() ?? '')
+            : _getSiteValue(preloadedSite, 'circleStateName', 'circle_state_name', '').toString(),
+        clientId: preloadedSite['clientId'] ?? preloadedSite['client_id'],
+        clientName: (preloadedSite['clientName'] ?? preloadedSite['client_name'])?.toString(),
         oem: preloadedSite['oem']?.toString(),
-        oemId: preloadedSite['oem_id'],
-        self: preloadedSite['assigned_to_name'] ?? preloadedSite['self'] ?? '',
-        selfId: preloadedSite['assigned_to'] ?? preloadedSite['self_id'] ?? 0,
-        infraEngineerName: preloadedSite['infra_engineer_name']?.toString() ?? preloadedSite['infraEngineerName']?.toString(),
-        infraEngineerContactNo: preloadedSite['infra_engineer_contact_no']?.toString() ?? preloadedSite['infraEngineerContactNo']?.toString(),
-        clusterInchargeName: preloadedSite['cluster_incharge_name']?.toString() ?? preloadedSite['clusterInchargeName']?.toString(),
-        clusterInchargeContactNo: preloadedSite['cluster_incharge_contact_no']?.toString() ?? preloadedSite['clusterInchargeContactNo']?.toString(),
+        oemId: preloadedSite['oemId'] ?? preloadedSite['oem_id'],
+        self: _getSiteValue(preloadedSite, 'assignedToName', 'assigned_to_name', '').toString().isEmpty
+            ? (preloadedSite['self']?.toString() ?? '')
+            : _getSiteValue(preloadedSite, 'assignedToName', 'assigned_to_name', '').toString(),
+        selfId: (preloadedSite['assignedTo'] ?? preloadedSite['assigned_to'] ?? preloadedSite['selfId'] ?? preloadedSite['self_id']) as int? ?? 0,
+        infraEngineerName: (preloadedSite['infraEngineerName'] ?? preloadedSite['infra_engineer_name'])?.toString(),
+        infraEngineerContactNo: (preloadedSite['infraEngineerContactNo'] ?? preloadedSite['infra_engineer_contact_no'])?.toString(),
+        clusterInchargeName: (preloadedSite['clusterInchargeName'] ?? preloadedSite['cluster_incharge_name'])?.toString(),
+        clusterInchargeContactNo: (preloadedSite['clusterInchargeContactNo'] ?? preloadedSite['cluster_incharge_contact_no'])?.toString(),
         category: preloadedSite['category']?.toString(),
       );
       _siteOptions = [site];
@@ -546,7 +565,18 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
+  /// Helper method to get value from preloadedSite handling both camelCase and snake_case
+  String? _getValue(Map<String, dynamic> preloadedSite, String camelCaseKey, String snakeCaseKey) {
+    final value = preloadedSite[camelCaseKey] ?? preloadedSite[snakeCaseKey];
+    if (value == null) return null;
+    final strValue = value.toString().trim();
+    return strValue.isEmpty ? null : strValue;
+  }
+
   void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
+    Logger.infoLog('[CM] Initializing ticket controllers from preloadedSite');
+    Logger.infoLog('[CM] Available keys: ${preloadedSite.keys.toList()}');
+    
     // Initialize CM Ticket No if cmSiteReqId is available (try both camelCase and snake_case)
     final ticketId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
     if (ticketId != null && ticketId.toString().trim().isNotEmpty) {
@@ -556,61 +586,150 @@ class _CorrectiveMaintenanceScreenState
       Logger.errorLog("❌ [CM] CM Ticket No not found in preloadedSite. Available keys: ${preloadedSite.keys}");
     }
     
-    controllers['responsible_party']!.text =
-        preloadedSite['responsible_party']?.toString() ?? '';
-    controllers['assigned_to']!.text =
-        preloadedSite['assigned_to_name']?.toString() ?? '';
-    controllers['priority']!.text = preloadedSite['priority']?.toString() ?? '';
-    controllers['oem_ticket_id']!.text =
-        preloadedSite['oem_ticket_id']?.toString() ?? '';
-    controllers['fault_description']!.text =
-        preloadedSite['fault_description']?.toString() ?? '';
-    controllers['nature_of_failure']!.text =
-        preloadedSite['nature_of_failure']?.toString() ?? '';
-    controllers['scope_of_ticket']!.text =
-        preloadedSite['scope_of_ticket']?.toString() ?? '';
-    controllers['action_taken']!.text =
-        preloadedSite['action_taken']?.toString() ?? '';
-    controllers['rca']!.text = preloadedSite['rca']?.toString() ?? '';
-    controllers['closure_date']!.text =
-        preloadedSite['closure_date']?.toString() ?? 
-        preloadedSite['closureDate']?.toString() ?? '';
-    controllers['oem_representative']!.text =
-        preloadedSite['oem_representative']?.toString() ?? 
-        preloadedSite['oemRepresentative']?.toString() ?? '';
-    controllers['oem_representative_contact']!.text =
-        preloadedSite['oem_representative_contact']?.toString() ?? 
-        preloadedSite['oemRepresentativeContact']?.toString() ?? '';
-    controllers['customer_name']!.text =
-        preloadedSite['customer_name']?.toString() ?? '';
-    controllers['contact_no']!.text =
-        preloadedSite['contact_no']?.toString() ?? '';
-    controllers['customer_remarks']!.text =
-        preloadedSite['customer_remarks']?.toString() ?? '';
-    controllers['problem_summary']!.text =
-        preloadedSite['problem_summary']?.toString() ?? '';
-    
-    // Set status from preloaded data (handle both camelCase and snake_case)
-    final status = preloadedSite['status'] ?? preloadedSite['Status'];
-    if (status != null && status.toString().trim().isNotEmpty) {
-      _statusController.text = status.toString().trim();
+    // Map all fields with support for both camelCase and snake_case
+    // Responsible Party (Category)
+    final responsibleParty = _getValue(preloadedSite, 'responsibleParty', 'responsible_party');
+    if (responsibleParty != null) {
+      controllers['responsible_party']!.text = responsibleParty;
+      Logger.infoLog('[CM] Responsible Party initialized: $responsibleParty');
     }
     
+    // Assigned To
+    final assignedToName = _getValue(preloadedSite, 'assignedToName', 'assigned_to_name');
+    if (assignedToName != null) {
+      controllers['assigned_to']!.text = assignedToName;
+      Logger.infoLog('[CM] Assigned To initialized: $assignedToName');
+    }
+    
+    // Priority
+    final priority = _getValue(preloadedSite, 'priority', 'priority');
+    if (priority != null) {
+      controllers['priority']!.text = priority;
+      Logger.infoLog('[CM] Priority initialized: $priority');
+    }
+    
+    // OEM Ticket ID
+    final oemTicketId = _getValue(preloadedSite, 'oemTicketId', 'oem_ticket_id');
+    if (oemTicketId != null) {
+      controllers['oem_ticket_id']!.text = oemTicketId;
+      Logger.infoLog('[CM] OEM Ticket ID initialized: $oemTicketId');
+    }
+    
+    // Fault Description
+    final faultDescription = _getValue(preloadedSite, 'faultDescription', 'fault_description');
+    if (faultDescription != null) {
+      controllers['fault_description']!.text = faultDescription;
+      Logger.infoLog('[CM] Fault Description initialized: $faultDescription');
+    }
+    
+    // Nature of Failure
+    final natureOfFailure = _getValue(preloadedSite, 'natureOfFailure', 'nature_of_failure');
+    if (natureOfFailure != null) {
+      controllers['nature_of_failure']!.text = natureOfFailure;
+      Logger.infoLog('[CM] Nature of Failure initialized: $natureOfFailure');
+    }
+    
+    // Scope of Ticket
+    final scopeOfTicket = _getValue(preloadedSite, 'scopeOfTicket', 'scope_of_ticket');
+    if (scopeOfTicket != null) {
+      controllers['scope_of_ticket']!.text = scopeOfTicket;
+      Logger.infoLog('[CM] Scope of Ticket initialized: $scopeOfTicket');
+    }
+    
+    // Action Taken
+    final actionTaken = _getValue(preloadedSite, 'actionTaken', 'action_taken');
+    if (actionTaken != null) {
+      controllers['action_taken']!.text = actionTaken;
+      Logger.infoLog('[CM] Action Taken initialized: $actionTaken');
+    }
+    
+    // RCA
+    final rca = _getValue(preloadedSite, 'rca', 'rca');
+    if (rca != null) {
+      controllers['rca']!.text = rca;
+      Logger.infoLog('[CM] RCA initialized: $rca');
+    }
+    
+    // Closure Date
+    final closureDate = _getValue(preloadedSite, 'closureDate', 'closure_date');
+    if (closureDate != null) {
+      controllers['closure_date']!.text = closureDate;
+      Logger.infoLog('[CM] Closure Date initialized: $closureDate');
+    }
+    
+    // OEM Representative
+    final oemRepresentative = _getValue(preloadedSite, 'oemRepresentative', 'oem_representative');
+    if (oemRepresentative != null) {
+      controllers['oem_representative']!.text = oemRepresentative;
+      Logger.infoLog('[CM] OEM Representative initialized: $oemRepresentative');
+    }
+    
+    // OEM Representative Contact
+    final oemRepresentativeContact = _getValue(preloadedSite, 'oemRepresentativeContactNo', 'oem_representative_contact_no') ??
+                                     _getValue(preloadedSite, 'oemRepresentativeContact', 'oem_representative_contact');
+    if (oemRepresentativeContact != null) {
+      controllers['oem_representative_contact']!.text = oemRepresentativeContact;
+      Logger.infoLog('[CM] OEM Representative Contact initialized: $oemRepresentativeContact');
+    }
+    
+    // Customer Name
+    final customerName = _getValue(preloadedSite, 'customerName', 'customer_name');
+    if (customerName != null) {
+      controllers['customer_name']!.text = customerName;
+      Logger.infoLog('[CM] Customer Name initialized: $customerName');
+    }
+    
+    // Contact No
+    final contactNo = _getValue(preloadedSite, 'contactNo', 'contact_no');
+    if (contactNo != null) {
+      controllers['contact_no']!.text = contactNo;
+      Logger.infoLog('[CM] Contact No initialized: $contactNo');
+    }
+    
+    // Customer Remarks
+    final customerRemarks = _getValue(preloadedSite, 'customerRemarks', 'customer_remarks');
+    if (customerRemarks != null) {
+      controllers['customer_remarks']!.text = customerRemarks;
+      Logger.infoLog('[CM] Customer Remarks initialized: $customerRemarks');
+    }
+    
+    // Problem Summary
+    final problemSummary = _getValue(preloadedSite, 'problemSummary', 'problem_summary');
+    if (problemSummary != null) {
+      controllers['problem_summary']!.text = problemSummary;
+      Logger.infoLog('[CM] Problem Summary initialized: $problemSummary');
+    }
+    
+    // Set status from preloaded data (handle both camelCase and snake_case)
+    final status = _getValue(preloadedSite, 'status', 'status') ?? preloadedSite['Status']?.toString().trim();
+    if (status != null && status.isNotEmpty) {
+      _statusController.text = status;
+      Logger.infoLog('[CM] Status initialized: $status');
+    }
+    
+    // Set equipment type (handle both camelCase and snake_case)
     setState(() {
-      if (preloadedSite['is_dg'] != null && preloadedSite['is_dg'] == true) {
+      final isDg = preloadedSite['isDg'] ?? preloadedSite['is_dg'];
+      final isBattery = preloadedSite['isBattery'] ?? preloadedSite['is_battery'];
+      final isCcu = preloadedSite['isCcu'] ?? preloadedSite['is_ccu'];
+      final isSmps = preloadedSite['isSmps'] ?? preloadedSite['is_smps'];
+      final isSolar = preloadedSite['isSolar'] ?? preloadedSite['is_solar'];
+      
+      if (isDg == true) {
         _selectedEquipmentType = 'DG';
-      } else if (preloadedSite['is_battery'] != null &&
-          preloadedSite['is_battery'] == true) {
+        Logger.infoLog('[CM] Equipment Type initialized: DG');
+      } else if (isBattery == true) {
         _selectedEquipmentType = 'BATTERY';
-      } else if (preloadedSite['is_ccu'] != null &&
-          preloadedSite['is_ccu'] == true) {
+        Logger.infoLog('[CM] Equipment Type initialized: BATTERY');
+      } else if (isCcu == true) {
         _selectedEquipmentType = 'CCU';
-      } else if (preloadedSite['is_smps'] != null &&
-          preloadedSite['is_smps'] == true) {
+        Logger.infoLog('[CM] Equipment Type initialized: CCU');
+      } else if (isSmps == true) {
         _selectedEquipmentType = 'SMPS';
-      } else if (preloadedSite['is_solar'] != null &&
-          preloadedSite['is_solar'] == true) {
+        Logger.infoLog('[CM] Equipment Type initialized: SMPS');
+      } else if (isSolar == true) {
         _selectedEquipmentType = 'SOLAR';
+        Logger.infoLog('[CM] Equipment Type initialized: SOLAR');
       }
     });
     
@@ -625,6 +744,8 @@ class _CorrectiveMaintenanceScreenState
     for (var value in controllers.values) {
       value.addListener(_onFormChanged);
     }
+    
+    Logger.infoLog('[CM] Ticket controllers initialization completed');
   }
 
   // 👇 Jab user site select kare
@@ -777,10 +898,73 @@ class _CorrectiveMaintenanceScreenState
             _checklistData = checklistData;
           });
         }
-      } else {
+      } else if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+        // In edit/view mode, load checklist template and merge with existing responses
         Logger.infoLog(
-          "⚠️ [CM] Skipping getChecklistData - mode is ${widget.mode}, not CREATE",
+          "🔄 [CM] Edit/View mode - Loading checklist template and merging with existing responses",
         );
+        
+        try {
+          // Load checklist template from local database or API
+          Map<String, dynamic> checklistTemplate = {};
+          
+          // Try to get from local database first
+          final siteDataWithChecklist = await ServiceLocator()
+              .centralAssetAuditDataService
+              .getCMSiteDataWithChecklist(_selectedSite!.siteId);
+          
+          if (siteDataWithChecklist != null && siteDataWithChecklist['checklist_items'] != null) {
+            checklistTemplate = Map<String, dynamic>.from(siteDataWithChecklist['checklist_items']);
+          } else {
+            // Try separate checklist table
+            final localChecklistData = await ServiceLocator()
+                .centralAssetAuditDataService
+                .getCMChecklistData(_selectedSite!.siteId);
+            
+            if (localChecklistData.isNotEmpty) {
+              checklistTemplate = localChecklistData;
+            } else {
+              // Fetch from API if online
+              final isOnline = await ConnectivityHelper.isConnected();
+              if (isOnline) {
+                final apiResponse = await ServiceLocator().cmRepository
+                    .getChecklistData(_selectedSite!.entityId);
+                
+                if (apiResponse.containsKey('checkListDetails')) {
+                  checklistTemplate = Map<String, dynamic>.from(apiResponse['checkListDetails']);
+                  if (apiResponse.containsKey('siteDeployedItems')) {
+                    checklistTemplate['siteDeployedItems'] = apiResponse['siteDeployedItems'];
+                  }
+                } else {
+                  checklistTemplate = apiResponse;
+                }
+              }
+            }
+          }
+          
+          // Get existing responses from preloadedSiteData
+          final existingResponses = widget.preloadedSiteData?['cmCheckListSiteRespList'] ?? 
+                                   widget.preloadedSiteData?['cm_check_list_site_resp_list'] ?? [];
+          
+          Logger.infoLog('[CM] Found ${existingResponses.length} existing checklist responses');
+          
+          // Merge existing responses with checklist template
+          final mergedChecklistData = _mergeChecklistWithResponses(
+            checklistTemplate,
+            existingResponses,
+          );
+          
+          if (mounted) {
+            setState(() {
+              _checklistData = mergedChecklistData;
+            });
+          }
+          
+          Logger.infoLog('[CM] Merged checklist data prepared for edit mode');
+        } catch (e) {
+          Logger.errorLog('[CM] Error loading checklist template in edit mode: $e');
+          // Continue with empty checklist if loading fails
+        }
       }
       for (var value in controllers.values) {
         value.addListener(_onFormChanged);
@@ -796,6 +980,112 @@ class _CorrectiveMaintenanceScreenState
     } finally {
       if (mounted) LoaderWidget.hideLoader();
     }
+  }
+
+  /// Merge existing checklist responses with template checklist data
+  Map<String, dynamic> _mergeChecklistWithResponses(
+    Map<String, dynamic> checklistTemplate,
+    List<dynamic> existingResponses,
+  ) {
+    final mergedData = <String, dynamic>{};
+    
+    // Copy siteDeployedItems if present
+    if (checklistTemplate.containsKey('siteDeployedItems')) {
+      mergedData['siteDeployedItems'] = checklistTemplate['siteDeployedItems'];
+    }
+    
+    // Group existing responses by equipment type
+    final responsesByType = <String, List<Map<String, dynamic>>>{};
+    for (var response in existingResponses) {
+      if (response is Map<String, dynamic>) {
+        final itemType = response['cmItemType']?.toString() ?? 
+                        response['cm_item_type']?.toString() ?? '';
+        if (itemType.isNotEmpty) {
+          if (!responsesByType.containsKey(itemType)) {
+            responsesByType[itemType] = [];
+          }
+          responsesByType[itemType]!.add(response);
+        }
+      }
+    }
+    
+    // Merge each equipment type
+    checklistTemplate.forEach((equipmentType, templateItems) {
+      if (equipmentType == 'siteDeployedItems') {
+        return; // Skip, already handled
+      }
+      
+      if (templateItems is List) {
+        final mergedItems = <Map<String, dynamic>>[];
+        final existingItemsForType = responsesByType[equipmentType] ?? [];
+        
+        // Create a map of existing responses by cmCheckListMstId for quick lookup
+        final existingResponsesMap = <int, Map<String, dynamic>>{};
+        for (var existingItem in existingItemsForType) {
+          final mstId = existingItem['cmCheckListMstId'] as int? ?? 
+                       existingItem['cm_check_list_mst_id'] as int?;
+          if (mstId != null) {
+            existingResponsesMap[mstId] = existingItem;
+          }
+        }
+        
+        // Merge template items with existing responses
+        for (var templateItem in templateItems) {
+          if (templateItem is Map<String, dynamic>) {
+            final mergedItem = Map<String, dynamic>.from(templateItem);
+            final mstId = mergedItem['cm_check_list_mst_id'] as int? ?? 
+                         mergedItem['cmCheckListMstId'] as int?;
+            
+            // Find matching existing response
+            if (mstId != null && existingResponsesMap.containsKey(mstId)) {
+              final existingResponse = existingResponsesMap[mstId]!;
+              
+              // Merge response data
+              mergedItem['resp'] = existingResponse['resp'];
+              mergedItem['cm_check_list_site_resp_id'] = existingResponse['cmCheckListSiteRespId'] ?? 
+                                                         existingResponse['cm_check_list_site_resp_id'];
+              
+              // Merge images
+              final existingImages = existingResponse['CmCheckListSiteRespImagesList'] ?? 
+                                    existingResponse['cmCheckListSiteRespImagesList'] ?? 
+                                    existingResponse['cm_check_list_site_resp_images_list'] ?? [];
+              
+              if (existingImages is List && existingImages.isNotEmpty) {
+                // Convert to response_images format
+                final responseImages = existingImages.map((img) {
+                  if (img is Map<String, dynamic>) {
+                    return {
+                      'photo_id': img['photoId'] ?? img['photo_id'],
+                      'pclsri_id': mergedItem['cm_check_list_mst_id'] ?? mergedItem['cmCheckListMstId'],
+                      'photo_taken_ts': img['photoTakenTs'] ?? img['photo_taken_ts'],
+                    };
+                  }
+                  return img;
+                }).toList();
+                mergedItem['response_images'] = responseImages;
+              }
+              
+              // Merge numeric values if present
+              if (existingResponse.containsKey('numeric_value')) {
+                mergedItem['numeric_value'] = existingResponse['numeric_value'];
+              }
+              if (existingResponse.containsKey('resp_numeric')) {
+                mergedItem['resp_numeric'] = existingResponse['resp_numeric'];
+              }
+            }
+            
+            mergedItems.add(mergedItem);
+          }
+        }
+        
+        mergedData[equipmentType] = mergedItems;
+      } else {
+        mergedData[equipmentType] = templateItems;
+      }
+    });
+    
+    Logger.infoLog('[CM] Merged checklist data: ${mergedData.keys.toList()}');
+    return mergedData;
   }
 
   // 👇 Update assigned to field based on responsible party selection
@@ -941,13 +1231,56 @@ class _CorrectiveMaintenanceScreenState
                   });
                 },
           ),
-        if (widget.mode != CMScreenModeEnum.create)
+        // In edit mode, use ChecklistCreateWidget (editable) with merged data
+        if (widget.mode == CMScreenModeEnum.edit &&
+            _selectedEquipmentType.isNotEmpty &&
+            _checklistData[_selectedEquipmentType] != null)
+          ChecklistCreateWidget(
+            key: ValueKey(
+              'checklist_edit_${_selectedEquipmentType}_${_selectedSite?.entityId}',
+            ),
+            equipmentType: _selectedEquipmentType,
+            checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
+            entityId: _selectedSite?.entityId.toString(),
+            onChecklistDataChanged: (List<dynamic> updatedData) {
+              setState(() {
+                _onFormChanged();
+                _checklistData[_selectedEquipmentType] = updatedData;
+              });
+            },
+            cmImpactedItemList: _impactedItemList,
+            onImpactedItemListChanged:
+                (List<Map<String, dynamic>> impactedItems) {
+                  Logger.infoLog('[CM] onImpactedItemListChanged called with ${impactedItems.length} items (edit)');
+                  setState(() {
+                    _impactedItemList = impactedItems;
+                  });
+                },
+            originalCmImpactedItemMap:
+                _checklistData['siteDeployedItems'] ?? {},
+            onMultiDynamicDropdownValueChanged:
+                (List<Map<String, dynamic>> impactedItems, String dropdownId) {
+                  setState(() {
+                    _impactedItemList.removeWhere(
+                      (item) => item['_dropdownId'] == dropdownId,
+                    );
+                    for (var item in impactedItems) {
+                      var newItem = Map<String, dynamic>.from(item);
+                      newItem['_dropdownId'] = dropdownId;
+                      _impactedItemList.add(newItem);
+                    }
+                  });
+                },
+          ),
+        // In view mode, use ChecklistCreateWidgetView (read-only)
+        if (widget.mode == CMScreenModeEnum.view)
           ChecklistCreateWidgetView(
             equipmentType: _selectedEquipmentType,
             checklistItemsByApi:
+                widget.preloadedSiteData?['cmCheckListSiteRespList'] ?? 
                 widget.preloadedSiteData?['cm_check_list_site_resp_list'] ?? [],
             originalCmImpactedItemMap:
-                widget.preloadedSiteData?['cm_impacted_item_map_list'] ?? {},
+                _checklistData['siteDeployedItems'] ?? {},
           ),
       ],
     );
@@ -996,7 +1329,7 @@ class _CorrectiveMaintenanceScreenState
                   isLeftArrow: false,
                   backgroundColor: AppColors.cmSubmitButtonColor,
                   textColor: AppColors.buttonColorSite,
-                  onPressed: _validateAndSubmit,
+                  onPressed: _isSubmitting ? null : _validateAndSubmit,
                 ),
               ],
             ),
@@ -1065,12 +1398,7 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        CustomFormField(
-          label: "Customer",
-          controller: _customerController,
-          isEditable: false,
-        ),
-        getHeight(15),
+       
 
         CustomFormField(
           label: "Infra Engineer Name",
@@ -1220,8 +1548,9 @@ class _CorrectiveMaintenanceScreenState
           getHeight(15),
         ],
 
-        // Show these fields only in edit and view mode
-        if (widget.mode != CMScreenModeEnum.create) ...[
+        // Show these fields only in edit and view mode, and only when Category is OEM
+        if (widget.mode != CMScreenModeEnum.create && 
+            controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') ...[
           CustomFormField(
             label: "OEM Representative",
             controller: controllers['oem_representative'],
@@ -1440,7 +1769,11 @@ class _CorrectiveMaintenanceScreenState
             remarksList: widget.preloadedSiteData?['cmRemarksList'] ?? 
                         widget.preloadedSiteData?['cm_remarks_list'],
           ),
-        CustomSubmitButtonV2(text: "Submit", onPressed: _validateAndSubmit),
+        CustomSubmitButtonV2(
+          text: "Submit", 
+          onPressed: _isSubmitting ? null : _validateAndSubmit,
+          isLoading: _isSubmitting,
+        ),
       ],
     );
   }
@@ -1718,8 +2051,42 @@ class _CorrectiveMaintenanceScreenState
     final transformedList = <Map<String, dynamic>>[];
     final now = DateTime.now();
     
+    // Group impacted items by their parent checklist mstId
+    final impactedItemsByParentMstId = <int, List<Map<String, dynamic>>>{};
+    for (var impactedItem in _impactedItemList) {
+      // Get the parent mstId from childItemResponses (they all reference the same parent)
+      final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                 impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+      if (childItemResponses.isNotEmpty) {
+        final firstChild = childItemResponses.first as Map<String, dynamic>?;
+        if (firstChild != null) {
+          // Use parent_cm_check_list_mst_id for grouping, fallback to cm_check_list_mst_id
+          final parentMstId = firstChild['parentCmCheckListMstId'] as int? ?? 
+                            firstChild['parent_cm_check_list_mst_id'] as int? ??
+                            firstChild['cmCheckListMstId'] as int? ?? 
+                            firstChild['cm_check_list_mst_id'] as int?;
+          if (parentMstId != null) {
+            if (!impactedItemsByParentMstId.containsKey(parentMstId)) {
+              impactedItemsByParentMstId[parentMstId] = [];
+            }
+            impactedItemsByParentMstId[parentMstId]!.add(impactedItem);
+          }
+        }
+      }
+    }
+    
+    Logger.infoLog('[CM] Grouped impacted items by parent MstId: ${impactedItemsByParentMstId.keys.toList()}');
+    
     for (var item in checklistData) {
       final Map<String, dynamic> checklistItem = Map<String, dynamic>.from(item);
+      
+      // Get the checklist mstId first (needed for checking impacted items)
+      final checklistMstId = checklistItem['cm_check_list_mst_id'] as int? ?? 
+                            checklistItem['cmCheckListMstId'] as int? ??
+                            checklistItem['item_type_id'] as int?;
+      
+      // Check if this checklist item has impacted items
+      final hasImpactedItems = checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId);
       
       // Get response value based on resp_type
       dynamic respValue;
@@ -1757,10 +2124,17 @@ class _CorrectiveMaintenanceScreenState
         respValue = checklistItem['resp']?.toString();
       }
       
-      // Skip items without a response (unless they're required)
+      // Skip items without a response (unless they're required or have impacted items)
       if (respValue == null || (respValue is String && respValue.isEmpty)) {
-        // Only skip if it's not a mandatory field or if it's a checkbox that's unchecked
-        if (respType != 'CHECKBOX' && respType != 'CHECKBOX_NUMERIC' && respType != 'CHECKBOX_TEXT') {
+        // Don't skip if:
+        // 1. It's a checkbox type (even if unchecked)
+        // 2. It's a DYNAMIC_DROPDOWN with impacted items
+        // 3. It's a MULTI_DYNAMIC_DROPDOWN with impacted items
+        if (respType != 'CHECKBOX' && 
+            respType != 'CHECKBOX_NUMERIC' && 
+            respType != 'CHECKBOX_TEXT' &&
+            !(respType == 'DYNAMIC_DROPDOWN' && hasImpactedItems) &&
+            !(respType == 'MULTI_DYNAMIC_DROPDOWN' && hasImpactedItems)) {
           continue; // Skip items without responses
         }
       }
@@ -1801,20 +2175,19 @@ class _CorrectiveMaintenanceScreenState
         'cmCheckListSiteRespId': checklistItem['cm_check_list_site_resp_id'] ?? 
                                  checklistItem['cmCheckListSiteRespId'] ?? 
                                  0, // 0 for new items
-        'cmCheckListMstId': checklistItem['cm_check_list_mst_id'] ?? 
-                           checklistItem['cmCheckListMstId'] ??
-                           checklistItem['item_type_id'],
+        'cmCheckListMstId': checklistMstId ?? 0,
         'cmItemType': cmItemType.toString(),
         'checklistDesc': checklistItem['checklist_desc'] ?? 
                         checklistItem['checklistDesc'] ?? 
                         '',
-        'resp': respValue ?? (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT' ? '0' : ''),
+        'resp': respValue ?? (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT' ? '0' : null),
         'clOrder': checklistItem['cl_order'] ?? 
                   checklistItem['clOrder'] ?? 
                   0,
         'longitude': location.longitude.toString(),
         'latitude': location.latitude.toString(),
-        'active': true,
+        'isActive': true,
+        'remarks': checklistItem['remarks']?.toString() ?? '',
         'cmCheckListSiteRespImagesList': imageList,
       };
       
@@ -1828,11 +2201,125 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
+      // Add impacted items if this checklist item has any
+      if (checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId)) {
+        final impactedItemsForThisParent = impactedItemsByParentMstId[checklistMstId]!;
+        final transformedImpactedItems = <Map<String, dynamic>>[];
+        
+        for (var impactedItem in impactedItemsForThisParent) {
+          final transformedItemsList = _transformImpactedItemToApiFormat(impactedItem, location);
+          transformedImpactedItems.addAll(transformedItemsList);
+        }
+        
+        if (transformedImpactedItems.isNotEmpty) {
+          transformedItem['cmImpactedItemList'] = transformedImpactedItems;
+          Logger.infoLog('[CM] Added ${transformedImpactedItems.length} impacted items to checklist item with mstId: $checklistMstId');
+        }
+      }
+      
       transformedList.add(transformedItem);
     }
     
     Logger.infoLog('[CM] Transformed ${transformedList.length} checklist items for API');
     return transformedList;
+  }
+  
+  /// Transform a single impacted item to API format
+  /// Each child response becomes a separate impacted item entry
+  List<Map<String, dynamic>> _transformImpactedItemToApiFormat(
+    Map<String, dynamic> impactedItem,
+    LocationModel location,
+  ) {
+    final now = DateTime.now();
+    final transformedItems = <Map<String, dynamic>>[];
+    
+    // Get base impacted item info
+    final itemInstanceId = impactedItem['itemInstanceId'] ?? 
+                           impactedItem['item_instance_id'] ?? 0;
+    final mfgSerialNo = impactedItem['mfgSerialNo']?.toString() ?? 
+                       impactedItem['mfg_serial_no']?.toString() ?? '';
+    final nexgenSerialNo = impactedItem['nexgenSerialNo']?.toString() ?? 
+                         impactedItem['nexgen_serial_no']?.toString() ?? '';
+    final cmItemType = impactedItem['cmItemType']?.toString() ?? 
+                     impactedItem['cm_item_type']?.toString() ?? '';
+    final subItemType = impactedItem['subItemType']?.toString() ?? 
+                      impactedItem['sub_item_type']?.toString() ?? '';
+    final checklistRef = impactedItem['checklistRef']?.toString() ?? 
+                        impactedItem['checklist_ref']?.toString() ?? '';
+    
+    // Transform childItemResponses - each becomes a separate impacted item
+    final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                              impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+    
+    for (var childResponse in childItemResponses) {
+      if (childResponse is Map<String, dynamic>) {
+        final childResp = childResponse['resp']?.toString() ?? '';
+        final checklistDesc = childResponse['checklistDesc']?.toString() ?? 
+                             childResponse['checklist_desc']?.toString() ?? '';
+        // Use the child's actual cmCheckListMstId (not the parent's)
+        final cmCheckListMstId = childResponse['cmCheckListMstId'] as int? ?? 
+                                childResponse['cm_check_list_mst_id'] as int? ?? 0;
+        final clOrder = childResponse['clOrder'] as int? ?? 
+                       childResponse['cl_order'] as int? ?? 0;
+        
+        // Transform response images
+        final responseImages = childResponse['responseImages'] as List<dynamic>? ?? 
+                              childResponse['response_images'] as List<dynamic>? ?? [];
+        
+        final transformedImages = <Map<String, dynamic>>[];
+        for (var imageData in responseImages) {
+          if (imageData is Map<String, dynamic>) {
+            final photoIdValue = imageData['photoId'] ?? imageData['photo_id'];
+            final photoTakenTs = imageData['photoTakenTs']?.toString() ?? 
+                               imageData['photo_taken_ts']?.toString();
+            
+            final formattedPhotoTakenTs = photoTakenTs != null 
+                ? _formatDateStringForApi(photoTakenTs)
+                : _formatDateForApi(now);
+            
+            // Convert photoId to int
+            int photoIdInt = 0;
+            if (photoIdValue != null) {
+              if (photoIdValue is int) {
+                photoIdInt = photoIdValue;
+              } else if (photoIdValue is String) {
+                photoIdInt = int.tryParse(photoIdValue) ?? 0;
+              }
+            }
+            
+            transformedImages.add({
+              'cclsriId': 0,
+              'photoId': photoIdInt,
+              'photoTakenTs': formattedPhotoTakenTs,
+              'isActive': true,
+              'remarks': imageData['remarks']?.toString() ?? 'string',
+            });
+          }
+        }
+        
+        // Build the transformed impacted item (one per child response)
+        final transformedItem = {
+          'cmImpactedItemId': 0,
+          'itemInstanceId': itemInstanceId,
+          'mfgSerialNo': mfgSerialNo,
+          'nexgenSerialNo': nexgenSerialNo,
+          'cmItemType': cmItemType,
+          'subItemType': subItemType,
+          'resp': childResp,
+          'checklistDesc': checklistDesc,
+          'clOrder': clOrder,
+          'cmCheckListMstId': cmCheckListMstId,
+          'checklistRef': checklistRef,
+          'isActive': true,
+          'remarks': impactedItem['remarks']?.toString() ?? 'string',
+          'cmCheckListSiteRespImagesList': transformedImages,
+        };
+        
+        transformedItems.add(transformedItem);
+      }
+    }
+    
+    return transformedItems;
   }
 
   /// Validate all required fields (except checklist)
@@ -1913,14 +2400,16 @@ class _CorrectiveMaintenanceScreenState
     
     // Edit/View mode specific validations
     if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
-      // OEM Representative - required in edit/view mode
-      if (controllers['oem_representative']!.text.trim().isEmpty) {
-        errors.add('OEM Representative is required');
-      }
-      
-      // OEM Representative Contact - required in edit/view mode
-      if (controllers['oem_representative_contact']!.text.trim().isEmpty) {
-        errors.add('OEM Representative Contact is required');
+      // OEM Representative - required only when Category is OEM
+      if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
+        if (controllers['oem_representative']!.text.trim().isEmpty) {
+          errors.add('OEM Representative is required');
+        }
+        
+        // OEM Representative Contact - required only when Category is OEM
+        if (controllers['oem_representative_contact']!.text.trim().isEmpty) {
+          errors.add('OEM Representative Contact is required');
+        }
       }
       
       // Status - required in edit mode
@@ -1981,6 +2470,12 @@ class _CorrectiveMaintenanceScreenState
   }
 
   Future<void> _validateAndSubmit({bool shouldNavigate = true}) async {
+    // Prevent duplicate submissions
+    if (_isSubmitting) {
+      Logger.infoLog('[CM] Submission already in progress - ignoring duplicate call');
+      return;
+    }
+    
     Logger.infoLog('[CM] _validateAndSubmit called - mode: ${widget.mode}');
     
     // Validate all required fields before submission
@@ -1994,10 +2489,18 @@ class _CorrectiveMaintenanceScreenState
     
     Logger.infoLog('[CM] Validation passed - proceeding with submission');
     
-    if (widget.mode == CMScreenModeEnum.create) {
-      await _submitFormData(shouldNavigate: shouldNavigate);
-    } else if (widget.mode == CMScreenModeEnum.edit) {
-      await _editFormData(shouldNavigate: shouldNavigate);
+    // Set submitting flag
+    _isSubmitting = true;
+    
+    try {
+      if (widget.mode == CMScreenModeEnum.create) {
+        await _submitFormData(shouldNavigate: shouldNavigate);
+      } else if (widget.mode == CMScreenModeEnum.edit) {
+        await _editFormData(shouldNavigate: shouldNavigate);
+      }
+    } finally {
+      // Reset submitting flag
+      _isSubmitting = false;
     }
   }
 
@@ -2092,13 +2595,9 @@ class _CorrectiveMaintenanceScreenState
       // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
       await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
-      // Set impacted item list
-      Logger.infoLog('[CM] _impactedItemList before conversion (edit): ${_impactedItemList.length} items');
-      Logger.infoLog('[CM] _impactedItemList content (edit): $_impactedItemList');
-      final convertedImpactedItems = DataTransformationHelper.convertListToCamelCase(_impactedItemList);
-      Logger.infoLog('[CM] Converted impacted items (edit): $convertedImpactedItems');
-      requestData['cm_impacted_item_list'] = convertedImpactedItems;
-      Logger.infoLog('[CM] requestData[cm_impacted_item_list] set (edit): ${requestData['cm_impacted_item_list']}');
+      // Note: Impacted items are now nested inside cmCheckListSiteRespList items
+      // No need to set them as a separate top-level field
+      Logger.infoLog('[CM] Impacted items will be nested inside checklist items (edit mode)');
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel? finalLocation;
 
@@ -2212,14 +2711,12 @@ class _CorrectiveMaintenanceScreenState
           DataTransformationHelper.convertKeysToCamelCase(requestData);
       
       Logger.infoLog('[CM] Final processedData keys: ${processedData.keys.toList()}');
-      Logger.infoLog('[CM] Final processedData[cmImpactedItemList]: ${processedData['cmImpactedItemList']}');
       
-      // API expects CmImpactedItemList (PascalCase), so move from cmImpactedItemList and remove duplicate
-      if (processedData['cmImpactedItemList'] != null) {
-        processedData['CmImpactedItemList'] = processedData['cmImpactedItemList'];
-        processedData.remove('cmImpactedItemList'); // Remove camelCase version to avoid duplicate
-        Logger.infoLog('[CM] Set CmImpactedItemList (PascalCase) and removed cmImpactedItemList duplicate');
-      }
+      // Impacted items are now nested inside cmCheckListSiteRespList, so no need for separate top-level field
+      // Remove any top-level impacted item list if it exists
+      processedData.remove('cmImpactedItemList');
+      processedData.remove('CmImpactedItemList');
+      Logger.infoLog('[CM] Removed top-level impacted item list - they are now nested inside checklist items');
       
       await ServiceLocator().cmRepository.createCorrectiveMaintenance(
         processedData,
@@ -2536,13 +3033,9 @@ class _CorrectiveMaintenanceScreenState
       // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
       await _uploadImpactedItemImagesAndUpdateIds(_impactedItemList);
       
-      // Set impacted item list
-      Logger.infoLog('[CM] _impactedItemList before conversion (create): ${_impactedItemList.length} items');
-      Logger.infoLog('[CM] _impactedItemList content (create): $_impactedItemList');
-      final convertedImpactedItems = DataTransformationHelper.convertListToCamelCase(_impactedItemList);
-      Logger.infoLog('[CM] Converted impacted items (create): $convertedImpactedItems');
-      requestData['cm_impacted_item_list'] = convertedImpactedItems;
-      Logger.infoLog('[CM] requestData[cm_impacted_item_list] set (create): ${requestData['cm_impacted_item_list']}');
+      // Note: Impacted items are now nested inside cmCheckListSiteRespList items
+      // No need to set them as a separate top-level field
+      Logger.infoLog('[CM] Impacted items will be nested inside checklist items (create mode)');
       final selectedCheckListData = _checklistData[_selectedEquipmentType];
       LocationModel finalLocation;
 
@@ -2566,9 +3059,9 @@ class _CorrectiveMaintenanceScreenState
       
       // Transform checklist data to required format (with updated photo IDs)
       requestData['cm_check_list_site_resp_list'] = _transformChecklistDataToApiFormat(
-        selectedCheckListData,
+            selectedCheckListData,
         finalLocation,
-      );
+          );
       Logger.infoLog("requestData: $requestData");
 
       if (isConnected) {
@@ -2610,14 +3103,11 @@ class _CorrectiveMaintenanceScreenState
           DataTransformationHelper.convertKeysToCamelCase(requestData);
       
       Logger.infoLog('[CM] Final processedData keys (create): ${processedData.keys.toList()}');
-      Logger.infoLog('[CM] Final processedData[cmImpactedItemList] (create): ${processedData['cmImpactedItemList']}');
-      
-      // API expects CmImpactedItemList (PascalCase), so move from cmImpactedItemList and remove duplicate
-      if (processedData['cmImpactedItemList'] != null) {
-        processedData['CmImpactedItemList'] = processedData['cmImpactedItemList'];
-        processedData.remove('cmImpactedItemList'); // Remove camelCase version to avoid duplicate
-        Logger.infoLog('[CM] Set CmImpactedItemList (PascalCase) and removed cmImpactedItemList duplicate (create)');
-      }
+      // Impacted items are now nested inside cmCheckListSiteRespList, so no need for separate top-level field
+      // Remove any top-level impacted item list if it exists
+      processedData.remove('cmImpactedItemList');
+      processedData.remove('CmImpactedItemList');
+      Logger.infoLog('[CM] Removed top-level impacted item list - they are now nested inside checklist items (create)');
       
       // Create CM ticket first
       final response = await ServiceLocator().cmRepository.createCorrectiveMaintenance(processedData);
