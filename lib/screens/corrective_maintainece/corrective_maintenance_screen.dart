@@ -2056,7 +2056,7 @@ class _CorrectiveMaintenanceScreenState
             label: "Remarks",
             hintText: "Enter remarks",
             controller: _remarksController,
-            isRequired: true,
+            isRequired: _statusController.text.trim().toUpperCase() == 'CLOSED',
             isDisabled: false, // Allow editing in edit mode
           ),
           getHeight(15),
@@ -2888,6 +2888,13 @@ class _CorrectiveMaintenanceScreenState
       // Status - required in edit mode
       if (widget.mode == CMScreenModeEnum.edit && _statusController.text.trim().isEmpty) {
         errors.add('Status is required');
+      }
+      
+      // Remarks - required in edit mode when status is "Closed"
+      if (widget.mode == CMScreenModeEnum.edit && 
+          _statusController.text.trim().toUpperCase() == 'CLOSED' &&
+          _remarksController.text.trim().isEmpty) {
+        errors.add('Remarks is required when Status is Closed');
       }
       
       // Photo and attachment validations for edit mode
