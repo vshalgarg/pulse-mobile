@@ -148,7 +148,7 @@ class PMPageHeader extends StatelessWidget {
                                     // Due Date of PM
                                     CustomFormField(
                                       label: 'Due Date of PM',
-                                      initialValue: _formatDate(pageHeader?['audit_due_dt']?.toString()),
+                                      initialValue: _formatDate(pageHeader?['due_dt']?.toString()),
                                       isEditable: false,
                                     ),
                                     

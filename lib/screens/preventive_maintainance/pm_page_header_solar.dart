@@ -150,7 +150,7 @@ class PMPageHeaderSolar extends StatelessWidget {
                               CustomFormField(
                                 label: 'Due Date of PM',
                                 initialValue: _formatDate(
-                                  pageHeader?['audit_due_dt']?.toString(),
+                                  pageHeader?['due_dt']?.toString(),
                                 ),
                                 isEditable: false,
                               ),
