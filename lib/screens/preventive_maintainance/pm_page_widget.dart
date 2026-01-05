@@ -169,31 +169,55 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         respTypes = respTypeList.split(",");
       }
 
+      // Skip validation for "Remarks, if any" fields
+      final checklistDesc = pmItem['checklist_desc']?.toString().toLowerCase() ?? '';
+      if (checklistDesc.contains('remarks')) {
+        continue; // Skip validation for Remarks fields
+      }
+
+      // Check if field is mandatory based on mandatoryIfValue
+      // Only validate if field is mandatory
+      final mandatoryIfValue = pmItem['mandatoryIfValue'];
+      bool isMandatory = false;
+      
+      if (mandatoryIfValue == true) {
+        isMandatory = true;
+      } else if (mandatoryIfValue is bool && mandatoryIfValue == false) {
+        isMandatory = false;
+      } else if (mandatoryIfValue == null) {
+        isMandatory = false; // Default to not mandatory if null
+      }
+      
+      // Skip validation if field is not mandatory
+      if (!isMandatory) {
+        continue;
+      }
+
       // Check if any required field is empty (basic validation)
       bool isParentFieldEmpty = false;
       String? errorMessage;
-      final checklistDesc = pmItem['checklist_desc']?.toString() ?? 'This field';
+      final checklistDescDisplay = pmItem['checklist_desc']?.toString() ?? 'This field';
 
       if (respTypes.contains('DROPDOWN') &&
           (respValue == null || respValue.toString().isEmpty)) {
         isParentFieldEmpty = true;
-        errorMessage = '$checklistDesc is required';
+        errorMessage = '$checklistDescDisplay is required';
       } else if (respTypes.contains('RADIO') &&
           (respValue == null || respValue.toString().isEmpty)) {
         isParentFieldEmpty = true;
-        errorMessage = '$checklistDesc is required';
+        errorMessage = '$checklistDescDisplay is required';
       } else if (respTypes.contains('TEXT') &&
           (respValue == null || respValue.toString().trim().isEmpty)) {
         isParentFieldEmpty = true;
-        errorMessage = '$checklistDesc is required';
+        errorMessage = '$checklistDescDisplay is required';
       } else if (respTypes.contains('NUMERIC') &&
           (respValue == null || respValue.toString().trim().isEmpty)) {
         isParentFieldEmpty = true;
-        errorMessage = '$checklistDesc is required';
+        errorMessage = '$checklistDescDisplay is required';
       } else if (respTypes.contains('IMG') &&
           (respValue == null || respValue.toString().isEmpty)) {
         isParentFieldEmpty = true;
-        errorMessage = '$checklistDesc is required';
+        errorMessage = '$checklistDescDisplay is required';
       }
 
       // If parent field is empty, show error and STOP

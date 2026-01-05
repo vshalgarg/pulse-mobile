@@ -885,7 +885,38 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       items: dropdownOptions,
       initialValue: _selectedDropdownValue,
       onChanged: (value) => _onDropdownChanged(value, valueMap),
+      isRequired: _isFieldRequired(),
     );
+  }
+
+  /// Determine if a field is required based on mandatoryIfValue
+  /// Returns false if mandatoryIfValue is null, false, or if checklist_desc contains "Remarks"
+  bool _isFieldRequired() {
+    // Check if checklist_desc contains "Remarks" (case-insensitive) - always non-mandatory
+    final checklistDesc = _currentItem['checklist_desc']?.toString().toLowerCase() ?? '';
+    if (checklistDesc.contains('remarks')) {
+      return false;
+    }
+    
+    // Check mandatoryIfValue - only required if explicitly true
+    final mandatoryIfValue = _currentItem['mandatoryIfValue'];
+    
+    if (mandatoryIfValue == null) {
+      return false; // Default to not mandatory if null
+    }
+    
+    if (mandatoryIfValue is bool) {
+      return mandatoryIfValue; // If true, required; if false, not required
+    }
+    
+    // If mandatoryIfValue is a List, for main field we consider it as not mandatory
+    // (List-based mandatoryIfValue is typically used for dependent elements based on parent response)
+    if (mandatoryIfValue is List) {
+      return false;
+    }
+    
+    // Default to false for any other value
+    return false;
   }
 
   Widget _buildRadioField() {
@@ -943,7 +974,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       options: radioOptions,
       initialValue: _selectedRadioValue,
       onChanged: (value) => _onRadioChanged(value),
-      isRequired: true,
+      isRequired: _isFieldRequired(),
     );
   }
 
@@ -952,7 +983,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       initialValue: _textValue,
       controller: _textController,
       onChanged: _onTextChanged,
-      isRequired: true,
+      isRequired: _isFieldRequired(),
     );
   }
 
@@ -961,7 +992,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       initialValue: _textValue,
       controller: _textController,
       onChanged: _onTextChanged,
-      isRequired: true,
+      isRequired: _isFieldRequired(),
       inputType: InputType.number,
       hintText: 'Enter Number',
     );
@@ -1019,7 +1050,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     return ImageUploadField(
       key: ValueKey('${uniqueKey}_${finalImageData.length > 0 ? finalImageData.substring(0, finalImageData.length > 20 ? 20 : finalImageData.length).hashCode : 0}'),
       placeholder: 'Upload Photos',
-      isRequired: true,
+      isRequired: _isFieldRequired(),
       externalImageUrl: _imageData,
       onImageSelected: (File? file) async {
         if (file != null) {

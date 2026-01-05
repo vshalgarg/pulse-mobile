@@ -1102,6 +1102,17 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       return const SizedBox.shrink();
     }
 
+    // Hide table if response_details contains items with mfg_serial_no
+    final hasMfgSerialNo = responseDetails.any((item) {
+      if (item is! Map<String, dynamic>) return false;
+      return item['mfg_serial_no'] != null && 
+             item['mfg_serial_no'].toString().trim().isNotEmpty;
+    });
+    
+    if (hasMfgSerialNo) {
+      return const SizedBox.shrink(); // Hide table when mfg_serial_no exists
+    }
+
     // Filter only items that have been saved (have resp value)
     final savedItems = responseDetails.where((item) {
       if (item is! Map<String, dynamic>) return false;
