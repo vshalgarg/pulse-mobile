@@ -135,7 +135,7 @@ class _CorrectiveMaintenanceScreenState
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
   final List<String> _scopeOfTicketOptions = ['Warranty', 'Warranty Out'];
-  final List<String> _statusOptions = ['Open', 'In Progress', 'Closed'];
+  final List<String> _statusOptions = ['Open','Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
 
@@ -1313,6 +1313,15 @@ class _CorrectiveMaintenanceScreenState
       controllers['assigned_to']!.text = _selectedSite!.oem ?? '';
     } else if (controllers['responsible_party']!.text == 'Self') {
       controllers['assigned_to']!.text = _selectedSite!.self;
+      // Clear Identification and FSR when responsibleParty is not OEM
+      setState(() {
+        identificationPhoto = null;
+        identificationPhotoByteData = "";
+        _originalIdentificationPhotoId = null;
+        _fsrAttachments.clear();
+        _fsrAttachmentId = null;
+        _fsrAttachmentName = null;
+      });
     }
   }
 
@@ -1856,13 +1865,13 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        // Show these fields only in edit and view mode
-        if (widget.mode != CMScreenModeEnum.create) ...[
+        // Show Identification and FSR only when responsibleParty is "OEM"
+        if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') ...[
           // Identification Photo
           ImageUploadField(
             label: "Identification",
             placeholder: "Add a Photo",
-            isRequired: false,
+            isRequired: widget.mode == CMScreenModeEnum.edit,
             onImageSelected: (File? file) async {
               if (file != null) {
                 final bytes = await file.readAsBytes();
@@ -1892,6 +1901,7 @@ class _CorrectiveMaintenanceScreenState
           CustomFileUploadNew(
             label: "FSR",
             placeholder: "Upload File",
+            isRequired: widget.mode == CMScreenModeEnum.edit,
             uploadedFiles: _fsrAttachments,
             serverAttachmentName: _fsrAttachmentName != null && 
                 _fsrAttachmentName!.trim().isNotEmpty
@@ -1933,12 +1943,15 @@ class _CorrectiveMaintenanceScreenState
             isDisabled: widget.mode == CMScreenModeEnum.view,
           ),
           getHeight(15),
+        ],
 
+        // Show Time Stamp Photo only in edit and view mode
+        if (widget.mode != CMScreenModeEnum.create) ...[
           // Time Stamp Photo
           ImageUploadField(
             label: "Time Stamp Photo",
             placeholder: "Add a Photo",
-            isRequired: false,
+            isRequired: widget.mode == CMScreenModeEnum.edit,
             onImageSelected: (File? file) async {
               if (file != null) {
                 final bytes = await file.readAsBytes();
@@ -2043,6 +2056,7 @@ class _CorrectiveMaintenanceScreenState
             label: "Remarks",
             hintText: "Enter remarks",
             controller: _remarksController,
+            isRequired: true,
             isDisabled: false, // Allow editing in edit mode
           ),
           getHeight(15),
@@ -2874,6 +2888,47 @@ class _CorrectiveMaintenanceScreenState
       // Status - required in edit mode
       if (widget.mode == CMScreenModeEnum.edit && _statusController.text.trim().isEmpty) {
         errors.add('Status is required');
+      }
+      
+      // Photo and attachment validations for edit mode
+      if (widget.mode == CMScreenModeEnum.edit) {
+        final responsibleParty = controllers['responsible_party']!.text.trim().toUpperCase();
+        
+        // If responsibleParty is "OEM", Identification, FSR, and Time Stamp Photo are required
+        if (responsibleParty == 'OEM') {
+          // Check Identification Photo
+          if (identificationPhoto == null && 
+              (identificationPhotoByteData.isEmpty || 
+               _originalIdentificationPhotoId == null || 
+               _originalIdentificationPhotoId.toString().trim().isEmpty)) {
+            errors.add('Identification is required when Category is OEM');
+          }
+          
+          // Check FSR Attachment
+          if (_fsrAttachments.isEmpty && 
+              (_fsrAttachmentId == null || _fsrAttachmentId == 0)) {
+            errors.add('FSR is required when Category is OEM');
+          }
+          
+          // Check Time Stamp Photo
+          if (timestampPhoto == null && 
+              (timestampPhotoByteData.isEmpty || 
+               _originalTimestampPhotoId == null || 
+               _originalTimestampPhotoId.toString().trim().isEmpty)) {
+            errors.add('Time Stamp Photo is required when Category is OEM');
+          }
+        }
+        
+        // If responsibleParty is "SELF", only Time Stamp Photo is required
+        if (responsibleParty == 'SELF') {
+          // Check Time Stamp Photo
+          if (timestampPhoto == null && 
+              (timestampPhotoByteData.isEmpty || 
+               _originalTimestampPhotoId == null || 
+               _originalTimestampPhotoId.toString().trim().isEmpty)) {
+            errors.add('Time Stamp Photo is required when Category is Self');
+          }
+        }
       }
       
       // Remarks attachment - required in edit mode
