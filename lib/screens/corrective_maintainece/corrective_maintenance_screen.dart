@@ -32,6 +32,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../models/cm_site_model.dart';
+import '../../../routes/route_generator.dart';
 
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
@@ -133,7 +134,7 @@ class _CorrectiveMaintenanceScreenState
   final List<String> _priorityOptions = ['Critical', 'Non Critical'];
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
-  final List<String> _scopeOfTicketOptions = ['AMC', 'Paid', 'FOC'];
+  final List<String> _scopeOfTicketOptions = ['Warranty', 'Warranty Out'];
   final List<String> _statusOptions = ['Open', 'In Progress', 'Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
@@ -1191,10 +1192,16 @@ class _CorrectiveMaintenanceScreenState
                 mergedItem['response_images'] = responseImages;
               }
               
+              // Store original cmImpactedItemList for display in edit/view mode
+              final originalImpactedItems = existingResponse['CmImpactedItemList'] ?? 
+                                           existingResponse['cmImpactedItemList'] ?? 
+                                           existingResponse['cm_impacted_item_list'] ?? [];
+              if (originalImpactedItems is List && originalImpactedItems.isNotEmpty) {
+                mergedItem['_originalCmImpactedItemList'] = originalImpactedItems;
+              }
+              
               // Merge impacted items (for dynamic dropdowns) and load their images
-              final impactedItems = existingResponse['CmImpactedItemList'] ?? 
-                                   existingResponse['cmImpactedItemList'] ?? 
-                                   existingResponse['cm_impacted_item_list'] ?? [];
+              final impactedItems = originalImpactedItems;
               
               if (impactedItems is List && impactedItems.isNotEmpty) {
                 final processedImpactedItems = <Map<String, dynamic>>[];
@@ -1603,13 +1610,6 @@ class _CorrectiveMaintenanceScreenState
       CustomFormField(
           label: "Site Name",
           controller: _siteNameController,
-          isEditable: false,
-        ),
-        getHeight(15),
-
-        CustomFormField(
-          label: "Site Id",
-          controller: _siteCodeController,
           isEditable: false,
         ),
         getHeight(15),
@@ -3290,14 +3290,14 @@ class _CorrectiveMaintenanceScreenState
       }
       
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      // if (shouldNavigate && mounted) {
-      //   Future.microtask(() {
-      //     navigateBackOrToHome(
-      //       context,
-      //       targetContext: widget.parentContext ?? context,
-      //     );
-      //   });
-      // }
+      if (shouldNavigate && mounted) {
+        Future.microtask(() {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        });
+      }
     } catch (e) {
       Logger.errorLog("Error in online edit submission: $e");
       rethrow;
@@ -3484,14 +3484,14 @@ class _CorrectiveMaintenanceScreenState
           "Data saved offline. Will sync when online.",
           context,
         );
-        // if (shouldNavigate && mounted) {
-        //   Future.microtask(() {
-        //     navigateBackOrToHome(
-        //       context,
-        //       targetContext: widget.parentContext ?? context,
-        //     );
-        //   });
-        // }
+        if (shouldNavigate && mounted) {
+          Future.microtask(() {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          });
+        }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -3740,14 +3740,14 @@ class _CorrectiveMaintenanceScreenState
       }
 
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      // if (shouldNavigate && mounted) {
-      //   Future.microtask(() {
-      //     navigateBackOrToHome(
-      //       context,
-      //       targetContext: widget.parentContext ?? context,
-      //     );
-      //   });
-      // }
+      if (shouldNavigate && mounted) {
+        Future.microtask(() {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
+        });
+      }
     } catch (e) {
       Logger.errorLog("Error in online submission: $e");
       rethrow;
@@ -3876,14 +3876,14 @@ class _CorrectiveMaintenanceScreenState
           "Data saved offline. Will sync when online.",
           context,
         );
-        // if (shouldNavigate && mounted) {
-        //   Future.microtask(() {
-        //     navigateBackOrToHome(
-        //       context,
-        //       targetContext: widget.parentContext ?? context,
-        //     );
-        //   });
-        // }
+        if (shouldNavigate && mounted) {
+          Future.microtask(() {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          });
+        }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
@@ -3935,10 +3935,10 @@ class _CorrectiveMaintenanceScreenState
         ),
       );
     } else {
-      // navigateBackOrToHome(
-      //   context,
-      //   targetContext: widget.parentContext ?? context,
-      // );
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     }
   }
 }

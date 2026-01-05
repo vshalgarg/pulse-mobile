@@ -11,6 +11,10 @@ import '../../commonWidgets/custom_remark.dart';
 import '../../commonWidgets/custom_form_field.dart' show CustomFormField, InputType;
 import '../../commonWidgets/custom_form_dropdown.dart';
 import '../../commonWidgets/custom_image_upload_field.dart';
+import '../../services/service_locator.dart';
+import '../../utils/connectivity_helper.dart';
+import '../../utils/logger.dart';
+import '../../enum/activity_type_enum.dart';
 
 class CMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
@@ -341,7 +345,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       if (fieldName.isNotEmpty && (respType == 'TEXT' || respType == 'NUMERIC')) {
         final impactedItemValueMap = childItem['impacted_item_value_map']?.toString() ?? '';
         if (impactedItemValueMap.isNotEmpty) {
-          _childFieldControllers[fieldName] = TextEditingController();
+        _childFieldControllers[fieldName] = TextEditingController();
         }
       }
       
@@ -779,9 +783,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       } else {
         // For TEXT/NUMERIC fields with impacted_item_value_map (old behavior)
         final controller = _childFieldControllers[fieldName];
-        if (isMandatory && (controller?.text.isEmpty ?? true)) {
-          Toastbar.showErrorToastbar('Please fill all mandatory fields', context);
-          return;
+      if (isMandatory && (controller?.text.isEmpty ?? true)) {
+        Toastbar.showErrorToastbar('Please fill all mandatory fields', context);
+        return;
         }
       }
     }
@@ -958,7 +962,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       items: dropdownOptions,
       initialValue: _selectedDropdownValue,
       onChanged: isReadonly ? (value) {} : (value) => _onDropdownChanged(value),
-      isRequired: _currentItem['is_mandatory'] == true,
+      isRequired: false,
       isDisabled: isReadonly,
     );
   }
@@ -1006,13 +1010,23 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             options: radioOptions,
             initialValue: _selectedRadioValue,
             onChanged: isReadonly ? null : (value) => _onRadioChanged(value),
-            isRequired: _currentItem['is_mandatory'] == true,
+            isRequired: false,
           ),
       ],
     );
   }
 
   Widget _buildTextField({bool isReadonly = false}) {
+    // In readonly mode, just show the resp value
+    if (isReadonly) {
+      final resp = _currentItem['resp']?.toString() ?? '';
+    return CustomFormField(
+        label: _currentItem['checklist_desc']?.toString() ?? '',
+        initialValue: resp,
+        isEditable: false,
+      );
+    }
+    
     // Always get dependent_elements from widget.pmItem (source of truth)
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
     
@@ -1061,11 +1075,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       children: [
         // Text field
         CustomFormField(
-          label: _currentItem['checklist_desc']?.toString() ?? '',
-          initialValue: _textValue,
-          controller: _textController,
+      label: _currentItem['checklist_desc']?.toString() ?? '',
+      initialValue: _textValue,
+      controller: _textController,
           onChanged: isReadonly ? null : _onTextChanged,
-          isRequired: _currentItem['is_mandatory'] == true,
+      isRequired: false,
           isEditable: !isReadonly,
         ),
         
@@ -1110,7 +1124,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   key: ValueKey('text_dependent_${elementKey}_${_textValue?.length ?? 0}'),
                   label: checklistDesc,
                   placeholder: 'Upload Photos',
-                  isRequired: isRequired,
+                  isRequired: false,
                   externalImageUrl: _dependentImageData[elementKey],
                   isDisabled: isReadonly,
                   onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -1132,7 +1146,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     return ImageUploadField(
       label: _currentItem['checklist_desc']?.toString() ?? '',
       placeholder: 'Upload Photos',
-      isRequired: _currentItem['is_mandatory'] == true,
+      isRequired: false,
       externalImageUrl: _imageData,
       isDisabled: isReadonly,
       onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -1172,7 +1186,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
     final respType = childItem['resp_type']?.toString() ?? '';
     final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
-    final isMandatory = childItem['is_mandatory'] == true;
     
     // Get dependent_elements from childItem - try both field names
     List<dynamic> dependentElements = childItem['dependent_elements'] as List<dynamic>? ?? 
@@ -1234,10 +1247,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
-                  final isRequired = _isDependentElementMandatory(
-                    element['mandatoryIfValue'],
-                    isChecked ? 'true' : null,
-                  );
                   
                   return Padding(
                     padding: const EdgeInsets.only(left: 40, bottom: 16),
@@ -1245,7 +1254,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       key: ValueKey('child_dependent_$elementKey'),
                       label: elementDesc,
                       placeholder: 'Upload Photos',
-                      isRequired: isRequired,
+                      isRequired: false,
                       externalImageUrl: _childItemDependentImageData[childId]![elementKey],
                       isDisabled: isReadonly,
                       onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -1296,7 +1305,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       _childItemNumericValues[childId] = value;
                     });
                   },
-                  isRequired: isMandatory,
+                  isRequired: false,
                   inputType: InputType.number,
                   isEditable: !isReadonly,
                 ),
@@ -1316,10 +1325,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
-                  final isRequired = _isDependentElementMandatory(
-                    element['mandatoryIfValue'],
-                    isChecked ? 'true' : null,
-                  );
                   
                   return Padding(
                     padding: const EdgeInsets.only(left: 40, bottom: 16),
@@ -1327,7 +1332,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       key: ValueKey('child_dependent_$elementKey'),
                       label: elementDesc,
                       placeholder: 'Upload Photos',
-                      isRequired: isRequired,
+                      isRequired: false,
                       externalImageUrl: _childItemDependentImageData[childId]![elementKey],
                       isDisabled: isReadonly,
                       onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -1356,7 +1361,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             child: CustomFormField(
               label: checklistDesc,
               controller: controller,
-              isRequired: isMandatory,
+              isRequired: false,
               inputType: respType == 'NUMERIC' ? InputType.number : InputType.text,
               isEditable: !isReadonly,
             ),
@@ -1368,7 +1373,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           children: [
             CustomFormField(
               label: checklistDesc,
-              isRequired: isMandatory,
+              isRequired: false,
               inputType: respType == 'NUMERIC' ? InputType.number : InputType.text,
               isEditable: !isReadonly,
             ),
@@ -1391,10 +1396,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       key: ValueKey('child_dependent_$elementKey'),
                       label: elementDesc,
                       placeholder: 'Upload Photos',
-                      isRequired: _isDependentElementMandatory(
-                        element['mandatoryIfValue'],
-                        null,
-                      ),
+                      isRequired: false,
                       externalImageUrl: _childItemDependentImageData[childId]![elementKey],
                       isDisabled: isReadonly,
                       onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -1442,6 +1444,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   Widget _buildDynamicDropdownField({bool isReadonly = false}) {
+    // In edit/view mode, if we have original cmImpactedItemList, show table view
+    if (isReadonly) {
+      final originalImpactedItems = _currentItem['_originalCmImpactedItemList'] as List<dynamic>?;
+      if (originalImpactedItems != null && originalImpactedItems.isNotEmpty) {
+        return _buildReadonlyImpactedItemsTable(originalImpactedItems);
+      }
+    }
+    
     // Use impacted_item_check_list instead of childitemData
     final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
                        _currentItem['childitemData'] as List<dynamic>? ?? [];
@@ -1475,18 +1485,18 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         
         // Save button
         if (!isReadonly)
-          Align(
-            alignment: Alignment.centerRight,
-            child: ElevatedButton(
-              onPressed: _saveDynamicDropdownData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              ),
-              child: const Text('Save'),
+        Align(
+          alignment: Alignment.centerRight,
+          child: ElevatedButton(
+            onPressed: _saveDynamicDropdownData,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
+            child: const Text('Save'),
           ),
+        ),
         
         const SizedBox(height: 16),
 
@@ -1564,16 +1574,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   fontFamily: fontFamilyMontserrat,
                 ),
               ),
-              if (_currentItem['is_mandatory'] == true)
-                const TextSpan(
-                  text: " *",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.red,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
-                ),
             ],
           ),
           overflow: TextOverflow.ellipsis,
@@ -1684,17 +1684,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       ),
                     ),
                     if (!isReadonly)
-                      IconButton(
-                        icon: const Icon(Icons.close, size: 16),
-                        onPressed: () {
-                          setState(() {
-                            _selectedMultiItems.removeWhere((selected) => 
-                              selected['item_instance_id'] == item['item_instance_id']
-                            );
-                            _onMultiSelectionChanged();
-                          });
-                        },
-                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 16),
+                      onPressed: () {
+                        setState(() {
+                          _selectedMultiItems.removeWhere((selected) => 
+                            selected['item_instance_id'] == item['item_instance_id']
+                          );
+                          _onMultiSelectionChanged();
+                        });
+                      },
+                    ),
                   ],
                 ),
               )),
@@ -1773,19 +1773,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             Expanded(
               child: Text(
                 _currentItem['checklist_desc']?.toString() ?? '',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: _currentItem['is_mandatory'] == true 
-                      ? FontWeight.w600 
-                      : FontWeight.normal,
+                  fontWeight: FontWeight.normal,
                 ),
               ),
             ),
-            if (_currentItem['is_mandatory'] == true)
-              const Text(
-                ' *',
-                style: TextStyle(color: Colors.red),
-              ),
           ],
         ),
         
@@ -1827,7 +1820,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   key: ValueKey('dependent_image_$elementKey'),
                   label: checklistDesc,
                   placeholder: checklistDesc,
-                  isRequired: isMandatory,
+                  isRequired: false,
                   externalImageUrl: _dependentImageData[elementKey],
                   isDisabled: isReadonly,
                   onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -1847,6 +1840,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
   
   Widget _buildCheckboxNumericField({bool isReadonly = false}) {
+    // In readonly mode, just show the resp value
+    if (isReadonly) {
+      final resp = _currentItem['resp']?.toString() ?? '';
+      return CustomFormField(
+        label: _currentItem['checklist_desc']?.toString() ?? '',
+        initialValue: resp,
+        isEditable: false,
+        inputType: InputType.number,
+      );
+    }
+    
     // Always get dependent_elements from widget.pmItem (source of truth)
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
     
@@ -1902,19 +1906,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             Expanded(
               child: Text(
                 _currentItem['checklist_desc']?.toString() ?? '',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: _currentItem['is_mandatory'] == true 
-                      ? FontWeight.w600 
-                      : FontWeight.normal,
+                  fontWeight: FontWeight.normal,
                 ),
               ),
             ),
-            if (_currentItem['is_mandatory'] == true)
-              const Text(
-                ' *',
-                style: TextStyle(color: Colors.red),
-              ),
           ],
         ),
         
@@ -1927,7 +1924,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               label: 'Count',
               controller: _checkboxNumericController,
               onChanged: isReadonly ? null : _onCheckboxNumericChanged,
-              isRequired: _currentItem['is_mandatory'] == true,
+              isRequired: false,
               inputType: InputType.number,
               isEditable: !isReadonly,
             ),
@@ -1949,8 +1946,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             
             if (respType == 'IMG') {
               final checklistDesc = element['checklist_desc']?.toString() ?? 'Add a photo';
-              final mandatoryIfValue = element['mandatoryIfValue'];
-              final isMandatory = _isDependentElementMandatory(mandatoryIfValue, parentResponse);
               final isReadonly = widget.readonlyFields.contains(
                 _currentItem['checklist_desc']?.toString(),
               );
@@ -1960,7 +1955,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 child: ImageUploadField(
                   label: checklistDesc,
                   placeholder: checklistDesc,
-                  isRequired: isMandatory,
+                  isRequired: false,
                   externalImageUrl: _dependentImageData[elementKey],
                   isDisabled: isReadonly,
                   onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -2136,6 +2131,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
   
   Widget _buildNumericField({bool isReadonly = false}) {
+    // In readonly mode, just show the resp value
+    if (isReadonly) {
+      final resp = _currentItem['resp']?.toString() ?? '';
+      return CustomFormField(
+        label: _currentItem['checklist_desc']?.toString() ?? '',
+        initialValue: resp,
+        isEditable: false,
+        inputType: InputType.number,
+      );
+    }
+    
     // Always get dependent_elements from widget.pmItem (source of truth)
     dynamic rawDependentElements = widget.pmItem['dependent_elements'] ?? widget.pmItem['dependentElements'];
     
@@ -2207,7 +2213,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           initialValue: _textValue,
           controller: _textController,
           onChanged: isReadonly ? null : _onTextChanged,
-          isRequired: _currentItem['is_mandatory'] == true,
+          isRequired: false,
           inputType: InputType.number,
           isEditable: !isReadonly,
         ),
@@ -2255,7 +2261,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   key: ValueKey('numeric_dependent_${elementKey}_${_textValue?.length ?? 0}'),
                   label: checklistDesc,
                   placeholder: 'Upload Photos',
-                  isRequired: isRequired,
+                  isRequired: false,
                   externalImageUrl: _dependentImageData[elementKey],
                   isDisabled: isReadonly,
                   onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
@@ -2271,6 +2277,262 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         ],
       ],
     );
+  }
+
+  /// Build readonly table for impacted items in edit/view mode
+  Widget _buildReadonlyImpactedItemsTable(List<dynamic> impactedItems) {
+    // Get checklist descriptions from child items template
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                      _currentItem['childitemData'] as List<dynamic>? ?? [];
+    final Map<int, String> mstIdToDesc = {};
+    final List<MapEntry<int, String>> orderedDescs = [];
+    
+    for (var childItem in childItems) {
+      if (childItem is Map<String, dynamic>) {
+        final mstId = childItem['cm_check_list_mst_id'] as int?;
+        final desc = childItem['checklist_desc']?.toString() ?? '';
+        if (mstId != null && desc.isNotEmpty) {
+          mstIdToDesc[mstId] = desc;
+          orderedDescs.add(MapEntry(mstId, desc));
+        }
+      }
+    }
+    
+    // Group items by serial number (mfgSerialNo)
+    final Map<String, Map<int, Map<String, dynamic>>> groupedBySerial = {};
+    
+    for (var item in impactedItems) {
+      if (item is Map<String, dynamic>) {
+        final serialNo = item['mfgSerialNo']?.toString() ?? 
+                        item['mfg_serial_no']?.toString() ?? '';
+        if (serialNo.isNotEmpty) {
+          if (!groupedBySerial.containsKey(serialNo)) {
+            groupedBySerial[serialNo] = {};
+          }
+          final mstId = item['cmCheckListMstId'] as int? ?? 
+                       item['cm_check_list_mst_id'] as int?;
+          if (mstId != null) {
+            groupedBySerial[serialNo]![mstId] = item;
+          }
+        }
+      }
+    }
+    
+    final parentDesc = _currentItem['checklist_desc']?.toString() ?? '';
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Heading
+          Text(
+            parentDesc,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              fontFamily: fontFamilyMontserrat,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Table
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 20,
+                horizontalMargin: 12,
+                columns: [
+                  const DataColumn(
+                    label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  ...orderedDescs.map((entry) => 
+                    DataColumn(
+                      label: Text(entry.value, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    )
+                  ),
+                ],
+                rows: groupedBySerial.entries.map((entry) {
+                  final serialNo = entry.key;
+                  final itemsByMstId = entry.value;
+                  
+                  return DataRow(
+                    cells: [
+                      DataCell(Text(serialNo)),
+                      ...orderedDescs.map((descEntry) {
+                        final mstId = descEntry.key;
+                        final item = itemsByMstId[mstId];
+                        
+                        if (item == null) {
+                          return const DataCell(Text(''));
+                        }
+                        
+                        final respType = item['respType']?.toString() ?? 
+                                        item['resp_type']?.toString() ?? '';
+                        final resp = item['resp']?.toString() ?? '';
+                        final images = item['cmCheckListSiteRespImagesList'] as List<dynamic>? ?? 
+                                      item['cm_check_list_site_resp_images_list'] as List<dynamic>? ?? [];
+                        
+                        Widget cellContent;
+                        if (respType == 'CHECKBOX_NUMERIC') {
+                          cellContent = Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(resp),
+                              if (images.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: InkWell(
+                                    onTap: () => _showImageGallery(images),
+                                    child: const Icon(Icons.camera_alt, size: 20, color: Colors.blue),
+                                  ),
+                                ),
+                            ],
+                          );
+                        } else if (respType == 'CHECKBOX') {
+                          final isChecked = resp.toLowerCase() == 'true' || resp == '1';
+                          cellContent = Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                isChecked ? Icons.check_box : Icons.check_box_outline_blank,
+                                size: 20,
+                                color: isChecked ? Colors.green : Colors.grey,
+                              ),
+                              if (images.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: InkWell(
+                                    onTap: () => _showImageGallery(images),
+                                    child: const Icon(Icons.camera_alt, size: 20, color: Colors.blue),
+                                  ),
+                                ),
+                            ],
+                          );
+                        } else {
+                          cellContent = Text(resp);
+                        }
+                        
+                        return DataCell(cellContent);
+                      }).toList(),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  /// Show image gallery dialog
+  void _showImageGallery(List<dynamic> images) {
+    if (images.isEmpty) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.9,
+          height: MediaQuery.of(context).size.height * 0.8,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Images', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: images.length,
+                  itemBuilder: (context, index) {
+                    final img = images[index];
+                    final photoId = img['photoId'] ?? img['photo_id'];
+                    if (photoId == null) return const SizedBox.shrink();
+                    
+                    return FutureBuilder<String?>(
+                      future: _loadImageFromPhotoId(photoId.toString()),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        
+                        if (snapshot.hasData && snapshot.data != null) {
+                          return Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Image.memory(
+                              base64Decode(snapshot.data!.split(',')[1]),
+                              fit: BoxFit.contain,
+                            ),
+                          );
+                        }
+                        
+                        return const Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Center(child: Text('Failed to load image')),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+  
+  /// Load image from photo ID
+  Future<String?> _loadImageFromPhotoId(String photoId) async {
+    try {
+      // First check cache
+      final cachedImage = await ServiceLocator()
+          .imageUploadService
+          .getImagesByServerId(photoId);
+      
+      if (cachedImage != null && cachedImage.imageData != null) {
+        return cachedImage.imageData;
+      }
+      
+      // Try to download if online
+      final isOnline = await ConnectivityHelper.isConnected();
+      if (isOnline) {
+        final uniqueId = await ServiceLocator()
+            .imageUploadService
+            .downloadImageUsingServerId(
+              photoId,
+              ActivityTypeEnum.correctiveMaintenance,
+              '',
+            );
+        
+        if (uniqueId != null) {
+          return await ServiceLocator()
+              .imageUploadService
+              .getImageUsingUniqueId(uniqueId);
+        }
+      }
+    } catch (e) {
+      Logger.errorLog('[CM] Error loading image $photoId: $e');
+    }
+    
+    return null;
   }
 
   @override
