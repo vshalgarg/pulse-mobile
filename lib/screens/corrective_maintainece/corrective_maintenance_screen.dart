@@ -2605,26 +2605,40 @@ class _CorrectiveMaintenanceScreenState
         // For dynamic dropdowns, we might need to handle differently
         // For now, use resp if available
         respValue = checklistItem['resp']?.toString();
+      } else if (respType == 'DYNAMIC_NUMERIC') {
+        // For DYNAMIC_NUMERIC, resp is the numeric count value
+        respValue = checklistItem['resp']?.toString() ?? '';
       }
       
-      // Skip items without a response (unless they're required or have impacted items)
+      // Get response_images to check if there are images (needed for DYNAMIC_NUMERIC skip logic)
+      final responseImages = checklistItem['response_images'] as List<dynamic>? ?? [];
+      final hasImages = responseImages.isNotEmpty;
+      
+      // For DYNAMIC_NUMERIC, if resp is empty but images exist, set resp to the count of images
+      if (respType == 'DYNAMIC_NUMERIC' && (respValue == null || respValue.isEmpty) && hasImages) {
+        respValue = responseImages.length.toString();
+      }
+      
+      // Skip items without a response (unless they're required or have impacted items or images)
       if (respValue == null || (respValue is String && respValue.isEmpty)) {
         // Don't skip if:
         // 1. It's a checkbox type (even if unchecked)
         // 2. It's a DYNAMIC_DROPDOWN with impacted items
         // 3. It's a MULTI_DYNAMIC_DROPDOWN with impacted items
+        // 4. It's a DYNAMIC_NUMERIC with images (images are the actual response)
         if (respType != 'CHECKBOX' && 
             respType != 'CHECKBOX_NUMERIC' && 
             respType != 'CHECKBOX_TEXT' &&
             !(respType == 'DYNAMIC_DROPDOWN' && hasImpactedItems) &&
-            !(respType == 'MULTI_DYNAMIC_DROPDOWN' && hasImpactedItems)) {
+            !(respType == 'MULTI_DYNAMIC_DROPDOWN' && hasImpactedItems) &&
+            !(respType == 'DYNAMIC_NUMERIC' && hasImages)) {
           continue; // Skip items without responses
         }
       }
       
       // Transform response_images to cmCheckListSiteRespImagesList
       final List<Map<String, dynamic>> imageList = [];
-      final responseImages = checklistItem['response_images'] as List<dynamic>? ?? [];
+      // responseImages already retrieved above for skip logic
       
       for (var imageData in responseImages) {
         final Map<String, dynamic> imageItem = Map<String, dynamic>.from(imageData);

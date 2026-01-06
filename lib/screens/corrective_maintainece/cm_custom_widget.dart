@@ -75,6 +75,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   Map<int, String> _childItemNumericValues = {}; // childId -> numeric value
   Map<int, Map<String, String?>> _childItemDependentImageData = {}; // childId -> {elementKey -> imageData}
   Map<int, Map<String, File?>> _childItemDependentImageFiles = {}; // childId -> {elementKey -> imageFile}
+  
+  // Dynamic numeric specific variables
+  final TextEditingController _dynamicNumericController = TextEditingController();
+  Map<int, String?> _dynamicNumericImageData = {}; // index -> imageDataUrl (for display)
+  Map<int, File?> _dynamicNumericImageFiles = {}; // index -> image file
 
   @override
   void initState() {
@@ -204,6 +209,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _availableMultiOptions.clear();
     _isMultiDropdownOpen = false;
     
+    // Clear dynamic numeric state
+    _dynamicNumericController.clear();
+    _dynamicNumericImageData.clear();
+    _dynamicNumericImageFiles.clear();
+    
     // Clear response_images from current item
     _currentItem['response_images'] = null;
     _currentItem['resp'] = null;
@@ -219,6 +229,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _remarksController.dispose();
     _serialNumberController.dispose();
     _checkboxNumericController.dispose();
+    _dynamicNumericController.dispose();
     _childFieldControllers.values.forEach((controller) => controller.dispose());
     super.dispose();
   }
@@ -271,6 +282,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Initialize multi dynamic dropdown
     if (respType == 'MULTI_DYNAMIC_DROPDOWN') {
       _initializeMultiDynamicDropdown();
+    }
+    
+    // Initialize dynamic numeric
+    if (respType == 'DYNAMIC_NUMERIC') {
+      _initializeDynamicNumeric();
     }
     
     // Initialize dependent elements if checkbox is checked
@@ -436,6 +452,35 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     final currentResp = _currentItem['resp'];
     if (currentResp is List) {
       _selectedMultiItems = currentResp.map((item) => Map<String, dynamic>.from(item)).toList();
+    }
+  }
+
+  void _initializeDynamicNumeric() {
+    // Initialize numeric value from response
+    final respValue = _currentItem['resp']?.toString() ?? '';
+    _dynamicNumericController.text = respValue;
+    
+    // Initialize images from response_images
+    final responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
+    for (int i = 0; i < responseImages.length; i++) {
+      final imageData = responseImages[i];
+      if (imageData is Map<String, dynamic>) {
+        final imageDataBase64 = imageData['image_data']?.toString();
+        final photoId = imageData['photo_id']?.toString();
+        
+        if (imageDataBase64 != null && imageDataBase64.isNotEmpty) {
+          // If it's a data URL, use it directly; otherwise construct it
+          if (imageDataBase64.startsWith('data:image')) {
+            _dynamicNumericImageData[i] = imageDataBase64;
+          } else {
+            _dynamicNumericImageData[i] = 'data:image/jpeg;base64,$imageDataBase64';
+          }
+        } else if (photoId != null && photoId.isNotEmpty && photoId != 'LOCAL_IMAGE_ID') {
+          // Load image from server using photoId (if needed)
+          // For now, we'll just store the photoId reference
+          _dynamicNumericImageData[i] = null; // Will be loaded on demand
+        }
+      }
     }
   }
 
@@ -1181,6 +1226,195 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     );
   }
 
+  Widget _buildDynamicNumericField({bool isReadonly = false}) {
+    // In readonly mode, just show the resp value and images
+    if (isReadonly) {
+      final resp = _currentItem['resp']?.toString() ?? '';
+      final responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
+      final imageCount = responseImages.length;
+      
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomFormField(
+            label: _currentItem['checklist_desc']?.toString() ?? '',
+            initialValue: resp,
+            isEditable: false,
+            inputType: InputType.number,
+          ),
+          if (imageCount > 0) ...[
+            const SizedBox(height: 15),
+            ...List.generate(imageCount, (index) {
+              final imageData = responseImages[index];
+              String? imageUrl;
+              if (imageData is Map<String, dynamic>) {
+                final imageDataBase64 = imageData['image_data']?.toString();
+                if (imageDataBase64 != null && imageDataBase64.isNotEmpty) {
+                  if (imageDataBase64.startsWith('data:image')) {
+                    imageUrl = imageDataBase64;
+                  } else {
+                    imageUrl = 'data:image/jpeg;base64,$imageDataBase64';
+                  }
+                }
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 15),
+                child: ImageUploadField(
+                  label: 'Image ${index + 1}',
+                  placeholder: 'Add a Photo',
+                  isRequired: false,
+                  externalImageUrl: imageUrl,
+                  isDisabled: true,
+                  onImageSelected: (File? file) {},
+                ),
+              );
+            }),
+          ],
+        ],
+      );
+    }
+    
+    // Get the numeric value and parse it
+    final numericValue = _dynamicNumericController.text.trim();
+    int? count;
+    if (numericValue.isNotEmpty) {
+      count = int.tryParse(numericValue);
+      if (count != null && count > 8) {
+        count = 8; // Limit to 8
+      }
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        CustomFormField(
+          label: _currentItem['checklist_desc']?.toString() ?? '',
+          controller: _dynamicNumericController,
+          inputType: InputType.number,
+          maxLength: 1, // Limit to single digit (0-8)
+          isRequired: _currentItem['is_mandatory'] == true,
+          onChanged: (value) {
+            // Validate and limit to 8
+            final parsed = int.tryParse(value.trim());
+            if (parsed != null && parsed > 8) {
+              _dynamicNumericController.text = '8';
+              _dynamicNumericController.selection = TextSelection.fromPosition(
+                TextPosition(offset: _dynamicNumericController.text.length),
+              );
+            }
+            
+            setState(() {
+              final newValue = _dynamicNumericController.text.trim();
+              _currentItem['resp'] = newValue;
+              
+              // Update response_images array based on count
+              final newCount = newValue.isNotEmpty ? (int.tryParse(newValue) ?? 0) : 0;
+              final limitedCount = newCount > 8 ? 8 : newCount;
+              
+              // Get or create response_images array
+              List<dynamic> responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
+              
+              // Trim or extend array to match count
+              if (responseImages.length > limitedCount) {
+                // Remove excess images
+                responseImages = responseImages.sublist(0, limitedCount);
+                // Also clear from state maps
+                for (int i = limitedCount; i < _dynamicNumericImageData.length; i++) {
+                  _dynamicNumericImageData.remove(i);
+                  _dynamicNumericImageFiles.remove(i);
+                }
+              } else if (responseImages.length < limitedCount) {
+                // Add empty entries for new images
+                while (responseImages.length < limitedCount) {
+                  responseImages.add({
+                    'photo_id': 'LOCAL_IMAGE_ID',
+                    'pclsri_id': _currentItem['cm_check_list_mst_id'],
+                    'photo_taken_ts': DateTime.now().toIso8601String(),
+                  });
+                }
+              }
+              
+              _currentItem['response_images'] = responseImages;
+            });
+            
+            _notifyValueChanged();
+          },
+        ),
+        if (count != null && count > 0) ...[
+          const SizedBox(height: 15),
+          ...List.generate(count, (index) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 15),
+              child: ImageUploadField(
+                label: 'Image ${index + 1}',
+                placeholder: 'Add a Photo',
+                isRequired: false,
+                externalImageUrl: _dynamicNumericImageData[index],
+                isDisabled: false,
+                onImageSelected: (File? file) async {
+                  if (file != null) {
+                    await _uploadDynamicNumericImage(index, file);
+                  }
+                },
+              ),
+            );
+          }),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _uploadDynamicNumericImage(int index, File imageFile) async {
+    try {
+      // Read file as bytes and encode to base64
+      final bytes = await imageFile.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      // Store image data for display
+      setState(() {
+        _dynamicNumericImageFiles[index] = imageFile;
+        _dynamicNumericImageData[index] = 'data:image/jpeg;base64,$base64Image';
+      });
+      
+      // Add image to response_images array
+      _addDynamicNumericImageToResponseImages(index, base64Image);
+      
+      _notifyValueChanged();
+      
+      if (mounted) {
+        Toastbar.showSuccessToastbar("Image uploaded successfully", context);
+      }
+    } catch (e) {
+      if (mounted) {
+        Toastbar.showErrorToastbar("Error uploading image: $e", context);
+      }
+    }
+  }
+
+  void _addDynamicNumericImageToResponseImages(int index, String base64Image) {
+    // Get or create response_images array
+    List<dynamic> responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
+    
+    // Ensure array is large enough
+    while (responseImages.length <= index) {
+      responseImages.add({
+        'photo_id': 'LOCAL_IMAGE_ID',
+        'pclsri_id': _currentItem['cm_check_list_mst_id'],
+        'photo_taken_ts': DateTime.now().toIso8601String(),
+      });
+    }
+    
+    // Update the image at the specified index
+    responseImages[index] = {
+      'photo_id': 'LOCAL_IMAGE_ID',
+      'pclsri_id': _currentItem['cm_check_list_mst_id'],
+      'photo_taken_ts': DateTime.now().toIso8601String(),
+      'image_data': base64Image, // Store base64 for upload
+    };
+    
+    _currentItem['response_images'] = responseImages;
+  }
+
   // Helper method to build a field widget from a child item in impacted_item_check_list
   Widget _buildChildItemField(Map<String, dynamic> childItem, int parentId, {bool isReadonly = false}) {
     final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
@@ -1571,9 +1805,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: Colors.white,
-                  fontFamily: fontFamilyMontserrat,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
                 ),
-              ),
             ],
           ),
           overflow: TextOverflow.ellipsis,
@@ -2111,6 +2345,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         return _buildDynamicDropdownField(isReadonly: isReadonly);
       case 'MULTI_DYNAMIC_DROPDOWN':
         return _buildMultiDynamicDropdownField(isReadonly: isReadonly);
+      case 'DYNAMIC_NUMERIC':
+        return _buildDynamicNumericField(isReadonly: isReadonly);
       default:
         return Container(
           decoration: BoxDecoration(
