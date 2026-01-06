@@ -108,7 +108,7 @@ class PMPageHeaderTelecom extends StatelessWidget {
                                   
                                   // State
                                   CustomFormField(
-                                    label: 'State',
+                                    label: 'District',
                                     initialValue: pageHeader?['district']?.toString() ?? '',
                                     isEditable: false,
                                   ),
@@ -137,7 +137,47 @@ class PMPageHeaderTelecom extends StatelessWidget {
                                     isEditable: false,
                                   ),
                                   getHeight(16),
-                                  
+
+                                  // Infra Engineer Name
+                                  CustomFormField(
+                                    label: 'Infra Engineer Name',
+                                    initialValue: pageHeader?['infra_district_engineer_name']?.toString() ?? '',
+                                    isEditable: false,
+                                  ),
+                                  getHeight(16),
+
+                                  // Infra Engineer Contact No.
+                                  CustomFormField(
+                                    label: 'Infra Engineer Contact No.',
+                                    initialValue: pageHeader?['infra_district_engineer_contact_no']?.toString() ?? '',
+                                    isEditable: false,
+                                  ),
+                                  getHeight(16),
+
+                                  //Cluster Incharge Name
+                                  CustomFormField(
+                                    label: 'Cluster Incharge Name',
+                                    initialValue: pageHeader?['cluster_incharge_name']?.toString() ?? '',
+                                    isEditable: false,
+                                  ),
+                                  getHeight(16),
+
+                                  //Cluster Incharge Contact No.
+                                  CustomFormField(
+                                    label: 'Cluster Incharge Contact No.',
+                                    initialValue: pageHeader?['cluster_incharge_contact_no']?.toString() ?? '',
+                                    isEditable: false,
+                                  ),
+                                  getHeight(16),
+
+                                  //Date of PM
+                                  CustomFormField(
+                                    label: 'Date of PM',
+                                    initialValue: _formatDate(pageHeader?['raised_dt']?.toString()),
+                                    isEditable: false,
+                                  ),
+                                  getHeight(16),
+
                                   // Due Date of PM
                                   CustomFormField(
                                     label: 'Due Date of PM',
