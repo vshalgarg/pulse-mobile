@@ -1760,21 +1760,27 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        CustomFormField(
-          label: "Action Taken",
-          controller: controllers['action_taken'],
-          isEditable: widget.mode != CMScreenModeEnum.view,
-          isRequired: true,
-        ),
-        getHeight(15),
+        // Action Taken - only in edit and view mode
+        if (widget.mode != CMScreenModeEnum.create) ...[
+          CustomFormField(
+            label: "Action Taken",
+            controller: controllers['action_taken'],
+            isEditable: widget.mode != CMScreenModeEnum.view,
+            isRequired: true,
+          ),
+          getHeight(15),
+        ],
 
-        CustomFormField(
-          label: "RCA",
-          controller: controllers['rca'],
-          isEditable: widget.mode != CMScreenModeEnum.view,
-          isRequired: true,
-        ),
-        getHeight(15),
+        // RCA - only in edit and view mode
+        if (widget.mode != CMScreenModeEnum.create) ...[
+          CustomFormField(
+            label: "RCA",
+            controller: controllers['rca'],
+            isEditable: widget.mode != CMScreenModeEnum.view,
+            isRequired: true,
+          ),
+          getHeight(15),
+        ],
 
         // Closure Date - only visible in view mode
         if (widget.mode == CMScreenModeEnum.view) ...[
@@ -1835,13 +1841,16 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        CustomRemarksField(
-          label: "Problem Summary",
-          hintText: "Enter problem summary",
-          controller: controllers['problem_summary']!,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+        // Problem Summary - only in edit and view mode
+        if (widget.mode != CMScreenModeEnum.create) ...[
+          CustomRemarksField(
+            label: "Problem Summary",
+            hintText: "Enter problem summary",
+            controller: controllers['problem_summary']!,
+            isDisabled: widget.mode == CMScreenModeEnum.view,
+          ),
+          getHeight(15),
+        ],
 
         ImageUploadField(
           label: "Customer Photo",
@@ -1865,8 +1874,9 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        // Show Identification and FSR only when responsibleParty is "OEM"
-        if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') ...[
+        // Show Identification and FSR only in edit/view mode and when responsibleParty is "OEM"
+        if (widget.mode != CMScreenModeEnum.create && 
+            controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') ...[
           // Identification Photo
           ImageUploadField(
             label: "Identification",
@@ -2851,14 +2861,18 @@ class _CorrectiveMaintenanceScreenState
       errors.add('Scope of Ticket is required');
     }
     
-    // Action Taken - always required
-    if (controllers['action_taken']!.text.trim().isEmpty) {
-      errors.add('Action Taken is required');
+    // Action Taken - required only in edit/view mode
+    if (widget.mode != CMScreenModeEnum.create) {
+      if (controllers['action_taken']!.text.trim().isEmpty) {
+        errors.add('Action Taken is required');
+      }
     }
     
-    // RCA - always required
-    if (controllers['rca']!.text.trim().isEmpty) {
-      errors.add('RCA is required');
+    // RCA - required only in edit/view mode
+    if (widget.mode != CMScreenModeEnum.create) {
+      if (controllers['rca']!.text.trim().isEmpty) {
+        errors.add('RCA is required');
+      }
     }
     
     // Customer Name - always required
