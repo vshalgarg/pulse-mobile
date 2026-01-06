@@ -1113,11 +1113,14 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       return const SizedBox.shrink(); // Hide table when mfg_serial_no exists
     }
 
-    // Filter only items that have been saved (have resp value)
+    // Filter only items that have been saved (have resp value) and don't have mfg_serial_no
     final savedItems = responseDetails.where((item) {
       if (item is! Map<String, dynamic>) return false;
       final resp = item['resp'];
-      return resp != null && resp.toString().isNotEmpty;
+      final mfgSerialNo = item['mfg_serial_no'];
+      final hasSerialNo = mfgSerialNo != null && 
+                          mfgSerialNo.toString().trim().isNotEmpty;
+      return resp != null && resp.toString().isNotEmpty && !hasSerialNo;
     }).toList();
 
     if (savedItems.isEmpty) {
@@ -1133,6 +1136,45 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       if (id != null) {
         checklistNameMap[id] = name;
       }
+    }
+
+    // Process items to extract number from checklist_ref and append to checklist_desc
+    final List<Map<String, dynamic>> itemsWithFormattedName = [];
+    
+    for (final item in savedItems) {
+      if (item is! Map<String, dynamic>) continue;
+      
+      final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
+      final checklistRef = item['checklist_ref']?.toString() ?? '';
+      
+      // Extract number from checklist_ref (e.g., "Earth Pit 1" -> 1, "Earth Pit 2" -> 2)
+      int? refNumber;
+      if (checklistRef.isNotEmpty) {
+        final match = RegExp(r'(\d+)$').firstMatch(checklistRef);
+        if (match != null) {
+          refNumber = int.tryParse(match.group(1) ?? '');
+        }
+      }
+      
+      // Get checklist name from resp_dtl_checklist
+      String checklistName = '';
+      if (pmCheckListMstId != null) {
+        checklistName = checklistNameMap[pmCheckListMstId] ??
+                        item['checklist_desc']?.toString() ??
+                        '';
+      } else {
+        checklistName = item['checklist_desc']?.toString() ?? '';
+      }
+      
+      // Append number to checklist name if available
+      if (refNumber != null && checklistName.isNotEmpty) {
+        checklistName = '$checklistName $refNumber';
+      }
+      
+      // Create item with formatted name
+      final itemWithFormattedName = Map<String, dynamic>.from(item);
+      itemWithFormattedName['_formatted_checklist_name'] = checklistName;
+      itemsWithFormattedName.add(itemWithFormattedName);
     }
 
     return Container(
@@ -1154,22 +1196,10 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
           ),
           const SizedBox(height: 8),
           // Table rows
-          ...savedItems.map((item) {
-            if (item is! Map<String, dynamic>) return const SizedBox.shrink();
-
-            final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
-            final checklistName = pmCheckListMstId != null
-                ? (checklistNameMap[pmCheckListMstId] ??
-                      item['checklist_desc']?.toString() ??
-                      '')
-                : (item['checklist_desc']?.toString() ?? '');
-
-            String displayValue = item['resp']?.toString() ?? '';
-            // If has mfg_serial_no, include it in display
-            if (item['mfg_serial_no'] != null) {
-              final serial = item['mfg_serial_no']?.toString() ?? '';
-              displayValue = '$serial: $displayValue';
-            }
+          ...itemsWithFormattedName.map((item) {
+            final checklistName = item['_formatted_checklist_name']?.toString() ?? 
+                                 item['checklist_desc']?.toString() ?? '';
+            final displayValue = item['resp']?.toString() ?? '';
 
             return _buildTableRow(checklistName, displayValue);
           }).toList(),
@@ -1226,6 +1256,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
