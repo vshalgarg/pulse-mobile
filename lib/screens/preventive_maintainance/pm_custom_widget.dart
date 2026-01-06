@@ -1345,7 +1345,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       print('[PM] 🎨 Building IMG element: $elementKey');
       print('[PM] 🎨 hasExistingImage: $hasExistingImage, shouldShowAsRequired: ${isMandatory && !hasExistingImage}');
       
-      // Only show as required if it's mandatory AND no image exists
+      // Show red asterisk when mandatory (regardless of whether image exists)
+      // isRequired flag is used for validation, asterisk is shown when isMandatory is true
       final shouldShowAsRequired = isMandatory && !hasExistingImage;
       
       return Padding(
@@ -1373,10 +1374,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                       fontFamily: fontFamilyMontserrat,
                     ),
                   ),
-                  if (shouldShowAsRequired)
+                  if (isMandatory)
                     const Text(
                       ' *',
-                      style: TextStyle(color: AppColors.redColor),
+                      style: TextStyle(color: Colors.red),
                     ),
                 ],
               ),
@@ -1450,7 +1451,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
             hintText: "Enter ${checklistDesc.toLowerCase()}",
             controller: _dependentControllers[elementKey]!,
             isDisabled: !isEditable,
-            isRequired: false, // REMARKS fields are always optional
+            isRequired: isMandatory, // Show red asterisk when mandatoryIfValue condition is matched
           ),
         ),
       );
