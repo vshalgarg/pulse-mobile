@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:app/utils/image_compression_helper.dart';
 import 'package:app/utils/logger.dart';
+import 'package:app/commonWidgets/selfie_camera_screen.dart';
 
 import '../constants/app_colors.dart';
 
@@ -51,9 +52,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   @override
   void didUpdateWidget(ImageUploadField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Clear selected image when external image URL is provided or updated
-    // This ensures external images take priority over locally selected images
+    // Only clear selected image when external image URL actually changes
+    // This allows newly selected images to take priority over external URLs
     final externalUrlChanged = widget.externalImageUrl != oldWidget.externalImageUrl;
+    final hadExternalUrl = oldWidget.externalImageUrl != null && oldWidget.externalImageUrl!.isNotEmpty;
     final hasExternalUrl = widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty;
     
     Logger.imageLog('🖼️ didUpdateWidget called');
@@ -62,33 +64,78 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     print('🖼️ [ImageUploadField] Old externalImageUrl: ${oldWidget.externalImageUrl != null ? "NOT NULL (${oldWidget.externalImageUrl!.length} chars)" : "NULL"}');
     Logger.imageLog('🖼️ New externalImageUrl: ${widget.externalImageUrl != null ? "NOT NULL (${widget.externalImageUrl!.length} chars)" : "NULL"}');
     print('🖼️ [ImageUploadField] New externalImageUrl: ${widget.externalImageUrl != null ? "NOT NULL (${widget.externalImageUrl!.length} chars)" : "NULL"}');
-    Logger.imageLog('🖼️ External URL changed: $externalUrlChanged, Has external URL: $hasExternalUrl');
-    print('🖼️ [ImageUploadField] External URL changed: $externalUrlChanged, Has external URL: $hasExternalUrl');
+    Logger.imageLog('🖼️ External URL changed: $externalUrlChanged');
+    print('🖼️ [ImageUploadField] External URL changed: $externalUrlChanged');
     
-    if (hasExternalUrl && externalUrlChanged) {
-      Logger.imageLog('🖼️ External image URL updated, clearing selected image and forcing rebuild');
-      print('🖼️ [ImageUploadField] External image URL updated, clearing selected image and forcing rebuild');
-      setState(() {
-        _selectedImage = null;
-      });
-    } else if (hasExternalUrl) {
-      // Even if URL didn't change, ensure selected image is cleared if external URL exists
-      if (_selectedImage != null) {
-        Logger.imageLog('🖼️ External URL exists but selected image is set, clearing it');
-        print('🖼️ [ImageUploadField] External URL exists but selected image is set, clearing it');
+    // Only clear selected image if:
+    // 1. External URL changed from null/empty to a value (new external image loaded)
+    // 2. External URL changed from one value to another (external image updated)
+    // Do NOT clear if external URL exists but hasn't changed (user selected new image)
+    if (externalUrlChanged) {
+      if (hasExternalUrl && !hadExternalUrl) {
+        // External URL was added (new external image loaded)
+        Logger.imageLog('🖼️ External image URL added, clearing selected image');
+        print('🖼️ [ImageUploadField] External image URL added, clearing selected image');
         setState(() {
           _selectedImage = null;
         });
+      } else if (hasExternalUrl && hadExternalUrl) {
+        // External URL changed (external image updated)
+        Logger.imageLog('🖼️ External image URL updated, clearing selected image');
+        print('🖼️ [ImageUploadField] External image URL updated, clearing selected image');
+        setState(() {
+          _selectedImage = null;
+        });
+      } else if (!hasExternalUrl && hadExternalUrl) {
+        // External URL was removed (external image cleared)
+        Logger.imageLog('🖼️ External image URL removed');
+        print('🖼️ [ImageUploadField] External image URL removed');
+        // Don't clear selected image in this case - user might have selected a new image
       }
     }
+    // If external URL hasn't changed, don't clear selected image
+    // This allows newly selected images to display even if external URL still exists
   }
 
   Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.camera);
+    // Check if label or placeholder contains "selfie" (case-insensitive)
+    final label = widget.label?.toLowerCase() ?? '';
+    final placeholder = widget.placeholder?.toLowerCase() ?? '';
+    final isSelfie = label.contains('selfie') || placeholder.contains('selfie');
+    
+    // Debug logging
+    Logger.imageLog('📷 [ImageUploadField] Label: "${widget.label}", Placeholder: "${widget.placeholder}", IsSelfie: $isSelfie');
+    print('📷 [ImageUploadField] Label: "${widget.label}", Placeholder: "${widget.placeholder}", IsSelfie: $isSelfie');
+    
+    File? pickedFile;
+    
+    if (isSelfie) {
+      // Use custom camera screen for selfies to ensure front camera opens
+      final result = await Navigator.push<File>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const SelfieCameraScreen(),
+        ),
+      );
+      
+      if (result != null) {
+        pickedFile = result;
+      }
+    } else {
+      // Use image_picker for non-selfie photos
+      final picker = ImagePicker();
+      final pickedImage = await picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.rear,
+      );
+      
+      if (pickedImage != null) {
+        pickedFile = File(pickedImage.path);
+      }
+    }
 
     if (pickedFile != null) {
-      final originalFile = File(pickedFile.path);
+      final originalFile = pickedFile;
       
       // Show loading indicator while compressing
       showDialog(
