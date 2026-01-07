@@ -56,8 +56,14 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+
+
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
+
+    print('[TicketScreen] Current activity type: $_currentTicketType');
+    print('[TicketScreen] Checking FAB visibility for: ${_currentActivityType == ActivityTypeEnum.assetUpload}');
+
     _loadTickets();
     _hasLoadedOnce = true;
     _lastRefreshTime = DateTime.now();
@@ -182,6 +188,9 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
     switch (auditName) {
       case "Asset Audit":
         return ActivityTypeEnum.assetAudit;
+      case "AU":
+      case "Asset Upload":
+        return ActivityTypeEnum.assetUpload;
       case "PM":
         return ActivityTypeEnum.preventiveMaintenance;
       case "ER":
@@ -978,12 +987,14 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
   }
 
   Widget _buildFloatingActionButtons() {
-
+    // Debug: Log current activity type to verify it's being set correctly
+    print('[TicketScreen] Current activity type: $_currentActivityType');
     
-
-    if (_currentActivityType == ActivityTypeEnum.siteVisit ||
-        _currentActivityType == ActivityTypeEnum.generalInspection ||
-        _currentActivityType == ActivityTypeEnum.incident) {
+      if (_currentActivityType == ActivityTypeEnum.siteVisit ||
+          _currentActivityType == ActivityTypeEnum.generalInspection ||
+          _currentActivityType == ActivityTypeEnum.incident ||
+          _currentActivityType == ActivityTypeEnum.assetUpload ||
+          _currentActivityType == ActivityTypeEnum.assetAudit) {
       // Show both add button and sync button for SV/GI
       return Column(
         mainAxisAlignment: MainAxisAlignment.end,

@@ -187,6 +187,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         return "General Inspection";
       case ActivityTypeEnum.incident:
         return "Incident";
+      case ActivityTypeEnum.assetUpload:
+        return "Asset Upload";
     }
   }
 
@@ -510,6 +512,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
         _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.incident:
+        _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.assetUpload:
         _navigateToWorkflow(ticket);
         break;
     }

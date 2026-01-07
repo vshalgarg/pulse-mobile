@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/pm_constants.dart';
+import '../utils/logger.dart';
 
 class PMNavigationHelper {
   // Get the order of all PM screens from PMConstants based on page type
@@ -22,44 +23,60 @@ class PMNavigationHelper {
     
     final responseData = pmData['responseData'] as Map<String, dynamic>? ?? {};
     
-    // Debug logging
-
-    // Check for solar-specific page keys (these are the actual API response keys)
-    final solarKeys = ['SPV', 'Cables', 'Inverters', 'Transformer', 'BOS', 'Civil & Structures', 'Safety Systems', 'Performance', 'Earthing', 'Hygiene'];
-    final hasSolarKeys = solarKeys.any((key) => responseData.containsKey(key));
-    
-    // Check for telecom-specific page keys (these are the actual API response keys)
-    final telecomKeys = ['Tower', 'Battery', 'CCU', 'Solar', 'Electrical', 'SEB', 'DG', 'Fire Extinguisher', 'CT'];
-    final hasTelecomKeys = telecomKeys.any((key) => responseData.containsKey(key));
-
-    // If we have solar keys but no telecom keys, it's solar
-    if (hasSolarKeys && !hasTelecomKeys) {
-
-      return true;
-    }
-    
-    // If we have telecom keys but no solar keys, it's telecom
-    if (hasTelecomKeys && !hasSolarKeys) {
-
-      return false;
-    }
-    
-    // If we have both or neither, check the site type from pageHeader
+    // First, check site_domain_name from pageHeader (most reliable indicator)
     final pageHeader = pmData['pageHeader'] as List?;
     if (pageHeader != null && pageHeader.isNotEmpty) {
       final firstHeader = pageHeader.first as Map<String, dynamic>?;
+      final siteDomainName = firstHeader?['site_domain_name']?.toString().toLowerCase();
       final siteTypeName = firstHeader?['site_type_name']?.toString().toLowerCase();
 
+      // Check site_domain_name first (most reliable)
+      if (siteDomainName != null) {
+        if (siteDomainName.contains('solar') || siteDomainName.contains('spv') || siteDomainName.contains('pv')) {
+          Logger.infoLog('[PM] Detected as Solar PM (from site_domain_name: $siteDomainName)');
+          return true;
+        }
+        if (siteDomainName.contains('telecom')) {
+          Logger.infoLog('[PM] Detected as Telecom PM (from site_domain_name: $siteDomainName)');
+          return false;
+        }
+      }
+      
+      // Check site_type_name as fallback
       if (siteTypeName != null) {
         if (siteTypeName.contains('solar') || siteTypeName.contains('spv') || siteTypeName.contains('pv')) {
-
+          Logger.infoLog('[PM] Detected as Solar PM (from site_type_name: $siteTypeName)');
           return true;
         }
       }
     }
     
-    // Default to telecom for backward compatibility
+    // If site_domain_name is not available, check for solar-specific page keys
+    // Note: "Solar" and "Electrical" can appear in both, so we check for unique solar keys
+    final uniqueSolarKeys = ['SPV', 'Cables', 'Invertor', 'Junction Box', 'Safety', 'Structure', 
+                             'Energy Meter', 'WMS', 'Security', 'RMS', 'Transformer', 'BOS', 
+                             'Civil & Structures', 'Safety Systems', 'Performance Monitoring', 
+                             'Performance', 'Earthing', 'Hygiene'];
+    final hasUniqueSolarKeys = uniqueSolarKeys.any((key) => responseData.containsKey(key));
+    
+    // Check for unique telecom-specific page keys (these are the actual API response keys)
+    final uniqueTelecomKeys = ['Tower', 'Battery', 'CCU', 'SEB', 'DG', 'Fire Extinguisher', 'CT'];
+    final hasUniqueTelecomKeys = uniqueTelecomKeys.any((key) => responseData.containsKey(key));
 
+    // If we have unique solar keys but no unique telecom keys, it's solar
+    if (hasUniqueSolarKeys && !hasUniqueTelecomKeys) {
+      Logger.infoLog('[PM] Detected as Solar PM (has unique solar keys)');
+      return true;
+    }
+    
+    // If we have unique telecom keys but no unique solar keys, it's telecom
+    if (hasUniqueTelecomKeys && !hasUniqueSolarKeys) {
+      Logger.infoLog('[PM] Detected as Telecom PM (has unique telecom keys)');
+      return false;
+    }
+    
+    // Default to telecom for backward compatibility
+    Logger.infoLog('[PM] Defaulting to Telecom PM');
     return false;
   }
 
@@ -136,15 +153,24 @@ class PMNavigationHelper {
     if (pmData == null) return ['Site Info'];
 
     final pmScreenOrder = _getPmScreenOrder(pmData);
-    final availableScreens = pmScreenOrder.where((screen) => _isScreenDataAvailable(pmData, screen)).toList();
+    Logger.infoLog('[PM] Screen order: $pmScreenOrder');
     
-    // Debug logging
+    final responseData = pmData['responseData'] as Map<String, dynamic>? ?? {};
+    Logger.infoLog('[PM] Available data keys: ${responseData.keys.toList()}');
+    
+    final availableScreens = pmScreenOrder.where((screen) {
+      final isAvailable = _isScreenDataAvailable(pmData, screen);
+      final dataKey = PMConstants.getDataKeyForPage(screen);
+      Logger.infoLog('[PM] Screen: $screen, DataKey: $dataKey, Available: $isAvailable');
+      return isAvailable;
+    }).toList();
+    
+    Logger.infoLog('[PM] Available screens: $availableScreens');
 
     // If no screens are available, but we have pageHeader, at least show Site Info
     if (availableScreens.isEmpty) {
       final pageHeader = pmData['pageHeader'] as List?;
       if (pageHeader != null && pageHeader.isNotEmpty) {
-
         return ['Site Info'];
       }
     }

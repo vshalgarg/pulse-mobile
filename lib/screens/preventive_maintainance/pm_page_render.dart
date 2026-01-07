@@ -65,13 +65,20 @@ class _PMPageRenderState extends State<PMPageRender> {
 
     // Check for solar-specific page keys
     final solarKeys = [
-      'SPV',
+      'Solar',
       'Cables',
-      'Inverters',
+      'Invertor',
+      'Electrical',
+      'Junction Box',
+      'Safety',
+      'Structure',
+      'Energy Meter',
+      'WMS',
+      'Security',
+      'RMS',
       'Transformer',
       'BOS',
       'Civil & Structures',
-      'Safety Systems',
       'Performance',
       'Earthing',
       'Hygiene',

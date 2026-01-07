@@ -348,6 +348,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
               isComingSoon: false,
             ),
 
+             _buildTaskCard(
+              iconPath: AppImages.assetUpload,
+              label: 'Asset Upload',
+              onTap: () => _navigateToTask('Asset Upload'),
+              isComingSoon: false,
+            ),
+
             _buildTaskCard(
               iconPath: AppImages.project,
               label: 'Project',
@@ -457,7 +464,11 @@ class _PulseDashboardState extends State<PulseDashboard> {
   }
 
   void _navigateToTask(String taskName) {
-    if (taskName == 'SV' || taskName == 'GI' || taskName == 'Incident') {
+    if (taskName == 'SV' || 
+        taskName == 'GI' || 
+        taskName == 'Incident' || 
+        taskName == 'AU' ||
+        taskName == 'Asset Upload') {
       Navigator.push(
         context,
         MaterialPageRoute(

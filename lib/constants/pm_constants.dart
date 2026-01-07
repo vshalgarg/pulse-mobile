@@ -21,7 +21,7 @@ class PMConstants {
 
   // Telecom PM Page Order Configuration
   static const Map<String, String> telecomPageOrder = {
-    PMTelecomPagesConstants.earthing: 'Earthing',
+    
     PMTelecomPagesConstants.tower: 'Tower',
     PMTelecomPagesConstants.battery: 'Battery',
     PMTelecomPagesConstants.ccu: 'CCU',
@@ -29,7 +29,7 @@ class PMConstants {
     PMTelecomPagesConstants.electrical: 'Electrical',
     PMTelecomPagesConstants.seb: 'SEB',
     PMTelecomPagesConstants.dg: 'DG',
-    
+    PMTelecomPagesConstants.earthing: 'Earthing',
     PMTelecomPagesConstants.hygiene: 'Hygiene',
     PMTelecomPagesConstants.fireExtinguisher: 'Fire Extinguisher',
     PMTelecomPagesConstants.ct: 'CT',
@@ -41,10 +41,20 @@ class PMConstants {
   };
 
   // Solar PM Page Order Configuration
+  // Map structure: KEY = actual API data key, VALUE = display name
   static const Map<String, String> solarPageOrder = {
     PMSolarPagesConstants.SPV: 'SPV',
+    PMSolarPagesConstants.SOLAR: 'Solar',
     PMSolarPagesConstants.CABLES: 'Cables',
-    PMSolarPagesConstants.INVERTERS: 'Inverters',
+    PMSolarPagesConstants.INVERTERS: 'Invertor',
+    PMSolarPagesConstants.ELECTRICAL: 'Electrical',
+    PMSolarPagesConstants.JUNCTION_BOX: 'Junction Box',
+    PMSolarPagesConstants.SAFETY: 'Safety',
+    PMSolarPagesConstants.STRUCTURE: 'Structure',
+    PMSolarPagesConstants.ENERGY_METER: 'Energy Meter',
+    PMSolarPagesConstants.WMS: 'WMS',
+    PMSolarPagesConstants.SECURITY: 'Security',
+    PMSolarPagesConstants.RMS: 'RMS',
     PMSolarPagesConstants.TRANSFORMER: 'Transformer',
     PMSolarPagesConstants.BOS: 'BOS (Balnace of system)',
     PMSolarPagesConstants.CIVIL_STRUCTURES: 'Civil & Structures',

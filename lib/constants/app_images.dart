@@ -31,6 +31,7 @@ class AppImages {
   static const String warehouse = '${_basePath}warehouse.svg';
   static const String theft = '${_basePath}theft.svg';
   static const String incident = '${_basePath}incident_ticket.svg';
+  static const String assetUpload = '${_basePath}asset_upload.svg';
 
   // end
 
