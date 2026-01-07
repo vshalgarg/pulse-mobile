@@ -96,6 +96,8 @@ class _PMPageRenderState extends State<PMPageRender> {
       'DG',
       'Fire Extinguisher',
       'CT',
+      'Earthing',
+      'Hygiene',
     ];
     final hasTelecomKeys = telecomKeys.any(
       (key) => responseData.containsKey(key),

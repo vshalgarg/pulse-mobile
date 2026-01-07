@@ -52,15 +52,15 @@ class PMNavigationHelper {
     }
     
     // If site_domain_name is not available, check for solar-specific page keys
-    // Note: "Solar" and "Electrical" can appear in both, so we check for unique solar keys
+    // Note: "Solar", "Electrical", "Earthing", and "Hygiene" can appear in both, so we check for unique solar keys
     final uniqueSolarKeys = ['SPV', 'Cables', 'Invertor', 'Junction Box', 'Safety', 'Structure', 
                              'Energy Meter', 'WMS', 'Security', 'RMS', 'Transformer', 'BOS', 
                              'Civil & Structures', 'Safety Systems', 'Performance Monitoring', 
-                             'Performance', 'Earthing', 'Hygiene'];
+                             'Performance'];
     final hasUniqueSolarKeys = uniqueSolarKeys.any((key) => responseData.containsKey(key));
     
     // Check for unique telecom-specific page keys (these are the actual API response keys)
-    final uniqueTelecomKeys = ['Tower', 'Battery', 'CCU', 'SEB', 'DG', 'Fire Extinguisher', 'CT'];
+    final uniqueTelecomKeys = ['Tower', 'Battery', 'CCU', 'SEB', 'DG', 'Fire Extinguisher', 'CT', 'Earthing', 'Hygiene'];
     final hasUniqueTelecomKeys = uniqueTelecomKeys.any((key) => responseData.containsKey(key));
 
     // If we have unique solar keys but no unique telecom keys, it's solar
