@@ -822,11 +822,25 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     
     try {
       final respTypeValueMap = _currentItem['resp_type_value_map'];
-      if (respTypeValueMap != null && respTypeValueMap['value'] != null) {
-        final jsonString = respTypeValueMap['value'].toString();
-        final Map<String, dynamic> parsedMap = Map<String, dynamic>.from(
-          jsonDecode(jsonString)
-        );
+      if (respTypeValueMap != null && respTypeValueMap is Map) {
+        Map<String, dynamic> parsedMap;
+        
+        // Check if it's a nested structure with 'value' key (backward compatibility)
+        if (respTypeValueMap.containsKey('value')) {
+          final valueData = respTypeValueMap['value'];
+          if (valueData is Map) {
+            parsedMap = Map<String, dynamic>.from(valueData);
+          } else if (valueData is String) {
+            // Try to parse as JSON string
+            parsedMap = Map<String, dynamic>.from(jsonDecode(valueData));
+          } else {
+            return respValue?.toString();
+          }
+        } 
+        // resp_type_value_map is directly a Map (new format)
+        else {
+          parsedMap = Map<String, dynamic>.from(respTypeValueMap);
+        }
         
         // Find the key (label) for the given value
         for (final entry in parsedMap.entries) {
@@ -837,6 +851,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       }
     } catch (e) {
       // If parsing fails, return the original value
+      Logger.errorLog('[PM] Error in _getDisplayLabelForValue: $e');
     }
     
     return respValue?.toString();
@@ -849,26 +864,37 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     
     try {
       final respTypeValueMap = _currentItem['resp_type_value_map'];
-      if (respTypeValueMap != null && respTypeValueMap['value'] != null) {
-        final jsonString = respTypeValueMap['value'].toString();
-        final Map<String, dynamic> parsedMap = Map<String, dynamic>.from(
-          jsonDecode(jsonString)
-        );
+      if (respTypeValueMap != null && respTypeValueMap is Map) {
+        Map<String, dynamic> parsedMap;
+        
+        // Check if it's a nested structure with 'value' key (backward compatibility)
+        if (respTypeValueMap.containsKey('value')) {
+          final valueData = respTypeValueMap['value'];
+          if (valueData is Map) {
+            parsedMap = Map<String, dynamic>.from(valueData);
+          } else if (valueData is String) {
+            // Try to parse as JSON string
+            parsedMap = Map<String, dynamic>.from(jsonDecode(valueData));
+          } else {
+            parsedMap = {};
+          }
+        } 
+        // resp_type_value_map is directly a Map (new format)
+        else {
+          parsedMap = Map<String, dynamic>.from(respTypeValueMap);
+        }
         
         // Convert to label-value mapping
-        parsedMap.forEach((key, value) {
-          dropdownOptions.add(key); // Label for display
-          valueMap[key] = value.toString(); // Value for API
-        });
+        if (parsedMap.isNotEmpty) {
+          parsedMap.forEach((key, value) {
+            dropdownOptions.add(key); // Label for display
+            valueMap[key] = value.toString(); // Value for API
+          });
+        }
       }
     } catch (e) {
+      Logger.errorLog('[PM] Error parsing resp_type_value_map: $e');
       // Fallback to static options if parsing fails
-      dropdownOptions = [
-        'OK',
-        'Corrected',
-        'NOT OK - To be corrected',
-        'Not Applicable',
-      ];
     }
 
     // If no dynamic options found, use static fallback
@@ -1296,12 +1322,44 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     final currentMainResponse = _getCurrentMainResponse();
     List<Widget> widgets = [];
     
+    // Count visible elements first
+    int visibleCount = 0;
+    for (int index = 0; index < dependentElements.length; index++) {
+      final element = dependentElements[index];
+      final shouldShow = shouldDependentElementBeVisible(element, currentMainResponse);
+      if (shouldShow) visibleCount++;
+    }
+    
+    // Build widgets with flag indicating if they're in a group
+    final isGrouped = visibleCount > 1;
     for (int index = 0; index < dependentElements.length; index++) {
       final element = dependentElements[index];
       final shouldShow = shouldDependentElementBeVisible(element, currentMainResponse);
       if (!shouldShow) continue;
       
-      widgets.add(_buildDependentElement(element, isEditable, currentMainResponse, index));
+      widgets.add(_buildDependentElement(element, isEditable, currentMainResponse, index, isGrouped: isGrouped));
+    }
+    
+    // If there are multiple dependent elements, wrap them in a single container with light background
+    if (widgets.length > 1) {
+      return [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.1), // Very light transparent background
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1,
+            ),
+          ),
+          padding: const EdgeInsets.all(12.0),
+          margin: const EdgeInsets.only(top: 12.0, bottom: 16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: widgets,
+          ),
+        ),
+      ];
     }
     
     return widgets;
@@ -1312,8 +1370,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     Map<String, dynamic> element,
     bool isEditable,
     String? parentResponse,
-    int elementIndex,
-  ) {
+    int elementIndex, {
+    bool isGrouped = false,
+  }) {
     final respType = element['resp_type']?.toString() ?? '';
     final checklistDesc = element['checklist_desc']?.toString() ?? '';
     // REMARKS fields are always non-mandatory, regardless of mandatoryIfValue
@@ -1349,8 +1408,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       // isRequired flag is used for validation, asterisk is shown when isMandatory is true
       final shouldShowAsRequired = isMandatory && !hasExistingImage;
       
+      // Reduce padding when grouped in a container
+      final padding = isGrouped 
+          ? const EdgeInsets.only(top: 8.0, bottom: 8.0)
+          : const EdgeInsets.only(top: 12.0, bottom: 16.0);
+      
       return Padding(
-        padding: const EdgeInsets.only(top: 12.0, bottom: 16.0),
+        padding: padding,
         child: Container(
           decoration: shouldHighlight
               ? BoxDecoration(
@@ -1435,8 +1499,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         });
       }
       
+      // Reduce padding when grouped in a container
+      final padding = isGrouped 
+          ? const EdgeInsets.only(top: 8.0, bottom: 8.0)
+          : const EdgeInsets.only(top: 12.0, bottom: 16.0);
+      
       return Padding(
-        padding: const EdgeInsets.only(top: 12.0, bottom: 16.0),
+        padding: padding,
         child: Container(
           decoration: shouldHighlight
               ? BoxDecoration(

@@ -52,9 +52,7 @@ Future<void> main() async {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-    } else {
-
-    }
+    } 
   } catch (e) {
 
     // Continue without Firebase if initialization fails
@@ -64,6 +62,7 @@ Future<void> main() async {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
   } catch (e) {
 
+    throw Exception(e);
   }
 
   // Initialize push notifications only if Firebase is available
@@ -169,11 +168,9 @@ Future<void> _initializeLocationPermissions() async {
 
     final permissionResult = await LocationPermissionService.requestLocationPermissions();
     if (permissionResult['success']) {
-
-    } else {
-
-    }
+    } 
   } catch (e) {
+    throw Exception(e);
 
   }
 }
@@ -185,10 +182,6 @@ void _checkTokenStatus() async {
     if (Utils.isTokenExpired(token)) {
 
       await LocalStorageDB.logout();
-    } else {
-
     }
-  } else {
-
-  }
+  } 
 }
