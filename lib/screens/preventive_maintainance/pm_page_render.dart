@@ -61,71 +61,56 @@ class _PMPageRenderState extends State<PMPageRender> {
 
   /// Determine if this is a solar PM based on data structure
   bool get _isSolarPM {
-    final responseData = _pmData['responseData'] as Map<String, dynamic>? ?? {};
-
-    // Check for solar-specific page keys
-    final solarKeys = [
-      'Solar',
-      'Cables',
-      'Invertor',
-      'Electrical',
-      'Junction Box',
-      'Safety',
-      'Structure',
-      'Energy Meter',
-      'WMS',
-      'Security',
-      'RMS',
-      'Transformer',
-      'BOS',
-      'Civil & Structures',
-      'Performance',
-      'Earthing',
-      'Hygiene',
-    ];
-    final hasSolarKeys = solarKeys.any((key) => responseData.containsKey(key));
-
-    // Check for telecom-specific page keys
-    final telecomKeys = [
-      'Tower',
-      'Battery',
-      'CCU',
-      'Solar',
-      'Electrical',
-      'SEB',
-      'DG',
-      'Fire Extinguisher',
-      'CT',
-      'Earthing',
-      'Hygiene',
-    ];
-    final hasTelecomKeys = telecomKeys.any(
-      (key) => responseData.containsKey(key),
-    );
-
-    // If we have solar keys but no telecom keys, it's solar
-    if (hasSolarKeys && !hasTelecomKeys) return true;
-
-    // If we have telecom keys but no solar keys, it's telecom
-    if (hasTelecomKeys && !hasSolarKeys) return false;
-
-    // If we have both or neither, check the site type from pageHeader
+    // Use the same logic as PMNavigationHelper for consistency
+    // First, check site_domain_name from pageHeader (most reliable indicator)
     final pageHeader = _pmData['pageHeader'] as List?;
     if (pageHeader != null && pageHeader.isNotEmpty) {
       final firstHeader = pageHeader.first as Map<String, dynamic>?;
-      final siteTypeName = firstHeader?['site_type_name']
-          ?.toString()
-          .toLowerCase();
+      final siteDomainName = firstHeader?['site_domain_name']?.toString().toLowerCase();
+      final siteTypeName = firstHeader?['site_type_name']?.toString().toLowerCase();
 
+      // Check site_domain_name first (most reliable)
+      if (siteDomainName != null) {
+        if (siteDomainName.contains('solar') || siteDomainName.contains('spv') || siteDomainName.contains('pv')) {
+          return true;
+        }
+        if (siteDomainName.contains('telecom')) {
+          return false;
+        }
+      }
+      
+      // Check site_type_name as fallback
       if (siteTypeName != null) {
-        if (siteTypeName.contains('solar') ||
-            siteTypeName.contains('spv') ||
-            siteTypeName.contains('pv')) {
+        if (siteTypeName.contains('solar') || siteTypeName.contains('spv') || siteTypeName.contains('pv')) {
           return true;
         }
       }
     }
+    
+    // If site_domain_name is not available, check for solar-specific page keys
+    final responseData = _pmData['responseData'] as Map<String, dynamic>? ?? {};
+    
+    // Note: "Solar", "Electrical", "Earthing", and "Hygiene" can appear in both, so we check for unique solar keys
+    final uniqueSolarKeys = ['SPV', 'Cables', 'Invertor', 'Junction Box', 'Safety', 'Structure', 
+                             'Energy Meter', 'WMS', 'Security', 'RMS', 'Transformer', 'BOS', 
+                             'Civil & Structures', 'Safety Systems', 'Performance Monitoring', 
+                             'Performance'];
+    final hasUniqueSolarKeys = uniqueSolarKeys.any((key) => responseData.containsKey(key));
+    
+    // Check for unique telecom-specific page keys
+    final uniqueTelecomKeys = ['Tower', 'Battery', 'CCU', 'SEB', 'DG', 'Fire Extinguisher', 'CT', 'Earthing', 'Hygiene'];
+    final hasUniqueTelecomKeys = uniqueTelecomKeys.any((key) => responseData.containsKey(key));
 
+    // If we have unique solar keys but no unique telecom keys, it's solar
+    if (hasUniqueSolarKeys && !hasUniqueTelecomKeys) {
+      return true;
+    }
+    
+    // If we have unique telecom keys but no unique solar keys, it's telecom
+    if (hasUniqueTelecomKeys && !hasUniqueSolarKeys) {
+      return false;
+    }
+    
     // Default to telecom for backward compatibility
     return false;
   }
