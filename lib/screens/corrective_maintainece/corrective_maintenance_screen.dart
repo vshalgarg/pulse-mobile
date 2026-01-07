@@ -1039,7 +1039,7 @@ class _CorrectiveMaintenanceScreenState
           final mergedChecklistData = await _mergeChecklistWithResponses(
             checklistTemplate,
             existingResponses,
-          );
+        );
           
           if (mounted) {
             setState(() {
@@ -1762,24 +1762,24 @@ class _CorrectiveMaintenanceScreenState
 
         // Action Taken - only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
-          CustomFormField(
-            label: "Action Taken",
-            controller: controllers['action_taken'],
-            isEditable: widget.mode != CMScreenModeEnum.view,
-            isRequired: true,
-          ),
-          getHeight(15),
+        CustomFormField(
+          label: "Action Taken",
+          controller: controllers['action_taken'],
+          isEditable: widget.mode != CMScreenModeEnum.view,
+          isRequired: true,
+        ),
+        getHeight(15),
         ],
 
         // RCA - only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
-          CustomFormField(
-            label: "RCA",
-            controller: controllers['rca'],
-            isEditable: widget.mode != CMScreenModeEnum.view,
-            isRequired: true,
-          ),
-          getHeight(15),
+        CustomFormField(
+          label: "RCA",
+          controller: controllers['rca'],
+          isEditable: widget.mode != CMScreenModeEnum.view,
+          isRequired: true,
+        ),
+        getHeight(15),
         ],
 
         // Closure Date - only visible in view mode
@@ -1843,13 +1843,13 @@ class _CorrectiveMaintenanceScreenState
 
         // Problem Summary - only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
-          CustomRemarksField(
-            label: "Problem Summary",
-            hintText: "Enter problem summary",
-            controller: controllers['problem_summary']!,
-            isDisabled: widget.mode == CMScreenModeEnum.view,
-          ),
-          getHeight(15),
+        CustomRemarksField(
+          label: "Problem Summary",
+          hintText: "Enter problem summary",
+          controller: controllers['problem_summary']!,
+          isDisabled: widget.mode == CMScreenModeEnum.view,
+        ),
+        getHeight(15),
         ],
 
         ImageUploadField(
@@ -3042,10 +3042,10 @@ class _CorrectiveMaintenanceScreenState
     _isSubmitting = true;
     
     try {
-      if (widget.mode == CMScreenModeEnum.create) {
-        await _submitFormData(shouldNavigate: shouldNavigate);
-      } else if (widget.mode == CMScreenModeEnum.edit) {
-        await _editFormData(shouldNavigate: shouldNavigate);
+    if (widget.mode == CMScreenModeEnum.create) {
+      await _submitFormData(shouldNavigate: shouldNavigate);
+    } else if (widget.mode == CMScreenModeEnum.edit) {
+      await _editFormData(shouldNavigate: shouldNavigate);
       }
     } finally {
       // Reset submitting flag

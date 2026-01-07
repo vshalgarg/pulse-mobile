@@ -886,10 +886,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         
         // Convert to label-value mapping
         if (parsedMap.isNotEmpty) {
-          parsedMap.forEach((key, value) {
-            dropdownOptions.add(key); // Label for display
-            valueMap[key] = value.toString(); // Value for API
-          });
+        parsedMap.forEach((key, value) {
+          dropdownOptions.add(key); // Label for display
+          valueMap[key] = value.toString(); // Value for API
+        });
         }
       }
     } catch (e) {

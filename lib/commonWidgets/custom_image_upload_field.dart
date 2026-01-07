@@ -123,7 +123,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       }
     } else {
       // Use image_picker for non-selfie photos
-      final picker = ImagePicker();
+    final picker = ImagePicker();
       final pickedImage = await picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.rear,

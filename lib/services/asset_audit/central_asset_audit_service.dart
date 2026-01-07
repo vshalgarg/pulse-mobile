@@ -159,6 +159,47 @@ class CentralAssetAuditService {
     }
   }
 
+  /// Download Asset Upload site data and save to SQLite
+  Future<bool> downloadAssetUploadSiteData({
+    required AllSiteModel site,
+  }) async {
+    try {
+      Logger.debugLog(
+        'Starting to download Asset Upload site data for site: ${site.siteName}',
+      );
+
+      // Save to SQLite using the site data service
+      bool isSaved = await ServiceLocator().centralAssetAuditDataService
+          .saveCMSiteData(
+            siteId: site.siteId,
+            entityId: site.entityId,
+            siteCode: site.siteCode,
+            siteName: site.siteName,
+            clusterDistrictId: site.clusterDistrictId,
+            clusterDistrictName: site.clusterDistrictName,
+            circleStateId: site.circleStateId,
+            circleStateName: site.circleStateName,
+            clientId: site.clientId,
+            clientName: site.clientName,
+            oem: site.oem,
+            oemId: site.oemId,
+            self: site.self,
+            selfId: site.selfId,
+            activityType: ActivityTypeEnum.assetUpload.value,
+            infraDistrictEngineerName: site.infraEngineerName,
+            infraDistrictEngineerContactNo: site.infraEngineerPhone,
+            ownerName: site.ownerName,
+            ownerContactNo: site.ownerPhone,
+          );
+
+      Logger.debugLog('✅ Asset Upload site data saved successfully to SQLite: $isSaved');
+      return isSaved;
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading Asset Upload site data: $e');
+      return false;
+    }
+  }
+
   /// Download General Inspection site data and save to SQLite
   Future<bool> downloadGISiteData({
     required AllSiteModel site,

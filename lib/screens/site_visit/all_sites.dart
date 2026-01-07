@@ -7,6 +7,7 @@ import 'package:app/models/location_model.dart';
 import 'package:app/screens/general_inspection/ginspection_detail.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/screens/incident_ticket/incident_detail_screen.dart';
+import 'package:app/screens/asset_upload/asset_upload_detail_page.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils/toastbar.dart';
@@ -272,6 +273,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 mode: CMScreenModeEnum.create,
                 parentContext: parentContext,
               )
+            : widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload'
+            ? AssetUploadDetailPage(
+                siteData: site,
+                parentContext: parentContext,
+              )
             : IncidentDetilScreen(
                 siteData: site,
                 mode: CMScreenModeEnum.create,
@@ -359,6 +365,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         print('Downloading incident site data');
         isDownloaded = await service.downloadIncidentSiteData(site: site);
         print('Incident site data downloaded: $isDownloaded');
+      } else if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
+        isDownloaded = await service.downloadAssetUploadSiteData(site: site);
       }
 
       if (isDownloaded) {

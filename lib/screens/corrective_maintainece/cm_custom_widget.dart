@@ -1156,7 +1156,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               final isRequired = _isDependentElementMandatory(
                 elementMap['mandatoryIfValue'],
                 parentResponse,
-              );
+    );
               
               print('[CM] Building TEXT IMG field - checklistDesc: $checklistDesc, isRequired: $isRequired');
               

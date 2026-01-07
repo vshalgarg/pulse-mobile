@@ -80,6 +80,13 @@ class AssetAuditFormComponent extends StatefulWidget {
   final Map<String, String?>? Function(String serialNumber)?
   onSerialNumberLookup;
 
+  /// Whether to show the status field (OK/Not OK)
+  final bool showStatus;
+
+  /// Whether to show the form section (scan asset, photo, etc.)
+  /// If false, only the table will be shown
+  final bool showForm;
+
   const AssetAuditFormComponent({
     super.key,
     required this.componentId,
@@ -102,6 +109,8 @@ class AssetAuditFormComponent extends StatefulWidget {
     this.imageHeight = 150,
     this.enableImageCompression = true,
     this.onSerialNumberLookup,
+    this.showStatus = true,
+    this.showForm = true,
   });
 
   @override
@@ -258,8 +267,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       return false;
     }
 
-    // Check status
-    if (_selectedStatus == null) {
+    // Check status (only if showStatus is true)
+    if (widget.showStatus && _selectedStatus == null) {
       _validationErrorMessage = 'Please select a status';
       return false;
     }
@@ -494,7 +503,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       // Step 4: Create item data and add to saved items
       final itemData = {
         'mfg_serial_no': widget.serialController.text,
-        'asset_status': _selectedStatus! ? 'OK' : 'Not OK',
+        'asset_status': widget.showStatus && _selectedStatus != null
+            ? (_selectedStatus! ? 'OK' : 'Not OK')
+            : null,
         'photo_id': _uploadedImageId, // Photo ID from server
         'photoPath': _selectedPhotoPath, // Local photo path
         'qr_code_scanned': _isQRCodeScanned,
@@ -699,7 +710,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       _isEditing = true;
       _editingItem = item;
       widget.serialController.text = item['mfg_serial_no'] ?? '';
-      _selectedStatus = item['asset_status'] == 'OK' ? true : false;
+      if (widget.showStatus) {
+        _selectedStatus = item['asset_status'] == 'OK' ? true : false;
+      }
       _isQRCodeScanned = item['qr_code_scanned'] ?? false;
       qrCodeScannedTs = item['qr_code_scanned'] == true
           ? item['qr_code_scanned_ts']
@@ -1351,12 +1364,16 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                 Row(
                   children: [
                     _buildTableHeaderCell('Serial No.', 200),
-                    if (showFirstDisabledFieldColumn)
-                      _buildTableHeaderCell(widget.disabledFieldLabel ?? '', 100),
-                    if (showSecondDisabledFieldColumn)
-                      _buildTableHeaderCell(secondDisabledFieldHeader, 80),
-                    _buildTableHeaderCell('Status', 80),
-                    _buildTableHeaderCell('Scanned', 80),
+                    if (widget.showForm) ...[
+                      // Only show these columns when form is visible (for backward compatibility)
+                      if (showFirstDisabledFieldColumn)
+                        _buildTableHeaderCell(widget.disabledFieldLabel ?? '', 100),
+                      if (showSecondDisabledFieldColumn)
+                        _buildTableHeaderCell(secondDisabledFieldHeader, 80),
+                      if (widget.showStatus)
+                        _buildTableHeaderCell('Status', 80),
+                      _buildTableHeaderCell('Scanned', 80),
+                    ],
                     _buildTableHeaderCell('Photo', 80),
                     _buildTableHeaderCell('Edit', 80),
                   ],
@@ -1409,21 +1426,25 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       child: Row(
         children: [
           _buildTableDataCell(item['mfg_serial_no'] ?? '', 200),
-          if (showFirstDisabledFieldColumn)
+          if (widget.showForm) ...[
+            // Only show these columns when form is visible (for backward compatibility)
+            if (showFirstDisabledFieldColumn)
+              _buildTableDataCell(
+                item['disabledFieldValue'] ?? 
+                item['capacity']?.toString() ?? 
+                'N/A', 
+                100
+              ),
+            if (showSecondDisabledFieldColumn)
+              _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
+            if (widget.showStatus)
+              _buildTableDataCell(item['asset_status'] ?? '', 80),
             _buildTableDataCell(
-              item['disabledFieldValue'] ?? 
-              item['capacity']?.toString() ?? 
-              'N/A', 
-              100
+              item['qr_code_scanned'] == true ? 'Yes' : 'No',
+              80,
+              isScanned: item['qr_code_scanned'] == true,
             ),
-          if (showSecondDisabledFieldColumn)
-            _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
-          _buildTableDataCell(item['asset_status'] ?? '', 80),
-          _buildTableDataCell(
-            item['qr_code_scanned'] == true ? 'Yes' : 'No',
-            80,
-            isScanned: item['qr_code_scanned'] == true,
-          ),
+          ],
           _buildTablePhotoCell(item, 80),
           _buildTableEditCell(item, 80),
         ],
@@ -1527,49 +1548,59 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Main form container matching CustomInfoCard design
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AssetAuditFormComponent.backgroundColor,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Serial Number field
-              _buildSerialNumberField(),
-              const SizedBox(height: 16),
-
-              // Second disabled field (if provided) - placed just below serial number
-              if (widget.secondDisabledFieldLabel != null &&
-                  widget.secondDisabledFieldLabel!.isNotEmpty) ...[
-                _buildSecondDisabledField(),
+        // Main form container matching CustomInfoCard design (only if showForm is true)
+        if (widget.showForm)
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AssetAuditFormComponent.backgroundColor,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Serial Number field
+                _buildSerialNumberField(),
                 const SizedBox(height: 16),
-              ],
 
-              // Photo Picker
-              _buildPhotoUploadField(),
-              const SizedBox(height: 16),
-
-              // Disabled field (if needed)
-              if (widget.disabledFieldLabel != null) ...[
-                _buildDisabledField(),
-                const SizedBox(height: 16),
-              ],
-
-              // Status field with save button inline (matching CustomInfoCard layout)
-              Row(
-                children: [
-                  Expanded(flex: 3, child: _buildStatusField()),
-                  const SizedBox(width: 16),
-                  Flexible(flex: 1, child: _buildSaveButton()),
+                // Second disabled field (if provided) - placed just below serial number
+                if (widget.secondDisabledFieldLabel != null &&
+                    widget.secondDisabledFieldLabel!.isNotEmpty) ...[
+                  _buildSecondDisabledField(),
+                  const SizedBox(height: 16),
                 ],
-              ),
-            ],
+
+                // Photo Picker
+                _buildPhotoUploadField(),
+                const SizedBox(height: 16),
+
+                // Disabled field (if needed)
+                if (widget.disabledFieldLabel != null) ...[
+                  _buildDisabledField(),
+                  const SizedBox(height: 16),
+                ],
+
+                // Status field with save button inline (matching CustomInfoCard layout)
+                if (widget.showStatus)
+                  Row(
+                    children: [
+                      Expanded(flex: 3, child: _buildStatusField()),
+                      const SizedBox(width: 16),
+                      Flexible(flex: 1, child: _buildSaveButton()),
+                    ],
+                  )
+                else
+                  // Just save button when status is hidden
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      _buildSaveButton(),
+                    ],
+                  ),
+              ],
+            ),
           ),
-        ),
 
         // Saved items table
         _buildSavedItemsTable(),
