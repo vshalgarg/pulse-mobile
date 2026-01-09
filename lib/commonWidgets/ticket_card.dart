@@ -23,6 +23,8 @@ class TicketCard extends StatelessWidget {
   final VoidCallback? onPdfDownloadTap;
   final ActivityTypeEnum activityType;
 
+  final int? totalAssets;
+
   const TicketCard({
     super.key,
     required this.ticket,
@@ -41,6 +43,7 @@ class TicketCard extends StatelessWidget {
     this.onTap,
     this.onPdfDownloadTap,
     required this.activityType,
+    this.totalAssets,
   });
 
   // Method to get status color based on status text
@@ -228,7 +231,11 @@ class TicketCard extends StatelessWidget {
                   Expanded(
                     flex: 1,
                     child: Text(
-                      "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
+                      // here if type id asset upload or AU then it will be "Last Uploaded On" else "Raised On"
+                      activityType == ActivityTypeEnum.assetUpload
+                          ? "Last Uploaded On : ${Utils.formatDataForTicketCard(raisedOn)}"
+                          : "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
+                     
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
@@ -242,9 +249,10 @@ class TicketCard extends StatelessWidget {
                   Expanded(
                     flex: 1,
                     child: Text(
-                      dueDate != null && dueDate.isNotEmpty
-                          ? "Due : ${Utils.formatDataForTicketCard(dueDate)}"
-                          : "",
+                      activityType == ActivityTypeEnum.assetUpload
+                          ? "Total Assets : ${totalAssets ?? 0}"
+                          : "Due : ${Utils.formatDataForTicketCard(dueDate)}",
+                      
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,

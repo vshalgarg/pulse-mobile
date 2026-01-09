@@ -790,6 +790,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
             company: ticket.operator ?? 'N/A',
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
+            totalAssets: ticket.totalAssets,
             statusText: statusText,
             activityType: _currentActivityType,
             isDownloadedFunc: _isTicketDownloaded,
