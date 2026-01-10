@@ -59,6 +59,36 @@ class AssetUploadRepository {
       );
     }
   }
+
+  /// Get uploaded asset data from the server
+  /// 
+  /// Parameters:
+  /// - [auId]: Asset Upload ID to retrieve
+  /// 
+  /// Returns: ResponseResult with asset upload data
+  Future<ResponseResult<Map<String, dynamic>?>> getUploadedAssets({
+    required int auId,
+  }) async {
+    try {
+      final result = await apiService.get<Map<String, dynamic>>(
+        path: 'api/v1/mobile/assetUpload/$auId',
+      );
+
+      // Check if request was successful (status code 200)
+      if (result.statusCode == 200) {
+        return ResponseResult.success(result.data, result.statusCode);
+      } else {
+        return ResponseResult.error(
+          errorMessage: result.errorMessage ?? 'Failed to get uploaded asset data',
+          statusCode: result.statusCode,
+        );
+      }
+    } catch (e) {
+      return ResponseResult.error(
+        errorMessage: 'Error getting uploaded asset data: ${e.toString()}',
+      );
+    }
+  }
 }
 
 /// Model for Asset Upload Item

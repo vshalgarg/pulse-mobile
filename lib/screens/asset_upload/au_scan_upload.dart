@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:app/commonWidgets/asset_upload_form_component.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/models/location_model.dart';
+import 'package:app/repositories/asset_upload_respository.dart';
 import 'package:app/routes/route_generator.dart';
+import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/location_service.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/utils.dart';
 import 'package:app/utils/logger.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter_svg/svg.dart';
 import 'asset_type_mapper.dart';
 
@@ -52,9 +60,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   String? _editingAssetType;
   String? _editingOriginalSerial; // Store original serial to find and update the item
 
+  // Repository and services
+  late AssetUploadRepository _assetUploadRepository;
+  late CentralAssetAuditService _assetAuditService;
+
   @override
   void initState() {
     super.initState();
+    _assetUploadRepository = AssetUploadRepository(
+      ServiceLocator().apiService,
+    );
+    _assetAuditService = ServiceLocator().centralAssetAuditService;
     _loadExistingAssets();
   }
 
@@ -178,9 +194,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     setState(() {
       // Normalize serial numbers to show only the serial part (not NG-ACRONYM-SERIAL)
       // But always preserve full_scanned_code for display
-      // IMPORTANT: Preserve ALL fields including photo_id and photoPath
+      // IMPORTANT: Preserve ALL fields including photo_id, photoPath, and assetUploadItemImages
       final normalizedItems = items.map((item) {
-        final updatedItem = Map<String, dynamic>.from(item); // Copy all fields first
+        final updatedItem = Map<String, dynamic>.from(item); // Copy all fields first (includes assetUploadItemImages)
         final serialNumber = item['mfg_serial_no']?.toString() ?? '';
         
         // Always ensure full_scanned_code is set - use existing or reconstruct if needed
@@ -207,7 +223,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           updatedItem['mfg_serial_no'] = parsed['serialNumber']!;
         }
         
-        // Ensure photo_id and photoPath are preserved (should already be in item)
+        // Ensure photo_id, photoPath, and assetUploadItemImages are preserved (should already be in item)
+        // assetUploadItemImages is already copied from item in Map.from(item)
         // No need to modify them - they're already correct from the component
         
         return updatedItem;
@@ -282,6 +299,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         if (lastItem['photoPath'] != null) {
           updatedItem['photoPath'] = lastItem['photoPath'];
         }
+        // Preserve assetUploadItemImages array from lastItem (contains uploaded photo data)
+        if (lastItem['assetUploadItemImages'] != null) {
+          updatedItem['assetUploadItemImages'] = lastItem['assetUploadItemImages'];
+        }
         // Preserve other fields that might be needed
         if (lastItem['qr_code_scanned'] != null) {
           updatedItem['qr_code_scanned'] = lastItem['qr_code_scanned'];
@@ -300,6 +321,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         }
         if (lastItem['capacity'] != null) {
           updatedItem['capacity'] = lastItem['capacity'];
+        }
+        if (lastItem['remarks'] != null) {
+          updatedItem['remarks'] = lastItem['remarks'];
         }
 
         // Add/update in the appropriate group
@@ -357,6 +381,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         updatedItem['mfg_serial_no'] = serialNum;
         // Preserve the full scanned code in a separate field for reference
         updatedItem['full_scanned_code'] = fullSerialNumber;
+        // Ensure assetUploadItemImages is preserved from lastItem (created when saving individual item)
+        if (lastItem['assetUploadItemImages'] != null) {
+          updatedItem['assetUploadItemImages'] = lastItem['assetUploadItemImages'];
+        }
         _assetGroups[assetType]!.add(updatedItem);
         _scannedSerialNumbers.add(fullSerial);
         _updateTotalCount();
@@ -379,6 +407,243 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   void _updateTotalCount() {
     _totalAssetCount = _assetGroups.values
         .fold(0, (sum, items) => sum + items.length);
+  }
+
+  /// Gets selfie image ID from storage
+  Future<int?> _getSelfieImageId() async {
+    try {
+      final storedData = await _assetAuditService.getActualDataFromSqlite(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+      );
+
+      if (storedData != null) {
+        final pageHeaders = storedData['pageHeader'] as List<dynamic>?;
+        final pageHeader = pageHeaders?.isNotEmpty == true
+            ? pageHeaders!.first as Map<String, dynamic>?
+            : null;
+
+        if (pageHeader != null && pageHeader['maker_selfie_image_id'] != null) {
+          final selfieImageId = pageHeader['maker_selfie_image_id'].toString();
+          if (selfieImageId.isNotEmpty && 
+              selfieImageId != "0" && 
+              selfieImageId != "null") {
+            // Convert to int, handling LOCAL_IMAGE_ID case
+            if (selfieImageId.contains("LOCAL_IMAGE_ID")) {
+              return 0; // Will need to be replaced when uploading
+            }
+            return int.tryParse(selfieImageId) ?? 0;
+          }
+        }
+      }
+      return 0;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting selfie image ID: $e');
+      return 0;
+    }
+  }
+
+  /// Transforms assets from _assetGroups to AssetUploadItem format
+  List<AssetUploadItem> _transformAssetsToApiFormat(
+    LocationModel? location,
+  ) {
+    final List<AssetUploadItem> assetUploadItems = [];
+
+    for (final entry in _assetGroups.entries) {
+      final items = entry.value;
+
+      for (final item in items) {
+        // Get serial number (prefer full_scanned_code, fallback to mfg_serial_no)
+        final nexgenSerialNo = item['full_scanned_code']?.toString() ?? 
+                              item['mfg_serial_no']?.toString() ?? 
+                              '';
+
+        if (nexgenSerialNo.isEmpty) {
+          continue; // Skip items without serial number
+        }
+
+        // Build assetUploadItemImages from photo data
+        final List<AssetUploadItemImage> itemImages = [];
+        
+        // Check if assetUploadItemImages already exists (from individual save)
+        if (item['assetUploadItemImages'] != null && 
+            item['assetUploadItemImages'] is List) {
+          final images = item['assetUploadItemImages'] as List<dynamic>;
+          for (final img in images) {
+            if (img is Map<String, dynamic>) {
+              // Convert photoId to int, handling LOCAL_IMAGE_ID case
+              int? photoIdInt;
+              final photoIdValue = img['photoId'];
+              if (photoIdValue != null) {
+                if (photoIdValue is int) {
+                  photoIdInt = photoIdValue;
+                } else {
+                  final photoIdStr = photoIdValue.toString();
+                  if (photoIdStr.contains("LOCAL_IMAGE_ID")) {
+                    photoIdInt = 0; // LOCAL_IMAGE_ID -> 0 for offline photos
+                  } else {
+                    photoIdInt = int.tryParse(photoIdStr) ?? 0;
+                  }
+                }
+              }
+              
+              itemImages.add(AssetUploadItemImage(
+                auiiId: img['auiiId'] as int?,
+                photoId: photoIdInt ?? 0,
+                photoTakenTs: img['photoTakenTs']?.toString() ?? 
+                            item['timestamp']?.toString() ??
+                            item['qr_code_scanned_ts']?.toString() ??
+                            Utils.getCurrentDateTimeForAPICall(),
+                longitude: img['longitude']?.toString() ?? 
+                         location?.longitude.toString() ?? '',
+                latitude: img['latitude']?.toString() ?? 
+                        location?.latitude.toString() ?? '',
+                isActive: img['isActive'] as bool? ?? true,
+                remarks: img['remarks']?.toString() ?? '',
+              ));
+            }
+          }
+        } else if (item['photo_id'] != null && item['photo_id'].toString().isNotEmpty) {
+          // Convert existing photo_id to AssetUploadItemImage format (fallback for old items)
+          final photoId = item['photo_id'].toString();
+          final photoIdInt = photoId.contains("LOCAL_IMAGE_ID") 
+              ? 0 
+              : (int.tryParse(photoId) ?? 0);
+          
+          // Only add if we have a valid photo ID (either server ID > 0 or LOCAL_IMAGE_ID)
+          if (photoIdInt > 0 || photoId.contains("LOCAL_IMAGE_ID")) {
+            itemImages.add(AssetUploadItemImage(
+              auiiId: 0,
+              photoId: photoIdInt,
+              photoTakenTs: item['timestamp']?.toString() ?? 
+                           item['qr_code_scanned_ts']?.toString() ?? 
+                           Utils.getCurrentDateTimeForAPICall(),
+              longitude: location?.longitude.toString() ?? '',
+              latitude: location?.latitude.toString() ?? '',
+              isActive: true,
+              remarks: item['remarks']?.toString() ?? '',
+            ));
+          }
+        }
+
+        // Create AssetUploadItem
+        assetUploadItems.add(AssetUploadItem(
+          auiId: 0,
+          auId: 0,
+          nexgenSerialNo: nexgenSerialNo,
+          itemId: 0,
+          longitude: location?.longitude.toString() ?? '',
+          latitude: location?.latitude.toString() ?? '',
+          isActive: true,
+          remarks: item['remarks']?.toString() ?? 
+                   item['disabledFieldValue']?.toString() ?? '',
+          assetUploadItemImages: itemImages,
+        ));
+      }
+    }
+
+    return assetUploadItems;
+  }
+
+  /// Handles Save Asset button click
+  Future<void> _handleSaveAsset() async {
+    // Check if there are any assets to save
+    if (_assetGroups.isEmpty || _totalAssetCount == 0) {
+      Toastbar.showErrorToastbar(
+        'Please scan at least one asset before saving',
+        context,
+      );
+      return;
+    }
+
+    try {
+      // Show loading indicator
+      LoaderWidget.showLoader(context);
+
+      // Get selfie image ID from storage
+      final selfieImageId = await _getSelfieImageId();
+
+      // Get current location
+      LocationModel? location;
+      try {
+        location = await LocationService.getCurrentLocation();
+      } catch (e) {
+        LoaderWidget.hideLoader();
+        Toastbar.showErrorToastbar(
+          'Please enable location services to save assets',
+          context,
+        );
+        return;
+      }
+
+      // Transform assets to API format
+      final assetUploadItems = _transformAssetsToApiFormat(location);
+
+      if (assetUploadItems.isEmpty) {
+        LoaderWidget.hideLoader();
+        Toastbar.showErrorToastbar(
+          'No valid assets to save',
+          context,
+        );
+        return;
+      }
+
+      // Call the assetUpload API
+      final result = await _assetUploadRepository.assetUpload(
+        auId: 0, // 0 for new upload
+        siteId: widget.siteData.siteId,
+        entityId: widget.siteData.entityId,
+        makerSelfieImageId: selfieImageId ?? 0,
+        isActive: true,
+        remarks: '',
+        assetUploadItems: assetUploadItems,
+      );
+
+      LoaderWidget.hideLoader();
+
+      // Handle response
+      if (result.statusCode != null && 
+          result.statusCode! >= 200 && 
+          result.statusCode! < 300) {
+        // Success
+        Toastbar.showSuccessToastbar(
+          'Assets saved successfully',
+          context,
+        );
+        Logger.infoLog('✅ Assets uploaded successfully');
+        
+        // Navigate back or to home
+        if (mounted) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              navigateBackOrToHome(
+                context,
+                targetContext: widget.parentContext ?? context,
+              );
+            }
+          });
+        }
+      } else {
+        // Error
+        final errorMessage = result.errorMessage ?? 'Failed to save assets';
+        Toastbar.showErrorToastbar(
+          errorMessage,
+          context,
+        );
+        Logger.errorLog('❌ Failed to upload assets: $errorMessage');
+      }
+    } catch (e) {
+      if (LoaderWidget.isShowing) {
+        LoaderWidget.hideLoader();
+      }
+      
+      Logger.errorLog('❌ Error saving assets: $e');
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          'Error saving assets: ${e.toString()}',
+          context,
+        );
+      }
+    }
   }
 
   /// Handles editing an item from scanned assets table
@@ -721,10 +986,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
-                            // TODO: Implement save functionality
-                            showCustomToast(context, 'Assets saved successfully');
-                          },
+                          onPressed: _handleSaveAsset,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primaryGreen,
                             foregroundColor: Colors.white,

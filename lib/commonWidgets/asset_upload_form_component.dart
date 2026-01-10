@@ -522,6 +522,9 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       }
 
       // Handle photo data properly - set photo_id and photoPath after upload
+      // Store photo in assetUploadItemImages format for API
+      List<Map<String, dynamic>> assetUploadItemImages = [];
+      
       // IMPORTANT: Always prioritize new photo data if a new photo was selected and uploaded
       if (_hasNewPhotoSelected && _uploadedImageId != null && _uploadedImageId!.isNotEmpty) {
         // New photo was selected and uploaded - use the new photo data
@@ -537,6 +540,20 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           // Fallback - use photo_id as string (shouldn't happen if upload was successful)
           itemData['photoPath'] = _uploadedImageId.toString();
         }
+        
+        // Add photo to assetUploadItemImages array
+        final photoIdInt = _uploadedImageId!.contains("LOCAL_IMAGE_ID") 
+            ? 0 
+            : (int.tryParse(_uploadedImageId!) ?? 0);
+        assetUploadItemImages.add({
+          'auiiId': 0,
+          'photoId': photoIdInt,
+          'photoTakenTs': itemData['timestamp'] ?? Utils.getCurrentDateTimeForAPICall(),
+          'longitude': '',
+          'latitude': '',
+          'isActive': true,
+          'remarks': '',
+        });
       } else if (_uploadedImageId != null && _uploadedImageId!.isNotEmpty) {
         // We have a photo ID but no new photo was selected - preserve existing photoPath
         itemData['photo_id'] = _uploadedImageId;
@@ -546,6 +563,27 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         } else {
           // Fallback to photo_id as string
           itemData['photoPath'] = _uploadedImageId.toString();
+        }
+        
+        // Preserve existing assetUploadItemImages or create from photo_id
+        if (existingItem.isNotEmpty && existingItem['assetUploadItemImages'] != null) {
+          assetUploadItemImages = List<Map<String, dynamic>>.from(existingItem['assetUploadItemImages']);
+        } else {
+          // Create from existing photo_id
+          final photoIdInt = _uploadedImageId!.contains("LOCAL_IMAGE_ID") 
+              ? 0 
+              : (int.tryParse(_uploadedImageId!) ?? 0);
+          assetUploadItemImages.add({
+            'auiiId': 0,
+            'photoId': photoIdInt,
+            'photoTakenTs': existingItem['timestamp'] ?? 
+                           existingItem['qr_code_scanned_ts'] ?? 
+                           Utils.getCurrentDateTimeForAPICall(),
+            'longitude': '',
+            'latitude': '',
+            'isActive': true,
+            'remarks': '',
+          });
         }
       } else if (_photoData != null) {
         // We have local photo data (base64 or local path) but no upload ID yet
@@ -557,7 +595,14 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         if (existingItem['photo_id'] != null) {
           itemData['photo_id'] = existingItem['photo_id'];
         }
+        // Preserve existing assetUploadItemImages
+        if (existingItem['assetUploadItemImages'] != null) {
+          assetUploadItemImages = List<Map<String, dynamic>>.from(existingItem['assetUploadItemImages']);
+        }
       }
+      
+      // Store assetUploadItemImages in itemData for API submission
+      itemData['assetUploadItemImages'] = assetUploadItemImages;
 
       // Debug logging for photo data
 
