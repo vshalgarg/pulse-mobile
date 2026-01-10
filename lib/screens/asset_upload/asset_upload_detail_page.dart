@@ -5,7 +5,6 @@ import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/commonWidgets/custom_submit_button_v2.dart';
 import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
-import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -503,59 +502,40 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
   }
 
   Future<void> _submitForm({bool navigateOnSuccess = true}) async {
-    // Validation - Only check for selfie
-    // Check if selfie is uploaded (has ID) or selected (file exists)
-    if ((_selfieImgId == null || _selfieImgId!.isEmpty) && 
-        _selectedSelfieImage == null && 
-        (_fetchedSelfieImageData == null || _fetchedSelfieImageData!.isEmpty)) {
-      showCustomToast(context, "Please add a selfie");
+    // Validation - Check if selfie exists
+    // Selfie can exist in one of these forms:
+    // 1. Has an uploaded image ID (_selfieImgId)
+    // 2. Has a selected image file (_selectedSelfieImage)
+    // 3. Has fetched image data (_fetchedSelfieImageData)
+    final hasSelfie = (_selfieImgId != null && _selfieImgId!.isNotEmpty) ||
+        _selectedSelfieImage != null ||
+        (_fetchedSelfieImageData != null && _fetchedSelfieImageData!.isNotEmpty);
+
+    if (!hasSelfie) {
+      // Show error if selfie is not present
+      Toastbar.showErrorToastbar(
+        "Please add a selfie before proceeding",
+        context,
+      );
       return;
     }
 
-    try {
-      LoaderWidget.showLoader(context);
-      await postAssetUpload();
-      LoaderWidget.hideLoader();
+    // If validation passed but we shouldn't navigate (e.g., from unsaved changes dialog)
+    if (!navigateOnSuccess) {
+      return;
+    }
 
-      showCustomToast(context, "Asset uploaded successfully");
-
-      setState(() {
-        _hasFormDataChanges = false;
-      });
-
-      if (!navigateOnSuccess) {
-        return;
-      }
-
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      if (mounted) {
-        // Navigate to scan upload screen
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AUScanUploadScreen(
-              siteData: widget.siteData,
-              parentContext: widget.parentContext ?? context,
-            ),
+    // Navigate to scan upload screen without calling any API
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => AUScanUploadScreen(
+            siteData: widget.siteData,
+            parentContext: widget.parentContext ?? context,
           ),
-        );
-      }
-    } catch (e) {
-      if (LoaderWidget.isShowing) {
-        LoaderWidget.hideLoader();
-      }
-
-      Logger.errorLog('❌ Error in submit process: $e');
-
-      if (mounted) {
-        Toastbar.showErrorToastbar(
-          "Error uploading asset: ${e.toString()}",
-          context,
-        );
-      }
-
-      rethrow;
+        ),
+      );
     }
   }
 }

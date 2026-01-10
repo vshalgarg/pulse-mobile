@@ -40,8 +40,18 @@ class Utils {
   }
 
   static String formatDataForTicketCard(String date) {
-    final dateTime = DateFormat("yyyy-MM-dd").parse(date);
-    return DateFormat("dd-MMM-yy").format(dateTime);
+    // Handle empty or invalid date strings
+    final trimmedDate = date.trim();
+    if (trimmedDate.isEmpty) {
+      return 'N/A';
+    }
+    try {
+      final dateTime = DateFormat("yyyy-MM-dd").parse(trimmedDate);
+      return DateFormat("dd-MMM-yy").format(dateTime);
+    } catch (e) {
+      // If parsing fails, return 'N/A' to avoid FormatException
+      return 'N/A';
+    }
   }
 
   // Check if JWT token is expired
