@@ -5,16 +5,6 @@ class AssetUploadRepository {
 
   AssetUploadRepository(this.apiService);
 
-  /// Upload asset data to the server
-  /// 
-  /// Parameters:
-  /// - [auId]: Asset Upload ID (0 for new, existing ID for update)
-  /// - [siteId]: Site ID
-  /// - [entityId]: Entity ID
-  /// - [makerSelfieImageId]: Selfie image ID
-  /// - [isActive]: Whether the asset upload is active
-  /// - [remarks]: Remarks/notes
-  /// - [assetUploadItems]: List of asset upload items with their images
   Future<ResponseResult<Map<String, dynamic>?>> assetUpload({
     required int auId,
     required int siteId,
@@ -33,7 +23,9 @@ class AssetUploadRepository {
         'makerSelfieImageId': makerSelfieImageId ?? 0,
         'isActive': isActive,
         'remarks': remarks ?? '',
-        'assetUploadItems': assetUploadItems.map((item) => item.toJson()).toList(),
+        'assetUploadItems': assetUploadItems
+            .map((item) => item.toJson())
+            .toList(),
       };
 
       final result = await apiService.post<Map<String, dynamic>>(
@@ -43,8 +35,8 @@ class AssetUploadRepository {
       );
 
       // Check if request was successful (status code 200-299)
-      if (result.statusCode != null && 
-          result.statusCode! >= 200 && 
+      if (result.statusCode != null &&
+          result.statusCode! >= 200 &&
           result.statusCode! < 300) {
         return ResponseResult.success(result.data, result.statusCode);
       } else {
@@ -61,10 +53,10 @@ class AssetUploadRepository {
   }
 
   /// Get uploaded asset data from the server
-  /// 
+  ///
   /// Parameters:
   /// - [auId]: Asset Upload ID to retrieve
-  /// 
+  ///
   /// Returns: ResponseResult with asset upload data
   Future<ResponseResult<Map<String, dynamic>?>> getUploadedAssets({
     required int auId,
@@ -79,7 +71,8 @@ class AssetUploadRepository {
         return ResponseResult.success(result.data, result.statusCode);
       } else {
         return ResponseResult.error(
-          errorMessage: result.errorMessage ?? 'Failed to get uploaded asset data',
+          errorMessage:
+              result.errorMessage ?? 'Failed to get uploaded asset data',
           statusCode: result.statusCode,
         );
       }
@@ -125,7 +118,9 @@ class AssetUploadItem {
       'latitude': latitude ?? '',
       'isActive': isActive,
       'remarks': remarks ?? '',
-      'assetUploadItemImages': assetUploadItemImages.map((img) => img.toJson()).toList(),
+      'assetUploadItemImages': assetUploadItemImages
+          .map((img) => img.toJson())
+          .toList(),
     };
   }
 
@@ -139,8 +134,12 @@ class AssetUploadItem {
       latitude: json['latitude'] as String?,
       isActive: json['isActive'] as bool? ?? true,
       remarks: json['remarks'] as String?,
-      assetUploadItemImages: (json['assetUploadItemImages'] as List<dynamic>?)
-              ?.map((img) => AssetUploadItemImage.fromJson(img as Map<String, dynamic>))
+      assetUploadItemImages:
+          (json['assetUploadItemImages'] as List<dynamic>?)
+              ?.map(
+                (img) =>
+                    AssetUploadItemImage.fromJson(img as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
