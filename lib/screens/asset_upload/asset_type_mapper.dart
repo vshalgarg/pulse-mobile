@@ -52,5 +52,16 @@ class AssetTypeMapper {
   static List<String> getAllAcronyms() {
     return _acronymToDisplayName.keys.toList();
   }
+
+  /// Gets the acronym for a display name (reverse lookup)
+  /// Returns the acronym if found, otherwise returns null
+  static String? getAcronymForDisplayName(String displayName) {
+    for (var entry in _acronymToDisplayName.entries) {
+      if (entry.value == displayName) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
 }
 

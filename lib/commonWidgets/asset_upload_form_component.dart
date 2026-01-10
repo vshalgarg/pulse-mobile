@@ -13,7 +13,7 @@ import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
 
-class AssetAuditFormComponent extends StatefulWidget {
+class AssetUploadFormComponent extends StatefulWidget {
   /// Unique identifier for this component instance
   final String componentId;
 
@@ -47,8 +47,9 @@ class AssetAuditFormComponent extends StatefulWidget {
   /// Callback when items are updated (passes complete list)
   final Function(List<Map<String, dynamic>>)? onItemSaved;
 
-  /// Callback when status changes
-  final Function(bool?) onStatusChanged;
+  /// Callback when edit button is clicked on an item
+  /// Passes the item that should be edited
+  final Function(Map<String, dynamic>)? onEditItem;
 
   /// Custom validation function for serial number
   /// Returns true if valid, false if invalid
@@ -80,7 +81,11 @@ class AssetAuditFormComponent extends StatefulWidget {
   final Map<String, String?>? Function(String serialNumber)?
   onSerialNumberLookup;
 
-  const AssetAuditFormComponent({
+  /// Whether to show the form section (scan asset, photo, etc.)
+  /// If false, only the table will be shown
+  final bool showForm;
+
+  const AssetUploadFormComponent({
     super.key,
     required this.componentId,
     required this.serialLabel,
@@ -93,7 +98,7 @@ class AssetAuditFormComponent extends StatefulWidget {
     required this.serialController,
     required this.initialSavedItems,
     this.onItemSaved,
-    required this.onStatusChanged,
+    this.onEditItem,
     this.customValidator,
     this.customValidationErrorMessage,
     required this.siteAuditSchId,
@@ -102,17 +107,17 @@ class AssetAuditFormComponent extends StatefulWidget {
     this.imageHeight = 150,
     this.enableImageCompression = true,
     this.onSerialNumberLookup,
+    this.showForm = true,
   });
 
   @override
-  State<AssetAuditFormComponent> createState() =>
-      _AssetAuditFormComponentState();
+  State<AssetUploadFormComponent> createState() =>
+      _AssetUploadFormComponentState();
 }
 
-class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
+class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   // Form state
   String? _selectedPhotoPath;
-  bool? _selectedStatus;
   bool _isQRCodeScanned = false;
 
   bool _isUploading = false;
@@ -155,6 +160,18 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     _imageUploadService = ImageUploadService(
       apiService: AppConfig.of(context).apiService,
     );
+  }
+
+  @override
+  void didUpdateWidget(AssetUploadFormComponent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Update internal saved items when initialSavedItems changes from parent
+    // This ensures the table reflects external updates (e.g., when items are updated elsewhere)
+    if (oldWidget.initialSavedItems != widget.initialSavedItems) {
+      setState(() {
+        _savedItems = List<Map<String, dynamic>>.from(widget.initialSavedItems);
+      });
+    }
   }
 
   @override
@@ -258,11 +275,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       return false;
     }
 
-    // Check status
-    if (_selectedStatus == null) {
-      _validationErrorMessage = 'Please select a status';
-      return false;
-    }
     return true;
   }
 
@@ -431,15 +443,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     );
   }
 
-  /// Handles status change
-  void _handleStatusChange(bool? status) {
-    setState(() {
-      _selectedStatus = status;
-      _showValidationErrors = false;
-    });
-    widget.onStatusChanged(status);
-  }
-
   /// Handles save button click
   Future<void> _handleSave() async {
     try {
@@ -492,11 +495,8 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       }
 
       // Step 4: Create item data and add to saved items
-      final itemData = {
+      final itemData = <String, dynamic>{
         'mfg_serial_no': widget.serialController.text,
-        'asset_status': _selectedStatus! ? 'OK' : 'Not OK',
-        'photo_id': _uploadedImageId, // Photo ID from server
-        'photoPath': _selectedPhotoPath, // Local photo path
         'qr_code_scanned': _isQRCodeScanned,
         'qr_code_scanned_ts': qrCodeScannedTs,
         'disabledFieldValue': _disabledFieldController?.text ?? '',
@@ -521,21 +521,26 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         }
       }
 
-      // Handle photo data properly
-      if (_uploadedImageId != null) {
-        // We have a photo ID from server
+      // Handle photo data properly - set photo_id and photoPath after upload
+      // IMPORTANT: Always prioritize new photo data if a new photo was selected and uploaded
+      if (_hasNewPhotoSelected && _uploadedImageId != null && _uploadedImageId!.isNotEmpty) {
+        // New photo was selected and uploaded - use the new photo data
         itemData['photo_id'] = _uploadedImageId;
-        // Store photoPath - if we have base64 image data, keep it; otherwise use photo_id
-        if (_selectedPhotoPath != null &&
-            _selectedPhotoPath!.startsWith('data:image/')) {
-          // We have base64 image data - store it for instant display next time
-          itemData['photoPath'] = _selectedPhotoPath;
-        } else if (_photoData != null &&
-            _photoData.toString().startsWith('data:image/')) {
-          // We have cached base64 data
+        // Prioritize _photoData if it's base64 (set by _uploadPhoto), otherwise use _selectedPhotoPath
+        if (_photoData != null && _photoData.toString().startsWith('data:image/')) {
+          // We have cached base64 data from upload
           itemData['photoPath'] = _photoData;
-        } else if (existingItem.isNotEmpty &&
-            existingItem['photoPath'] != null) {
+        } else if (_selectedPhotoPath != null && _selectedPhotoPath!.startsWith('data:image/')) {
+          // We have base64 image data in _selectedPhotoPath
+          itemData['photoPath'] = _selectedPhotoPath;
+        } else {
+          // Fallback - use photo_id as string (shouldn't happen if upload was successful)
+          itemData['photoPath'] = _uploadedImageId.toString();
+        }
+      } else if (_uploadedImageId != null && _uploadedImageId!.isNotEmpty) {
+        // We have a photo ID but no new photo was selected - preserve existing photoPath
+        itemData['photo_id'] = _uploadedImageId;
+        if (existingItem.isNotEmpty && existingItem['photoPath'] != null) {
           // Keep original photoPath (might be base64 or path)
           itemData['photoPath'] = existingItem['photoPath'];
         } else {
@@ -543,23 +548,48 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           itemData['photoPath'] = _uploadedImageId.toString();
         }
       } else if (_photoData != null) {
-        // We have local photo data (base64 or local path)
+        // We have local photo data (base64 or local path) but no upload ID yet
         itemData['photo'] = null;
         itemData['photoPath'] = _photoData;
+      } else if (existingItem.isNotEmpty && existingItem['photoPath'] != null) {
+        // No new photo and no photoData - preserve existing photoPath
+        itemData['photoPath'] = existingItem['photoPath'];
+        if (existingItem['photo_id'] != null) {
+          itemData['photo_id'] = existingItem['photo_id'];
+        }
       }
 
       // Debug logging for photo data
 
       // Step 5: Handle save (add new or update existing)
       if (_isEditing && _editingItem != null) {
-        // Update existing item in the internal list
-        final existingIndex = _savedItems.indexWhere(
-          (item) => item['mfg_serial_no'] == _editingItem!['mfg_serial_no'],
-        );
+        // Try to find existing item in the internal list
+        // Match by normalized serial or full scanned code
+        final editingSerial = _editingItem!['mfg_serial_no']?.toString() ?? '';
+        final editingFullCode = _editingItem!['full_scanned_code']?.toString() ?? '';
+        final currentSerial = widget.serialController.text;
+        
+        int existingIndex = -1;
+        if (editingSerial.isNotEmpty) {
+          existingIndex = _savedItems.indexWhere(
+            (item) {
+              final itemSerial = item['mfg_serial_no']?.toString() ?? '';
+              final itemFullCode = item['full_scanned_code']?.toString() ?? '';
+              return itemSerial == editingSerial || 
+                     itemSerial == currentSerial ||
+                     itemFullCode == editingFullCode ||
+                     itemFullCode == currentSerial;
+            },
+          );
+        }
 
         if (existingIndex != -1) {
-          // Replace the existing item in the list
+          // Replace the existing item in the list with updated data (including new photo)
           _savedItems[existingIndex] = itemData;
+        } else {
+          // Item not found in internal list (e.g., editing from external source)
+          // Add it to the list so it can be passed to parent callback
+          _savedItems.add(itemData);
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -571,11 +601,16 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       } else {
         // Check if item with same serial number already exists
         final existingIndex = _savedItems.indexWhere(
-          (item) => item['mfg_serial_no'] == widget.serialController.text,
+          (item) {
+            final itemSerial = item['mfg_serial_no']?.toString() ?? '';
+            final itemFullCode = item['full_scanned_code']?.toString() ?? '';
+            return itemSerial == widget.serialController.text ||
+                   itemFullCode == widget.serialController.text;
+          },
         );
 
         if (existingIndex != -1) {
-          // Update existing item instead of creating duplicate
+          // Update existing item instead of creating duplicate (preserve updated photo)
           _savedItems[existingIndex] = itemData;
 
           ScaffoldMessenger.of(context).showSnackBar(
@@ -629,10 +664,26 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     });
 
     try {
-      // Read image file and convert to base64
-      final imageFile = File(_selectedPhotoPath!);
-      final imageBytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
+      // Store the original file path before we might modify _selectedPhotoPath
+      final originalPhotoPath = _selectedPhotoPath!;
+      
+      // Check if _selectedPhotoPath is already base64 (shouldn't be, but handle it)
+      String base64Image;
+      
+      if (originalPhotoPath.startsWith('data:image/')) {
+        // Already base64 - extract the base64 part
+        final parts = originalPhotoPath.split(',');
+        if (parts.length == 2) {
+          base64Image = parts[1];
+        } else {
+          throw Exception('Invalid base64 image format');
+        }
+      } else {
+        // It's a file path - read and convert to base64
+        final imageFile = File(originalPhotoPath);
+        final bytes = await imageFile.readAsBytes();
+        base64Image = base64Encode(bytes);
+      }
 
       // Upload using ImageUploadService
       final uniqueId = await _imageUploadService.uploadImage(
@@ -642,9 +693,15 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         widget.siteAuditSchId,
       );
 
+      // Create data URL format for immediate display
+      final dataUrl = 'data:image/jpeg;base64,$base64Image';
+
       setState(() {
         _isUploading = false;
         _uploadedImageId = uniqueId;
+        // Update photo data with base64 for immediate display in table
+        _photoData = dataUrl;
+        _selectedPhotoPath = dataUrl; // Update to base64 format for display
       });
 
       if (uniqueId.isEmpty) {
@@ -678,7 +735,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     setState(() {
       widget.serialController.clear();
       _selectedPhotoPath = null;
-      _selectedStatus = null;
       _isQRCodeScanned = false;
       qrCodeScannedTs = null;
       _uploadedImageId = null;
@@ -693,13 +749,23 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     });
   }
 
+  /// Starts editing an item (public method for external editing)
+  void startEditingItem(Map<String, dynamic> item) {
+    _startEditing(item);
+  }
+
   /// Starts editing an item
   void _startEditing(Map<String, dynamic> item) async {
     setState(() {
       _isEditing = true;
       _editingItem = item;
-      widget.serialController.text = item['mfg_serial_no'] ?? '';
-      _selectedStatus = item['asset_status'] == 'OK' ? true : false;
+      // Use full_scanned_code if available (NG-ACRONYM-SERIAL), otherwise use mfg_serial_no
+      final fullSerialNumber = item['full_scanned_code']?.toString();
+      if (fullSerialNumber != null && fullSerialNumber.isNotEmpty) {
+        widget.serialController.text = fullSerialNumber;
+      } else {
+        widget.serialController.text = item['mfg_serial_no']?.toString() ?? '';
+      }
       _isQRCodeScanned = item['qr_code_scanned'] ?? false;
       qrCodeScannedTs = item['qr_code_scanned'] == true
           ? item['qr_code_scanned_ts']
@@ -821,7 +887,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           _isUploading = false; // Clear loading state
         });
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _selectedPhotoPath =
@@ -867,12 +933,16 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         // TextFormField (matching CustomInfoCard)
         TextFormField(
           controller: widget.serialController,
+          enabled: !_isEditing, // Disable when editing
           inputFormatters: [UpperCaseTextFormatter()],
           onChanged: (value) {
-            setState(() {
-              _isQRCodeScanned = false;
-              qrCodeScannedTs = null;
-            });
+            if (!_isEditing) {
+              // Only allow changes when not editing
+              setState(() {
+                _isQRCodeScanned = false;
+                qrCodeScannedTs = null;
+              });
+            }
           },
           decoration: InputDecoration(
             hintText: widget.serialHintText,
@@ -882,54 +952,59 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
               fontSize: 16,
               color: AppColors.color555555,
             ),
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.qr_code_scanner),
-              onPressed: () async {
-                try {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const QRScannerScreen()),
-                  );
-                  if (result != null && result is String) {
-                    setState(() {
-                      widget.serialController.text = result.toUpperCase();
-                      _isQRCodeScanned = true;
-                      qrCodeScannedTs = Utils.getCurrentDateTimeForAPICall();
-                      _showValidationErrors = false;
-                    });
-                    // Explicitly trigger lookup after QR scan to ensure fields are populated
-                    // The listener should also trigger this, but this ensures it happens
-                    if (widget.onSerialNumberLookup != null &&
-                        widget.serialController.text.isNotEmpty) {
-                      final lookupResult = widget.onSerialNumberLookup!(
-                        widget.serialController.text,
-                      );
-                      if (lookupResult != null) {
-                        setState(() {
-                          if (lookupResult.containsKey('capacity')) {
-                            _disabledFieldController?.text =
-                                lookupResult['capacity'] ?? '';
+            suffixIcon: _isEditing
+                ? null // Hide QR scanner button when editing
+                : IconButton(
+                    icon: const Icon(Icons.qr_code_scanner),
+                    onPressed: () async {
+                      try {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const QRScannerScreen()),
+                        );
+                        if (result != null && result is String) {
+                          setState(() {
+                            widget.serialController.text = result.toUpperCase();
+                            _isQRCodeScanned = true;
+                            qrCodeScannedTs =
+                                Utils.getCurrentDateTimeForAPICall();
+                            _showValidationErrors = false;
+                          });
+                          // Explicitly trigger lookup after QR scan to ensure fields are populated
+                          // The listener should also trigger this, but this ensures it happens
+                          if (widget.onSerialNumberLookup != null &&
+                              widget.serialController.text.isNotEmpty) {
+                            final lookupResult = widget.onSerialNumberLookup!(
+                              widget.serialController.text,
+                            );
+                            if (lookupResult != null) {
+                              setState(() {
+                                if (lookupResult.containsKey('capacity')) {
+                                  _disabledFieldController?.text =
+                                      lookupResult['capacity'] ?? '';
+                                }
+                                if (lookupResult.containsKey(
+                                    'manufacturing_year')) {
+                                  _secondDisabledFieldController?.text =
+                                      lookupResult['manufacturing_year'] ?? '';
+                                }
+                              });
+                            }
                           }
-                          if (lookupResult.containsKey('manufacturing_year')) {
-                            _secondDisabledFieldController?.text =
-                                lookupResult['manufacturing_year'] ?? '';
-                          }
-                        });
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Error scanning QR code: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
                       }
-                    }
-                  }
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error scanning QR code: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              },
-            ),
+                    },
+                  ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: _isEditing ? Colors.grey.shade200 : Colors.white, // Show disabled background when editing
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(5),
               borderSide: BorderSide.none,
@@ -1159,109 +1234,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     );
   }
 
-  /// Builds the status radio buttons (matching CustomInfoCard design)
-  Widget _buildStatusField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Label with asterisk (matching CustomInfoCard)
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: "Status",
-                style: const TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: fontFamilyMontserrat,
-                  fontSize: 16,
-                  color: AppColors.white,
-                ),
-              ),
-              const TextSpan(
-                text: " *",
-                style: TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: fontFamilyMontserrat,
-                  fontSize: 16,
-                  color: AppColors.errorColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Radio buttons (matching CustomInfoCard) - more compact layout
-        Wrap(
-          spacing: 20,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<bool>(
-                  value: true,
-                  groupValue: _selectedStatus,
-                  onChanged: _handleStatusChange,
-                  activeColor: const Color(0xFF5678BA),
-                  fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                    if (states.contains(MaterialState.selected)) {
-                      return const Color(0xFF5678BA);
-                    }
-                    return Colors.white;
-                  }),
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  "Ok",
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 16,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<bool>(
-                  value: false,
-                  groupValue: _selectedStatus,
-                  onChanged: _handleStatusChange,
-                  activeColor: const Color(0xFF5678BA),
-                  fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                    if (states.contains(MaterialState.selected)) {
-                      return const Color(0xFF5678BA);
-                    }
-                    return Colors.white;
-                  }),
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  "Not Ok",
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 16,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        // Validation error
-        if (_showValidationErrors && _selectedStatus == null)
-          const Padding(
-            padding: EdgeInsets.only(top: 4),
-            child: Text(
-              'Status is required',
-              style: TextStyle(color: Colors.red, fontSize: 12),
-            ),
-          ),
-      ],
-    );
-  }
-
   /// Builds the save button (matching CustomInfoCard design exactly)
   Widget _buildSaveButton() {
     return ElevatedButton(
@@ -1325,7 +1297,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AssetAuditFormComponent.backgroundColor,
+        color: AssetUploadFormComponent.backgroundColor,
         borderRadius: BorderRadius.circular(5),
       ),
       child: Column(
@@ -1351,11 +1323,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
                 Row(
                   children: [
                     _buildTableHeaderCell('Serial No.', 200),
-                    if (showFirstDisabledFieldColumn)
-                      _buildTableHeaderCell(widget.disabledFieldLabel ?? '', 100),
-                    if (showSecondDisabledFieldColumn)
-                      _buildTableHeaderCell(secondDisabledFieldHeader, 80),
-                    _buildTableHeaderCell('Status', 80),
+                    if (widget.showForm) ...[
+                      // Only show these columns when form is visible (for backward compatibility)
+                      if (showFirstDisabledFieldColumn)
+                        _buildTableHeaderCell(widget.disabledFieldLabel ?? '', 100),
+                      if (showSecondDisabledFieldColumn)
+                        _buildTableHeaderCell(secondDisabledFieldHeader, 80),
+                    ],
+                    // Always show Scanned column - it's relevant even when form is hidden
                     _buildTableHeaderCell('Scanned', 80),
                     _buildTableHeaderCell('Photo', 80),
                     _buildTableHeaderCell('Edit', 80),
@@ -1399,7 +1374,18 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         widget.disabledFieldLabel != null &&
         widget.disabledFieldLabel!.isNotEmpty;
 
+    // Create a unique key for the row to force rebuild when item changes
+    final itemKey = item['mfg_serial_no']?.toString() ?? 
+                   item['full_scanned_code']?.toString() ?? 
+                   item['timestamp']?.toString() ?? 
+                   'item_${item.hashCode}';
+    final photoKey = item['photo_id']?.toString() ?? 
+                    item['photoPath']?.toString() ?? 
+                    '';
+    final rowKey = '$itemKey-$photoKey';
+
     return Container(
+      key: ValueKey(rowKey), // Force rebuild when photo changes
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -1408,17 +1394,24 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
       ),
       child: Row(
         children: [
-          _buildTableDataCell(item['mfg_serial_no'] ?? '', 200),
-          if (showFirstDisabledFieldColumn)
-            _buildTableDataCell(
-              item['disabledFieldValue'] ?? 
-              item['capacity']?.toString() ?? 
-              'N/A', 
-              100
-            ),
-          if (showSecondDisabledFieldColumn)
-            _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
-          _buildTableDataCell(item['asset_status'] ?? '', 80),
+          // Display full serial number if available (NG-ACRONYM-SERIAL), otherwise show mfg_serial_no
+          _buildTableDataCell(
+            item['full_scanned_code']?.toString() ?? item['mfg_serial_no']?.toString() ?? '', 
+            200
+          ),
+          if (widget.showForm) ...[
+            // Only show these columns when form is visible (for backward compatibility)
+            if (showFirstDisabledFieldColumn)
+              _buildTableDataCell(
+                item['disabledFieldValue'] ?? 
+                item['capacity']?.toString() ?? 
+                'N/A', 
+                100
+              ),
+            if (showSecondDisabledFieldColumn)
+              _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
+          ],
+          // Always show Scanned column - it's relevant even when form is hidden
           _buildTableDataCell(
             item['qr_code_scanned'] == true ? 'Yes' : 'No',
             80,
@@ -1467,8 +1460,6 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Builds a table photo cell
   Widget _buildTablePhotoCell(Map<String, dynamic> item, double width) {
-    // Debug logging for table photo cell
-
     // Convert photo_id to string if it's numeric, and check if valid
     final photoId = item['photo_id'];
     final photoIdString = photoId != null ? photoId.toString() : null;
@@ -1484,10 +1475,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     final hasValidPhotoPath =
         photoPathString != null && photoPathString.isNotEmpty;
 
-    // Determine which photo to show (prefer photo_id over photoPath)
-    final photoToShow = hasValidPhotoId
-        ? photoIdString
-        : (hasValidPhotoPath ? photoPathString : null);
+    // Determine which photo to show (prefer photoPath if it's base64 for immediate display, otherwise use photo_id)
+    final photoToShow = (photoPathString != null && 
+                        photoPathString.isNotEmpty && 
+                        photoPathString.startsWith('data:image/'))
+        ? photoPathString  // Use base64 photoPath for immediate display
+        : (hasValidPhotoId
+            ? photoIdString
+            : (hasValidPhotoPath ? photoPathString : null));
 
     return Container(
       width: width,
@@ -1517,7 +1512,13 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           color: AppColors.color555555,
         ),
         onPressed: () {
-          _startEditing(item);
+          // If parent provided onEditItem callback, use it (for external editing)
+          // Otherwise, edit within this component
+          if (widget.onEditItem != null) {
+            widget.onEditItem!(item);
+          } else {
+            _startEditing(item);
+          }
         },
       ),
     );
@@ -1527,49 +1528,49 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Main form container matching CustomInfoCard design
-        Container(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AssetAuditFormComponent.backgroundColor,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Serial Number field
-              _buildSerialNumberField(),
-              const SizedBox(height: 16),
-
-              // Second disabled field (if provided) - placed just below serial number
-              if (widget.secondDisabledFieldLabel != null &&
-                  widget.secondDisabledFieldLabel!.isNotEmpty) ...[
-                _buildSecondDisabledField(),
+        // Main form container matching CustomInfoCard design (only if showForm is true)
+        if (widget.showForm)
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AssetUploadFormComponent.backgroundColor,
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Serial Number field
+                _buildSerialNumberField(),
                 const SizedBox(height: 16),
-              ],
 
-              // Photo Picker
-              _buildPhotoUploadField(),
-              const SizedBox(height: 16),
-
-              // Disabled field (if needed)
-              if (widget.disabledFieldLabel != null) ...[
-                _buildDisabledField(),
-                const SizedBox(height: 16),
-              ],
-
-              // Status field with save button inline (matching CustomInfoCard layout)
-              Row(
-                children: [
-                  Expanded(flex: 3, child: _buildStatusField()),
-                  const SizedBox(width: 16),
-                  Flexible(flex: 1, child: _buildSaveButton()),
+                // Second disabled field (if provided) - placed just below serial number
+                if (widget.secondDisabledFieldLabel != null &&
+                    widget.secondDisabledFieldLabel!.isNotEmpty) ...[
+                  _buildSecondDisabledField(),
+                  const SizedBox(height: 16),
                 ],
-              ),
-            ],
+
+                // Photo Picker
+                _buildPhotoUploadField(),
+                const SizedBox(height: 16),
+
+                // Disabled field (if needed)
+                if (widget.disabledFieldLabel != null) ...[
+                  _buildDisabledField(),
+                  const SizedBox(height: 16),
+                ],
+
+                // Save button
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildSaveButton(),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
 
         // Saved items table
         _buildSavedItemsTable(),
@@ -1654,7 +1655,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         if (context.mounted) {
           Navigator.of(context).pop();
         }
-      } catch (e, stackTrace) {
+      } catch (e) {
         // Close loading dialog on error
         if (context.mounted) {
           Navigator.of(context).pop();

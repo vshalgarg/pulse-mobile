@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:app/commonWidgets/asset_audit_form_component.dart';
+import 'package:app/commonWidgets/asset_upload_form_component.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
@@ -43,6 +43,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   
   // Controller for the initial scan input section
   final TextEditingController _initialScanController = TextEditingController();
+  
+  // GlobalKey to access the initial scan component for editing  
+  final GlobalKey _initialScanKey = GlobalKey();
+  
+  // Edit state - track which item is being edited
+  Map<String, dynamic>? _editingItem;
+  String? _editingAssetType;
+  String? _editingOriginalSerial; // Store original serial to find and update the item
 
   @override
   void initState() {
@@ -165,10 +173,47 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     };
   }
 
-  /// Handles when an item is saved from AssetAuditFormComponent
+  /// Handles when an item is saved from AssetUploadFormComponent
   void _onItemSaved(String assetType, List<Map<String, dynamic>> items) {
     setState(() {
-      _assetGroups[assetType] = items;
+      // Normalize serial numbers to show only the serial part (not NG-ACRONYM-SERIAL)
+      // But always preserve full_scanned_code for display
+      // IMPORTANT: Preserve ALL fields including photo_id and photoPath
+      final normalizedItems = items.map((item) {
+        final updatedItem = Map<String, dynamic>.from(item); // Copy all fields first
+        final serialNumber = item['mfg_serial_no']?.toString() ?? '';
+        
+        // Always ensure full_scanned_code is set - use existing or reconstruct if needed
+        if (!updatedItem.containsKey('full_scanned_code') ||
+            updatedItem['full_scanned_code'] == null ||
+            updatedItem['full_scanned_code'].toString().isEmpty) {
+          // If mfg_serial_no is already in full format, use it
+          if (serialNumber.startsWith('NG-')) {
+            updatedItem['full_scanned_code'] = serialNumber;
+          } else {
+            // Reconstruct from asset type
+            final acronym = AssetTypeMapper.getAcronymForDisplayName(assetType);
+            if (acronym != null && serialNumber.isNotEmpty) {
+              updatedItem['full_scanned_code'] = 'NG-$acronym-$serialNumber';
+            } else {
+              updatedItem['full_scanned_code'] = serialNumber;
+            }
+          }
+        }
+        
+        // If it's in NG-ACRONYM-SERIAL format, extract just the serial part for mfg_serial_no
+        final parsed = _parseScannedCode(serialNumber);
+        if (parsed != null) {
+          updatedItem['mfg_serial_no'] = parsed['serialNumber']!;
+        }
+        
+        // Ensure photo_id and photoPath are preserved (should already be in item)
+        // No need to modify them - they're already correct from the component
+        
+        return updatedItem;
+      }).toList();
+      
+      _assetGroups[assetType] = normalizedItems;
       _updateTotalCount();
     });
   }
@@ -177,9 +222,107 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   void _onInitialItemSaved(List<Map<String, dynamic>> items) {
     if (items.isEmpty) return;
 
-    // Get the last saved item to determine its asset type
+    // Get the last saved item
     final lastItem = items.last;
     final fullSerialNumber = lastItem['mfg_serial_no']?.toString() ?? '';
+
+    // If we're editing an existing item, update it instead of adding new
+    if (_editingItem != null && _editingAssetType != null) {
+      final parsed = _parseScannedCode(fullSerialNumber);
+      if (parsed != null) {
+        final assetType = parsed['displayName']!;
+        final serialNum = parsed['serialNumber']!;
+
+        // Remove the old item from the group - match by original serial number or full code
+        final currentItems = List<Map<String, dynamic>>.from(_assetGroups[_editingAssetType!] ?? []);
+        // Try to find the old item more accurately
+        final oldItemIndex = currentItems.indexWhere((item) {
+          final itemSerial = item['mfg_serial_no']?.toString() ?? '';
+          final itemFullCode = item['full_scanned_code']?.toString() ?? '';
+          final editingFullCode = _editingItem?['full_scanned_code']?.toString() ?? '';
+          // Match by: normalized serial, full code, or if full code contains original serial
+          return itemSerial == _editingOriginalSerial || 
+                 itemFullCode == editingFullCode ||
+                 (editingFullCode.isNotEmpty && itemFullCode == editingFullCode) ||
+                 itemFullCode.contains(_editingOriginalSerial ?? '');
+        });
+        
+        // Remove the old item if found
+        if (oldItemIndex != -1) {
+          currentItems.removeAt(oldItemIndex);
+        } else {
+          // If not found by exact match, try to remove by serial number match
+          currentItems.removeWhere((item) {
+            final itemSerial = item['mfg_serial_no']?.toString() ?? '';
+            return itemSerial == _editingOriginalSerial || itemSerial == serialNum;
+          });
+        }
+
+        // If asset type changed, remove from old group
+        if (assetType != _editingAssetType) {
+          _assetGroups[_editingAssetType!] = currentItems;
+          
+          // Add to new group
+          if (!_assetGroups.containsKey(assetType)) {
+            _assetGroups[assetType] = [];
+            _sectionExpandedState[assetType] = true;
+            _serialControllers[assetType] = TextEditingController();
+          }
+        }
+
+        // Update the item with normalized serial and preserve ALL data including photo
+        // Copy everything from lastItem first to preserve photo_id, photoPath, and all other fields
+        final updatedItem = Map<String, dynamic>.from(lastItem);
+        updatedItem['mfg_serial_no'] = serialNum;
+        updatedItem['full_scanned_code'] = fullSerialNumber;
+        // Explicitly preserve photo data from lastItem (should have updated photo if changed)
+        if (lastItem['photo_id'] != null) {
+          updatedItem['photo_id'] = lastItem['photo_id'];
+        }
+        if (lastItem['photoPath'] != null) {
+          updatedItem['photoPath'] = lastItem['photoPath'];
+        }
+        // Preserve other fields that might be needed
+        if (lastItem['qr_code_scanned'] != null) {
+          updatedItem['qr_code_scanned'] = lastItem['qr_code_scanned'];
+        }
+        if (lastItem['qr_code_scanned_ts'] != null) {
+          updatedItem['qr_code_scanned_ts'] = lastItem['qr_code_scanned_ts'];
+        }
+        if (lastItem['disabledFieldValue'] != null) {
+          updatedItem['disabledFieldValue'] = lastItem['disabledFieldValue'];
+        }
+        if (lastItem['secondDisabledFieldValue'] != null) {
+          updatedItem['secondDisabledFieldValue'] = lastItem['secondDisabledFieldValue'];
+        }
+        if (lastItem['timestamp'] != null) {
+          updatedItem['timestamp'] = lastItem['timestamp'];
+        }
+        if (lastItem['capacity'] != null) {
+          updatedItem['capacity'] = lastItem['capacity'];
+        }
+
+        // Add/update in the appropriate group
+        if (assetType == _editingAssetType) {
+          // Add the updated item (old one was already removed)
+          currentItems.add(updatedItem);
+          _assetGroups[assetType] = currentItems;
+        } else {
+          _assetGroups[assetType]!.add(updatedItem);
+        }
+
+        setState(() {
+          _editingItem = null;
+          _editingAssetType = null;
+          _editingOriginalSerial = null;
+          _updateTotalCount();
+        });
+
+        _initialScanController.clear();
+        showCustomToast(context, 'Asset updated successfully');
+        return;
+      }
+    }
 
     // Try to parse the serial number to get asset type
     // If it's a scanned code, extract the asset type
@@ -238,9 +381,52 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         .fold(0, (sum, items) => sum + items.length);
   }
 
-  /// Handles status change (not used but required by component)
-  void _onStatusChanged(String assetType, bool? status) {
-    // Status change is handled internally by the component
+  /// Handles editing an item from scanned assets table
+  /// This will populate the initial scan section at the top for editing
+  void _handleEditItemFromScannedAssets(Map<String, dynamic> item, String assetType) {
+    // Prepare the item with full serial number for editing
+    final itemForEditing = Map<String, dynamic>.from(item);
+    
+    // Get the original serial number (could be just serial or full scanned code)
+    final originalSerial = item['mfg_serial_no']?.toString() ?? '';
+    
+    // If there's a full_scanned_code, use that; otherwise reconstruct it
+    String fullSerialNumber;
+    final fullScannedCode = item['full_scanned_code']?.toString();
+    if (fullScannedCode != null && fullScannedCode.isNotEmpty) {
+      fullSerialNumber = fullScannedCode;
+    } else {
+      // Reconstruct the full serial number (NG-ACRONYM-SERIAL)
+      final acronym = AssetTypeMapper.getAcronymForDisplayName(assetType);
+      if (acronym != null && acronym.isNotEmpty && originalSerial.isNotEmpty) {
+        fullSerialNumber = 'NG-$acronym-$originalSerial';
+      } else {
+        fullSerialNumber = originalSerial;
+      }
+    }
+    
+    // Ensure full_scanned_code is set in the item for the component to use
+    itemForEditing['full_scanned_code'] = fullSerialNumber;
+    
+    // Store editing information
+    setState(() {
+      _editingItem = itemForEditing;
+      _editingAssetType = assetType;
+      _editingOriginalSerial = originalSerial;
+      
+      // Set the serial number in the initial scan controller
+      _initialScanController.text = fullSerialNumber;
+    });
+    
+    // Trigger editing in the initial scan component
+    // The component will handle loading the photo and other fields
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final state = _initialScanKey.currentState;
+      // Use dynamic type to access the startEditingItem method
+      if (state != null && state is State<AssetUploadFormComponent>) {
+        (state as dynamic).startEditingItem(itemForEditing);
+      }
+    });
   }
 
   /// Gets or creates controller for an asset type
@@ -251,11 +437,12 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     return _serialControllers[assetType]!;
   }
 
-  /// Builds the initial scan section using AssetAuditFormComponent
+  /// Builds the initial scan section using AssetUploadFormComponent
   Widget _buildInitialScanSection() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: AssetAuditFormComponent(
+      child: AssetUploadFormComponent(
+        key: _initialScanKey,
         componentId: 'initial_scan',
         serialLabel: 'Scan Asset',
         serialHintText: 'Serial Number',
@@ -263,10 +450,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         serialController: _initialScanController,
         initialSavedItems: [],
         onItemSaved: _onInitialItemSaved,
-        onStatusChanged: (status) {
-          // Status change handled internally
-        },
-        showStatus: false, // Hide status field
         customValidator: (serialNumber, isScanned) {
           if (serialNumber.isEmpty) return false;
 
@@ -385,7 +568,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           if (isExpanded)
             Container(
               padding: const EdgeInsets.all(16),
-              child: AssetAuditFormComponent(
+              child: AssetUploadFormComponent(
+                key: ValueKey('$assetType-${items.length}-${items.map((i) => i['photo_id']?.toString() ?? '').join('-')}'), // Force rebuild when items or photos change
                 componentId: assetType,
                 serialLabel: 'Scan Asset',
                 serialHintText: 'Serial Number',
@@ -393,14 +577,13 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                 serialController: controller,
                 initialSavedItems: items,
                 onItemSaved: (savedItems) => _onItemSaved(assetType, savedItems),
-                onStatusChanged: (status) => _onStatusChanged(assetType, status),
-                showStatus: false, // Hide status field
-                showForm: false, // Hide form section, only show table
+                onEditItem: (item) => _handleEditItemFromScannedAssets(item, assetType),
                 customValidator: _createValidatorForAssetType(assetType),
                 customValidationErrorMessage:
                     'Invalid format, wrong asset type, or duplicate serial number',
                 siteAuditSchId: widget.siteData.siteId.toString(),
                 showTable: true,
+                showForm: false, // Hide form section, only show table for scanned assets
                 tableTitle: null, // No title needed as we have section header
               ),
             ),
