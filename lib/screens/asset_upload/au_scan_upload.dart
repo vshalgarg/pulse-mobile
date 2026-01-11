@@ -22,11 +22,15 @@ import 'asset_type_mapper.dart';
 class AUScanUploadScreen extends StatefulWidget {
   final AllSiteModel siteData;
   final BuildContext? parentContext;
+  final List<Map<String, dynamic>>? preloadedAssets;
+  final String? preloadedSelfieImageId;
 
   const AUScanUploadScreen({
     super.key,
     required this.siteData,
     this.parentContext,
+    this.preloadedAssets,
+    this.preloadedSelfieImageId,
   });
 
   @override
@@ -60,6 +64,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   String? _editingAssetType;
   String? _editingOriginalSerial; // Store original serial to find and update the item
 
+  // Selfie image ID - can be set directly if uploaded in this screen
+  String? _currentSelfieImageId;
+
   // Repository and services
   late AssetUploadRepository _assetUploadRepository;
   late CentralAssetAuditService _assetAuditService;
@@ -84,14 +91,121 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     super.dispose();
   }
 
-  /// Load existing assets from storage
+  /// Load existing assets from storage or preloaded data
   Future<void> _loadExistingAssets() async {
     try {
-      // TODO: Load from SQLite if needed
-      // For now, start with empty state
-      setState(() {});
+      // If preloaded assets are provided, load them
+      if (widget.preloadedAssets != null && widget.preloadedAssets!.isNotEmpty) {
+        await _loadPreloadedAssets(widget.preloadedAssets!);
+      } else {
+        // TODO: Load from SQLite if needed
+        // For now, start with empty state
+        setState(() {});
+      }
     } catch (e) {
       Logger.errorLog('❌ Error loading existing assets: $e');
+    }
+  }
+
+  /// Load and segregate preloaded assets by acronym
+  Future<void> _loadPreloadedAssets(List<Map<String, dynamic>> assets) async {
+    try {
+      Logger.debugLog('📦 Loading ${assets.length} preloaded assets');
+
+      for (final asset in assets) {
+        // Get serial number from nexgen_serial_no or mfg_serial_no
+        final nexgenSerialNo = asset['nexgen_serial_no']?.toString() ?? 
+                              asset['mfg_serial_no']?.toString() ?? '';
+        
+        if (nexgenSerialNo.isEmpty) {
+          Logger.errorLog('⚠️ Skipping asset with no serial number: $asset');
+          continue;
+        }
+
+        // Parse the serial number to get asset type
+        final parsed = _parseScannedCode(nexgenSerialNo);
+        if (parsed == null) {
+          Logger.errorLog('⚠️ Could not parse serial number: $nexgenSerialNo');
+          continue;
+        }
+
+        final assetType = parsed['displayName']!;
+        final acronym = parsed['acronym']!;
+        final serialNum = parsed['serialNumber']!;
+        final fullSerial = '$acronym-$serialNum';
+
+        // Create asset group if it doesn't exist
+        if (!_assetGroups.containsKey(assetType)) {
+          setState(() {
+            _assetGroups[assetType] = [];
+            _sectionExpandedState[assetType] = true;
+            _serialControllers[assetType] = TextEditingController();
+          });
+        }
+
+        // Build asset item in the expected format
+        final assetItem = <String, dynamic>{
+          'mfg_serial_no': serialNum, // Just the serial part without acronym
+          'full_scanned_code': nexgenSerialNo, // Full serial number
+          'nexgen_serial_no': nexgenSerialNo,
+          'item_id': asset['item_id'],
+          'item_instance_id': asset['item_instance_id'],
+          'latitude': asset['latitude']?.toString(),
+          'longitude': asset['longitude']?.toString(),
+          'aui_id': asset['aui_id'],
+          'qr_code_scanned': true,
+          'qr_code_scanned_ts': Utils.getCurrentDateTimeForAPICall(),
+          'timestamp': Utils.getCurrentDateTimeForAPICall(),
+        };
+
+        // Handle photo data if available (check both snake_case and camelCase)
+        final assetUploadItemImages = asset['asset_upload_item_images'] ?? 
+                                     asset['assetUploadItemImages'];
+        
+        if (assetUploadItemImages != null && 
+            assetUploadItemImages is List && 
+            assetUploadItemImages.isNotEmpty) {
+          // Convert to assetUploadItemImages format
+          final List<Map<String, dynamic>> images = [];
+          for (final img in assetUploadItemImages) {
+            if (img is Map<String, dynamic>) {
+              images.add({
+                'auiiId': img['auii_id'] ?? img['auiiId'] ?? 0,
+                'photoId': img['photo_id'] ?? img['photoId'] ?? 0,
+                'photoTakenTs': (img['photo_taken_ts'] ?? img['photoTakenTs'])?.toString() ?? 
+                              Utils.getCurrentDateTimeForAPICall(),
+                'longitude': (img['longitude'] ?? '')?.toString() ?? '',
+                'latitude': (img['latitude'] ?? '')?.toString() ?? '',
+                'isActive': img['is_active'] ?? img['isActive'] ?? true,
+                'remarks': (img['remarks'] ?? '')?.toString() ?? '',
+              });
+            }
+          }
+          if (images.isNotEmpty) {
+            // Use the first image's photo_id as the primary photo_id
+            final firstPhotoId = images.first['photoId'];
+            if (firstPhotoId != null && firstPhotoId != 0) {
+              assetItem['photo_id'] = firstPhotoId.toString();
+            }
+            assetItem['assetUploadItemImages'] = images;
+          }
+        }
+
+        // Add to the appropriate group
+        setState(() {
+          _assetGroups[assetType]!.add(assetItem);
+          _scannedSerialNumbers.add(fullSerial);
+        });
+
+        Logger.debugLog('✅ Loaded asset: $nexgenSerialNo -> $assetType');
+      }
+
+      _updateTotalCount();
+      Logger.debugLog('✅ Successfully loaded ${_totalAssetCount} assets into ${_assetGroups.length} groups');
+      
+      setState(() {});
+    } catch (e) {
+      Logger.errorLog('❌ Error loading preloaded assets: $e');
     }
   }
 
@@ -409,35 +523,119 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         .fold(0, (sum, items) => sum + items.length);
   }
 
-  /// Gets selfie image ID from storage
+  /// Gets selfie image ID from preloaded data or storage
   Future<int?> _getSelfieImageId() async {
     try {
+      // First check if we have a current selfie image ID (uploaded in this session)
+      if (_currentSelfieImageId != null && _currentSelfieImageId!.isNotEmpty) {
+        final currentId = _currentSelfieImageId!;
+        Logger.debugLog('📸 Found current selfie image ID: $currentId');
+        if (currentId != "0" && currentId != "null") {
+          if (currentId.contains("LOCAL_IMAGE_ID")) {
+            Logger.debugLog('⚠️ Current ID is LOCAL_IMAGE_ID, returning 0');
+            return 0;
+          }
+          final parsedId = int.tryParse(currentId);
+          if (parsedId != null && parsedId > 0) {
+            Logger.debugLog('✅ Using current selfie image ID: $parsedId');
+            return parsedId;
+          }
+        }
+      }
+
+      // Second check if preloaded selfie image ID is available
+      if (widget.preloadedSelfieImageId != null && 
+          widget.preloadedSelfieImageId!.isNotEmpty) {
+        final preloadedId = widget.preloadedSelfieImageId!;
+        Logger.debugLog('📸 Found preloaded selfie image ID: $preloadedId');
+        if (preloadedId != "0" && preloadedId != "null") {
+          // Convert to int, handling LOCAL_IMAGE_ID case
+          if (preloadedId.contains("LOCAL_IMAGE_ID")) {
+            Logger.debugLog('⚠️ Preloaded ID is LOCAL_IMAGE_ID, returning 0');
+            return 0; // Will need to be replaced when uploading
+          }
+          final parsedId = int.tryParse(preloadedId);
+          if (parsedId != null && parsedId > 0) {
+            Logger.debugLog('✅ Using preloaded selfie image ID: $parsedId');
+            return parsedId;
+          } else {
+            Logger.debugLog('⚠️ Failed to parse preloaded ID: $preloadedId');
+          }
+        } else {
+          Logger.debugLog('⚠️ Preloaded ID is 0 or null: $preloadedId');
+        }
+      } else {
+        Logger.debugLog('⚠️ No preloaded selfie image ID available');
+      }
+
+      // Fallback to storage if preloaded ID is not available
+      Logger.debugLog('🔍 Checking database for selfie image ID...');
+      Logger.debugLog('🔍 Using siteId: ${widget.siteData.siteId}');
+      
+      // Try to get from database using siteId
       final storedData = await _assetAuditService.getActualDataFromSqlite(
         siteAuditSchId: widget.siteData.siteId.toString(),
       );
 
       if (storedData != null) {
+        Logger.debugLog('📦 Stored data found, keys: ${storedData.keys.toList()}');
         final pageHeaders = storedData['pageHeader'] as List<dynamic>?;
         final pageHeader = pageHeaders?.isNotEmpty == true
             ? pageHeaders!.first as Map<String, dynamic>?
             : null;
 
-        if (pageHeader != null && pageHeader['maker_selfie_image_id'] != null) {
-          final selfieImageId = pageHeader['maker_selfie_image_id'].toString();
-          if (selfieImageId.isNotEmpty && 
-              selfieImageId != "0" && 
-              selfieImageId != "null") {
-            // Convert to int, handling LOCAL_IMAGE_ID case
-            if (selfieImageId.contains("LOCAL_IMAGE_ID")) {
-              return 0; // Will need to be replaced when uploading
+        if (pageHeader != null) {
+          Logger.debugLog('📋 Page header found, checking for maker_selfie_image_id');
+          Logger.debugLog('📋 Page header keys: ${pageHeader.keys.toList()}');
+          Logger.debugLog('📋 Page header full data: $pageHeader');
+          
+          // Try both snake_case and camelCase
+          final selfieImageIdValue = pageHeader['maker_selfie_image_id'] ?? 
+                                    pageHeader['makerSelfieImageId'];
+          
+          if (selfieImageIdValue != null) {
+            final selfieImageId = selfieImageIdValue.toString();
+            Logger.debugLog('📸 Found selfie image ID in database: $selfieImageId (type: ${selfieImageIdValue.runtimeType})');
+            
+            if (selfieImageId.isNotEmpty && 
+                selfieImageId != "0" && 
+                selfieImageId != "null" &&
+                selfieImageId.toLowerCase() != "null") {
+              // Convert to int, handling LOCAL_IMAGE_ID case
+              if (selfieImageId.contains("LOCAL_IMAGE_ID")) {
+                Logger.debugLog('⚠️ Database ID is LOCAL_IMAGE_ID, returning 0');
+                return 0; // Will need to be replaced when uploading
+              }
+              final parsedId = int.tryParse(selfieImageId);
+              if (parsedId != null && parsedId > 0) {
+                Logger.debugLog('✅ Using selfie image ID from database: $parsedId');
+                return parsedId;
+              } else {
+                Logger.debugLog('⚠️ Failed to parse database ID: $selfieImageId');
+                Logger.debugLog('⚠️ Attempted to parse as int but got null or 0');
+              }
+            } else {
+              Logger.debugLog('⚠️ Database ID is empty, 0, or null: $selfieImageId');
             }
-            return int.tryParse(selfieImageId) ?? 0;
+          } else {
+            Logger.debugLog('⚠️ maker_selfie_image_id not found in page header');
+            Logger.debugLog('⚠️ Available keys in pageHeader: ${pageHeader.keys.toList()}');
+          }
+        } else {
+          Logger.debugLog('⚠️ Page header is null or empty');
+          if (pageHeaders != null) {
+            Logger.debugLog('⚠️ Page headers list length: ${pageHeaders.length}');
           }
         }
+      } else {
+        Logger.debugLog('⚠️ No stored data found in database for siteId: ${widget.siteData.siteId}');
       }
+      
+      Logger.debugLog('⚠️ No valid selfie image ID found, returning 0');
       return 0;
     } catch (e) {
       Logger.errorLog('❌ Error getting selfie image ID: $e');
+      Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
       return 0;
     }
   }
@@ -561,6 +759,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
 
       // Get selfie image ID from storage
       final selfieImageId = await _getSelfieImageId();
+      Logger.debugLog('📸 Retrieved selfie image ID for asset upload: $selfieImageId');
 
       // Get current location
       LocationModel? location;
@@ -588,11 +787,21 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       }
 
       // Call the assetUpload API
+      final finalSelfieImageId = selfieImageId ?? 0;
+      Logger.debugLog('📤 ========== ASSET UPLOAD REQUEST ==========');
+      Logger.debugLog('📤 siteId: ${widget.siteData.siteId}');
+      Logger.debugLog('📤 entityId: ${widget.siteData.entityId}');
+      Logger.debugLog('📤 makerSelfieImageId: $finalSelfieImageId (type: ${finalSelfieImageId.runtimeType})');
+      Logger.debugLog('📤 preloadedSelfieImageId: ${widget.preloadedSelfieImageId}');
+      Logger.debugLog('📤 currentSelfieImageId: $_currentSelfieImageId');
+      Logger.debugLog('📤 assetUploadItems count: ${assetUploadItems.length}');
+      Logger.debugLog('📤 ===========================================');
+      
       final result = await _assetUploadRepository.assetUpload(
         auId: 0, // 0 for new upload
         siteId: widget.siteData.siteId,
         entityId: widget.siteData.entityId,
-        makerSelfieImageId: selfieImageId ?? 0,
+        makerSelfieImageId: finalSelfieImageId,
         isActive: true,
         remarks: '',
         assetUploadItems: assetUploadItems,

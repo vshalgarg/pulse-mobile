@@ -16,17 +16,24 @@ class AssetUploadRepository {
   }) async {
     try {
       // Build the request data matching the curl structure
+      final finalMakerSelfieImageId = makerSelfieImageId ?? 0;
+      
+      // Log the makerSelfieImageId value for debugging
+      print('🔍 AssetUploadRepository: makerSelfieImageId = $finalMakerSelfieImageId (input: $makerSelfieImageId)');
+      
       final requestData = <String, dynamic>{
         'auId': auId,
         'siteId': siteId,
         'entityId': entityId ?? 0,
-        'makerSelfieImageId': makerSelfieImageId ?? 0,
+        'makerSelfieImageId': finalMakerSelfieImageId,
         'isActive': isActive,
         'remarks': remarks ?? '',
         'assetUploadItems': assetUploadItems
             .map((item) => item.toJson())
             .toList(),
       };
+
+      print('🔍 AssetUploadRepository: Request data - makerSelfieImageId: ${requestData['makerSelfieImageId']}');
 
       final result = await apiService.post<Map<String, dynamic>>(
         path: 'api/v1/mobile/assetUpload',
@@ -66,8 +73,10 @@ class AssetUploadRepository {
         path: 'api/v1/mobile/assetUpload/$auId',
       );
 
-      // Check if request was successful (status code 200)
-      if (result.statusCode == 200) {
+      // Check if request was successful (status code 200-299)
+      if (result.statusCode != null && 
+          result.statusCode! >= 200 && 
+          result.statusCode! < 300) {
         return ResponseResult.success(result.data, result.statusCode);
       } else {
         return ResponseResult.error(

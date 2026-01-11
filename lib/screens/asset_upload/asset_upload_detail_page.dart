@@ -329,6 +329,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
       }
 
       if (imgId != null && imgId.isNotEmpty) {
+        Logger.debugLog('✅ Selfie uploaded successfully with imgId: $imgId');
         setState(() {
           _selfieImgId = imgId;
           _hasFormDataChanges = true;
@@ -340,6 +341,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
           showCustomToast(context, 'Selfie uploaded successfully');
         }
       } else {
+        Logger.errorLog('❌ Failed to get selfie image ID - imgId is null or empty');
         showCustomToast(context, 'Failed to upload selfie');
         throw Exception('Failed to get selfie image ID');
       }
@@ -526,6 +528,8 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
     }
 
     // Navigate to scan upload screen without calling any API
+    // Pass the selfie image ID if available
+    Logger.debugLog('📸 Navigating to AUScanUploadScreen with selfieImgId: $_selfieImgId');
     if (mounted) {
       Navigator.push(
         context,
@@ -533,6 +537,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
           builder: (context) => AUScanUploadScreen(
             siteData: widget.siteData,
             parentContext: widget.parentContext ?? context,
+            preloadedSelfieImageId: _selfieImgId, // Pass the selfie image ID
           ),
         ),
       );
