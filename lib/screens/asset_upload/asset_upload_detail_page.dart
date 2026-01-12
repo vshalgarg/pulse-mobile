@@ -21,11 +21,17 @@ import 'au_scan_upload.dart';
 class AssetUploadDetailPage extends StatefulWidget {
   final AllSiteModel siteData;
   final BuildContext? parentContext;
+  final String? preloadedSelfieImageId;
+  final List<Map<String, dynamic>>? preloadedAssetItems;
+  final int? preloadedAuId;
 
   const AssetUploadDetailPage({
     super.key,
     required this.siteData,
     this.parentContext,
+    this.preloadedSelfieImageId,
+    this.preloadedAssetItems,
+    this.preloadedAuId,
   });
 
   @override
@@ -99,6 +105,19 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
 
   Future<void> _loadStoredSelfie() async {
     try {
+      // First check if preloaded selfie image ID is available
+      if (widget.preloadedSelfieImageId != null && 
+          widget.preloadedSelfieImageId!.isNotEmpty) {
+        final preloadedId = widget.preloadedSelfieImageId!;
+        if (preloadedId != "0" && preloadedId != "null") {
+          _selfieImgId = preloadedId;
+          _loadSelfieImage(preloadedId);
+          Logger.debugLog('✅ Loaded preloaded selfie image ID: $preloadedId');
+          return;
+        }
+      }
+
+      // Fallback to loading from database
       final service = ServiceLocator().centralAssetAuditService;
       final storedData = await service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteData.siteId.toString(),
@@ -528,8 +547,10 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
     }
 
     // Navigate to scan upload screen without calling any API
-    // Pass the selfie image ID if available
+    // Pass the selfie image ID and preloaded asset items if available
     Logger.debugLog('📸 Navigating to AUScanUploadScreen with selfieImgId: $_selfieImgId');
+    Logger.debugLog('📦 Preloaded asset items count: ${widget.preloadedAssetItems?.length ?? 0}');
+    Logger.debugLog('📦 Preloaded auId: ${widget.preloadedAuId}');
     if (mounted) {
       Navigator.push(
         context,
@@ -538,6 +559,8 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
             siteData: widget.siteData,
             parentContext: widget.parentContext ?? context,
             preloadedSelfieImageId: _selfieImgId, // Pass the selfie image ID
+            preloadedAssets: widget.preloadedAssetItems, // Pass preloaded asset items
+            preloadedAuId: widget.preloadedAuId, // Pass auId for update
           ),
         ),
       );

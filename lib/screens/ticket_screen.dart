@@ -27,7 +27,7 @@ import '../constants/app_images.dart';
 import '../models/ticket_model.dart';
 import '../repositories/asset_upload_respository.dart';
 import '../services/location_service.dart';
-import 'asset_upload/au_scan_upload.dart';
+import 'asset_upload/asset_upload_detail_page.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
 
@@ -668,12 +668,18 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           final makerSelfieImageId = assetUploadData['maker_selfie_image_id'] ?? 
                                     assetUploadData['makerSelfieImageId'];
           
+          // Extract auId from assetUploadData (try both formats)
+          final auId = assetUploadData['au_id'] ?? 
+                      assetUploadData['auId'] ?? 
+                      assetUploadData['id'];
+          
           // Extract asset_upload_item array (try both formats)
           final assetUploadItems = (assetUploadData['asset_upload_item'] ?? 
                                    assetUploadData['assetUploadItem'] ?? 
                                    []) as List<dynamic>? ?? [];
           
           Logger.debugLog('📦 Found ${assetUploadItems.length} asset items');
+          Logger.debugLog('📦 AuId: $auId');
 
           // Create AllSiteModel from siteDetailsData
           final siteData = AllSiteModel(
@@ -705,7 +711,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
             checklistItems: null,
           );
 
-          // Convert asset_upload_item to format expected by AUScanUploadScreen
+          // Convert asset_upload_item to format expected by AssetUploadDetailPage
           final List<Map<String, dynamic>> parsedAssetItems = assetUploadItems.map((item) {
             if (item is Map<String, dynamic>) {
               return Map<String, dynamic>.from(item);
@@ -720,11 +726,12 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => AUScanUploadScreen(
+              builder: (_) => AssetUploadDetailPage(
                 siteData: siteData,
                 parentContext: parentContext,
-                preloadedAssets: parsedAssetItems,
                 preloadedSelfieImageId: makerSelfieImageId?.toString(),
+                preloadedAssetItems: parsedAssetItems.isNotEmpty ? parsedAssetItems : null,
+                preloadedAuId: auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null,
               ),
             ),
           );

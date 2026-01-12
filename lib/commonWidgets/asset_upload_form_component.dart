@@ -548,7 +548,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         assetUploadItemImages.add({
           'auiiId': 0,
           'photoId': photoIdInt,
-          'photoTakenTs': itemData['timestamp'] ?? Utils.getCurrentDateTimeForAPICall(),
+          'photoTakenTs': Utils.normalizeDateForAPICall(itemData['timestamp']?.toString()),
           'longitude': '',
           'latitude': '',
           'isActive': true,
@@ -576,9 +576,10 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           assetUploadItemImages.add({
             'auiiId': 0,
             'photoId': photoIdInt,
-            'photoTakenTs': existingItem['timestamp'] ?? 
-                           existingItem['qr_code_scanned_ts'] ?? 
-                           Utils.getCurrentDateTimeForAPICall(),
+            'photoTakenTs': Utils.normalizeDateForAPICall(
+              existingItem['timestamp']?.toString() ?? 
+              existingItem['qr_code_scanned_ts']?.toString(),
+            ),
             'longitude': '',
             'latitude': '',
             'isActive': true,

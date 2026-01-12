@@ -132,19 +132,16 @@ dev_dependencies:
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
-flutter_icons:
+flutter_launcher_icons:
   android: true
-  ios: true
-  image_path: "assets/images/app_icon.png"
-   # for Android adaptive icons
-  adaptive_icon_foreground: "assets/images/app_icon.png"
+  ios: false
+  image_path: assets/images/app_icon.png
+  adaptive_icon_foreground: assets/icons/pulse_fg.png
+  adaptive_icon_background: assets/icons/pulse_bg.png
 
-# The following section is specific to Flutter packages.
+
 flutter:
   generate: true
-  # The following line ensures that the Material Icons font is
-  # included with your application, so that you can use the icons in
-  # the material Icons class.
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:

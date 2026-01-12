@@ -39,6 +39,41 @@ class Utils {
     return formatter.format(date);
   }
 
+  /// Normalizes a date string to the server's expected format (yyyy-MM-dd HH:mm:ss.SSS)
+  /// Handles both ISO format (2026-01-12T01:23:06.879) and already formatted dates
+  static String normalizeDateForAPICall(String? dateString) {
+    if (dateString == null || dateString.trim().isEmpty) {
+      return getCurrentDateTimeForAPICall();
+    }
+
+    try {
+      // Try to parse the date string (handles ISO format with 'T' and other formats)
+      DateTime dateTime;
+      
+      // First try ISO format (with 'T')
+      if (dateString.contains('T')) {
+        // Remove timezone if present (e.g., +00:00 or Z)
+        final cleanedDate = dateString.replaceAll(RegExp(r'[+-]\d{2}:\d{2}$'), '')
+                                      .replaceAll('Z', '');
+        dateTime = DateTime.parse(cleanedDate);
+      } else {
+        // Try parsing as already formatted date (yyyy-MM-dd HH:mm:ss.SSS)
+        try {
+          dateTime = DateFormat("yyyy-MM-dd HH:mm:ss.SSS").parse(dateString);
+        } catch (e) {
+          // Fallback to standard DateTime.parse
+          dateTime = DateTime.parse(dateString);
+        }
+      }
+      
+      // Format to server's expected format
+      return _formatDataTimeForApiCall(dateTime);
+    } catch (e) {
+      // If parsing fails, return current time
+      return getCurrentDateTimeForAPICall();
+    }
+  }
+
   static String formatDataForTicketCard(String date) {
     // Handle empty or invalid date strings
     final trimmedDate = date.trim();

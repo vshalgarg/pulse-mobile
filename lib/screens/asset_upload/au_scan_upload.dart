@@ -24,6 +24,7 @@ class AUScanUploadScreen extends StatefulWidget {
   final BuildContext? parentContext;
   final List<Map<String, dynamic>>? preloadedAssets;
   final String? preloadedSelfieImageId;
+  final int? preloadedAuId;
 
   const AUScanUploadScreen({
     super.key,
@@ -31,6 +32,7 @@ class AUScanUploadScreen extends StatefulWidget {
     this.parentContext,
     this.preloadedAssets,
     this.preloadedSelfieImageId,
+    this.preloadedAuId,
   });
 
   @override
@@ -687,10 +689,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
               itemImages.add(AssetUploadItemImage(
                 auiiId: img['auiiId'] as int?,
                 photoId: photoIdInt ?? 0,
-                photoTakenTs: img['photoTakenTs']?.toString() ?? 
-                            item['timestamp']?.toString() ??
-                            item['qr_code_scanned_ts']?.toString() ??
-                            Utils.getCurrentDateTimeForAPICall(),
+                photoTakenTs: Utils.normalizeDateForAPICall(
+                  img['photoTakenTs']?.toString() ?? 
+                  item['timestamp']?.toString() ??
+                  item['qr_code_scanned_ts']?.toString(),
+                ),
                 longitude: img['longitude']?.toString() ?? 
                          location?.longitude.toString() ?? '',
                 latitude: img['latitude']?.toString() ?? 
@@ -712,9 +715,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             itemImages.add(AssetUploadItemImage(
               auiiId: 0,
               photoId: photoIdInt,
-              photoTakenTs: item['timestamp']?.toString() ?? 
-                           item['qr_code_scanned_ts']?.toString() ?? 
-                           Utils.getCurrentDateTimeForAPICall(),
+              photoTakenTs: Utils.normalizeDateForAPICall(
+                item['timestamp']?.toString() ?? 
+                item['qr_code_scanned_ts']?.toString(),
+              ),
               longitude: location?.longitude.toString() ?? '',
               latitude: location?.latitude.toString() ?? '',
               isActive: true,
@@ -797,8 +801,12 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       Logger.debugLog('📤 assetUploadItems count: ${assetUploadItems.length}');
       Logger.debugLog('📤 ===========================================');
       
+      // Use preloaded auId if available (for updates), otherwise use 0 (for new uploads)
+      final auId = widget.preloadedAuId ?? 0;
+      Logger.debugLog('📤 Using auId: $auId (${auId == 0 ? "new upload" : "update"})');
+      
       final result = await _assetUploadRepository.assetUpload(
-        auId: 0, // 0 for new upload
+        auId: auId,
         siteId: widget.siteData.siteId,
         entityId: widget.siteData.entityId,
         makerSelfieImageId: finalSelfieImageId,
