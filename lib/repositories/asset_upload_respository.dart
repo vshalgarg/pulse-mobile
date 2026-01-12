@@ -62,15 +62,15 @@ class AssetUploadRepository {
   /// Get uploaded asset data from the server
   ///
   /// Parameters:
-  /// - [auId]: Asset Upload ID to retrieve
+  /// - [siteId]: Site ID to retrieve asset upload data for
   ///
   /// Returns: ResponseResult with asset upload data
   Future<ResponseResult<Map<String, dynamic>?>> getUploadedAssets({
-    required int auId,
+    required int siteId,
   }) async {
     try {
       final result = await apiService.get<Map<String, dynamic>>(
-        path: 'api/v1/mobile/assetUpload/$auId',
+        path: 'api/v1/mobile/assetUpload/$siteId',
       );
 
       // Check if request was successful (status code 200-299)

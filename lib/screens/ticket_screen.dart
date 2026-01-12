@@ -64,7 +64,10 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
 
     print('[TicketScreen] Current activity type: $_currentTicketType');
+    print('[TicketScreen] Current activity enum: $_currentActivityType');
+    print('[TicketScreen] Audit name: ${widget.auditName}');
     print('[TicketScreen] Checking FAB visibility for: ${_currentActivityType == ActivityTypeEnum.assetUpload}');
+    Logger.debugLog('📋 TicketScreen initialized - ActivityType: $_currentActivityType, AuditName: ${widget.auditName}');
 
     _loadTickets();
     _hasLoadedOnce = true;
@@ -262,9 +265,10 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
 
       print('data from download: $data');
 
-      // For incident tickets, use special handling
-      if (_currentActivityType == ActivityTypeEnum.incident) {
-        // Skip the general data fetching - will handle in incident-specific branch
+      // For incident and asset upload tickets, use special handling
+      if (_currentActivityType == ActivityTypeEnum.incident ||
+          _currentActivityType == ActivityTypeEnum.assetUpload) {
+        // Skip the general data fetching - will handle in specific branch
       } else {
         // If not found in local DB, fetch from API and save
         if (data == null || !data.isDownloaded) {
@@ -590,10 +594,18 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
         );
       } else if (_currentActivityType == ActivityTypeEnum.assetUpload) {
         // For Asset Upload, call getUploadedAssets API
+        // Note: For asset upload tickets, ticket.ticketSchId is the siteId
+        Logger.debugLog('📦 ========== ASSET UPLOAD TICKET CLICKED ==========');
+        Logger.debugLog('📦 Ticket ID: ${ticket.ticketSchId}');
+        Logger.debugLog('📦 Site ID (using ticket.ticketSchId): ${ticket.ticketSchId}');
+        Logger.debugLog('📦 Activity Type: $_currentActivityType');
+        Logger.debugLog('📦 Calling getUploadedAssets API with siteId...');
         try {
-          Logger.debugLog('🔄 Fetching asset upload data from API for ticket ID: ${ticket.ticketSchId}');
+          // Use siteId if available, otherwise fallback to ticketSchId
+          final siteId = ticket.siteId ?? ticket.ticketSchId;
+          Logger.debugLog('🔄 Fetching asset upload data from API for siteId: $siteId');
           final repository = AssetUploadRepository(ServiceLocator().apiService);
-          final result = await repository.getUploadedAssets(auId: ticket.ticketSchId);
+          final result = await repository.getUploadedAssets(siteId: siteId);
 
           Logger.debugLog('📦 API Response - Success: ${result.isSuccess}, Status: ${result.statusCode}');
           Logger.debugLog('📦 API Response - Error: ${result.errorMessage}');
@@ -745,6 +757,10 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
 
   void _navigateToAuditScreen(Ticket? ticket) {
     if (ticket == null) return;
+
+    Logger.debugLog('🎫 _navigateToAuditScreen called for ticket: ${ticket.ticketSchId}');
+    Logger.debugLog('🎫 Current activity type: $_currentActivityType');
+    Logger.debugLog('🎫 Widget audit name: ${widget.auditName}');
 
     // Check if ticket status is completed, closed, or missed deadline
     final status = ticket.status?.toLowerCase() ?? '';

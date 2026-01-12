@@ -1122,10 +1122,16 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       appBar: CustomFormAppbar(
         title: 'Asset Upload',
         onClose: () {
-          navigateBackOrToHome(
-            context,
-            targetContext: widget.parentContext ?? context,
-          );
+          // If we can pop (came from asset_upload_detail_page), just pop
+          // Otherwise use navigateBackOrToHome for other navigation paths
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          }
         },
       ),
       body: Stack(
@@ -1169,10 +1175,16 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () {
-                            navigateBackOrToHome(
-                              context,
-                              targetContext: widget.parentContext ?? context,
-                            );
+                            // If we can pop (came from asset_upload_detail_page), just pop
+                            // Otherwise use navigateBackOrToHome for other navigation paths
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            } else {
+                              navigateBackOrToHome(
+                                context,
+                                targetContext: widget.parentContext ?? context,
+                              );
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.grey.shade300,
