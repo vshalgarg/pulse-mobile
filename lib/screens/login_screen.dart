@@ -96,7 +96,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     // Content
                     SafeArea(
                       child: SingleChildScrollView(
-                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         physics: const BouncingScrollPhysics(),
                         padding: EdgeInsets.only(
                           top: MediaQuery.of(context).size.height * 0.05,
@@ -121,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   pulseContainer(),
                                   const SizedBox(height: 30),
                                   Text(
-                                    "Empowering connectivity and energy — securely and sustainably.",
+                                    "Empowering Digital Connectivity for Seamless Operations.",
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: AppColors.textWhite70,
@@ -226,11 +227,10 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: mobileController,
           hintText: "Login ID(Email/Mobile)",
           keyboardType: TextInputType.text,
-          
+
           onChanged: (value) {
             setState(() {});
           },
-         
         ),
       ],
     );
