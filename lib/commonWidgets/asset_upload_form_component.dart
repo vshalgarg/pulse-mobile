@@ -1451,9 +1451,11 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       child: Row(
         children: [
           // Display full serial number if available (NG-ACRONYM-SERIAL), otherwise show mfg_serial_no
+          // Check if item is existing (has aui_id) or new (no aui_id or aui_id is 0)
           _buildTableDataCell(
             item['full_scanned_code']?.toString() ?? item['mfg_serial_no']?.toString() ?? '', 
-            200
+            200,
+            isNewItem: _isNewItem(item),
           ),
           if (widget.showForm) ...[
             // Only show these columns when form is visible (for backward compatibility)
@@ -1474,13 +1476,24 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     );
   }
 
+  /// Checks if an item is new (not from API) or existing (from API)
+  bool _isNewItem(Map<String, dynamic> item) {
+    final auiId = item['aui_id'];
+    // If aui_id is null, 0, or "0", it's a new item
+    if (auiId == null) return true;
+    if (auiId == 0) return true;
+    if (auiId.toString() == '0') return true;
+    // If aui_id exists and is not 0, it's an existing item from API
+    return false;
+  }
+
   /// Builds a table data cell
-  Widget _buildTableDataCell(String text, double width, {bool? isScanned}) {
+  Widget _buildTableDataCell(String text, double width, {bool? isScanned, bool? isNewItem}) {
     return Container(
       width: width,
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: isNewItem != null ? MainAxisAlignment.start : MainAxisAlignment.center,
         children: [
           if (isScanned != null) ...[
             Icon(
@@ -1489,6 +1502,18 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
               size: 16,
             ),
             const SizedBox(width: 4),
+          ],
+          // Show dot indicator for serial number column
+          if (isNewItem != null) ...[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isNewItem ? AppColors.primaryGreen : Colors.grey,
+              ),
+            ),
+            const SizedBox(width: 8),
           ],
           Flexible(
             child: Text(
@@ -1499,7 +1524,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
                 fontFamily: fontFamilyMontserrat,
                 fontWeight: FontWeight.w400,
               ),
-              textAlign: TextAlign.center,
+              textAlign: isNewItem != null ? TextAlign.left : TextAlign.center,
               overflow: TextOverflow.ellipsis,
             ),
           ),
