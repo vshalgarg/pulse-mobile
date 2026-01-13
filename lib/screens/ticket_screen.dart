@@ -985,28 +985,81 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
             onDownloadTap: () async {
               try {
                 LoaderWidget.showLoader(context);
-                final service = ServiceLocator().centralAssetAuditService;
                 bool isDownloaded = false;
 
-                // Handle General Inspection tickets differently
+                // Handle Asset Upload tickets differently
+                if (_currentActivityType == ActivityTypeEnum.assetUpload) {
+                  // Use siteId if available, otherwise fallback to ticketSchId
+                  final siteId = ticket.siteId ?? ticket.ticketSchId;
+                  Logger.debugLog('📥 Downloading asset upload data for siteId: $siteId');
+                  
+                  final repository = AssetUploadRepository(ServiceLocator().apiService);
+                  final result = await repository.getUploadedAssets(siteId: siteId);
 
-                // For other ticket types, use the existing downloadData method
-                isDownloaded = await service.downloadData(
-                  siteType: ticket.siteDomainName ?? 'Solar',
-                  auditSchId: ticket.auditSchId?.toString() ?? "",
-                  siteAuditSchId: ticket.ticketSchId.toString(),
-                  pvTicketId: ticket.pvTicketId,
-                  siteCode: ticket.siteCode ?? "",
-                  cluster: ticket.cluster ?? "",
-                  operator: ticket.operator ?? "",
-                  raisedDt: ticket.raisedDt,
-                  dueDt: ticket.dueDt,
-                  status: ticket.status ?? "",
-                  latitude: ticket.latitude ?? 0,
-                  longitude: ticket.longitude ?? 0,
+                  if (result.isSuccess && result.data != null) {
+                    // Parse response structure - check if data is wrapped or direct
+                    Map<String, dynamic>? responseData;
+                    if (result.data!.containsKey('data')) {
+                      responseData = result.data!['data'] as Map<String, dynamic>?;
+                    } else {
+                      responseData = result.data;
+                    }
 
-                  activityType: _currentActivityType,
-                );
+                    if (responseData != null) {
+                      // Save to SQLite using saveRawApiData
+                      // Note: Image processing will be handled when data is loaded/used
+                      isDownloaded = await ServiceLocator().centralAssetAuditDataService
+                          .saveRawApiData(
+                            siteAuditSchId: ticket.ticketSchId.toString(),
+                            siteType: ticket.siteDomainName ?? 'Solar',
+                            auditSchId: ticket.auditSchId?.toString() ?? "",
+                            pvTicketId: ticket.pvTicketId,
+                            siteCode: ticket.siteCode ?? "",
+                            cluster: ticket.cluster ?? "",
+                            operator: ticket.operator ?? "",
+                            raisedDt: ticket.raisedDt,
+                            dueDt: ticket.dueDt,
+                            status: ticket.status ?? "",
+                            isDownloaded: true,
+                            activityType: _currentActivityType,
+                            latitude: ticket.latitude ?? 0,
+                            longitude: ticket.longitude ?? 0,
+                            apiData: responseData,
+                          );
+                    } else {
+                      Logger.errorLog('❌ Invalid asset upload data structure: responseData is null');
+                      Toastbar.showErrorToastbar(
+                        'Invalid asset upload data structure',
+                        context,
+                      );
+                    }
+                  } else {
+                    final errorMsg = result.errorMessage ?? 'Failed to download asset upload data';
+                    Logger.errorLog('❌ Failed to download asset upload data: $errorMsg');
+                    Toastbar.showErrorToastbar(errorMsg, context);
+                  }
+                } else {
+                  // Handle General Inspection tickets differently
+
+                  // For other ticket types, use the existing downloadData method
+                  final service = ServiceLocator().centralAssetAuditService;
+                  isDownloaded = await service.downloadData(
+                    siteType: ticket.siteDomainName ?? 'Solar',
+                    auditSchId: ticket.auditSchId?.toString() ?? "",
+                    siteAuditSchId: ticket.ticketSchId.toString(),
+                    pvTicketId: ticket.pvTicketId,
+                    siteCode: ticket.siteCode ?? "",
+                    cluster: ticket.cluster ?? "",
+                    operator: ticket.operator ?? "",
+                    raisedDt: ticket.raisedDt,
+                    dueDt: ticket.dueDt,
+                    status: ticket.status ?? "",
+                    latitude: ticket.latitude ?? 0,
+                    longitude: ticket.longitude ?? 0,
+
+                    activityType: _currentActivityType,
+                  );
+                }
 
                 if (isDownloaded) {
                   // Add to local state and trigger UI update

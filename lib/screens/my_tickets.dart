@@ -4,7 +4,6 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
-import 'package:app/repositories/incident_repository.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/logger.dart';
@@ -23,6 +22,7 @@ import 'general_inspection/ginspection_detail.dart';
 import 'incident_ticket/incident_detail_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
 import 'site_visit/site_visit.dart';
+import 'asset_upload/asset_upload_detail_page.dart';
 import '../enum/corrective_maintenance_screen_mode_enum.dart';
 
 class MyTicketsScreen extends StatefulWidget {
@@ -60,6 +60,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       return ActivityTypeEnum.generalInspection;
     } else if (normalized == 'incident' || normalized == 'it') {
       return ActivityTypeEnum.incident;
+    } else if (normalized == 'assetupload' || normalized == 'au') {
+      return ActivityTypeEnum.assetUpload;
     } else {
       // Fallback to try the standard enum conversion
       try {
@@ -464,6 +466,123 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
             ),
           ),
         );
+      } else if (ticket.activityType == ActivityTypeEnum.assetUpload) {
+        // For Asset Upload, parse the stored data and navigate to AssetUploadDetailPage
+        Logger.debugLog('📦 Loading Asset Upload ticket from downloaded data');
+        
+        // Parse response structure - check if data is wrapped or direct
+        Map<String, dynamic>? responseData;
+        if (data.apiData.containsKey('data')) {
+          responseData = data.apiData['data'] as Map<String, dynamic>?;
+          Logger.debugLog('📦 Found data wrapper, extracting inner data');
+        } else {
+          responseData = data.apiData;
+          Logger.debugLog('📦 Using data directly (no wrapper)');
+        }
+
+        if (responseData == null) {
+          LoaderWidget.hideLoader();
+          Logger.errorLog('❌ Invalid asset upload data structure: responseData is null');
+          Toastbar.showErrorToastbar('Invalid asset upload data structure', context);
+          return;
+        }
+
+        Logger.debugLog('📦 Response data keys: ${responseData.keys.toList()}');
+
+        // Try both camelCase and snake_case field names
+        final assetUploadData = responseData['assetUpload'] ?? 
+                               responseData['asset_upload'] as Map<String, dynamic>?;
+        final siteDetailsData = responseData['siteDetails'] ?? 
+                               responseData['site_details'] as Map<String, dynamic>?;
+
+        Logger.debugLog('📦 AssetUpload data: ${assetUploadData != null}');
+        Logger.debugLog('📦 SiteDetails data: ${siteDetailsData != null}');
+
+        if (assetUploadData == null || siteDetailsData == null) {
+          LoaderWidget.hideLoader();
+          final missingData = [];
+          if (assetUploadData == null) missingData.add('assetUpload/asset_upload');
+          if (siteDetailsData == null) missingData.add('siteDetails/site_details');
+          Logger.errorLog('❌ Missing data fields: ${missingData.join(", ")}');
+          Logger.errorLog('❌ Available keys in response: ${responseData.keys.toList()}');
+          Toastbar.showErrorToastbar(
+            'Missing ${missingData.join(" or ")} data. Check logs for details.',
+            context,
+          );
+          return;
+        }
+
+        // Extract maker_selfie_image_id from assetUploadData (try both formats)
+        final makerSelfieImageId = assetUploadData['maker_selfie_image_id'] ?? 
+                                  assetUploadData['makerSelfieImageId'];
+        
+        // Extract auId from assetUploadData (try both formats)
+        final auId = assetUploadData['au_id'] ?? 
+                    assetUploadData['auId'] ?? 
+                    assetUploadData['id'];
+        
+        // Extract asset_upload_item array (try both formats)
+        final assetUploadItems = (assetUploadData['asset_upload_item'] ?? 
+                                 assetUploadData['assetUploadItem'] ?? 
+                                 []) as List<dynamic>? ?? [];
+        
+        Logger.debugLog('📦 Found ${assetUploadItems.length} asset items');
+        Logger.debugLog('📦 AuId: $auId');
+
+        // Create AllSiteModel from siteDetailsData
+        final siteData = AllSiteModel(
+          siteId: siteDetailsData['site_id'] ?? int.tryParse(ticket.siteAuditSchId) ?? 0,
+          entityId: siteDetailsData['entity_id'] ?? 0,
+          siteCode: siteDetailsData['site_code']?.toString() ?? ticket.siteCode ?? '',
+          siteName: siteDetailsData['site_name']?.toString() ?? ticket.cluster ?? '',
+          clusterDistrictId: 0,
+          clusterDistrictName: siteDetailsData['cluster']?.toString() ?? ticket.cluster ?? '',
+          circleStateId: 0,
+          circleStateName: siteDetailsData['circle']?.toString() ?? ticket.operator ?? '',
+          clientId: null,
+          clientName: siteDetailsData['client']?.toString() ?? ticket.operator,
+          svlId: null,
+          oem: null,
+          oemId: null,
+          self: '',
+          selfId: 0,
+          siteDomainName: ticket.siteType,
+          distanceKM: null,
+          infraEngineerName: siteDetailsData['infra_district_engineer_name']?.toString(),
+          infraEngineerPhone: siteDetailsData['infra_district_engineer_contact_no']?.toString(),
+          ownerName: siteDetailsData['owner_name']?.toString(),
+          ownerPhone: siteDetailsData['owner_contact_no']?.toString(),
+          siteVisitLogId: null,
+          siteVisitLogDate: null,
+          purposeOfVisit: null,
+          visitingPersonImageId: null,
+          checklistItems: null,
+        );
+
+        // Convert asset_upload_item to format expected by AssetUploadDetailPage
+        final List<Map<String, dynamic>> parsedAssetItems = assetUploadItems.map((item) {
+          if (item is Map<String, dynamic>) {
+            return Map<String, dynamic>.from(item);
+          }
+          return <String, dynamic>{};
+        }).where((item) => item.isNotEmpty).toList();
+
+        Logger.debugLog('✅ Successfully loaded asset upload data. Items: ${parsedAssetItems.length}');
+
+        final parentContext = context;
+        LoaderWidget.hideLoader();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AssetUploadDetailPage(
+              siteData: siteData,
+              parentContext: parentContext,
+              preloadedSelfieImageId: makerSelfieImageId?.toString(),
+              preloadedAssetItems: parsedAssetItems.isNotEmpty ? parsedAssetItems : null,
+              preloadedAuId: auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null,
+            ),
+          ),
+        );
       } else {
         AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
           siteType: ticket.siteType,
@@ -699,6 +818,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
       ActivityTypeEnum.siteVisit,
       ActivityTypeEnum.generalInspection,
       ActivityTypeEnum.incident,
+      ActivityTypeEnum.assetUpload,
     ];
 
     return Container(
