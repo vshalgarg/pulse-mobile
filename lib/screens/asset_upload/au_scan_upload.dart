@@ -278,9 +278,65 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         final acronym = parsed['acronym']!;
         final serialNum = parsed['serialNumber']!;
         final fullSerial = '$acronym-$serialNum';
+        final fullSerialWithPrefix = 'NG-$fullSerial';
 
-        // Check for duplicates
-        if (_scannedSerialNumbers.contains(fullSerial)) {
+        // Check if this serial number belongs to an existing item in the current asset group
+        // If it does, allow it (user is editing the same item)
+        final currentItems = _assetGroups[assetType] ?? [];
+        final isExistingItemInGroup = currentItems.any((item) {
+          final itemFullCode = item['full_scanned_code']?.toString() ?? '';
+          final itemSerial = item['mfg_serial_no']?.toString() ?? '';
+          final itemNexgenSerial = item['nexgen_serial_no']?.toString() ?? '';
+          
+          // Normalize all formats for comparison
+          final normalizedSerialNumber = serialNumber.trim().toUpperCase();
+          final normalizedItemFullCode = itemFullCode.trim().toUpperCase();
+          final normalizedItemNexgen = itemNexgenSerial.trim().toUpperCase();
+          final normalizedFullSerial = fullSerial.trim().toUpperCase();
+          final normalizedFullSerialWithPrefix = fullSerialWithPrefix.trim().toUpperCase();
+          
+          // Match by various formats
+          if (normalizedItemFullCode == normalizedSerialNumber || 
+              normalizedItemFullCode == normalizedFullSerial ||
+              normalizedItemFullCode == normalizedFullSerialWithPrefix) {
+            return true;
+          }
+          
+          if (normalizedItemNexgen == normalizedSerialNumber ||
+              normalizedItemNexgen == normalizedFullSerial ||
+              normalizedItemNexgen == normalizedFullSerialWithPrefix) {
+            return true;
+          }
+          
+          // Also check if we can reconstruct the full code from item
+          if (itemSerial.isNotEmpty) {
+            final reconstructed = 'NG-$acronym-$itemSerial'.toUpperCase();
+            if (reconstructed == normalizedSerialNumber || 
+                reconstructed == normalizedFullSerial ||
+                reconstructed == normalizedFullSerialWithPrefix) {
+              return true;
+            }
+          }
+          
+          // Check if serial number contains the item serial or vice versa
+          if (normalizedSerialNumber.contains(itemSerial.toUpperCase()) ||
+              normalizedItemFullCode.contains(serialNum.toUpperCase())) {
+            return true;
+          }
+          
+          return false;
+        });
+
+        // If it's an existing item in the current group, allow it (editing same item)
+        if (isExistingItemInGroup) {
+          return true;
+        }
+
+        // Check for duplicates (only if not editing existing item)
+        // Check both formats: with and without NG- prefix
+        if (_scannedSerialNumbers.contains(fullSerial) || 
+            _scannedSerialNumbers.contains(fullSerialWithPrefix) ||
+            _scannedSerialNumbers.contains(serialNumber.trim().toUpperCase())) {
           return false;
         }
 

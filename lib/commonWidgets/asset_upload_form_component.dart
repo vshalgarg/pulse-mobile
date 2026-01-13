@@ -280,6 +280,23 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
   /// Runs custom validation on serial number
   bool _validateSerialNumber() {
+    // If we're editing an existing item, check if the serial number matches the editing item
+    // If it does, skip validation (user is editing the same item)
+    if (_isEditing && _editingItem != null) {
+      final editingSerial = _editingItem!['mfg_serial_no']?.toString() ?? '';
+      final editingFullCode = _editingItem!['full_scanned_code']?.toString() ?? '';
+      final currentSerial = widget.serialController.text.trim();
+      
+      // Check if current serial matches the editing item's serial
+      if (editingSerial == currentSerial || 
+          editingFullCode == currentSerial ||
+          (editingFullCode.isNotEmpty && currentSerial.contains(editingSerial)) ||
+          (editingSerial.isNotEmpty && currentSerial.contains(editingSerial))) {
+        // Same item being edited - skip validation
+        return true;
+      }
+    }
+    
     if (widget.customValidator != null) {
       final isValid = widget.customValidator!(
         widget.serialController.text,
