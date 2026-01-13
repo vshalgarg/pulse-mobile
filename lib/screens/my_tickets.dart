@@ -580,6 +580,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
               preloadedSelfieImageId: makerSelfieImageId?.toString(),
               preloadedAssetItems: parsedAssetItems.isNotEmpty ? parsedAssetItems : null,
               preloadedAuId: auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null,
+              mode: CMScreenModeEnum.edit, // Edit mode when coming from my tickets
             ),
           ),
         );

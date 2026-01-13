@@ -7,9 +7,11 @@ import 'package:app/models/location_model.dart';
 import 'package:app/screens/general_inspection/ginspection_detail.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/screens/incident_ticket/incident_detail_screen.dart';
+import 'package:app/repositories/asset_upload_respository.dart';
 import 'package:app/screens/asset_upload/asset_upload_detail_page.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/location_service.dart';
+import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
@@ -261,6 +263,65 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       }
     }
 
+    // For Asset Upload, call getUploadedAssets before navigating
+    if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
+      try {
+        LoaderWidget.showLoader(context);
+        final repository = AssetUploadRepository(ServiceLocator().apiService);
+        final result = await repository.getUploadedAssets(siteId: site.siteId);
+        LoaderWidget.hideLoader();
+
+        if (result.isSuccess && result.data != null) {
+          Logger.debugLog('✅ Successfully fetched uploaded assets for site ${site.siteId}');
+          // Navigate with the fetched data
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AssetUploadDetailPage(
+                  siteData: site,
+                  parentContext: parentContext,
+                  mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+                ),
+              ),
+            );
+          }
+        } else {
+          // Even if fetch fails, still navigate (might be a new site with no assets)
+          Logger.debugLog('⚠️ Failed to fetch uploaded assets, navigating anyway: ${result.errorMessage}');
+          if (mounted) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => AssetUploadDetailPage(
+                  siteData: site,
+                  parentContext: parentContext,
+                  mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+                ),
+              ),
+            );
+          }
+        }
+      } catch (e) {
+        LoaderWidget.hideLoader();
+        Logger.errorLog('❌ Error fetching uploaded assets: $e');
+        // Still navigate even if there's an error
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AssetUploadDetailPage(
+                siteData: site,
+                parentContext: parentContext,
+                mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+              ),
+            ),
+          );
+        }
+      }
+      return;
+    }
+
     // Use basic site data if no stored data available
     Navigator.push(
       context,
@@ -271,11 +332,6 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             ? GInspectionDetailScreen(
                 siteData: site,
                 mode: CMScreenModeEnum.create,
-                parentContext: parentContext,
-              )
-            : widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload'
-            ? AssetUploadDetailPage(
-                siteData: site,
                 parentContext: parentContext,
               )
             : IncidentDetilScreen(
@@ -367,6 +423,26 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         print('Incident site data downloaded: $isDownloaded');
       } else if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
         isDownloaded = await service.downloadAssetUploadSiteData(site: site);
+        
+        // After downloading site data, also fetch uploaded assets
+        if (isDownloaded) {
+          try {
+            Logger.debugLog('📥 Fetching uploaded assets for site ${site.siteId}');
+            final repository = AssetUploadRepository(ServiceLocator().apiService);
+            final result = await repository.getUploadedAssets(siteId: site.siteId);
+            
+            if (result.isSuccess && result.data != null) {
+              Logger.debugLog('✅ Successfully fetched uploaded assets for site ${site.siteId}');
+              // The data will be stored by downloadAssetUploadSiteData, this just ensures we have the latest
+            } else {
+              Logger.debugLog('⚠️ Failed to fetch uploaded assets: ${result.errorMessage}');
+              // Continue anyway - might be a new site with no assets
+            }
+          } catch (e) {
+            Logger.errorLog('❌ Error fetching uploaded assets: $e');
+            // Continue anyway - download was successful
+          }
+        }
       }
 
       if (isDownloaded) {

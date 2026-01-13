@@ -8,6 +8,7 @@ import 'package:app/commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
@@ -24,6 +25,7 @@ class AssetUploadDetailPage extends StatefulWidget {
   final String? preloadedSelfieImageId;
   final List<Map<String, dynamic>>? preloadedAssetItems;
   final int? preloadedAuId;
+  final CMScreenModeEnum mode;
 
   const AssetUploadDetailPage({
     super.key,
@@ -32,6 +34,7 @@ class AssetUploadDetailPage extends StatefulWidget {
     this.preloadedSelfieImageId,
     this.preloadedAssetItems,
     this.preloadedAuId,
+    this.mode = CMScreenModeEnum.create,
   });
 
   @override
@@ -68,6 +71,8 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
   @override
   void initState() {
     super.initState();
+   
+    print('📋 AssetUploadDetailPage - Mode: ${widget.mode}');
     _service = ServiceLocator().centralAssetAuditService;
     _initializeFormData();
 
@@ -561,6 +566,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
             preloadedSelfieImageId: _selfieImgId, // Pass the selfie image ID
             preloadedAssets: widget.preloadedAssetItems, // Pass preloaded asset items
             preloadedAuId: widget.preloadedAuId, // Pass auId for update
+            mode: widget.mode, // Pass the mode
           ),
         ),
       );

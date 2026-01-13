@@ -542,12 +542,18 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         }
         
         // Add photo to assetUploadItemImages array
-        final photoIdInt = _uploadedImageId!.contains("LOCAL_IMAGE_ID") 
-            ? 0 
-            : (int.tryParse(_uploadedImageId!) ?? 0);
+        // Keep LOCAL_IMAGE_ID as string, convert server IDs to int
+        dynamic photoIdValue;
+        if (_uploadedImageId!.contains("LOCAL_IMAGE_ID")) {
+          // Keep LOCAL_IMAGE_ID as string for offline mode
+          photoIdValue = _uploadedImageId!;
+        } else {
+          // Convert to int for server IDs
+          photoIdValue = int.tryParse(_uploadedImageId!) ?? 0;
+        }
         assetUploadItemImages.add({
           'auiiId': 0,
-          'photoId': photoIdInt,
+          'photoId': photoIdValue, // Can be string (LOCAL_IMAGE_ID) or int (server ID)
           'photoTakenTs': Utils.normalizeDateForAPICall(itemData['timestamp']?.toString()),
           'longitude': '',
           'latitude': '',
@@ -570,12 +576,18 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           assetUploadItemImages = List<Map<String, dynamic>>.from(existingItem['assetUploadItemImages']);
         } else {
           // Create from existing photo_id
-          final photoIdInt = _uploadedImageId!.contains("LOCAL_IMAGE_ID") 
-              ? 0 
-              : (int.tryParse(_uploadedImageId!) ?? 0);
+          // Keep LOCAL_IMAGE_ID as string, convert server IDs to int
+          dynamic photoIdValue;
+          if (_uploadedImageId!.contains("LOCAL_IMAGE_ID")) {
+            // Keep LOCAL_IMAGE_ID as string for offline mode
+            photoIdValue = _uploadedImageId!;
+          } else {
+            // Convert to int for server IDs
+            photoIdValue = int.tryParse(_uploadedImageId!) ?? 0;
+          }
           assetUploadItemImages.add({
             'auiiId': 0,
-            'photoId': photoIdInt,
+            'photoId': photoIdValue, // Can be string (LOCAL_IMAGE_ID) or int (server ID)
             'photoTakenTs': Utils.normalizeDateForAPICall(
               existingItem['timestamp']?.toString() ?? 
               existingItem['qr_code_scanned_ts']?.toString(),

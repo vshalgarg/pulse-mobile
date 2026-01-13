@@ -9,17 +9,27 @@ class AssetUploadRepository {
     required int auId,
     required int siteId,
     int? entityId,
-    int? makerSelfieImageId,
+    dynamic makerSelfieImageId, // Can be int (server ID) or String (LOCAL_IMAGE_ID)
     bool isActive = true,
     String? remarks,
     required List<AssetUploadItem> assetUploadItems,
   }) async {
     try {
       // Build the request data matching the curl structure
-      final finalMakerSelfieImageId = makerSelfieImageId ?? 0;
+      // Handle makerSelfieImageId - can be int or string (LOCAL_IMAGE_ID)
+      dynamic finalMakerSelfieImageId;
+      if (makerSelfieImageId == null) {
+        finalMakerSelfieImageId = 0;
+      } else if (makerSelfieImageId is String && makerSelfieImageId.contains("LOCAL_IMAGE_ID")) {
+        // Keep LOCAL_IMAGE_ID as string for offline mode
+        finalMakerSelfieImageId = makerSelfieImageId;
+      } else {
+        // Convert to int for server IDs
+        finalMakerSelfieImageId = makerSelfieImageId is int ? makerSelfieImageId : (int.tryParse(makerSelfieImageId.toString()) ?? 0);
+      }
       
       // Log the makerSelfieImageId value for debugging
-      print('🔍 AssetUploadRepository: makerSelfieImageId = $finalMakerSelfieImageId (input: $makerSelfieImageId)');
+      print('🔍 AssetUploadRepository: makerSelfieImageId = $finalMakerSelfieImageId (input: $makerSelfieImageId, type: ${finalMakerSelfieImageId.runtimeType})');
       
       final requestData = <String, dynamic>{
         'auId': auId,
@@ -33,7 +43,7 @@ class AssetUploadRepository {
             .toList(),
       };
 
-      print('🔍 AssetUploadRepository: Request data - makerSelfieImageId: ${requestData['makerSelfieImageId']}');
+      print('🔍 AssetUploadRepository: Request data - makerSelfieImageId: ${requestData['makerSelfieImageId']} (type: ${requestData['makerSelfieImageId'].runtimeType})');
 
       final result = await apiService.post<Map<String, dynamic>>(
         path: 'api/v1/mobile/assetUpload',
@@ -104,6 +114,7 @@ class AssetUploadItem {
   final bool isActive;
   final String? remarks;
   final List<AssetUploadItemImage> assetUploadItemImages;
+  final bool? isModified;
 
   AssetUploadItem({
     this.auiId,
@@ -115,6 +126,7 @@ class AssetUploadItem {
     this.isActive = true,
     this.remarks,
     required this.assetUploadItemImages,
+    this.isModified,
   });
 
   Map<String, dynamic> toJson() {
@@ -127,6 +139,7 @@ class AssetUploadItem {
       'latitude': latitude ?? '',
       'isActive': isActive,
       'remarks': remarks ?? '',
+      'isModified': isModified ?? false, // Default to false if null
       'assetUploadItemImages': assetUploadItemImages
           .map((img) => img.toJson())
           .toList(),
@@ -151,6 +164,7 @@ class AssetUploadItem {
               )
               .toList() ??
           [],
+      isModified: json['isModified'] as bool? ?? false,
     );
   }
 }
@@ -158,7 +172,7 @@ class AssetUploadItem {
 /// Model for Asset Upload Item Image
 class AssetUploadItemImage {
   final int? auiiId;
-  final int? photoId;
+  final dynamic photoId; // Can be int (server ID) or String (LOCAL_IMAGE_ID)
   final String? photoTakenTs;
   final String? longitude;
   final String? latitude;
@@ -176,9 +190,21 @@ class AssetUploadItemImage {
   });
 
   Map<String, dynamic> toJson() {
+    // Handle photoId - keep as string if LOCAL_IMAGE_ID, otherwise convert to int
+    dynamic finalPhotoId;
+    if (photoId == null) {
+      finalPhotoId = 0;
+    } else if (photoId is String && photoId.contains("LOCAL_IMAGE_ID")) {
+      // Keep LOCAL_IMAGE_ID as string for offline mode
+      finalPhotoId = photoId;
+    } else {
+      // Convert to int for server IDs
+      finalPhotoId = photoId is int ? photoId : (int.tryParse(photoId.toString()) ?? 0);
+    }
+    
     return {
       'auiiId': auiiId ?? 0,
-      'photoId': photoId ?? 0,
+      'photoId': finalPhotoId,
       'photoTakenTs': photoTakenTs,
       'longitude': longitude ?? '',
       'latitude': latitude ?? '',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:app/commonWidgets/asset_upload_form_component.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
+import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -14,6 +15,7 @@ import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter_svg/svg.dart';
@@ -25,6 +27,7 @@ class AUScanUploadScreen extends StatefulWidget {
   final List<Map<String, dynamic>>? preloadedAssets;
   final String? preloadedSelfieImageId;
   final int? preloadedAuId;
+  final CMScreenModeEnum mode;
 
   const AUScanUploadScreen({
     super.key,
@@ -33,6 +36,7 @@ class AUScanUploadScreen extends StatefulWidget {
     this.preloadedAssets,
     this.preloadedSelfieImageId,
     this.preloadedAuId,
+    this.mode = CMScreenModeEnum.create,
   });
 
   @override
@@ -76,6 +80,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   @override
   void initState() {
     super.initState();
+    Logger.debugLog('📋 AUScanUploadScreen - Mode: ${widget.mode}');
+    print('📋 AUScanUploadScreen - Mode: ${widget.mode}');
     _assetUploadRepository = AssetUploadRepository(
       ServiceLocator().apiService,
     );
@@ -158,6 +164,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           'qr_code_scanned': true,
           'qr_code_scanned_ts': Utils.getCurrentDateTimeForAPICall(),
           'timestamp': Utils.getCurrentDateTimeForAPICall(),
+          // In edit mode, preloaded assets are not modified yet
+          // In create mode, new assets are not modified
+          'isModified': false,
         };
 
         // Handle photo data if available (check both snake_case and camelCase)
@@ -308,6 +317,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   /// Handles when an item is saved from AssetUploadFormComponent
   void _onItemSaved(String assetType, List<Map<String, dynamic>> items) {
     setState(() {
+      // Get existing items to check if items were modified
+      final existingItems = _assetGroups[assetType] ?? [];
+      
       // Normalize serial numbers to show only the serial part (not NG-ACRONYM-SERIAL)
       // But always preserve full_scanned_code for display
       // IMPORTANT: Preserve ALL fields including photo_id, photoPath, and assetUploadItemImages
@@ -337,6 +349,40 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         final parsed = _parseScannedCode(serialNumber);
         if (parsed != null) {
           updatedItem['mfg_serial_no'] = parsed['serialNumber']!;
+        }
+        
+        // Handle isModified flag based on mode and whether item existed
+        if (widget.mode == CMScreenModeEnum.edit) {
+          // In edit mode, check if this item already existed (has aui_id or item_id)
+          final hasExistingId = updatedItem['aui_id'] != null && 
+                               updatedItem['aui_id'] != 0 &&
+                               updatedItem['aui_id'].toString() != '0';
+          
+          // Check if item exists in existing items by matching identifiers
+          final itemExists = existingItems.any((existing) {
+            final existingAuiId = existing['aui_id'];
+            final existingFullCode = existing['full_scanned_code']?.toString() ?? '';
+            final currentFullCode = updatedItem['full_scanned_code']?.toString() ?? '';
+            
+            // Match by aui_id if available, or by full_scanned_code
+            if (hasExistingId && existingAuiId != null) {
+              return existingAuiId.toString() == updatedItem['aui_id'].toString();
+            }
+            return existingFullCode == currentFullCode && existingFullCode.isNotEmpty;
+          });
+          
+          if (itemExists) {
+            // Existing item was edited - mark as modified
+            updatedItem['isModified'] = true;
+            Logger.debugLog('📝 Asset marked as modified: ${updatedItem['full_scanned_code']}');
+            print('📝 Asset marked as modified: ${updatedItem['full_scanned_code']}');
+          } else {
+            // New item added in edit mode - not modified (it's new)
+            updatedItem['isModified'] = false;
+          }
+        } else {
+          // Create mode - new items are not modified
+          updatedItem['isModified'] = false;
         }
         
         // Ensure photo_id, photoPath, and assetUploadItemImages are preserved (should already be in item)
@@ -441,6 +487,27 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         if (lastItem['remarks'] != null) {
           updatedItem['remarks'] = lastItem['remarks'];
         }
+        
+        // In edit mode, if we're editing an existing item, mark it as modified
+        if (widget.mode == CMScreenModeEnum.edit) {
+          // Check if the original item had an ID (indicating it existed)
+          final originalHasId = _editingItem?['aui_id'] != null && 
+                                _editingItem!['aui_id'] != 0 &&
+                                _editingItem!['aui_id'].toString() != '0';
+          
+          if (originalHasId) {
+            // Existing item was edited - mark as modified
+            updatedItem['isModified'] = true;
+            Logger.debugLog('📝 Asset marked as modified (from edit): ${updatedItem['full_scanned_code']}');
+            print('📝 Asset marked as modified (from edit): ${updatedItem['full_scanned_code']}');
+          } else {
+            // New item added in edit mode - not modified (it's new)
+            updatedItem['isModified'] = false;
+          }
+        } else {
+          // Create mode - new items are not modified
+          updatedItem['isModified'] = false;
+        }
 
         // Add/update in the appropriate group
         if (assetType == _editingAssetType) {
@@ -501,6 +568,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         if (lastItem['assetUploadItemImages'] != null) {
           updatedItem['assetUploadItemImages'] = lastItem['assetUploadItemImages'];
         }
+        // New items are not modified (whether in create or edit mode)
+        updatedItem['isModified'] = false;
         _assetGroups[assetType]!.add(updatedItem);
         _scannedSerialNumbers.add(fullSerial);
         _updateTotalCount();
@@ -526,7 +595,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   }
 
   /// Gets selfie image ID from preloaded data or storage
-  Future<int?> _getSelfieImageId() async {
+  /// Returns String? - can be server ID as string or LOCAL_IMAGE_ID string
+  Future<String?> _getSelfieImageId() async {
     try {
       // First check if we have a current selfie image ID (uploaded in this session)
       if (_currentSelfieImageId != null && _currentSelfieImageId!.isNotEmpty) {
@@ -534,13 +604,13 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         Logger.debugLog('📸 Found current selfie image ID: $currentId');
         if (currentId != "0" && currentId != "null") {
           if (currentId.contains("LOCAL_IMAGE_ID")) {
-            Logger.debugLog('⚠️ Current ID is LOCAL_IMAGE_ID, returning 0');
-            return 0;
+            Logger.debugLog('📸 Current ID is LOCAL_IMAGE_ID, returning: $currentId');
+            return currentId; // Return LOCAL_IMAGE_ID string
           }
           final parsedId = int.tryParse(currentId);
           if (parsedId != null && parsedId > 0) {
             Logger.debugLog('✅ Using current selfie image ID: $parsedId');
-            return parsedId;
+            return currentId; // Return as string to preserve format
           }
         }
       }
@@ -551,15 +621,15 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         final preloadedId = widget.preloadedSelfieImageId!;
         Logger.debugLog('📸 Found preloaded selfie image ID: $preloadedId');
         if (preloadedId != "0" && preloadedId != "null") {
-          // Convert to int, handling LOCAL_IMAGE_ID case
+          // Keep LOCAL_IMAGE_ID as string
           if (preloadedId.contains("LOCAL_IMAGE_ID")) {
-            Logger.debugLog('⚠️ Preloaded ID is LOCAL_IMAGE_ID, returning 0');
-            return 0; // Will need to be replaced when uploading
+            Logger.debugLog('📸 Preloaded ID is LOCAL_IMAGE_ID, returning: $preloadedId');
+            return preloadedId; // Return LOCAL_IMAGE_ID string
           }
           final parsedId = int.tryParse(preloadedId);
           if (parsedId != null && parsedId > 0) {
             Logger.debugLog('✅ Using preloaded selfie image ID: $parsedId');
-            return parsedId;
+            return preloadedId; // Return as string to preserve format
           } else {
             Logger.debugLog('⚠️ Failed to parse preloaded ID: $preloadedId');
           }
@@ -603,15 +673,15 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                 selfieImageId != "0" && 
                 selfieImageId != "null" &&
                 selfieImageId.toLowerCase() != "null") {
-              // Convert to int, handling LOCAL_IMAGE_ID case
+              // Keep LOCAL_IMAGE_ID as string
               if (selfieImageId.contains("LOCAL_IMAGE_ID")) {
-                Logger.debugLog('⚠️ Database ID is LOCAL_IMAGE_ID, returning 0');
-                return 0; // Will need to be replaced when uploading
+                Logger.debugLog('📸 Database ID is LOCAL_IMAGE_ID, returning: $selfieImageId');
+                return selfieImageId; // Return LOCAL_IMAGE_ID string
               }
               final parsedId = int.tryParse(selfieImageId);
               if (parsedId != null && parsedId > 0) {
                 Logger.debugLog('✅ Using selfie image ID from database: $parsedId');
-                return parsedId;
+                return selfieImageId; // Return as string to preserve format
               } else {
                 Logger.debugLog('⚠️ Failed to parse database ID: $selfieImageId');
                 Logger.debugLog('⚠️ Attempted to parse as int but got null or 0');
@@ -633,12 +703,12 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         Logger.debugLog('⚠️ No stored data found in database for siteId: ${widget.siteData.siteId}');
       }
       
-      Logger.debugLog('⚠️ No valid selfie image ID found, returning 0');
-      return 0;
+      Logger.debugLog('⚠️ No valid selfie image ID found, returning null');
+      return null;
     } catch (e) {
       Logger.errorLog('❌ Error getting selfie image ID: $e');
       Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
-      return 0;
+      return null;
     }
   }
 
@@ -661,6 +731,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           continue; // Skip items without serial number
         }
 
+        // Debug: Log item data to see what's stored
+        Logger.debugLog('📦 Item data for $nexgenSerialNo:');
+        Logger.debugLog('  - photo_id: ${item['photo_id']}');
+        Logger.debugLog('  - assetUploadItemImages: ${item['assetUploadItemImages']}');
+        print('📦 Item data for $nexgenSerialNo:');
+        print('  - photo_id: ${item['photo_id']}');
+        print('  - assetUploadItemImages: ${item['assetUploadItemImages']}');
+
         // Build assetUploadItemImages from photo data
         final List<AssetUploadItemImage> itemImages = [];
         
@@ -668,27 +746,73 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         if (item['assetUploadItemImages'] != null && 
             item['assetUploadItemImages'] is List) {
           final images = item['assetUploadItemImages'] as List<dynamic>;
+          Logger.debugLog('📦 Processing ${images.length} images from assetUploadItemImages');
+          print('📦 Processing ${images.length} images from assetUploadItemImages');
           for (final img in images) {
             if (img is Map<String, dynamic>) {
-              // Convert photoId to int, handling LOCAL_IMAGE_ID case
-              int? photoIdInt;
-              final photoIdValue = img['photoId'];
-              if (photoIdValue != null) {
-                if (photoIdValue is int) {
-                  photoIdInt = photoIdValue;
+              // Handle photoId - can be int (server ID) or string (LOCAL_IMAGE_ID)
+              dynamic photoIdValue;
+              final photoIdRaw = img['photoId'];
+              Logger.debugLog('📸 Raw photoId from img: $photoIdRaw (type: ${photoIdRaw.runtimeType})');
+              print('📸 Raw photoId from img: $photoIdRaw (type: ${photoIdRaw.runtimeType})');
+              
+              if (photoIdRaw != null) {
+                // If it's already a string with LOCAL_IMAGE_ID, use it directly
+                if (photoIdRaw is String && photoIdRaw.contains("LOCAL_IMAGE_ID")) {
+                  photoIdValue = photoIdRaw;
+                  Logger.debugLog('📸 Keeping LOCAL_IMAGE_ID as string: $photoIdValue');
+                  print('📸 Keeping LOCAL_IMAGE_ID as string: $photoIdValue');
                 } else {
-                  final photoIdStr = photoIdValue.toString();
+                  // Convert to string first to check
+                  final photoIdStr = photoIdRaw.toString();
                   if (photoIdStr.contains("LOCAL_IMAGE_ID")) {
-                    photoIdInt = 0; // LOCAL_IMAGE_ID -> 0 for offline photos
+                    // Keep LOCAL_IMAGE_ID as string for offline mode
+                    photoIdValue = photoIdStr;
+                    Logger.debugLog('📸 Keeping LOCAL_IMAGE_ID for asset image: $photoIdValue');
+                    print('📸 Keeping LOCAL_IMAGE_ID for asset image: $photoIdValue');
+                  } else if (photoIdStr == "0" || photoIdStr == "null" || photoIdStr.isEmpty || 
+                             (photoIdRaw is int && photoIdRaw == 0)) {
+                    // Check if we have photo_id in the item as fallback
+                    final itemPhotoId = item['photo_id']?.toString();
+                    Logger.debugLog('📸 photoIdRaw is 0/null, checking item photo_id: $itemPhotoId');
+                    print('📸 photoIdRaw is 0/null, checking item photo_id: $itemPhotoId');
+                    if (itemPhotoId != null && itemPhotoId.isNotEmpty && 
+                        itemPhotoId != "0" && itemPhotoId != "null" &&
+                        itemPhotoId.contains("LOCAL_IMAGE_ID")) {
+                      photoIdValue = itemPhotoId;
+                      Logger.debugLog('✅ Using LOCAL_IMAGE_ID from item photo_id: $photoIdValue');
+                      print('✅ Using LOCAL_IMAGE_ID from item photo_id: $photoIdValue');
+                    } else {
+                      photoIdValue = 0;
+                      Logger.debugLog('⚠️ photoId is 0/null/empty, no LOCAL_IMAGE_ID found in item photo_id either');
+                      print('⚠️ photoId is 0/null/empty, no LOCAL_IMAGE_ID found in item photo_id either');
+                    }
                   } else {
-                    photoIdInt = int.tryParse(photoIdStr) ?? 0;
+                    // Convert to int for server IDs
+                    photoIdValue = int.tryParse(photoIdStr) ?? 0;
+                    Logger.debugLog('📸 Using server ID for asset image: $photoIdValue');
                   }
+                }
+              } else {
+                // Check if we have photo_id in the item as fallback
+                final itemPhotoId = item['photo_id']?.toString();
+                Logger.debugLog('📸 photoIdRaw is null, checking item photo_id: $itemPhotoId');
+                print('📸 photoIdRaw is null, checking item photo_id: $itemPhotoId');
+                if (itemPhotoId != null && itemPhotoId.isNotEmpty && 
+                    itemPhotoId != "0" && itemPhotoId != "null" &&
+                    itemPhotoId.contains("LOCAL_IMAGE_ID")) {
+                  photoIdValue = itemPhotoId;
+                  Logger.debugLog('✅ Using LOCAL_IMAGE_ID from item photo_id (photoIdRaw was null): $photoIdValue');
+                  print('✅ Using LOCAL_IMAGE_ID from item photo_id (photoIdRaw was null): $photoIdValue');
+                } else {
+                  photoIdValue = 0;
+                  Logger.debugLog('⚠️ No photoId found in image data and no LOCAL_IMAGE_ID in item photo_id');
                 }
               }
               
               itemImages.add(AssetUploadItemImage(
                 auiiId: img['auiiId'] as int?,
-                photoId: photoIdInt ?? 0,
+                photoId: photoIdValue,
                 photoTakenTs: Utils.normalizeDateForAPICall(
                   img['photoTakenTs']?.toString() ?? 
                   item['timestamp']?.toString() ??
@@ -706,15 +830,23 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         } else if (item['photo_id'] != null && item['photo_id'].toString().isNotEmpty) {
           // Convert existing photo_id to AssetUploadItemImage format (fallback for old items)
           final photoId = item['photo_id'].toString();
-          final photoIdInt = photoId.contains("LOCAL_IMAGE_ID") 
-              ? 0 
-              : (int.tryParse(photoId) ?? 0);
+          dynamic photoIdValue;
+          if (photoId.contains("LOCAL_IMAGE_ID")) {
+            // Keep LOCAL_IMAGE_ID as string for offline mode
+            photoIdValue = photoId;
+            Logger.debugLog('📸 Keeping LOCAL_IMAGE_ID from photo_id: $photoIdValue');
+            print('📸 Keeping LOCAL_IMAGE_ID from photo_id: $photoIdValue');
+          } else {
+            // Convert to int for server IDs
+            photoIdValue = int.tryParse(photoId) ?? 0;
+            Logger.debugLog('📸 Using server ID from photo_id: $photoIdValue');
+          }
           
           // Only add if we have a valid photo ID (either server ID > 0 or LOCAL_IMAGE_ID)
-          if (photoIdInt > 0 || photoId.contains("LOCAL_IMAGE_ID")) {
+          if ((photoIdValue is int && photoIdValue > 0) || photoId.contains("LOCAL_IMAGE_ID")) {
             itemImages.add(AssetUploadItemImage(
               auiiId: 0,
-              photoId: photoIdInt,
+              photoId: photoIdValue,
               photoTakenTs: Utils.normalizeDateForAPICall(
                 item['timestamp']?.toString() ?? 
                 item['qr_code_scanned_ts']?.toString(),
@@ -727,18 +859,24 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           }
         }
 
+        // Get isModified from item, default to false if not set
+        final isModified = item['isModified'] as bool? ?? false;
+        Logger.debugLog('📦 Creating AssetUploadItem - Serial: $nexgenSerialNo, isModified: $isModified');
+        print('📦 Creating AssetUploadItem - Serial: $nexgenSerialNo, isModified: $isModified');
+        
         // Create AssetUploadItem
         assetUploadItems.add(AssetUploadItem(
-          auiId: 0,
+          auiId: item['aui_id'] != null ? (item['aui_id'] is int ? item['aui_id'] : int.tryParse(item['aui_id'].toString())) : 0,
           auId: 0,
           nexgenSerialNo: nexgenSerialNo,
-          itemId: 0,
+          itemId: item['item_id'] != null ? (item['item_id'] is int ? item['item_id'] : int.tryParse(item['item_id'].toString())) : 0,
           longitude: location?.longitude.toString() ?? '',
           latitude: location?.latitude.toString() ?? '',
           isActive: true,
           remarks: item['remarks']?.toString() ?? 
                    item['disabledFieldValue']?.toString() ?? '',
           assetUploadItemImages: itemImages,
+          isModified: isModified, // Pass isModified flag
         ));
       }
     }
@@ -778,6 +916,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         return;
       }
 
+      // Check connectivity to handle LOCAL_IMAGE_ID properly
+      final isConnected = await ConnectivityHelper.isConnected();
+
       // Transform assets to API format
       final assetUploadItems = _transformAssetsToApiFormat(location);
 
@@ -790,12 +931,48 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         return;
       }
 
-      // Call the assetUpload API
-      final finalSelfieImageId = selfieImageId ?? 0;
+      // Process LOCAL_IMAGE_ID in assetUploadItemImages if online
+      // Note: photoId is already handled in _transformAssetsToApiFormat to keep LOCAL_IMAGE_ID as string
+      // The repository's toJson() will handle converting it properly
+      
+      // Handle makerSelfieImageId - keep LOCAL_IMAGE_ID as string if offline
+      dynamic finalSelfieImageId;
+      if (selfieImageId == null || selfieImageId.isEmpty) {
+        finalSelfieImageId = 0;
+      } else if (selfieImageId.contains("LOCAL_IMAGE_ID")) {
+        if (isConnected) {
+          // Online: try to upload and get server ID
+          try {
+            final imageModel = await ServiceLocator().imageUploadService
+                .getServerIdFromUniqueIdTryUploading(selfieImageId);
+            if (imageModel != null && imageModel.serverId != null) {
+              finalSelfieImageId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+              Logger.debugLog('✅ Converted LOCAL_IMAGE_ID to server ID for selfie: $finalSelfieImageId');
+            } else {
+              // Keep as LOCAL_IMAGE_ID string if upload fails
+              finalSelfieImageId = selfieImageId;
+              Logger.debugLog('⚠️ Failed to upload selfie, keeping LOCAL_IMAGE_ID');
+            }
+          } catch (e) {
+            Logger.errorLog('❌ Error uploading selfie: $e');
+            finalSelfieImageId = selfieImageId;
+          }
+        } else {
+          // Offline: keep as LOCAL_IMAGE_ID string
+          finalSelfieImageId = selfieImageId;
+          Logger.debugLog('📸 Offline mode: Keeping LOCAL_IMAGE_ID for selfie: $finalSelfieImageId');
+        }
+      } else {
+        // Already a server ID string - convert to int
+        finalSelfieImageId = int.tryParse(selfieImageId) ?? 0;
+        Logger.debugLog('📸 Using server ID for selfie: $finalSelfieImageId');
+      }
+      
       Logger.debugLog('📤 ========== ASSET UPLOAD REQUEST ==========');
       Logger.debugLog('📤 siteId: ${widget.siteData.siteId}');
       Logger.debugLog('📤 entityId: ${widget.siteData.entityId}');
       Logger.debugLog('📤 makerSelfieImageId: $finalSelfieImageId (type: ${finalSelfieImageId.runtimeType})');
+      Logger.debugLog('📤 isConnected: $isConnected');
       Logger.debugLog('📤 preloadedSelfieImageId: ${widget.preloadedSelfieImageId}');
       Logger.debugLog('📤 currentSelfieImageId: $_currentSelfieImageId');
       Logger.debugLog('📤 assetUploadItems count: ${assetUploadItems.length}');
