@@ -1353,7 +1353,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
     return Container(
       margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 16),
       decoration: BoxDecoration(
         color: AssetUploadFormComponent.backgroundColor,
         borderRadius: BorderRadius.circular(5),
@@ -1388,8 +1388,6 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
                       if (showSecondDisabledFieldColumn)
                         _buildTableHeaderCell(secondDisabledFieldHeader, 80),
                     ],
-                    // Always show Scanned column - it's relevant even when form is hidden
-                    _buildTableHeaderCell('Scanned', 80),
                     _buildTableHeaderCell('Photo', 80),
                     _buildTableHeaderCell('Edit', 80),
                   ],
@@ -1469,12 +1467,6 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
             if (showSecondDisabledFieldColumn)
               _buildTableDataCell(item['secondDisabledFieldValue'] ?? 'N/A', 80),
           ],
-          // Always show Scanned column - it's relevant even when form is hidden
-          _buildTableDataCell(
-            item['qr_code_scanned'] == true ? 'Yes' : 'No',
-            80,
-            isScanned: item['qr_code_scanned'] == true,
-          ),
           _buildTablePhotoCell(item, 80),
           _buildTableEditCell(item, 80),
         ],

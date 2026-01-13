@@ -1286,6 +1286,16 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           InkWell(
             onTap: () {
               setState(() {
+                // If opening this section, close all others
+                if (!isExpanded) {
+                  // Close all other sections
+                  for (final key in _sectionExpandedState.keys) {
+                    if (key != assetType) {
+                      _sectionExpandedState[key] = false;
+                    }
+                  }
+                }
+                // Toggle current section
                 _sectionExpandedState[assetType] = !isExpanded;
               });
             },
