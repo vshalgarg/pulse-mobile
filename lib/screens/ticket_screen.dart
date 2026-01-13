@@ -678,8 +678,12 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                                    assetUploadData['assetUploadItem'] ?? 
                                    []) as List<dynamic>? ?? [];
           
-          Logger.debugLog('📦 Found ${assetUploadItems.length} asset items');
-          Logger.debugLog('📦 AuId: $auId');
+          Logger.debugLog('📦 ========== EXTRACTED DATA ==========');
+          Logger.debugLog('📦 makerSelfieImageId: $makerSelfieImageId (type: ${makerSelfieImageId.runtimeType})');
+          Logger.debugLog('📦 auId: $auId (type: ${auId.runtimeType})');
+          Logger.debugLog('📦 assetUploadItems count: ${assetUploadItems.length}');
+          Logger.debugLog('📦 assetUploadItems: $assetUploadItems');
+          Logger.debugLog('📦 ====================================');
 
           // Create AllSiteModel from siteDetailsData
           final siteData = AllSiteModel(
@@ -720,6 +724,17 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           }).where((item) => item.isNotEmpty).toList();
 
           Logger.debugLog('✅ Successfully fetched asset upload data. Items: ${parsedAssetItems.length}');
+          
+          // Prepare values for navigation
+          final finalMakerSelfieImageId = makerSelfieImageId?.toString();
+          final finalAuId = auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null;
+          final finalAssetItems = parsedAssetItems.isNotEmpty ? parsedAssetItems : null;
+          
+          Logger.debugLog('📤 ========== NAVIGATING WITH DATA ==========');
+          Logger.debugLog('📤 preloadedSelfieImageId: $finalMakerSelfieImageId');
+          Logger.debugLog('📤 preloadedAuId: $finalAuId');
+          Logger.debugLog('📤 preloadedAssetItems: ${finalAssetItems != null ? finalAssetItems.length : "null"}');
+          Logger.debugLog('📤 =========================================');
 
           final parentContext = context;
           LoaderWidget.hideLoader();
@@ -729,9 +744,9 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
               builder: (_) => AssetUploadDetailPage(
                 siteData: siteData,
                 parentContext: parentContext,
-                preloadedSelfieImageId: makerSelfieImageId?.toString(),
-                preloadedAssetItems: parsedAssetItems.isNotEmpty ? parsedAssetItems : null,
-                preloadedAuId: auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null,
+                preloadedSelfieImageId: finalMakerSelfieImageId,
+                preloadedAssetItems: finalAssetItems,
+                preloadedAuId: finalAuId,
                 mode: CMScreenModeEnum.edit, // Edit mode when coming from ticket screen
               ),
             ),

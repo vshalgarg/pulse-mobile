@@ -78,11 +78,20 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   late AssetUploadRepository _assetUploadRepository;
   late CentralAssetAuditService _assetAuditService;
 
+  // Actual mode - override to edit if au_id is not null
+  late CMScreenModeEnum _actualMode;
+
   @override
   void initState() {
     super.initState();
-    Logger.debugLog('📋 AUScanUploadScreen - Mode: ${widget.mode}');
-    print('📋 AUScanUploadScreen - Mode: ${widget.mode}');
+    
+    // If preloadedAuId is not null, treat as edit mode even if mode is create
+    _actualMode = (widget.preloadedAuId != null && widget.preloadedAuId! > 0)
+        ? CMScreenModeEnum.edit
+        : widget.mode;
+    
+    Logger.debugLog('📋 AUScanUploadScreen - Mode: ${widget.mode}, Actual Mode: $_actualMode, preloadedAuId: ${widget.preloadedAuId}');
+    print('📋 AUScanUploadScreen - Mode: ${widget.mode}, Actual Mode: $_actualMode, preloadedAuId: ${widget.preloadedAuId}');
     _assetUploadRepository = AssetUploadRepository(
       ServiceLocator().apiService,
     );
@@ -103,10 +112,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   /// Load existing assets from storage or preloaded data
   Future<void> _loadExistingAssets() async {
     try {
+      Logger.debugLog('📦 Loading existing assets...');
+      Logger.debugLog('📦 preloadedAssets: ${widget.preloadedAssets != null ? widget.preloadedAssets!.length : "null"}');
+      Logger.debugLog('📦 preloadedAuId: ${widget.preloadedAuId}');
+      Logger.debugLog('📦 preloadedSelfieImageId: ${widget.preloadedSelfieImageId}');
+      
       // If preloaded assets are provided, load them
       if (widget.preloadedAssets != null && widget.preloadedAssets!.isNotEmpty) {
+        Logger.debugLog('📦 Loading ${widget.preloadedAssets!.length} preloaded assets');
         await _loadPreloadedAssets(widget.preloadedAssets!);
       } else {
+        Logger.debugLog('⚠️ No preloaded assets provided, starting with empty state');
         // TODO: Load from SQLite if needed
         // For now, start with empty state
         setState(() {});
@@ -409,7 +425,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         }
         
         // Handle isModified flag based on mode and whether item existed
-        if (widget.mode == CMScreenModeEnum.edit) {
+        if (_actualMode == CMScreenModeEnum.edit) {
           // In edit mode, check if this item already existed (has aui_id or item_id)
           final hasExistingId = updatedItem['aui_id'] != null && 
                                updatedItem['aui_id'] != 0 &&
@@ -546,7 +562,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         }
         
         // In edit mode, if we're editing an existing item, mark it as modified
-        if (widget.mode == CMScreenModeEnum.edit) {
+        if (_actualMode == CMScreenModeEnum.edit) {
           // Check if the original item had an ID (indicating it existed)
           final originalHasId = _editingItem?['aui_id'] != null && 
                                 _editingItem!['aui_id'] != 0 &&

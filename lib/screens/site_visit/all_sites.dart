@@ -273,15 +273,110 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
 
         if (result.isSuccess && result.data != null) {
           Logger.debugLog('✅ Successfully fetched uploaded assets for site ${site.siteId}');
+          
+          // Parse response structure - check if data is wrapped or direct
+          Map<String, dynamic>? responseData;
+          if (result.data!.containsKey('data')) {
+            // Response has data wrapper: { data: { assetUpload: ..., siteDetails: ... } }
+            responseData = result.data!['data'] as Map<String, dynamic>?;
+            Logger.debugLog('📦 Found data wrapper, extracting inner data');
+          } else {
+            // Response might be direct: { assetUpload: ..., siteDetails: ... }
+            responseData = result.data;
+            Logger.debugLog('📦 Using data directly (no wrapper)');
+          }
+
+          // Extract data if available
+          String? preloadedSelfieImageId;
+          int? preloadedAuId;
+          List<Map<String, dynamic>>? preloadedAssetItems;
+          AllSiteModel? enhancedSiteData;
+
+          if (responseData != null) {
+            // Try both camelCase and snake_case field names
+            final assetUploadData = responseData['assetUpload'] ?? 
+                                   responseData['asset_upload'] as Map<String, dynamic>?;
+            final siteDetailsData = responseData['siteDetails'] ?? 
+                                   responseData['site_details'] as Map<String, dynamic>?;
+
+            if (assetUploadData != null) {
+              // Extract maker_selfie_image_id from assetUploadData (try both formats)
+              final makerSelfieImageId = assetUploadData['maker_selfie_image_id'] ?? 
+                                        assetUploadData['makerSelfieImageId'];
+              
+              // Extract auId from assetUploadData (try both formats)
+              final auId = assetUploadData['au_id'] ?? 
+                          assetUploadData['auId'] ?? 
+                          assetUploadData['id'];
+              
+              // Extract asset_upload_item array (try both formats)
+              final assetUploadItems = (assetUploadData['asset_upload_item'] ?? 
+                                       assetUploadData['assetUploadItem'] ?? 
+                                       []) as List<dynamic>? ?? [];
+
+              preloadedSelfieImageId = makerSelfieImageId?.toString();
+              preloadedAuId = auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null;
+              
+              // Convert asset_upload_item to format expected by AssetUploadDetailPage
+              preloadedAssetItems = assetUploadItems.map((item) {
+                if (item is Map<String, dynamic>) {
+                  return Map<String, dynamic>.from(item);
+                }
+                return <String, dynamic>{};
+              }).where((item) => item.isNotEmpty).toList();
+              
+              if (preloadedAssetItems.isEmpty) {
+                preloadedAssetItems = null;
+              }
+
+              Logger.debugLog('📦 Extracted data - auId: $preloadedAuId, selfieId: $preloadedSelfieImageId, items: ${preloadedAssetItems?.length ?? 0}');
+            }
+
+            // Enhance site data with siteDetails if available
+            if (siteDetailsData != null) {
+              enhancedSiteData = AllSiteModel(
+                siteId: siteDetailsData['site_id'] ?? site.siteId,
+                entityId: siteDetailsData['entity_id'] ?? site.entityId,
+                siteCode: siteDetailsData['site_code']?.toString() ?? site.siteCode,
+                siteName: siteDetailsData['site_name']?.toString() ?? site.siteName,
+                clusterDistrictId: site.clusterDistrictId,
+                clusterDistrictName: siteDetailsData['cluster']?.toString() ?? site.clusterDistrictName,
+                circleStateId: site.circleStateId,
+                circleStateName: siteDetailsData['circle']?.toString() ?? site.circleStateName,
+                clientId: site.clientId,
+                clientName: siteDetailsData['client']?.toString() ?? site.clientName,
+                svlId: null,
+                oem: site.oem,
+                oemId: site.oemId,
+                self: site.self,
+                selfId: site.selfId,
+                siteDomainName: site.siteDomainName,
+                distanceKM: site.distanceKM,
+                infraEngineerName: siteDetailsData['infra_district_engineer_name']?.toString(),
+                infraEngineerPhone: siteDetailsData['infra_district_engineer_contact_no']?.toString(),
+                ownerName: siteDetailsData['owner_name']?.toString(),
+                ownerPhone: siteDetailsData['owner_contact_no']?.toString(),
+                siteVisitLogId: null,
+                siteVisitLogDate: null,
+                purposeOfVisit: null,
+                visitingPersonImageId: null,
+                checklistItems: null,
+              );
+            }
+          }
+
           // Navigate with the fetched data
           if (mounted) {
             Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => AssetUploadDetailPage(
-                  siteData: site,
+                  siteData: enhancedSiteData ?? site,
                   parentContext: parentContext,
-                  mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+                  preloadedSelfieImageId: preloadedSelfieImageId,
+                  preloadedAssetItems: preloadedAssetItems,
+                  preloadedAuId: preloadedAuId,
+                  mode: CMScreenModeEnum.create, // Mode will be auto-detected based on preloadedAuId
                 ),
               ),
             );

@@ -70,11 +70,23 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
   String? _fetchedSelfieImageData;
   File? _selectedSelfieImage;
 
+  // Actual mode - override to edit if au_id is not null
+  late CMScreenModeEnum _actualMode;
+
   @override
   void initState() {
     super.initState();
    
-    print('📋 AssetUploadDetailPage - Mode: ${widget.mode}');
+    // If preloadedAuId is not null, treat as edit mode even if mode is create
+    _actualMode = (widget.preloadedAuId != null && widget.preloadedAuId! > 0)
+        ? CMScreenModeEnum.edit
+        : widget.mode;
+    
+    print('📋 AssetUploadDetailPage - Mode: ${widget.mode}, Actual Mode: $_actualMode, preloadedAuId: ${widget.preloadedAuId}');
+    Logger.debugLog('📋 AssetUploadDetailPage - Received preloaded data:');
+    Logger.debugLog('📋   preloadedSelfieImageId: ${widget.preloadedSelfieImageId}');
+    Logger.debugLog('📋   preloadedAuId: ${widget.preloadedAuId}');
+    Logger.debugLog('📋   preloadedAssetItems: ${widget.preloadedAssetItems != null ? widget.preloadedAssetItems!.length : "null"}');
     _service = ServiceLocator().centralAssetAuditService;
     _assetUploadRepository = AssetUploadRepository(
       ServiceLocator().apiService,
@@ -106,13 +118,45 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
     _ownerController.text = widget.siteData.ownerName ?? "";
     _ownerContactController.text = widget.siteData.ownerPhone ?? "";
 
-    // In create mode, fetch data from API if available
-    if (widget.mode == CMScreenModeEnum.create) {
-      _fetchAssetUploadDataFromAPI();
+    // Check if we have preloaded data from API (when coming from ticket screen)
+    final hasPreloadedData = (widget.preloadedAuId != null && widget.preloadedAuId! > 0) ||
+                            (widget.preloadedSelfieImageId != null && 
+                             widget.preloadedSelfieImageId!.isNotEmpty &&
+                             widget.preloadedSelfieImageId != "0" &&
+                             widget.preloadedSelfieImageId != "null") ||
+                            (widget.preloadedAssetItems != null && widget.preloadedAssetItems!.isNotEmpty);
+
+    if (hasPreloadedData) {
+      // We have preloaded data from API - use it directly, don't fetch from SQLite
+      Logger.debugLog('✅ Using preloaded data from API');
+      
+      // Load selfie if available
+      if (widget.preloadedSelfieImageId != null && 
+          widget.preloadedSelfieImageId!.isNotEmpty &&
+          widget.preloadedSelfieImageId != "0" &&
+          widget.preloadedSelfieImageId != "null") {
+        _selfieImgId = widget.preloadedSelfieImageId;
+        _loadSelfieImage(widget.preloadedSelfieImageId!);
+        Logger.debugLog('✅ Loaded preloaded selfie image ID: ${widget.preloadedSelfieImageId}');
+      }
+      
+      // Asset items will be passed to AUScanUploadScreen via widget.preloadedAssetItems
+      // No need to load from SQLite - we have fresh data from API
+      Logger.debugLog('✅ Preloaded asset items: ${widget.preloadedAssetItems?.length ?? 0}');
+      
+      // Update state to show the loaded data
+      if (mounted) {
+        setState(() {});
+      }
     } else {
-      // In edit mode, load from local storage
-      _loadExistingAssetData();
-      _loadStoredSelfie();
+      // No preloaded data - fetch from API or load from SQLite based on mode
+      if (_actualMode == CMScreenModeEnum.create) {
+        _fetchAssetUploadDataFromAPI();
+      } else {
+        // In edit mode without preloaded data, load from local storage
+        _loadExistingAssetData();
+        _loadStoredSelfie();
+      }
     }
   }
 
@@ -291,6 +335,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
 
   Future<void> _loadSelfieImage(String imageId) async {
     try {
+      Logger.debugLog('📸 Loading selfie image with ID: $imageId');
       String? uniqueId;
       String? imageData;
 
@@ -338,12 +383,16 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
       }
 
       if (imageData != null && imageData.isNotEmpty) {
+        Logger.debugLog('✅ Successfully loaded selfie image data (length: ${imageData.length})');
         setState(() {
           _fetchedSelfieImageData = imageData;
         });
+      } else {
+        Logger.debugLog('⚠️ Selfie image data is null or empty');
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading selfie image: $e');
+      Logger.errorLog('❌ Stack trace: ${StackTrace.current}');
     }
   }
 
@@ -652,9 +701,18 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
 
     // Navigate to scan upload screen without calling any API
     // Pass the selfie image ID and preloaded asset items if available
-    Logger.debugLog('📸 Navigating to AUScanUploadScreen with selfieImgId: $_selfieImgId');
+    // Use preloaded selfie image ID if available, otherwise use current _selfieImgId
+    final selfieImageIdToPass = widget.preloadedSelfieImageId ?? _selfieImgId;
+    
+    Logger.debugLog('📸 ========== NAVIGATING TO SCAN UPLOAD ==========');
+    Logger.debugLog('📸 selfieImageIdToPass: $selfieImageIdToPass');
+    Logger.debugLog('📸 widget.preloadedSelfieImageId: ${widget.preloadedSelfieImageId}');
+    Logger.debugLog('📸 _selfieImgId: $_selfieImgId');
     Logger.debugLog('📦 Preloaded asset items count: ${widget.preloadedAssetItems?.length ?? 0}');
     Logger.debugLog('📦 Preloaded auId: ${widget.preloadedAuId}');
+    Logger.debugLog('📦 Actual mode: $_actualMode');
+    Logger.debugLog('📸 ==============================================');
+    
     if (mounted) {
       Navigator.push(
         context,
@@ -662,10 +720,10 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
           builder: (context) => AUScanUploadScreen(
             siteData: widget.siteData,
             parentContext: widget.parentContext ?? context,
-            preloadedSelfieImageId: _selfieImgId, // Pass the selfie image ID
+            preloadedSelfieImageId: selfieImageIdToPass, // Pass the selfie image ID (prefer preloaded)
             preloadedAssets: widget.preloadedAssetItems, // Pass preloaded asset items
             preloadedAuId: widget.preloadedAuId, // Pass auId for update
-            mode: widget.mode, // Pass the mode
+            mode: _actualMode, // Pass the actual mode (may be overridden if au_id is not null)
           ),
         ),
       );
