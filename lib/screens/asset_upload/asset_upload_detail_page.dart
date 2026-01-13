@@ -10,6 +10,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/repositories/asset_upload_respository.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/service_locator.dart';
@@ -61,6 +62,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
       TextEditingController();
 
   late CentralAssetAuditService _service;
+  late AssetUploadRepository _assetUploadRepository;
   bool _hasFormDataChanges = false;
 
   // Selfie related variables
@@ -74,6 +76,9 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
    
     print('📋 AssetUploadDetailPage - Mode: ${widget.mode}');
     _service = ServiceLocator().centralAssetAuditService;
+    _assetUploadRepository = AssetUploadRepository(
+      ServiceLocator().apiService,
+    );
     _initializeFormData();
 
     // Add listeners to track form changes
@@ -101,11 +106,79 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
     _ownerController.text = widget.siteData.ownerName ?? "";
     _ownerContactController.text = widget.siteData.ownerPhone ?? "";
 
-    // Load existing asset data if available
-    _loadExistingAssetData();
+    // In create mode, fetch data from API if available
+    if (widget.mode == CMScreenModeEnum.create) {
+      _fetchAssetUploadDataFromAPI();
+    } else {
+      // In edit mode, load from local storage
+      _loadExistingAssetData();
+      _loadStoredSelfie();
+    }
+  }
 
-    // Load selfie from stored data if available
-    _loadStoredSelfie();
+  /// Fetches asset upload data from API in create mode
+  Future<void> _fetchAssetUploadDataFromAPI() async {
+    try {
+      Logger.debugLog('📡 Fetching asset upload data from API for siteId: ${widget.siteData.siteId}');
+      
+      final result = await _assetUploadRepository.getUploadedAssets(
+        siteId: widget.siteData.siteId,
+      );
+
+      if (result.isSuccess && result.data != null) {
+        final data = result.data!;
+        Logger.debugLog('✅ Successfully fetched asset upload data: ${data.keys.toList()}');
+        
+        // Populate form fields from API response
+        if (data['assetName'] != null) {
+          _assetNameController.text = data['assetName'].toString();
+        }
+        if (data['assetSerialNumber'] != null) {
+          _assetSerialNumberController.text = data['assetSerialNumber'].toString();
+        }
+        if (data['assetMake'] != null) {
+          _assetMakeController.text = data['assetMake'].toString();
+        }
+        if (data['assetModel'] != null) {
+          _assetModelController.text = data['assetModel'].toString();
+        }
+        if (data['assetCapacity'] != null) {
+          _assetCapacityController.text = data['assetCapacity'].toString();
+        }
+        if (data['assetLocation'] != null) {
+          _assetLocationController.text = data['assetLocation'].toString();
+        }
+
+        // Load selfie image if available
+        final makerSelfieImageId = data['makerSelfieImageId'] ?? 
+                                   data['maker_selfie_image_id'];
+        if (makerSelfieImageId != null) {
+          final selfieImageIdStr = makerSelfieImageId.toString();
+          // Check if it's not 0 or "0" or "null"
+          if (selfieImageIdStr.isNotEmpty && 
+              selfieImageIdStr != "0" && 
+              selfieImageIdStr != "null" &&
+              selfieImageIdStr.toLowerCase() != "null") {
+            _selfieImgId = selfieImageIdStr;
+            _loadSelfieImage(selfieImageIdStr);
+            Logger.debugLog('✅ Loaded selfie image ID from API: $selfieImageIdStr');
+          }
+        }
+
+        // Update state to reflect loaded data
+        if (mounted) {
+          setState(() {});
+        }
+      } else {
+        Logger.debugLog('⚠️ No asset upload data found or fetch failed: ${result.errorMessage}');
+        // If no data, still load selfie from stored data as fallback
+        _loadStoredSelfie();
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error fetching asset upload data from API: $e');
+      // If API call fails, fallback to loading from stored data
+      _loadStoredSelfie();
+    }
   }
 
   Future<void> _loadStoredSelfie() async {
@@ -129,6 +202,27 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
       );
 
       if (storedData != null) {
+        // Check assetUpload data structure first (for create mode)
+        final assetUpload = storedData['assetUpload'];
+        if (assetUpload != null && assetUpload is Map<String, dynamic>) {
+          final makerSelfieImageId = assetUpload['makerSelfieImageId'] ?? 
+                                     assetUpload['maker_selfie_image_id'];
+          if (makerSelfieImageId != null) {
+            final selfieImageIdStr = makerSelfieImageId.toString();
+            // Check if it's not 0 or "0" or "null"
+            if (selfieImageIdStr.isNotEmpty && 
+                selfieImageIdStr != "0" && 
+                selfieImageIdStr != "null" &&
+                selfieImageIdStr.toLowerCase() != "null") {
+              _selfieImgId = selfieImageIdStr;
+              _loadSelfieImage(selfieImageIdStr);
+              Logger.debugLog('✅ Loaded selfie image ID from assetUpload: $selfieImageIdStr');
+              return;
+            }
+          }
+        }
+
+        // Fallback to pageHeader (for edit mode)
         final pageHeaders = storedData['pageHeader'] as List<dynamic>?;
         final pageHeader = pageHeaders?.isNotEmpty == true
             ? pageHeaders!.first as Map<String, dynamic>?
@@ -136,9 +230,14 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
 
         if (pageHeader != null && pageHeader['maker_selfie_image_id'] != null) {
           final selfieImageId = pageHeader['maker_selfie_image_id'].toString();
-          if (selfieImageId.isNotEmpty) {
+          // Check if it's not 0 or "0" or "null"
+          if (selfieImageId.isNotEmpty && 
+              selfieImageId != "0" && 
+              selfieImageId != "null" &&
+              selfieImageId.toLowerCase() != "null") {
             _selfieImgId = selfieImageId;
             _loadSelfieImage(selfieImageId);
+            Logger.debugLog('✅ Loaded selfie image ID from pageHeader: $selfieImageId');
           }
         }
       }
