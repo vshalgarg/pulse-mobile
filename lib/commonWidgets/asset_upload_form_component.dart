@@ -520,6 +520,57 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         'secondDisabledFieldValue': _secondDisabledFieldController?.text ?? '',
         'timestamp': Utils.getCurrentDateTimeForAPICall(),
       };
+      
+      // If editing, preserve original identifiers to maintain grey dot status
+      if (_isEditing && _editingItem != null) {
+        // Preserve aui_id to keep the item as "existing" (grey dot) - this is critical!
+        if (_editingItem!['aui_id'] != null) {
+          final auiIdValue = _editingItem!['aui_id'];
+          // Only preserve if it's not 0 or "0" (0 means new item)
+          if (auiIdValue != 0 && auiIdValue.toString() != '0') {
+            itemData['aui_id'] = auiIdValue;
+          }
+        }
+        // Preserve item_id and item_instance_id
+        if (_editingItem!['item_id'] != null) {
+          itemData['item_id'] = _editingItem!['item_id'];
+        }
+        if (_editingItem!['item_instance_id'] != null) {
+          itemData['item_instance_id'] = _editingItem!['item_instance_id'];
+        }
+        // Update full_scanned_code based on current serial number (may have changed)
+        final currentSerial = widget.serialController.text.trim();
+        if (currentSerial.isNotEmpty) {
+          // If current serial is in NG-ACRONYM-SERIAL format, use it
+          if (currentSerial.startsWith('NG-')) {
+            itemData['full_scanned_code'] = currentSerial;
+            itemData['nexgen_serial_no'] = currentSerial;
+          } else {
+            // Otherwise, preserve original or reconstruct
+            if (_editingItem!['full_scanned_code'] != null) {
+              itemData['full_scanned_code'] = _editingItem!['full_scanned_code'];
+            }
+            if (_editingItem!['nexgen_serial_no'] != null) {
+              itemData['nexgen_serial_no'] = _editingItem!['nexgen_serial_no'];
+            }
+          }
+        } else {
+          // Preserve original if serial is empty
+          if (_editingItem!['full_scanned_code'] != null) {
+            itemData['full_scanned_code'] = _editingItem!['full_scanned_code'];
+          }
+          if (_editingItem!['nexgen_serial_no'] != null) {
+            itemData['nexgen_serial_no'] = _editingItem!['nexgen_serial_no'];
+          }
+        }
+        // Preserve latitude and longitude if they exist
+        if (_editingItem!['latitude'] != null) {
+          itemData['latitude'] = _editingItem!['latitude'];
+        }
+        if (_editingItem!['longitude'] != null) {
+          itemData['longitude'] = _editingItem!['longitude'];
+        }
+      }
 
       // Preserve original capacity field if it exists in the existing item
       // This is needed for total capacity calculation
