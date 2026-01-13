@@ -940,9 +940,12 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
       itemBuilder: (context, index) {
         final ticket = ticketResponse.tickets[index];
         // Use dynamic status from ticket data, fallback to filter-based status only if no status available
+        // For asset upload tickets with null status, use empty string to avoid showing "Allocated"
         final statusText = ticket.status?.isNotEmpty == true
             ? ticket.status!
-            : _getStatusFromTicketType(_currentTicketType);
+            : (_currentActivityType == ActivityTypeEnum.assetUpload && ticket.status == null)
+                ? '' // Empty string for asset upload with null status
+                : _getStatusFromTicketType(_currentTicketType);
 
         return Padding(
           padding: EdgeInsets.only(
