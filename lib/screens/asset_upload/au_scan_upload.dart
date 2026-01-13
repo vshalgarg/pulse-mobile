@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:app/commonWidgets/asset_upload_form_component.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
@@ -982,6 +983,19 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       final auId = widget.preloadedAuId ?? 0;
       Logger.debugLog('📤 Using auId: $auId (${auId == 0 ? "new upload" : "update"})');
       
+      // Check if offline - if so, save to local storage
+      if (!isConnected) {
+        await _saveOffline(
+          auId: auId,
+          siteId: widget.siteData.siteId,
+          entityId: widget.siteData.entityId,
+          makerSelfieImageId: finalSelfieImageId,
+          assetUploadItems: assetUploadItems,
+        );
+        return;
+      }
+      
+      // Online - submit to API
       final result = await _assetUploadRepository.assetUpload(
         auId: auId,
         siteId: widget.siteData.siteId,
@@ -1034,6 +1048,81 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       if (mounted) {
         Toastbar.showErrorToastbar(
           'Error saving assets: ${e.toString()}',
+          context,
+        );
+      }
+    }
+  }
+
+  /// Saves asset upload data to local storage when offline
+  Future<void> _saveOffline({
+    required int auId,
+    required int siteId,
+    required int entityId,
+    required dynamic makerSelfieImageId,
+    required List<AssetUploadItem> assetUploadItems,
+  }) async {
+    try {
+      Logger.debugLog('💾 Saving asset upload data to offline storage...');
+      
+      // Build request data matching the API format
+      final requestData = <String, dynamic>{
+        'auId': auId,
+        'siteId': siteId,
+        'entityId': entityId,
+        'makerSelfieImageId': makerSelfieImageId,
+        'isActive': true,
+        'remarks': '',
+        'assetUploadItems': assetUploadItems
+            .map((item) => item.toJson())
+            .toList(),
+      };
+
+      // Create a unique request ID for this asset upload submission
+      final requestId = 'asset_upload_${siteId}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Convert request to JSON and wrap in list (as expected by sync service)
+      final requestList = [requestData];
+
+      // Save to pending requests for sync when online
+      final url = 'api/v1/mobile/assetUpload';
+      final isSaved = await ServiceLocator().pendingRequestService
+          .savePendingRequest(
+            requestId: requestId,
+            url: url,
+            headers: {},
+            jsonEncodedRequestData: jsonEncode(requestList),
+          );
+
+      LoaderWidget.hideLoader();
+
+      if (isSaved && mounted) {
+        Logger.infoLog('✅ Asset upload data saved to offline storage');
+        Toastbar.showSuccessToastbar(
+          'Data saved offline. Will sync when online.',
+          context,
+        );
+
+        // Navigate back or to home
+        if (mounted) {
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              navigateBackOrToHome(
+                context,
+                targetContext: widget.parentContext ?? context,
+              );
+            }
+          });
+        }
+      } else if (!isSaved) {
+        throw Exception('Failed to save asset upload data to offline storage');
+      }
+    } catch (e) {
+      LoaderWidget.hideLoader();
+      Logger.errorLog('❌ Error saving asset upload data offline: $e');
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          'Failed to save data offline: ${e.toString()}',
           context,
         );
       }

@@ -913,7 +913,8 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                       : widget.auditName == "GI"
                       ? "General Inspection"
                       : widget.auditName == "Incident"
-                      ? "Incident Tickets"
+                      ? "Incident Tickets" : widget.auditName == "Asset Upload"
+                      ? "Asset Upload"
                       : "${widget.auditName} - ${widget.status}",
                   style: const TextStyle(
                     color: AppColors.white,

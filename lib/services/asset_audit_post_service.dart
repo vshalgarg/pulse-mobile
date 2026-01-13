@@ -168,7 +168,9 @@ class AssetAuditPostService {
       response = await _uploadSelfieWithoutCache(requests);
     } else if (url.contains("api/v1/om-schedule/siteVisitLog") ||
         url.contains("api/v1/om-schedule/genInspection") ||
-        url.contains("api/v1/om-schedule/incidentTicket")) {
+        url.contains("api/v1/om-schedule/incidentTicket") ||
+        url.contains("api/v1/mobile/assetUpload") ||
+        url.contains("/assetUpload")) {
       // These endpoints expect a single object, not an array
       response = await ServiceLocator().apiService.post<dynamic>(
         path: url,
@@ -247,6 +249,10 @@ class AssetAuditPostService {
         // Special handling for incident tickets - expects single object, not array
         await _syncIncidentTicketRequestWhenOnline(copiedRequests, requestId);
         return;
+      } else if (url.contains('/assetUpload') || url.contains('assetUpload')) {
+        // Special handling for asset upload - expects single object, not array
+        await _syncAssetUploadRequestWhenOnline(copiedRequests, requestId);
+        return;
       } else {
         await _processRequestsForImages(copiedRequests);
         await _postDataToApi(url, copiedRequests);
@@ -297,6 +303,96 @@ class AssetAuditPostService {
       }
     } catch (e) {
       Logger.errorLog("Error syncing incident ticket request: $e");
+      rethrow;
+    }
+  }
+
+  Future<void> _syncAssetUploadRequestWhenOnline(
+    List<dynamic> requests,
+    String requestId,
+  ) async {
+    try {
+      Logger.infoLog("Syncing asset upload request when online");
+
+      if (requests.isEmpty) {
+        Logger.errorLog("Asset upload requests list is empty!");
+        return;
+      }
+
+      final request = requests.first as Map<String, dynamic>;
+      Logger.infoLog("Processing asset upload request: ${request.keys}");
+
+      // Process makerSelfieImageId - replace LOCAL_IMAGE_ID with server ID
+      final makerSelfieImageId = request['makerSelfieImageId'];
+      if (makerSelfieImageId != null && 
+          makerSelfieImageId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+        Logger.debugLog('🔄 Processing makerSelfieImageId: $makerSelfieImageId');
+        
+        final imageModel = await ServiceLocator().imageUploadService
+            .getServerIdFromUniqueIdTryUploading(makerSelfieImageId.toString());
+        
+        if (imageModel != null && imageModel.serverId != null) {
+          final serverId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+          request['makerSelfieImageId'] = serverId;
+          Logger.debugLog('✅ makerSelfieImageId replaced with server ID: $serverId');
+        } else {
+          Logger.errorLog('❌ Failed to upload selfie image: $makerSelfieImageId');
+          request['makerSelfieImageId'] = 0;
+        }
+      }
+
+      // Process assetUploadItems[].assetUploadItemImages[].photoId
+      final assetUploadItems = request['assetUploadItems'] as List<dynamic>?;
+      if (assetUploadItems != null) {
+        for (final item in assetUploadItems) {
+          if (item is Map<String, dynamic>) {
+            final assetUploadItemImages = item['assetUploadItemImages'] as List<dynamic>?;
+            if (assetUploadItemImages != null) {
+              for (final image in assetUploadItemImages) {
+                if (image is Map<String, dynamic>) {
+                  final photoId = image['photoId'];
+                  if (photoId != null && 
+                      photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+                    Logger.debugLog('🔄 Processing asset image photoId: $photoId');
+                    
+                    final imageModel = await ServiceLocator().imageUploadService
+                        .getServerIdFromUniqueIdTryUploading(photoId.toString());
+                    
+                    if (imageModel != null && imageModel.serverId != null) {
+                      final serverId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+                      image['photoId'] = serverId;
+                      Logger.debugLog('✅ Asset image photoId replaced with server ID: $serverId');
+                    } else {
+                      Logger.errorLog('❌ Failed to upload asset image: $photoId');
+                      image['photoId'] = 0;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Post to API - send as single object (not array)
+      final response = await ServiceLocator().apiService.post<dynamic>(
+        path: 'api/v1/mobile/assetUpload',
+        data: request, // Send single object, not array
+      );
+
+      if (response.isSuccess && response.data != null) {
+        Logger.infoLog("Asset upload synced successfully: ${response.data}");
+        Toastbar.showSuccessToastWithoutContext(
+          "Asset upload synced successfully",
+        );
+
+        // Delete from pending requests on success
+        await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+      } else {
+        throw Exception(response.errorMessage ?? 'Unknown error from server');
+      }
+    } catch (e) {
+      Logger.errorLog("Error syncing asset upload request: $e");
       rethrow;
     }
   }
@@ -1102,7 +1198,7 @@ class AssetAuditPostService {
       dynamic photoId;
 
       // Handle response_images array (for PM and similar requests)
-      if (request.containsKey("response_images")) {
+      if (request.containsKey("response_images") || request.containsKey("asset_upload_item_images")) {
         final responseImages = request['response_images'];
         if (responseImages != null && responseImages is List) {
           // Process each image in the response_images array

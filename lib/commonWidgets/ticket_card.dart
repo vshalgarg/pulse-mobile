@@ -101,6 +101,8 @@ class TicketCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
+
+                 
                   const SizedBox(width: 8),
                   statusText != null && statusText.isNotEmpty
                       ? Container(
