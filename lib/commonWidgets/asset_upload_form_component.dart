@@ -1445,7 +1445,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
                 // Table header
                 Row(
                   children: [
-                    _buildTableHeaderCell('Serial No.', 200),
+                    _buildTableHeaderCell('Serial No.', 200, padding: const EdgeInsets.only(left: 0, right: 4)),
                     if (widget.showForm) ...[
                       // Only show these columns when form is visible (for backward compatibility)
                       if (showFirstDisabledFieldColumn)
@@ -1469,10 +1469,10 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   }
 
   /// Builds a table header cell
-  Widget _buildTableHeaderCell(String text, double width) {
+  Widget _buildTableHeaderCell(String text, double width, {EdgeInsets? padding}) {
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 4),
       child: Text(
         text,
         textAlign: TextAlign.center,
