@@ -1002,6 +1002,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       initialValue: _selectedRadioValue,
       onChanged: (value) => _onRadioChanged(value),
       isRequired: _isFieldRequired(),
+      horizontalSpacing: 30.0, // Reduced spacing between radio button options
     );
   }
 
