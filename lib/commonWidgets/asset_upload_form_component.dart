@@ -1420,8 +1420,8 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         widget.disabledFieldLabel!.isNotEmpty;
 
     return Container(
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.symmetric(vertical: 0),
       
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1445,7 +1445,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
                 // Table header
                 Row(
                   children: [
-                    _buildTableHeaderCell('Serial No.', 200, padding: const EdgeInsets.only(left: 0, right: 4)),
+                    _buildTableHeaderCell('Serial Number', 200, padding: const EdgeInsets.only(left: 0, right: 4)),
                     if (widget.showForm) ...[
                       // Only show these columns when form is visible (for backward compatibility)
                       if (showFirstDisabledFieldColumn)
@@ -1472,7 +1472,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   Widget _buildTableHeaderCell(String text, double width, {EdgeInsets? padding}) {
     return Container(
       width: width,
-      padding: padding ?? const EdgeInsets.symmetric(horizontal: 4),
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 0),
       child: Text(
         text,
         textAlign: TextAlign.center,
@@ -1508,7 +1508,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     return Container(
       key: ValueKey(rowKey), // Force rebuild when photo changes
       margin: const EdgeInsets.only(top: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(5),

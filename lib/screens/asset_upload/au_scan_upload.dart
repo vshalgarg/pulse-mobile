@@ -1726,7 +1726,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.dashboardIconBoxColor,
+                            backgroundColor: AppColors.buttonColorBackBg,
                             foregroundColor: Colors.black87,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -1739,7 +1739,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               fontFamily: fontFamilyMontserrat,
-                              color: AppColors.buttonColorSite,
+                              color: AppColors.buttonColorTextBg,
                             ),
                           ),
                         ),
