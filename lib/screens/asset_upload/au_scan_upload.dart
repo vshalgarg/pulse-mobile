@@ -1346,57 +1346,58 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     final itemCount = items.length;
     final controller = _getControllerForAssetType(assetType);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.green7,
-        borderRadius: BorderRadius.circular(5),
-      ),
-      child: Column(
-        children: [
-          // Section header (collapsible)
-          InkWell(
-            onTap: () {
-              setState(() {
-                // If opening this section, close all others
-                if (!isExpanded) {
-                  // Close all other sections
-                  for (final key in _sectionExpandedState.keys) {
-                    if (key != assetType) {
-                      _sectionExpandedState[key] = false;
-                    }
+    return Column(
+      children: [
+        // Section header (collapsible) - outside the box
+        InkWell(
+          onTap: () {
+            setState(() {
+              // If opening this section, close all others
+              if (!isExpanded) {
+                // Close all other sections
+                for (final key in _sectionExpandedState.keys) {
+                  if (key != assetType) {
+                    _sectionExpandedState[key] = false;
                   }
                 }
-                // Toggle current section
-                _sectionExpandedState[assetType] = !isExpanded;
-              });
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    '$assetType ($itemCount)',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      fontFamily: fontFamilyMontserrat,
-                    ),
-                  ),
-                  Icon(
-                    isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+              }
+              // Toggle current section
+              _sectionExpandedState[assetType] = !isExpanded;
+            });
+          },
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$assetType ($itemCount)',
+                  style: const TextStyle(
                     color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    fontFamily: fontFamilyMontserrat,
                   ),
-                ],
-              ),
+                ),
+                Icon(
+                  isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: Colors.white,
+                ),
+              ],
             ),
           ),
-          
-          // Section content (shown when expanded)
-          if (isExpanded)
-            Container(
+        ),
+        
+        // Section content (shown when expanded) - table in transparent box
+        if (isExpanded)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Padding(
               padding: const EdgeInsets.all(16),
               child: AssetUploadFormComponent(
                 key: ValueKey('$assetType-${items.length}-${items.map((i) => i['photo_id']?.toString() ?? '').join('-')}'), // Force rebuild when items or photos change
@@ -1417,8 +1418,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                 tableTitle: null, // No title needed as we have section header
               ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

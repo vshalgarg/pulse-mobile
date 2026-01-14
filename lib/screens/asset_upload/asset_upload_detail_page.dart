@@ -154,8 +154,8 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
         _fetchAssetUploadDataFromAPI();
       } else {
         // In edit mode without preloaded data, load from local storage
-        _loadExistingAssetData();
-        _loadStoredSelfie();
+      _loadExistingAssetData();
+      _loadStoredSelfie();
       }
     }
   }

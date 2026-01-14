@@ -960,7 +960,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
             ? ticket.status!
             : (_currentActivityType == ActivityTypeEnum.assetUpload && ticket.status == null)
                 ? '' // Empty string for asset upload with null status
-                : _getStatusFromTicketType(_currentTicketType);
+            : _getStatusFromTicketType(_currentTicketType);
 
         return Padding(
           padding: EdgeInsets.only(
