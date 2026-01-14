@@ -1138,25 +1138,16 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       }
     }
 
-    // Process items to extract number from checklist_ref and append to checklist_desc
-    final List<Map<String, dynamic>> itemsWithFormattedName = [];
+    // Group items by checklist_ref (parent identifier like "Earth Pit 1", "Earth Pit 2")
+    final Map<String, List<Map<String, dynamic>>> groupedItems = {};
     
     for (final item in savedItems) {
       if (item is! Map<String, dynamic>) continue;
       
-      final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
       final checklistRef = item['checklist_ref']?.toString() ?? '';
+      final pmCheckListMstId = item['pm_check_list_mst_id'] as int?;
       
-      // Extract number from checklist_ref (e.g., "Earth Pit 1" -> 1, "Earth Pit 2" -> 2)
-      int? refNumber;
-      if (checklistRef.isNotEmpty) {
-        final match = RegExp(r'(\d+)$').firstMatch(checklistRef);
-        if (match != null) {
-          refNumber = int.tryParse(match.group(1) ?? '');
-        }
-      }
-      
-      // Get checklist name from resp_dtl_checklist
+      // Get checklist name from resp_dtl_checklist (without appending number)
       String checklistName = '';
       if (pmCheckListMstId != null) {
         checklistName = checklistNameMap[pmCheckListMstId] ??
@@ -1166,16 +1157,34 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         checklistName = item['checklist_desc']?.toString() ?? '';
       }
       
-      // Append number to checklist name if available
-      if (refNumber != null && checklistName.isNotEmpty) {
-        checklistName = '$checklistName $refNumber';
+      // Use checklist_ref as the group key (parent identifier)
+      // If checklist_ref is empty, use a default group
+      final groupKey = checklistRef.isNotEmpty ? checklistRef : 'Other';
+      
+      if (!groupedItems.containsKey(groupKey)) {
+        groupedItems[groupKey] = [];
       }
       
-      // Create item with formatted name
-      final itemWithFormattedName = Map<String, dynamic>.from(item);
-      itemWithFormattedName['_formatted_checklist_name'] = checklistName;
-      itemsWithFormattedName.add(itemWithFormattedName);
+      // Create item with checklist name and value
+      final itemWithData = Map<String, dynamic>.from(item);
+      itemWithData['_checklist_name'] = checklistName;
+      itemWithData['_display_value'] = item['resp']?.toString() ?? '';
+      groupedItems[groupKey]!.add(itemWithData);
     }
+
+    // Sort groups by extracting number from checklist_ref for proper ordering
+    final sortedGroupKeys = groupedItems.keys.toList()..sort((a, b) {
+      // Extract numbers from keys (e.g., "Earth Pit 1" -> 1, "Earth Pit 2" -> 2)
+      final matchA = RegExp(r'(\d+)$').firstMatch(a);
+      final matchB = RegExp(r'(\d+)$').firstMatch(b);
+      final numA = matchA != null ? int.tryParse(matchA.group(1) ?? '') : null;
+      final numB = matchB != null ? int.tryParse(matchB.group(1) ?? '') : null;
+      
+      if (numA != null && numB != null) {
+        return numA.compareTo(numB);
+      }
+      return a.compareTo(b);
+    });
 
     return Container(
       margin: const EdgeInsets.only(top: 16),
@@ -1195,13 +1204,34 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
             ],
           ),
           const SizedBox(height: 8),
-          // Table rows
-          ...itemsWithFormattedName.map((item) {
-            final checklistName = item['_formatted_checklist_name']?.toString() ?? 
-                                 item['checklist_desc']?.toString() ?? '';
-            final displayValue = item['resp']?.toString() ?? '';
-
-            return _buildTableRow(checklistName, displayValue);
+          // Grouped items - each group has a parent heading and child items
+          ...sortedGroupKeys.map((groupKey) {
+            final itemsInGroup = groupedItems[groupKey]!;
+            
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Parent heading (e.g., "Earth Pit 1")
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, bottom: 4),
+                  child: Text(
+                    groupKey,
+                    style: const TextStyle(
+                      color: AppColors.color555555,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+                ),
+                // Child items under this parent (indented with dash)
+                ...itemsInGroup.map((item) {
+                  final checklistName = item['_checklist_name']?.toString() ?? '';
+                  final displayValue = item['_display_value']?.toString() ?? '';
+                  return _buildTableRow('$checklistName', displayValue, isChild: true);
+                }).toList(),
+              ],
+            );
           }).toList(),
         ],
       ),
@@ -1222,10 +1252,13 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
   }
 
   /// Build table row
-  Widget _buildTableRow(String checklistName, String value) {
+  Widget _buildTableRow(String checklistName, String value, {bool isChild = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: isChild ? 20 : 12, // Indent child items
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(5),
