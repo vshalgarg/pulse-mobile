@@ -919,9 +919,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   /// Returns false if mandatoryIfValue is null, false, or if checklist_desc contains "Remarks"
   bool _isFieldRequired() {
     // Check if checklist_desc contains "Remarks" (case-insensitive) - always non-mandatory
-    final checklistDesc = _currentItem['checklist_desc']?.toString().toLowerCase() ?? '';
+    // This handles cases like "Remarks, if any" where resp_type is TEXT but it's still a remarks field
+    final checklistDesc = _currentItem['checklist_desc']?.toString().trim().toLowerCase() ?? '';
     if (checklistDesc.contains('remarks')) {
-      return false;
+      return false; // Always non-mandatory if description contains "remarks"
     }
     
     // Check mandatoryIfValue - only required if explicitly true
@@ -1253,10 +1254,12 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                     fontFamily: fontFamilyMontserrat,
                   ),
                 ),
-                const TextSpan(
-                  text: " *",
-                  style: TextStyle(fontSize: 16, color: Colors.red),
-                ),
+                // Only show red asterisk if field is required
+                if (_isFieldRequired())
+                  const TextSpan(
+                    text: " *",
+                    style: TextStyle(fontSize: 16, color: Colors.red),
+                  ),
               ],
             ),
             maxLines: 2,
@@ -1376,7 +1379,12 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     final respType = element['resp_type']?.toString() ?? '';
     final checklistDesc = element['checklist_desc']?.toString() ?? '';
     // REMARKS fields are always non-mandatory, regardless of mandatoryIfValue
-    final isMandatory = respType == 'REMARKS' 
+    // Also check if checklist_desc contains "Remarks" (case-insensitive) - always non-mandatory
+    final isRemarksField = respType == 'REMARKS' || 
+                          (checklistDesc.toLowerCase().contains('remarks'));
+    // If mandatoryIfValue is not present (null), default to false (not mandatory)
+    final mandatoryIfValue = element['mandatoryIfValue'];
+    final isMandatory = isRemarksField || mandatoryIfValue == null
         ? false 
         : isDependentElementMandatory(element, parentResponse);
     // Include index to make key unique when multiple elements have same resp_type and checklist_desc
