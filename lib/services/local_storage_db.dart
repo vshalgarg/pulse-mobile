@@ -433,6 +433,10 @@ class LocalStorageDB {
     await LocalStorageService.remove(LocalStorageConstants.firstName);
     await LocalStorageService.remove(LocalStorageConstants.fullName);
     await LocalStorageService.remove(LocalStorageConstants.email);
+    
+    // Clear profile image and user profile to prevent showing old login image
+    await LocalStorageService.remove(LocalStorageConstants.profileImage);
+    await LocalStorageService.remove(LocalStorageConstants.userProfile);
 
     // Clear saved credentials if remember me is not enabled
     if (!getRememberMe) {

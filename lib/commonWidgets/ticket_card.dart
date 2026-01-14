@@ -235,7 +235,7 @@ class TicketCard extends StatelessWidget {
                     child: Text(
                       // here if type id asset upload or AU then it will be "Last Uploaded On" else "Raised On"
                       activityType == ActivityTypeEnum.assetUpload
-                          ? "Last Uploaded On : ${Utils.formatDataForTicketCard(raisedOn)}"
+                          ? "Last Uploaded On: ${Utils.formatDataForTicketCard(raisedOn)}"
                           : "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
                      
                       style: const TextStyle(

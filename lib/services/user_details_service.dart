@@ -1,6 +1,7 @@
 import '../models/user_details_model.dart';
 import 'local_storage_db.dart';
 import 'local_storage_service.dart';
+import 'local_storage_constants.dart';
 import 'api_service.dart';
 import 'package:dio/dio.dart';
 
@@ -94,6 +95,9 @@ class UserDetailsService {
   Future<void> clearUserDetails() async {
     try {
       await LocalStorageService.remove('fullName');
+      // Clear profile image and user profile to prevent showing old login image
+      await LocalStorageService.remove(LocalStorageConstants.profileImage);
+      await LocalStorageService.remove(LocalStorageConstants.userProfile);
 
     } catch (e) {
 
@@ -167,6 +171,8 @@ class UserDetailsService {
         path: '/api/v1/admin/mobile/userProfile/$userId/$userImageName',
         headers: {'Authorization': 'Bearer $token'},
       );
+
+      print('response: user profile ${response.data}');
 
       if (response.isSuccess && response.data != null) {
         await LocalStorageDB.saveUserProfile(response.data['userprofile']);
