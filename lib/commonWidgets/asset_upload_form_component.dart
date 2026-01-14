@@ -1422,10 +1422,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     return Container(
       margin: const EdgeInsets.only(top: 20),
       padding: const EdgeInsets.symmetric(vertical: 16),
-      decoration: BoxDecoration(
-        color: AssetUploadFormComponent.backgroundColor,
-        borderRadius: BorderRadius.circular(5),
-      ),
+      
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1677,7 +1674,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
             margin: const EdgeInsets.symmetric(vertical: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AssetUploadFormComponent.backgroundColor,
+              color: Colors.white.withOpacity(0.1),
               borderRadius: BorderRadius.circular(5),
             ),
             child: Column(
