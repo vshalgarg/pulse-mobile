@@ -1449,6 +1449,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     return Column(
       children: [
         const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Divider(
+            color: Colors.white,
+            thickness: 0.5,
+            height: 1,
+          ),
+        ),
+        const Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Align(
             alignment: Alignment.centerLeft,
@@ -1463,6 +1471,15 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             ),
           ),
         ),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Divider(
+            color: Colors.white,
+            thickness: 0.5,
+            height: 1,
+          ),
+        ),
+        const SizedBox(height: 8),
         ..._assetGroups.entries.map((entry) {
           return _buildAssetTypeSection(entry.key, entry.value);
         }).toList(),
@@ -1543,7 +1560,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                             }
                           },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade300,
+                            backgroundColor: AppColors.dashboardIconBoxColor,
                             foregroundColor: Colors.black87,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -1556,7 +1573,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                               fontFamily: fontFamilyMontserrat,
-                            ),
+                               color: AppColors.buttonColorSite,                            ),
                           ),
                         ),
                       ),
@@ -1565,7 +1582,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                         child: ElevatedButton(
                           onPressed: _handleSaveAsset,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryGreen,
+                            backgroundColor: AppColors.dashboardIconBoxColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -1576,6 +1593,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                             'Save Asset',
                             style: TextStyle(
                               fontSize: 16,
+                              color: AppColors.buttonColorSite,
                               fontWeight: FontWeight.w500,
                               fontFamily: fontFamilyMontserrat,
                             ),
