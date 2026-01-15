@@ -44,9 +44,14 @@ class AuthRepository {
             errorMessage = 'Unable to connect to server. Please check your internet connection.';
           } else if (response.errorMessage!.contains('401')) {
             errorMessage = 'Invalid username or password. Please try again.';
+          } else if (response.statusCode == 500 || 
+                     response.errorMessage!.toLowerCase().contains('internal server error')) {
+            errorMessage = 'Internal Server Error. Please try again later.';
           } else {
             errorMessage = response.errorMessage!;
           }
+        } else if (response.statusCode == 500) {
+          errorMessage = 'Internal Server Error. Please try again later.';
         }
         
         // Send detailed failure logs to server for API failures too
@@ -68,6 +73,9 @@ class AuthRepository {
         errorMessage = 'Unable to connect to server. Please check your internet connection.';
       } else if (e.toString().contains('SocketException')) {
         errorMessage = 'No internet connection. Please check your network and try again.';
+      } else if (e.toString().toLowerCase().contains('internal server error') || 
+                 e.toString().contains('500')) {
+        errorMessage = 'Internal Server Error. Please try again later.';
       } else {
         errorMessage = 'Login failed. Please try again.';
       }
