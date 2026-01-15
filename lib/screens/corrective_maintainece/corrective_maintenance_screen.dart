@@ -2967,7 +2967,10 @@ class _CorrectiveMaintenanceScreenState
       }
       
       // Remarks attachment - required in edit mode
-      if (widget.mode == CMScreenModeEnum.edit && _remarksAttachments.isEmpty) {
+      // Check if there's either a new attachment or an existing server attachment
+      if (widget.mode == CMScreenModeEnum.edit && 
+          _remarksAttachments.isEmpty && 
+          (_remarksAttachmentId == null || _remarksAttachmentId == 0)) {
         errors.add('Remarks attachment is required');
       }
     }
