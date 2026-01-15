@@ -298,6 +298,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     if ((respType == 'NUMERIC' || respType == 'TEXT') && _textValue != null && _textValue!.isNotEmpty) {
       _initializeDependentElements();
     }
+    
+    // Initialize dependent elements for DYNAMIC_DROPDOWN if items are selected
+    if (respType == 'DYNAMIC_DROPDOWN' && _dynamicDropdownData.isNotEmpty) {
+      _initializeDependentElements();
+    }
   }
   
   void _initializeDependentElements() {
@@ -940,12 +945,87 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     if (childItemResponses.isNotEmpty) {
       dataEntry['child_item_responses'] = childItemResponses;
     }
+    
+    // Store dependent element images (for parent-level dependent elements like IMG)
+    final dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? 
+                             _currentItem['dependentElements'] as List<dynamic>? ?? [];
+    final dependentImages = <Map<String, dynamic>>[];
+    for (int i = 0; i < dependentElements.length; i++) {
+      final element = dependentElements[i];
+      Map<String, dynamic> elementMap;
+      if (element is Map<String, dynamic>) {
+        elementMap = element;
+      } else {
+        elementMap = Map<String, dynamic>.from(element as Map);
+      }
+      
+      final respType = elementMap['resp_type']?.toString() ?? '';
+      if (respType == 'IMG') {
+        final elementKey = '${_currentItem['cm_check_list_mst_id']}_$i';
+        final imageData = _dependentImageData[elementKey];
+        if (imageData != null) {
+          // Extract base64 from data URL if needed
+          String? base64Image;
+          if (imageData.startsWith('data:image')) {
+            final parts = imageData.split(',');
+            if (parts.length > 1) {
+              base64Image = parts[1];
+            }
+          } else {
+            base64Image = imageData;
+          }
+          
+          if (base64Image != null) {
+            dependentImages.add({
+              'photo_id': 'LOCAL_IMAGE_ID',
+              'pclsri_id': _currentItem['cm_check_list_mst_id'],
+              'photo_taken_ts': DateTime.now().toIso8601String(),
+              'image_data': base64Image, // Store base64 for display
+            });
+          }
+        }
+      }
+    }
+    if (dependentImages.isNotEmpty) {
+      dataEntry['dependent_images'] = dependentImages;
+    }
+    
+    // Validate dependent elements with mandatoryIfValue: true
+    for (int i = 0; i < dependentElements.length; i++) {
+      final element = dependentElements[i];
+      Map<String, dynamic> elementMap;
+      if (element is Map<String, dynamic>) {
+        elementMap = element;
+      } else {
+        elementMap = Map<String, dynamic>.from(element as Map);
+      }
+      
+      final respType = elementMap['resp_type']?.toString() ?? '';
+      final mandatoryIfValue = elementMap['mandatoryIfValue'];
+      
+      // Check if this dependent element is mandatory
+      if (respType == 'IMG' && _isDependentElementMandatory(mandatoryIfValue, 'true')) {
+        final elementKey = '${_currentItem['cm_check_list_mst_id']}_$i';
+        final imageData = _dependentImageData[elementKey];
+        
+        if (imageData == null || imageData.isEmpty) {
+          final elementDesc = elementMap['checklist_desc']?.toString() ?? 'photo';
+          Toastbar.showErrorToastbar('$elementDesc is missing', context);
+          return;
+        }
+      }
+    }
 
     setState(() {
       if(_dynamicDropdownData.any((d) => d['mfgSerialNo'] == dataEntry['mfgSerialNo'])){
         _dynamicDropdownData.removeWhere((d) => d['mfgSerialNo'] == dataEntry['mfgSerialNo']);
       }
       _dynamicDropdownData.add(dataEntry);
+      
+      // Initialize dependent elements when items are added to DYNAMIC_DROPDOWN
+      if (_currentItem['resp_type'] == 'DYNAMIC_DROPDOWN' && _dynamicDropdownData.isNotEmpty) {
+        _initializeDependentElements();
+      }
     });
     print('[CM] _saveDynamicDropdownData - Calling onImpactedItemListChanged with ${_dynamicDropdownData.length} items');
     print('[CM] _saveDynamicDropdownData - Data: $_dynamicDropdownData');
@@ -962,6 +1042,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _childItemNumericValues.clear();
     _childItemDependentImageData.clear();
     _childItemDependentImageFiles.clear();
+    
+    // Clear dependent element images (for parent-level dependent elements)
+    _dependentImageData.clear();
+    _dependentImageFiles.clear();
+    _dependentImageIds.clear();
 
     _notifyValueChanged();
     Toastbar.showSuccessToastbar('Data saved successfully', context);
@@ -970,9 +1055,15 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   void _editDynamicDropdownItem(int index) {
     final item = _dynamicDropdownData[index];
     final fieldNames = _getFieldNamesFromChildItems();
+    final serialNumber = item['mfgSerialNo']?.toString() ?? '';
     
     setState(() {
-      _serialNumberController.text = item['mfgSerialNo']?.toString() ?? '';
+      _serialNumberController.text = serialNumber;
+      
+      // Validate and set selected item data based on serial number
+      if (serialNumber.isNotEmpty) {
+        _validateAndSetSerialNumber(serialNumber, false);
+      }
       
       // Set values for dynamic fields based on impacted_item_value_map
       for (var entry in fieldNames.entries) {
@@ -980,6 +1071,65 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         final fieldKey = entry.value;
         final controller = _childFieldControllers[fieldName];
         controller?.text = item[fieldKey]?.toString() ?? '';
+      }
+      
+      // Load dependent images from saved item
+      final dependentImages = item['dependent_images'] as List<dynamic>?;
+      final dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? 
+                               _currentItem['dependentElements'] as List<dynamic>? ?? [];
+      
+      if (dependentImages != null && dependentImages.isNotEmpty) {
+        // Find the first IMG dependent element and load its image
+        int imgElementIndex = -1;
+        for (int i = 0; i < dependentElements.length; i++) {
+          final element = dependentElements[i];
+          Map<String, dynamic> elementMap;
+          if (element is Map<String, dynamic>) {
+            elementMap = element;
+          } else {
+            elementMap = Map<String, dynamic>.from(element as Map);
+          }
+          
+          final respType = elementMap['resp_type']?.toString() ?? '';
+          if (respType == 'IMG') {
+            imgElementIndex = i;
+            break; // Found first IMG element
+          }
+        }
+        
+        if (imgElementIndex >= 0) {
+          // Get the first image (since we only support one image per dependent element currently)
+          final firstImage = dependentImages.first as Map<String, dynamic>?;
+          final imageDataBase64 = firstImage?['image_data']?.toString();
+          
+          if (imageDataBase64 != null) {
+            final elementKey = '${_currentItem['cm_check_list_mst_id']}_$imgElementIndex';
+            // Convert base64 to data URL format for display
+            final imageDataUrl = imageDataBase64.startsWith('data:image')
+                ? imageDataBase64
+                : 'data:image/jpeg;base64,$imageDataBase64';
+            
+            _dependentImageData[elementKey] = imageDataUrl;
+            print('[CM] _editDynamicDropdownItem - Loaded image for elementKey: $elementKey');
+          }
+        }
+      } else {
+        // Clear dependent images if none exist
+        for (int i = 0; i < dependentElements.length; i++) {
+          final element = dependentElements[i];
+          Map<String, dynamic> elementMap;
+          if (element is Map<String, dynamic>) {
+            elementMap = element;
+          } else {
+            elementMap = Map<String, dynamic>.from(element as Map);
+          }
+          
+          final respType = elementMap['resp_type']?.toString() ?? '';
+          if (respType == 'IMG') {
+            final elementKey = '${_currentItem['cm_check_list_mst_id']}_$i';
+            _dependentImageData.remove(elementKey);
+          }
+        }
       }
     });
   }
@@ -1709,6 +1859,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         ),
         const SizedBox(height: 16),
         
+        // Show dependent_elements when filling form (always show, not just when items are saved)
+        _buildDependentElementsForDynamicDropdown(isReadonly: isReadonly),
+        
         // Child fields - render dynamically based on their resp_type
         ...childItems.map((childItem) {
           return Padding(
@@ -1734,7 +1887,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         
         const SizedBox(height: 16),
 
-        // Data table
+        // Data table - only show if there are items
+        if (_dynamicDropdownData.isNotEmpty) ...[
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1758,6 +1912,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       label: Text(fieldName, style: TextStyle(fontWeight: FontWeight.bold)),
                     )
                   ),
+                  // Add Photo column if there's an IMG dependent element
+                  if (_hasImgDependentElement()) ...[
+                    DataColumn(
+                      label: Text('Photo', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
                   DataColumn(
                     label: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
@@ -1765,6 +1925,20 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 rows: _dynamicDropdownData.asMap().entries.map((entry) {
                   final index = entry.key;
                   final item = entry.value;
+                  
+                  // Get dependent image from saved data
+                  String? dependentImageData;
+                  final dependentImages = item['dependent_images'] as List<dynamic>?;
+                  if (dependentImages != null && dependentImages.isNotEmpty) {
+                    final firstImage = dependentImages.first as Map<String, dynamic>?;
+                    final imageData = firstImage?['image_data']?.toString();
+                    if (imageData != null) {
+                      // Convert base64 to data URL for display
+                      dependentImageData = imageData.startsWith('data:image') 
+                          ? imageData 
+                          : 'data:image/jpeg;base64,$imageData';
+                    }
+                  }
                   
                   return DataRow(
                     cells: [
@@ -1774,6 +1948,27 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                         final fieldKey = entry.value;
                         return DataCell(Text(item[fieldKey]?.toString() ?? ''));
                       }).toList(),
+                      // Show photo camera icon if available
+                      if (_hasImgDependentElement()) ...[
+                        DataCell(
+                          Container(
+                            width: 50,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: IconButton(
+                              icon: Icon(
+                                Icons.camera_alt,
+                                color: dependentImageData != null
+                                    ? AppColors.color555555
+                                    : Colors.grey,
+                                size: 24,
+                              ),
+                              onPressed: dependentImageData != null
+                                  ? () => _showDependentPhotoViewer(context, dependentImageData)
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ],
                       DataCell(
                         IconButton(
                           icon: const Icon(Icons.edit, size: 20),
@@ -1787,9 +1982,162 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             ),
           ),
         ],
+        ],
     ),
           ),
       );
+  }
+  
+  bool _hasImgDependentElement() {
+    final dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? 
+                             _currentItem['dependentElements'] as List<dynamic>? ?? [];
+    for (var element in dependentElements) {
+      Map<String, dynamic> elementMap;
+      if (element is Map<String, dynamic>) {
+        elementMap = element;
+      } else {
+        elementMap = Map<String, dynamic>.from(element as Map);
+      }
+      final respType = elementMap['resp_type']?.toString() ?? '';
+      if (respType == 'IMG') {
+        return true;
+      }
+    }
+    return false;
+  }
+  
+  /// Shows photo viewer dialog for dependent element images
+  Future<void> _showDependentPhotoViewer(BuildContext context, String? imageData) async {
+    if (imageData == null || imageData.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No photo available to view.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Ensure proper data URL format
+    final finalImageData = imageData.startsWith('data:image/')
+        ? imageData
+        : 'data:image/jpeg;base64,$imageData';
+
+    // Show photo viewer dialog
+    if (context.mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Center(
+                child: Container(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                    maxWidth: MediaQuery.of(context).size.width * 0.9,
+                  ),
+                  child: Image.memory(
+                    base64Decode(finalImageData.split(',').last),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Text(
+                          'Failed to load image',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 30,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+  }
+  
+  Widget _buildDependentElementsForDynamicDropdown({bool isReadonly = false}) {
+    // Get dependent_elements from _currentItem
+    List<dynamic> dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? 
+                                     _currentItem['dependentElements'] as List<dynamic>? ?? [];
+    
+    if (dependentElements.isEmpty) {
+      dependentElements = widget.pmItem['dependent_elements'] as List<dynamic>? ?? 
+                          widget.pmItem['dependentElements'] as List<dynamic>? ?? [];
+    }
+    
+    if (dependentElements.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    // Always show dependent elements in the form (they will be saved with the item)
+    final shouldShow = true;
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 16),
+        ...dependentElements.asMap().entries.map((entry) {
+          final index = entry.key;
+          final element = entry.value;
+          
+          // Handle both Map and dynamic types
+          Map<String, dynamic> elementMap;
+          if (element is Map<String, dynamic>) {
+            elementMap = element;
+          } else {
+            elementMap = Map<String, dynamic>.from(element as Map);
+          }
+          
+          final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
+          final respType = elementMap['resp_type']?.toString() ?? '';
+          
+          print('[CM] DYNAMIC_DROPDOWN dependent element $index - respType: $respType, shouldShow: $shouldShow');
+          
+          if (respType == 'IMG' && shouldShow) {
+            final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Add a photo';
+            final mandatoryIfValue = elementMap['mandatoryIfValue'];
+            final isRequired = _isDependentElementMandatory(mandatoryIfValue, 'true');
+            final isReadonlyField = widget.readonlyFields.contains(
+              _currentItem['checklist_desc']?.toString(),
+            );
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: ImageUploadField(
+                label: checklistDesc,
+                placeholder: checklistDesc,
+                isRequired: isRequired,
+                externalImageUrl: _dependentImageData[elementKey],
+                isDisabled: isReadonly || isReadonlyField,
+                onImageSelected: (isReadonly || isReadonlyField) ? (File? file) {} : (File? file) async {
+                  if (file != null) {
+                    await _uploadDependentImage(elementKey, file);
+                  }
+                },
+              ),
+            );
+          }
+          
+          return const SizedBox.shrink();
+        }).toList(),
+      ],
+    );
   }
 
   Widget _buildMultiDynamicDropdownField({bool isReadonly = false}) {
