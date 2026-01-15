@@ -3081,6 +3081,11 @@ class _CorrectiveMaintenanceScreenState
       requestData['fault_description'] = controllers['fault_description']!.text;
       requestData['responsible_party'] = controllers['responsible_party']!.text; // Value from Category dropdown
       
+      // Set OEM Representative Contact with correct key for edit mode
+      if (controllers['oem_representative_contact']!.text.trim().isNotEmpty) {
+        requestData['oemRepresentativeContactNo'] = controllers['oem_representative_contact']!.text;
+      }
+      
       // Set assigned_to based on responsible_party
       if (controllers['responsible_party']!.text == 'OEM') {
         requestData['assigned_to'] = _selectedSite!.oemId;
