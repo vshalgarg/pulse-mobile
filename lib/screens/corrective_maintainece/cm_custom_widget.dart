@@ -1108,7 +1108,90 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         controller?.text = item[fieldKey]?.toString() ?? '';
       }
       
-      // Load dependent images from saved item
+      // Load child_item_responses for impacted_item_check_list items
+      final childItemResponses = item['child_item_responses'] as List<dynamic>? ?? [];
+      final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                        _currentItem['childitemData'] as List<dynamic>? ?? [];
+      
+      // Create a map for quick lookup: childId -> response
+      final childResponseMap = <int, Map<String, dynamic>>{};
+      for (var response in childItemResponses) {
+        final childId = response['cm_check_list_mst_id'] as int? ?? 0;
+        if (childId > 0) {
+          childResponseMap[childId] = Map<String, dynamic>.from(response);
+        }
+      }
+      
+      // Load values from child_item_responses
+      for (var childItem in childItems) {
+        final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
+        final respType = childItem['resp_type']?.toString() ?? '';
+        
+        if (childResponseMap.containsKey(childId)) {
+          final response = childResponseMap[childId]!;
+          
+          // Handle CHECKBOX
+          if (respType == 'CHECKBOX') {
+            final resp = response['resp']?.toString() ?? '';
+            _childItemCheckboxStates[childId] = (resp == 'true' || resp == 'True' || resp == 'TRUE');
+          }
+          // Handle CHECKBOX_NUMERIC or CHECKBOX_TEXT
+          else if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+            final resp = response['resp']?.toString() ?? '';
+            _childItemCheckboxStates[childId] = (resp != '0' && resp.isNotEmpty);
+            final numericValue = response['numeric_value']?.toString() ?? 
+                                response['resp_numeric']?.toString() ?? '';
+            if (numericValue.isNotEmpty) {
+              _childItemNumericValues[childId] = numericValue;
+            }
+          }
+          
+          // Load dependent images from child item's response_images
+          final responseImages = response['response_images'] as List<dynamic>?;
+          if (responseImages != null && responseImages.isNotEmpty) {
+            final dependentElements = childItem['dependent_elements'] as List<dynamic>? ?? 
+                                     childItem['dependentElements'] as List<dynamic>? ?? [];
+            
+            for (int i = 0; i < dependentElements.length && i < responseImages.length; i++) {
+              final element = dependentElements[i];
+              Map<String, dynamic> elementMap;
+              if (element is Map<String, dynamic>) {
+                elementMap = element;
+              } else {
+                elementMap = Map<String, dynamic>.from(element as Map);
+              }
+              
+              final elementRespType = elementMap['resp_type']?.toString() ?? '';
+              if (elementRespType == 'IMG') {
+                final imageData = responseImages[i] as Map<String, dynamic>?;
+                final imageDataBase64 = imageData?['image_data']?.toString();
+                
+                if (imageDataBase64 != null) {
+                  final elementKey = '${childId}_$i';
+                  // Convert base64 to data URL format for display
+                  final imageDataUrl = imageDataBase64.startsWith('data:image')
+                      ? imageDataBase64
+                      : 'data:image/jpeg;base64,$imageDataBase64';
+                  
+                  _childItemDependentImageData[childId] ??= {};
+                  _childItemDependentImageData[childId]![elementKey] = imageDataUrl;
+                  print('[CM] _editDynamicDropdownItem - Loaded child item image for childId: $childId, elementKey: $elementKey');
+                }
+              }
+            }
+          }
+        } else {
+          // Clear states if no response exists
+          if (respType == 'CHECKBOX' || respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+            _childItemCheckboxStates[childId] = false;
+            if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+              _childItemNumericValues[childId] = '';
+            }
+          }
+        }
+      }
+      
+      // Load dependent images from saved item (parent-level)
       final dependentImages = item['dependent_images'] as List<dynamic>?;
       final dependentElements = _currentItem['dependent_elements'] as List<dynamic>? ?? 
                                _currentItem['dependentElements'] as List<dynamic>? ?? [];
