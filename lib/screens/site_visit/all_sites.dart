@@ -876,10 +876,41 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 site: site,
                 isDownloaded: isDownloaded,
                 onDirectionTap: () {
-                  Toastbar.showInfoToastbar(
-                    'Location: ${site.clusterDistrictName}, ${site.circleStateName}',
-                    context,
-                  );
+                  if (site.longitude != null && site.latitude != null) {
+                    // Convert String to double
+                    final lat = double.tryParse(site.latitude!);
+                    final lng = double.tryParse(site.longitude!);
+                    
+                    if (lat != null && lng != null) {
+                      // Open Google Maps with directions to the site
+                      LocationService.openDirectionsToSite(
+                        siteLat: lat,
+                        siteLng: lng,
+                        siteName: site.siteName,
+                        context: context,
+                      );
+                    } else {
+                      // Show a message if conversion failed
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Directions are not available for this site',
+                          ),
+                          backgroundColor: AppColors.errorColor,
+                        ),
+                      );
+                    }
+                  } else {
+                    // Show a message to the user
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Directions are not available for this site',
+                        ),
+                        backgroundColor: AppColors.errorColor,
+                      ),
+                    );
+                  }
                 },
                 onTap: () => _navigateToSite(site),
                 onDownloadTap: isDownloaded

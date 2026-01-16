@@ -950,7 +950,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'No location coordinates available for this site',
+                      'Directions are not available for this site',
                     ),
                     backgroundColor: AppColors.errorColor,
                   ),

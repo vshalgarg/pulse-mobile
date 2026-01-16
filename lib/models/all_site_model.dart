@@ -55,6 +55,9 @@ class AllSiteModel {
   final int? lastAASiteAuditSchId;
   final int? lastAAAuditSchId;
 
+  final String? longitude;
+  final String? latitude;
+
  
 
 
@@ -109,6 +112,9 @@ class AllSiteModel {
     this.lastAADate,
     this.lastAASiteAuditSchId,
     this.lastAAAuditSchId,
+
+    this.longitude,
+    this.latitude,
   });
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
@@ -229,6 +235,14 @@ class AllSiteModel {
           giId: json['gi_id'] != null
           ? json['gi_id'].toString()
           : null,
+
+
+          longitude: json['longitude'] != null
+          ? json['longitude'].toString()
+          : null,
+      latitude: json['latitude'] != null
+          ? json['latitude'].toString()
+          : null,
     );
   }
 
@@ -279,6 +293,9 @@ class AllSiteModel {
       'last_aa_date': lastAADate,
       'last_aa_site_audit_sch_id': lastAASiteAuditSchId,
       'last_aa_audit_sch_id': lastAAAuditSchId,
+
+      'longitude': longitude,
+      'latitude': latitude,
     };
   }
 

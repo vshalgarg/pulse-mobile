@@ -45,20 +45,21 @@ class TicketScreen extends StatefulWidget {
   State<TicketScreen> createState() => _TicketScreenState();
 }
 
-class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver {
+class _TicketScreenState extends State<TicketScreen>
+    with WidgetsBindingObserver {
   late String _currentTicketType;
   late ActivityTypeEnum _currentActivityType;
   final Set<int> _downloadedTicketIds = <int>{};
   bool _isInitializingDownloadedTickets = false;
-  bool _hasLoadedOnce = false; // Track if tickets have been loaded at least once
-  DateTime? _lastRefreshTime; // Track last refresh time to prevent too frequent refreshes
+  bool _hasLoadedOnce =
+      false; // Track if tickets have been loaded at least once
+  DateTime?
+  _lastRefreshTime; // Track last refresh time to prevent too frequent refreshes
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-
-
 
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
@@ -66,8 +67,12 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
     print('[TicketScreen] Current activity type: $_currentTicketType');
     print('[TicketScreen] Current activity enum: $_currentActivityType');
     print('[TicketScreen] Audit name: ${widget.auditName}');
-    print('[TicketScreen] Checking FAB visibility for: ${_currentActivityType == ActivityTypeEnum.assetUpload}');
-    Logger.debugLog('📋 TicketScreen initialized - ActivityType: $_currentActivityType, AuditName: ${widget.auditName}');
+    print(
+      '[TicketScreen] Checking FAB visibility for: ${_currentActivityType == ActivityTypeEnum.assetUpload}',
+    );
+    Logger.debugLog(
+      '📋 TicketScreen initialized - ActivityType: $_currentActivityType, AuditName: ${widget.auditName}',
+    );
 
     _loadTickets();
     _hasLoadedOnce = true;
@@ -99,7 +104,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
       // Check if this route is currently active before refreshing
       final route = ModalRoute.of(context);
       if (route != null && route.isCurrent) {
-      _refreshTicketsIfNeeded();
+        _refreshTicketsIfNeeded();
       }
     }
   }
@@ -116,7 +121,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           // This prevents API calls when user is on other screens
           final route = ModalRoute.of(context);
           if (route != null && route.isCurrent) {
-          _refreshTicketsIfNeeded();
+            _refreshTicketsIfNeeded();
           }
         }
       });
@@ -146,7 +151,6 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
   }
 
   void _loadTickets() {
-
     if (_currentActivityType == ActivityTypeEnum.incident) {
       context.read<TicketCubit>().getTickets(
         activityType: 'IT',
@@ -319,10 +323,8 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => PMPageRender(
-              pmData: apiData,
-              parentContext: parentContext,
-            ),
+            builder: (_) =>
+                PMPageRender(pmData: apiData, parentContext: parentContext),
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
@@ -378,28 +380,37 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           officialIdImageId: apiData['officialIdImageId']?.toString(),
           aadharCardImageId: apiData['aadharCardImageId']?.toString(),
           leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
-          visitorName: apiData['visitorName']?.toString() ?? apiData['visitor_name']?.toString(),
-          visitorContactNo: apiData['visitorContactNo']?.toString() ?? apiData['visitor_contact_no']?.toString(),
-          organisationName: apiData['organisationName']?.toString() ?? 
-              apiData['organisation_name']?.toString() ?? 
-              apiData['organizationName']?.toString() ?? 
+          visitorName:
+              apiData['visitorName']?.toString() ??
+              apiData['visitor_name']?.toString(),
+          visitorContactNo:
+              apiData['visitorContactNo']?.toString() ??
+              apiData['visitor_contact_no']?.toString(),
+          organisationName:
+              apiData['organisationName']?.toString() ??
+              apiData['organisation_name']?.toString() ??
+              apiData['organizationName']?.toString() ??
               apiData['organization_name']?.toString(),
-          orgId: apiData['orgId'] != null 
-              ? (apiData['orgId'] is int 
-                  ? apiData['orgId'] as int 
-                  : int.tryParse(apiData['orgId'].toString()))
+          orgId: apiData['orgId'] != null
+              ? (apiData['orgId'] is int
+                    ? apiData['orgId'] as int
+                    : int.tryParse(apiData['orgId'].toString()))
               : null,
-          roleDesignation: apiData['roleDesignation']?.toString() ?? apiData['role_designation']?.toString(),
-          reportingManager: apiData['reportingManager']?.toString() ?? apiData['reporting_manager']?.toString(),
+          roleDesignation:
+              apiData['roleDesignation']?.toString() ??
+              apiData['role_designation']?.toString(),
+          reportingManager:
+              apiData['reportingManager']?.toString() ??
+              apiData['reporting_manager']?.toString(),
         ); // site visit screen
 
         // Extract organisation list from API response if available
         final organisationList = apiData['organisationList'] != null
             ? (apiData['organisationList'] as List)
-                .map((org) => Map<String, dynamic>.from(org))
-                .toList()
+                  .map((org) => Map<String, dynamic>.from(org))
+                  .toList()
             : null;
-        
+
         final parentContext = context;
         Navigator.push(
           context,
@@ -414,21 +425,25 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
       } else if (_currentActivityType == ActivityTypeEnum.incident) {
         // For incident tickets, always fetch fresh data from API to get latest status
         Map<String, dynamic>? incidentTicketData;
-        
+
         try {
           // Always fetch fresh data from API to ensure we have the latest status
-          Logger.debugLog('🔄 Fetching fresh incident ticket data from API for ticket ID: ${ticket.ticketSchId}');
+          Logger.debugLog(
+            '🔄 Fetching fresh incident ticket data from API for ticket ID: ${ticket.ticketSchId}',
+          );
           final response = await ServiceLocator().incidentRepository
               .getIncidentTicket(incidentTicketId: ticket.ticketSchId);
-          
+
           // Extract data from response (response has a 'data' wrapper)
           if (response.containsKey('data') && response['data'] is Map) {
             incidentTicketData = response['data'] as Map<String, dynamic>;
           } else {
             incidentTicketData = response;
           }
-          
-          Logger.debugLog('✅ Successfully fetched fresh incident ticket data. Status: ${incidentTicketData['status']}');
+
+          Logger.debugLog(
+            '✅ Successfully fetched fresh incident ticket data. Status: ${incidentTicketData['status']}',
+          );
         } catch (e) {
           Logger.errorLog('❌ Error fetching fresh incident ticket data: $e');
           // Fallback to stored data if API call fails
@@ -441,23 +456,31 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
             }
             Logger.debugLog('⚠️ Using stored data as fallback');
           } else {
-            Toastbar.showErrorToastbar("Failed to load incident ticket data", context);
+            Toastbar.showErrorToastbar(
+              "Failed to load incident ticket data",
+              context,
+            );
             return;
           }
         }
-        
+
         if (incidentTicketData.isEmpty) {
           LoaderWidget.hideLoader();
-          Toastbar.showErrorToastbar("Failed to load incident ticket data", context);
+          Toastbar.showErrorToastbar(
+            "Failed to load incident ticket data",
+            context,
+          );
           return;
         }
-        
+
         // Get status from fresh API data to determine mode
         final apiStatus = incidentTicketData['status']?.toString();
-        final currentStatus = (apiStatus != null && apiStatus.isNotEmpty) 
-            ? apiStatus 
-            : (ticket.status != null && ticket.status!.isNotEmpty ? ticket.status! : 'OPEN');
-        
+        final currentStatus = (apiStatus != null && apiStatus.isNotEmpty)
+            ? apiStatus
+            : (ticket.status != null && ticket.status!.isNotEmpty
+                  ? ticket.status!
+                  : 'OPEN');
+
         // Build site data for Incident Ticket
         final siteData = AllSiteModel(
           siteId: incidentTicketData['siteId'] ?? ticket.ticketSchId,
@@ -477,8 +500,10 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           selfId: 0,
           siteDomainName: ticket.siteDomainName,
           distanceKM: null,
-          infraEngineerName: incidentTicketData['infraDistrictEngineerName']?.toString(),
-          infraEngineerPhone: incidentTicketData['infraDistrictEngineerContactNo']?.toString(),
+          infraEngineerName: incidentTicketData['infraDistrictEngineerName']
+              ?.toString(),
+          infraEngineerPhone:
+              incidentTicketData['infraDistrictEngineerContactNo']?.toString(),
           ownerName: incidentTicketData['ownerName']?.toString(),
           ownerPhone: incidentTicketData['ownerContactNo']?.toString(),
           siteVisitLogId: null,
@@ -597,24 +622,33 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
         // Note: For asset upload tickets, ticket.ticketSchId is the siteId
         Logger.debugLog('📦 ========== ASSET UPLOAD TICKET CLICKED ==========');
         Logger.debugLog('📦 Ticket ID: ${ticket.ticketSchId}');
-        Logger.debugLog('📦 Site ID (using ticket.ticketSchId): ${ticket.ticketSchId}');
+        Logger.debugLog(
+          '📦 Site ID (using ticket.ticketSchId): ${ticket.ticketSchId}',
+        );
         Logger.debugLog('📦 Activity Type: $_currentActivityType');
         Logger.debugLog('📦 Calling getUploadedAssets API with siteId...');
         try {
           // Use siteId if available, otherwise fallback to ticketSchId
           final siteId = ticket.siteId ?? ticket.ticketSchId;
-          Logger.debugLog('🔄 Fetching asset upload data from API for siteId: $siteId');
+          Logger.debugLog(
+            '🔄 Fetching asset upload data from API for siteId: $siteId',
+          );
           final repository = AssetUploadRepository(ServiceLocator().apiService);
           final result = await repository.getUploadedAssets(siteId: siteId);
 
-          Logger.debugLog('📦 API Response - Success: ${result.isSuccess}, Status: ${result.statusCode}');
+          Logger.debugLog(
+            '📦 API Response - Success: ${result.isSuccess}, Status: ${result.statusCode}',
+          );
           Logger.debugLog('📦 API Response - Error: ${result.errorMessage}');
-          Logger.debugLog('📦 API Response - Data keys: ${result.data?.keys.toList()}');
+          Logger.debugLog(
+            '📦 API Response - Data keys: ${result.data?.keys.toList()}',
+          );
           Logger.debugLog('📦 API Response - Data: ${result.data}');
 
           if (!result.isSuccess || result.data == null) {
             LoaderWidget.hideLoader();
-            final errorMsg = result.errorMessage ?? 'Failed to load asset upload data';
+            final errorMsg =
+                result.errorMessage ?? 'Failed to load asset upload data';
             Logger.errorLog('❌ Failed to fetch asset upload data: $errorMsg');
             Toastbar.showErrorToastbar(errorMsg, context);
             return;
@@ -634,18 +668,27 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
 
           if (responseData == null) {
             LoaderWidget.hideLoader();
-            Logger.errorLog('❌ Invalid asset upload data structure: responseData is null');
-            Toastbar.showErrorToastbar('Invalid asset upload data structure', context);
+            Logger.errorLog(
+              '❌ Invalid asset upload data structure: responseData is null',
+            );
+            Toastbar.showErrorToastbar(
+              'Invalid asset upload data structure',
+              context,
+            );
             return;
           }
 
-          Logger.debugLog('📦 Response data keys: ${responseData.keys.toList()}');
+          Logger.debugLog(
+            '📦 Response data keys: ${responseData.keys.toList()}',
+          );
 
           // Try both camelCase and snake_case field names
-          final assetUploadData = responseData['assetUpload'] ?? 
-                                 responseData['asset_upload'] as Map<String, dynamic>?;
-          final siteDetailsData = responseData['siteDetails'] ?? 
-                                 responseData['site_details'] as Map<String, dynamic>?;
+          final assetUploadData =
+              responseData['assetUpload'] ??
+              responseData['asset_upload'] as Map<String, dynamic>?;
+          final siteDetailsData =
+              responseData['siteDetails'] ??
+              responseData['site_details'] as Map<String, dynamic>?;
 
           Logger.debugLog('📦 AssetUpload data: ${assetUploadData != null}');
           Logger.debugLog('📦 SiteDetails data: ${siteDetailsData != null}');
@@ -653,10 +696,14 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           if (assetUploadData == null || siteDetailsData == null) {
             LoaderWidget.hideLoader();
             final missingData = [];
-            if (assetUploadData == null) missingData.add('assetUpload/asset_upload');
-            if (siteDetailsData == null) missingData.add('siteDetails/site_details');
+            if (assetUploadData == null)
+              missingData.add('assetUpload/asset_upload');
+            if (siteDetailsData == null)
+              missingData.add('siteDetails/site_details');
             Logger.errorLog('❌ Missing data fields: ${missingData.join(", ")}');
-            Logger.errorLog('❌ Available keys in response: ${responseData.keys.toList()}');
+            Logger.errorLog(
+              '❌ Available keys in response: ${responseData.keys.toList()}',
+            );
             Toastbar.showErrorToastbar(
               'Missing ${missingData.join(" or ")} data. Check logs for details.',
               context,
@@ -665,23 +712,32 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           }
 
           // Extract maker_selfie_image_id from assetUploadData (try both formats)
-          final makerSelfieImageId = assetUploadData['maker_selfie_image_id'] ?? 
-                                    assetUploadData['makerSelfieImageId'];
-          
+          final makerSelfieImageId =
+              assetUploadData['maker_selfie_image_id'] ??
+              assetUploadData['makerSelfieImageId'];
+
           // Extract auId from assetUploadData (try both formats)
-          final auId = assetUploadData['au_id'] ?? 
-                      assetUploadData['auId'] ?? 
-                      assetUploadData['id'];
-          
+          final auId =
+              assetUploadData['au_id'] ??
+              assetUploadData['auId'] ??
+              assetUploadData['id'];
+
           // Extract asset_upload_item array (try both formats)
-          final assetUploadItems = (assetUploadData['asset_upload_item'] ?? 
-                                   assetUploadData['assetUploadItem'] ?? 
-                                   []) as List<dynamic>? ?? [];
-          
+          final assetUploadItems =
+              (assetUploadData['asset_upload_item'] ??
+                      assetUploadData['assetUploadItem'] ??
+                      [])
+                  as List<dynamic>? ??
+              [];
+
           Logger.debugLog('📦 ========== EXTRACTED DATA ==========');
-          Logger.debugLog('📦 makerSelfieImageId: $makerSelfieImageId (type: ${makerSelfieImageId.runtimeType})');
+          Logger.debugLog(
+            '📦 makerSelfieImageId: $makerSelfieImageId (type: ${makerSelfieImageId.runtimeType})',
+          );
           Logger.debugLog('📦 auId: $auId (type: ${auId.runtimeType})');
-          Logger.debugLog('📦 assetUploadItems count: ${assetUploadItems.length}');
+          Logger.debugLog(
+            '📦 assetUploadItems count: ${assetUploadItems.length}',
+          );
           Logger.debugLog('📦 assetUploadItems: $assetUploadItems');
           Logger.debugLog('📦 ====================================');
 
@@ -689,14 +745,23 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           final siteData = AllSiteModel(
             siteId: siteDetailsData['site_id'] ?? ticket.ticketSchId,
             entityId: siteDetailsData['entity_id'] ?? 0,
-            siteCode: siteDetailsData['site_code']?.toString() ?? ticket.siteCode ?? '',
-            siteName: siteDetailsData['site_name']?.toString() ?? ticket.cluster ?? '',
+            siteCode:
+                siteDetailsData['site_code']?.toString() ??
+                ticket.siteCode ??
+                '',
+            siteName:
+                siteDetailsData['site_name']?.toString() ??
+                ticket.cluster ??
+                '',
             clusterDistrictId: 0,
-            clusterDistrictName: siteDetailsData['cluster']?.toString() ?? ticket.cluster ?? '',
+            clusterDistrictName:
+                siteDetailsData['cluster']?.toString() ?? ticket.cluster ?? '',
             circleStateId: 0,
-            circleStateName: siteDetailsData['circle']?.toString() ?? ticket.operator ?? '',
+            circleStateName:
+                siteDetailsData['circle']?.toString() ?? ticket.operator ?? '',
             clientId: null,
-            clientName: siteDetailsData['client']?.toString() ?? ticket.operator,
+            clientName:
+                siteDetailsData['client']?.toString() ?? ticket.operator,
             svlId: null,
             oem: null,
             oemId: null,
@@ -704,8 +769,11 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
             selfId: 0,
             siteDomainName: ticket.siteDomainName,
             distanceKM: null,
-            infraEngineerName: siteDetailsData['infra_district_engineer_name']?.toString(),
-            infraEngineerPhone: siteDetailsData['infra_district_engineer_contact_no']?.toString(),
+            infraEngineerName: siteDetailsData['infra_district_engineer_name']
+                ?.toString(),
+            infraEngineerPhone:
+                siteDetailsData['infra_district_engineer_contact_no']
+                    ?.toString(),
             ownerName: siteDetailsData['owner_name']?.toString(),
             ownerPhone: siteDetailsData['owner_contact_no']?.toString(),
             siteVisitLogId: null,
@@ -716,24 +784,37 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           );
 
           // Convert asset_upload_item to format expected by AssetUploadDetailPage
-          final List<Map<String, dynamic>> parsedAssetItems = assetUploadItems.map((item) {
-            if (item is Map<String, dynamic>) {
-              return Map<String, dynamic>.from(item);
-            }
-            return <String, dynamic>{};
-          }).where((item) => item.isNotEmpty).toList();
+          final List<Map<String, dynamic>> parsedAssetItems = assetUploadItems
+              .map((item) {
+                if (item is Map<String, dynamic>) {
+                  return Map<String, dynamic>.from(item);
+                }
+                return <String, dynamic>{};
+              })
+              .where((item) => item.isNotEmpty)
+              .toList();
 
-          Logger.debugLog('✅ Successfully fetched asset upload data. Items: ${parsedAssetItems.length}');
-          
+          Logger.debugLog(
+            '✅ Successfully fetched asset upload data. Items: ${parsedAssetItems.length}',
+          );
+
           // Prepare values for navigation
           final finalMakerSelfieImageId = makerSelfieImageId?.toString();
-          final finalAuId = auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null;
-          final finalAssetItems = parsedAssetItems.isNotEmpty ? parsedAssetItems : null;
-          
+          final finalAuId = auId != null
+              ? (auId is int ? auId : int.tryParse(auId.toString()))
+              : null;
+          final finalAssetItems = parsedAssetItems.isNotEmpty
+              ? parsedAssetItems
+              : null;
+
           Logger.debugLog('📤 ========== NAVIGATING WITH DATA ==========');
-          Logger.debugLog('📤 preloadedSelfieImageId: $finalMakerSelfieImageId');
+          Logger.debugLog(
+            '📤 preloadedSelfieImageId: $finalMakerSelfieImageId',
+          );
           Logger.debugLog('📤 preloadedAuId: $finalAuId');
-          Logger.debugLog('📤 preloadedAssetItems: ${finalAssetItems != null ? finalAssetItems.length : "null"}');
+          Logger.debugLog(
+            '📤 preloadedAssetItems: ${finalAssetItems != null ? finalAssetItems.length : "null"}',
+          );
           Logger.debugLog('📤 =========================================');
 
           final parentContext = context;
@@ -747,7 +828,8 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                 preloadedSelfieImageId: finalMakerSelfieImageId,
                 preloadedAssetItems: finalAssetItems,
                 preloadedAuId: finalAuId,
-                mode: CMScreenModeEnum.edit, // Edit mode when coming from ticket screen
+                mode: CMScreenModeEnum
+                    .edit, // Edit mode when coming from ticket screen
               ),
             ),
           );
@@ -757,9 +839,9 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
           Logger.errorLog('❌ Stack trace: $stackTrace');
           final errorMessage = e.toString();
           Toastbar.showErrorToastbar(
-            errorMessage.length > 100 
-              ? 'Error loading asset upload data. Check logs for details.'
-              : 'Error loading asset upload data: $errorMessage', 
+            errorMessage.length > 100
+                ? 'Error loading asset upload data. Check logs for details.'
+                : 'Error loading asset upload data: $errorMessage',
             context,
           );
         }
@@ -781,7 +863,9 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
   void _navigateToAuditScreen(Ticket? ticket) {
     if (ticket == null) return;
 
-    Logger.debugLog('🎫 _navigateToAuditScreen called for ticket: ${ticket.ticketSchId}');
+    Logger.debugLog(
+      '🎫 _navigateToAuditScreen called for ticket: ${ticket.ticketSchId}',
+    );
     Logger.debugLog('🎫 Current activity type: $_currentActivityType');
     Logger.debugLog('🎫 Widget audit name: ${widget.auditName}');
 
@@ -928,7 +1012,8 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                       : widget.auditName == "GI"
                       ? "General Inspection"
                       : widget.auditName == "Incident"
-                      ? "Incident Tickets" : widget.auditName == "Asset Upload"
+                      ? "Incident Tickets"
+                      : widget.auditName == "Asset Upload"
                       ? "Asset Upload"
                       : "${widget.auditName} - ${widget.status}",
                   style: const TextStyle(
@@ -958,8 +1043,9 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
         // For asset upload tickets with null status, use empty string to avoid showing "Allocated"
         final statusText = ticket.status?.isNotEmpty == true
             ? ticket.status!
-            : (_currentActivityType == ActivityTypeEnum.assetUpload && ticket.status == null)
-                ? '' // Empty string for asset upload with null status
+            : (_currentActivityType == ActivityTypeEnum.assetUpload &&
+                  ticket.status == null)
+            ? '' // Empty string for asset upload with null status
             : _getStatusFromTicketType(_currentTicketType);
 
         return Padding(
@@ -994,9 +1080,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                 // Show a message to the user
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(
-                      'No location coordinates available for this site',
-                    ),
+                    content: Text('Directions are not available for this site'),
                     backgroundColor: AppColors.errorColor,
                   ),
                 );
@@ -1011,16 +1095,23 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                 if (_currentActivityType == ActivityTypeEnum.assetUpload) {
                   // Use siteId if available, otherwise fallback to ticketSchId
                   final siteId = ticket.siteId ?? ticket.ticketSchId;
-                  Logger.debugLog('📥 Downloading asset upload data for siteId: $siteId');
-                  
-                  final repository = AssetUploadRepository(ServiceLocator().apiService);
-                  final result = await repository.getUploadedAssets(siteId: siteId);
+                  Logger.debugLog(
+                    '📥 Downloading asset upload data for siteId: $siteId',
+                  );
+
+                  final repository = AssetUploadRepository(
+                    ServiceLocator().apiService,
+                  );
+                  final result = await repository.getUploadedAssets(
+                    siteId: siteId,
+                  );
 
                   if (result.isSuccess && result.data != null) {
                     // Parse response structure - check if data is wrapped or direct
                     Map<String, dynamic>? responseData;
                     if (result.data!.containsKey('data')) {
-                      responseData = result.data!['data'] as Map<String, dynamic>?;
+                      responseData =
+                          result.data!['data'] as Map<String, dynamic>?;
                     } else {
                       responseData = result.data;
                     }
@@ -1028,7 +1119,8 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                     if (responseData != null) {
                       // Save to SQLite using saveRawApiData
                       // Note: Image processing will be handled when data is loaded/used
-                      isDownloaded = await ServiceLocator().centralAssetAuditDataService
+                      isDownloaded = await ServiceLocator()
+                          .centralAssetAuditDataService
                           .saveRawApiData(
                             siteAuditSchId: ticket.ticketSchId.toString(),
                             siteType: ticket.siteDomainName ?? 'Solar',
@@ -1047,15 +1139,21 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
                             apiData: responseData,
                           );
                     } else {
-                      Logger.errorLog('❌ Invalid asset upload data structure: responseData is null');
+                      Logger.errorLog(
+                        '❌ Invalid asset upload data structure: responseData is null',
+                      );
                       Toastbar.showErrorToastbar(
                         'Invalid asset upload data structure',
                         context,
                       );
                     }
                   } else {
-                    final errorMsg = result.errorMessage ?? 'Failed to download asset upload data';
-                    Logger.errorLog('❌ Failed to download asset upload data: $errorMsg');
+                    final errorMsg =
+                        result.errorMessage ??
+                        'Failed to download asset upload data';
+                    Logger.errorLog(
+                      '❌ Failed to download asset upload data: $errorMsg',
+                    );
                     Toastbar.showErrorToastbar(errorMsg, context);
                   }
                 } else {
@@ -1228,12 +1326,11 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
   Widget _buildFloatingActionButtons() {
     // Debug: Log current activity type to verify it's being set correctly
     print('[TicketScreen] Current activity type: $_currentActivityType');
-    
-      if (_currentActivityType == ActivityTypeEnum.siteVisit ||
-          _currentActivityType == ActivityTypeEnum.generalInspection ||
-          _currentActivityType == ActivityTypeEnum.incident ||
-          _currentActivityType == ActivityTypeEnum.assetUpload ||
-          _currentActivityType == ActivityTypeEnum.assetAudit) {
+
+    if (_currentActivityType == ActivityTypeEnum.siteVisit ||
+        _currentActivityType == ActivityTypeEnum.generalInspection ||
+        _currentActivityType == ActivityTypeEnum.incident ||
+        _currentActivityType == ActivityTypeEnum.assetUpload) {
       // Show both add button and sync button for SV/GI
       return Column(
         mainAxisAlignment: MainAxisAlignment.end,
