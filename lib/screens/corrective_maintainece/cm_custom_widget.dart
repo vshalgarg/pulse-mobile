@@ -508,6 +508,41 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     return fieldNames;
   }
 
+  // Helper method to get all child items from impacted_item_check_list
+  List<Map<String, dynamic>> _getAllChildItems() {
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+                      _currentItem['childitemData'] as List<dynamic>? ?? [];
+    final result = <Map<String, dynamic>>[];
+    
+    for (var childItem in childItems) {
+      final fieldName = childItem['checklist_desc']?.toString() ?? '';
+      if (fieldName.isNotEmpty) {
+        result.add(Map<String, dynamic>.from(childItem));
+      }
+    }
+    
+    return result;
+  }
+
+  // Helper method to get dependent elements from child items
+  List<Map<String, dynamic>> _getChildItemDependentElements(int childId) {
+    final childItems = _getAllChildItems();
+    for (var childItem in childItems) {
+      final id = childItem['cm_check_list_mst_id'] as int? ?? 0;
+      if (id == childId) {
+        final dependentElements = childItem['dependent_elements'] as List<dynamic>? ?? 
+                                 childItem['dependentElements'] as List<dynamic>? ?? [];
+        return dependentElements.map((e) {
+          if (e is Map<String, dynamic>) {
+            return Map<String, dynamic>.from(e);
+          }
+          return Map<String, dynamic>.from(e as Map);
+        }).toList();
+      }
+    }
+    return [];
+  }
+
   void _notifyValueChanged() {
     // For MULTI_DYNAMIC_DROPDOWN, return only the selected items array with dropdown ID
     if (_currentItem['resp_type'] == 'MULTI_DYNAMIC_DROPDOWN') {
@@ -1907,12 +1942,39 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   DataColumn(
                     label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  ..._getFieldNamesFromChildItems().keys.map((fieldName) => 
-                    DataColumn(
-                      label: Text(fieldName, style: TextStyle(fontWeight: FontWeight.bold)),
-                    )
-                  ),
-                  // Add Photo column if there's an IMG dependent element
+                  // Add columns for all child items from impacted_item_check_list
+                  ..._getAllChildItems().expand((childItem) {
+                    final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
+                    final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
+                    final dependentElements = _getChildItemDependentElements(childId);
+                    
+                    final columns = <DataColumn>[];
+                    
+                    // Add column for the child item itself (if it has a value map or is a checkbox/other type)
+                    if (checklistDesc.isNotEmpty) {
+                      columns.add(
+                        DataColumn(
+                          label: Text(checklistDesc, style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      );
+                    }
+                    
+                    // Add columns for dependent elements (IMG) from this child item
+                    for (var element in dependentElements) {
+                      final elementRespType = element['resp_type']?.toString() ?? '';
+                      final elementDesc = element['checklist_desc']?.toString() ?? '';
+                      if (elementRespType == 'IMG' && elementDesc.isNotEmpty) {
+                        columns.add(
+                          DataColumn(
+                            label: Text(elementDesc, style: TextStyle(fontWeight: FontWeight.bold)),
+                          ),
+                        );
+                      }
+                    }
+                    
+                    return columns;
+                  }).toList(),
+                  // Add Photo column if there's an IMG dependent element at parent level
                   if (_hasImgDependentElement()) ...[
                     DataColumn(
                       label: Text('Photo', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -1926,7 +1988,18 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   final index = entry.key;
                   final item = entry.value;
                   
-                  // Get dependent image from saved data
+                  // Get child_item_responses from saved data
+                  final childItemResponses = item['child_item_responses'] as List<dynamic>? ?? [];
+                  // Create a map for quick lookup: childId -> response
+                  final childResponseMap = <int, Map<String, dynamic>>{};
+                  for (var response in childItemResponses) {
+                    final childId = response['cm_check_list_mst_id'] as int? ?? 0;
+                    if (childId > 0) {
+                      childResponseMap[childId] = Map<String, dynamic>.from(response);
+                    }
+                  }
+                  
+                  // Get dependent image from saved data (parent level)
                   String? dependentImageData;
                   final dependentImages = item['dependent_images'] as List<dynamic>?;
                   if (dependentImages != null && dependentImages.isNotEmpty) {
@@ -1944,11 +2017,87 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     cells: [
                       DataCell(Text(item['mfgSerialNo']?.toString() ?? '')),
                       DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
-                      ..._getFieldNamesFromChildItems().entries.map((entry) {
-                        final fieldKey = entry.value;
-                        return DataCell(Text(item[fieldKey]?.toString() ?? ''));
+                      // Add cells for all child items from impacted_item_check_list
+                      ..._getAllChildItems().expand((childItem) {
+                        final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
+                        final respType = childItem['resp_type']?.toString() ?? '';
+                        final impactedItemValueMap = childItem['impacted_item_value_map']?.toString() ?? '';
+                        final dependentElements = _getChildItemDependentElements(childId);
+                        
+                        final cells = <DataCell>[];
+                        
+                        // Get response value for this child item
+                        String? childResponseValue;
+                        if (impactedItemValueMap.isNotEmpty) {
+                          // For items with impacted_item_value_map, get value from item directly
+                          childResponseValue = item[impactedItemValueMap]?.toString() ?? '';
+                        } else if (childResponseMap.containsKey(childId)) {
+                          // For other types (CHECKBOX, etc.), get from child_item_responses
+                          final response = childResponseMap[childId]!;
+                          if (respType == 'CHECKBOX') {
+                            final resp = response['resp']?.toString() ?? '';
+                            childResponseValue = (resp == 'true' || resp == 'True' || resp == 'TRUE') ? 'Yes' : 'No';
+                          } else if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
+                            final resp = response['resp']?.toString() ?? '';
+                            final numericValue = response['numeric_value']?.toString() ?? response['resp_numeric']?.toString() ?? '';
+                            if (resp == '0' || resp.isEmpty) {
+                              childResponseValue = 'No';
+                            } else {
+                              childResponseValue = numericValue.isNotEmpty ? numericValue : 'Yes';
+                            }
+                          } else {
+                            childResponseValue = response['resp']?.toString() ?? '';
+                          }
+                        }
+                        
+                        // Add cell for the child item value
+                        cells.add(DataCell(Text(childResponseValue ?? '')));
+                        
+                        // Add cells for dependent elements (IMG) from this child item
+                        for (var element in dependentElements) {
+                          final elementRespType = element['resp_type']?.toString() ?? '';
+                          if (elementRespType == 'IMG') {
+                            String? childDependentImageData;
+                            if (childResponseMap.containsKey(childId)) {
+                              final response = childResponseMap[childId]!;
+                              final responseImages = response['response_images'] as List<dynamic>?;
+                              if (responseImages != null && responseImages.isNotEmpty) {
+                                final firstImage = responseImages.first as Map<String, dynamic>?;
+                                final imageData = firstImage?['image_data']?.toString();
+                                if (imageData != null) {
+                                  childDependentImageData = imageData.startsWith('data:image') 
+                                      ? imageData 
+                                      : 'data:image/jpeg;base64,$imageData';
+                                }
+                              }
+                            }
+                            
+                            cells.add(
+                              DataCell(
+                                Container(
+                                  width: 50,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                                  child: IconButton(
+                                    icon: Icon(
+                                      Icons.camera_alt,
+                                      color: childDependentImageData != null
+                                          ? AppColors.color555555
+                                          : Colors.grey,
+                                      size: 24,
+                                    ),
+                                    onPressed: childDependentImageData != null
+                                        ? () => _showDependentPhotoViewer(context, childDependentImageData!)
+                                        : null,
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                        
+                        return cells;
                       }).toList(),
-                      // Show photo camera icon if available
+                      // Show photo camera icon if available (parent level)
                       if (_hasImgDependentElement()) ...[
                         DataCell(
                           Container(
@@ -1963,7 +2112,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                                 size: 24,
                               ),
                               onPressed: dependentImageData != null
-                                  ? () => _showDependentPhotoViewer(context, dependentImageData)
+                                  ? () => _showDependentPhotoViewer(context, dependentImageData!)
                                   : null,
                             ),
                           ),
