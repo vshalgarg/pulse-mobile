@@ -1407,6 +1407,8 @@ class _CorrectiveMaintenanceScreenState
             onChanged: (value) {
               setState(() {
                 _selectedEquipmentType = value;
+                // Clear impacted item list when switching equipment types
+                _impactedItemList.clear();
                 _hasFormDataChanges = true;
               });
             },

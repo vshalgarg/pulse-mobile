@@ -371,7 +371,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => CorrectiveMaintenanceScreen(
-              mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+              mode: ticket.status == 'COMPLETED' || ticket.status == 'Closed'
                   ? CMScreenModeEnum.view
                   : CMScreenModeEnum.edit,
               preloadedSiteData: data.apiData,

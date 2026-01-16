@@ -585,7 +585,7 @@ class _TicketScreenState extends State<TicketScreen> with WidgetsBindingObserver
         pushPage(
           context,
           CorrectiveMaintenanceScreen(
-            mode: ticket.status == 'COMPLETED' || ticket.status == 'CLOSED'
+            mode: ticket.status == 'COMPLETED' || ticket.status == 'Closed'
                 ? CMScreenModeEnum.view
                 : CMScreenModeEnum.edit,
             preloadedSiteData: apiData,
