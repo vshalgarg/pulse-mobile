@@ -1943,37 +1943,15 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   // Add columns for all child items from impacted_item_check_list
-                  ..._getAllChildItems().expand((childItem) {
-                    final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
+                  // (dependent_elements will be shown in the same column as the parent checklist_desc)
+                  ..._getAllChildItems().map((childItem) {
                     final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
-                    final dependentElements = _getChildItemDependentElements(childId);
+                    if (checklistDesc.isEmpty) return null;
                     
-                    final columns = <DataColumn>[];
-                    
-                    // Add column for the child item itself (if it has a value map or is a checkbox/other type)
-                    if (checklistDesc.isNotEmpty) {
-                      columns.add(
-                        DataColumn(
-                          label: Text(checklistDesc, style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      );
-                    }
-                    
-                    // Add columns for dependent elements (IMG) from this child item
-                    for (var element in dependentElements) {
-                      final elementRespType = element['resp_type']?.toString() ?? '';
-                      final elementDesc = element['checklist_desc']?.toString() ?? '';
-                      if (elementRespType == 'IMG' && elementDesc.isNotEmpty) {
-                        columns.add(
-                          DataColumn(
-                            label: Text(elementDesc, style: TextStyle(fontWeight: FontWeight.bold)),
-                          ),
-                        );
-                      }
-                    }
-                    
-                    return columns;
-                  }).toList(),
+                    return DataColumn(
+                      label: Text(checklistDesc, style: TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  }).whereType<DataColumn>().toList(),
                   // Add Photo column if there's an IMG dependent element at parent level
                   if (_hasImgDependentElement()) ...[
                     DataColumn(
@@ -2018,13 +1996,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                       DataCell(Text(item['mfgSerialNo']?.toString() ?? '')),
                       DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
                       // Add cells for all child items from impacted_item_check_list
-                      ..._getAllChildItems().expand((childItem) {
+                      // (combining value and dependent_elements in the same cell)
+                      ..._getAllChildItems().map((childItem) {
                         final childId = childItem['cm_check_list_mst_id'] as int? ?? 0;
                         final respType = childItem['resp_type']?.toString() ?? '';
                         final impactedItemValueMap = childItem['impacted_item_value_map']?.toString() ?? '';
                         final dependentElements = _getChildItemDependentElements(childId);
-                        
-                        final cells = <DataCell>[];
                         
                         // Get response value for this child item
                         String? childResponseValue;
@@ -2050,52 +2027,55 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                           }
                         }
                         
-                        // Add cell for the child item value
-                        cells.add(DataCell(Text(childResponseValue ?? '')));
-                        
-                        // Add cells for dependent elements (IMG) from this child item
+                        // Get dependent image data if available
+                        String? childDependentImageData;
                         for (var element in dependentElements) {
                           final elementRespType = element['resp_type']?.toString() ?? '';
-                          if (elementRespType == 'IMG') {
-                            String? childDependentImageData;
-                            if (childResponseMap.containsKey(childId)) {
-                              final response = childResponseMap[childId]!;
-                              final responseImages = response['response_images'] as List<dynamic>?;
-                              if (responseImages != null && responseImages.isNotEmpty) {
-                                final firstImage = responseImages.first as Map<String, dynamic>?;
-                                final imageData = firstImage?['image_data']?.toString();
-                                if (imageData != null) {
-                                  childDependentImageData = imageData.startsWith('data:image') 
-                                      ? imageData 
-                                      : 'data:image/jpeg;base64,$imageData';
-                                }
+                          if (elementRespType == 'IMG' && childResponseMap.containsKey(childId)) {
+                            final response = childResponseMap[childId]!;
+                            final responseImages = response['response_images'] as List<dynamic>?;
+                            if (responseImages != null && responseImages.isNotEmpty) {
+                              final firstImage = responseImages.first as Map<String, dynamic>?;
+                              final imageData = firstImage?['image_data']?.toString();
+                              if (imageData != null) {
+                                childDependentImageData = imageData.startsWith('data:image') 
+                                    ? imageData 
+                                    : 'data:image/jpeg;base64,$imageData';
+                                break; // Use first image found
                               }
                             }
-                            
-                            cells.add(
-                              DataCell(
-                                Container(
-                                  width: 50,
-                                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.camera_alt,
-                                      color: childDependentImageData != null
-                                          ? AppColors.color555555
-                                          : Colors.grey,
-                                      size: 24,
-                                    ),
-                                    onPressed: childDependentImageData != null
-                                        ? () => _showDependentPhotoViewer(context, childDependentImageData!)
-                                        : null,
-                                  ),
-                                ),
-                              ),
-                            );
                           }
                         }
                         
-                        return cells;
+                        // Create a cell that combines the value and dependent element (photo icon)
+                        return DataCell(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Show the text value
+                              Flexible(
+                                child: Text(
+                                  childResponseValue ?? '',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              // Show photo icon if dependent element has image
+                              if (childDependentImageData != null) ...[
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  icon: Icon(
+                                    Icons.camera_alt,
+                                    color: AppColors.color555555,
+                                    size: 20,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () => _showDependentPhotoViewer(context, childDependentImageData!),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
                       }).toList(),
                       // Show photo camera icon if available (parent level)
                       if (_hasImgDependentElement()) ...[
