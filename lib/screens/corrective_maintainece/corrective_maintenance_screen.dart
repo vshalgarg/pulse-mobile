@@ -1269,7 +1269,10 @@ class _CorrectiveMaintenanceScreenState
                     }
                   }
                 }
+                // Set both field names for compatibility
                 mergedItem['response_images'] = responseImages;
+                mergedItem['cmCheckListSiteRespImagesList'] = existingImages; // Keep original format for edit/view mode
+                mergedItem['cm_check_list_site_resp_images_list'] = existingImages; // Also set snake_case
               }
               
               // Store original cmImpactedItemList for display in edit/view mode (already merged above)

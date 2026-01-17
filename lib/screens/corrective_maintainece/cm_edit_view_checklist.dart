@@ -10,7 +10,6 @@ import '../../services/service_locator.dart';
 import '../../utils/connectivity_helper.dart';
 import '../../utils/logger.dart';
 import '../../enum/activity_type_enum.dart';
-import '../../constants/app_colors.dart';
 
 class CMEditViewChecklistWidget extends StatefulWidget {
   final String equipmentType;
@@ -53,7 +52,7 @@ class _CMEditViewChecklistWidgetState
   @override
   void initState() {
     super.initState();
-    _initializeChecklistData();
+    _initializeChecklistData(); // Call async function without await in initState
   }
 
   @override
@@ -61,13 +60,11 @@ class _CMEditViewChecklistWidgetState
     super.didUpdateWidget(oldWidget);
     if (oldWidget.checklistItemsByApi != widget.checklistItemsByApi ||
         oldWidget.equipmentType != widget.equipmentType) {
-      setState(() {
-        _initializeChecklistData();
-      });
+      _initializeChecklistData(); // Call async function without await in didUpdateWidget
     }
   }
 
-  void _initializeChecklistData() {
+  Future<void> _initializeChecklistData() async {
     try {
       final data = widget.checklistItemsByApi;
 
@@ -103,10 +100,10 @@ class _CMEditViewChecklistWidgetState
       Logger.infoLog('[CM EditView] Processed ${_checklistItems.length} checklist items after sorting');
 
       // Load images for items that have cmCheckListSiteRespImagesList
-      _loadImagesForChecklistItems();
+      await _loadImagesForChecklistItems();
       
       // Load images for impacted items in DYNAMIC_DROPDOWN
-      _loadImagesForImpactedItems();
+      await _loadImagesForImpactedItems();
     } catch (e) {
       Logger.errorLog('[CM EditView] Error initializing checklist data: $e');
     }
@@ -124,6 +121,13 @@ class _CMEditViewChecklistWidgetState
             item['cmCheckListSiteRespId']?.toString() ??
             item['cm_check_list_site_resp_id'] ??
             '';
+        
+        final respType = item['respType']?.toString() ?? 
+                        item['resp_type']?.toString() ?? '';
+        final checklistDesc = item['checklistDesc']?.toString() ?? 
+                             item['checklist_desc']?.toString() ?? '';
+        
+        Logger.infoLog('[CM EditView] Loading images for item: $checklistDesc, respType: $respType, checklistId: $checklistId, imagesCount: ${imagesList.length}');
 
         for (var imageData in imagesList) {
           if (imageData is Map<String, dynamic>) {
@@ -131,15 +135,22 @@ class _CMEditViewChecklistWidgetState
             if (photoId != null && checklistId.isNotEmpty) {
               // Use unique key for each image: checklistId-photoId
               final imageKey = '$checklistId-${photoId.toString()}';
+              Logger.infoLog('[CM EditView] Loading image with photoId: $photoId, imageKey: $imageKey, checklistId: $checklistId');
               await _loadImageForItem(
                 photoId.toString(),
                 imageKey, // Use unique key instead of just checklistId
               );
+              
+              // Log after loading to verify
+              final loadedImageAfter = _loadedImages[imageKey];
+              Logger.infoLog('[CM EditView] After loading - imageKey: $imageKey, loaded: ${loadedImageAfter != null ? "YES (${loadedImageAfter.length} chars)" : "NO"}');
             }
           }
         }
       }
     }
+    
+    Logger.infoLog('[CM EditView] Finished loading images. Total loaded: ${_loadedImages.length}');
   }
 
   Future<void> _loadImagesForImpactedItems() async {
@@ -194,6 +205,7 @@ class _CMEditViewChecklistWidgetState
           .getImagesByServerId(photoId);
 
       if (cachedImage != null && cachedImage.imageData != null) {
+        Logger.infoLog('[CM EditView] Image loaded from cache - photoId: $photoId, checklistId: $checklistId, imageData length: ${cachedImage.imageData!.length}');
         setState(() {
           _loadedImages[checklistId] = cachedImage.imageData;
         });
@@ -215,9 +227,12 @@ class _CMEditViewChecklistWidgetState
               .getImageUsingUniqueId(uniqueId);
 
           if (imageData != null && mounted) {
+            Logger.infoLog('[CM EditView] Image loaded from server - photoId: $photoId, checklistId: $checklistId, imageData length: ${imageData.length}');
             setState(() {
               _loadedImages[checklistId] = imageData;
             });
+          } else {
+            Logger.errorLog('[CM EditView] Image not loaded - photoId: $photoId, checklistId: $checklistId, imageData: ${imageData != null}, mounted: $mounted');
           }
         }
       }
@@ -274,6 +289,127 @@ class _CMEditViewChecklistWidgetState
       }
     } catch (e) {
       Logger.errorLog('[CM EditView] Error loading impacted item image $photoId: $e');
+    }
+  }
+
+  /// Load image for impacted item on demand (when camera icon is clicked)
+  Future<void> _loadImageForImpactedItemOnDemand(
+    String photoId,
+    String serialNo,
+    String checklistId,
+  ) async {
+    final imageKey = '$serialNo-$checklistId';
+    await _loadImageForImpactedItem(photoId, imageKey);
+  }
+
+  /// Load and show image for impacted item when camera icon is clicked
+  Future<void> _loadAndShowImageForImpactedItem(
+    BuildContext context,
+    String serialNo,
+    String checklistId,
+    Map<String, dynamic> childResponse,
+  ) async {
+    final imagesList = childResponse['cmCheckListSiteRespImagesList'] ??
+        childResponse['cm_check_list_site_resp_images_list'];
+    
+    if (imagesList != null && imagesList is List && imagesList.isNotEmpty) {
+      final firstImage = imagesList.first;
+      if (firstImage is Map<String, dynamic>) {
+        final photoId = firstImage['photoId'] ?? firstImage['photo_id'];
+        if (photoId != null) {
+          // Check if already loaded
+          String? imageData = _impactedItemImages[serialNo]?[checklistId];
+          
+          if (imageData == null) {
+            // Load the image
+            await _loadImageForImpactedItemOnDemand(
+              photoId.toString(),
+              serialNo,
+              checklistId,
+            );
+            // Get the loaded image
+            imageData = _impactedItemImages[serialNo]?[checklistId];
+          }
+          
+          // Show image viewer
+          if (imageData != null && context.mounted) {
+            _showPhotoViewer(context, imageData);
+          } else if (context.mounted) {
+            // Show loading or error message
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Image is loading, please try again in a moment.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
+  /// Build image widget from base64 data
+  Widget _buildImageWidget(String? imageData, {double? height, double? width}) {
+    if (imageData == null || imageData.isEmpty) {
+      return Container(
+        height: height ?? 150,
+        width: width,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: Icon(Icons.image, color: Colors.grey),
+        ),
+      );
+    }
+
+    try {
+      // Handle data URL format
+      String base64String = imageData;
+      if (imageData.startsWith('data:image')) {
+        final parts = imageData.split(',');
+        if (parts.length >= 2) {
+          base64String = parts[1];
+        }
+      }
+
+      final bytes = base64Decode(base64String);
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Image.memory(
+          bytes,
+          height: height ?? 150,
+          width: width,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return Container(
+              height: height ?? 150,
+              width: width,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Center(
+                child: Icon(Icons.broken_image, color: Colors.grey),
+              ),
+            );
+          },
+        ),
+      );
+    } catch (e) {
+      Logger.errorLog('[CM EditView] Error building image widget: $e');
+      return Container(
+        height: height ?? 150,
+        width: width,
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Center(
+          child: Icon(Icons.broken_image, color: Colors.grey),
+        ),
+      );
     }
   }
 
@@ -542,14 +678,27 @@ class _CMEditViewChecklistWidgetState
                           cellValue = resp?.toString() ?? '';
                         }
                         
-                        // Get image data if available
+                        // Check if images exist (show camera icon if cmCheckListSiteRespImagesList is not null and has items)
                         final imagesList = childResponse['cmCheckListSiteRespImagesList'] ??
-                            childResponse['cm_check_list_site_resp_images_list'] ??
-                            [];
-                        if (imagesList is List && imagesList.isNotEmpty) {
+                            childResponse['cm_check_list_site_resp_images_list'];
+                        final hasImagesForCell = imagesList != null && 
+                                                 imagesList is List && 
+                                                 imagesList.isNotEmpty;
+                        
+                        // Try to get loaded image data
+                        if (hasImagesForCell) {
                           imageData = _impactedItemImages[serialNo]?[childId.toString()];
                         }
                       }
+                      
+                      // Get images list for this cell (for camera icon check)
+                      final imagesListForCell = childResponse != null
+                          ? (childResponse['cmCheckListSiteRespImagesList'] ??
+                             childResponse['cm_check_list_site_resp_images_list'])
+                          : null;
+                      final hasImagesForCell = imagesListForCell != null && 
+                                               imagesListForCell is List && 
+                                               imagesListForCell.isNotEmpty;
                       
                       return DataCell(
                         Row(
@@ -561,17 +710,43 @@ class _CMEditViewChecklistWidgetState
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            if (imageData != null) ...[
+                            // Show image thumbnail if cmCheckListSiteRespImagesList exists
+                            if (hasImagesForCell && childResponse != null) ...[
                               const SizedBox(width: 8),
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.camera_alt,
-                                  color: AppColors.color555555,
-                                  size: 20,
+                              GestureDetector(
+                                onTap: () {
+                                  if (imageData != null) {
+                                    _showPhotoViewer(context, imageData);
+                                  } else if (childResponse != null) {
+                                    // Try to load and show image
+                                    _loadAndShowImageForImpactedItem(
+                                      context,
+                                      serialNo,
+                                      childId.toString(),
+                                      childResponse,
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(4),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: imageData != null
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: _buildImageWidget(imageData, height: 40, width: 40),
+                                        )
+                                      : const Center(
+                                          child: Icon(
+                                            Icons.image,
+                                            size: 20,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
                                 ),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => _showPhotoViewer(context, imageData),
                               ),
                             ],
                           ],
@@ -606,7 +781,8 @@ class _CMEditViewChecklistWidgetState
         '';
     final resp = item['resp'];
     final imagesList = item['cmCheckListSiteRespImagesList'] ??
-        item['cm_check_list_site_resp_images_list'];
+        item['cm_check_list_site_resp_images_list'] ??
+        item['response_images']; // Also check response_images from merge
     
     // Check if imagesList is not null (can be empty list or null)
     final hasImages = imagesList != null && 
@@ -620,7 +796,7 @@ class _CMEditViewChecklistWidgetState
         index.toString();
     
     // Debug logging
-    Logger.infoLog('[CM EditView] Building item: $checklistDesc, respType: $respType, resp: $resp, hasImages: $hasImages');
+    Logger.infoLog('[CM EditView] Building item: $checklistDesc, respType: $respType, resp: $resp, hasImages: $hasImages, imagesList: ${imagesList != null ? (imagesList is List ? "List(${imagesList.length})" : imagesList.runtimeType) : "NULL"}, checklistId: $checklistId');
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -641,42 +817,68 @@ class _CMEditViewChecklistWidgetState
                   : InputType.text,
             ),
 
-            // Show images if cmCheckListSiteRespImagesList is not null and has items
-            if (hasImages && imagesList is List) ...[
+            // Show images if cmCheckListSiteRespImagesList is not null and has items - use ImageUploadField
+            if (hasImages) ...[
               const SizedBox(height: 16),
-              ...imagesList.asMap().entries.map((entry) {
+              ...(imagesList as List).asMap().entries.map((entry) {
                 final imgIndex = entry.key;
                 final imageData = entry.value;
                 final photoId = imageData is Map<String, dynamic> 
                     ? (imageData['photoId'] ?? imageData['photo_id'])?.toString()
                     : null;
                 
-                // Try to get loaded image, or use a unique key for this specific image
-                final imageKey = photoId != null ? '$checklistId-$photoId' : '$checklistId-$imgIndex';
-                final loadedImageUrl = _loadedImages[checklistId] ?? _loadedImages[imageKey];
+                // Use unique key for each image: checklistId-photoId
+                // IMPORTANT: Use the same checklistId resolution logic as in _loadImagesForChecklistItems
+                final itemChecklistId = item['cmCheckListMstId']?.toString() ??
+                    item['cm_check_list_mst_id']?.toString() ??
+                    item['cmCheckListSiteRespId']?.toString() ??
+                    item['cm_check_list_site_resp_id']?.toString() ??
+                    checklistId; // Fallback to the one from outer scope
+                    
+                final imageKey = photoId != null ? '$itemChecklistId-$photoId' : '$itemChecklistId-$imgIndex';
+                
+                // Try multiple lookup strategies to find the image
+                String? loadedImageUrl = _loadedImages[imageKey];
+                if (loadedImageUrl == null || loadedImageUrl.isEmpty) {
+                  loadedImageUrl = _loadedImages[checklistId];
+                }
+                if ((loadedImageUrl == null || loadedImageUrl.isEmpty) && photoId != null) {
+                  // Try by photoId alone (in case it was stored differently)
+                  for (var key in _loadedImages.keys) {
+                    if (key.contains(photoId)) {
+                      final foundImage = _loadedImages[key];
+                      if (foundImage != null && foundImage.isNotEmpty) {
+                        loadedImageUrl = foundImage;
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // Only pass non-null, non-empty image data
+                final validImageUrl = (loadedImageUrl != null && loadedImageUrl.isNotEmpty) ? loadedImageUrl : null;
+                
+                Logger.infoLog('[CM EditView] NUMERIC/TEXT/DYNAMIC_NUMERIC Image lookup - itemChecklistId: $itemChecklistId, checklistId: $checklistId, photoId: $photoId, imageKey: $imageKey, loadedImageUrl: ${validImageUrl != null ? "EXISTS (${validImageUrl.length} chars)" : "NULL/EMPTY"}, available keys: ${_loadedImages.keys.take(5).join(", ")}...');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: ImageUploadField(
-                          label: 'Image ${imgIndex + 1}',
-                          placeholder: 'Image',
-                          isRequired: false,
-                          isDisabled: true, // Always disabled in edit/view mode
-                          externalImageUrl: loadedImageUrl,
-                          onImageSelected: (File? file) {}, // No-op
-                        ),
+                      // Show debug info
+                      Text(
+                        'Image Key: $imageKey | PhotoId: $photoId | HasData: ${validImageUrl != null}',
+                        style: const TextStyle(color: Colors.grey, fontSize: 10),
                       ),
-                      if (loadedImageUrl != null) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.visibility, color: Colors.white),
-                          onPressed: () => _showPhotoViewer(context, loadedImageUrl),
-                          tooltip: 'View image',
-                        ),
-                      ],
+                      const SizedBox(height: 4),
+                      ImageUploadField(
+                        label: 'Photo ${imgIndex + 1}',
+                        placeholder: 'Image',
+                        isRequired: false,
+                        isDisabled: true, // Read-only in edit/view mode
+                        externalImageUrl: validImageUrl, // Pass only valid image data (not empty strings)
+                        onImageSelected: (File? file) {}, // No-op in edit/view mode
+                      ),
                     ],
                   ),
                 );
@@ -706,9 +908,18 @@ class _CMEditViewChecklistWidgetState
               ],
             ),
 
-            // Show images if cmCheckListSiteRespImagesList is not null and has items
+            // Show images if cmCheckListSiteRespImagesList is not null and has items - use ImageUploadField
             if (hasImages && imagesList is List) ...[
               const SizedBox(height: 16),
+              // TEST: Just show "image" text to verify detection
+              Text(
+                'image',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               ...imagesList.asMap().entries.map((entry) {
                 final imgIndex = entry.key;
                 final imageData = entry.value;
@@ -716,33 +927,22 @@ class _CMEditViewChecklistWidgetState
                     ? (imageData['photoId'] ?? imageData['photo_id'])?.toString()
                     : null;
                 
-                // Try to get loaded image, or use a unique key for this specific image
+                // Use unique key for each image: checklistId-photoId
                 final imageKey = photoId != null ? '$checklistId-$photoId' : '$checklistId-$imgIndex';
-                final loadedImageUrl = _loadedImages[checklistId] ?? _loadedImages[imageKey];
+                // Try to get loaded image using the unique key
+                final loadedImageUrl = _loadedImages[imageKey] ?? _loadedImages[checklistId];
+                
+                Logger.infoLog('[CM EditView] CHECKBOX Image lookup - checklistId: $checklistId, photoId: $photoId, imageKey: $imageKey, loadedImageUrl: ${loadedImageUrl != null ? "EXISTS (${loadedImageUrl.length} chars)" : "NULL"}');
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ImageUploadField(
-                          label: 'Image ${imgIndex + 1}',
-                          placeholder: 'Image',
-                          isRequired: false,
-                          isDisabled: true,
-                          externalImageUrl: loadedImageUrl,
-                          onImageSelected: (File? file) {},
-                        ),
-                      ),
-                      if (loadedImageUrl != null) ...[
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: const Icon(Icons.visibility, color: Colors.white),
-                          onPressed: () => _showPhotoViewer(context, loadedImageUrl),
-                          tooltip: 'View image',
-                        ),
-                      ],
-                    ],
+                  child: ImageUploadField(
+                    label: 'Photo ${imgIndex + 1}',
+                    placeholder: 'Image',
+                    isRequired: false,
+                    isDisabled: true, // Read-only in edit/view mode
+                    externalImageUrl: loadedImageUrl, // Pass loaded image data
+                    onImageSelected: (File? file) {}, // No-op in edit/view mode
                   ),
                 );
               }).toList(),
@@ -768,9 +968,10 @@ class _CMEditViewChecklistWidgetState
                     ? (imageData['photoId'] ?? imageData['photo_id'])?.toString()
                     : null;
                 
-                // Try to get loaded image, or use a unique key for this specific image
+                // Use unique key for each image: checklistId-photoId
                 final imageKey = photoId != null ? '$checklistId-$photoId' : '$checklistId-$imgIndex';
-                final loadedImageUrl = _loadedImages[checklistId] ?? _loadedImages[imageKey];
+                // Try to get loaded image using the unique key first (since that's how it's stored)
+                final loadedImageUrl = _loadedImages[imageKey] ?? _loadedImages[checklistId];
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
