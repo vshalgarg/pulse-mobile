@@ -200,12 +200,14 @@ class _CMEditViewChecklistWidgetState
 
   Future<void> _loadImageForItem(String photoId, String checklistId) async {
     try {
-      // First check cache
+      Logger.infoLog('[CM EditView] Starting to load image - photoId: $photoId, checklistId: $checklistId');
+      
+      // First check cache/SQLite by server_id
       final cachedImage = await ServiceLocator().imageUploadService
           .getImagesByServerId(photoId);
 
-      if (cachedImage != null && cachedImage.imageData != null) {
-        Logger.infoLog('[CM EditView] Image loaded from cache - photoId: $photoId, checklistId: $checklistId, imageData length: ${cachedImage.imageData!.length}');
+      if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
+        Logger.infoLog('[CM EditView] Image loaded from cache/SQLite - photoId: $photoId, checklistId: $checklistId, imageData length: ${cachedImage.imageData!.length}');
         setState(() {
           _loadedImages[checklistId] = cachedImage.imageData;
         });
@@ -215,6 +217,9 @@ class _CMEditViewChecklistWidgetState
       // Try to download if online
       final isOnline = await ConnectivityHelper.isConnected();
       if (isOnline) {
+        Logger.infoLog('[CM EditView] Image not in cache, downloading from server - photoId: $photoId');
+        
+        // Download image from server and save to SQLite (downloadImageUsingServerId does both)
         final uniqueId = await ServiceLocator().imageUploadService
             .downloadImageUsingServerId(
           photoId,
@@ -223,21 +228,29 @@ class _CMEditViewChecklistWidgetState
         );
 
         if (uniqueId != null) {
+          Logger.infoLog('[CM EditView] Image downloaded and saved to SQLite - photoId: $photoId, uniqueId: $uniqueId, retrieving base64 data...');
+          
+          // Retrieve base64 image data from SQLite using uniqueId
           final imageData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(uniqueId);
 
-          if (imageData != null && mounted) {
-            Logger.infoLog('[CM EditView] Image loaded from server - photoId: $photoId, checklistId: $checklistId, imageData length: ${imageData.length}');
+          if (imageData != null && imageData.isNotEmpty && mounted) {
+            Logger.infoLog('[CM EditView] ✅ Image loaded successfully - photoId: $photoId, checklistId: $checklistId, imageData length: ${imageData.length}, first 50 chars: ${imageData.substring(0, imageData.length > 50 ? 50 : imageData.length)}');
             setState(() {
               _loadedImages[checklistId] = imageData;
             });
           } else {
-            Logger.errorLog('[CM EditView] Image not loaded - photoId: $photoId, checklistId: $checklistId, imageData: ${imageData != null}, mounted: $mounted');
+            Logger.errorLog('[CM EditView] ❌ Image data is null or empty after download - photoId: $photoId, checklistId: $checklistId, uniqueId: $uniqueId, imageData: ${imageData != null ? "EXISTS but empty" : "NULL"}, mounted: $mounted');
           }
+        } else {
+          Logger.errorLog('[CM EditView] ❌ Failed to download image - photoId: $photoId, downloadImageUsingServerId returned null');
         }
+      } else {
+        Logger.infoLog('[CM EditView] ⚠️ No internet connection, cannot download image - photoId: $photoId');
       }
-    } catch (e) {
-      Logger.errorLog('[CM EditView] Error loading image $photoId: $e');
+    } catch (e, stackTrace) {
+      Logger.errorLog('[CM EditView] ❌ Error loading image $photoId: $e');
+      Logger.errorLog('[CM EditView] Stack trace: $stackTrace');
     }
   }
 
@@ -862,24 +875,13 @@ class _CMEditViewChecklistWidgetState
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Show debug info
-                      Text(
-                        'Image Key: $imageKey | PhotoId: $photoId | HasData: ${validImageUrl != null}',
-                        style: const TextStyle(color: Colors.grey, fontSize: 10),
-                      ),
-                      const SizedBox(height: 4),
-                      ImageUploadField(
-                        label: 'Photo ${imgIndex + 1}',
-                        placeholder: 'Image',
-                        isRequired: false,
-                        isDisabled: true, // Read-only in edit/view mode
-                        externalImageUrl: validImageUrl, // Pass only valid image data (not empty strings)
-                        onImageSelected: (File? file) {}, // No-op in edit/view mode
-                      ),
-                    ],
+                  child: ImageUploadField(
+                    label: null, // No label
+                    placeholder: 'Image',
+                    isRequired: false,
+                    isDisabled: true, // Read-only in edit/view mode
+                    externalImageUrl: validImageUrl, // Pass only valid image data (not empty strings)
+                    onImageSelected: (File? file) {}, // No-op in edit/view mode
                   ),
                 );
               }).toList(),
@@ -911,15 +913,6 @@ class _CMEditViewChecklistWidgetState
             // Show images if cmCheckListSiteRespImagesList is not null and has items - use ImageUploadField
             if (hasImages && imagesList is List) ...[
               const SizedBox(height: 16),
-              // TEST: Just show "image" text to verify detection
-              Text(
-                'image',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
               ...imagesList.asMap().entries.map((entry) {
                 final imgIndex = entry.key;
                 final imageData = entry.value;
@@ -937,8 +930,8 @@ class _CMEditViewChecklistWidgetState
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 16),
                   child: ImageUploadField(
-                    label: 'Photo ${imgIndex + 1}',
-                    placeholder: 'Image',
+                    label: null, // No label
+                    placeholder: '',
                     isRequired: false,
                     isDisabled: true, // Read-only in edit/view mode
                     externalImageUrl: loadedImageUrl, // Pass loaded image data
@@ -979,8 +972,8 @@ class _CMEditViewChecklistWidgetState
                     children: [
                       Expanded(
                         child: ImageUploadField(
-                          label: 'Image ${imgIndex + 1}',
-                          placeholder: 'Image',
+                          label: null, // No label
+                          placeholder: '',
                           isRequired: false,
                           isDisabled: true,
                           externalImageUrl: loadedImageUrl,
