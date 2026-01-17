@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'cm_custom_widget.dart';
+import 'cm_edit_view_checklist.dart';
 
 class ChecklistCreateWidget extends StatefulWidget {
   final String equipmentType;
@@ -209,34 +210,41 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                        ..._checklistItems.asMap().entries.map((entry) {
-                          final index = entry.key;
-                          final checklistItem = entry.value;
+                        // Use CMEditViewChecklistWidget for edit/view mode, CMCustomWidget for create mode
+                        if (!widget.isEditable)
+                          // Edit/View mode - use new widget
+                          CMEditViewChecklistWidget(
+                            equipmentType: widget.equipmentType,
+                            checklistItemsByApi: widget.checklistItemsByApi,
+                            entityId: widget.entityId,
+                            onChecklistDataChanged: widget.onChecklistDataChanged,
+                            onImpactedItemListChanged: widget.onImpactedItemListChanged,
+                            originalCmImpactedItemMap: widget.originalCmImpactedItemMap,
+                            cmImpactedItemList: widget.cmImpactedItemList,
+                            onMultiDynamicDropdownValueChanged: widget.onMultiDynamicDropdownValueChanged,
+                          )
+                        else
+                          // Create mode - use existing CMCustomWidget
+                          ..._checklistItems.asMap().entries.map((entry) {
+                            final index = entry.key;
+                            final checklistItem = entry.value;
 
-                          // If not editable (edit/view mode), add all checklist descriptions to readonlyFields
-                          final readonlyFields = !widget.isEditable
-                              ? _checklistItems
-                                  .map((item) => item['checklist_desc']?.toString() ?? '')
-                                  .where((desc) => desc.isNotEmpty)
-                                  .toList()
-                              : <String>[];
-
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 16.0),
-                            child: CMCustomWidget(
-                              key: ValueKey('checklist_item_${checklistItem['item_type_id']}_$index'),
-                              pmItem: checklistItem,
-                              readonlyFields: readonlyFields,
-                              onValueChanged: (updatedItem) {
-                                _onItemChanged(index, updatedItem);
-                              },
-                              onImpactedItemListChanged: widget.onImpactedItemListChanged,
-                              originalCmImpactedItemMap: widget.originalCmImpactedItemMap,
-                              cmImpactedItemList: widget.cmImpactedItemList,
-                              onMultiDynamicDropdownValueChanged: widget.onMultiDynamicDropdownValueChanged,
-                            ),
-                          );
-                        }).toList(),
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16.0),
+                              child: CMCustomWidget(
+                                key: ValueKey('checklist_item_${checklistItem['item_type_id']}_$index'),
+                                pmItem: checklistItem,
+                                readonlyFields: <String>[], // Empty for create mode
+                                onValueChanged: (updatedItem) {
+                                  _onItemChanged(index, updatedItem);
+                                },
+                                onImpactedItemListChanged: widget.onImpactedItemListChanged,
+                                originalCmImpactedItemMap: widget.originalCmImpactedItemMap,
+                                cmImpactedItemList: widget.cmImpactedItemList,
+                                onMultiDynamicDropdownValueChanged: widget.onMultiDynamicDropdownValueChanged,
+                              ),
+                            );
+                          }).toList(),
                     ],
                 ),
               ),
