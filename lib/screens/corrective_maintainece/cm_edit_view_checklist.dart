@@ -254,28 +254,40 @@ class _CMEditViewChecklistWidgetState
     }
   }
 
-  Future<void> _loadImageForImpactedItem(String photoId, String imageKey) async {
+  /// Load image for impacted item and return the image data directly
+  Future<String?> _loadImageForImpactedItem(String photoId, String imageKey) async {
     try {
-      // First check cache
+      Logger.infoLog('[CM EditView] Starting to load impacted item image - photoId: $photoId, imageKey: $imageKey');
+      
+      // First check cache/SQLite by server_id
       final cachedImage = await ServiceLocator().imageUploadService
           .getImagesByServerId(photoId);
 
-      if (cachedImage != null && cachedImage.imageData != null) {
-        setState(() {
-          final parts = imageKey.split('-');
-          if (parts.length >= 2) {
-            final serialNo = parts[0];
-            final checklistId = parts[1];
-            _impactedItemImages[serialNo] ??= {};
-            _impactedItemImages[serialNo]![checklistId] = cachedImage.imageData;
+      if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
+        Logger.infoLog('[CM EditView] Impacted item image loaded from cache/SQLite - photoId: $photoId, imageKey: $imageKey, imageData length: ${cachedImage.imageData!.length}');
+        final parts = imageKey.split('-');
+        if (parts.length >= 2) {
+          final serialNo = parts[0];
+          final checklistId = parts[1];
+          final imageData = cachedImage.imageData;
+          // Update state and return the image data
+          if (mounted) {
+            setState(() {
+              _impactedItemImages[serialNo] ??= {};
+              _impactedItemImages[serialNo]![checklistId] = imageData;
+            });
           }
-        });
-        return;
+          return imageData;
+        }
+        return null;
       }
 
       // Try to download if online
       final isOnline = await ConnectivityHelper.isConnected();
       if (isOnline) {
+        Logger.infoLog('[CM EditView] Impacted item image not in cache, downloading from server - photoId: $photoId');
+        
+        // Download image from server and save to SQLite (downloadImageUsingServerId does both)
         final uniqueId = await ServiceLocator().imageUploadService
             .downloadImageUsingServerId(
           photoId,
@@ -284,35 +296,69 @@ class _CMEditViewChecklistWidgetState
         );
 
         if (uniqueId != null) {
+          Logger.infoLog('[CM EditView] Impacted item image downloaded and saved to SQLite - photoId: $photoId, uniqueId: $uniqueId, retrieving base64 data...');
+          
+          // Retrieve base64 image data from SQLite using uniqueId
           final imageData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(uniqueId);
 
-          if (imageData != null && mounted) {
-            setState(() {
-              final parts = imageKey.split('-');
-              if (parts.length >= 2) {
-                final serialNo = parts[0];
-                final checklistId = parts[1];
+          if (imageData != null && imageData.isNotEmpty && mounted) {
+            Logger.infoLog('[CM EditView] ✅ Impacted item image loaded successfully - photoId: $photoId, imageKey: $imageKey, imageData length: ${imageData.length}');
+            final parts = imageKey.split('-');
+            if (parts.length >= 2) {
+              final serialNo = parts[0];
+              final checklistId = parts[1];
+              // Update state and return the image data
+              setState(() {
                 _impactedItemImages[serialNo] ??= {};
                 _impactedItemImages[serialNo]![checklistId] = imageData;
-              }
-            });
+              });
+            }
+            return imageData;
+          } else {
+            Logger.errorLog('[CM EditView] ❌ Impacted item image data is null or empty after download - photoId: $photoId, imageKey: $imageKey, uniqueId: $uniqueId, imageData: ${imageData != null ? "EXISTS but empty" : "NULL"}, mounted: $mounted');
+            return null;
           }
+        } else {
+          Logger.errorLog('[CM EditView] ❌ Failed to download impacted item image - photoId: $photoId, downloadImageUsingServerId returned null');
+          return null;
         }
+      } else {
+        Logger.infoLog('[CM EditView] ⚠️ No internet connection, cannot download impacted item image - photoId: $photoId');
+        return null;
       }
-    } catch (e) {
-      Logger.errorLog('[CM EditView] Error loading impacted item image $photoId: $e');
+    } catch (e, stackTrace) {
+      Logger.errorLog('[CM EditView] ❌ Error loading impacted item image $photoId: $e');
+      Logger.errorLog('[CM EditView] Stack trace: $stackTrace');
+      return null;
     }
   }
 
-  /// Load image for impacted item on demand (when camera icon is clicked)
-  Future<void> _loadImageForImpactedItemOnDemand(
+  /// Load image for impacted item on demand (when camera icon is clicked) and return the image data
+  Future<String?> _loadImageForImpactedItemOnDemand(
     String photoId,
     String serialNo,
     String checklistId,
   ) async {
     final imageKey = '$serialNo-$checklistId';
-    await _loadImageForImpactedItem(photoId, imageKey);
+    
+    // Check if already loaded
+    String? existingImageData = _impactedItemImages[serialNo]?[checklistId];
+    if (existingImageData != null && existingImageData.isNotEmpty) {
+      Logger.infoLog('[CM EditView] Image already loaded for impacted item - photoId: $photoId, imageKey: $imageKey');
+      return existingImageData;
+    }
+    
+    // Load the image and get the returned image data directly
+    final loadedImageData = await _loadImageForImpactedItem(photoId, imageKey);
+    
+    if (loadedImageData != null && loadedImageData.isNotEmpty) {
+      Logger.infoLog('[CM EditView] Successfully loaded impacted item image on demand - photoId: $photoId, imageKey: $imageKey, length: ${loadedImageData.length}');
+      return loadedImageData;
+    } else {
+      Logger.errorLog('[CM EditView] Failed to load impacted item image on demand - photoId: $photoId, imageKey: $imageKey');
+      return null;
+    }
   }
 
   /// Load and show image for impacted item when camera icon is clicked
@@ -330,22 +376,15 @@ class _CMEditViewChecklistWidgetState
       if (firstImage is Map<String, dynamic>) {
         final photoId = firstImage['photoId'] ?? firstImage['photo_id'];
         if (photoId != null) {
-          // Check if already loaded
-          String? imageData = _impactedItemImages[serialNo]?[checklistId];
-          
-          if (imageData == null) {
-            // Load the image
-            await _loadImageForImpactedItemOnDemand(
-              photoId.toString(),
-              serialNo,
-              checklistId,
-            );
-            // Get the loaded image
-            imageData = _impactedItemImages[serialNo]?[checklistId];
-          }
+          // Try to load the image (returns image data if successful)
+          final imageData = await _loadImageForImpactedItemOnDemand(
+            photoId.toString(),
+            serialNo,
+            checklistId,
+          );
           
           // Show image viewer
-          if (imageData != null && context.mounted) {
+          if (imageData != null && imageData.isNotEmpty && context.mounted) {
             _showPhotoViewer(context, imageData);
           } else if (context.mounted) {
             // Show loading or error message
@@ -559,12 +598,17 @@ class _CMEditViewChecklistWidgetState
         final mfgSerialNo = impactedItem['mfgSerialNo']?.toString() ??
             impactedItem['mfg_serial_no']?.toString() ??
             '';
+        Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - impactedItem mfgSerialNo: $mfgSerialNo');
         if (mfgSerialNo.isNotEmpty) {
           groupedBySerial[mfgSerialNo] ??= [];
           groupedBySerial[mfgSerialNo]!.add(Map<String, dynamic>.from(impactedItem));
+        } else {
+          Logger.errorLog('[CM EditView] DYNAMIC_DROPDOWN - mfgSerialNo is empty for impactedItem');
         }
       }
     }
+    
+    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - groupedBySerial keys: ${groupedBySerial.keys.toList()}');
     
     // Create a map for quick lookup: serialNo -> {childId -> response}
     final serialToChildResponses = <String, Map<int, Map<String, dynamic>>>{};
@@ -613,9 +657,6 @@ class _CMEditViewChecklistWidgetState
                 const DataColumn(
                   label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
-                const DataColumn(
-                  label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
                 // Dynamic columns based on child items
                 ...childItems.map((childItem) {
                   final childChecklistDesc = childItem['checklist_desc']?.toString() ??
@@ -624,41 +665,20 @@ class _CMEditViewChecklistWidgetState
                     label: Text(childChecklistDesc, style: const TextStyle(fontWeight: FontWeight.bold)),
                   );
                 }).toList(),
-                // Edit column (only in edit mode)
-                if (widget.isEditMode)
-                  const DataColumn(
-                    label: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
               ],
               rows: groupedBySerial.entries.map((entry) {
                 final serialNo = entry.key;
                 final childResponses = serialToChildResponses[serialNo] ?? {};
                 
-                // Get first item to check scanned status
-                final firstItem = entry.value.isNotEmpty ? entry.value.first : <String, dynamic>{};
-                final isScanned = firstItem['isScanned'] == true ||
-                    firstItem['is_scanned'] == true;
-                
                 return DataRow(
                   cells: [
-                    // Serial Number cell
+                    // Serial Number cell (non-editable in both edit and view mode)
                     DataCell(
-                      widget.isEditMode
-                          ? TextFormField(
-                              initialValue: serialNo,
-                              style: const TextStyle(fontSize: 14),
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              ),
-                              onChanged: (value) {
-                                // Handle serial number change in edit mode
-                              },
-                            )
-                          : Text(serialNo),
+                      Text(
+                        serialNo,
+                        style: const TextStyle(fontSize: 14, color: Colors.black),
+                      ),
                     ),
-                    // Scanned cell
-                    DataCell(Text(isScanned ? 'Yes' : 'No')),
                     // Dynamic cells for each child item
                     ...childItems.map((childItem) {
                       final childId = childItem['cm_check_list_mst_id'] as int? ??
@@ -766,16 +786,6 @@ class _CMEditViewChecklistWidgetState
                         ),
                       );
                     }).toList(),
-                    // Edit cell (only in edit mode)
-                    if (widget.isEditMode)
-                      DataCell(
-                        IconButton(
-                          icon: const Icon(Icons.edit, size: 20),
-                          onPressed: () {
-                            // TODO: Implement edit functionality
-                          },
-                        ),
-                      ),
                   ],
                 );
               }).toList(),
@@ -824,7 +834,7 @@ class _CMEditViewChecklistWidgetState
             CustomFormField(
               label: checklistDesc,
               initialValue: resp?.toString() ?? '',
-              isEditable: widget.isEditMode, // Editable in edit mode, disabled in view mode
+              isEditable: false, // Non-editable in both edit and view mode
               inputType: respType == 'NUMERIC' || respType == 'DYNAMIC_NUMERIC'
                   ? InputType.number
                   : InputType.text,
@@ -895,11 +905,7 @@ class _CMEditViewChecklistWidgetState
                       resp == true ||
                       resp == 'True' ||
                       resp == 'TRUE',
-                  onChanged: widget.isEditMode
-                      ? (bool? value) {
-                          // Handle checkbox change in edit mode
-                        }
-                      : null, // Read-only in view mode
+                  onChanged: null, // Non-editable in both edit and view mode
                 ),
                 Expanded(
                   child: Text(
@@ -948,7 +954,7 @@ class _CMEditViewChecklistWidgetState
             CustomFormField(
               label: checklistDesc,
               initialValue: resp?.toString() ?? '',
-              isEditable: widget.isEditMode,
+              isEditable: false, // Non-editable in both edit and view mode
             ),
 
             // Show images if cmCheckListSiteRespImagesList is not null and has items
