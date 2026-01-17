@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'cm_custom_widget.dart';
 import 'cm_edit_view_checklist.dart';
+import '../../enum/corrective_maintenance_screen_mode_enum.dart';
 
 class ChecklistCreateWidget extends StatefulWidget {
   final String equipmentType;
@@ -13,6 +14,7 @@ class ChecklistCreateWidget extends StatefulWidget {
   final Map<String, dynamic> originalCmImpactedItemMap;
   final Function(List<Map<String, dynamic>>, String) onMultiDynamicDropdownValueChanged;
   final bool isEditable;
+  final CMScreenModeEnum? mode; // Optional mode to distinguish edit vs view
 
   const ChecklistCreateWidget({
     super.key,
@@ -25,6 +27,7 @@ class ChecklistCreateWidget extends StatefulWidget {
     required this.originalCmImpactedItemMap,
     required this.onMultiDynamicDropdownValueChanged,
     this.isEditable = true,
+    this.mode,
   });
 
   @override
@@ -222,6 +225,7 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
                             originalCmImpactedItemMap: widget.originalCmImpactedItemMap,
                             cmImpactedItemList: widget.cmImpactedItemList,
                             onMultiDynamicDropdownValueChanged: widget.onMultiDynamicDropdownValueChanged,
+                            isEditMode: widget.mode == CMScreenModeEnum.edit, // true for edit, false for view
                           )
                         else
                           // Create mode - use existing CMCustomWidget

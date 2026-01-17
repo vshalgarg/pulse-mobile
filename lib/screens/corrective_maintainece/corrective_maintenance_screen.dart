@@ -1029,9 +1029,56 @@ class _CorrectiveMaintenanceScreenState
             }
           }
           
-          // Get existing responses from preloadedSiteData
-          final existingResponses = widget.preloadedSiteData?['cmCheckListSiteRespList'] ?? 
-                                   widget.preloadedSiteData?['cm_check_list_site_resp_list'] ?? [];
+          // Get existing responses from API endpoint /mobile/correctiveMaintenanceForMobile/
+          List<dynamic> existingResponses = [];
+          
+          // First, try to get from preloadedSiteData (handle nested structure)
+          Map<String, dynamic>? preloadedData = widget.preloadedSiteData;
+          if (preloadedData != null) {
+            // Handle nested data structure if present
+            if (preloadedData.containsKey('data') && preloadedData['data'] is Map<String, dynamic>) {
+              preloadedData = Map<String, dynamic>.from(preloadedData['data']);
+            }
+            
+            existingResponses = preloadedData['cmCheckListSiteRespList'] ?? 
+                               preloadedData['cm_check_list_site_resp_list'] ?? [];
+          }
+          
+          // If not found in preloadedSiteData and we have cmSiteReqId, fetch from API
+          if (existingResponses.isEmpty && cmSiteReqId != null && cmSiteReqId! > 0) {
+            Logger.infoLog('[CM] Checklist responses not found in preloadedSiteData, fetching from API for cmSiteReqId: $cmSiteReqId');
+            
+            final isOnline = await ConnectivityHelper.isConnected();
+            if (isOnline) {
+              try {
+                final ticketData = await ServiceLocator().cmRepository.getCmTicketData(cmSiteReqId!);
+                
+                // Extract cmCheckListSiteRespList from API response
+                existingResponses = ticketData['cmCheckListSiteRespList'] ?? 
+                                   ticketData['cm_check_list_site_resp_list'] ?? [];
+                
+                Logger.infoLog('[CM] Fetched ${existingResponses.length} checklist responses from API');
+                
+                // Also update preloadedSiteData with the fetched data for consistency
+                if (mounted && existingResponses.isNotEmpty) {
+                  // Update the preloadedSiteData structure if needed
+                  if (widget.preloadedSiteData != null) {
+                    Map<String, dynamic> updatedPreloadedData = Map<String, dynamic>.from(widget.preloadedSiteData!);
+                    if (updatedPreloadedData.containsKey('data') && updatedPreloadedData['data'] is Map<String, dynamic>) {
+                      (updatedPreloadedData['data'] as Map<String, dynamic>)['cmCheckListSiteRespList'] = existingResponses;
+                    } else {
+                      updatedPreloadedData['cmCheckListSiteRespList'] = existingResponses;
+                    }
+                  }
+                }
+              } catch (apiError) {
+                Logger.errorLog('[CM] Error fetching checklist responses from API: $apiError');
+                // Continue with empty responses if API call fails
+              }
+            } else {
+              Logger.infoLog('[CM] Offline mode - cannot fetch checklist responses from API');
+            }
+          }
           
           Logger.infoLog('[CM] Found ${existingResponses.length} existing checklist responses');
           
@@ -1047,9 +1094,9 @@ class _CorrectiveMaintenanceScreenState
             });
           }
           
-          Logger.infoLog('[CM] Merged checklist data prepared for edit mode');
+          Logger.infoLog('[CM] Merged checklist data prepared for edit/view mode');
         } catch (e) {
-          Logger.errorLog('[CM] Error loading checklist template in edit mode: $e');
+          Logger.errorLog('[CM] Error loading checklist template in edit/view mode: $e');
           // Continue with empty checklist if loading fails
         }
       }
@@ -1081,33 +1128,46 @@ class _CorrectiveMaintenanceScreenState
       mergedData['siteDeployedItems'] = checklistTemplate['siteDeployedItems'];
     }
     
-    // Group existing responses by equipment type
+    // Group existing responses by equipment type (normalize to uppercase for matching)
     final responsesByType = <String, List<Map<String, dynamic>>>{};
+    Logger.infoLog('[CM] Processing ${existingResponses.length} existing responses for merging');
     for (var response in existingResponses) {
       if (response is Map<String, dynamic>) {
         final itemType = response['cmItemType']?.toString() ?? 
                         response['cm_item_type']?.toString() ?? '';
-        if (itemType.isNotEmpty) {
-          if (!responsesByType.containsKey(itemType)) {
-            responsesByType[itemType] = [];
+        final normalizedItemType = itemType.toUpperCase(); // Normalize to uppercase
+        final mstId = response['cmCheckListMstId'] ?? response['cm_check_list_mst_id'];
+        final resp = response['resp'];
+        Logger.infoLog('[CM] Response itemType: $itemType (normalized: $normalizedItemType), mstId: $mstId, resp: $resp');
+        if (normalizedItemType.isNotEmpty) {
+          if (!responsesByType.containsKey(normalizedItemType)) {
+            responsesByType[normalizedItemType] = [];
           }
-          responsesByType[itemType]!.add(response);
+          responsesByType[normalizedItemType]!.add(response);
+        } else {
+          Logger.infoLog('[CM] Response has empty itemType, mstId: $mstId');
         }
       }
     }
+    Logger.infoLog('[CM] Grouped responses by type: ${responsesByType.keys.toList()}');
     
     // Merge each equipment type
     for (var entry in checklistTemplate.entries) {
       final equipmentType = entry.key;
+      final normalizedEquipmentType = equipmentType.toUpperCase(); // Normalize to uppercase for matching
       final templateItems = entry.value;
       
       if (equipmentType == 'siteDeployedItems') {
         continue; // Skip, already handled
       }
       
+      Logger.infoLog('[CM] Processing equipment type: $equipmentType (normalized: $normalizedEquipmentType)');
+      
       if (templateItems is List) {
         final mergedItems = <Map<String, dynamic>>[];
-        final existingItemsForType = responsesByType[equipmentType] ?? [];
+        // Match using normalized (uppercase) equipment type
+        final existingItemsForType = responsesByType[normalizedEquipmentType] ?? [];
+        Logger.infoLog('[CM] Found ${existingItemsForType.length} existing responses for $equipmentType');
         
         // Create a map of existing responses by cmCheckListMstId for quick lookup
         final existingResponsesMap = <int, Map<String, dynamic>>{};
@@ -1130,10 +1190,30 @@ class _CorrectiveMaintenanceScreenState
             if (mstId != null && existingResponsesMap.containsKey(mstId)) {
               final existingResponse = existingResponsesMap[mstId]!;
               
-              // Merge response data
+              Logger.infoLog('[CM] Merging response for mstId: $mstId, resp: ${existingResponse['resp']}');
+              
+              // Merge response data - preserve resp even if null
               mergedItem['resp'] = existingResponse['resp'];
               mergedItem['cm_check_list_site_resp_id'] = existingResponse['cmCheckListSiteRespId'] ?? 
                                                          existingResponse['cm_check_list_site_resp_id'];
+              
+              // Also merge respType if present in response (in case it differs)
+              if (existingResponse.containsKey('respType')) {
+                mergedItem['respType'] = existingResponse['respType'];
+              }
+              if (existingResponse.containsKey('resp_type')) {
+                mergedItem['resp_type'] = existingResponse['resp_type'];
+              }
+              
+              // Merge cmImpactedItemList directly (for DYNAMIC_DROPDOWN)
+              final existingImpactedItems = existingResponse['cmImpactedItemList'] ?? 
+                                           existingResponse['CmImpactedItemList'] ?? 
+                                           existingResponse['cm_impacted_item_list'] ?? [];
+              if (existingImpactedItems is List && existingImpactedItems.isNotEmpty) {
+                mergedItem['cmImpactedItemList'] = existingImpactedItems;
+                mergedItem['cm_impacted_item_list'] = existingImpactedItems; // Also set snake_case for compatibility
+                Logger.infoLog('[CM] Merged ${existingImpactedItems.length} impacted items for mstId: $mstId');
+              }
               
               // Merge images and load image data from server
               final existingImages = existingResponse['CmCheckListSiteRespImagesList'] ?? 
@@ -1192,13 +1272,8 @@ class _CorrectiveMaintenanceScreenState
                 mergedItem['response_images'] = responseImages;
               }
               
-              // Store original cmImpactedItemList for display in edit/view mode
-              final originalImpactedItems = existingResponse['CmImpactedItemList'] ?? 
-                                           existingResponse['cmImpactedItemList'] ?? 
-                                           existingResponse['cm_impacted_item_list'] ?? [];
-              if (originalImpactedItems is List && originalImpactedItems.isNotEmpty) {
-                mergedItem['_originalCmImpactedItemList'] = originalImpactedItems;
-              }
+              // Store original cmImpactedItemList for display in edit/view mode (already merged above)
+              final originalImpactedItems = existingImpactedItems;
               
               // Merge impacted items (for dynamic dropdowns) and load their images
               final impactedItems = originalImpactedItems;
@@ -1290,12 +1365,20 @@ class _CorrectiveMaintenanceScreenState
               if (existingResponse.containsKey('resp_numeric')) {
                 mergedItem['resp_numeric'] = existingResponse['resp_numeric'];
               }
+            } else {
+              // No matching response found - log for debugging
+              Logger.infoLog('[CM] No matching response found for mstId: $mstId, equipmentType: $equipmentType, checklistDesc: ${mergedItem['checklistDesc'] ?? mergedItem['checklist_desc']}');
+              // Still add the item even without a match (template item without response)
+              // resp will remain null/empty from template
             }
             
+            // Log the final merged item to verify resp is set
+            Logger.infoLog('[CM] Final merged item - mstId: $mstId, checklistDesc: ${mergedItem['checklistDesc'] ?? mergedItem['checklist_desc']}, resp: ${mergedItem['resp']}, respType: ${mergedItem['respType'] ?? mergedItem['resp_type']}');
             mergedItems.add(mergedItem);
           }
         }
         
+        Logger.infoLog('[CM] Merged ${mergedItems.length} items for equipmentType: $equipmentType');
         mergedData[equipmentType] = mergedItems;
       } else {
         mergedData[equipmentType] = templateItems;
@@ -1473,6 +1556,7 @@ class _CorrectiveMaintenanceScreenState
             checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
             entityId: _selectedSite?.entityId.toString(),
             isEditable: false, // Not editable in edit mode (fields disabled, images shown but upload disabled)
+            mode: CMScreenModeEnum.edit, // Pass mode to distinguish edit vs view
             onChecklistDataChanged: (List<dynamic> updatedData) {
               setState(() {
                 _onFormChanged();
@@ -1515,6 +1599,7 @@ class _CorrectiveMaintenanceScreenState
             checklistItemsByApi: _checklistData[_selectedEquipmentType] ?? [],
             entityId: _selectedSite?.entityId.toString(),
             isEditable: false, // Not editable in view mode (fields disabled, images shown but upload disabled)
+            mode: CMScreenModeEnum.view, // Pass mode to distinguish edit vs view
             onChecklistDataChanged: (List<dynamic> updatedData) {
               // No-op in view mode
             },
