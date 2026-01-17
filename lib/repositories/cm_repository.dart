@@ -1,0 +1,420 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:app/utils/logger.dart';
+import 'package:dio/dio.dart';
+
+import '../models/cm_site_model.dart';
+import '../services/api_service.dart';
+import '../services/file_download_service.dart';
+
+class CMRepository {
+  final ApiService _apiService;
+
+  CMRepository(this._apiService);
+
+  Future<List<CMSite>> getCMSitesDropdown() async {
+    try {
+      Logger.debugLog('[CMRepository] Starting to fetch CM sites dropdown');
+      
+      final response = await _apiService.get<List<dynamic>>(
+        path: '/api/v1/mobile/cm/CmSitesDropdown',
+      );
+
+      Logger.debugLog('[CMRepository] API response received - Success: ${response.isSuccess}');
+
+      if (response.isSuccess && response.data != null) {
+        // Check if data is a list
+        if (response.data is List) {
+          final List<dynamic> rawData = response.data!;
+          Logger.debugLog('[CMRepository] Processing ${rawData.length} sites');
+          
+          final List<CMSite> sites = [];
+          for (int i = 0; i < rawData.length; i++) {
+            try {
+              final siteJson = rawData[i];
+              final site = CMSite.fromJson(siteJson);
+              sites.add(site);
+            } catch (e) {
+              Logger.errorLog('[CMRepository] Error parsing site at index $i: $e');
+              Logger.errorLog('[CMRepository] Problematic site data: ${rawData[i]}');
+              // Continue with other sites instead of crashing
+              continue;
+            }
+          }
+          
+          Logger.infoLog('[CMRepository] Successfully parsed ${sites.length} out of ${rawData.length} sites');
+          return sites;
+        } else {
+          Logger.errorLog('[CMRepository] Expected List but got ${response.data.runtimeType}');
+          throw Exception('Invalid response format: expected List but got ${response.data.runtimeType}');
+        }
+      } else {
+        Logger.errorLog('[CMRepository] API call failed: - Success: ${response.isSuccess} - Error: ${response.errorMessage} - Status Code: ${response.statusCode}');
+        throw Exception('Failed to load sites: ${response.errorMessage}');
+      }
+    } catch (e) {
+      Logger.errorLog('[CMRepository] Exception in getCMSitesDropdown: $e');
+      Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
+      throw Exception('Failed to load sites: $e');
+    }
+  }
+
+  Future<Map<String, dynamic>> getChecklistData(int entityId) async {
+    try {
+      Logger.infoLog('[CMRepository] 🔄 Calling getChecklistData API for entityId: $entityId');
+      
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/mobile/correctiveMaintenance/checkListDtlForMobile/$entityId/ALL',
+      );
+      
+      Logger.infoLog('[CMRepository] API Response - Success: ${response.isSuccess}, Has Data: ${response.data != null}');
+      
+      if (response.isSuccess && response.data != null) {
+        final responseData = response.data?['data'] as Map<String, dynamic>?;
+        if (responseData == null) {
+          Logger.errorLog('[CMRepository] ❌ data not found in response');
+          throw Exception('data not found in response');
+        }
+        
+        final data = responseData['checkListDetails'] as Map<String, dynamic>?;
+        if (data == null) {
+          Logger.errorLog('[CMRepository] ❌ checkListDetails not found in response');
+          throw Exception('checkListDetails not found in response');
+        }
+        
+        // Get siteDeployedItems from response
+        final siteDeployedItems = responseData['siteDeployedItems'] as Map<String, dynamic>? ?? {};
+        
+        // Debug: Log raw API response for CHECKBOX items to check for dependent_elements
+        // Also log the full raw response structure
+        Logger.infoLog('[CMRepository] 🔍 Full raw response.data structure: ${response.data?.keys.toList()}');
+        Logger.infoLog('[CMRepository] 🔍 response.data[data] keys: ${responseData.keys.toList()}');
+        Logger.infoLog('[CMRepository] 🔍 siteDeployedItems keys: ${siteDeployedItems.keys.toList()}');
+        
+        data.forEach((equipmentType, items) {
+          if (items is List) {
+            for (var item in items) {
+              if (item is Map && (item['resp_type'] == 'CHECKBOX' || item['resp_type'] == 'CHECKBOX_NUMERIC')) {
+                Logger.infoLog('[CMRepository] 🔍 CHECKBOX item found - checklist_desc: ${item['checklist_desc']}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item keys: ${item.keys.toList()}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item[dependent_elements]: ${item['dependent_elements']}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item[dependentElements]: ${item['dependentElements']}');
+                Logger.infoLog('[CMRepository] 🔍 Raw item full data: $item');
+                if (item['dependent_elements'] != null) {
+                  Logger.infoLog('[CMRepository] ✅ dependent_elements found in raw API response!');
+                } else {
+                  Logger.errorLog('[CMRepository] ❌ dependent_elements is NULL in API response for: ${item['checklist_desc']}');
+                }
+              }
+            }
+          }
+        });
+        
+        Logger.infoLog('[CMRepository] ✅ Checklist data received with ${data.keys.length} keys');
+        
+        // Return both checkListDetails and siteDeployedItems
+        return {
+          'checkListDetails': data,
+          'siteDeployedItems': siteDeployedItems,
+        };
+      } else {
+        Logger.errorLog('[CMRepository] ❌ Failed to load checklist: ${response.errorMessage}');
+        throw Exception('Failed to load checklist data: ${response.errorMessage}');
+      }
+    } catch (e) {
+      Logger.errorLog('[CMRepository] ❌ Exception in getChecklistData: $e');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> getCmTicketData(int cmTicketId) async {
+    try {
+
+      final response = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/mobile/correctiveMaintenanceForMobile/$cmTicketId',
+      );
+      if (response.isSuccess && response.data != null) {
+        return response.data?['data'] as Map<String, dynamic>;
+      } else {
+        throw Exception('Failed to load checklist data: ${response.errorMessage}');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Downloads document as binary data and saves to Downloads folder
+  /// Returns the file path where the document was saved
+  Future<String> downloadDocument(int id, String fileName) async {
+    try {
+      Logger.infoLog('[CMRepository] 🔄 Downloading document with ID: $id');
+      
+      // Use ApiService with ResponseType.bytes to get binary data
+      final response = await _apiService.get<Uint8List>(
+        path: '/api/v1/common/DocumentById/$id',
+        responseType: ResponseType.bytes,
+      );
+      
+      Logger.infoLog('[CMRepository] API Response - Success: ${response.isSuccess}, Status: ${response.statusCode}');
+      
+      if (!response.isSuccess || response.data == null) {
+        Logger.errorLog('[CMRepository] ❌ Failed to load document: ${response.errorMessage}');
+        Logger.errorLog('[CMRepository] Status code: ${response.statusCode}');
+        throw Exception('Failed to load document: ${response.errorMessage}');
+      }
+      
+      Logger.infoLog('[CMRepository] ✅ Document binary data received, size: ${(response.data as Uint8List).length} bytes');
+      
+      // Detect file type from binary data (magic bytes) if extension is missing
+      String finalFileName = fileName;
+      if (!fileName.contains('.')) {
+        final detectedExtension = _detectFileExtensionFromBytes(response.data as Uint8List);
+        if (detectedExtension != null) {
+          finalFileName = '$fileName$detectedExtension';
+          Logger.infoLog('[CMRepository] Detected file type: $detectedExtension, updated filename: $finalFileName');
+        } else {
+          // Fallback: default to .pdf if we can't detect
+          finalFileName = '$fileName.pdf';
+          Logger.infoLog('[CMRepository] Could not detect file type, defaulting to .pdf');
+        }
+      }
+      
+      // Use common file download service
+      final filePath = await FileDownloadService.downloadFileFromBytes(
+        data: response.data as Uint8List,
+        fileName: finalFileName,
+        requirePermission: false, // Permission is already checked in screen
+      );
+      
+      Logger.infoLog('[CMRepository] ✅ Document saved to: $filePath');
+      return filePath;
+    } catch (e) {
+      Logger.errorLog('[CMRepository] ❌ Exception in downloadDocument: $e');
+      Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
+      rethrow;
+    }
+  }
+
+  /// Legacy method - kept for backward compatibility but now downloads directly
+  /// This will be deprecated, use downloadDocument instead
+  Future<Map<String, dynamic>> getDocuments(int id) async {
+    try {
+      Logger.infoLog('[CMRepository] 🔄 Calling getDocuments API for id: $id');
+      
+      // Try to get as bytes first (if API returns binary)
+      final binaryResponse = await _apiService.get<Uint8List>(
+        path: '/api/v1/common/DocumentById/$id',
+        responseType: ResponseType.bytes,
+      );
+      
+      Logger.infoLog('[CMRepository] API Response - Success: ${binaryResponse.isSuccess}, Status: ${binaryResponse.statusCode}');
+      
+      if (binaryResponse.isSuccess && binaryResponse.data != null) {
+        Logger.infoLog('[CMRepository] ✅ Received binary data, converting to base64');
+        
+        // Convert binary to base64
+        final base64Data = base64Encode(binaryResponse.data as Uint8List);
+        
+        // Try to extract filename from response headers if available
+        String fileName = 'attachment_${DateTime.now().millisecondsSinceEpoch}';
+        
+        return {
+          'documentData': base64Data,
+          'fileName': fileName,
+        };
+      }
+      
+      // Fallback: Try as JSON (in case API returns JSON)
+      final jsonResponse = await _apiService.get<Map<String, dynamic>>(
+        path: '/api/v1/common/DocumentById/$id',
+        responseType: ResponseType.json,
+      );
+      
+      if (!jsonResponse.isSuccess || jsonResponse.data == null) {
+        Logger.errorLog('[CMRepository] ❌ Failed to load document: ${jsonResponse.errorMessage}');
+        throw Exception('Failed to load document: ${jsonResponse.errorMessage}');
+      }
+      
+      Logger.infoLog('[CMRepository] ✅ Document data received as JSON');
+      Logger.infoLog('[CMRepository] Response data type: ${jsonResponse.data.runtimeType}');
+      
+      if (jsonResponse.data is Map) {
+        final data = jsonResponse.data as Map<String, dynamic>;
+        if (data.containsKey('data')) {
+          if (data['data'] is Map) {
+            return data['data'] as Map<String, dynamic>;
+          } else if (data['data'] is String) {
+            return {'documentData': data['data']};
+          }
+        }
+        return data;
+      }
+      
+      throw Exception('Unexpected response format');
+    } catch (e) {
+      Logger.errorLog('[CMRepository] ❌ Exception in getDocuments: $e');
+      Logger.errorLog('[CMRepository] Stack trace: ${StackTrace.current}');
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> createCorrectiveMaintenance(Map<String, dynamic> requestData) async {
+    try {
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: '/api/v1/mobile/correctiveMaintenance',
+        data: requestData,
+      );
+
+      if(response.isSuccess && response.data != null) {
+
+        return response.data?['data'];
+      } else {
+        throw Exception("Error while saving data");
+      }
+    } catch(e) {
+
+      Logger.errorLog("Exception while creating corrective maintenance $e");
+      rethrow;
+    }
+  }
+
+  Future<void> saveCustomerPhotoAndAttachments(int cmSiteReqId, File? customerPhoto,
+      File? uploadedAttachment, File? fsrAttachmemt) async {
+
+    try {
+      final customerPhotoMultipartFile = customerPhoto == null ? null
+        : await MultipartFile.fromFile(
+        customerPhoto.path,
+        filename: customerPhoto.path.split('/').last,
+      );
+
+      final uploadedAttachmentMultipartFile = uploadedAttachment == null ? null
+          : await MultipartFile.fromFile(
+        uploadedAttachment.path,
+        filename: uploadedAttachment.path.split('/').last,
+      );
+
+      final fsrAttachmemtMultipartFile = fsrAttachmemt == null ? null
+          : await MultipartFile.fromFile(
+        fsrAttachmemt.path,
+        filename: fsrAttachmemt.path.split('/').last,
+      );
+
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: 'api/v1/mobile/correctiveMaintenance/upload',
+        data: {
+          'customerPhoto': customerPhotoMultipartFile,
+          'attachments': uploadedAttachmentMultipartFile,
+          'fsrAttachments': fsrAttachmemtMultipartFile,
+          'cmId': cmSiteReqId,
+        },
+        useFormDataFormat: true,
+      );
+
+      if(response.isSuccess && response.data != null) {
+
+        //return response.data?['data'];
+      } else {
+        throw Exception("Error while saving data");
+      }
+    } catch(e) {
+      Logger.errorLog("Exception while uploading customer photo and attachments $e");
+      rethrow;
+    }
+  }
+
+  /// Detect file extension from binary data using magic bytes
+  String? _detectFileExtensionFromBytes(Uint8List data) {
+    if (data.length < 4) return null;
+    
+    // Check magic bytes for common file types
+    // JPEG: FF D8 FF
+    if (data.length >= 3 && data[0] == 0xFF && data[1] == 0xD8 && data[2] == 0xFF) {
+      return '.jpg';
+    }
+    
+    // PNG: 89 50 4E 47
+    if (data.length >= 4 && data[0] == 0x89 && data[1] == 0x50 && data[2] == 0x4E && data[3] == 0x47) {
+      return '.png';
+    }
+    
+    // PDF: 25 50 44 46 (starts with "%PDF")
+    if (data.length >= 4 && data[0] == 0x25 && data[1] == 0x50 && data[2] == 0x44 && data[3] == 0x46) {
+      return '.pdf';
+    }
+    
+    // DOCX: 50 4B 03 04 (ZIP file format, which DOCX uses)
+    if (data.length >= 4 && data[0] == 0x50 && data[1] == 0x4B && data[2] == 0x03 && data[3] == 0x04) {
+      // Check if it's actually a DOCX by looking for "word/" in the ZIP structure
+      // This is a simplified check - DOCX files are ZIP archives containing word/document.xml
+      try {
+        final dataString = String.fromCharCodes(data.take(1000));
+        if (dataString.contains('word/') || dataString.contains('xl/')) {
+          return dataString.contains('word/') ? '.docx' : '.xlsx';
+        }
+        // Could be a regular ZIP file
+        return '.zip';
+      } catch (e) {
+        return '.docx'; // Default to docx for ZIP-like files
+      }
+    }
+    
+    // DOC (older Word format): D0 CF 11 E0
+    if (data.length >= 4 && data[0] == 0xD0 && data[1] == 0xCF && data[2] == 0x11 && data[3] == 0xE0) {
+      return '.doc';
+    }
+    
+    // GIF: 47 49 46 38
+    if (data.length >= 4 && data[0] == 0x47 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x38) {
+      return '.gif';
+    }
+    
+    // WebP: Check for RIFF...WEBP
+    if (data.length >= 12 && 
+        data[0] == 0x52 && data[1] == 0x49 && data[2] == 0x46 && data[3] == 0x46 &&
+        data[8] == 0x57 && data[9] == 0x45 && data[10] == 0x42 && data[11] == 0x50) {
+      return '.webp';
+    }
+    
+    return null; // Could not detect
+  }
+
+  Future<void> saveRemarks(
+    int cmSiteReqId,
+    String remark,
+    String status,
+    File attachment, {
+    String? originalFileName,
+  }) async {
+    try {
+      // Use original filename if provided, otherwise use file path
+      final fileName = originalFileName ?? attachment.path.split('/').last;
+      final uploadedAttachmentMultipartFile = await MultipartFile.fromFile(
+        attachment.path,
+        filename: fileName,
+      );
+
+      final response = await _apiService.post<Map<String, dynamic>>(
+        path: 'api/v1/mobile/cmRemarks/upload',
+        data: {
+          'cmRemarksFile': uploadedAttachmentMultipartFile,
+          'cmId': cmSiteReqId,
+          'cmRemark': remark,
+          'cmStatus': status,
+        },
+        useFormDataFormat: true,
+      );
+      if(response.isSuccess && response.data != null) {
+        Logger.debugLog("response from uploading customer photo: $response");
+        //return response.data?['data'];
+      } else {
+        throw Exception("Error while saving data");
+      }
+    } catch(e) {
+      Logger.errorLog("Exception while uploading customer photo and attachments $e");
+      rethrow;
+    }
+  }
+}

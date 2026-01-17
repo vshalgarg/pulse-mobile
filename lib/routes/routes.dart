@@ -1,0 +1,24 @@
+const String animatedSplash = "/animatedSplash";
+const String signUpScreen = "/signUpScreen";
+const String forgotPasswordScreen = "/forgotPasswordScreen";
+const String changePasswordScreen = "/changePasswordScreen";
+const String loginScreen = "/loginScreen";
+const String splashScreen = "/splashScreen";
+const String welcomeScreen = "/welcomeScreen";
+const String homeScreen = "/homeScreen";
+const String resetPasswordScreen = "/ResetPasswordScreen";
+const String passwordUpdateScreen = "/passwordUpdateScreen";
+const String otpVerificationScreen = "/otpVerificationScreen";
+const String assetAuditScreen = "/assetAuditScreen";
+const String preventiveMaintenanceScreen = "/preventiveMaintenanceScreen";
+const String correctiveMaintenanceScreen = "/correctiveMaintenanceScreen";
+const String energyReadingScreen = "/energyReadingScreen";
+const String ticketScreen = "/ticketScreen";
+const String ccuScreen = "/ccuScreen";
+const String siteInfoScreen = "/siteInfoScreen";
+const String batteryScreen = "/batteryScreen";
+const String extinguisherScreen = "/extinguisherScreen";
+const String solarPlateScreen = "/solarPlateScreen";
+const String pmScreen1 = "/pmScreen1";
+const String sqliteQueryScreen = "/sqliteQueryScreen";
+

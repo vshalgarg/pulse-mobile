@@ -1,0 +1,722 @@
+import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
+import 'package:app/enum/activity_type_enum.dart';
+import 'package:app/models/sqlite/image_model.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/utils/connectivity_helper.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:path/path.dart';
+import 'package:uuid/uuid.dart';
+import 'package:dio/dio.dart';
+import 'api_service.dart';
+import '../utils/logger.dart';
+
+class ImageUploadService {
+  static Database? _database;
+  static const String _tableName = 'images';
+  static const String _databaseName = 'image_upload.db';
+  static const int _databaseVersion = 3;
+
+  final ApiService _apiService;
+  final Uuid _uuid = const Uuid();
+
+  ImageUploadService({required ApiService apiService})
+    : _apiService = apiService;
+
+  /// Initialize the database
+  Future<Database> get database async {
+    if (_database != null && _database!.isOpen) return _database!;
+    _database = await _initDatabase();
+    return _database!;
+  }
+
+  /// Initialize the database
+  Future<Database> _initDatabase() async {
+    try {
+      final databasesPath = await getDatabasesPath();
+      final path = join(databasesPath, _databaseName);
+
+      Logger.debugLog('Initializing ImageUploadService database at: $path');
+
+      return await openDatabase(
+        path,
+        version: _databaseVersion,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
+    } catch (e) {
+      Logger.errorLog('Error initializing ImageUploadService database: $e');
+      rethrow;
+    }
+  }
+
+  /// Create the images table
+  Future<void> _onCreate(Database db, int version) async {
+    try {
+      await db.execute('''
+        CREATE TABLE $_tableName (
+          unique_id TEXT PRIMARY KEY,
+          server_id TEXT,
+          image_data TEXT NOT NULL,
+          is_selfie INTEGER DEFAULT 0,
+          activity_type TEXT NOT NULL,
+          sch_id TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      ''');
+      // Create index for server_id for faster lookups
+      await db.execute('''
+        CREATE INDEX idx_server_id ON $_tableName(server_id)
+      ''');
+      Logger.debugLog('✅ Images table created successfully');
+    } catch (e) {
+      Logger.errorLog('❌ Error creating images table: $e');
+      rethrow;
+    }
+  }
+
+  /// Handle database upgrades
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < newVersion) {
+      // Drop existing tables
+      await db.execute('DROP TABLE IF EXISTS $_tableName');
+      // Recreate tables with current schema
+      await _onCreate(db, newVersion);
+      Logger.debugLog(
+        '✅ Database upgraded from version $oldVersion to $newVersion',
+      );
+    }
+  }
+
+  /// Generate a unique ID for local images
+  String _generateUniqueId() {
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final random = _uuid.v4().substring(0, 8);
+    return 'LOCAL_IMAGE_ID_${timestamp}_$random';
+  }
+
+  /// 1. Upload image - Save to SQLite and try to upload to server
+  ///
+  Future<String> uploadImage(
+    String imageData,
+    ActivityTypeEnum activityType,
+    bool isSelfie,
+    String? siteSchId,
+  ) async {
+    try {
+      final uniqueId = _generateUniqueId();
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      // Save image to SQLite first
+      await _saveImageToSQLite(
+        uniqueId: uniqueId,
+        imageData: imageData,
+        isSelfie: isSelfie,
+        activityType: activityType,
+        schId: siteSchId,
+        serverId: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      Logger.debugLog('Image saved to SQLite with ID: $uniqueId');
+
+      // Try to upload to server
+      String finalId = uniqueId; // Default to local ID
+      try {
+        final serverId = await _uploadToServer(
+          imageData,
+          activityType,
+          siteSchId ?? '',
+          isSelfie,
+        );
+        if (serverId != null) {
+          // Update server_id in SQLite
+          await _updateServerId(uniqueId, serverId);
+          Logger.debugLog(
+            'Image uploaded to server with ID for uniqueId: $serverId, $uniqueId',
+          );
+          finalId = serverId; // Return server ID instead of local ID
+        } else {
+          Logger.debugLog(
+            'Server upload failed, but image saved locally with ID: $uniqueId',
+          );
+        }
+      } catch (e) {
+        Logger.errorLog('Server upload failed: $e');
+      }
+      return finalId;
+    } catch (e) {
+      Logger.errorLog('Error in uploadImage: $e');
+      rethrow;
+    }
+  }
+
+  /// 2. Get server ID - Check SQLite first, upload if needed
+  Future<ImageModel?> getServerIdFromUniqueIdTryUploading(
+    String uniqueId,
+  ) async {
+    try {
+      Logger.debugLog('Getting server ID for unique ID: $uniqueId');
+      // Check if server_id exists in SQLite
+      final imageModel = await _getByUniqueIdFromSQLite(uniqueId);
+      if (imageModel == null) {
+        Logger.errorLog('Image data not found for unique ID: $uniqueId');
+        return null;
+      }
+      if (imageModel.serverId != null) {
+        return imageModel;
+      }
+      if (imageModel.imageData == null) {
+        Logger.errorLog('Image data not found for unique ID: $uniqueId');
+        return null;
+      }
+      if (await ConnectivityHelper.isConnected()) {
+        Logger.debugLog(
+          'Server ID not found in SQLite, uploading image to server $uniqueId',
+        );
+        // Upload to server
+        final newServerId = await _uploadToServer(
+          imageModel.imageData!,
+          imageModel.activityType,
+          imageModel.schId ?? "",
+          imageModel.isSelfie,
+        );
+        if (newServerId != null) {
+          Logger.debugLog(
+            'Upload successful for unique_id: $uniqueId, got server ID: $newServerId',
+          );
+          await _updateServerId(uniqueId, newServerId);
+          final imageModel = await _getByUniqueIdFromSQLite(uniqueId);
+          return imageModel;
+        } else {
+          Logger.errorLog(
+            'Failed to upload image to server - newServerId is null',
+          );
+        }
+      }
+    } catch (e) {
+      Logger.errorLog('Error in getServerIdFromUniqueIdTryUploading: $e');
+    }
+    return null;
+  }
+
+  /// 3. Download image using server ID
+  Future<String?> downloadImageUsingServerId(
+    String serverId,
+    ActivityTypeEnum activityType,
+    String schId,
+  ) async {
+    try {
+      // Download image from server first
+      final imageData = await downloadFromServer(serverId);
+
+      // Check if record with this server_id already exists
+      final existingRecord = await getImagesByServerId(serverId);
+      if (existingRecord != null) {
+        // Update existing record with new image data
+        await _updateImageData(existingRecord.uniqueId, imageData);
+        return existingRecord.uniqueId;
+      } else {
+        // Create new record
+        final uniqueId = _generateUniqueId();
+        final now = DateTime.now().millisecondsSinceEpoch;
+
+        await _saveImageToSQLite(
+          uniqueId: uniqueId,
+          imageData: imageData,
+          serverId: serverId,
+          isSelfie: false,
+          activityType: activityType,
+          createdAt: now,
+          updatedAt: now,
+        );
+
+        Logger.debugLog(
+          '✅ Image downloaded and saved with unique ID: $uniqueId',
+        );
+        return uniqueId;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error in downloadImageUsingServerId: $e');
+      return null;
+    }
+  }
+
+  /// 4. Get image data using unique ID
+  Future<String?> getImageUsingUniqueId(String uniqueId) async {
+    Logger.debugLog('🖼️ getImageUsingUniqueId called with uniqueId: $uniqueId');
+    final result = await _getByUniqueIdFromSQLite(uniqueId);
+    if (result != null) {
+      Logger.debugLog('🖼️ getImageUsingUniqueId: Found image data, length: ${result.imageData?.length ?? 0}');
+      return result.imageData;
+    }
+    Logger.debugLog('🖼️ getImageUsingUniqueId: No image data found for uniqueId: $uniqueId');
+    return null;
+  }
+
+  /// Save image to SQLite
+  Future<void> _saveImageToSQLite({
+    required String uniqueId,
+    required String? imageData,
+    required String? serverId,
+    required ActivityTypeEnum activityType,
+    required bool isSelfie,
+    String? schId,
+    required int createdAt,
+    required int updatedAt,
+  }) async {
+    try {
+      final db = await database;
+      await db.insert(_tableName, {
+        'unique_id': uniqueId,
+        'server_id': serverId,
+        'image_data': imageData,
+        'is_selfie': isSelfie ? 1 : 0,
+        'activity_type': activityType.value,
+        'sch_id': schId,
+        'created_at': createdAt,
+        'updated_at': updatedAt,
+      }, conflictAlgorithm: ConflictAlgorithm.replace);
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+
+        await db.insert(_tableName, {
+          'unique_id': uniqueId,
+          'server_id': serverId,
+          'image_data': imageData,
+          'is_selfie': isSelfie ? 1 : 0,
+          'activity_type': activityType.value,
+          'sch_id': schId,
+          'created_at': createdAt,
+          'updated_at': updatedAt,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  /// Get server ID from SQLite
+  Future<ImageModel?> _getByUniqueIdFromSQLite(String uniqueId) async {
+    Logger.debugLog('_getServerIdFromSQLite called with uniqueId: $uniqueId');
+
+    try {
+      final db = await database;
+      Logger.debugLog('Executing database query...');
+
+      // First try to find by unique_id
+      List<Map<String, dynamic>> maps = await db.query(
+        _tableName,
+        where: 'unique_id = ?',
+        whereArgs: [uniqueId],
+        limit: 1,
+      );
+
+      Logger.debugLog('🔍 SQLite query by unique_id result: $maps');
+
+      // If not found by unique_id and the ID looks like a server ID (numeric), try server_id
+      if (maps.isEmpty && int.tryParse(uniqueId) != null) {
+
+        maps = await db.query(
+          _tableName,
+          where: 'server_id = ?',
+          whereArgs: [uniqueId],
+          limit: 1,
+        );
+
+        Logger.debugLog('🔍 SQLite query by server_id result: $maps');
+      }
+
+      if (maps.isNotEmpty) {
+        final data = maps.first;
+
+        return convertDataToModel(data);
+      } else {
+
+        Logger.debugLog(
+          'Image not found in sqlite with unique id or server id: $uniqueId',
+        );
+      }
+    } catch (e) {
+
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+
+        // Try unique_id first
+        List<Map<String, dynamic>> maps = await db.query(
+          _tableName,
+          where: 'unique_id = ?',
+          whereArgs: [uniqueId],
+          limit: 1,
+        );
+
+        // If not found and ID is numeric, try server_id
+        if (maps.isEmpty && int.tryParse(uniqueId) != null) {
+          maps = await db.query(
+            _tableName,
+            where: 'server_id = ?',
+            whereArgs: [uniqueId],
+            limit: 1,
+          );
+        }
+
+        if (maps.isNotEmpty) {
+          final data = maps.first;
+          return convertDataToModel(data);
+        }
+      } else {
+
+        Logger.errorLog('Exception in _getByUniqueIdFromSQLite: $e');
+      }
+    }
+    return null;
+  }
+
+  ImageModel convertDataToModel(data) {
+    return ImageModel(
+      uniqueId: data['unique_id'],
+      createdAt: data['created_at'],
+      serverId: data['server_id'],
+      imageData: data['image_data'],
+      isSelfie: data['is_selfie'] == 1,
+      schId: data['sch_id'],
+      activityType: ActivityTypeEnum.fromString(data['activity_type']),
+    );
+  }
+
+  /// Update image data for existing record
+  Future<void> _updateImageData(String uniqueId, String? imageData) async {
+    try {
+      final db = await database;
+      await db.update(
+        _tableName,
+        {
+          'image_data': imageData,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'unique_id = ?',
+        whereArgs: [uniqueId],
+      );
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+
+        await db.update(
+          _tableName,
+          {
+            'image_data': imageData,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'unique_id = ?',
+          whereArgs: [uniqueId],
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  /// Update server ID in SQLite
+  Future<void> _updateServerId(String uniqueId, String serverId) async {
+    try {
+      final db = await database;
+      Logger.debugLog(
+        'Updating SQLite: uniqueId=$uniqueId, serverId=$serverId',
+      );
+
+      final result = await db.update(
+        _tableName,
+        {
+          'server_id': serverId,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'unique_id = ?',
+        whereArgs: [uniqueId],
+      );
+
+      Logger.debugLog('SQLite update result: $result rows affected');
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+
+        final result = await db.update(
+          _tableName,
+          {
+            'server_id': serverId,
+            'updated_at': DateTime.now().millisecondsSinceEpoch,
+          },
+          where: 'unique_id = ?',
+          whereArgs: [uniqueId],
+        );
+
+        Logger.debugLog(
+          'SQLite update result (after retry): $result rows affected',
+        );
+      } else {
+        rethrow;
+      }
+    }
+  }
+
+  /// Upload image to server
+  Future<String?> _uploadToServer(
+    String imageData,
+    ActivityTypeEnum activityType,
+    String siteSchId,
+    bool isSelfie,
+  ) async {
+    try {
+      // Convert base64 string to bytes for file upload
+      Uint8List imageBytes;
+      if (imageData.startsWith('data:image/')) {
+        // Remove data URL prefix
+        final base64String = imageData.split(',')[1];
+        imageBytes = base64Decode(base64String);
+      } else {
+        // Assume it's raw base64
+        imageBytes = base64Decode(imageData);
+      }
+
+      // Create a temporary file for upload
+      final tempDir = Directory.systemTemp;
+      final tempFile = File(
+        '${tempDir.path}/temp_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await tempFile.writeAsBytes(imageBytes);
+
+      // Create multipart file
+      final multipartFile = await MultipartFile.fromFile(
+        tempFile.path,
+        filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      ResponseResult? response = null;
+      if (isSelfie) {
+        if (await ConnectivityHelper.isConnected()) {
+          response = await _apiService.post<Map<String, dynamic>>(
+            path: "api/v1/mobile/uploadsSelfie",
+            data: {'selfie': multipartFile, 'imgId': '0', 'SchId': siteSchId},
+            useFormDataFormat: true,
+          );
+        }
+        if (response == null || !response.isSuccess) {
+          await ServiceLocator().pendingRequestService.savePendingRequest(
+            requestId: 'IMAGE-${DateTime.timestamp()}',
+            url: "api/v1/mobile/uploadsSelfie",
+            headers: {},
+            jsonEncodedRequestData: jsonEncode([
+              {'selfie': imageData, 'imgId': '0', 'SchId': siteSchId},
+            ]),
+          );
+        }
+      } else {
+        // Upload to server
+        response = await _apiService.post<Map<String, dynamic>>(
+          path: 'api/v1/mobile/uploads',
+          data: {
+            'imgFile': multipartFile,
+            'activityType': activityType.value,
+            'schId': siteSchId,
+          },
+          useFormDataFormat: true,
+        );
+      }
+
+      // Clean up temp file
+      if (await tempFile.exists()) {
+        await tempFile.delete();
+      }
+
+      if (response != null && response.isSuccess && response.data != null) {
+        Logger.debugLog('📤 API Response: ${response.data}');
+
+        final photoId =
+            response.data!['imgId']?.toString() ??
+            response.data!['photoId']?.toString() ??
+            response.data!['id']?.toString();
+
+        Logger.debugLog('🔍 Extracted photo ID: $photoId');
+
+        if (photoId != null && photoId.isNotEmpty) {
+
+          Logger.debugLog('✅ Image uploaded to server with ID: $photoId');
+          return photoId;
+        } else {
+          Logger.errorLog(
+            '❌ No photo ID returned in response: ${response.data}',
+          );
+          Logger.errorLog('❌ Tried keys: imgId, photoId, id');
+          return null;
+        }
+      } else {
+        Logger.errorLog('❌ Failed to upload image: ${response?.errorMessage}');
+        return null;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error uploading to server: $e');
+      return null;
+    }
+  }
+
+  /// Download image from server
+  Future<String?> downloadFromServer(String serverId) async {
+    try {
+      final response = await _apiService.get<List<dynamic>>(
+        path: '/api/v1/mobile/allImageList?imgIds=$serverId',
+      );
+
+      if (response.isSuccess && response.data != null) {
+        final imageData = response.data?.first['imageData'] as String?;
+        if (imageData != null && imageData.isNotEmpty) {
+          // Return the base64 string directly
+          Logger.debugLog('✅ Image downloaded from server as base64 string');
+          return imageData;
+        } else {
+          Logger.errorLog('❌ Empty image data received from server');
+          return null;
+        }
+      } else {
+        Logger.errorLog(' Failed to download image: ${response.errorMessage}');
+        return null;
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error downloading from server: $e');
+      return null;
+    }
+  }
+
+  /// Get images by server ID
+  Future<ImageModel?> getImagesByServerId(String serverId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        _tableName,
+        where: 'server_id = ?',
+        whereArgs: [serverId],
+        orderBy: 'created_at DESC',
+        limit: 1,
+      );
+      Logger.debugLog('🔍 SQLite query result: $maps');
+
+      if (maps.isNotEmpty) {
+        final data = maps.first;
+        return convertDataToModel(data);
+      } else {
+        Logger.debugLog('Image not found in sqlite with unique id');
+      }
+    } catch (e) {
+      if (e.toString().contains('database_closed')) {
+        Logger.errorLog('Database was closed, reinitializing...');
+        _database = null; // Force reinitialization
+        final db = await database;
+
+        final List<Map<String, dynamic>> maps = await db.query(
+          _tableName,
+          where: 'server_id = ?',
+          whereArgs: [serverId],
+          orderBy: 'created_at DESC',
+          limit: 1,
+        );
+
+        if (maps.isNotEmpty) {
+          final data = maps.first;
+          return convertDataToModel(data);
+        }
+      } else {
+        Logger.errorLog('Error in getImagesByServerId: $e');
+      }
+    }
+    return null;
+  }
+
+  /// Clear all images
+  Future<void> clearAllImages() async {
+    final db = await database;
+    await db.delete(_tableName);
+    Logger.debugLog('✅ All images cleared');
+  }
+
+  /// Drop and recreate database with all tables
+  Future<void> dropAndRecreateDatabase() async {
+    try {
+      Logger.debugLog('Dropping and recreating ImageUploadService database');
+
+      // Close existing database connection
+      if (_database != null) {
+        await _database!.close();
+        _database = null;
+      }
+
+      // Get database path
+      final databasesPath = await getDatabasesPath();
+      final path = join(databasesPath, _databaseName);
+
+      // Delete the database file
+      final file = File(path);
+      if (await file.exists()) {
+        await file.delete();
+        Logger.debugLog('🗑️ ImageUploadService database file deleted');
+      }
+
+      // Recreate database by calling _initDatabase
+      _database = await _initDatabase();
+      Logger.debugLog(
+        '✅ ImageUploadService database recreated with all tables',
+      );
+    } catch (e) {
+      Logger.errorLog(
+        '❌ Error dropping and recreating ImageUploadService database: $e',
+      );
+      // Reset database instance to force recreation on next access
+      _database = null;
+      rethrow;
+    }
+  }
+
+  /// Get database statistics
+  Future<Map<String, dynamic>> getDatabaseStats() async {
+    final db = await database;
+    final totalImages =
+        Sqflite.firstIntValue(
+          await db.rawQuery('SELECT COUNT(*) FROM $_tableName'),
+        ) ??
+        0;
+    final uploadedImages =
+        Sqflite.firstIntValue(
+          await db.rawQuery(
+            'SELECT COUNT(*) FROM $_tableName WHERE server_id IS NOT NULL',
+          ),
+        ) ??
+        0;
+    final localImages = totalImages - uploadedImages;
+
+    return {
+      'total_images': totalImages,
+      'uploaded_images': uploadedImages,
+      'local_images': localImages,
+      'upload_percentage': totalImages > 0
+          ? (uploadedImages / totalImages * 100).toStringAsFixed(1)
+          : '0.0',
+    };
+  }
+
+  /// Close the database
+  Future<void> close() async {
+    if (_database != null) {
+      await _database!.close();
+      _database = null;
+      Logger.debugLog('✅ ImageUploadService database closed');
+    }
+  }
+}

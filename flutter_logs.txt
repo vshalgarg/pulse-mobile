@@ -1,0 +1,1565 @@
+Resolving dependencies...
+Downloading packages...
+  _flutterfire_internals 1.3.56 (1.3.62 available)
+  animated_checkmark 1.0.1 (3.1.0 available)
+  app_links 6.4.0 (6.4.1 available)
+  archive 3.6.1 (4.0.7 available)
+  bloc 9.0.0 (9.0.1 available)
+  camera 0.11.1 (0.11.2 available)
+  camera_android_camerax 0.6.18+3 (0.6.23 available)
+  camera_avfoundation 0.9.19+2 (0.9.22 available)
+  camera_platform_interface 2.10.0 (2.11.0 available)
+  characters 1.4.0 (1.4.1 available)
+  chewie 1.11.3 (1.13.0 available)
+  connectivity_plus 6.1.5 (7.0.0 available)
+  device_info_plus 11.5.0 (12.1.0 available)
+  dio 5.8.0+1 (5.9.0 available)
+  dotted_border 2.1.0 (3.1.0 available)
+  file_picker 10.2.0 (10.3.3 available)
+  file_selector_macos 0.9.4+3 (0.9.4+4 available)
+  firebase_core 3.14.0 (4.1.1 available)
+  firebase_core_platform_interface 5.4.0 (6.0.1 available)
+  firebase_core_web 2.23.0 (3.1.1 available)
+  firebase_crashlytics 4.3.7 (5.0.2 available)
+  firebase_crashlytics_platform_interface 3.8.7 (3.8.13 available)
+  firebase_messaging 15.2.7 (16.0.2 available)
+  firebase_messaging_platform_interface 4.6.7 (4.7.2 available)
+  firebase_messaging_web 3.10.7 (4.0.2 available)
+  fl_chart 1.0.0 (1.1.1 available)
+  flutter_dotenv 5.2.1 (6.0.0 available)
+  flutter_launcher_icons 0.13.1 (0.14.4 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_local_notifications 19.2.1 (19.4.2 available)
+  flutter_local_notifications_platform_interface 9.0.0 (9.1.0 available)
+  flutter_local_notifications_windows 1.0.0 (1.0.3 available)
+  flutter_markdown 0.7.7+1 (discontinued)
+  flutter_plugin_android_lifecycle 2.0.28 (2.0.30 available)
+  flutter_quill 11.4.1 (11.4.2 available)
+  flutter_quill_delta_from_html 1.5.2 (1.5.3 available)
+  flutter_svg 2.1.0 (2.2.1 available)
+  fluttertoast 8.2.12 (9.0.0 available)
+  geocoding 3.0.0 (4.0.0 available)
+  geocoding_android 3.3.1 (4.0.1 available)
+  geolocator 11.1.0 (14.0.2 available)
+  geolocator_android 4.6.2 (5.0.2 available)
+  geolocator_web 3.0.0 (4.1.3 available)
+  google_fonts 6.2.1 (6.3.2 available)
+  google_sign_in 6.3.0 (7.2.0 available)
+  google_sign_in_android 6.2.1 (7.2.0 available)
+  google_sign_in_ios 5.9.0 (6.2.1 available)
+  google_sign_in_platform_interface 2.5.0 (3.1.0 available)
+  google_sign_in_web 0.12.4+4 (1.1.0 available)
+  http 1.4.0 (1.5.0 available)
+  image 4.3.0 (4.5.4 available)
+  image_picker 1.1.2 (1.2.0 available)
+  image_picker_android 0.8.12+23 (0.8.13+3 available)
+  image_picker_for_web 3.0.6 (3.1.0 available)
+  image_picker_ios 0.8.12+2 (0.8.13 available)
+  image_picker_linux 0.2.1+2 (0.2.2 available)
+  image_picker_macos 0.2.1+2 (0.2.2 available)
+  image_picker_platform_interface 2.10.1 (2.11.0 available)
+  image_picker_windows 0.2.1+1 (0.2.2 available)
+  js 0.6.7 (0.7.2 available)
+  lints 5.1.1 (6.0.0 available)
+  lottie 1.4.3 (3.3.2 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.16.0 (1.17.0 available)
+  mobile_scanner 7.0.1 (7.1.2 available)
+  package_info_plus 8.3.0 (9.0.0 available)
+  package_info_plus_platform_interface 3.2.0 (3.2.1 available)
+  path_provider_android 2.2.17 (2.2.19 available)
+  path_provider_foundation 2.4.1 (2.4.2 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  petitparser 6.1.0 (7.0.1 available)
+  pinput 5.0.1 (5.0.2 available)
+  provider 6.1.5 (6.1.5+1 available)
+  quill_native_bridge 11.0.1 (11.1.0 available)
+  quill_native_bridge_linux 0.0.1 (0.0.2 available)
+  quill_native_bridge_windows 0.0.1 (0.0.2 available)
+  shared_preferences_android 2.4.12 (2.4.15 available)
+  speech_to_text 7.0.0 (7.3.0 available)
+  sqflite_android 2.4.1 (2.4.2+2 available)
+  test_api 0.7.6 (0.7.7 available)
+  url_launcher 6.3.1 (6.3.2 available)
+  url_launcher_android 6.3.16 (6.3.23 available)
+  url_launcher_ios 6.3.3 (6.3.4 available)
+  url_launcher_macos 3.2.2 (3.2.3 available)
+  vector_graphics_compiler 1.1.17 (1.1.19 available)
+  video_player_android 2.8.7 (2.8.14 available)
+  video_player_avfoundation 2.7.1 (2.8.4 available)
+  video_player_platform_interface 6.3.0 (6.4.0 available)
+  video_player_web 2.3.5 (2.4.0 available)
+  vm_service 15.0.0 (15.0.2 available)
+  wakelock_plus 1.3.2 (1.4.0 available)
+  wakelock_plus_platform_interface 1.2.3 (1.3.0 available)
+  widget_event 1.11.0 (2.0.1 available)
+  win32 5.14.0 (5.15.0 available)
+  xml 6.5.0 (6.6.1 available)
+Got dependencies!
+1 package is discontinued.
+95 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Use of `dartPluginClass: none` (quill_native_bridge_windows) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_linux) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_windows) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_linux) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_windows) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_linux) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_windows) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Use of `dartPluginClass: none` (quill_native_bridge_linux) is deprecated, and will be removed in the next stable version. See https://github.com/flutter/flutter/issues/57497 for details.
+Launching lib/main.dart on sdk gphone64 arm64 in debug mode...
+Running Gradle task 'assembleDebug'...                             18.6s
+✓ Built build/app/outputs/flutter-apk/app-debug.apk
+Installing build/app/outputs/flutter-apk/app-debug.apk...           5.1s
+D/FlutterJNI( 4581): Beginning load of flutter...
+D/FlutterJNI( 4581): flutter (null) was loaded normally!
+I/flutter ( 4581): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+D/com.llfbandit.app_links( 4581): Intent { act=android.intent.action.MAIN cat=[android.intent.category.LAUNCHER] flg=0x30000000 xflg=0x4 cmp=com.rapadit.flutter_template_rad/.MainActivity (has extras) }
+Syncing files to device sdk gphone64 arm64...                   
+D/FLTFireContextHolder( 4581): received application context.
+D/CompatChangeReporter( 4581): Compat change id reported: 377864165; UID 10247; state: ENABLED
+D/FlutterGeolocator( 4581): Attaching Geolocator to activity
+I/er_template_rad( 4581): hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityNodeInfo;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported,test-api) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+I/er_template_rad( 4581): hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityRecord;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+I/er_template_rad( 4581): hiddenapi: Accessing hidden field Landroid/view/accessibility/AccessibilityNodeInfo;->mChildNodeIds:Landroid/util/LongArray; (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+I/er_template_rad( 4581): hiddenapi: Accessing hidden method Landroid/util/LongArray;->get(I)J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+W/HWUI    ( 4581): Unknown dataspace 0
+Syncing files to device sdk gphone64 arm64...                      944ms
+
+Flutter run key commands.
+r Hot reload. 🔥🔥🔥
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+A Dart VM Service on sdk gphone64 arm64 is available at: http://127.0.0.1:52116/s7X6hAWO8ic=/
+The Flutter DevTools debugger and profiler on sdk gphone64 arm64 is available at: http://127.0.0.1:9101?uri=http://127.0.0.1:52116/s7X6hAWO8ic=/
+D/FlutterGeolocator( 4581): Creating service.
+D/FlutterGeolocator( 4581): Binding to location service.
+I/Choreographer( 4581): Skipped 40 frames!  The application may be doing too much work on its main thread.
+D/ProfileInstaller( 4581): Installing profile for com.rapadit.flutter_template_rad
+I/WindowExtensionsImpl( 4581): Initializing Window Extensions, vendor API level=9, activity embedding enabled=true
+D/FlutterGeolocator( 4581): Geolocator foreground service connected
+D/FlutterGeolocator( 4581): Initializing Geolocator services
+D/FlutterGeolocator( 4581): Flutter engine connected. Connected engine count 1
+I/Choreographer( 4581): Skipped 63 frames!  The application may be doing too much work on its main thread.
+D/WindowLayoutComponentImpl( 4581): Register WindowLayoutInfoListener on Context=com.rapadit.flutter_template_rad.MainActivity@57c3c2c, of which baseContext=android.app.ContextImpl@73ed2e2
+I/flutter ( 4581): Initializing location permissions...
+I/flutter ( 4581): LocationPermissionService: Requesting location permissions...
+I/flutter ( 4581): LocationPermissionService: Current fine location status: PermissionStatus.granted
+I/flutter ( 4581): LocationPermissionService: Current coarse location status: PermissionStatus.granted
+I/flutter ( 4581): LocationPermissionService: Location permissions granted successfully
+I/flutter ( 4581): Location permissions initialized successfully
+D/SessionsDependencies( 4581): Dependency to CRASHLYTICS added.
+I/FirebaseApp( 4581): Device unlocked: initializing all Firebase APIs for app [DEFAULT]
+I/FirebaseCrashlytics( 4581): Initializing Firebase Crashlytics 19.4.2 for com.rapadit.flutter_template_rad
+D/SessionsDependencies( 4581): Subscriber CRASHLYTICS registered.
+D/FirebaseSessions( 4581): Initializing Firebase Sessions SDK.
+I/flutter ( 4581): [INFO] App starting up
+I/flutter ( 4581): 🔧 Initializing all services...
+I/flutter ( 4581): saved Firebase Token: fPbnnpwHSV-RPJBm-acvzG:APA91bHOm8vtkVZJHnZIPQYsZDliL0p7lOPgn-q9p_gtZlMIP_1tigBVzAiIFenv99DZEwcuQtCtMcFWaf91pHynNK1KDKVMSgVeFR9y0diUvlyDBfuxRnQ
+I/flutter ( 4581): [INFO] Initializing all services
+I/flutter ( 4581): 🔧 ServiceLocator: initializeServices called
+I/flutter ( 4581): 🔧 ServiceLocator: Starting initialization...
+I/flutter ( 4581): 🔧 ServiceLocator: SitesRepository initialized
+I/flutter ( 4581): 🔧 ServiceLocator: _sitesRepository = Instance of 'SitesRepository'
+I/flutter ( 4581): 🔧 ServiceLocator: GeneralInspectionRepository initialized
+I/flutter ( 4581): 🔧 ServiceLocator: All services initialized successfully
+I/flutter ( 4581): 🔧 ServiceLocator: _sitesRepository after init = Instance of 'SitesRepository'
+I/flutter ( 4581): ✅ All services initialized successfully
+I/flutter ( 4581): [INFO] All services initialized successfully
+I/FLTFireBGExecutor( 4581): Creating background FlutterEngine instance, with args: [--enable-dart-profiling]
+D/FLTFireContextHolder( 4581): received application context.
+I/flutter ( 4581): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+W/er_template_rad( 4581): Verification of j$.time.LocalDate j$.time.temporal.TemporalQueries$6.queryFrom(j$.time.temporal.TemporalAccessor) took 326.198ms (64.38 bytecodes/s) (0B arena alloc)
+I/Choreographer( 4581): Skipped 68 frames!  The application may be doing too much work on its main thread.
+D/FlutterGeolocator( 4581): Geolocator foreground service connected
+D/FlutterGeolocator( 4581): Initializing Geolocator services
+D/FlutterGeolocator( 4581): Flutter engine connected. Connected engine count 2
+I/FLTFireMsgService( 4581): FlutterFirebaseMessagingBackgroundService started!
+I/flutter ( 4581): [INFO] Log push service started
+I/flutter ( 4581): Token is valid on app startup
+D/SharedPreferencesImpl( 4581): Time required to fsync /data/user/0/com.rapadit.flutter_template_rad/shared_prefs/FirebaseHeartBeatW0RFRkFVTFRd+MTo0NDcwMDQyNTc5NDE6YW5kcm9pZDo2MjI4ZjdmNGIyYWE3Zjc2ZTFmNTlj.xml: [<1: 0, <2: 0, <4: 0, <8: 0, <16: 0, <32: 0, <64: 0, <128: 0, <256: 0, <512: 1, <1024: 0, <2048: 0, <4096: 0, <8192: 0, <16384: 0, >=16384: 0]
+I/Choreographer( 4581): Skipped 58 frames!  The application may be doing too much work on its main thread.
+D/InsetsController( 4581): hide(ime(), fromIme=false)
+I/ImeTracker( 4581): com.rapadit.flutter_template_rad:9268111c: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+I/er_template_rad( 4581): Compiler allocated 5111KB to compile void android.view.ViewRootImpl.performTraversals()
+W/er_template_rad( 4581): Verification of java.lang.String androidx.datastore.preferences.core.Preferences$Key.getName() took 243.903ms (12.30 bytecodes/s) (0B arena alloc)
+I/FirebaseCrashlytics( 4581): No version control information found
+D/LifecycleServiceBinder( 4581): Binding service to application.
+D/SessionLifecycleService( 4581): Service bound to new client on process 4581
+D/SessionLifecycleService( 4581): App has not yet foregrounded. Using previously stored session.
+D/SessionLifecycleClient( 4581): Connected to SessionLifecycleService. Queue size 0
+D/SessionLifecycleService( 4581): Client android.os.Messenger@19a7c3e bound at 38215169. Clients: 1
+I/flutter ( 4581): AuthCubit: Checking if user is logged in - token: eyJhbGciOiJIUzUxMiJ9...
+I/flutter ( 4581): AuthCubit: User is logged in with valid token
+W/WindowOnBackDispatcher( 4581): sendCancelIfRunning: isInProgress=false callback=io.flutter.embedding.android.FlutterActivity$1@b24d6dd
+I/flutter ( 4581): DashboardInitial()
+I/flutter ( 4581): DashboardLoading()
+I/flutter ( 4581): 
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 🌐 REQUEST GET https://pulseapi.premiumfreshers.com/api/v1/mobile/mobile-dashboard
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 📋 Headers:
+I/flutter ( 4581):    content-Type: application/json
+I/flutter ( 4581):    accept: application/json
+I/flutter ( 4581): 🌐 CURL Command:
+I/flutter ( 4581): ```bash
+I/flutter ( 4581): curl -X GET "https://pulseapi.premiumfreshers.com/api/v1/mobile/mobile-dashboard" \
+I/flutter ( 4581):   -H "content-Type: application/json" \
+I/flutter ( 4581):   -H "accept: application/json"
+I/flutter ( 4581): ```
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 
+I/flutter ( 4581): [API_REQUEST] GET https://pulseapi.premiumfreshers.com/api/v1/mobile/mobile-dashboard
+I/flutter ( 4581): 
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 📥 RESPONSE GET https://pulseapi.premiumfreshers.com/api/v1/mobile/mobile-dashboard
+I/flutter ( 4581): Status: 200 | Time: 
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 📋 Response Headers:
+I/flutter ( 4581):    cache-control: no-cache, no-store, max-age=0, must-revalidate
+I/flutter ( 4581):    date: Thu, 09 Oct 2025 12:31:37 GMT
+I/flutter ( 4581):    vary: Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+I/flutter ( 4581):    content-length: 1475
+I/flutter ( 4581):    content-type: application/json
+I/flutter ( 4581):    x-frame-options: DENY
+I/flutter ( 4581):    pragma: no-cache
+I/flutter ( 4581):    x-xss-protection: 0
+I/flutter ( 4581):    x-content-type-options: nosniff
+I/flutter ( 4581):    server: Apache/2.4.62 (AlmaLinux) OpenSSL/3.2.2
+I/flutter ( 4581):    expires: 0
+I/flutter ( 4581): 📦 Response Body:
+I/flutter ( 4581): 📋 Copyable JSON:
+I/flutter ( 4581): ```json
+I/flutter ( 4581): {
+I/flutter ( 4581):   "Corrective Maintenance": [
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Corrective Maintenance",
+I/flutter ( 4581):       "ticket_code": "All Tickets",
+I/flutter ( 4581):       "ticket_cnt": 33
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Corrective Maintenance",
+I/flutter ( 4581):       "ticket_code": "In Progress",
+I/flutter ( 4581):       "ticket_cnt": 0
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Corrective Maintenance",
+I/flutter ( 4581):       "ticket_code": "Assigned to Me",
+I/flutter ( 4581):       "ticket_cnt": 32
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Corrective Maintenance",
+I/flutter ( 4581):       "ticket_code": "Closed",
+I/flutter ( 4581):       "ticket_cnt": 1
+I/flutter ( 4581):     }
+I/flutter ( 4581):   ],
+I/flutter ( 4581):   "Preventive Maintenance": [
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Preventive Maintenance",
+I/flutter ( 4581):       "ticket_code": "All Tickets",
+I/flutter ( 4581):       "ticket_cnt": 55
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Preventive Maintenance",
+I/flutter ( 4581):       "ticket_code": "In Progress",
+I/flutter ( 4581):       "ticket_cnt": 4
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Preventive Maintenance",
+I/flutter ( 4581):       "ticket_code": "Completed",
+I/flutter ( 4581):       "ticket_cnt": 5
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Preventive Maintenance",
+I/flutter ( 4581):       "ticket_code": "Closed",
+I/flutter ( 4581):       "ticket_cnt": 0
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Preventive Maintenance",
+I/flutter ( 4581):       "ticket_code": "Missed Deadline",
+I/flutter ( 4581):       "ticket_cnt": 8
+I/flutter ( 4581):     }
+I/flutter ( 4581):   ],
+I/flutter ( 4581):   "Asset Audit": [
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Asset Audit",
+I/flutter ( 4581):       "ticket_code": "All Tickets",
+I/flutter ( 4581):       "ticket_cnt": 66
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Asset Audit",
+I/flutter ( 4581):       "ticket_code": "In Progress",
+I/flutter ( 4581):       "ticket_cnt": 12
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Asset Audit",
+I/flutter ( 4581):       "ticket_code": "Completed",
+I/flutter ( 4581):       "ticket_cnt": 1
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Asset Audit",
+I/flutter ( 4581):       "ticket_code": "Closed",
+I/flutter ( 4581):       "ticket_cnt": 0
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Asset Audit",
+I/flutter ( 4581):       "ticket_code": "Missed Deadline",
+I/flutter ( 4581):       "ticket_cnt": 21
+I/flutter ( 4581):     }
+I/flutter ( 4581):   ],
+I/flutter ( 4581):   "Energy Reading": [
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Energy Reading",
+I/flutter ( 4581):       "ticket_code": "All Tickets",
+I/flutter ( 4581):       "ticket_cnt": 53
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Energy Reading",
+I/flutter ( 4581):       "ticket_code": "Completed",
+I/flutter ( 4581):       "ticket_cnt": 11
+I/flutter ( 4581):     },
+I/flutter ( 4581):     {
+I/flutter ( 4581):       "activity_type": "Energy Reading",
+I/flutter ( 4581):       "ticket_code": "Missed Deadline",
+I/flutter ( 4581):       "ticket_cnt": 3
+I/flutter ( 4581):     }
+I/flutter ( 4581):   ]
+I/flutter ( 4581): }
+I/flutter ( 4581): ```
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 
+I/flutter ( 4581): DashboardLoading()
+I/flutter ( 4581): DashboardSuccess(Instance of 'DashboardModel')
+I/flutter ( 4581): [API_RESPONSE] GET https://pulseapi.premiumfreshers.com/api/v1/mobile/mobile-dashboard - 200
+I/flutter ( 4581): 🚀 CMAllSitesScreen initState called
+I/flutter ( 4581): 🔍 ServiceLocator: Accessing sitesRepository
+I/flutter ( 4581): 🔍 ServiceLocator: _isInitialized = true
+I/flutter ( 4581): 🔍 ServiceLocator: _sitesRepository = Instance of 'SitesRepository'
+I/flutter ( 4581): 🔍 ServiceLocator: Returning sitesRepository
+I/flutter ( 4581): 🏗️ _buildBody called - isLoading: true, error: null, filteredSites: 0
+I/flutter ( 4581): 🏗️ Showing loading indicator
+I/er_template_rad( 4581): AssetManager2(0xb4000070486a6918) locale list changing from [] to [en-US]
+I/er_template_rad( 4581): NativeAlloc concurrent mark compact GC freed 2294KB AllocSpace bytes, 20(592KB) LOS objects, 49% free, 4486KB/8972KB, paused 587us,3.038ms total 687.384ms
+I/flutter ( 4581): 
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 🌐 REQUEST GET https://pulseapi.premiumfreshers.com/api/v1/common/allSiteData?latitude=28.4470167&longitude=77.30905&type=ALL&searchText=
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 📋 Headers:
+I/flutter ( 4581):    content-Type: application/json
+I/flutter ( 4581):    accept: application/json
+I/flutter ( 4581): 🔍 Query Parameters:
+I/flutter ( 4581):    latitude: 28.4470167
+I/flutter ( 4581):    longitude: 77.30905
+I/flutter ( 4581):    type: ALL
+I/flutter ( 4581):    searchText: 
+I/flutter ( 4581): 🌐 CURL Command:
+I/flutter ( 4581): ```bash
+I/flutter ( 4581): curl -X GET "https://pulseapi.premiumfreshers.com/api/v1/common/allSiteData?latitude=28.4470167&longitude=77.30905&type=ALL&searchText=" \
+I/flutter ( 4581):   -H "content-Type: application/json" \
+I/flutter ( 4581):   -H "accept: application/json" \
+I/flutter ( 4581):   -G --data-urlencode "latitude=28.4470167&longitude=77.30905&type=ALL&searchText="
+I/flutter ( 4581): ```
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 
+I/flutter ( 4581): [API_REQUEST] GET https://pulseapi.premiumfreshers.com/api/v1/common/allSiteData?latitude=28.4470167&longitude=77.30905&type=ALL&searchText=
+I/flutter ( 4581): 
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 📥 RESPONSE GET https://pulseapi.premiumfreshers.com/api/v1/common/allSiteData?latitude=28.4470167&longitude=77.30905&type=ALL&searchText=
+I/flutter ( 4581): Status: 200 | Time: 
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 📋 Response Headers:
+I/flutter ( 4581):    cache-control: no-cache, no-store, max-age=0, must-revalidate
+I/flutter ( 4581):    date: Thu, 09 Oct 2025 12:32:09 GMT
+I/flutter ( 4581):    vary: Origin,Access-Control-Request-Method,Access-Control-Request-Headers
+I/flutter ( 4581):    content-length: 26233
+I/flutter ( 4581):    content-type: application/json
+I/flutter ( 4581):    x-frame-options: DENY
+I/flutter ( 4581):    pragma: no-cache
+I/flutter ( 4581):    x-xss-protection: 0
+I/flutter ( 4581):    x-content-type-options: nosniff
+I/flutter ( 4581):    server: Apache/2.4.62 (AlmaLinux) OpenSSL/3.2.2
+I/flutter ( 4581):    expires: 0
+I/flutter ( 4581): 📦 Response Body:
+I/flutter ( 4581): 📋 Copyable JSON:
+I/flutter ( 4581): ```json
+I/flutter ( 4581): [
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2306,
+I/flutter ( 4581):     "entity_id": 1765,
+I/flutter ( 4581):     "site_code": "1268",
+I/flutter ( 4581):     "site_name": "Bankakera(Simbalbera Police Pkt) (1268)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.574300°",
+I/flutter ( 4581):     "longitude": "85.2864",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "963 KM",
+I/flutter ( 4581):     "distance_m": 963449,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2296,
+I/flutter ( 4581):     "entity_id": 1755,
+I/flutter ( 4581):     "site_code": "1258",
+I/flutter ( 4581):     "site_name": "Bhandro (1258)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.296400°",
+I/flutter ( 4581):     "longitude": "85.079200°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "965 KM",
+I/flutter ( 4581):     "distance_m": 965142,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2300,
+I/flutter ( 4581):     "entity_id": 1759,
+I/flutter ( 4581):     "site_code": "1262",
+I/flutter ( 4581):     "site_name": "Budmu CRPF (1262)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.530992°",
+I/flutter ( 4581):     "longitude": "85.146222°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "955 KM",
+I/flutter ( 4581):     "distance_m": 954772,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2268,
+I/flutter ( 4581):     "entity_id": 1727,
+I/flutter ( 4581):     "site_code": "1230",
+I/flutter ( 4581):     "site_name": "Champadih (1230)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.142800°",
+I/flutter ( 4581):     "longitude": "85.024500°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "971 KM",
+I/flutter ( 4581):     "distance_m": 971403,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2343,
+I/flutter ( 4581):     "entity_id": 1802,
+I/flutter ( 4581):     "site_code": "1305",
+I/flutter ( 4581):     "site_name": "Chanho Block (1305)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°30'24.12\"N",
+I/flutter ( 4581):     "longitude": "84°58'32.16\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "942 KM",
+I/flutter ( 4581):     "distance_m": 942487,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3013,
+I/flutter ( 4581):     "entity_id": 2472,
+I/flutter ( 4581):     "site_code": "1980",
+I/flutter ( 4581):     "site_name": "Chapar (1980)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.694140°",
+I/flutter ( 4581):     "longitude": "85.206340°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "949 KM",
+I/flutter ( 4581):     "distance_m": 949050,
+I/flutter ( 4581):     "client_id": 4,
+I/flutter ( 4581):     "client_name": "PTPL",
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2298,
+I/flutter ( 4581):     "entity_id": 1757,
+I/flutter ( 4581):     "site_code": "1260",
+I/flutter ( 4581):     "site_name": "Churi (1260)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.681758",
+I/flutter ( 4581):     "longitude": "85.042986",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "936 KM",
+I/flutter ( 4581):     "distance_m": 936365,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2166,
+I/flutter ( 4581):     "entity_id": 1625,
+I/flutter ( 4581):     "site_code": "1128",
+I/flutter ( 4581):     "site_name": "Dehekela (1128)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.070300°",
+I/flutter ( 4581):     "longitude": "85.049000°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "978 KM",
+I/flutter ( 4581):     "distance_m": 978435,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3011,
+I/flutter ( 4581):     "entity_id": 2470,
+I/flutter ( 4581):     "site_code": "1978",
+I/flutter ( 4581):     "site_name": "Dolaicha (1978)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.185660°",
+I/flutter ( 4581):     "longitude": "84.971150°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "964 KM",
+I/flutter ( 4581):     "distance_m": 964165,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2331,
+I/flutter ( 4581):     "entity_id": 1790,
+I/flutter ( 4581):     "site_code": "1293",
+I/flutter ( 4581):     "site_name": "Garai(Fatehpur Village) (1293)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.079900°",
+I/flutter ( 4581):     "longitude": "84.997600°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "974 KM",
+I/flutter ( 4581):     "distance_m": 973692,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 140,
+I/flutter ( 4581):     "entity_id": 52,
+I/flutter ( 4581):     "site_code": "HR-FBD-001",
+I/flutter ( 4581):     "site_name": "HR-FBD-001 (HR-FBD-001)",
+I/flutter ( 4581):     "cluster_district_id": 114,
+I/flutter ( 4581):     "cluster_district_name": "Faridabad",
+I/flutter ( 4581):     "circle_state_id": 110,
+I/flutter ( 4581):     "circle_state_name": "Haryana ",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "73.7548",
+I/flutter ( 4581):     "longitude": "224.234",
+I/flutter ( 4581):     "owner_name": "Kanishka",
+I/flutter ( 4581):     "owner_contact_no": "9878987788",
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "8390 KM",
+I/flutter ( 4581):     "distance_m": 8389729,
+I/flutter ( 4581):     "client_id": 8,
+I/flutter ( 4581):     "client_name": "Nexgen",
+I/flutter ( 4581):     "operator_id": 1,
+I/flutter ( 4581):     "operator_name": "Airtel",
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2346,
+I/flutter ( 4581):     "entity_id": 1805,
+I/flutter ( 4581):     "site_code": "1308",
+I/flutter ( 4581):     "site_name": "Itki ps (1308)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.341100°",
+I/flutter ( 4581):     "longitude": "85.126400°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "966 KM",
+I/flutter ( 4581):     "distance_m": 965900,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2170,
+I/flutter ( 4581):     "entity_id": 1629,
+I/flutter ( 4581):     "site_code": "1132",
+I/flutter ( 4581):     "site_name": "Jariagarh (1132)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.042113°",
+I/flutter ( 4581):     "longitude": "85.015245°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "978 KM",
+I/flutter ( 4581):     "distance_m": 977756,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2310,
+I/flutter ( 4581):     "entity_id": 1769,
+I/flutter ( 4581):     "site_code": "1272",
+I/flutter ( 4581):     "site_name": "Jariya B (1272)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581): 📍 Sites received from API: 0 sites
+I/flutter ( 4581): 📍 Type: ALL
+I/flutter ( 4581): 📍 Set _allSites to 0 sites
+I/flutter ( 4581): 📍 Set _filteredSites to 0 sites
+I/flutter ( 4581): 📍 Selected filter: All Sites
+I/flutter ( 4581): 📍 Is loading: false
+I/flutter ( 4581): 🏗️ _buildBody called - isLoading: false, error: null, filteredSites: 0
+I/flutter ( 4581): 🏗️ _filteredSites is empty
+I/flutter ( 4581): 🏗️ currentList length: 0
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.304400°",
+I/flutter ( 4581):     "longitude": "85.049100°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "962 KM",
+I/flutter ( 4581):     "distance_m": 962173,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2312,
+I/flutter ( 4581):     "entity_id": 1771,
+I/flutter ( 4581):     "site_code": "1274",
+I/flutter ( 4581):     "site_name": "Katangdiri (1274)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°34'30.00\"N",
+I/flutter ( 4581):     "longitude": "85°12'41.04\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "957 KM",
+I/flutter ( 4581):     "distance_m": 957222,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3015,
+I/flutter ( 4581):     "entity_id": 2474,
+I/flutter ( 4581):     "site_code": "1982",
+I/flutter ( 4581):     "site_name": "Khalari (1982)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.630632°",
+I/flutter ( 4581):     "longitude": "85.015539°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "937 KM",
+I/flutter ( 4581):     "distance_m": 937476,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": 1,
+I/flutter ( 4581):     "operator_name": "Airtel",
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2293,
+I/flutter ( 4581):     "entity_id": 1752,
+I/flutter ( 4581):     "site_code": "1255",
+I/flutter ( 4581):     "site_name": "Kokdoro Rajkiya Middle School (1255)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.500400°",
+I/flutter ( 4581):     "longitude": "85.316700°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "971 KM",
+I/flutter ( 4581):     "distance_m": 970783,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2318,
+I/flutter ( 4581):     "entity_id": 1777,
+I/flutter ( 4581):     "site_code": "1280",
+I/flutter ( 4581):     "site_name": "Lapra (1280)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.671300°",
+I/flutter ( 4581):     "longitude": "84.931800°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "928 KM",
+I/flutter ( 4581):     "distance_m": 927930,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3014,
+I/flutter ( 4581):     "entity_id": 2473,
+I/flutter ( 4581):     "site_code": "1981",
+I/flutter ( 4581):     "site_name": "Manatu (1981)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°33'57.67\"N",
+I/flutter ( 4581):     "longitude": "85°11'9.02\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "956 KM",
+I/flutter ( 4581):     "distance_m": 955709,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2330,
+I/flutter ( 4581):     "entity_id": 1789,
+I/flutter ( 4581):     "site_code": "1292",
+I/flutter ( 4581):     "site_name": "Mandar PS (1292)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°27'34.20\"N",
+I/flutter ( 4581):     "longitude": "85° 5'22.20",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "955 KM",
+I/flutter ( 4581):     "distance_m": 954913,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3009,
+I/flutter ( 4581):     "entity_id": 2468,
+I/flutter ( 4581):     "site_code": "1976",
+I/flutter ( 4581):     "site_name": "Muretha (1976)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°33'34.02\"N",
+I/flutter ( 4581):     "longitude": "85°14'56.90\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "961 KM",
+I/flutter ( 4581):     "distance_m": 961348,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2320,
+I/flutter ( 4581):     "entity_id": 1779,
+I/flutter ( 4581):     "site_code": "1282",
+I/flutter ( 4581):     "site_name": "Narkopi PS (1282)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.375900°",
+I/flutter ( 4581):     "longitude": "84.969700°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "951 KM",
+I/flutter ( 4581):     "distance_m": 950890,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3010,
+I/flutter ( 4581):     "entity_id": 2469,
+I/flutter ( 4581):     "site_code": "1977",
+I/flutter ( 4581):     "site_name": "Nehalukaparia (1977)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.205060°",
+I/flutter ( 4581):     "longitude": "84.970540°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "963 KM",
+I/flutter ( 4581):     "distance_m": 962762,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2325,
+I/flutter ( 4581):     "entity_id": 1784,
+I/flutter ( 4581):     "site_code": "1287",
+I/flutter ( 4581):     "site_name": "Patratu c (1287)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.542545°",
+I/flutter ( 4581):     "longitude": "84.946528°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "938 KM",
+I/flutter ( 4581):     "distance_m": 937716,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2326,
+I/flutter ( 4581):     "entity_id": 1785,
+I/flutter ( 4581):     "site_code": "1288",
+I/flutter ( 4581):     "site_name": "Patratu K (1288)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°32'15.72\"N",
+I/flutter ( 4581):     "longitude": "85°13'4.08\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "960 KM",
+I/flutter ( 4581):     "distance_m": 960199,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 141,
+I/flutter ( 4581):     "entity_id": 53,
+I/flutter ( 4581):     "site_code": "PB-LDH-002",
+I/flutter ( 4581):     "site_name": "PB-LDH-002 (PB-LDH-002)",
+I/flutter ( 4581):     "cluster_district_id": 120,
+I/flutter ( 4581):     "cluster_district_name": "Ludhiana",
+I/flutter ( 4581):     "circle_state_id": 111,
+I/flutter ( 4581):     "circle_state_name": "Punjab",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "28.4098",
+I/flutter ( 4581):     "longitude": "77.31",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "4 KM",
+I/flutter ( 4581):     "distance_m": 4139,
+I/flutter ( 4581):     "client_id": 4,
+I/flutter ( 4581):     "client_name": "PTPL",
+I/flutter ( 4581):     "operator_id": 4,
+I/flutter ( 4581):     "operator_name": "BSNL",
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 137,
+I/flutter ( 4581):     "entity_id": 46,
+I/flutter ( 4581):     "site_code": "PUN-LDH-002",
+I/flutter ( 4581):     "site_name": "PUN-LDH-002 (PUN-LDH-002)",
+I/flutter ( 4581):     "cluster_district_id": 135,
+I/flutter ( 4581):     "cluster_district_name": "Ludhiana",
+I/flutter ( 4581):     "circle_state_id": 125,
+I/flutter ( 4581):     "circle_state_name": "Punjab",
+I/flutter ( 4581):     "site_domain_id": 2,
+I/flutter ( 4581):     "site_domain_name": "Solar",
+I/flutter ( 4581):     "latitude": "30.90297",
+I/flutter ( 4581):     "longitude": "75.85701",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "307 KM",
+I/flutter ( 4581):     "distance_m": 307004,
+I/flutter ( 4581):     "client_id": 8,
+I/flutter ( 4581):     "client_name": "Nexgen",
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2327,
+I/flutter ( 4581):     "entity_id": 1786,
+I/flutter ( 4581):     "site_code": "1289",
+I/flutter ( 4581):     "site_name": "Raghunathpur1 (1289)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°29'12.84\"N",
+I/flutter ( 4581):     "longitude": "84°57'49.32\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "943 KM",
+I/flutter ( 4581):     "distance_m": 942858,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2332,
+I/flutter ( 4581):     "entity_id": 1791,
+I/flutter ( 4581):     "site_code": "1294",
+I/flutter ( 4581):     "site_name": "Saram B (1294)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.562700°",
+I/flutter ( 4581):     "longitude": "85.051600°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "945 KM",
+I/flutter ( 4581):     "distance_m": 944929,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2329,
+I/flutter ( 4581):     "entity_id": 1788,
+I/flutter ( 4581):     "site_code": "1291",
+I/flutter ( 4581):     "site_name": "Sembo CRPF (1291)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.285300°",
+I/flutter ( 4581):     "longitude": "85.229700°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "978 KM",
+I/flutter ( 4581):     "distance_m": 978043,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2337,
+I/flutter ( 4581):     "entity_id": 1796,
+I/flutter ( 4581):     "site_code": "1299",
+I/flutter ( 4581):     "site_name": "Silagain (1299)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23°27'0.36\"N",
+I/flutter ( 4581):     "longitude": "84°57'23.76\"E",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "945 KM",
+I/flutter ( 4581):     "distance_m": 944776,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 3012,
+I/flutter ( 4581):     "entity_id": 2471,
+I/flutter ( 4581):     "site_code": "1979",
+I/flutter ( 4581):     "site_name": "Sugda (1979)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.267854°",
+I/flutter ( 4581):     "longitude": "85.095021°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "968 KM",
+I/flutter ( 4581):     "distance_m": 968371,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2328,
+I/flutter ( 4581):     "entity_id": 1787,
+I/flutter ( 4581):     "site_code": "1290",
+I/flutter ( 4581):     "site_name": "Sukurhatu ITBP (1290)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.450500°",
+I/flutter ( 4581):     "longitude": "85.274300°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "971 KM",
+I/flutter ( 4581):     "distance_m": 970595,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2295,
+I/flutter ( 4581):     "entity_id": 1754,
+I/flutter ( 4581):     "site_code": "1257",
+I/flutter ( 4581):     "site_name": "Sutiyambe Middle School (1257)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.513900°",
+I/flutter ( 4581):     "longitude": "85.309000°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "969 KM",
+I/flutter ( 4581):     "distance_m": 969263,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2342,
+I/flutter ( 4581):     "entity_id": 1801,
+I/flutter ( 4581):     "site_code": "1304",
+I/flutter ( 4581):     "site_name": "Tala (1304)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.528408°",
+I/flutter ( 4581):     "longitude": "85.000435°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "943 KM",
+I/flutter ( 4581):     "distance_m": 943047,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2345,
+I/flutter ( 4581):     "entity_id": 1804,
+I/flutter ( 4581):     "site_code": "1307",
+I/flutter ( 4581):     "site_name": "Taranga (1307)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.516300°",
+I/flutter ( 4581):     "longitude": "85.070100°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "950 KM",
+I/flutter ( 4581):     "distance_m": 949530,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2304,
+I/flutter ( 4581):     "entity_id": 1763,
+I/flutter ( 4581):     "site_code": "1266",
+I/flutter ( 4581):     "site_name": "Tendagram (1266)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.417400°",
+I/flutter ( 4581):     "longitude": "85.253300°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "971 KM",
+I/flutter ( 4581):     "distance_m": 971077,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 7553,
+I/flutter ( 4581):     "entity_id": 6874,
+I/flutter ( 4581):     "site_code": "TEST-MUM-PN-001",
+I/flutter ( 4581):     "site_name": "Tesiting Site - PUNE (TEST-MUM-PN-001)",
+I/flutter ( 4581):     "cluster_district_id": 152,
+I/flutter ( 4581):     "cluster_district_name": "Pune",
+I/flutter ( 4581):     "circle_state_id": 142,
+I/flutter ( 4581):     "circle_state_name": "Mumbai ",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "27.8945",
+I/flutter ( 4581):     "longitude": "-82.4621",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "13390 KM",
+I/flutter ( 4581):     "distance_m": 13389905,
+I/flutter ( 4581):     "client_id": 18,
+I/flutter ( 4581):     "client_name": "ABM Infocom Pvt Ltd",
+I/flutter ( 4581):     "operator_id": 1,
+I/flutter ( 4581):     "operator_name": "Airtel",
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 7556,
+I/flutter ( 4581):     "entity_id": 6875,
+I/flutter ( 4581):     "site_code": "TEST-MUM-PUN-002",
+I/flutter ( 4581):     "site_name": "Testing Site - PN SL (TEST-MUM-PUN-002)",
+I/flutter ( 4581):     "cluster_district_id": 7555,
+I/flutter ( 4581):     "cluster_district_name": "Pune",
+I/flutter ( 4581):     "circle_state_id": 7554,
+I/flutter ( 4581):     "circle_state_name": "Mumbai",
+I/flutter ( 4581):     "site_domain_id": 2,
+I/flutter ( 4581):     "site_domain_name": "Solar",
+I/flutter ( 4581):     "latitude": "27.8945",
+I/flutter ( 4581):     "longitude": "-82.4621",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "13390 KM",
+I/flutter ( 4581):     "distance_m": 13389905,
+I/flutter ( 4581):     "client_id": 3,
+I/flutter ( 4581):     "client_name": "Skipper",
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   },
+I/flutter ( 4581):   {
+I/flutter ( 4581):     "site_id": 2322,
+I/flutter ( 4581):     "entity_id": 1781,
+I/flutter ( 4581):     "site_code": "1284",
+I/flutter ( 4581):     "site_name": "Umedanda (1284)",
+I/flutter ( 4581):     "cluster_district_id": 393,
+I/flutter ( 4581):     "cluster_district_name": "RANCHI",
+I/flutter ( 4581):     "circle_state_id": 190,
+I/flutter ( 4581):     "circle_state_name": "Jharkhand",
+I/flutter ( 4581):     "site_domain_id": 1,
+I/flutter ( 4581):     "site_domain_name": "Telecom",
+I/flutter ( 4581):     "latitude": "23.637500°",
+I/flutter ( 4581):     "longitude": "85.168200°",
+I/flutter ( 4581):     "owner_name": null,
+I/flutter ( 4581):     "owner_contact_no": null,
+I/flutter ( 4581):     "infra_district_engineer_id": 352,
+I/flutter ( 4581):     "infra_district_engineer_name": "Abhimanyu Sahu",
+I/flutter ( 4581):     "infra_district_engineer_contact_no": "9006082503",
+I/flutter ( 4581):     "distance_km": "950 KM",
+I/flutter ( 4581):     "distance_m": 949574,
+I/flutter ( 4581):     "client_id": null,
+I/flutter ( 4581):     "client_name": null,
+I/flutter ( 4581):     "operator_id": null,
+I/flutter ( 4581):     "operator_name": null,
+I/flutter ( 4581):     "oem_id": null,
+I/flutter ( 4581):     "oem": null,
+I/flutter ( 4581):     "self_id": 352,
+I/flutter ( 4581):     "self": "Abhimanyu Sahu"
+I/flutter ( 4581):   }
+I/flutter ( 4581): ]
+I/flutter ( 4581): ```
+I/flutter ( 4581): ================================================================================
+I/flutter ( 4581): 
+I/flutter ( 4581): [API_RESPONSE] GET https://pulseapi.premiumfreshers.com/api/v1/common/allSiteData?latitude=28.4470167&longitude=77.30905&type=ALL&searchText= - 200
+Lost connection to device.
