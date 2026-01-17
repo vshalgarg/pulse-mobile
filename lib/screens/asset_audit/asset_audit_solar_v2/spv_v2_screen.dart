@@ -539,7 +539,7 @@ class _SPVV2ScreenState extends State<SPVV2Screen> {
           label: "Total Capacity of Solar (Kwatt)",
           controller: _totalCapacityController,
           isRequired: false,
-          isEditable: true,
+          isEditable: false,
           hintText: "Text",
         ),
         getHeight(15),

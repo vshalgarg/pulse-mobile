@@ -7,6 +7,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
+import 'package:app/commonWidgets/custom_horizontal_radio_buttons.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
@@ -248,30 +249,18 @@ class _CustomAssetAuditFormSectionState
           ),
           getHeight(8),
 
-          Row(
-            children: [
-              Radio<String>(
-                value: "Ok",
-                groupValue: _selectedStatus,
-                onChanged: _onStatusChanged,
-                activeColor: AppColors.primaryGreen,
-              ),
-              const Text(
-                "Ok",
-                style: TextStyle(color: AppColors.white, fontSize: 16),
-              ),
-              const SizedBox(width: 20),
-              Radio<String>(
-                value: "Not Ok",
-                groupValue: _selectedStatus,
-                onChanged: _onStatusChanged,
-                activeColor: AppColors.primaryGreen,
-              ),
-              const Text(
-                "Not Ok",
-                style: TextStyle(color: AppColors.white, fontSize: 16),
-              ),
+          CustomHorizontalRadioButtons(
+            options: const [
+              RadioOption(label: "Ok", value: "Ok"),
+              RadioOption(label: "Not Ok", value: "Not Ok"),
             ],
+            selectedValue: _selectedStatus,
+            onButtonSelected: (value) => _onStatusChanged(value),
+            spacing: 20.0,
+            activeColor: AppColors.bulletIcon,
+            inactiveColor: AppColors.bulletIcon,
+            textColor: AppColors.white,
+            fontSize: 16,
           ),
         ],
       ],
