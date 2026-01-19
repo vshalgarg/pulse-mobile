@@ -990,8 +990,6 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       // Hide loader
       LoaderWidget.hideLoader();
 
-      // Show success message
-      showCustomToast(context, "Site visit submitted successfully");
 
       // Mark as submitted (reset changes flag)
       setState(() {

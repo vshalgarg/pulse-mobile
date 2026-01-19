@@ -155,7 +155,7 @@ class AssetAuditPostService {
     if (isSaved) {
       Logger.infoLog("Data saved to DB successfully");
 
-      Toastbar.showSuccessToastWithoutContext("Data saved to DB successfully");
+      Toastbar.showSuccessToastWithoutContext("Data submission failed.Data saved to DB successfully");
     } else {
       throw Exception('Failed to save data to database');
     }
