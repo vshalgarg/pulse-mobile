@@ -13,6 +13,7 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
+import 'package:app/utils/calculate_distance.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
@@ -171,7 +172,50 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   void _navigateToSite(AllSiteModel site) async {
     final parentContext = context;
 
-    // For Site Visit, check if we have stored API data with organisation list
+    try {
+      // Show loader immediately when site is clicked
+      LoaderWidget.showLoader(context);
+
+      // Check distance from current location to site location
+      if (site.latitude != null && site.longitude != null) {
+        try {
+          // Parse latitude and longitude from string to double
+          final siteLat = double.tryParse(site.latitude!);
+          final siteLng = double.tryParse(site.longitude!);
+
+          if (siteLat != null && siteLng != null) {
+            // Get current location
+            final currentLocation = await LocationService.getCurrentLocation();
+
+            // Calculate distance in kilometers
+            final distanceInKm = calculateDistance(
+              currentLocation.latitude,
+              currentLocation.longitude,
+              siteLat,
+              siteLng,
+            );
+
+            // Check if distance is more than 500 km
+            if (distanceInKm > 500) {
+              // Hide loader before showing toast
+              LoaderWidget.hideLoader();
+              // Round to 2 decimal places for display in kilometers
+              final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
+              Toastbar.showErrorToastbar(
+                "You are not in the radius of site -- $roundedDistanceKm KM",
+                context,
+              );
+              // Prevent site from opening if distance exceeds 500 km
+              return;
+            }
+          }
+        } catch (e) {
+          // If location fetch fails, log but continue with navigation
+          Logger.errorLog('Error calculating distance: $e');
+        }
+      }
+
+      // For Site Visit, check if we have stored API data with organisation list
     if (widget.ActivityType == 'SV') {
       try {
         final service = ServiceLocator().centralAssetAuditService;
@@ -244,6 +288,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                     .toList()
               : null;
 
+          // Hide loader before navigation
+          LoaderWidget.hideLoader();
           if (mounted) {
             Navigator.push(
               context,
@@ -266,10 +312,9 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     // For Asset Upload, call getUploadedAssets before navigating
     if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
       try {
-        LoaderWidget.showLoader(context);
+        // Loader is already shown at the beginning of the function
         final repository = AssetUploadRepository(ServiceLocator().apiService);
         final result = await repository.getUploadedAssets(siteId: site.siteId);
-        LoaderWidget.hideLoader();
 
         if (result.isSuccess && result.data != null) {
           Logger.debugLog('✅ Successfully fetched uploaded assets for site ${site.siteId}');
@@ -365,6 +410,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             }
           }
 
+          // Hide loader before navigation
+          LoaderWidget.hideLoader();
           // Navigate with the fetched data
           if (mounted) {
             Navigator.push(
@@ -384,6 +431,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         } else {
           // Even if fetch fails, still navigate (might be a new site with no assets)
           Logger.debugLog('⚠️ Failed to fetch uploaded assets, navigating anyway: ${result.errorMessage}');
+          LoaderWidget.hideLoader();
           if (mounted) {
             Navigator.push(
               context,
@@ -418,6 +466,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     }
 
     // Use basic site data if no stored data available
+    // Hide loader before navigation
+    LoaderWidget.hideLoader();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -436,6 +486,13 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
               ),
       ),
     );
+    } catch (e) {
+      // Hide loader on error
+      if (LoaderWidget.isShowing) {
+        LoaderWidget.hideLoader();
+      }
+      Logger.errorLog('Error in _navigateToSite: $e');
+    }
   }
 
   void _initializeDownloadedSites(List<AllSiteModel> sites) async {

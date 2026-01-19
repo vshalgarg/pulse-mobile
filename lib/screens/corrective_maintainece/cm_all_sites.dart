@@ -15,6 +15,7 @@ import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 import '../../services/location_service.dart';
+import '../../utils/calculate_distance.dart';
 import 'corrective_maintenance_screen.dart';
 
 class CMAllSitesScreen extends StatefulWidget {
@@ -145,28 +146,84 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
     return 0;
   }
 
-  void _navigateToSite(CMSite site) {
-    // Navigate to corrective maintenance screen with the selected site data
-    final parentContext = context;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => CorrectiveMaintenanceScreen(
-          mode: CMScreenModeEnum.create,
-          preloadedSites: [site], // Pass the selected site
-          preloadedSiteData: {
-            'siteId': site.siteId,
-            'siteName': site.siteName,
-            'siteCode': site.siteCode,
-            'clusterDistrictName': site.clusterDistrictName,
-            'circleStateName': site.circleStateName,
-            'clientName': site.clientName,
-            'oem': site.oem,
-          },
-          parentContext: parentContext,
+  void _navigateToSite(CMSite site, AllSiteModel? allSiteModel) async {
+    try {
+      // Show loader immediately when site is clicked
+      LoaderWidget.showLoader(context);
+
+      // Check distance from current location to site location
+      // Use allSiteModel if available (has latitude/longitude), otherwise skip distance check
+      if (allSiteModel != null &&
+          allSiteModel.latitude != null &&
+          allSiteModel.longitude != null) {
+        try {
+          // Parse latitude and longitude from string to double
+          final siteLat = double.tryParse(allSiteModel.latitude!);
+          final siteLng = double.tryParse(allSiteModel.longitude!);
+
+          if (siteLat != null && siteLng != null) {
+            // Get current location
+            final currentLocation = await LocationService.getCurrentLocation();
+
+            // Calculate distance in kilometers
+            final distanceInKm = calculateDistance(
+              currentLocation.latitude,
+              currentLocation.longitude,
+              siteLat,
+              siteLng,
+            );
+
+            // Check if distance is more than 500 km
+            if (distanceInKm > 500) {
+              // Hide loader before showing toast
+              LoaderWidget.hideLoader();
+              // Round to 2 decimal places for display in kilometers
+              final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
+              Toastbar.showErrorToastbar(
+                "You are not in the radius of site -- $roundedDistanceKm KM",
+                context,
+              );
+              // Prevent site from opening if distance exceeds 500 km
+              return;
+            }
+          }
+        } catch (e) {
+          // If location fetch fails, log but continue with navigation
+          Logger.errorLog('Error calculating distance: $e');
+        }
+      }
+
+      // Hide loader before navigation
+      LoaderWidget.hideLoader();
+
+      // Navigate to corrective maintenance screen with the selected site data
+      final parentContext = context;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CorrectiveMaintenanceScreen(
+            mode: CMScreenModeEnum.create,
+            preloadedSites: [site], // Pass the selected site
+            preloadedSiteData: {
+              'siteId': site.siteId,
+              'siteName': site.siteName,
+              'siteCode': site.siteCode,
+              'clusterDistrictName': site.clusterDistrictName,
+              'circleStateName': site.circleStateName,
+              'clientName': site.clientName,
+              'oem': site.oem,
+            },
+            parentContext: parentContext,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      // Hide loader on error
+      if (LoaderWidget.isShowing) {
+        LoaderWidget.hideLoader();
+      }
+      Logger.errorLog('Error in _navigateToSite: $e');
+    }
   }
 
   void _initializeDownloadedSites(List<AllSiteModel> sites) async {
@@ -518,7 +575,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
                     context,
                   );
                 },
-                onTap: () => _navigateToSite(CMSite.fromJson(site.toJson())),
+                onTap: () => _navigateToSite(CMSite.fromJson(site.toJson()), site),
                 onDownloadTap: isDownloaded
                     ? null // Disable download if already downloaded
                     : () => _downloadSiteData(site),
