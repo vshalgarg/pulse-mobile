@@ -27,6 +27,7 @@ import '../constants/app_images.dart';
 import '../models/ticket_model.dart';
 import '../repositories/asset_upload_respository.dart';
 import '../services/location_service.dart';
+import '../utils/calculate_distance.dart';
 import 'asset_upload/asset_upload_detail_page.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
@@ -256,7 +257,41 @@ class _TicketScreenState extends State<TicketScreen>
     if (ticket == null) return;
 
     try {
+      // Show loader immediately when ticket is clicked
       LoaderWidget.showLoader(context);
+
+      // Check distance from current location to ticket location
+      if (ticket.latitude != null && ticket.longitude != null) {
+        try {
+          // Get current location
+          final currentLocation = await LocationService.getCurrentLocation();
+          
+          // Calculate distance in kilometers
+          final distanceInKm = calculateDistance(
+            currentLocation.latitude,
+            currentLocation.longitude,
+            ticket.latitude!,
+            ticket.longitude!,
+          );
+          
+          // Check if distance is more than 500 km
+          if (distanceInKm > 500) {
+            // Hide loader before showing toast
+            LoaderWidget.hideLoader();
+            // Round to 2 decimal places for display in kilometers
+            final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
+            Toastbar.showErrorToastbar(
+              "You are not in the radius of site -- $roundedDistanceKm KM",
+              context,
+            );
+            // Prevent ticket from opening if distance exceeds 500 km
+            return;
+          }
+        } catch (e) {
+          // If location fetch fails, log but continue with navigation
+          Logger.errorLog('Error calculating distance: $e');
+        }
+      }
       // Determine site type - check if it's solar or telecom
       final siteType = ticket.siteDomainName ?? 'Solar';
 
