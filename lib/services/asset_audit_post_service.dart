@@ -155,7 +155,9 @@ class AssetAuditPostService {
     if (isSaved) {
       Logger.infoLog("Data saved to DB successfully");
 
-      Toastbar.showSuccessToastWithoutContext("Data submission failed.Data saved to DB successfully");
+      Toastbar.showSuccessToastWithoutContext(
+        "Data submission failed. Don’t worry—your data has been saved on this device and can be synced when you’re back online.",
+      );
     } else {
       throw Exception('Failed to save data to database');
     }
@@ -324,19 +326,25 @@ class AssetAuditPostService {
 
       // Process makerSelfieImageId - replace LOCAL_IMAGE_ID with server ID
       final makerSelfieImageId = request['makerSelfieImageId'];
-      if (makerSelfieImageId != null && 
+      if (makerSelfieImageId != null &&
           makerSelfieImageId.toString().startsWith('LOCAL_IMAGE_ID_')) {
-        Logger.debugLog('🔄 Processing makerSelfieImageId: $makerSelfieImageId');
-        
+        Logger.debugLog(
+          '🔄 Processing makerSelfieImageId: $makerSelfieImageId',
+        );
+
         final imageModel = await ServiceLocator().imageUploadService
             .getServerIdFromUniqueIdTryUploading(makerSelfieImageId.toString());
-        
+
         if (imageModel != null && imageModel.serverId != null) {
           final serverId = int.tryParse(imageModel.serverId.toString()) ?? 0;
           request['makerSelfieImageId'] = serverId;
-          Logger.debugLog('✅ makerSelfieImageId replaced with server ID: $serverId');
+          Logger.debugLog(
+            '✅ makerSelfieImageId replaced with server ID: $serverId',
+          );
         } else {
-          Logger.errorLog('❌ Failed to upload selfie image: $makerSelfieImageId');
+          Logger.errorLog(
+            '❌ Failed to upload selfie image: $makerSelfieImageId',
+          );
           request['makerSelfieImageId'] = 0;
         }
       }
@@ -346,24 +354,34 @@ class AssetAuditPostService {
       if (assetUploadItems != null) {
         for (final item in assetUploadItems) {
           if (item is Map<String, dynamic>) {
-            final assetUploadItemImages = item['assetUploadItemImages'] as List<dynamic>?;
+            final assetUploadItemImages =
+                item['assetUploadItemImages'] as List<dynamic>?;
             if (assetUploadItemImages != null) {
               for (final image in assetUploadItemImages) {
                 if (image is Map<String, dynamic>) {
                   final photoId = image['photoId'];
-                  if (photoId != null && 
+                  if (photoId != null &&
                       photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
-                    Logger.debugLog('🔄 Processing asset image photoId: $photoId');
-                    
+                    Logger.debugLog(
+                      '🔄 Processing asset image photoId: $photoId',
+                    );
+
                     final imageModel = await ServiceLocator().imageUploadService
-                        .getServerIdFromUniqueIdTryUploading(photoId.toString());
-                    
+                        .getServerIdFromUniqueIdTryUploading(
+                          photoId.toString(),
+                        );
+
                     if (imageModel != null && imageModel.serverId != null) {
-                      final serverId = int.tryParse(imageModel.serverId.toString()) ?? 0;
+                      final serverId =
+                          int.tryParse(imageModel.serverId.toString()) ?? 0;
                       image['photoId'] = serverId;
-                      Logger.debugLog('✅ Asset image photoId replaced with server ID: $serverId');
+                      Logger.debugLog(
+                        '✅ Asset image photoId replaced with server ID: $serverId',
+                      );
                     } else {
-                      Logger.errorLog('❌ Failed to upload asset image: $photoId');
+                      Logger.errorLog(
+                        '❌ Failed to upload asset image: $photoId',
+                      );
                       image['photoId'] = 0;
                     }
                   }
@@ -435,8 +453,7 @@ class AssetAuditPostService {
           processedData['customer_original_file_name'];
 
       // Extract FSR attachment file info
-      final fsrOriginalFilePath =
-          processedData['fsr_original_file_path'];
+      final fsrOriginalFilePath = processedData['fsr_original_file_path'];
       final fsrOriginalFileName =
           processedData['fsr_original_file_name'] ??
           processedData['fsrAttachmentName'] ??
@@ -797,7 +814,9 @@ class AssetAuditPostService {
           final attachmentData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(fsrAttachmentId);
           if (attachmentData != null) {
-            Logger.infoLog("FSR attachment data retrieved, converting to File...");
+            Logger.infoLog(
+              "FSR attachment data retrieved, converting to File...",
+            );
 
             // Use original filename if available, otherwise generate one
             String fileName;
@@ -840,7 +859,9 @@ class AssetAuditPostService {
       }
 
       // Upload if files exist
-      if (customerPhoto != null || attachment != null || fsrAttachment != null) {
+      if (customerPhoto != null ||
+          attachment != null ||
+          fsrAttachment != null) {
         Logger.infoLog("Uploading CM images with cmSiteReqId: $cmSiteReqId");
         Logger.infoLog(
           "customerPhoto: ${customerPhoto != null ? 'exists' : 'null'}, attachment: ${attachment != null ? 'exists' : 'null'}, fsrAttachment: ${fsrAttachment != null ? 'exists' : 'null'}",
@@ -1198,38 +1219,44 @@ class AssetAuditPostService {
       dynamic photoId;
 
       // Handle response_images array (for PM and similar requests)
-      if (request.containsKey("response_images") || request.containsKey("asset_upload_item_images")) {
+      if (request.containsKey("response_images") ||
+          request.containsKey("asset_upload_item_images")) {
         final responseImages = request['response_images'];
         if (responseImages != null && responseImages is List) {
           // Process each image in the response_images array
           for (int i = 0; i < responseImages.length; i++) {
             final responseImage = responseImages[i];
             if (responseImage is Map<String, dynamic>) {
-              final currentPhotoId = responseImage['photo_id'] ?? responseImage['photoId'];
-              
+              final currentPhotoId =
+                  responseImage['photo_id'] ?? responseImage['photoId'];
+
               // Only process LOCAL_IMAGE_ID entries (skip already uploaded server IDs)
-              if (currentPhotoId != null && 
+              if (currentPhotoId != null &&
                   currentPhotoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
                 // This is a unique_id, get the server_id using ImageUploadService
                 final imageModel = await ServiceLocator().imageUploadService
-                    .getServerIdFromUniqueIdTryUploading(currentPhotoId.toString());
-                
+                    .getServerIdFromUniqueIdTryUploading(
+                      currentPhotoId.toString(),
+                    );
+
                 if (imageModel != null) {
                   final serverId = imageModel.serverId;
-                  final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
-                  
+                  final timestamp = Utils.getTmeFromMSForAPICall(
+                    imageModel.createdAt,
+                  );
+
                   // Update the photo_id in this specific response_images item
                   responseImage['photo_id'] = serverId;
                   // Also update camelCase version if it exists
                   if (responseImage.containsKey('photoId')) {
                     responseImage['photoId'] = serverId;
                   }
-                  
+
                   // Update timestamp if available
                   if (timestamp != null) {
                     responseImage['photo_taken_ts'] = timestamp;
                   }
-                  
+
                   Logger.debugLog(
                     "✅ Uploaded LOCAL_IMAGE_ID $currentPhotoId -> server_id $serverId in response_images[$i]",
                   );

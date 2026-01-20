@@ -275,7 +275,7 @@ class _TicketScreenState extends State<TicketScreen>
           );
           
           // Check if distance is more than 500 km
-          if (distanceInKm > 500) {
+          if (distanceInKm > 1000) {
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
             // Round to 2 decimal places for display in kilometers
