@@ -1524,7 +1524,48 @@ class _CorrectiveMaintenanceScreenState
                   Logger.infoLog('[CM] onImpactedItemListChanged called with ${impactedItems.length} items');
                   Logger.infoLog('[CM] onImpactedItemListChanged data: $impactedItems');
                   setState(() {
-                    _impactedItemList = impactedItems;
+                    // Get the parent ID from the first impacted item (if available)
+                    int? currentParentId;
+                    if (impactedItems.isNotEmpty) {
+                      final firstItem = impactedItems.first;
+                      final childResponses = firstItem['childItemResponses'] as List<dynamic>? ?? 
+                                           firstItem['child_item_responses'] as List<dynamic>? ?? [];
+                      if (childResponses.isNotEmpty) {
+                        final firstChild = childResponses.first as Map<String, dynamic>?;
+                        if (firstChild != null) {
+                          currentParentId = firstChild['parentCmCheckListMstId'] as int? ?? 
+                                          firstChild['parent_cm_check_list_mst_id'] as int?;
+                        }
+                      }
+                    }
+                    
+                    // If we have a parent ID, remove existing items for this parent and add new ones
+                    // Otherwise, replace the entire list (backward compatibility)
+                    if (currentParentId != null && currentParentId != 0) {
+                      Logger.infoLog('[CM] Merging impacted items for parent ID: $currentParentId');
+                      // Remove items that belong to this parent (by checking child responses)
+                      _impactedItemList.removeWhere((existingItem) {
+                        final existingChildResponses = existingItem['childItemResponses'] as List<dynamic>? ?? 
+                                                     existingItem['child_item_responses'] as List<dynamic>? ?? [];
+                        for (var childResponse in existingChildResponses) {
+                          if (childResponse is Map<String, dynamic>) {
+                            final parentMstId = childResponse['parentCmCheckListMstId'] as int? ?? 
+                                              childResponse['parent_cm_check_list_mst_id'] as int?;
+                            if (parentMstId == currentParentId) {
+                              return true; // Remove this item
+                            }
+                          }
+                        }
+                        return false; // Keep items from other parents
+                      });
+                      // Add new items for this parent
+                      _impactedItemList.addAll(impactedItems);
+                      Logger.infoLog('[CM] Merged impacted items. New total length: ${_impactedItemList.length}');
+                    } else {
+                      // Fallback: Replace entire list if no parent ID found
+                      Logger.infoLog('[CM] No parent ID found, replacing entire list');
+                      _impactedItemList = impactedItems;
+                    }
                   });
                   Logger.infoLog('[CM] _impactedItemList updated. New length: ${_impactedItemList.length}');
                 },
@@ -1571,7 +1612,48 @@ class _CorrectiveMaintenanceScreenState
                 (List<Map<String, dynamic>> impactedItems) {
                   Logger.infoLog('[CM] onImpactedItemListChanged called with ${impactedItems.length} items (edit)');
                   setState(() {
-                    _impactedItemList = impactedItems;
+                    // Get the parent ID from the first impacted item (if available)
+                    int? currentParentId;
+                    if (impactedItems.isNotEmpty) {
+                      final firstItem = impactedItems.first;
+                      final childResponses = firstItem['childItemResponses'] as List<dynamic>? ?? 
+                                           firstItem['child_item_responses'] as List<dynamic>? ?? [];
+                      if (childResponses.isNotEmpty) {
+                        final firstChild = childResponses.first as Map<String, dynamic>?;
+                        if (firstChild != null) {
+                          currentParentId = firstChild['parentCmCheckListMstId'] as int? ?? 
+                                          firstChild['parent_cm_check_list_mst_id'] as int?;
+                        }
+                      }
+                    }
+                    
+                    // If we have a parent ID, remove existing items for this parent and add new ones
+                    // Otherwise, replace the entire list (backward compatibility)
+                    if (currentParentId != null && currentParentId != 0) {
+                      Logger.infoLog('[CM] Merging impacted items for parent ID: $currentParentId (edit)');
+                      // Remove items that belong to this parent (by checking child responses)
+                      _impactedItemList.removeWhere((existingItem) {
+                        final existingChildResponses = existingItem['childItemResponses'] as List<dynamic>? ?? 
+                                                     existingItem['child_item_responses'] as List<dynamic>? ?? [];
+                        for (var childResponse in existingChildResponses) {
+                          if (childResponse is Map<String, dynamic>) {
+                            final parentMstId = childResponse['parentCmCheckListMstId'] as int? ?? 
+                                              childResponse['parent_cm_check_list_mst_id'] as int?;
+                            if (parentMstId == currentParentId) {
+                              return true; // Remove this item
+                            }
+                          }
+                        }
+                        return false; // Keep items from other parents
+                      });
+                      // Add new items for this parent
+                      _impactedItemList.addAll(impactedItems);
+                      Logger.infoLog('[CM] Merged impacted items. New total length: ${_impactedItemList.length} (edit)');
+                    } else {
+                      // Fallback: Replace entire list if no parent ID found
+                      Logger.infoLog('[CM] No parent ID found, replacing entire list (edit)');
+                      _impactedItemList = impactedItems;
+                    }
                   });
                 },
             originalCmImpactedItemMap:
