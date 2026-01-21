@@ -55,7 +55,8 @@ class _TicketScreenState extends State<TicketScreen>
   bool _hasLoadedOnce =
       false; // Track if tickets have been loaded at least once
   DateTime?
-  _lastRefreshTime; // Track last refresh time to prevent too frequent refreshes
+      _lastRefreshTime; // Track last refresh time to prevent too frequent refreshes
+  bool _wasRouteActive = true; // Track if route was previously active
 
   @override
   void initState() {
@@ -113,16 +114,23 @@ class _TicketScreenState extends State<TicketScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Only refresh if this route is actually the current route (visible)
-    // This prevents unnecessary API calls when user is on other screens (like PM pages)
+    // Refresh when returning to this screen from another page
     if (_hasLoadedOnce && mounted) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          // Check if this route is currently active/visible before refreshing
-          // This prevents API calls when user is on other screens
           final route = ModalRoute.of(context);
-          if (route != null && route.isCurrent) {
+          final isRouteActive = route != null && route.isCurrent;
+          
+          // If route just became active again (was inactive, now active), refresh
+          if (isRouteActive && !_wasRouteActive) {
+            _wasRouteActive = true;
+            _refreshTickets();
+          } else if (isRouteActive) {
+            _wasRouteActive = true;
+            // Also refresh if route is active (handles case when coming back)
             _refreshTicketsIfNeeded();
+          } else {
+            _wasRouteActive = false;
           }
         }
       });
@@ -137,6 +145,11 @@ class _TicketScreenState extends State<TicketScreen>
       return;
     }
 
+    _refreshTickets();
+  }
+
+  void _refreshTickets() {
+    final now = DateTime.now();
     _lastRefreshTime = now;
     _loadTickets();
 
@@ -278,8 +291,6 @@ class _TicketScreenState extends State<TicketScreen>
           if (distanceInKm > 1000) {
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
-            // Round to 2 decimal places for display in kilometers
-            final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
             Toastbar.showErrorToastbar(
               "You are not in the radius of site.",
               context,
@@ -945,6 +956,26 @@ class _TicketScreenState extends State<TicketScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Check if route is active and refresh if we just returned to this screen
+    if (_hasLoadedOnce && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final route = ModalRoute.of(context);
+          final isRouteActive = route != null && route.isCurrent;
+          
+          // If route just became active again (was inactive, now active), refresh
+          if (isRouteActive && !_wasRouteActive) {
+            _wasRouteActive = true;
+            _refreshTickets();
+          } else if (isRouteActive) {
+            _wasRouteActive = true;
+          } else {
+            _wasRouteActive = false;
+          }
+        }
+      });
+    }
+    
     return Scaffold(
       backgroundColor: Colors.transparent,
       extendBodyBehindAppBar: true,
