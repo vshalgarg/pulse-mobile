@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/loader_widget.dart';
+import 'package:app/constants/api_codes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
@@ -205,7 +206,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             );
 
             // Check if distance is more than 500 km
-            if (distanceInKm > 1000) {
+            final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation);
+          if (distanceInKm > maxDistanceKm) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
               Toastbar.showErrorToastbar(

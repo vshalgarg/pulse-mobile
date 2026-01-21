@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/loader_widget.dart';
+import 'package:app/constants/api_codes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
@@ -174,11 +175,11 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             );
 
             // Check if distance is more than 50 meters
-            if (distanceInKm > 0.05) {
+            final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation);
+          if (distanceInKm > maxDistanceKm) {
+           
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
-              // Round to 2 decimal places for display in kilometers
-              final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
               Toastbar.showErrorToastbar(
                 "You are not in the radius of site",
                 context,

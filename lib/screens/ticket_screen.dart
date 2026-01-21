@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:app/commonWidgets/loader_widget.dart';
+import 'package:app/constants/api_codes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -287,8 +288,9 @@ class _TicketScreenState extends State<TicketScreen>
             ticket.longitude!,
           );
           
-          // Check if distance is more than 50 meters
-          if (distanceInKm > 1000) {
+          // Check if distance is more than the allowed distance (in km)
+          final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation);
+          if (distanceInKm > maxDistanceKm) {
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
             Toastbar.showErrorToastbar(
