@@ -1011,17 +1011,17 @@ class _CMEditViewChecklistWidgetState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Text at the top: "checklist calling in view mode"
-        Padding(
-          padding: const EdgeInsets.only(bottom: 8.0),
-          child: Text(
-            'checklist calling in view mode',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontStyle: FontStyle.italic,
-            ),
-          ),
-        ),
+        // Padding(
+        //   padding: const EdgeInsets.only(bottom: 8.0),
+        //   child: Text(
+        //     'checklist calling in view mode',
+        //     style: const TextStyle(
+        //       color: Colors.white,
+        //       fontSize: 14,
+        //       fontStyle: FontStyle.italic,
+        //     ),
+        //   ),
+        // ),
 
         Container(
           child: Padding(

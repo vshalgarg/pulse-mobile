@@ -4,7 +4,6 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:app/utils/image_compression_helper.dart';
-import 'package:app/utils/logger.dart';
 import 'package:app/commonWidgets/selfie_camera_screen.dart';
 
 import '../constants/app_colors.dart';
@@ -33,64 +32,44 @@ class ImageUploadField extends StatefulWidget {
 
 class _ImageUploadFieldState extends State<ImageUploadField> {
   File? _selectedImage;
+  Widget? _externalImageWidget;
+  String? _lastExternalUrl;
 
   @override
   void initState() {
     super.initState();
-    Logger.imageLog('🖼️ initState called');
-    print('🖼️ [ImageUploadField] initState called');
-    Logger.imageLog('🖼️ initState: externalImageUrl: ${widget.externalImageUrl != null ? "NOT NULL (${widget.externalImageUrl!.length} chars)" : "NULL"}');
-    print('🖼️ [ImageUploadField] initState: externalImageUrl: ${widget.externalImageUrl != null ? "NOT NULL (${widget.externalImageUrl!.length} chars)" : "NULL"}');
-    // Clear selected image if external image URL is provided initially
     if (widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty) {
-      Logger.imageLog('🖼️ External image URL provided in initState, clearing selected image');
-      print('🖼️ [ImageUploadField] External image URL provided in initState, clearing selected image');
       _selectedImage = null;
+      _prepareExternalImageWidget(widget.externalImageUrl!);
     }
   }
 
   @override
   void didUpdateWidget(ImageUploadField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Only clear selected image when external image URL actually changes
-    // This allows newly selected images to take priority over external URLs
     final externalUrlChanged = widget.externalImageUrl != oldWidget.externalImageUrl;
     final hadExternalUrl = oldWidget.externalImageUrl != null && oldWidget.externalImageUrl!.isNotEmpty;
     final hasExternalUrl = widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty;
-    
-    Logger.imageLog('🖼️ didUpdateWidget called');
-    print('🖼️ [ImageUploadField] didUpdateWidget called');
-    Logger.imageLog('🖼️ Old externalImageUrl: ${oldWidget.externalImageUrl != null ? "NOT NULL (${oldWidget.externalImageUrl!.length} chars)" : "NULL"}');
-    print('🖼️ [ImageUploadField] Old externalImageUrl: ${oldWidget.externalImageUrl != null ? "NOT NULL (${oldWidget.externalImageUrl!.length} chars)" : "NULL"}');
-    Logger.imageLog('🖼️ New externalImageUrl: ${widget.externalImageUrl != null ? "NOT NULL (${widget.externalImageUrl!.length} chars)" : "NULL"}');
-    print('🖼️ [ImageUploadField] New externalImageUrl: ${widget.externalImageUrl != null ? "NOT NULL (${widget.externalImageUrl!.length} chars)" : "NULL"}');
-    Logger.imageLog('🖼️ External URL changed: $externalUrlChanged');
-    print('🖼️ [ImageUploadField] External URL changed: $externalUrlChanged');
-    
-    // Only clear selected image if:
-    // 1. External URL changed from null/empty to a value (new external image loaded)
-    // 2. External URL changed from one value to another (external image updated)
-    // Do NOT clear if external URL exists but hasn't changed (user selected new image)
     if (externalUrlChanged) {
       if (hasExternalUrl && !hadExternalUrl) {
         // External URL was added (new external image loaded)
-        Logger.imageLog('🖼️ External image URL added, clearing selected image');
-        print('🖼️ [ImageUploadField] External image URL added, clearing selected image');
         setState(() {
           _selectedImage = null;
         });
+        _prepareExternalImageWidget(widget.externalImageUrl!);
       } else if (hasExternalUrl && hadExternalUrl) {
         // External URL changed (external image updated)
-        Logger.imageLog('🖼️ External image URL updated, clearing selected image');
-        print('🖼️ [ImageUploadField] External image URL updated, clearing selected image');
         setState(() {
           _selectedImage = null;
         });
+        _prepareExternalImageWidget(widget.externalImageUrl!);
       } else if (!hasExternalUrl && hadExternalUrl) {
         // External URL was removed (external image cleared)
-        Logger.imageLog('🖼️ External image URL removed');
-        print('🖼️ [ImageUploadField] External image URL removed');
         // Don't clear selected image in this case - user might have selected a new image
+        setState(() {
+          _externalImageWidget = null;
+          _lastExternalUrl = null;
+        });
       }
     }
     // If external URL hasn't changed, don't clear selected image
@@ -102,10 +81,6 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     final label = widget.label?.toLowerCase() ?? '';
     final placeholder = widget.placeholder?.toLowerCase() ?? '';
     final isSelfie = label.contains('selfie') || placeholder.contains('selfie');
-    
-    // Debug logging
-    Logger.imageLog('📷 [ImageUploadField] Label: "${widget.label}", Placeholder: "${widget.placeholder}", IsSelfie: $isSelfie');
-    print('📷 [ImageUploadField] Label: "${widget.label}", Placeholder: "${widget.placeholder}", IsSelfie: $isSelfie');
     
     File? pickedFile;
     
@@ -149,10 +124,8 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       );
 
       try {
-        Logger.imageLog('CustomImageUploadField: Starting image compression...');
         // Compress the image to 2MB
         final compressedFile = await ImageCompressionHelper.compressImageTo2MB(originalFile);
-        Logger.imageLog('CustomImageUploadField: Compression completed, result: ${compressedFile != null ? "Success" : "Failed"}');
         
         // Close loading dialog
         if (mounted) {
@@ -227,76 +200,52 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   }
 
   Widget _buildImageFromUrl(String url) {
-    Logger.imageLog('🖼️ Building image from URL, length: ${url.length}');
-    print('🖼️ [ImageUploadField] _buildImageFromUrl called, length: ${url.length}');
-    Logger.imageLog('🖼️ URL starts with: ${url.substring(0, url.length > 100 ? 100 : url.length)}');
-    print('🖼️ [ImageUploadField] URL starts with: ${url.substring(0, url.length > 100 ? 100 : url.length)}');
     try {
       if (url.startsWith('data:image')) {
         // Handle base64 data URL - normalize jpg to jpeg
         String normalizedUrl = url;
         if (url.startsWith('data:image/jpg')) {
           normalizedUrl = url.replaceFirst('data:image/jpg', 'data:image/jpeg');
-          Logger.imageLog('🖼️ Normalized jpg to jpeg');
-          print('🖼️ [ImageUploadField] Normalized jpg to jpeg');
         }
         
         final parts = normalizedUrl.split(',');
         if (parts.length < 2) {
-          Logger.errorLog('❌ Invalid data URL format - no comma found');
-          print('🖼️ [ImageUploadField] ❌ Invalid data URL format - no comma found');
           return _buildPlaceholder();
         }
         final base64Data = parts[1];
-        Logger.imageLog('🖼️ Decoding base64 data, length: ${base64Data.length}');
-        print('🖼️ [ImageUploadField] Decoding base64 data, length: ${base64Data.length}');
         try {
         final bytes = base64Decode(base64Data);
-          Logger.imageLog('✅ Base64 decoded successfully, bytes length: ${bytes.length}');
-          print('🖼️ [ImageUploadField] ✅ Base64 decoded successfully, bytes length: ${bytes.length}');
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
           width: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-              Logger.errorLog('❌ Error displaying base64 image: $error');
-              print('🖼️ [ImageUploadField] ❌ Error displaying base64 image: $error');
-              Logger.errorLog('❌ Stack trace: $stackTrace');
+          errorBuilder: (context, error, _) {
             return _buildPlaceholder();
           },
         );
         } catch (e) {
-          Logger.errorLog('❌ Error decoding base64: $e');
-          print('🖼️ [ImageUploadField] ❌ Error decoding base64: $e');
           return _buildPlaceholder();
         }
       } else if (url.contains('/data/user/') || url.contains('.jpg') || url.contains('.png')) {
         // Handle local file path
-        Logger.imageLog('🖼️ Rendering local file image: $url');
         return _buildLocalImage(url);
       } else {
         // Handle raw base64 data (from API response)
-        Logger.imageLog('🖼️ Rendering raw base64 image, data length: ${url.length}');
         try {
           final bytes = base64Decode(url);
-          Logger.imageLog('✅ Raw base64 decoded successfully, bytes length: ${bytes.length}');
           return Image.memory(
             bytes,
             fit: BoxFit.cover,
             width: double.infinity,
-            errorBuilder: (context, error, stackTrace) {
-              Logger.errorLog('❌ Error displaying raw base64 image: $error');
+            errorBuilder: (context, error, _) {
               return _buildPlaceholder();
             },
           );
         } catch (e) {
-          Logger.errorLog('❌ Error decoding raw base64 data: $e');
           return _buildPlaceholder();
         }
       }
-    } catch (e, stackTrace) {
-      Logger.errorLog('❌ Error in _buildImageFromUrl: $e');
-      Logger.errorLog('❌ Stack trace: $stackTrace');
+    } catch (e) {
       return _buildPlaceholder();
     }
   }
@@ -305,24 +254,32 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     try {
       final file = File(filePath);
       if (file.existsSync()) {
-        Logger.imageLog('Rendering local file image, exists: $filePath');
         return Image.file(
           file,
           fit: BoxFit.cover,
           width: double.infinity,
-          errorBuilder: (context, error, stackTrace) {
-            Logger.errorLog('Error displaying local file: $error');
+          errorBuilder: (context, error, _) {
             return _buildPlaceholder();
           },
         );
       } else {
-        Logger.imageLog('Local file does not exist: $filePath');
         return _buildPlaceholder();
       }
     } catch (e) {
-      Logger.errorLog('Error displaying local image: $e');
       return _buildPlaceholder();
     }
+  }
+
+  Future<void> _prepareExternalImageWidget(String url) async {
+    if (url.isEmpty || url == _lastExternalUrl) return;
+    _lastExternalUrl = url;
+    // Decode on a future microtask to avoid blocking the current frame
+    await Future<void>.delayed(Duration.zero);
+    final widgetFromUrl = _buildImageFromUrl(url);
+    if (!mounted) return;
+    setState(() {
+      _externalImageWidget = widgetFromUrl;
+    });
   }
 
   @override
@@ -387,16 +344,13 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
               borderRadius: BorderRadius.circular(5),
               child: Builder(
                 builder: (context) {
-                  Logger.imageLog('🖼️ Building external image from URL');
-                  print('🖼️ [ImageUploadField] Building external image from URL, length: ${widget.externalImageUrl!.length}');
-                  print('🖼️ [ImageUploadField] externalImageUrl preview: ${widget.externalImageUrl!.substring(0, widget.externalImageUrl!.length > 100 ? 100 : widget.externalImageUrl!.length)}');
-                  return _buildImageFromUrl(widget.externalImageUrl!);
+                  _prepareExternalImageWidget(widget.externalImageUrl!);
+                  return _externalImageWidget ?? _buildPlaceholder();
                 },
               ),
             )
                 : Builder(
               builder: (context) {
-                Logger.imageLog('📷 Showing placeholder - no image available');
                 return _buildPlaceholder();
               },
             ),

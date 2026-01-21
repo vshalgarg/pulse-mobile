@@ -274,14 +274,14 @@ class _TicketScreenState extends State<TicketScreen>
             ticket.longitude!,
           );
           
-          // Check if distance is more than 500 km
+          // Check if distance is more than 50 meters
           if (distanceInKm > 1000) {
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
             // Round to 2 decimal places for display in kilometers
             final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
             Toastbar.showErrorToastbar(
-              "You are not in the radius of site -- $roundedDistanceKm KM",
+              "You are not in the radius of site.",
               context,
             );
             // Prevent ticket from opening if distance exceeds 500 km

@@ -593,7 +593,7 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
         // Fencing/Boundary Available
         WidgetHelper.buildDisabledRadioField(
           label: "Fencing/Boundary Available",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue: _fencingAvailable,
         ),
         getHeight(15),

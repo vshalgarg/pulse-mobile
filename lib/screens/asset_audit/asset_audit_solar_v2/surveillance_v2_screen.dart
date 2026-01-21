@@ -411,7 +411,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
         // CCTV Available
         WidgetHelper.buildDisabledRadioField(
           label: "CCTV Available",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue: _displayFormData?['cctvAvailable'] ?? "No",
         ),
         getHeight(15),

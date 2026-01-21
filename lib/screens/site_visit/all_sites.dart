@@ -35,6 +35,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   List<AllSiteModel> _nearbySites = [];
   List<AllSiteModel> _filteredSites = [];
   bool _isLoading = true;
+  bool _isFetchingSites = false; // Prevent concurrent repeated API calls
   String? _errorMessage;
   String? _selectedFilter;
   String _siteType = 'nearby';
@@ -56,7 +57,13 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   }
 
   Future<void> _loadSites(String type, {String searchText = ''}) async {
+    if (_isFetchingSites) {
+      Logger.debugLog('🔁 _loadSites skipped: fetch already in progress');
+      return;
+    }
+
     try {
+      _isFetchingSites = true;
       setState(() {
         _isLoading = true;
         _errorMessage = null;
@@ -114,6 +121,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           _isLoading = false;
         });
       }
+    } finally {
+      _isFetchingSites = false;
     }
   }
 
@@ -196,13 +205,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             );
 
             // Check if distance is more than 500 km
-            if (distanceInKm > 500) {
+            if (distanceInKm > 1000) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
-              // Round to 2 decimal places for display in kilometers
-              final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
               Toastbar.showErrorToastbar(
-                "You are not in the radius of site -- $roundedDistanceKm KM",
+                "You are not in the radius of site",
                 context,
               );
               // Prevent site from opening if distance exceeds 500 km

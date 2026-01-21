@@ -429,7 +429,7 @@ class _DGV2ScreenState extends State<DGV2Screen> {
         // DG Availability (readonly)
         WidgetHelper.buildDisabledRadioField(
           label: "DG Availability",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue: _displayFormData?['dgAvailable'] ?? "No",
         ),
         getHeight(15),

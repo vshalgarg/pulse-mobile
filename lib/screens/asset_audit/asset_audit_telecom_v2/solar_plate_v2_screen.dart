@@ -459,7 +459,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           label: "Solar Panel Make",
           initialValue: _displayFormData?['solarPanelMake'],
           isEditable: false,
-          isRequired: true,
+          isRequired: false,
         ),
         getHeight(15),
 
@@ -467,7 +467,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           label: "Solar Panel Type",
           initialValue: _displayFormData?['solarPanelType'],
           isEditable: false,
-          isRequired: true,
+          isRequired: false,
         ),
         getHeight(15),
 
@@ -494,7 +494,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
         // Solar Panel Form Component
         AssetAuditFormComponent(
           componentId: 'solar_panel_component',
-          serialLabel: "Solar Panel - Serial Number *",
+          serialLabel: "Solar Panel - Serial Number",
           serialHintText: "Solar Panel Serial Number *",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",

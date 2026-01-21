@@ -424,7 +424,7 @@ class _TransformerV2ScreenState extends State<TransformerV2Screen> {
         // Transformer Available
         WidgetHelper.buildDisabledRadioField(
           label: "Transformer Available",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue: _displayFormData?['transformerAvailable'] ?? "Yes",
         ),
         getHeight(15),

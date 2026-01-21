@@ -173,14 +173,14 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
               siteLng,
             );
 
-            // Check if distance is more than 500 km
-            if (distanceInKm > 1000) {
+            // Check if distance is more than 50 meters
+            if (distanceInKm > 0.05) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
               // Round to 2 decimal places for display in kilometers
               final roundedDistanceKm = distanceInKm.toStringAsFixed(2);
               Toastbar.showErrorToastbar(
-                "You are not in the radius of site -- $roundedDistanceKm KM",
+                "You are not in the radius of site",
                 context,
               );
               // Prevent site from opening if distance exceeds 500 km

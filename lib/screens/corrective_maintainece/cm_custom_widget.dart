@@ -908,8 +908,25 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     }
     
     // Get parent's check_list_group_id (this should be used for child items' cmCheckListMstId)
-    final parentCheckListGroupId = _currentItem['check_list_group_id'] as int? ?? 
-                                   _currentItem['cm_check_list_mst_id'] as int? ?? 0;
+    // Try all possible field name variations
+    var parentCheckListGroupId = _currentItem['check_list_group_id'] as int? ?? 
+                                _currentItem['checkListGroupId'] as int? ??
+                                _currentItem['cm_check_list_mst_id'] as int? ?? 
+                                _currentItem['cmCheckListMstId'] as int? ?? 0;
+    
+    // Safety check: If parentCheckListGroupId is 0, try to get it from the current item's mstId
+    // This handles cases where check_list_group_id is null but cm_check_list_mst_id exists
+    if (parentCheckListGroupId == 0) {
+      parentCheckListGroupId = _currentItem['cm_check_list_mst_id'] as int? ?? 
+                              _currentItem['cmCheckListMstId'] as int? ?? 0;
+      if (parentCheckListGroupId == 0) {
+        Logger.errorLog('[CM CustomWidget] WARNING: parentCheckListGroupId is still 0 after fallback! _currentItem: $_currentItem');
+      } else {
+        Logger.infoLog('[CM CustomWidget] parentCheckListGroupId was 0, using fallback: $parentCheckListGroupId');
+      }
+    }
+    
+    Logger.infoLog('[CM CustomWidget] Setting parent ID for impacted items - parentCheckListGroupId: $parentCheckListGroupId, _currentItem keys: ${_currentItem.keys.toList()}, _currentItem cm_check_list_mst_id: ${_currentItem['cm_check_list_mst_id']}, cmCheckListMstId: ${_currentItem['cmCheckListMstId']}, check_list_group_id: ${_currentItem['check_list_group_id']}');
     
     // Add child item responses (for new structure with CHECKBOX, CHECKBOX_NUMERIC, etc.)
     final childItemResponses = <Map<String, dynamic>>[];
@@ -925,26 +942,40 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         childItemResponses.add({
           'cm_check_list_mst_id': childId, // Child's actual ID (for the impacted item entry)
-          'parent_cm_check_list_mst_id': parentCheckListGroupId, // Parent's ID (for grouping)
+          'cmCheckListMstId': childId, // Also add camelCase version
+          'parent_cm_check_list_mst_id': parentCheckListGroupId, // Parent's ID (for grouping) - snake_case
+          'parentCmCheckListMstId': parentCheckListGroupId, // Parent's ID (for grouping) - camelCase
           'checklist_desc': checklistDesc,
+          'checklistDesc': checklistDesc, // Also add camelCase version
           'resp': isChecked ? 'true' : 'false',
           'resp_type': respType,
+          'respType': respType, // Also add camelCase version
           'cl_order': clOrder,
+          'clOrder': clOrder, // Also add camelCase version
         });
+        Logger.infoLog('[CM CustomWidget] Added child response - childId: $childId, parentId: $parentCheckListGroupId, checklistDesc: $checklistDesc');
       } else if (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT') {
         final isChecked = _childItemCheckboxStates[childId] ?? false;
         final numericValue = _childItemNumericValues[childId] ?? '';
         // resp should be the same as respNumeric (numeric value) when checked, "0" when unchecked
         childItemResponses.add({
           'cm_check_list_mst_id': childId, // Child's actual ID (for the impacted item entry)
-          'parent_cm_check_list_mst_id': parentCheckListGroupId, // Parent's ID (for grouping)
+          'cmCheckListMstId': childId, // Also add camelCase version
+          'parent_cm_check_list_mst_id': parentCheckListGroupId, // Parent's ID (for grouping) - snake_case
+          'parentCmCheckListMstId': parentCheckListGroupId, // Parent's ID (for grouping) - camelCase
           'checklist_desc': checklistDesc,
+          'checklistDesc': checklistDesc, // Also add camelCase version
           'resp': isChecked && numericValue.isNotEmpty ? numericValue : '0',
           'resp_numeric': numericValue,
+          'respNumeric': numericValue, // Also add camelCase version
           'numeric_value': numericValue,
+          'numericValue': numericValue, // Also add camelCase version
           'resp_type': respType,
+          'respType': respType, // Also add camelCase version
           'cl_order': clOrder,
+          'clOrder': clOrder, // Also add camelCase version
         });
+        Logger.infoLog('[CM CustomWidget] Added child response (CHECKBOX_NUMERIC/TEXT) - childId: $childId, parentId: $parentCheckListGroupId, checklistDesc: $checklistDesc, numericValue: $numericValue');
       }
       // Add dependent images for this child item
       final dependentImages = <Map<String, dynamic>>[];
@@ -979,6 +1010,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     
     if (childItemResponses.isNotEmpty) {
       dataEntry['child_item_responses'] = childItemResponses;
+      dataEntry['childItemResponses'] = childItemResponses; // Also add camelCase version
+      Logger.infoLog('[CM CustomWidget] Added ${childItemResponses.length} child responses to dataEntry with parent ID: $parentCheckListGroupId');
+      Logger.infoLog('[CM CustomWidget] First child response parent IDs - parent_cm_check_list_mst_id: ${childItemResponses.first['parent_cm_check_list_mst_id']}, parentCmCheckListMstId: ${childItemResponses.first['parentCmCheckListMstId']}');
     }
     
     // Store dependent element images (for parent-level dependent elements like IMG)
@@ -1062,8 +1096,21 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         _initializeDependentElements();
       }
     });
-    print('[CM] _saveDynamicDropdownData - Calling onImpactedItemListChanged with ${_dynamicDropdownData.length} items');
-    print('[CM] _saveDynamicDropdownData - Data: $_dynamicDropdownData');
+    
+    Logger.infoLog('[CM CustomWidget] _saveDynamicDropdownData - Calling onImpactedItemListChanged with ${_dynamicDropdownData.length} items');
+    Logger.infoLog('[CM CustomWidget] _saveDynamicDropdownData - Parent ID: $parentCheckListGroupId, Current Item mstId: ${_currentItem['cm_check_list_mst_id'] ?? _currentItem['cmCheckListMstId']}');
+    Logger.infoLog('[CM CustomWidget] _saveDynamicDropdownData - DataEntry keys: ${dataEntry.keys.toList()}');
+    if (dataEntry.containsKey('child_item_responses') || dataEntry.containsKey('childItemResponses')) {
+      final childResponses = dataEntry['child_item_responses'] ?? dataEntry['childItemResponses'] ?? [];
+      Logger.infoLog('[CM CustomWidget] _saveDynamicDropdownData - Child responses count: ${childResponses is List ? childResponses.length : 0}');
+      if (childResponses is List && childResponses.isNotEmpty) {
+        final firstChild = childResponses.first as Map<String, dynamic>?;
+        if (firstChild != null) {
+          Logger.infoLog('[CM CustomWidget] _saveDynamicDropdownData - First child parent IDs - parent_cm_check_list_mst_id: ${firstChild['parent_cm_check_list_mst_id']}, parentCmCheckListMstId: ${firstChild['parentCmCheckListMstId']}');
+        }
+      }
+    }
+    
     widget.onImpactedItemListChanged.call(_dynamicDropdownData);
 
     // Clear form

@@ -14,7 +14,9 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/screens/ticket_screen.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -84,43 +86,32 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     _initializeFormData();
     _loadOrganisationList();
 
-    // Add listener to purpose controller to track changes
+    // Add listener to purpose controller to track changes (without setState to avoid rebuilds)
     _purposeController.addListener(() {
       if (!_hasFormDataChanges) {
-
-        setState(() {
-          _hasFormDataChanges = true;
-        });
+        _hasFormDataChanges = true;
       }
     });
 
-    // Add listeners to visitor field controllers to track changes
+    // Add listeners to visitor field controllers to track changes (without setState)
     _visitorNameController.addListener(() {
       if (!_hasFormDataChanges) {
-        setState(() {
-          _hasFormDataChanges = true;
-        });
+        _hasFormDataChanges = true;
       }
     });
     _visitorContactNoController.addListener(() {
       if (!_hasFormDataChanges) {
-        setState(() {
-          _hasFormDataChanges = true;
-        });
+        _hasFormDataChanges = true;
       }
     });
     _roleDesignationController.addListener(() {
       if (!_hasFormDataChanges) {
-        setState(() {
-          _hasFormDataChanges = true;
-        });
+        _hasFormDataChanges = true;
       }
     });
     _reportingManagerController.addListener(() {
       if (!_hasFormDataChanges) {
-        setState(() {
-          _hasFormDataChanges = true;
-        });
+        _hasFormDataChanges = true;
       }
     });
   }
@@ -132,12 +123,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       // Use preloaded organisation list if available, otherwise fetch it
       if (widget.preloadedOrganisationList != null && widget.preloadedOrganisationList!.isNotEmpty) {
         organisations = widget.preloadedOrganisationList!;
-        Logger.debugLog('✅ Using preloaded organisation list: ${organisations.length} organisations');
-      } else {
+             } else {
         final repository = ServiceLocator().sitesRepository;
         organisations = await repository.getOrganisationList();
-        Logger.debugLog('✅ Fetched organisation list: ${organisations.length} organisations');
-      }
+             }
       
       setState(() {
         _organizationList = organisations;
@@ -150,8 +139,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         setState(() {
           _selectedOrganizationId = widget.siteData.orgId;
         });
-        Logger.debugLog('✅ Set selected organization ID from siteData: ${widget.siteData.orgId}');
-      } else if (widget.siteData.organisationName != null && widget.siteData.organisationName!.isNotEmpty) {
+             } else if (widget.siteData.organisationName != null && widget.siteData.organisationName!.isNotEmpty) {
         // Fallback: try to find by organisationName from siteData
         try {
           final matchingOrg = _organizationList.firstWhere(
@@ -160,8 +148,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           setState(() {
             _selectedOrganizationId = matchingOrg['org_id'] as int?;
           });
-          Logger.debugLog('✅ Set selected organization ID from organisationName: ${matchingOrg['org_id']}');
-        } catch (e) {
+                 } catch (e) {
           // Organization name not found in list, keep _selectedOrganizationId as null
           Logger.debugLog('⚠️ Organization "${widget.siteData.organisationName}" not found in list');
         }
@@ -300,12 +287,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       }
 
       if (imageData != null && imageData.isNotEmpty) {
-        Logger.debugLog(
-          '✅ Image data received: ${imageData.length} characters',
-        );
-        Logger.debugLog(
-          '✅ Image data preview: ${imageData.substring(0, imageData.length > 100 ? 100 : imageData.length)}...',
-        );
+        
         setState(() {
           if (isSelfie) {
             _fetchedImageData = imageData;
@@ -329,7 +311,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             }
           }
         });
-        Logger.debugLog('✅ Image loaded successfully and state updated');
+       
 
       } else {
         Logger.errorLog(
@@ -369,13 +351,15 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       ),
       body: Stack(
         children: [
-          // Background
+          // Background - Use RepaintBoundary to prevent unnecessary repaints
           Positioned.fill(
-            child: SvgPicture.asset(
-              AppImages.home,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
+            child: RepaintBoundary(
+              child: SvgPicture.asset(
+                AppImages.home,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
             ),
           ),
           SafeArea(
@@ -383,9 +367,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
               children: [
                 Expanded(
                   child: SingleChildScrollView(
+                    // Keep keyboard open when scrolling between text fields
                     keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    physics: const BouncingScrollPhysics(),
+                        ScrollViewKeyboardDismissBehavior.manual,
+                    physics: const ClampingScrollPhysics(),
                     padding: EdgeInsets.only(
                       bottom: MediaQuery.of(context).viewInsets.bottom + 100,
                     ),
@@ -576,6 +561,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
   Future<void> postSiteVisitLog() async {
     try {
       final now = DateTime.now();
+      
+      // Get current location
+      final location = await LocationService.getCurrentLocation();
+      
       final requestData = {
         "svlId":
             widget.siteData.siteVisitLogId != null &&
@@ -615,6 +604,12 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             : 0,
         "isActive": true,
         "remarks": "",
+
+        // get current lat and long to send with request data
+        "latitude": location.latitude,
+        "longitude": location.longitude,
+       
+
       };
 
       await ServiceLocator().assetAuditPostService
@@ -742,9 +737,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           initialValue: _getOrganizationNameById(_selectedOrganizationId),
           onChanged: (value) {
             if (!_hasFormDataChanges) {
-              setState(() {
-                _hasFormDataChanges = true;
-              });
+              _hasFormDataChanges = true;
             }
             if (value != null) {
               final selectedOrg = _organizationList.firstWhere(
@@ -794,121 +787,108 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         ),
         getHeight(20),
 
-        // Add a Selfie Section
-        Builder(
-          builder: (context) {
-            return ImageUploadField(
-              label: "Add a Selfie",
-              placeholder: "Selfie",
-              isRequired: true,
-              externalImageUrl: _fetchedImageData,
-              onImageSelected: (file) {
-                if (file != null) {
-                  debugPrint("Selected image path: ${file.path}");
-                  setState(() {
-                    _selectedImage = file;
-                    _hasFormDataChanges = true;
-                  });
-                  // Upload selfie to server
-
-                  _uploadSelfie();
-                } else {
-                  setState(() {
-                    _selectedImage = null;
-                    _uploadedImgId = null;
-                    _fetchedImageData = null;
-                  });
-                }
-              },
-            );
-          },
+        // Add a Selfie Section - Use RepaintBoundary to prevent unnecessary repaints
+        RepaintBoundary(
+          child: ImageUploadField(
+            label: "Add a Selfie",
+            placeholder: "Selfie",
+            isRequired: true,
+            externalImageUrl: _fetchedImageData,
+            onImageSelected: (file) {
+              if (file != null) {
+                setState(() {
+                  _selectedImage = file;
+                  _hasFormDataChanges = true;
+                });
+                // Upload selfie to server
+                _uploadSelfie();
+              } else {
+                setState(() {
+                  _selectedImage = null;
+                  _uploadedImgId = null;
+                  _fetchedImageData = null;
+                });
+              }
+            },
+          ),
         ),
         getHeight(15),
 
-        // Official ID Card Section
-        Builder(
-          builder: (context) {
-            return ImageUploadField(
-              label: "Official ID Card",
-              placeholder: "Official ID Card",
-              isRequired: false,
-              externalImageUrl: _fetchedOfficialIdImageData,
-              onImageSelected: (file) {
-                if (file != null) {
-                  debugPrint("Selected official ID card image path: ${file.path}");
-                  setState(() {
-                    _selectedOfficialIdImage = file;
-                    _hasFormDataChanges = true;
-                  });
-                  _uploadOfficialIdCard();
-                } else {
-                  setState(() {
-                    _selectedOfficialIdImage = null;
-                    _officialIdImageId = null;
-                    _fetchedOfficialIdImageData = null;
-                  });
-                }
-              },
-            );
-          },
+        // Official ID Card Section - Use RepaintBoundary to prevent unnecessary repaints
+        RepaintBoundary(
+          child: ImageUploadField(
+            label: "Official ID Card",
+            placeholder: "Official ID Card",
+            isRequired: true,
+            externalImageUrl: _fetchedOfficialIdImageData,
+            onImageSelected: (file) {
+              if (file != null) {
+                setState(() {
+                  _selectedOfficialIdImage = file;
+                  _hasFormDataChanges = true;
+                });
+                _uploadOfficialIdCard();
+              } else {
+                setState(() {
+                  _selectedOfficialIdImage = null;
+                  _officialIdImageId = null;
+                  _fetchedOfficialIdImageData = null;
+                });
+              }
+            },
+          ),
         ),
         getHeight(15),
 
-        // Aadhar Card Section
-        Builder(
-          builder: (context) {
-            return ImageUploadField(
-              label: "Aadhar Card",
-              placeholder: "Aadhar Card",
-              isRequired: false,
-              externalImageUrl: _fetchedAadharCardImageData,
-              onImageSelected: (file) {
-                if (file != null) {
-                  debugPrint("Selected aadhar card image path: ${file.path}");
-                  setState(() {
-                    _selectedAadharCardImage = file;
-                    _hasFormDataChanges = true;
-                  });
-                  _uploadAadharCard();
-                } else {
-                  setState(() {
-                    _selectedAadharCardImage = null;
-                    _aadharCardImageId = null;
-                    _fetchedAadharCardImageData = null;
-                  });
-                }
-              },
-            );
-          },
+        // Aadhar Card Section - Use RepaintBoundary to prevent unnecessary repaints
+        RepaintBoundary(
+          child: ImageUploadField(
+            label: "Aadhar Card",
+            placeholder: "Aadhar Card",
+            isRequired: true,
+            externalImageUrl: _fetchedAadharCardImageData,
+            onImageSelected: (file) {
+              if (file != null) {
+                setState(() {
+                  _selectedAadharCardImage = file;
+                  _hasFormDataChanges = true;
+                });
+                _uploadAadharCard();
+              } else {
+                setState(() {
+                  _selectedAadharCardImage = null;
+                  _aadharCardImageId = null;
+                  _fetchedAadharCardImageData = null;
+                });
+              }
+            },
+          ),
         ),
         getHeight(15),
 
-        // Status of site at time of leaving Section
-        Builder(
-          builder: (context) {
-            return ImageUploadField(
-              label: "Status of site at time of leaving",
-              placeholder: "Status of site at time of leaving",
-              isRequired: false,
-              externalImageUrl: _fetchedLeavingStatusImageData,
-              onImageSelected: (file) {
-                if (file != null) {
-                  debugPrint("Selected leaving status image path: ${file.path}");
-                  setState(() {
-                    _selectedLeavingStatusImage = file;
-                    _hasFormDataChanges = true;
-                  });
-                  _uploadLeavingStatus();
-                } else {
-                  setState(() {
-                    _selectedLeavingStatusImage = null;
-                    _leavingStatusImageId = null;
-                    _fetchedLeavingStatusImageData = null;
-                  });
-                }
-              },
-            );
-          },
+        // Status of site at time of leaving Section - Use RepaintBoundary to prevent unnecessary repaints
+        RepaintBoundary(
+          child: ImageUploadField(
+            label: "Status of site at time of leaving",
+            placeholder: "Status of site at time of leaving",
+            isRequired: true,
+            externalImageUrl: _fetchedLeavingStatusImageData,
+            onImageSelected: (file) {
+              if (file != null) {
+                setState(() {
+                  _selectedLeavingStatusImage = file;
+                  _hasFormDataChanges = true;
+                });
+                _uploadLeavingStatus();
+              } else {
+                setState(() {
+                  _selectedLeavingStatusImage = null;
+                  _leavingStatusImageId = null;
+                  _fetchedLeavingStatusImageData = null;
+                });
+              }
+            },
+          ),
         ),
 
         getHeight(15),
@@ -980,6 +960,24 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       return;
     }
 
+    // Check if Official ID Card is uploaded
+    if (_officialIdImageId == null || _officialIdImageId!.isEmpty) {
+      showCustomToast(context, "Please add Official ID Card");
+      return;
+    }
+
+    // Check if Aadhar Card is uploaded
+    if (_aadharCardImageId == null || _aadharCardImageId!.isEmpty) {
+      showCustomToast(context, "Please add Aadhar Card");
+      return;
+    }
+
+    // Check if Status of site at time of leaving is uploaded
+    if (_leavingStatusImageId == null || _leavingStatusImageId!.isEmpty) {
+      showCustomToast(context, "Please add Status of site at time of leaving");
+      return;
+    }
+
     try {
       // Show loader
       LoaderWidget.showLoader(context);
@@ -1004,9 +1002,16 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
-        navigateBackOrToHome(
-          context,
-          targetContext: widget.parentContext ?? context,
+        final navContext = widget.parentContext ?? context;
+        Navigator.pushAndRemoveUntil(
+          navContext,
+          MaterialPageRoute(
+            builder: (_) => const TicketScreen(
+              auditName: "SV",
+              status: "All Tickets",
+            ),
+          ),
+          (route) => route.isFirst,
         );
       }
     } catch (e) {

@@ -549,7 +549,7 @@ class _FireExtinguisherTelecomV2ScreenState
         // Fire Extinguisher Available
         WidgetHelper.buildDisabledRadioField(
           label: "Fire Extinguisher Available",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue:
               _displayFormData?['fireExtinguisherAvailable'] ?? "No",
         ),
@@ -579,8 +579,8 @@ class _FireExtinguisherTelecomV2ScreenState
           // Fire Extinguisher Form Component
           AssetAuditFormComponent(
             componentId: 'fire_extinguisher_component',
-            serialLabel: "Fire Extinguisher - Serial Number *",
-            serialHintText: "Fire Extinguisher Serial Number *",
+            serialLabel: "Fire Extinguisher - Serial Number",
+            serialHintText: "Fire Extinguisher Serial Number",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Capacity of Fire Extinguisher (In Kg)",
             serialController: _fireExtinguisherSerialController,
@@ -626,7 +626,7 @@ class _FireExtinguisherTelecomV2ScreenState
         // Flood Light Availability
         WidgetHelper.buildDisabledRadioField(
           label: "Flood Light Availability",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue:
               _displayFormData?['floodLightAvailable'] ?? "No",
         ),

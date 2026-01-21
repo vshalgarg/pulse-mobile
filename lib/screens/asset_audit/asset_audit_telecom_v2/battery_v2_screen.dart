@@ -683,7 +683,7 @@ class _BatteryV2ScreenState extends State<BatteryV2Screen> {
         // CBMS Availability
         WidgetHelper.buildDisabledRadioField(
           label: "CBMS Available",
-          isRequired: true,
+          isRequired: false,
           initialSelectedValue: _displayFormData?['cbmsAvailable'] ?? "No",
         ),
         getHeight(15),

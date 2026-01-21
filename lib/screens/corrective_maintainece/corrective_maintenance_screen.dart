@@ -2626,29 +2626,62 @@ class _CorrectiveMaintenanceScreenState
     
     // Group impacted items by their parent checklist mstId
     final impactedItemsByParentMstId = <int, List<Map<String, dynamic>>>{};
+    Logger.infoLog('[CM] Processing ${_impactedItemList.length} impacted items for grouping');
+    
     for (var impactedItem in _impactedItemList) {
       // Get the parent mstId from childItemResponses (they all reference the same parent)
       final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
                                  impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+      
+      Logger.infoLog('[CM] Processing impacted item - mfgSerialNo: ${impactedItem['mfgSerialNo']}, cmItemType: ${impactedItem['cmItemType']}, has ${childItemResponses.length} child responses');
+      
       if (childItemResponses.isNotEmpty) {
         final firstChild = childItemResponses.first as Map<String, dynamic>?;
         if (firstChild != null) {
-          // Use parent_cm_check_list_mst_id for grouping, fallback to cm_check_list_mst_id
+          // Use ONLY parent_cm_check_list_mst_id for grouping (don't fallback to child's mstId)
           final parentMstId = firstChild['parentCmCheckListMstId'] as int? ?? 
-                            firstChild['parent_cm_check_list_mst_id'] as int? ??
-                            firstChild['cmCheckListMstId'] as int? ?? 
+                            firstChild['parent_cm_check_list_mst_id'] as int?;
+          
+          final childMstId = firstChild['cmCheckListMstId'] as int? ?? 
                             firstChild['cm_check_list_mst_id'] as int?;
-          if (parentMstId != null) {
+          
+          Logger.infoLog('[CM] Impacted item - parentMstId: $parentMstId, childMstId: $childMstId, firstChild keys: ${firstChild.keys.toList()}');
+          Logger.infoLog('[CM] Impacted item - parentCmCheckListMstId: ${firstChild['parentCmCheckListMstId']}, parent_cm_check_list_mst_id: ${firstChild['parent_cm_check_list_mst_id']}');
+          
+          if (parentMstId != null && parentMstId != 0) {
             if (!impactedItemsByParentMstId.containsKey(parentMstId)) {
               impactedItemsByParentMstId[parentMstId] = [];
             }
             impactedItemsByParentMstId[parentMstId]!.add(impactedItem);
+            Logger.infoLog('[CM] Added impacted item to parent group: $parentMstId');
+          } else {
+            Logger.errorLog('[CM] Warning: Impacted item has no valid parentMstId (null or 0) - childMstId: $childMstId');
           }
         }
+      } else {
+        Logger.errorLog('[CM] Warning: Impacted item has no child responses');
       }
     }
     
     Logger.infoLog('[CM] Grouped impacted items by parent MstId: ${impactedItemsByParentMstId.keys.toList()}');
+    Logger.infoLog('[CM] Impacted items count per parent: ${impactedItemsByParentMstId.map((k, v) => MapEntry(k.toString(), v.length))}');
+    
+    // Debug: Log all parent IDs found in impacted items
+    final allParentIds = <int>{};
+    for (var impactedItem in _impactedItemList) {
+      final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                 impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+      for (var childResponse in childItemResponses) {
+        if (childResponse is Map<String, dynamic>) {
+          final parentMstId = childResponse['parentCmCheckListMstId'] as int? ?? 
+                            childResponse['parent_cm_check_list_mst_id'] as int?;
+          if (parentMstId != null && parentMstId != 0) {
+            allParentIds.add(parentMstId);
+          }
+        }
+      }
+    }
+    Logger.infoLog('[CM] All unique parent IDs found in impacted items: ${allParentIds.toList()}');
     
     for (var item in checklistData) {
       final Map<String, dynamic> checklistItem = Map<String, dynamic>.from(item);
@@ -2658,12 +2691,60 @@ class _CorrectiveMaintenanceScreenState
                             checklistItem['cmCheckListMstId'] as int? ??
                             checklistItem['item_type_id'] as int?;
       
-      // Check if this checklist item has impacted items
-      final hasImpactedItems = checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId);
+      final checklistDesc = checklistItem['checklist_desc']?.toString() ?? 
+                           checklistItem['checklistDesc']?.toString() ?? '';
+      
+      Logger.infoLog('[CM] Transform - Processing item - mstId: $checklistMstId, checklistDesc: $checklistDesc, respType: ${checklistItem['resp_type'] ?? checklistItem['respType']}');
       
       // Get response value based on resp_type
       dynamic respValue;
       final respType = checklistItem['resp_type']?.toString() ?? '';
+      
+      // Check if this checklist item has impacted items (primary check)
+      final hasImpactedItems = checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId);
+      
+      // Additional fallback check: For DYNAMIC_DROPDOWN, also check if any impacted items have this parent ID
+      // (in case grouping didn't work correctly)
+      bool hasAnyImpactedItems = false;
+      if ((respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') && checklistMstId != null) {
+        Logger.infoLog('[CM] Transform - Checking fallback for DYNAMIC_DROPDOWN with mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items: ${_impactedItemList.length}');
+        // Check all impacted items to see if any have this parent ID
+        for (var impactedItem in _impactedItemList) {
+          final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                     impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+          Logger.infoLog('[CM] Transform - Impacted item - mfgSerialNo: ${impactedItem['mfgSerialNo']}, cmItemType: ${impactedItem['cmItemType']}, has ${childItemResponses.length} child responses');
+          
+          // If no child responses, skip this impacted item
+          if (childItemResponses.isEmpty) {
+            Logger.infoLog('[CM] Transform - Impacted item has no child responses, skipping');
+            continue;
+          }
+          
+          for (var childResponse in childItemResponses) {
+            if (childResponse is Map<String, dynamic>) {
+              final parentMstId = childResponse['parentCmCheckListMstId'] as int? ?? 
+                                childResponse['parent_cm_check_list_mst_id'] as int?;
+              final childMstId = childResponse['cmCheckListMstId'] as int? ?? 
+                               childResponse['cm_check_list_mst_id'] as int?;
+              Logger.infoLog('[CM] Transform - Child response - parentMstId: $parentMstId, childMstId: $childMstId, checking against checklistMstId: $checklistMstId');
+              if (parentMstId != null && parentMstId != 0 && parentMstId == checklistMstId) {
+                Logger.infoLog('[CM] Transform - ✅ Found matching parent ID in fallback check! parentMstId: $parentMstId == checklistMstId: $checklistMstId');
+                hasAnyImpactedItems = true;
+                break;
+              }
+            }
+          }
+          if (hasAnyImpactedItems) break;
+        }
+        if (!hasAnyImpactedItems) {
+          Logger.errorLog('[CM] Transform - ❌ No matching parent ID found in fallback check for mstId: $checklistMstId, checklistDesc: $checklistDesc');
+          Logger.errorLog('[CM] Transform - Available parent IDs in impacted items: ${impactedItemsByParentMstId.keys.toList()}');
+        }
+      }
+      
+      final finalHasImpactedItems = hasImpactedItems || hasAnyImpactedItems;
+      
+      Logger.infoLog('[CM] Transform - mstId: $checklistMstId, respType: $respType, respValue: $respValue, hasImpactedItems: $hasImpactedItems, hasAnyImpactedItems: $hasAnyImpactedItems, finalHasImpactedItems: $finalHasImpactedItems');
       
       if (respType == 'CHECKBOX') {
         // For checkbox, resp should be "true" or "false"
@@ -2710,20 +2791,31 @@ class _CorrectiveMaintenanceScreenState
       }
       
       // Skip items without a response (unless they're required or have impacted items or images)
+      // IMPORTANT: Always include DYNAMIC_DROPDOWN and MULTI_DYNAMIC_DROPDOWN items from checklist template
+      // even if they have no impacted items, to ensure complete checklist is sent
       if (respValue == null || (respValue is String && respValue.isEmpty)) {
         // Don't skip if:
         // 1. It's a checkbox type (even if unchecked)
-        // 2. It's a DYNAMIC_DROPDOWN with impacted items
-        // 3. It's a MULTI_DYNAMIC_DROPDOWN with impacted items
+        // 2. It's a DYNAMIC_DROPDOWN (always include, even without impacted items)
+        // 3. It's a MULTI_DYNAMIC_DROPDOWN (always include, even without impacted items)
         // 4. It's a DYNAMIC_NUMERIC with images (images are the actual response)
         if (respType != 'CHECKBOX' && 
             respType != 'CHECKBOX_NUMERIC' && 
             respType != 'CHECKBOX_TEXT' &&
-            !(respType == 'DYNAMIC_DROPDOWN' && hasImpactedItems) &&
-            !(respType == 'MULTI_DYNAMIC_DROPDOWN' && hasImpactedItems) &&
+            respType != 'DYNAMIC_DROPDOWN' &&  // Always include DYNAMIC_DROPDOWN
+            respType != 'MULTI_DYNAMIC_DROPDOWN' &&  // Always include MULTI_DYNAMIC_DROPDOWN
             !(respType == 'DYNAMIC_NUMERIC' && hasImages)) {
+          Logger.infoLog('[CM] Skipping item with mstId: $checklistMstId, respType: $respType (no response and no impacted items/images)');
           continue; // Skip items without responses
         }
+      }
+      
+      // For DYNAMIC_DROPDOWN, always set resp to null if no resp value (will be sent as null in API)
+      // This ensures all DYNAMIC_DROPDOWN items from checklist template are included
+      if ((respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') && 
+          (respValue == null || (respValue is String && respValue.isEmpty))) {
+        respValue = null; // Explicitly set to null for API
+        Logger.infoLog('[CM] Setting respValue to null for DYNAMIC_DROPDOWN (mstId: $checklistMstId, hasImpactedItems: $finalHasImpactedItems)');
       }
       
       // Transform response_images to cmCheckListSiteRespImagesList
@@ -2788,20 +2880,148 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Add impacted items if this checklist item has any
-      if (checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId)) {
-        final impactedItemsForThisParent = impactedItemsByParentMstId[checklistMstId]!;
+      // Add impacted items for DYNAMIC_DROPDOWN and MULTI_DYNAMIC_DROPDOWN
+      // Always include cmImpactedItemList (even if empty) to ensure complete checklist is sent
+      if (respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') {
         final transformedImpactedItems = <Map<String, dynamic>>[];
+        List<Map<String, dynamic>> impactedItemsForThisParent = [];
         
+        Logger.infoLog('[CM] Processing DYNAMIC_DROPDOWN - mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items in list: ${_impactedItemList.length}');
+        
+        // Primary check: Use grouped impacted items
+        if (checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId)) {
+          impactedItemsForThisParent = impactedItemsByParentMstId[checklistMstId]!;
+          Logger.infoLog('[CM] Found ${impactedItemsForThisParent.length} impacted items in primary grouping for mstId: $checklistMstId');
+        } else {
+          // Fallback: Search through all impacted items to find ones with matching parent ID
+          Logger.infoLog('[CM] Primary grouping failed for mstId: $checklistMstId ($checklistDesc), trying fallback search through ${_impactedItemList.length} impacted items');
+          
+          // Get the subItemType from checklist item for additional matching
+          final checklistSubItemType = checklistItem['sub_item_type']?.toString() ?? 
+                                     checklistItem['subItemType']?.toString() ?? '';
+          final checklistCmItemType = checklistItem['cmItemType']?.toString() ?? 
+                                    checklistItem['item_type']?.toString() ?? '';
+          // Use the calculated cmItemType (which is what gets sent to API)
+          final calculatedCmItemType = cmItemType.toString();
+          
+          Logger.infoLog('[CM] Looking for impacted items matching - mstId: $checklistMstId, subItemType: $checklistSubItemType, cmItemType: $checklistCmItemType, calculatedCmItemType: $calculatedCmItemType');
+          
+          for (var impactedItem in _impactedItemList) {
+            final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
+                                       impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+            
+            // Get impacted item's type info
+            final impactedItemType = impactedItem['cmItemType']?.toString() ?? 
+                                    impactedItem['item_type']?.toString() ?? '';
+            final impactedSubItemType = impactedItem['subItemType']?.toString() ?? 
+                                       impactedItem['sub_item_type']?.toString() ?? '';
+            final impactedMfgSerialNo = impactedItem['mfgSerialNo']?.toString() ?? '';
+            
+            Logger.infoLog('[CM] Checking impacted item - mfgSerialNo: $impactedMfgSerialNo, cmItemType: $impactedItemType, subItemType: $impactedSubItemType, has ${childItemResponses.length} child responses');
+            
+            bool foundMatch = false;
+            
+            // First try: Match by parent ID in child responses (if child responses exist)
+            if (childItemResponses.isNotEmpty) {
+              for (var childResponse in childItemResponses) {
+                if (childResponse is Map<String, dynamic>) {
+                  final parentMstId = childResponse['parentCmCheckListMstId'] as int? ?? 
+                                    childResponse['parent_cm_check_list_mst_id'] as int?;
+                  Logger.infoLog('[CM] Child response parent IDs - parentCmCheckListMstId: ${childResponse['parentCmCheckListMstId']}, parent_cm_check_list_mst_id: ${childResponse['parent_cm_check_list_mst_id']}');
+                  
+                  if (parentMstId != null && parentMstId != 0 && parentMstId == checklistMstId) {
+                    foundMatch = true;
+                    Logger.infoLog('[CM] ✅ Matched by parent ID: $parentMstId == $checklistMstId');
+                    break;
+                  }
+                }
+              }
+            } else {
+              Logger.infoLog('[CM] Impacted item has no child responses, will try type matching');
+            }
+            
+            // Second try: Match by subItemType or cmItemType if parent ID didn't match
+            // Use case-insensitive matching and trim whitespace
+            if (!foundMatch) {
+              final normalizedChecklistSubItemType = checklistSubItemType.trim().toLowerCase();
+              final normalizedCalculatedCmItemType = calculatedCmItemType.trim().toLowerCase();
+              final normalizedImpactedSubItemType = impactedSubItemType.trim().toLowerCase();
+              final normalizedImpactedItemType = impactedItemType.trim().toLowerCase();
+              
+              if (normalizedChecklistSubItemType.isNotEmpty) {
+                if (normalizedImpactedSubItemType == normalizedChecklistSubItemType || 
+                    normalizedImpactedItemType == normalizedChecklistSubItemType ||
+                    normalizedImpactedSubItemType.contains(normalizedChecklistSubItemType) ||
+                    normalizedImpactedItemType.contains(normalizedChecklistSubItemType)) {
+                  foundMatch = true;
+                  Logger.infoLog('[CM] ✅ Matched by subItemType: "$impactedSubItemType"/"$impactedItemType" == "$checklistSubItemType"');
+                }
+              }
+              
+              if (!foundMatch && normalizedCalculatedCmItemType.isNotEmpty) {
+                if (normalizedImpactedItemType == normalizedCalculatedCmItemType || 
+                    normalizedImpactedSubItemType == normalizedCalculatedCmItemType ||
+                    normalizedImpactedItemType.contains(normalizedCalculatedCmItemType) ||
+                    normalizedImpactedSubItemType.contains(normalizedCalculatedCmItemType)) {
+                  foundMatch = true;
+                  Logger.infoLog('[CM] ✅ Matched by cmItemType: "$impactedItemType"/"$impactedSubItemType" == "$calculatedCmItemType"');
+                }
+              }
+            }
+            
+            if (foundMatch) {
+              // Check if we already added this impacted item
+              if (!impactedItemsForThisParent.any((item) => 
+                item['mfgSerialNo'] == impactedItem['mfgSerialNo'])) {
+                impactedItemsForThisParent.add(impactedItem);
+                Logger.infoLog('[CM] Added impacted item to list - mfgSerialNo: $impactedMfgSerialNo');
+              }
+            }
+          }
+          
+          if (impactedItemsForThisParent.isNotEmpty) {
+            Logger.infoLog('[CM] Fallback search found ${impactedItemsForThisParent.length} impacted items for mstId: $checklistMstId ($checklistDesc)');
+          } else {
+            Logger.errorLog('[CM] ❌ No impacted items found in fallback search for mstId: $checklistMstId ($checklistDesc)');
+            Logger.errorLog('[CM] Available impacted items in list: ${_impactedItemList.map((item) => '${item['mfgSerialNo']} (${item['cmItemType']}/${item['subItemType']})').toList()}');
+            
+            // Detailed debug: Show full structure of first few impacted items
+            if (_impactedItemList.isNotEmpty) {
+              Logger.errorLog('[CM] Detailed structure of first impacted item:');
+              final firstItem = _impactedItemList.first;
+              Logger.errorLog('[CM] Keys: ${firstItem.keys.toList()}');
+              Logger.errorLog('[CM] mfgSerialNo: ${firstItem['mfgSerialNo']}');
+              Logger.errorLog('[CM] cmItemType: ${firstItem['cmItemType']}');
+              Logger.errorLog('[CM] subItemType: ${firstItem['subItemType']}');
+              Logger.errorLog('[CM] childItemResponses: ${firstItem['childItemResponses']}');
+              Logger.errorLog('[CM] child_item_responses: ${firstItem['child_item_responses']}');
+              if (firstItem['childItemResponses'] != null || firstItem['child_item_responses'] != null) {
+                final childResponses = firstItem['childItemResponses'] as List<dynamic>? ?? 
+                                      firstItem['child_item_responses'] as List<dynamic>? ?? [];
+                if (childResponses.isNotEmpty) {
+                  final firstChild = childResponses.first;
+                  if (firstChild is Map) {
+                    Logger.errorLog('[CM] First child response keys: ${firstChild.keys.toList()}');
+                    Logger.errorLog('[CM] First child parent IDs: parentCmCheckListMstId=${firstChild['parentCmCheckListMstId']}, parent_cm_check_list_mst_id=${firstChild['parent_cm_check_list_mst_id']}');
+                  } else {
+                    Logger.errorLog('[CM] First child response is not a map: ${firstChild.runtimeType}');
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Transform the impacted items
         for (var impactedItem in impactedItemsForThisParent) {
           final transformedItemsList = _transformImpactedItemToApiFormat(impactedItem, location);
           transformedImpactedItems.addAll(transformedItemsList);
         }
         
-        if (transformedImpactedItems.isNotEmpty) {
+        Logger.infoLog('[CM] Added ${transformedImpactedItems.length} transformed impacted items to checklist item with mstId: $checklistMstId');
+        
+        // Always include cmImpactedItemList for DYNAMIC_DROPDOWN items (even if empty)
           transformedItem['cmImpactedItemList'] = transformedImpactedItems;
-          Logger.infoLog('[CM] Added ${transformedImpactedItems.length} impacted items to checklist item with mstId: $checklistMstId');
-        }
       }
       
       transformedList.add(transformedItem);
