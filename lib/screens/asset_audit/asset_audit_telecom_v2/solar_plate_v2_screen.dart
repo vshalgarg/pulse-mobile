@@ -59,6 +59,27 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
   // Solar panel data
   List<Map<String, dynamic>> _savedSolarPanels = [];
 
+  String _computeTotalCapacityKw(List<dynamic> panels) {
+    double totalWatt = 0;
+    for (final panel in panels) {
+      // Check capacity field first, then fallback to disabledFieldValue (Solar Panel Watt)
+      dynamic cap = panel['capacity'];
+      if (cap == null || cap == 0 || cap == '0' || cap == '') {
+        cap = panel['disabledFieldValue'];
+      }
+      
+      if (cap != null && cap != '' && cap != 'N/A') {
+        final parsed = double.tryParse(cap.toString());
+        if (parsed != null && parsed > 0) {
+          totalWatt += parsed;
+        }
+      }
+    }
+    if (totalWatt == 0) return '0';
+    final totalKw = totalWatt / 1000.0;
+    return totalKw.toStringAsFixed(2);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -125,6 +146,9 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
           'solarPanelAssets': solarPanelAssets
               .where((obj) => obj['photo_id'] != null)
               .toList(),
+          'solarPanelCapacity': _computeTotalCapacityKw(
+            solarPanelAssets.where((obj) => obj['photo_id'] != null).toList(),
+          ),
           'solarPanelAllAssets': solarPanelAssets,
           'remarks': remarksData.isNotEmpty
               ? remarksData.first['item_type_remark']?.toString() ?? ""
@@ -169,10 +193,13 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
   void _onSolarPanelItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
       _displayFormData?['solarPanelAssets'] = items;
+      _savedSolarPanels = List<Map<String, dynamic>>.from(items);
+      // Calculate total capacity from all saved items in the table
+      _displayFormData?['solarPanelCapacity'] = _computeTotalCapacityKw(items);
       _hasFormDataChanges = true;
     });
     Logger.debugLog(
-      '✅ Solar Panels updated: ${_savedSolarPanels.length} items',
+      '✅ Solar Panels updated: ${_savedSolarPanels.length} items, Total Capacity: ${_displayFormData?['solarPanelCapacity']} kW',
     );
   }
 
