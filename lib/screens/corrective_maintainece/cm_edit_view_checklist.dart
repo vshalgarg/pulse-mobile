@@ -79,13 +79,29 @@ class _CMEditViewChecklistWidgetState
         // resp, cmCheckListSiteRespImagesList, cmImpactedItemList, etc.
         // These come from the merged API response
         
+        // Explicitly preserve cmImpactedItemList if it exists
+        if (item['cmImpactedItemList'] != null) {
+          checklistItem['cmImpactedItemList'] = item['cmImpactedItemList'];
+        }
+        if (item['cm_impacted_item_list'] != null) {
+          checklistItem['cm_impacted_item_list'] = item['cm_impacted_item_list'];
+        }
+        
         // Debug: Log the resp value for each item
         final resp = checklistItem['resp'];
         final respType = checklistItem['respType']?.toString() ?? 
                         checklistItem['resp_type']?.toString() ?? '';
         final checklistDesc = checklistItem['checklistDesc']?.toString() ?? 
                              checklistItem['checklist_desc']?.toString() ?? '';
-        Logger.infoLog('[CM EditView] Item: $checklistDesc, respType: $respType, resp: $resp');
+        final hasImpactedItems = checklistItem['cmImpactedItemList'] != null || 
+                                checklistItem['cm_impacted_item_list'] != null;
+        Logger.infoLog('[CM EditView] Item: $checklistDesc, respType: $respType, resp: $resp, hasImpactedItems: $hasImpactedItems');
+        
+        if (respType == 'DYNAMIC_DROPDOWN') {
+          final impactedList = checklistItem['cmImpactedItemList'] ?? 
+                              checklistItem['cm_impacted_item_list'] ?? [];
+          Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN in init - $checklistDesc, impactedList type: ${impactedList.runtimeType}, isList: ${impactedList is List}, length: ${impactedList is List ? impactedList.length : "N/A"}');
+        }
 
         return checklistItem;
       }).toList();
@@ -551,6 +567,49 @@ class _CMEditViewChecklistWidgetState
           [];
     }
     
+    // If still empty, extract unique child items from cmImpactedItemList
+    // This handles cases where the API response doesn't include impacted_item_check_list
+    // but has cmImpactedItemList with the actual data
+    if (childItems.isEmpty) {
+      final impactedItems = item['cmImpactedItemList'] ??
+          item['cm_impacted_item_list'] ??
+          [];
+      
+      if (impactedItems is List && impactedItems.isNotEmpty) {
+        // Extract unique child items by cmCheckListMstId
+        final Map<int, Map<String, dynamic>> uniqueChildItems = {};
+        for (var impactedItem in impactedItems) {
+          if (impactedItem is Map<String, dynamic>) {
+            final childId = impactedItem['cmCheckListMstId'] as int? ??
+                impactedItem['cm_check_list_mst_id'] as int? ??
+                0;
+            
+            if (childId > 0 && !uniqueChildItems.containsKey(childId)) {
+              // Create a child item map from the impacted item
+              uniqueChildItems[childId] = {
+                'cm_check_list_mst_id': childId,
+                'cmCheckListMstId': childId,
+                'checklist_desc': impactedItem['checklistDesc']?.toString() ??
+                    impactedItem['checklist_desc']?.toString() ?? '',
+                'checklistDesc': impactedItem['checklistDesc']?.toString() ??
+                    impactedItem['checklist_desc']?.toString() ?? '',
+                'resp_type': impactedItem['respType']?.toString() ??
+                    impactedItem['resp_type']?.toString() ?? '',
+                'respType': impactedItem['respType']?.toString() ??
+                    impactedItem['resp_type']?.toString() ?? '',
+                'cl_order': impactedItem['clOrder'] as int? ??
+                    impactedItem['cl_order'] as int? ?? 0,
+                'clOrder': impactedItem['clOrder'] as int? ??
+                    impactedItem['cl_order'] as int? ?? 0,
+              };
+            }
+          }
+        }
+        childItems = uniqueChildItems.values.toList();
+        Logger.infoLog('[CM EditView] Extracted ${childItems.length} unique child items from cmImpactedItemList');
+      }
+    }
+    
     final result = <Map<String, dynamic>>[];
     for (var childItem in childItems) {
       if (childItem is Map<String, dynamic>) {
@@ -569,6 +628,7 @@ class _CMEditViewChecklistWidgetState
       return orderA.compareTo(orderB);
     });
     
+    Logger.infoLog('[CM EditView] _getAllChildItems returning ${result.length} child items');
     return result;
   }
 
@@ -581,7 +641,12 @@ class _CMEditViewChecklistWidgetState
         item['cm_impacted_item_list'] ??
         [];
     
+    Logger.infoLog('[CM EditView] _buildDynamicDropdownTable called for: $checklistDesc');
+    Logger.infoLog('[CM EditView] impactedItems type: ${impactedItems.runtimeType}, isEmpty: ${impactedItems is List ? (impactedItems as List).isEmpty : "not a list"}');
+    Logger.infoLog('[CM EditView] impactedItems count: ${impactedItems is List ? (impactedItems as List).length : 0}');
+    
     if (impactedItems is! List || impactedItems.isEmpty) {
+      Logger.errorLog('[CM EditView] No impacted items found for DYNAMIC_DROPDOWN: $checklistDesc');
       return Text(
         'No data available',
         style: const TextStyle(color: Colors.grey),
@@ -590,6 +655,56 @@ class _CMEditViewChecklistWidgetState
     
     // Get all child items for column headers
     final childItems = _getAllChildItems(item);
+    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - childItems count: ${childItems.length}');
+    
+    // If childItems is empty, extract from impactedItems directly
+    List<Map<String, dynamic>> finalChildItems = childItems;
+    if (childItems.isEmpty && impactedItems is List) {
+      Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - childItems is empty, extracting from impactedItems');
+      final Map<int, Map<String, dynamic>> uniqueChildItems = {};
+      for (var impactedItem in impactedItems) {
+        if (impactedItem is Map<String, dynamic>) {
+          final childId = impactedItem['cmCheckListMstId'] as int? ??
+              impactedItem['cm_check_list_mst_id'] as int? ??
+              0;
+          
+          if (childId > 0 && !uniqueChildItems.containsKey(childId)) {
+            uniqueChildItems[childId] = {
+              'cm_check_list_mst_id': childId,
+              'cmCheckListMstId': childId,
+              'checklist_desc': impactedItem['checklistDesc']?.toString() ??
+                  impactedItem['checklist_desc']?.toString() ?? '',
+              'checklistDesc': impactedItem['checklistDesc']?.toString() ??
+                  impactedItem['checklist_desc']?.toString() ?? '',
+              'resp_type': impactedItem['respType']?.toString() ??
+                  impactedItem['resp_type']?.toString() ?? '',
+              'respType': impactedItem['respType']?.toString() ??
+                  impactedItem['resp_type']?.toString() ?? '',
+              'cl_order': impactedItem['clOrder'] as int? ??
+                  impactedItem['cl_order'] as int? ?? 0,
+              'clOrder': impactedItem['clOrder'] as int? ??
+                  impactedItem['cl_order'] as int? ?? 0,
+            };
+          }
+        }
+      }
+      finalChildItems = uniqueChildItems.values.toList();
+      // Sort by cl_order
+      finalChildItems.sort((a, b) {
+        final orderA = a['cl_order'] as int? ?? a['clOrder'] as int? ?? 0;
+        final orderB = b['cl_order'] as int? ?? b['clOrder'] as int? ?? 0;
+        return orderA.compareTo(orderB);
+      });
+      Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - Extracted ${finalChildItems.length} child items from impactedItems');
+    }
+    
+    if (finalChildItems.isEmpty) {
+      Logger.errorLog('[CM EditView] DYNAMIC_DROPDOWN - No child items found for table columns');
+      return Text(
+        'No child items found for table',
+        style: const TextStyle(color: Colors.grey),
+      );
+    }
     
     // Group impacted items by mfgSerialNo
     final Map<String, List<Map<String, dynamic>>> groupedBySerial = {};
@@ -608,7 +723,29 @@ class _CMEditViewChecklistWidgetState
       }
     }
     
-    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - groupedBySerial keys: ${groupedBySerial.keys.toList()}');
+    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - groupedBySerial keys: ${groupedBySerial.keys.toList()}, count: ${groupedBySerial.length}');
+    
+    if (groupedBySerial.isEmpty) {
+      Logger.errorLog('[CM EditView] DYNAMIC_DROPDOWN - No serial numbers found after grouping');
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            checklistDesc,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'No serial numbers found',
+            style: const TextStyle(color: Colors.grey),
+          ),
+        ],
+      );
+    }
     
     // Create a map for quick lookup: serialNo -> {childId -> response}
     final serialToChildResponses = <String, Map<int, Map<String, dynamic>>>{};
@@ -626,6 +763,8 @@ class _CMEditViewChecklistWidgetState
         }
       }
     }
+    
+    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - Building table with ${finalChildItems.length} columns and ${groupedBySerial.length} rows');
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -658,7 +797,7 @@ class _CMEditViewChecklistWidgetState
                   label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
                 ),
                 // Dynamic columns based on child items
-                ...childItems.map((childItem) {
+                ...finalChildItems.map((childItem) {
                   final childChecklistDesc = childItem['checklist_desc']?.toString() ??
                       childItem['checklistDesc']?.toString() ?? '';
                   return DataColumn(
@@ -680,7 +819,7 @@ class _CMEditViewChecklistWidgetState
                       ),
                     ),
                     // Dynamic cells for each child item
-                    ...childItems.map((childItem) {
+                    ...finalChildItems.map((childItem) {
                       final childId = childItem['cm_check_list_mst_id'] as int? ??
                           childItem['cmCheckListMstId'] as int? ??
                           0;
@@ -795,6 +934,17 @@ class _CMEditViewChecklistWidgetState
       ],
     );
   }
+  
+  // Debug method to log item structure
+  void _logItemStructure(Map<String, dynamic> item, String context) {
+    Logger.infoLog('[CM EditView] $context - Item keys: ${item.keys.toList()}');
+    Logger.infoLog('[CM EditView] $context - respType: ${item['respType'] ?? item['resp_type']}');
+    Logger.infoLog('[CM EditView] $context - cmImpactedItemList: ${item['cmImpactedItemList'] != null ? "EXISTS" : "NULL"}');
+    if (item['cmImpactedItemList'] != null) {
+      final impacted = item['cmImpactedItemList'];
+      Logger.infoLog('[CM EditView] $context - cmImpactedItemList type: ${impacted.runtimeType}, isList: ${impacted is List}, length: ${impacted is List ? impacted.length : "N/A"}');
+    }
+  }
 
   Widget _buildChecklistItem(Map<String, dynamic> item, int index) {
     final respType =
@@ -818,8 +968,23 @@ class _CMEditViewChecklistWidgetState
         item['cm_check_list_site_resp_id']?.toString() ??
         index.toString();
     
+    // Check for cmImpactedItemList
+    final impactedItems = item['cmImpactedItemList'] ??
+        item['cm_impacted_item_list'] ??
+        [];
+    final hasImpactedItems = impactedItems is List && impactedItems.isNotEmpty;
+    
     // Debug logging
-    Logger.infoLog('[CM EditView] Building item: $checklistDesc, respType: $respType, resp: $resp, hasImages: $hasImages, imagesList: ${imagesList != null ? (imagesList is List ? "List(${imagesList.length})" : imagesList.runtimeType) : "NULL"}, checklistId: $checklistId');
+    Logger.infoLog('[CM EditView] Building item: $checklistDesc, respType: $respType, resp: $resp, hasImages: $hasImages, hasImpactedItems: $hasImpactedItems, impactedItemsCount: ${impactedItems is List ? impactedItems.length : 0}, checklistId: $checklistId');
+    
+    // Special logging for DYNAMIC_DROPDOWN
+    if (respType == 'DYNAMIC_DROPDOWN') {
+      Logger.infoLog('[CM EditView] ⚠️ DYNAMIC_DROPDOWN detected - checklistDesc: $checklistDesc, hasImpactedItems: $hasImpactedItems, impactedItems: ${impactedItems is List ? impactedItems.length : "not a list"}');
+      _logItemStructure(item, 'DYNAMIC_DROPDOWN');
+      if (impactedItems is List) {
+        Logger.infoLog('[CM EditView] Impacted items details: ${impactedItems.map((i) => i is Map ? '${i['mfgSerialNo'] ?? i['mfg_serial_no']} (${i['checklistDesc'] ?? i['checklist_desc']})' : 'not a map').join(", ")}');
+      }
+    }
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
@@ -948,7 +1113,41 @@ class _CMEditViewChecklistWidgetState
             ],
           ] else if (respType == 'DYNAMIC_DROPDOWN') ...[
             // Handle DYNAMIC_DROPDOWN type - Build dynamic table
-            _buildDynamicDropdownTable(item),
+            Builder(
+              builder: (context) {
+                try {
+                  Logger.infoLog('[CM EditView] ✅ Rendering DYNAMIC_DROPDOWN table for: $checklistDesc');
+                  Logger.infoLog('[CM EditView] Item keys: ${item.keys.toList()}');
+                  Logger.infoLog('[CM EditView] cmImpactedItemList: ${item['cmImpactedItemList'] != null ? "EXISTS" : "NULL"}');
+                  Logger.infoLog('[CM EditView] cm_impacted_item_list: ${item['cm_impacted_item_list'] != null ? "EXISTS" : "NULL"}');
+                  
+                  final tableWidget = _buildDynamicDropdownTable(item);
+                  Logger.infoLog('[CM EditView] ✅ Table widget built successfully for: $checklistDesc');
+                  return tableWidget;
+                } catch (e, stackTrace) {
+                  Logger.errorLog('[CM EditView] ❌ Error building DYNAMIC_DROPDOWN table for $checklistDesc: $e');
+                  Logger.errorLog('[CM EditView] Stack trace: $stackTrace');
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        checklistDesc,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Error building table: $e',
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  );
+                }
+              },
+            ),
           ] else ...[
             // Default: show label and resp value for other types (DROPDOWN, RADIO, etc.)
             CustomFormField(

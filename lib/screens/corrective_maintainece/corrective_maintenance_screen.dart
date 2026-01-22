@@ -1166,8 +1166,18 @@ class _CorrectiveMaintenanceScreenState
       if (templateItems is List) {
         final mergedItems = <Map<String, dynamic>>[];
         // Match using normalized (uppercase) equipment type
-        final existingItemsForType = responsesByType[normalizedEquipmentType] ?? [];
-        Logger.infoLog('[CM] Found ${existingItemsForType.length} existing responses for $equipmentType');
+        // For CCU, SMPS, Solar: responses may have subtypes like "CCU Rectifiers", "CCU MPPT"
+        // So we need to match if the response itemType starts with the equipment type
+        final existingItemsForType = <Map<String, dynamic>>[];
+        for (var typeKey in responsesByType.keys) {
+          // Exact match OR starts with (for subtypes like "CCU Rectifiers", "CCU MPPT")
+          if (typeKey == normalizedEquipmentType || 
+              typeKey.startsWith(normalizedEquipmentType + ' ')) {
+            existingItemsForType.addAll(responsesByType[typeKey]!);
+            Logger.infoLog('[CM] Matched response type "$typeKey" to equipment type "$equipmentType"');
+          }
+        }
+        Logger.infoLog('[CM] Found ${existingItemsForType.length} existing responses for $equipmentType (matched from: ${responsesByType.keys.where((k) => k == normalizedEquipmentType || k.startsWith(normalizedEquipmentType + ' ')).toList()})');
         
         // Create a map of existing responses by cmCheckListMstId for quick lookup
         final existingResponsesMap = <int, Map<String, dynamic>>{};

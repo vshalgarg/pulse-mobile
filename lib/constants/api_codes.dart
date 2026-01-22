@@ -26,6 +26,6 @@ class ApiCodes {
   static const String validationFailed = "015";
   static const String recordDeleted = "016";
   static const String alreadyExist = "025";
-  static const String distanceFromLocation = "1";
+  static const String distanceFromLocation = "1000";
 
 }
