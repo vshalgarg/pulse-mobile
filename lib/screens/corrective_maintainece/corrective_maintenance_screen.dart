@@ -2233,14 +2233,15 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(30),
         // Show Status, Remarks, and Remark Attachment in both edit and view modes
-        // In view mode or when status is Closed, fields are disabled/read-only
+        // In view mode when status is Closed, fields are disabled/read-only
+        // In edit mode, user can change status even if it's Closed
         if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) ...[
           CustomDropdown(
             label: "Status",
             items: _statusOptions,
             initialValue: _statusController.text,
             isRequired: true,
-            isDisabled: widget.mode == CMScreenModeEnum.view || 
+            isDisabled: widget.mode == CMScreenModeEnum.view && 
                        _statusController.text.trim().toUpperCase() == 'CLOSED',
             onChanged: (value) {
               setState(() {
