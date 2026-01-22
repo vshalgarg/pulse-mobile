@@ -1013,6 +1013,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       dataEntry['childItemResponses'] = childItemResponses; // Also add camelCase version
       Logger.infoLog('[CM CustomWidget] Added ${childItemResponses.length} child responses to dataEntry with parent ID: $parentCheckListGroupId');
       Logger.infoLog('[CM CustomWidget] First child response parent IDs - parent_cm_check_list_mst_id: ${childItemResponses.first['parent_cm_check_list_mst_id']}, parentCmCheckListMstId: ${childItemResponses.first['parentCmCheckListMstId']}');
+    } else {
+      // If there are no child items (e.g., impacted_item_check_list is null), 
+      // still add the parent ID directly to dataEntry so it can be grouped correctly
+      dataEntry['parent_cm_check_list_mst_id'] = parentCheckListGroupId;
+      dataEntry['parentCmCheckListMstId'] = parentCheckListGroupId;
+      dataEntry['child_item_responses'] = [];
+      dataEntry['childItemResponses'] = [];
+      Logger.infoLog('[CM CustomWidget] No child items found, but added parent ID directly to dataEntry: $parentCheckListGroupId');
     }
     
     // Store dependent element images (for parent-level dependent elements like IMG)

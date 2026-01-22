@@ -2722,36 +2722,43 @@ class _CorrectiveMaintenanceScreenState
     
     for (var impactedItem in _impactedItemList) {
       // Get the parent mstId from childItemResponses (they all reference the same parent)
+      // OR from the impacted item itself if no child responses exist
       final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
                                  impactedItem['child_item_responses'] as List<dynamic>? ?? [];
       
       Logger.infoLog('[CM] Processing impacted item - mfgSerialNo: ${impactedItem['mfgSerialNo']}, cmItemType: ${impactedItem['cmItemType']}, has ${childItemResponses.length} child responses');
       
+      int? parentMstId;
+      
       if (childItemResponses.isNotEmpty) {
         final firstChild = childItemResponses.first as Map<String, dynamic>?;
         if (firstChild != null) {
           // Use ONLY parent_cm_check_list_mst_id for grouping (don't fallback to child's mstId)
-          final parentMstId = firstChild['parentCmCheckListMstId'] as int? ?? 
-                            firstChild['parent_cm_check_list_mst_id'] as int?;
+          parentMstId = firstChild['parentCmCheckListMstId'] as int? ?? 
+                       firstChild['parent_cm_check_list_mst_id'] as int?;
           
           final childMstId = firstChild['cmCheckListMstId'] as int? ?? 
                             firstChild['cm_check_list_mst_id'] as int?;
           
           Logger.infoLog('[CM] Impacted item - parentMstId: $parentMstId, childMstId: $childMstId, firstChild keys: ${firstChild.keys.toList()}');
           Logger.infoLog('[CM] Impacted item - parentCmCheckListMstId: ${firstChild['parentCmCheckListMstId']}, parent_cm_check_list_mst_id: ${firstChild['parent_cm_check_list_mst_id']}');
-          
-          if (parentMstId != null && parentMstId != 0) {
-            if (!impactedItemsByParentMstId.containsKey(parentMstId)) {
-              impactedItemsByParentMstId[parentMstId] = [];
-            }
-            impactedItemsByParentMstId[parentMstId]!.add(impactedItem);
-            Logger.infoLog('[CM] Added impacted item to parent group: $parentMstId');
-          } else {
-            Logger.errorLog('[CM] Warning: Impacted item has no valid parentMstId (null or 0) - childMstId: $childMstId');
-          }
         }
       } else {
-        Logger.errorLog('[CM] Warning: Impacted item has no child responses');
+        // If no child responses, check if parent ID is stored directly on the impacted item
+        // This handles cases where impacted_item_check_list is null (e.g., SOLAR with only dependent_elements)
+        parentMstId = impactedItem['parentCmCheckListMstId'] as int? ?? 
+                     impactedItem['parent_cm_check_list_mst_id'] as int?;
+        Logger.infoLog('[CM] Impacted item has no child responses, checking for direct parent ID: $parentMstId');
+      }
+      
+      if (parentMstId != null && parentMstId != 0) {
+        if (!impactedItemsByParentMstId.containsKey(parentMstId)) {
+          impactedItemsByParentMstId[parentMstId] = [];
+        }
+        impactedItemsByParentMstId[parentMstId]!.add(impactedItem);
+        Logger.infoLog('[CM] Added impacted item to parent group: $parentMstId');
+      } else {
+        Logger.errorLog('[CM] Warning: Impacted item has no valid parentMstId (null or 0)');
       }
     }
     
@@ -3149,6 +3156,66 @@ class _CorrectiveMaintenanceScreenState
     // Transform childItemResponses - each becomes a separate impacted item
     final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
                               impactedItem['child_item_responses'] as List<dynamic>? ?? [];
+    
+    // If there are no child responses (e.g., impacted_item_check_list is null),
+    // create a single impacted item entry with dependent images
+    if (childItemResponses.isEmpty) {
+      // Get dependent images from the impacted item
+      final dependentImages = impactedItem['dependent_images'] as List<dynamic>? ?? [];
+      
+      final transformedImages = <Map<String, dynamic>>[];
+      for (var imageData in dependentImages) {
+        if (imageData is Map<String, dynamic>) {
+          final photoIdValue = imageData['photoId'] ?? imageData['photo_id'];
+          final photoTakenTs = imageData['photoTakenTs']?.toString() ?? 
+                             imageData['photo_taken_ts']?.toString();
+          
+          final formattedPhotoTakenTs = photoTakenTs != null 
+              ? _formatDateStringForApi(photoTakenTs)
+              : _formatDateForApi(now);
+          
+          // Convert photoId to int
+          int photoIdInt = 0;
+          if (photoIdValue != null) {
+            if (photoIdValue is int) {
+              photoIdInt = photoIdValue;
+            } else if (photoIdValue is String) {
+              photoIdInt = int.tryParse(photoIdValue) ?? 0;
+            }
+          }
+          
+          transformedImages.add({
+            'cclsriId': 0,
+            'photoId': photoIdInt,
+            'photoTakenTs': formattedPhotoTakenTs,
+            'isActive': true,
+            'remarks': imageData['remarks']?.toString() ?? 'string',
+          });
+        }
+      }
+      
+      // Create a single impacted item entry (no child items, just the serial number and images)
+      final transformedItem = {
+        'cmImpactedItemId': 0,
+        'itemInstanceId': itemInstanceId,
+        'mfgSerialNo': mfgSerialNo,
+        'nexgenSerialNo': nexgenSerialNo,
+        'cmItemType': cmItemType,
+        'subItemType': subItemType,
+        'resp': null, // No response since there are no child items
+        'checklistDesc': '', // No checklist desc since there are no child items
+        'clOrder': 0,
+        'cmCheckListMstId': 0, // No child mstId since there are no child items
+        'checklistRef': checklistRef,
+        'isActive': true,
+        'remarks': impactedItem['remarks']?.toString() ?? 'string',
+        'cmCheckListSiteRespImagesList': transformedImages,
+      };
+      
+      transformedItems.add(transformedItem);
+      Logger.infoLog('[CM] Created impacted item entry without child responses (for dependent images only)');
+      return transformedItems;
+    }
     
     for (var childResponse in childItemResponses) {
       if (childResponse is Map<String, dynamic>) {
