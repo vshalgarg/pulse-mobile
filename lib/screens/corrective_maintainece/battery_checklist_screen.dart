@@ -114,9 +114,6 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
         _errorMessage = null;
       });
 
-      // final response = await ServiceLocator().cmChecklistRepository.getChecklistData(
-      //   widget.entityId!,
-      // );
 
       final List<CMChecklistItem> batteryItems = [];
 

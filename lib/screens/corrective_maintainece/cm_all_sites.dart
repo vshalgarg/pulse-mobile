@@ -226,7 +226,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             );
 
             // Check if distance is more than the allowed distance (in meters, converted to km)
-            final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation) / 1000.0; // Convert meters to km
+            final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation); // Convert meters to km
             if (distanceInKm > maxDistanceKm) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
