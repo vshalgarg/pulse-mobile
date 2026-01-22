@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:app/commonWidgets/cm_remarks_show_widget.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
@@ -370,10 +369,11 @@ class _CorrectiveMaintenanceScreenState
         }
         
         setState(() {
-          // Set remarks text (for edit mode only, view mode shows in CMRemarksShowWidget)
-          if (widget.mode == CMScreenModeEnum.edit && 
+          // Set remarks text (for both edit and view modes, since we now show the field in both)
+          if ((widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) && 
               cmRemark != null && cmRemark.toString().trim().isNotEmpty) {
             _remarksController.text = cmRemark.toString().trim();
+            Logger.infoLog('[CM] Loaded remarks text: ${_remarksController.text}');
           }
           
           // Set remarks attachment info (for both edit and view modes)
@@ -384,6 +384,7 @@ class _CorrectiveMaintenanceScreenState
             } else {
               _remarksAttachmentName = null;
             }
+            Logger.infoLog('[CM] Loaded remarks attachment - ID: $_remarksAttachmentId, Name: $_remarksAttachmentName');
           }
         });
       }
@@ -2229,13 +2230,16 @@ class _CorrectiveMaintenanceScreenState
           isDisabled: widget.mode == CMScreenModeEnum.view,
         ),
         getHeight(30),
-        // Edit mode: Show editable remarks and attachments section
-        if (widget.mode == CMScreenModeEnum.edit) ...[
+        // Show Status, Remarks, and Remark Attachment in both edit and view modes
+        // In view mode or when status is Closed, fields are disabled/read-only
+        if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) ...[
           CustomDropdown(
             label: "Status",
             items: _statusOptions,
             initialValue: _statusController.text,
             isRequired: true,
+            isDisabled: widget.mode == CMScreenModeEnum.view || 
+                       _statusController.text.trim().toUpperCase() == 'CLOSED',
             onChanged: (value) {
               setState(() {
                 _statusController.text = value ?? "";
@@ -2248,8 +2252,10 @@ class _CorrectiveMaintenanceScreenState
             label: "Remarks",
             hintText: "Enter remarks",
             controller: _remarksController,
-            isRequired: _statusController.text.trim().toUpperCase() == 'CLOSED',
-            isDisabled: false, // Allow editing in edit mode
+            isRequired: widget.mode == CMScreenModeEnum.edit && 
+                       _statusController.text.trim().toUpperCase() == 'CLOSED',
+            isDisabled: widget.mode == CMScreenModeEnum.view || 
+                       _statusController.text.trim().toUpperCase() == 'CLOSED',
           ),
           getHeight(15),
           CustomFileUploadNew(
@@ -2275,45 +2281,55 @@ class _CorrectiveMaintenanceScreenState
                         }
                       }
                     : null,
-                onServerAttachmentDeleted: () {
-                  setState(() {
-                    _remarksAttachmentId = null;
-                    _remarksAttachmentName = null;
-                    _hasFormDataChanges = true;
-                  });
-                },
-            onFileSelected: (File? file) {
-              if (file != null) {
-                setState(() {
-                      // Clear server attachment when new file is uploaded
-                      _remarksAttachmentId = null;
-                      _remarksAttachmentName = null;
-                      // Clear existing attachments and add new one
-                  _remarksAttachments.clear();
-                  _remarksAttachments.add(file);
-                      _hasFormDataChanges = true;
-                });
-              }
-            },
-            onFileDeleted: (File file) {
-              // Handle file deletion
-              setState(() {
-                _remarksAttachments.remove(file);
-                    _hasFormDataChanges = true;
-              });
-            },
-            isRequired: true,
+                onServerAttachmentDeleted: widget.mode == CMScreenModeEnum.edit && 
+                    _statusController.text.trim().toUpperCase() != 'CLOSED'
+                    ? () {
+                        setState(() {
+                          _remarksAttachmentId = null;
+                          _remarksAttachmentName = null;
+                          _hasFormDataChanges = true;
+                        });
+                      }
+                    : null,
+            onFileSelected: widget.mode == CMScreenModeEnum.edit && 
+                _statusController.text.trim().toUpperCase() != 'CLOSED'
+                ? (File? file) {
+                    if (file != null) {
+                      setState(() {
+                            // Clear server attachment when new file is uploaded
+                            _remarksAttachmentId = null;
+                            _remarksAttachmentName = null;
+                            // Clear existing attachments and add new one
+                        _remarksAttachments.clear();
+                        _remarksAttachments.add(file);
+                            _hasFormDataChanges = true;
+                      });
+                    }
+                  }
+                : (File? file) {
+                    // No-op when disabled
+                  },
+            onFileDeleted: widget.mode == CMScreenModeEnum.edit && 
+                _statusController.text.trim().toUpperCase() != 'CLOSED'
+                ? (File file) {
+                    // Handle file deletion
+                    setState(() {
+                      _remarksAttachments.remove(file);
+                          _hasFormDataChanges = true;
+                    });
+                  }
+                : (File file) {
+                    // No-op when disabled
+                  },
+            isRequired: widget.mode == CMScreenModeEnum.edit && 
+                       _statusController.text.trim().toUpperCase() == 'CLOSED',
             maxSizeText: "(Max Size: 2MB)",
                 acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
+            isDisabled: widget.mode == CMScreenModeEnum.view || 
+                       _statusController.text.trim().toUpperCase() == 'CLOSED',
           ),
           getHeight(30),
         ],
-        // Show remarks in view mode (read-only display)
-        if (widget.mode == CMScreenModeEnum.view)
-          CMRemarksShowWidget(
-            remarksList: widget.preloadedSiteData?['cmRemarksList'] ?? 
-                        widget.preloadedSiteData?['cm_remarks_list'],
-          ),
         CustomSubmitButtonV2(
           text: "Submit", 
           onPressed: _isSubmitting ? null : _validateAndSubmit,
