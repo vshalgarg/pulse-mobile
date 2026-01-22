@@ -32,7 +32,7 @@ class MyTicketsScreen extends StatefulWidget {
   State<MyTicketsScreen> createState() => _MyTicketsScreenState();
 }
 
-class _MyTicketsScreenState extends State<MyTicketsScreen> {
+class _MyTicketsScreenState extends State<MyTicketsScreen> with WidgetsBindingObserver {
   List<RawApiDataModel> _downloadedTickets = [];
   List<RawApiDataModel> _filteredTickets = [];
   List<Map<String, dynamic>> _downloadedSites = [];
@@ -40,11 +40,45 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   ActivityTypeEnum? _selectedActivityType;
+  bool _hasLoadedOnce = false;
+  bool _wasRouteActive = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadDownloadedTickets();
+    _hasLoadedOnce = true;
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh when returning to this screen from another page
+    if (_hasLoadedOnce && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final route = ModalRoute.of(context);
+          final isRouteActive = route != null && route.isCurrent;
+          
+          // If route just became active again (was inactive, now active), refresh
+          if (isRouteActive && !_wasRouteActive) {
+            _wasRouteActive = true;
+            _loadDownloadedTickets();
+          } else if (isRouteActive) {
+            _wasRouteActive = true;
+          } else {
+            _wasRouteActive = false;
+          }
+        }
+      });
+    }
   }
 
   ActivityTypeEnum _parseActivityTypeFromString(String activityTypeStr) {

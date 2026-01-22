@@ -4,6 +4,7 @@ import 'package:app/commonWidgets/asset_upload_form_component.dart';
 import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -1254,6 +1255,62 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         // Success
         Toastbar.showSuccessToastbar('Assets saved successfully', context);
         Logger.infoLog('✅ Assets uploaded successfully');
+
+        // Refresh Asset Upload data in SQLite after successful submission
+        // This ensures My Tickets shows the latest data when user clicks on the site
+        try {
+          Logger.debugLog('🔄 Refreshing Asset Upload data in SQLite after successful submission...');
+          final repository = AssetUploadRepository(ServiceLocator().apiService);
+          final refreshResult = await repository.getUploadedAssets(siteId: widget.siteData.siteId);
+          
+          if (refreshResult.isSuccess && refreshResult.data != null) {
+            // Parse response structure - check if data is wrapped or direct
+            Map<String, dynamic>? responseData;
+            if (refreshResult.data!.containsKey('data')) {
+              responseData = refreshResult.data!['data'] as Map<String, dynamic>?;
+              Logger.debugLog('📦 Found data wrapper, extracting inner data');
+            } else {
+              responseData = refreshResult.data;
+              Logger.debugLog('📦 Using data directly (no wrapper)');
+            }
+
+            if (responseData != null) {
+              // Update SQLite with latest data
+              final isUpdated = await ServiceLocator()
+                  .centralAssetAuditDataService
+                  .saveRawApiData(
+                    siteAuditSchId: widget.siteData.siteId.toString(),
+                    siteType: widget.siteData.siteDomainName ?? 'Solar',
+                    auditSchId: '',
+                    pvTicketId: '',
+                    siteCode: widget.siteData.siteCode,
+                    cluster: widget.siteData.clusterDistrictName,
+                    operator: widget.siteData.clientName ?? '',
+                    raisedDt: '',
+                    dueDt: '',
+                    status: '',
+                    isDownloaded: true,
+                    activityType: ActivityTypeEnum.assetUpload,
+                    latitude: widget.siteData.latitude != null ? double.tryParse(widget.siteData.latitude!) ?? 0 : 0,
+                    longitude: widget.siteData.longitude != null ? double.tryParse(widget.siteData.longitude!) ?? 0 : 0,
+                    apiData: responseData,
+                  );
+              
+              if (isUpdated) {
+                Logger.debugLog('✅ Asset Upload data refreshed in SQLite successfully');
+              } else {
+                Logger.errorLog('⚠️ Failed to refresh Asset Upload data in SQLite');
+              }
+            } else {
+              Logger.errorLog('⚠️ Asset Upload refresh response data is null');
+            }
+          } else {
+            Logger.errorLog('⚠️ Failed to refresh Asset Upload data: ${refreshResult.errorMessage}');
+          }
+        } catch (e) {
+          Logger.errorLog('❌ Error refreshing Asset Upload data: $e');
+          // Don't block navigation if refresh fails
+        }
 
         // Navigate back or to home
         if (mounted) {
