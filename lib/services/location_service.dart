@@ -9,18 +9,13 @@ import 'package:flutter/material.dart';
 class LocationService {
   
   /// Get user's current location
+  /// Note: If location services are disabled, calling getCurrentPosition() will
+  /// automatically trigger Android's system dialog to enable location services.
   static Future<LocationModel> getCurrentLocation() async {
     try {
-      bool serviceEnabled;
       LocationPermission permission;
 
-      // Check if location services are enabled
-      serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
-      }
-
-      // Check permission
+      // Check permission first
       permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -33,7 +28,9 @@ class LocationService {
         throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
       }
 
-      // Get location (works offline if GPS is on)
+      // Get location - if location services are disabled, Android will automatically
+      // show a system dialog asking to enable location services
+      // The user can tap "TURN ON" in the system dialog to enable location directly
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
