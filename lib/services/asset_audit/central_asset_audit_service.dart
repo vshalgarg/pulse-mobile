@@ -5,6 +5,7 @@ import 'package:app/models/all_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
+import 'package:app/repositories/asset_upload_respository.dart';
 import '../../utils/logger.dart';
 
 class CentralAssetAuditService {
@@ -168,7 +169,7 @@ class CentralAssetAuditService {
         'Starting to download Asset Upload site data for site: ${site.siteName}',
       );
 
-      // Save to SQLite using the site data service
+      // Save basic site data to SQLite using the site data service
       bool isSaved = await ServiceLocator().centralAssetAuditDataService
           .saveCMSiteData(
             siteId: site.siteId,
@@ -192,7 +193,69 @@ class CentralAssetAuditService {
             ownerContactNo: site.ownerPhone,
           );
 
-      Logger.debugLog('✅ Asset Upload site data saved successfully to SQLite: $isSaved');
+      if (!isSaved) {
+        Logger.errorLog('❌ Failed to save basic site data');
+        return false;
+      }
+
+      // Also fetch and save Asset Upload API data to raw_api_data table
+      // This is needed so the data can be retrieved when clicking on tickets in My Tickets
+      try {
+        Logger.debugLog('📥 Fetching Asset Upload API data for site ${site.siteId}');
+        final repository = AssetUploadRepository(ServiceLocator().apiService);
+        final result = await repository.getUploadedAssets(siteId: site.siteId);
+        
+        if (result.isSuccess && result.data != null) {
+          // Parse response structure - check if data is wrapped or direct
+          Map<String, dynamic>? responseData;
+          if (result.data!.containsKey('data')) {
+            responseData = result.data!['data'] as Map<String, dynamic>?;
+            Logger.debugLog('📦 Found data wrapper, extracting inner data');
+          } else {
+            responseData = result.data;
+            Logger.debugLog('📦 Using data directly (no wrapper)');
+          }
+
+          if (responseData != null) {
+            // Save to raw_api_data table so it can be retrieved later
+            final apiDataSaved = await ServiceLocator()
+                .centralAssetAuditDataService
+                .saveRawApiData(
+                  siteAuditSchId: site.siteId.toString(),
+                  siteType: site.siteDomainName ?? 'Solar',
+                  auditSchId: '',
+                  pvTicketId: '',
+                  siteCode: site.siteCode,
+                  cluster: site.clusterDistrictName,
+                  operator: site.clientName ?? '',
+                  raisedDt: '',
+                  dueDt: '',
+                  status: '',
+                  isDownloaded: true,
+                  activityType: ActivityTypeEnum.assetUpload,
+                  latitude: site.latitude != null ? double.tryParse(site.latitude!) ?? 0 : 0,
+                  longitude: site.longitude != null ? double.tryParse(site.longitude!) ?? 0 : 0,
+                  apiData: responseData,
+                );
+            
+            if (apiDataSaved) {
+              Logger.debugLog('✅ Asset Upload API data saved to raw_api_data table');
+            } else {
+              Logger.errorLog('⚠️ Failed to save Asset Upload API data to raw_api_data table');
+            }
+          } else {
+            Logger.errorLog('⚠️ Asset Upload API response data is null');
+          }
+        } else {
+          Logger.debugLog('⚠️ Failed to fetch Asset Upload API data: ${result.errorMessage}');
+          // Continue anyway - basic site data was saved successfully
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error fetching/saving Asset Upload API data: $e');
+        // Continue anyway - basic site data was saved successfully
+      }
+
+      Logger.debugLog('✅ Asset Upload site data saved successfully to SQLite');
       return isSaved;
     } catch (e) {
       Logger.errorLog('❌ Error downloading Asset Upload site data: $e');

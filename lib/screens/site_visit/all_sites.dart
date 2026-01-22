@@ -640,27 +640,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         isDownloaded = await service.downloadIncidentSiteData(site: site);
         print('Incident site data downloaded: $isDownloaded');
       } else if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
+        // downloadAssetUploadSiteData now handles fetching and saving both site data and API data
         isDownloaded = await service.downloadAssetUploadSiteData(site: site);
-        
-        // After downloading site data, also fetch uploaded assets
-        if (isDownloaded) {
-          try {
-            Logger.debugLog('📥 Fetching uploaded assets for site ${site.siteId}');
-            final repository = AssetUploadRepository(ServiceLocator().apiService);
-            final result = await repository.getUploadedAssets(siteId: site.siteId);
-            
-            if (result.isSuccess && result.data != null) {
-              Logger.debugLog('✅ Successfully fetched uploaded assets for site ${site.siteId}');
-              // The data will be stored by downloadAssetUploadSiteData, this just ensures we have the latest
-            } else {
-              Logger.debugLog('⚠️ Failed to fetch uploaded assets: ${result.errorMessage}');
-              // Continue anyway - might be a new site with no assets
-            }
-          } catch (e) {
-            Logger.errorLog('❌ Error fetching uploaded assets: $e');
-            // Continue anyway - download was successful
-          }
-        }
       }
 
       if (isDownloaded) {
