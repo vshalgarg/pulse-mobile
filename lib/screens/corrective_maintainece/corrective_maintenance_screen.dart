@@ -1758,7 +1758,9 @@ class _CorrectiveMaintenanceScreenState
                   isLeftArrow: false,
                   backgroundColor: AppColors.cmSubmitButtonColor,
                   textColor: AppColors.buttonColorSite,
-                  onPressed: _isSubmitting ? null : _validateAndSubmit,
+                  onPressed: (widget.mode == CMScreenModeEnum.view || _isSubmitting) 
+                      ? null 
+                      : _validateAndSubmit,
                 ),
               ],
             ),
@@ -2332,7 +2334,9 @@ class _CorrectiveMaintenanceScreenState
         ],
         CustomSubmitButtonV2(
           text: "Submit", 
-          onPressed: _isSubmitting ? null : _validateAndSubmit,
+          onPressed: (widget.mode == CMScreenModeEnum.view || _isSubmitting) 
+              ? null 
+              : _validateAndSubmit,
           isLoading: _isSubmitting,
         ),
       ],
