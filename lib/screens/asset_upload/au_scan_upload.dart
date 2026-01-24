@@ -1372,6 +1372,96 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     }
   }
 
+  /// Builds API response format from current asset groups for saving to SQLite
+  Map<String, dynamic> _buildApiResponseFromAssetGroups({
+    required int auId,
+    required dynamic makerSelfieImageId,
+  }) {
+    // Build asset_upload_item list from _assetGroups
+    final List<Map<String, dynamic>> assetUploadItems = [];
+    
+    for (final entry in _assetGroups.entries) {
+      final assetType = entry.key;
+      final items = entry.value;
+      
+      for (final item in items) {
+        // Get serial number - prefer full_scanned_code, fallback to mfg_serial_no
+        final nexgenSerialNo = item['full_scanned_code']?.toString() ??
+            item['mfg_serial_no']?.toString() ??
+            '';
+        
+        if (nexgenSerialNo.isEmpty) continue;
+        
+        // Build asset_upload_item_images from item
+        final List<Map<String, dynamic>> itemImages = [];
+        if (item['assetUploadItemImages'] != null &&
+            item['assetUploadItemImages'] is List) {
+          final images = item['assetUploadItemImages'] as List<dynamic>;
+          for (final img in images) {
+            if (img is Map<String, dynamic>) {
+              itemImages.add({
+                'auii_id': img['auiiId'] ?? img['auii_id'] ?? 0,
+                'photo_id': img['photoId'] ?? img['photo_id'] ?? 0,
+                'photo_taken_ts': img['photoTakenTs'] ?? img['photo_taken_ts'] ?? '',
+                'longitude': img['longitude'] ?? '',
+                'latitude': img['latitude'] ?? '',
+                'is_active': img['isActive'] ?? img['is_active'] ?? true,
+                'remarks': img['remarks'] ?? '',
+              });
+            }
+          }
+        }
+        
+        // Build asset_upload_item
+        final assetItem = <String, dynamic>{
+          'aui_id': item['aui_id'] ?? 0,
+          'au_id': auId,
+          'nexgen_serial_no': nexgenSerialNo,
+          'item_id': item['item_id'] ?? 0,
+          'longitude': item['longitude']?.toString() ?? '',
+          'latitude': item['latitude']?.toString() ?? '',
+          'is_active': true,
+          'remarks': item['remarks']?.toString() ?? item['disabledFieldValue']?.toString() ?? '',
+          'asset_upload_item_images': itemImages,
+        };
+        
+        assetUploadItems.add(assetItem);
+      }
+    }
+    
+    // Build assetUpload object
+    final assetUpload = <String, dynamic>{
+      'au_id': auId,
+      'site_id': widget.siteData.siteId,
+      'entity_id': widget.siteData.entityId ?? 0,
+      'maker_selfie_image_id': makerSelfieImageId,
+      'is_active': true,
+      'remarks': '',
+      'asset_upload_item': assetUploadItems,
+    };
+    
+    // Build siteDetails object
+    final siteDetails = <String, dynamic>{
+      'site_id': widget.siteData.siteId,
+      'entity_id': widget.siteData.entityId ?? 0,
+      'site_code': widget.siteData.siteCode,
+      'site_name': widget.siteData.siteName,
+      'cluster': widget.siteData.clusterDistrictName,
+      'circle': widget.siteData.circleStateName,
+      'client': widget.siteData.clientName,
+      'infra_district_engineer_name': widget.siteData.infraEngineerName,
+      'infra_district_engineer_contact_no': widget.siteData.infraEngineerPhone,
+      'owner_name': widget.siteData.ownerName,
+      'owner_contact_no': widget.siteData.ownerPhone,
+    };
+    
+    // Build final response structure
+    return {
+      'assetUpload': assetUpload,
+      'siteDetails': siteDetails,
+    };
+  }
+
   /// Saves asset upload data to local storage when offline
   Future<void> _saveOffline({
     required int auId,
@@ -1412,6 +1502,49 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             headers: {},
             jsonEncodedRequestData: jsonEncode(requestList),
           );
+
+      // Also update SQLite with current state so it shows when opening from my_tickets
+      try {
+        Logger.debugLog('💾 Updating SQLite with current asset upload state...');
+        final apiResponseData = _buildApiResponseFromAssetGroups(
+          auId: auId,
+          makerSelfieImageId: makerSelfieImageId,
+        );
+        
+        // Update SQLite with latest data
+        final isUpdated = await ServiceLocator()
+            .centralAssetAuditDataService
+            .saveRawApiData(
+              siteAuditSchId: widget.siteData.siteId.toString(),
+              siteType: widget.siteData.siteDomainName ?? 'Solar',
+              auditSchId: '',
+              pvTicketId: '',
+              siteCode: widget.siteData.siteCode,
+              cluster: widget.siteData.clusterDistrictName,
+              operator: widget.siteData.clientName ?? '',
+              raisedDt: '',
+              dueDt: '',
+              status: '',
+              isDownloaded: true,
+              activityType: ActivityTypeEnum.assetUpload,
+              latitude: widget.siteData.latitude != null
+                  ? double.tryParse(widget.siteData.latitude!) ?? 0
+                  : 0,
+              longitude: widget.siteData.longitude != null
+                  ? double.tryParse(widget.siteData.longitude!) ?? 0
+                  : 0,
+              apiData: apiResponseData,
+            );
+        
+        if (isUpdated) {
+          Logger.debugLog('✅ SQLite updated with current asset upload state');
+        } else {
+          Logger.errorLog('⚠️ Failed to update SQLite with asset upload state');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error updating SQLite with asset upload state: $e');
+        // Don't fail the whole operation if SQLite update fails
+      }
 
       LoaderWidget.hideLoader();
 
