@@ -58,6 +58,10 @@ class AssetUploadFormComponent extends StatefulWidget {
   /// Error message for custom validation failure
   final String? customValidationErrorMessage;
 
+  /// Optional callback to suppress success toast (e.g. when parent will show duplicate message).
+  /// Called with itemData before showing any success SnackBar. Return true to suppress.
+  final bool Function(Map<String, dynamic> item)? shouldSuppressSuccessToast;
+
   /// Background color for the component (static)
   static const Color backgroundColor = AppColors.green7;
 
@@ -101,6 +105,7 @@ class AssetUploadFormComponent extends StatefulWidget {
     this.onEditItem,
     this.customValidator,
     this.customValidationErrorMessage,
+    this.shouldSuppressSuccessToast,
     required this.siteAuditSchId,
     this.showTable = true,
     this.tableTitle,
@@ -718,12 +723,15 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           _savedItems.add(itemData);
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Item updated successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        final suppress = widget.shouldSuppressSuccessToast?.call(itemData) ?? false;
+        if (!suppress) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Item updated successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       } else {
         // Check if item with same serial number already exists
         final existingIndex = _savedItems.indexWhere(
@@ -739,22 +747,28 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           // Update existing item instead of creating duplicate (preserve updated photo)
           _savedItems[existingIndex] = itemData;
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Item updated successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          final suppress = widget.shouldSuppressSuccessToast?.call(itemData) ?? false;
+          if (!suppress) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Item updated successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         } else {
           // Add new item to the internal list
           _savedItems.add(itemData);
 
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Item saved successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
+          final suppress = widget.shouldSuppressSuccessToast?.call(itemData) ?? false;
+          if (!suppress) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Item saved successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
       }
 

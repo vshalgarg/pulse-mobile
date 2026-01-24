@@ -660,7 +660,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
 
       // Check for duplicates
       if (_scannedSerialNumbers.contains(fullSerial)) {
-        showCustomToast(context, 'This serial number has already been scanned');
+        showCustomToast(
+          context,
+          'The asset with this serial number is already scanned.',
+        );
         _initialScanController.clear();
         return;
       }
@@ -1259,15 +1262,20 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         // Refresh Asset Upload data in SQLite after successful submission
         // This ensures My Tickets shows the latest data when user clicks on the site
         try {
-          Logger.debugLog('🔄 Refreshing Asset Upload data in SQLite after successful submission...');
+          Logger.debugLog(
+            '🔄 Refreshing Asset Upload data in SQLite after successful submission...',
+          );
           final repository = AssetUploadRepository(ServiceLocator().apiService);
-          final refreshResult = await repository.getUploadedAssets(siteId: widget.siteData.siteId);
-          
+          final refreshResult = await repository.getUploadedAssets(
+            siteId: widget.siteData.siteId,
+          );
+
           if (refreshResult.isSuccess && refreshResult.data != null) {
             // Parse response structure - check if data is wrapped or direct
             Map<String, dynamic>? responseData;
             if (refreshResult.data!.containsKey('data')) {
-              responseData = refreshResult.data!['data'] as Map<String, dynamic>?;
+              responseData =
+                  refreshResult.data!['data'] as Map<String, dynamic>?;
               Logger.debugLog('📦 Found data wrapper, extracting inner data');
             } else {
               responseData = refreshResult.data;
@@ -1291,21 +1299,31 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                     status: '',
                     isDownloaded: true,
                     activityType: ActivityTypeEnum.assetUpload,
-                    latitude: widget.siteData.latitude != null ? double.tryParse(widget.siteData.latitude!) ?? 0 : 0,
-                    longitude: widget.siteData.longitude != null ? double.tryParse(widget.siteData.longitude!) ?? 0 : 0,
+                    latitude: widget.siteData.latitude != null
+                        ? double.tryParse(widget.siteData.latitude!) ?? 0
+                        : 0,
+                    longitude: widget.siteData.longitude != null
+                        ? double.tryParse(widget.siteData.longitude!) ?? 0
+                        : 0,
                     apiData: responseData,
                   );
-              
+
               if (isUpdated) {
-                Logger.debugLog('✅ Asset Upload data refreshed in SQLite successfully');
+                Logger.debugLog(
+                  '✅ Asset Upload data refreshed in SQLite successfully',
+                );
               } else {
-                Logger.errorLog('⚠️ Failed to refresh Asset Upload data in SQLite');
+                Logger.errorLog(
+                  '⚠️ Failed to refresh Asset Upload data in SQLite',
+                );
               }
             } else {
               Logger.errorLog('⚠️ Asset Upload refresh response data is null');
             }
           } else {
-            Logger.errorLog('⚠️ Failed to refresh Asset Upload data: ${refreshResult.errorMessage}');
+            Logger.errorLog(
+              '⚠️ Failed to refresh Asset Upload data: ${refreshResult.errorMessage}',
+            );
           }
         } catch (e) {
           Logger.errorLog('❌ Error refreshing Asset Upload data: $e');
@@ -1520,6 +1538,20 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         },
         customValidationErrorMessage:
             'Invalid format. Expected: NG-<ACRONYM>-<SERIAL> or duplicate serial number',
+        shouldSuppressSuccessToast: (itemData) {
+          final code =
+              itemData['full_scanned_code']?.toString() ??
+              itemData['mfg_serial_no']?.toString() ??
+              '';
+          final parsed = _parseScannedCode(code);
+          if (parsed == null) return false;
+          final fullSerial = '${parsed['acronym']}-${parsed['serialNumber']}';
+          if (_editingItem == null &&
+              _scannedSerialNumbers.contains(fullSerial)) {
+            return true;
+          }
+          return false;
+        },
         siteAuditSchId: widget.siteData.siteId.toString(),
         showTable: false, // Don't show table in initial scan section
         tableTitle: null,

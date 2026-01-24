@@ -1,16 +1,3 @@
-/*Response Codes:
-SomethingWentWrong = "000"
-HttpResponseNull = "009";
-ValidLogin = "001";
-Unauthorized = "002";
-PasswordExpired = "003";
-InternalServerError = "011";
-RecordFetched = "012";
-NoRecordFound = "013";
-RecordSaved = "014";
-ValidationFailed = "015";
-RecordDeleted = "016";*/
-
 class ApiCodes {
   ApiCodes._();
 
@@ -26,6 +13,6 @@ class ApiCodes {
   static const String validationFailed = "015";
   static const String recordDeleted = "016";
   static const String alreadyExist = "025";
-  static const String distanceFromLocation = "1000";
+  static const String distanceFromLocation = "500";
 
 }
