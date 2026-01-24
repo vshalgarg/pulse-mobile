@@ -161,9 +161,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with WidgetsBindingOb
                     ) == activityType)
             .toList();
 
-        // For Site Visit, filter out duplicates - if a site appears in both tickets and sites,
-        // prefer the site entry (from sv_sites_data) and remove the ticket entry (from raw_api_data)
-        if (activityType == ActivityTypeEnum.siteVisit) {
+        // For Site Visit and Asset Upload, filter out duplicates - if a site appears in both tickets and sites,
+        // prefer the site entry (from cm_sites_data) and remove the ticket entry (from raw_api_data)
+        if (activityType == ActivityTypeEnum.siteVisit || activityType == ActivityTypeEnum.assetUpload) {
           final siteIdsInSites = _filteredSites
               .map((site) => site['site_id']?.toString())
               .where((id) => id != null)
@@ -190,8 +190,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with WidgetsBindingOb
                 ) == activityType)
         .toList();
     
-    // For Site Visit, avoid double-counting duplicates
-    if (activityType == ActivityTypeEnum.siteVisit) {
+    // For Site Visit and Asset Upload, avoid double-counting duplicates
+    if (activityType == ActivityTypeEnum.siteVisit || activityType == ActivityTypeEnum.assetUpload) {
       final siteIdsInSites = filteredSites
           .map((site) => site['site_id']?.toString())
           .where((id) => id != null)

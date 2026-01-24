@@ -217,6 +217,14 @@ class CentralAssetAuditService {
           }
 
           if (responseData != null) {
+            // Process images in API data (download and replace server IDs with unique IDs)
+            Logger.debugLog('🖼️ Processing images in Asset Upload API data...');
+            final processedApiData = await processImagesInApiData(
+              responseData,
+              ActivityTypeEnum.assetUpload,
+              site.siteId.toString(),
+            );
+
             // Save to raw_api_data table so it can be retrieved later
             final apiDataSaved = await ServiceLocator()
                 .centralAssetAuditDataService
@@ -235,7 +243,7 @@ class CentralAssetAuditService {
                   activityType: ActivityTypeEnum.assetUpload,
                   latitude: site.latitude != null ? double.tryParse(site.latitude!) ?? 0 : 0,
                   longitude: site.longitude != null ? double.tryParse(site.longitude!) ?? 0 : 0,
-                  apiData: responseData,
+                  apiData: processedApiData,
                 );
             
             if (apiDataSaved) {
@@ -641,7 +649,7 @@ class CentralAssetAuditService {
       Logger.debugLog('💾 API data keys: ${apiData.keys.toList()}');
 
       // Process images and replace server IDs with unique IDs
-      final processedApiData = await _processImagesInApiData(
+      final processedApiData = await processImagesInApiData(
         apiData,
         activityType,
         siteAuditSchId,
@@ -676,7 +684,8 @@ class CentralAssetAuditService {
   }
 
   /// Process images in API data by downloading and replacing server IDs with unique IDs
-  Future<Map<String, dynamic>> _processImagesInApiData(
+  /// This is a public method that can be called from other parts of the app
+  Future<Map<String, dynamic>> processImagesInApiData(
     Map<String, dynamic> apiData,
     ActivityTypeEnum activityType,
     String siteAuditSchId,
@@ -744,6 +753,43 @@ class CentralAssetAuditService {
                     );
                   } else {
                     Logger.errorLog('❌ Failed to download image for response_images[$i]: $serverId');
+                  }
+                }
+              }
+            }
+          }
+        }
+        // Special handling for asset_upload_item_images array (Asset Upload data structure)
+        else if ((key == 'asset_upload_item_images' || key == 'assetUploadItemImages') && value is List) {
+          Logger.debugLog('🖼️ Found asset_upload_item_images array, processing ${value.length} images');
+          for (var i = 0; i < value.length; i++) {
+            final imageItem = value[i];
+            if (imageItem is Map<String, dynamic>) {
+              final photoId = imageItem['photo_id'] ?? imageItem['photoId'];
+              if (photoId != null) {
+                final serverId = photoId.toString();
+                // Skip if serverId is empty, "0", "null", or contains "LOCAL_IMAGE_ID"
+                if (serverId.isNotEmpty && 
+                    serverId != "0" && 
+                    serverId != "null" &&
+                    !serverId.contains("LOCAL_IMAGE_ID")) {
+                  Logger.debugLog('🖼️ Found photo_id in asset_upload_item_images[$i]: $serverId');
+
+                  // Download image and get unique ID
+                  final uniqueId = await _downloadImageAndGetUniqueId(
+                    serverId,
+                    activityType,
+                    siteAuditSchId,
+                  );
+                  if (uniqueId != null) {
+                    // Replace server ID with unique ID in the asset_upload_item_images array
+                    imageItem['photo_id'] = uniqueId;
+                    imageItem['photoId'] = uniqueId;
+                    Logger.debugLog(
+                      '✅ Replaced asset_upload_item_images[$i] photo_id $serverId with unique ID: $uniqueId',
+                    );
+                  } else {
+                    Logger.errorLog('❌ Failed to download image for asset_upload_item_images[$i]: $serverId');
                   }
                 }
               }

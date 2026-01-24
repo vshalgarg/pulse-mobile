@@ -1283,6 +1283,16 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             }
 
             if (responseData != null) {
+              // Process images in API data (download and replace server IDs with unique IDs)
+              Logger.debugLog('🖼️ Processing images in Asset Upload refresh data...');
+              final processedApiData = await ServiceLocator()
+                  .centralAssetAuditService
+                  .processImagesInApiData(
+                    responseData,
+                    ActivityTypeEnum.assetUpload,
+                    widget.siteData.siteId.toString(),
+                  );
+
               // Update SQLite with latest data
               final isUpdated = await ServiceLocator()
                   .centralAssetAuditDataService
@@ -1305,7 +1315,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                     longitude: widget.siteData.longitude != null
                         ? double.tryParse(widget.siteData.longitude!) ?? 0
                         : 0,
-                    apiData: responseData,
+                    apiData: processedApiData,
                   );
 
               if (isUpdated) {
