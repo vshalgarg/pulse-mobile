@@ -1614,28 +1614,105 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     try {
       Logger.debugLog('💾 Saving asset upload data to offline storage...');
 
-      // Build request data matching the API format
+      // Use consistent requestId based on siteId (not timestamp) so we can update existing requests
+      final requestId = 'asset_upload_${siteId}';
+      final url = 'api/v1/mobile/assetUpload';
+
+      // Check if there's an existing pending request for this site
+      final existingRequest = await ServiceLocator().pendingRequestService
+          .getPendingRequest(requestId);
+
+      List<Map<String, dynamic>> mergedAssetItems = [];
+      int finalAuId = auId;
+
+      if (existingRequest != null) {
+        Logger.debugLog('📦 Found existing pending request for siteId $siteId, merging assets...');
+        print('📦 Found existing pending request for siteId $siteId, merging assets...');
+        
+        try {
+          // Parse existing request data
+          final existingDataStr = existingRequest['request_data'] as String;
+          final existingDataList = jsonDecode(existingDataStr) as List<dynamic>;
+          
+          if (existingDataList.isNotEmpty) {
+            final existingRequestData = existingDataList.first as Map<String, dynamic>;
+            
+            // Use existing auId if it's > 0 (from previous successful upload)
+            final existingAuId = existingRequestData['auId'] as int? ?? 0;
+            if (existingAuId > 0) {
+              finalAuId = existingAuId;
+              Logger.debugLog('📦 Using existing auId: $finalAuId');
+              print('📦 Using existing auId: $finalAuId');
+            }
+            
+            // Get existing asset items
+            final existingItems = existingRequestData['assetUploadItems'] as List<dynamic>? ?? [];
+            
+            // Create a set of existing serial numbers to avoid duplicates
+            final existingSerialNumbers = <String>{};
+            for (final item in existingItems) {
+              if (item is Map<String, dynamic>) {
+                final serial = item['nexgenSerialNo']?.toString() ?? '';
+                if (serial.isNotEmpty) {
+                  existingSerialNumbers.add(serial);
+                }
+              }
+            }
+            
+            // Add existing items to merged list
+            for (final item in existingItems) {
+              if (item is Map<String, dynamic>) {
+                mergedAssetItems.add(Map<String, dynamic>.from(item));
+              }
+            }
+            
+            // Add new items (avoid duplicates by serial number)
+            for (final newItem in assetUploadItems) {
+              final itemJson = newItem.toJson();
+              final serial = itemJson['nexgenSerialNo']?.toString() ?? '';
+              
+              if (serial.isNotEmpty && !existingSerialNumbers.contains(serial)) {
+                mergedAssetItems.add(itemJson);
+                existingSerialNumbers.add(serial);
+                Logger.debugLog('📦 Adding new asset: $serial');
+                print('📦 Adding new asset: $serial');
+              } else if (serial.isNotEmpty) {
+                Logger.debugLog('⚠️ Skipping duplicate asset: $serial');
+                print('⚠️ Skipping duplicate asset: $serial');
+              }
+            }
+            
+            Logger.debugLog('📦 Merged ${existingItems.length} existing + ${assetUploadItems.length} new = ${mergedAssetItems.length} total assets');
+            print('📦 Merged ${existingItems.length} existing + ${assetUploadItems.length} new = ${mergedAssetItems.length} total assets');
+          }
+        } catch (e) {
+          Logger.errorLog('❌ Error parsing existing request data: $e');
+          print('❌ Error parsing existing request data: $e');
+          // Fall back to using only new items
+          mergedAssetItems = assetUploadItems.map((item) => item.toJson()).toList();
+        }
+      } else {
+        Logger.debugLog('📦 No existing pending request, creating new one...');
+        print('📦 No existing pending request, creating new one...');
+        // No existing request, use new items as-is
+        mergedAssetItems = assetUploadItems.map((item) => item.toJson()).toList();
+      }
+
+      // Build final request data with merged assets
       final requestData = <String, dynamic>{
-        'auId': auId,
+        'auId': finalAuId,
         'siteId': siteId,
         'entityId': entityId,
         'makerSelfieImageId': makerSelfieImageId,
         'isActive': true,
         'remarks': '',
-        'assetUploadItems': assetUploadItems
-            .map((item) => item.toJson())
-            .toList(),
+        'assetUploadItems': mergedAssetItems,
       };
-
-      // Create a unique request ID for this asset upload submission
-      final requestId =
-          'asset_upload_${siteId}_${DateTime.now().millisecondsSinceEpoch}';
 
       // Convert request to JSON and wrap in list (as expected by sync service)
       final requestList = [requestData];
 
-      // Save to pending requests for sync when online
-      final url = 'api/v1/mobile/assetUpload';
+      // Save/update pending request (will replace if exists due to ConflictAlgorithm.replace)
       final isSaved = await ServiceLocator().pendingRequestService
           .savePendingRequest(
             requestId: requestId,

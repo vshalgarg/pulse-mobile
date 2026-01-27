@@ -76,7 +76,11 @@ class PendingRequestsService {
         'error_message': null,
       };
 
-      int result = await db.insert('pending_requests', pendingRequest);
+      int result = await db.insert(
+        'pending_requests',
+        pendingRequest,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
 
       if (result > 0) {
         Logger.debugLog('Pending post data saved for requestId $requestId');
@@ -90,6 +94,29 @@ class PendingRequestsService {
         'PendingRequestsService: Error saving pending request: $e',
       );
       rethrow;
+    }
+  }
+
+  /// Get a pending request by requestId
+  Future<Map<String, dynamic>?> getPendingRequest(String requestId) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'pending_requests',
+        where: 'request_id = ? AND status = ?',
+        whereArgs: [requestId, 'pending'],
+        limit: 1,
+      );
+
+      if (result.isNotEmpty) {
+        return result.first;
+      }
+      return null;
+    } catch (e) {
+      Logger.errorLog(
+        '❌ PendingRequestsService: Error retrieving pending request: $e',
+      );
+      return null;
     }
   }
 
