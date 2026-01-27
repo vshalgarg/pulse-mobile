@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 14;
+  static const int _databaseVersion = 16;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -79,6 +79,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        latitude TEXT,
+        longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -110,6 +112,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        latitude TEXT,
+        longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -141,6 +145,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        latitude TEXT,
+        longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -172,6 +178,41 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        latitude TEXT,
+        longitude TEXT,
+        is_downloaded INTEGER DEFAULT 1,
+        downloaded_at TEXT,
+        created_at TEXT,
+        updated_at TEXT
+      )
+    ''');
+
+    // Asset Upload Sites table for downloaded AU site data
+    await db.execute('''
+      CREATE TABLE au_sites_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id INTEGER NOT NULL,
+        entity_id INTEGER NOT NULL,
+        site_code TEXT NOT NULL,
+        site_name TEXT NOT NULL,
+        cluster_district_id INTEGER,
+        cluster_district_name TEXT,
+        circle_state_id INTEGER,
+        circle_state_name TEXT,
+        client_id INTEGER,
+        client_name TEXT,
+        oem TEXT,
+        oem_id INTEGER,
+        self TEXT,
+        self_id INTEGER,
+        activity_type TEXT NOT NULL,
+        checklist_data TEXT,
+        infra_district_engineer_name TEXT,
+        infra_district_engineer_contact_no TEXT,
+        owner_name TEXT,
+        owner_contact_no TEXT,
+        latitude TEXT,
+        longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -264,6 +305,10 @@ class CentralAssetAuditDataService {
 
     await db.execute(
       'CREATE INDEX idx_gi_sites_data_site_id ON gi_sites_data(site_id)',
+    );
+
+    await db.execute(
+      'CREATE INDEX idx_au_sites_data_site_id ON au_sites_data(site_id)',
     );
 
     await db.execute(
@@ -710,6 +755,101 @@ class CentralAssetAuditDataService {
       }
     }
 
+    if (oldVersion < 15) {
+      // For version 15, add latitude and longitude columns to all site tables
+      try {
+        final tables = ['cm_sites_data', 'sv_sites_data', 'gi_sites_data', 'incident_sites_data', 'au_sites_data'];
+        
+        for (final tableName in tables) {
+          // Check if table exists
+          final tableInfo = await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'",
+          );
+
+          if (tableInfo.isNotEmpty) {
+            // Get existing columns
+            final tableColumns = await db.rawQuery(
+              "PRAGMA table_info($tableName)",
+            );
+            final existingColumns = tableColumns
+                .map((col) => col['name'] as String)
+                .toList();
+
+            // Add latitude column if it doesn't exist
+            if (!existingColumns.contains('latitude')) {
+              await db.execute(
+                'ALTER TABLE $tableName ADD COLUMN latitude TEXT',
+              );
+              Logger.debugLog(
+                '✅ Added latitude column to $tableName table',
+              );
+            }
+
+            // Add longitude column if it doesn't exist
+            if (!existingColumns.contains('longitude')) {
+              await db.execute(
+                'ALTER TABLE $tableName ADD COLUMN longitude TEXT',
+              );
+              Logger.debugLog(
+                '✅ Added longitude column to $tableName table',
+              );
+            }
+          }
+        }
+
+        Logger.debugLog(
+          '✅ Successfully added latitude and longitude columns to all site tables',
+        );
+      } catch (e) {
+        Logger.errorLog('❌ Error adding latitude and longitude columns: $e');
+      }
+    }
+
+    if (oldVersion < 16) {
+      // For version 16, create au_sites_data table
+      try {
+        await db.execute('''
+          CREATE TABLE au_sites_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            cluster_district_id INTEGER,
+            cluster_district_name TEXT,
+            circle_state_id INTEGER,
+            circle_state_name TEXT,
+            client_id INTEGER,
+            client_name TEXT,
+            oem TEXT,
+            oem_id INTEGER,
+            self TEXT,
+            self_id INTEGER,
+            activity_type TEXT NOT NULL,
+            checklist_data TEXT,
+            infra_district_engineer_name TEXT,
+            infra_district_engineer_contact_no TEXT,
+            owner_name TEXT,
+            owner_contact_no TEXT,
+            latitude TEXT,
+            longitude TEXT,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_au_sites_data_site_id ON au_sites_data(site_id)',
+        );
+
+        Logger.debugLog('✅ Successfully created au_sites_data table');
+      } catch (e) {
+        Logger.errorLog('❌ Error creating au_sites_data table: $e');
+      }
+    }
+
     if (oldVersion < 14) {
       // For version 14, add dependent_elements column to cm_checklist_data table
       try {
@@ -1134,6 +1274,8 @@ class CentralAssetAuditDataService {
     String? infraDistrictEngineerContactNo,
     String? ownerName,
     String? ownerContactNo,
+    String? latitude,
+    String? longitude,
   }) async {
     try {
       final db = await database;
@@ -1155,11 +1297,20 @@ class CentralAssetAuditDataService {
         tableName = 'incident_sites_data';
         // Ensure incident_sites_data table exists
         await _ensureIncidentSitesTableExists(db);
+      } else if (activityType.toLowerCase() == 'au' ||
+          activityType.toLowerCase().contains('assetupload') ||
+          activityType.toLowerCase().contains('asset upload')) {
+        tableName = 'au_sites_data';
+        // Ensure au_sites_data table exists
+        await _ensureAUSitesTableExists(db);
       } else {
         tableName = 'cm_sites_data'; // Default fallback
       }
 
-      await db.insert(tableName, {
+      // Ensure latitude/longitude columns exist (safety check for migration)
+      await _ensureLatitudeLongitudeColumns(db, tableName);
+
+      final Map<String, dynamic> insertData = {
         'site_id': siteId,
         'entity_id': entityId,
         'site_code': siteCode,
@@ -1183,7 +1334,20 @@ class CentralAssetAuditDataService {
         'downloaded_at': now,
         'created_at': now,
         'updated_at': now,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
+      };
+
+      // Only add latitude/longitude if columns exist (they should after _ensureLatitudeLongitudeColumns)
+      final tableColumns = await db.rawQuery("PRAGMA table_info($tableName)");
+      final existingColumns = tableColumns.map((col) => col['name'] as String).toList();
+      
+      if (existingColumns.contains('latitude')) {
+        insertData['latitude'] = latitude;
+      }
+      if (existingColumns.contains('longitude')) {
+        insertData['longitude'] = longitude;
+      }
+
+      await db.insert(tableName, insertData, conflictAlgorithm: ConflictAlgorithm.replace);
 
       Logger.debugLog('✅ Site data saved successfully to $tableName');
       return true;
@@ -1816,6 +1980,101 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Ensure latitude and longitude columns exist in a table
+  Future<void> _ensureLatitudeLongitudeColumns(Database db, String tableName) async {
+    try {
+      // Check if table exists
+      final tableInfo = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'",
+      );
+
+      if (tableInfo.isEmpty) {
+        Logger.debugLog('⚠️ Table $tableName does not exist, skipping column check');
+        return;
+      }
+
+      // Get existing columns
+      final tableColumns = await db.rawQuery("PRAGMA table_info($tableName)");
+      final existingColumns = tableColumns
+          .map((col) => col['name'] as String)
+          .toList();
+
+      // Add latitude column if it doesn't exist
+      if (!existingColumns.contains('latitude')) {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN latitude TEXT',
+        );
+        Logger.debugLog('✅ Added latitude column to $tableName table');
+      }
+
+      // Add longitude column if it doesn't exist
+      if (!existingColumns.contains('longitude')) {
+        await db.execute(
+          'ALTER TABLE $tableName ADD COLUMN longitude TEXT',
+        );
+        Logger.debugLog('✅ Added longitude column to $tableName table');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error ensuring latitude/longitude columns in $tableName: $e');
+      // Don't throw - allow the insert to continue without these columns if migration fails
+    }
+  }
+
+  /// Ensure Asset Upload sites table exists
+  Future<void> _ensureAUSitesTableExists(Database db) async {
+    try {
+      // Check if table exists
+      final result = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='au_sites_data'",
+      );
+
+      if (result.isEmpty) {
+        Logger.debugLog('Creating au_sites_data table...');
+
+        // Create the table
+        await db.execute('''
+          CREATE TABLE au_sites_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            site_id INTEGER NOT NULL,
+            entity_id INTEGER NOT NULL,
+            site_code TEXT NOT NULL,
+            site_name TEXT NOT NULL,
+            cluster_district_id INTEGER,
+            cluster_district_name TEXT,
+            circle_state_id INTEGER,
+            circle_state_name TEXT,
+            client_id INTEGER,
+            client_name TEXT,
+            oem TEXT,
+            oem_id INTEGER,
+            self TEXT,
+            self_id INTEGER,
+            activity_type TEXT NOT NULL,
+            checklist_data TEXT,
+            infra_district_engineer_name TEXT,
+            infra_district_engineer_contact_no TEXT,
+            owner_name TEXT,
+            owner_contact_no TEXT,
+            latitude TEXT,
+            longitude TEXT,
+            is_downloaded INTEGER DEFAULT 1,
+            downloaded_at TEXT,
+            created_at TEXT,
+            updated_at TEXT
+          )
+        ''');
+
+        await db.execute(
+          'CREATE INDEX idx_au_sites_data_site_id ON au_sites_data(site_id)',
+        );
+
+        Logger.debugLog('✅ Successfully created au_sites_data table');
+      }
+    } catch (e) {
+      Logger.errorLog('❌ Error ensuring au_sites_data table exists: $e');
+    }
+  }
+
   /// Ensure incident sites table exists
   Future<void> _ensureIncidentSitesTableExists(Database db) async {
     try {
@@ -1931,7 +2190,7 @@ class CentralAssetAuditDataService {
       final db = await database;
       final List<Map<String, dynamic>> allSites = [];
 
-      // Query all three tables and combine results
+      // Query all site tables and combine results
       final List<Map<String, dynamic>> cmMaps = await db.query(
         'cm_sites_data',
         where: 'is_downloaded = ?',
@@ -1952,6 +2211,26 @@ class CentralAssetAuditDataService {
         whereArgs: [1],
         orderBy: 'downloaded_at DESC',
       );
+
+      // Query Asset Upload sites table
+      List<Map<String, dynamic>> auMaps = [];
+      try {
+        // Check if au_sites_data table exists
+        final tableCheck = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='au_sites_data'",
+        );
+        if (tableCheck.isNotEmpty) {
+          auMaps = await db.query(
+            'au_sites_data',
+            where: 'is_downloaded = ?',
+            whereArgs: [1],
+            orderBy: 'downloaded_at DESC',
+          );
+          Logger.debugLog('📊 Found ${auMaps.length} Asset Upload sites in database');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error querying au_sites_data: $e');
+      }
 
       // Query incident sites table - only get sites with activity_type = 'Incident' (exact match)
       List<Map<String, dynamic>> incidentMaps = [];
@@ -1978,6 +2257,7 @@ class CentralAssetAuditDataService {
       allSites.addAll(svMaps);
       allSites.addAll(giMaps);
       allSites.addAll(incidentMaps);
+      allSites.addAll(auMaps);
 
       // Sort by downloaded_at descending
       allSites.sort((a, b) {

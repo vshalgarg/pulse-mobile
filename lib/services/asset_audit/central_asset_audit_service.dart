@@ -105,6 +105,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            latitude: site.latitude,
+            longitude: site.longitude,
           );
 
       Logger.debugLog('✅ CM site data saved successfully to SQLite: $isSaved');
@@ -146,6 +148,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            latitude: site.latitude,
+            longitude: site.longitude,
           );
 
       // Note: Sites downloaded from "All Sites" should NOT be saved to raw_api_data table
@@ -191,6 +195,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            latitude: site.latitude,
+            longitude: site.longitude,
           );
 
       if (!isSaved) {
@@ -302,6 +308,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            latitude: site.latitude,
+            longitude: site.longitude,
           );
 
       Logger.debugLog('✅ General Inspection site data saved successfully to SQLite: $isSaved');
@@ -381,6 +389,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            latitude: site.latitude,
+            longitude: site.longitude,
           );
 
       Logger.debugLog('✅ Incident site data saved successfully to SQLite: $isSaved');
