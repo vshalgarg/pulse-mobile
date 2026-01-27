@@ -1261,7 +1261,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               activityType: activityType,
               isDownloadedFunc: (ticket) async => true,
               onPdfDownloadTap: () {},
-              onTap: () => _navigateToDownloadedSite(site, activityType),
+              onTap: () async => await _navigateToDownloadedSite(site, activityType),
               onDirectionTap: () {},
               onDownloadTap: () async {
                 Toastbar.showInfoToastbar("Site already downloaded", context);
@@ -1275,16 +1275,158 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
     );
   }
 
-  void _navigateToDownloadedSite(
+  Future<void> _navigateToDownloadedSite(
     AllSiteModel site,
     ActivityTypeEnum activityType,
-  ) {
+  ) async {
+    try {
+      // Show loader immediately when site is clicked
+      LoaderWidget.showLoader(context);
 
-    print("site: ${site.latitude}");
-    print("site: ${site.longitude}");
-    
+      // Get site coordinates - try from site model first, then from raw_api_data if needed
+      double? siteLat;
+      double? siteLng;
 
-    switch (activityType) {
+      // First, try to get coordinates from the site model
+      if (site.latitude != null && site.longitude != null) {
+        siteLat = double.tryParse(site.latitude!);
+        siteLng = double.tryParse(site.longitude!);
+      }
+
+      // If coordinates are still null/zero, try to get from raw_api_data
+      if ((siteLat == null || siteLat == 0.0) || (siteLng == null || siteLng == 0.0)) {
+        try {
+          final service = ServiceLocator().centralAssetAuditService;
+          final rawData = await service.getDataFromSqlite(
+            siteAuditSchId: site.siteId.toString(),
+          );
+
+          if (rawData != null) {
+            siteLat = rawData.latitude;
+            siteLng = rawData.longitude;
+            Logger.debugLog(
+              '📍 Got coordinates from raw_api_data: lat=$siteLat, lng=$siteLng',
+            );
+          }
+        } catch (e) {
+          Logger.errorLog('❌ Error fetching coordinates from raw_api_data: $e');
+        }
+      }
+
+      // Check distance if we have valid coordinates
+      if (siteLat != null && siteLng != null && siteLat != 0.0 && siteLng != 0.0) {
+        try {
+          // Check location permission first
+          LocationPermission permission = await Geolocator.checkPermission();
+          if (permission == LocationPermission.denied) {
+            permission = await Geolocator.requestPermission();
+            if (permission == LocationPermission.denied) {
+              LoaderWidget.hideLoader();
+              if (mounted) {
+                Toastbar.showErrorToastbar(
+                  "Location permission is required to access this site.",
+                  context,
+                );
+              }
+              return;
+            }
+          }
+
+          if (permission == LocationPermission.deniedForever) {
+            LoaderWidget.hideLoader();
+            if (mounted) {
+              final shouldOpenSettings = await showDialog<bool>(
+                context: context,
+                builder: (BuildContext context) {
+                  return AlertDialog(
+                    title: const Text('Location Permission Denied'),
+                    content: const Text(
+                      'Location permission is permanently denied. '
+                      'Please enable location permission in app settings to access this site.',
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('Open Settings'),
+                      ),
+                    ],
+                  );
+                },
+              );
+
+              if (shouldOpenSettings == true) {
+                await openAppSettings();
+              }
+            }
+            return;
+          }
+
+          if (!mounted) return;
+
+          // Get current location
+          final currentLocation = await LocationService.getCurrentLocation();
+          if (!mounted) return;
+
+          // Calculate distance in kilometers
+          // At this point, siteLat and siteLng are guaranteed to be non-null
+          final distanceInKm = calculateDistance(
+            currentLocation.latitude,
+            currentLocation.longitude,
+            siteLat ?? 0.0,
+            siteLng ?? 0.0,
+          );
+
+          // Check if distance is more than the allowed distance
+          // distanceFromLocation is in meters; convert to km for comparison
+          final maxDistanceKm =
+              double.parse(ApiCodes.distanceFromLocation) / 1000.0;
+          if (distanceInKm > maxDistanceKm) {
+            // Hide loader before showing toast
+            LoaderWidget.hideLoader();
+            if (mounted) {
+              Toastbar.showErrorToastbar(
+                "You are not in the radius of site.",
+                context,
+              );
+            }
+            // Prevent site from opening if distance exceeds the allowed radius
+            return;
+          }
+
+          // Hide loader after distance check passes
+          LoaderWidget.hideLoader();
+        } catch (e) {
+          // If location fetch fails, hide loader and show error
+          LoaderWidget.hideLoader();
+          Logger.errorLog('Error calculating distance: $e');
+          if (mounted) {
+            Toastbar.showErrorToastbar(
+              "Unable to get your location. Please ensure location services are enabled.",
+              context,
+            );
+          }
+          return;
+        }
+      } else {
+        // No valid coordinates available
+        LoaderWidget.hideLoader();
+        if (mounted) {
+          Toastbar.showErrorToastbar(
+            "Location data not available for this site.",
+            context,
+          );
+        }
+        return;
+      }
+
+      if (!mounted) return;
+
+      // Proceed with navigation after distance check passes
+      switch (activityType) {
       case ActivityTypeEnum.correctiveMaintenance:
         final parentContext = context;
         Navigator.push(
@@ -1336,10 +1478,20 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         break;
       case ActivityTypeEnum.assetUpload:
         // For Asset Upload sites, load data from SQLite and navigate
-        _navigateToAssetUploadSite(site);
+        await _navigateToAssetUploadSite(site);
         break;
       default:
         break;
+      }
+    } catch (e) {
+      LoaderWidget.hideLoader();
+      Logger.errorLog('❌ Error navigating to downloaded site: $e');
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          "Error opening site. Please try again.",
+          context,
+        );
+      }
     }
   }
 
