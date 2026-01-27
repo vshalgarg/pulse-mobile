@@ -1,4 +1,5 @@
 import 'package:app/commonWidgets/loader_widget.dart';
+import 'package:app/constants/api_codes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -6,10 +7,13 @@ import 'package:app/models/all_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/calculate_distance.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../commonWidgets/ticket_card.dart';
 import '../constants/app_colors.dart';
@@ -633,7 +637,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with WidgetsBindingOb
     }
   }
 
-  void _navigateToAuditScreen(RawApiDataModel ticket) {
+  Future<void> _navigateToAuditScreen(RawApiDataModel ticket) async {
     // Check if ticket status is completed, closed, or missed deadline
     final status = ticket.status.toLowerCase();
     if (status == 'completed' ||
@@ -646,30 +650,138 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with WidgetsBindingOb
       return;
     }
 
+    // Check distance from current location to ticket location (works in offline/online mode)
+    if (ticket.latitude != 0.0 || ticket.longitude != 0.0) {
+      try {
+        // Show loader immediately when ticket is clicked
+        LoaderWidget.showLoader(context);
+
+        // Check location permission first
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (permission == LocationPermission.denied) {
+            LoaderWidget.hideLoader();
+            if (mounted) {
+              Toastbar.showErrorToastbar(
+                "Location permission is required to access this ticket.",
+                context,
+              );
+            }
+            return;
+          }
+        }
+
+        if (!mounted) return;
+
+        if (permission == LocationPermission.deniedForever) {
+          LoaderWidget.hideLoader();
+          if (!mounted) return;
+          final shouldOpenSettings = await showDialog<bool>(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text('Location Permission Denied'),
+                content: const Text(
+                  'Location permission is permanently denied. '
+                  'Please enable location permission in app settings to access this ticket.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: const Text('Open Settings'),
+                  ),
+                ],
+              );
+            },
+          );
+
+          if (shouldOpenSettings == true) {
+            await openAppSettings();
+          }
+          return;
+        }
+
+        if (!mounted) return;
+
+        // Get current location
+        // Note: If location services (GPS) are disabled, calling getCurrentLocation()
+        // will trigger Android's system dialog asking to enable location.
+        // The user can tap "TURN ON" in the system dialog to enable location directly.
+        // This is the standard Android behavior, same as Google Maps.
+        final currentLocation = await LocationService.getCurrentLocation();
+        if (!mounted) return;
+
+        // Calculate distance in kilometers
+        final distanceInKm = calculateDistance(
+          currentLocation.latitude,
+          currentLocation.longitude,
+          ticket.latitude,
+          ticket.longitude,
+        );
+
+        // Check if distance is more than the allowed distance
+        // distanceFromLocation is in meters; convert to km for comparison
+        final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation) / 1000.0;
+        if (distanceInKm > maxDistanceKm) {
+          // Hide loader before showing toast
+          LoaderWidget.hideLoader();
+          if (mounted) {
+            Toastbar.showErrorToastbar(
+              "You are not in the radius of site.",
+              context,
+            );
+          }
+          // Prevent ticket from opening if distance exceeds the allowed radius
+          return;
+        }
+
+        // Hide loader after distance check passes (will be shown again in _navigateToWorkflow if needed)
+        LoaderWidget.hideLoader();
+      } catch (e) {
+        // If location fetch fails, hide loader and show error
+        LoaderWidget.hideLoader();
+        Logger.errorLog('Error calculating distance: $e');
+        if (mounted) {
+          Toastbar.showErrorToastbar(
+            "Unable to get your location. Please ensure location services are enabled.",
+            context,
+          );
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+
     switch (ticket.activityType) {
       case ActivityTypeEnum.assetAudit:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.preventiveMaintenance:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.correctiveMaintenance:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.energyReading:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.siteVisit:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.generalInspection:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.incident:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.assetUpload:
-        _navigateToWorkflow(ticket);
+        await _navigateToWorkflow(ticket);
         break;
     }
   }
@@ -967,7 +1079,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen> with WidgetsBindingOb
             isDownloadedFunc: (ticket) async =>
                 true, // All tickets here are downloaded
             onPdfDownloadTap: () => _downloadReport(rawTicket),
-            onTap: () => _navigateToAuditScreen(rawTicket),
+            onTap: () async {
+              await _navigateToAuditScreen(rawTicket);
+            },
             onDirectionTap: () {
               if (ticket.longitude != null && ticket.latitude != null) {
 
