@@ -105,6 +105,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
 
   @override
   void dispose() {
+    // Auto-save before disposing (fallback in case PopScope doesn't catch it)
+    if (_assetGroups.isNotEmpty && _totalAssetCount > 0) {
+      Logger.debugLog('💾 Widget disposing, auto-saving assets as fallback...');
+      print('💾 Widget disposing, auto-saving assets as fallback...');
+      // Don't await - just fire and forget to avoid blocking dispose
+      _autoSaveOnBack().catchError((e) {
+        Logger.errorLog('❌ Error in dispose auto-save: $e');
+        return true; // Return value to satisfy linter
+      });
+    }
+    
     // Dispose all controllers
     _initialScanController.dispose();
     for (var controller in _serialControllers.values) {
@@ -134,11 +145,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         await _loadPreloadedAssets(widget.preloadedAssets!);
       } else {
         Logger.debugLog(
-          '⚠️ No preloaded assets provided, starting with empty state',
+          '⚠️ No preloaded assets provided, loading from SQLite...',
         );
-        // TODO: Load from SQLite if needed
-        // For now, start with empty state
-        setState(() {});
+        // Load from SQLite if available
+        await _loadAssetsFromSqlite();
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading existing assets: $e');
@@ -253,6 +263,137 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       setState(() {});
     } catch (e) {
       Logger.errorLog('❌ Error loading preloaded assets: $e');
+    }
+  }
+
+  /// Loads assets from SQLite when preloaded assets are not provided
+  Future<void> _loadAssetsFromSqlite() async {
+    try {
+      Logger.debugLog('📦 Loading assets from SQLite for siteId: ${widget.siteData.siteId}');
+      print('📦 Loading assets from SQLite for siteId: ${widget.siteData.siteId}');
+      
+      // Get data from SQLite
+      final stored = await _assetAuditService.getDataFromSqlite(
+        siteAuditSchId: widget.siteData.siteId.toString(),
+      );
+      
+      if (stored == null) {
+        Logger.debugLog('⚠️ No stored data found in SQLite for siteId: ${widget.siteData.siteId}');
+        print('⚠️ No stored data found in SQLite');
+        setState(() {});
+        return;
+      }
+      
+      if (stored.apiData == null) {
+        Logger.debugLog('⚠️ Stored data has null apiData');
+        print('⚠️ Stored data has null apiData');
+        setState(() {});
+        return;
+      }
+      
+      Logger.debugLog('📦 Found stored data, apiData keys: ${stored.apiData.keys.toList()}');
+      print('📦 Found stored data, apiData keys: ${stored.apiData.keys.toList()}');
+      
+      // Extract asset_upload_item from apiData
+      Map<String, dynamic>? responseData = stored.apiData;
+      
+      // Handle data wrapper if present
+      if (responseData.containsKey('data') && responseData['data'] is Map) {
+        Logger.debugLog('📦 Found data wrapper, extracting inner data');
+        responseData = responseData['data'] as Map<String, dynamic>?;
+      }
+      
+      if (responseData == null) {
+        Logger.debugLog('⚠️ No response data in SQLite after unwrapping');
+        print('⚠️ No response data in SQLite');
+        setState(() {});
+        return;
+      }
+      
+      Logger.debugLog('📦 Response data keys: ${responseData.keys.toList()}');
+      print('📦 Response data keys: ${responseData.keys.toList()}');
+      
+      // Get assetUpload object (try both camelCase and snake_case)
+      final assetUpload = responseData['assetUpload'] ?? 
+                         responseData['asset_upload'] as Map<String, dynamic>?;
+      
+      if (assetUpload == null) {
+        Logger.debugLog('⚠️ No assetUpload found in SQLite data');
+        print('⚠️ No assetUpload found in SQLite data');
+        Logger.debugLog('📦 Available keys in responseData: ${responseData.keys.toList()}');
+        setState(() {});
+        return;
+      }
+      
+      Logger.debugLog('📦 Found assetUpload, keys: ${assetUpload.keys.toList()}');
+      print('📦 Found assetUpload');
+      
+      // Get asset_upload_item array (try both formats)
+      final assetUploadItems = assetUpload['asset_upload_item'] ?? 
+                              assetUpload['assetUploadItem'] as List<dynamic>?;
+      
+      if (assetUploadItems == null || assetUploadItems.isEmpty) {
+        Logger.debugLog('⚠️ No asset items found in SQLite (null or empty)');
+        print('⚠️ No asset items found in SQLite');
+        setState(() {});
+        return;
+      }
+      
+      Logger.debugLog('📦 Found ${assetUploadItems.length} asset items in SQLite');
+      print('📦 Found ${assetUploadItems.length} asset items in SQLite');
+      
+      // Convert to format expected by _loadPreloadedAssets
+      final List<Map<String, dynamic>> convertedAssets = [];
+      for (final item in assetUploadItems) {
+        if (item is! Map<String, dynamic>) {
+          Logger.debugLog('⚠️ Skipping non-map item: $item');
+          continue;
+        }
+        
+        // Convert asset_upload_item to the format expected by _loadPreloadedAssets
+        final nexgenSerialNo = item['nexgen_serial_no']?.toString() ?? '';
+        if (nexgenSerialNo.isEmpty) {
+          Logger.debugLog('⚠️ Skipping item with empty nexgen_serial_no');
+          continue;
+        }
+        
+        final convertedItem = <String, dynamic>{
+          'nexgen_serial_no': nexgenSerialNo,
+          'mfg_serial_no': nexgenSerialNo,
+          'item_id': item['item_id'] ?? 0,
+          'item_instance_id': item['item_instance_id'],
+          'latitude': item['latitude']?.toString(),
+          'longitude': item['longitude']?.toString(),
+          'aui_id': item['aui_id'] ?? 0,
+          'remarks': item['remarks']?.toString() ?? '',
+        };
+        
+        // Convert asset_upload_item_images (try both formats)
+        final itemImages = item['asset_upload_item_images'] ?? 
+                          item['assetUploadItemImages'] as List<dynamic>?;
+        
+        if (itemImages != null && itemImages.isNotEmpty) {
+          convertedItem['asset_upload_item_images'] = itemImages;
+        }
+        
+        convertedAssets.add(convertedItem);
+        Logger.debugLog('📦 Converted asset: $nexgenSerialNo');
+      }
+      
+      if (convertedAssets.isNotEmpty) {
+        Logger.debugLog('📦 Loading ${convertedAssets.length} assets from SQLite');
+        print('📦 Loading ${convertedAssets.length} assets from SQLite');
+        await _loadPreloadedAssets(convertedAssets);
+      } else {
+        Logger.debugLog('⚠️ No valid assets to load from SQLite after conversion');
+        print('⚠️ No valid assets to load from SQLite');
+        setState(() {});
+      }
+    } catch (e, stackTrace) {
+      Logger.errorLog('❌ Error loading assets from SQLite: $e');
+      Logger.errorLog('❌ Stack trace: $stackTrace');
+      print('❌ Error loading assets from SQLite: $e');
+      setState(() {});
     }
   }
 
@@ -1887,23 +2028,148 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     );
   }
 
+  /// Auto-saves current asset state to SQLite when user navigates back
+  Future<bool> _autoSaveOnBack() async {
+    print('🔵 _autoSaveOnBack() CALLED - Asset groups: ${_assetGroups.length}, Total count: $_totalAssetCount');
+    Logger.debugLog('🔵 _autoSaveOnBack() CALLED - Asset groups: ${_assetGroups.length}, Total count: $_totalAssetCount');
+    
+    // Only save if there are assets to save
+    if (_assetGroups.isEmpty || _totalAssetCount == 0) {
+      Logger.debugLog('💾 No assets to save, allowing navigation');
+      print('💾 No assets to save, allowing navigation');
+      return true; // Allow navigation if no assets
+    }
+
+    try {
+      Logger.debugLog('💾 Auto-saving ${_totalAssetCount} assets before navigation...');
+      Logger.debugLog('💾 Asset groups: ${_assetGroups.keys.toList()}');
+      print('💾 Auto-saving ${_totalAssetCount} assets before navigation...');
+      print('💾 Asset groups: ${_assetGroups.keys.toList()}');
+      
+      // Get selfie image ID
+      final selfieImageId = await _getSelfieImageId();
+      dynamic finalSelfieImageId = selfieImageId ?? 0;
+      if (selfieImageId != null && selfieImageId.isNotEmpty) {
+        if (selfieImageId.contains("LOCAL_IMAGE_ID")) {
+          finalSelfieImageId = selfieImageId; // Keep as string for offline
+        } else {
+          finalSelfieImageId = int.tryParse(selfieImageId) ?? 0;
+        }
+      }
+
+      // Use preloaded auId if available, otherwise use 0
+      final auId = widget.preloadedAuId ?? 0;
+      Logger.debugLog('💾 Using auId: $auId, selfieImageId: $finalSelfieImageId');
+
+      // Build API response format from current asset groups
+      final apiResponseData = _buildApiResponseFromAssetGroups(
+        auId: auId,
+        makerSelfieImageId: finalSelfieImageId,
+      );
+
+      Logger.debugLog('💾 Built API response data, saving to SQLite...');
+      Logger.debugLog('💾 SiteId: ${widget.siteData.siteId}');
+
+      // Save to SQLite so data persists when user comes back
+      final isUpdated = await ServiceLocator()
+          .centralAssetAuditDataService
+          .saveRawApiData(
+            siteAuditSchId: widget.siteData.siteId.toString(),
+            siteType: widget.siteData.siteDomainName ?? 'Solar',
+            auditSchId: '',
+            pvTicketId: '',
+            siteCode: widget.siteData.siteCode,
+            cluster: widget.siteData.clusterDistrictName,
+            operator: widget.siteData.clientName ?? '',
+            raisedDt: '',
+            dueDt: '',
+            status: '',
+            isDownloaded: true,
+            activityType: ActivityTypeEnum.assetUpload,
+            latitude: widget.siteData.latitude != null
+                ? double.tryParse(widget.siteData.latitude!) ?? 0
+                : 0,
+            longitude: widget.siteData.longitude != null
+                ? double.tryParse(widget.siteData.longitude!) ?? 0
+                : 0,
+            apiData: apiResponseData,
+          );
+
+      if (isUpdated) {
+        Logger.debugLog('✅ Assets auto-saved to SQLite successfully');
+        print('✅ Assets auto-saved to SQLite successfully');
+        print('✅ Saved data structure: ${apiResponseData.keys.toList()}');
+        if (apiResponseData.containsKey('assetUpload')) {
+          final assetUpload = apiResponseData['assetUpload'] as Map<String, dynamic>?;
+          if (assetUpload != null && assetUpload.containsKey('asset_upload_item')) {
+            final items = assetUpload['asset_upload_item'] as List?;
+            print('✅ Saved ${items?.length ?? 0} asset items');
+          }
+        }
+        // Don't show toast during navigation as context might be invalid
+      } else {
+        Logger.errorLog('⚠️ Failed to auto-save assets to SQLite - saveRawApiData returned false');
+        print('⚠️ Failed to auto-save assets to SQLite - saveRawApiData returned false');
+        print('⚠️ SiteId: ${widget.siteData.siteId}, SiteCode: ${widget.siteData.siteCode}');
+      }
+
+      return true; // Allow navigation
+    } catch (e, stackTrace) {
+      Logger.errorLog('❌ Error auto-saving assets: $e');
+      Logger.errorLog('❌ Stack trace: $stackTrace');
+      print('❌ Error auto-saving assets: $e');
+      print('❌ Stack trace: $stackTrace');
+      // Still allow navigation even if save fails
+      return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        
+        Logger.debugLog('🔙 Back button pressed, auto-saving...');
+        print('🔙 Back button pressed, auto-saving...');
+        
+        // Auto-save before allowing navigation
+        await _autoSaveOnBack();
+        
+        // Wait a bit to ensure save completes
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Scaffold(
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
         title: 'Asset Upload',
-        onClose: () {
+        onClose: () async {
+          Logger.debugLog('❌ Close button pressed, auto-saving...');
+          print('❌ Close button pressed, auto-saving...');
+          
+          // Auto-save before closing - await it fully
+          await _autoSaveOnBack();
+          
+          // Wait a bit to ensure save completes
+          await Future.delayed(const Duration(milliseconds: 100));
+          
           // If we can pop (came from asset_upload_detail_page), just pop
           // Otherwise use navigateBackOrToHome for other navigation paths
-          if (Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          } else {
-            navigateBackOrToHome(
-              context,
-              targetContext: widget.parentContext ?? context,
-            );
+          if (mounted) {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              navigateBackOrToHome(
+                context,
+                targetContext: widget.parentContext ?? context,
+              );
+            }
           }
         },
       ),
@@ -1945,16 +2211,24 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                     children: [
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
+                            // Auto-save before navigating back
+                            Logger.debugLog('🔙 Back button (UI) pressed, auto-saving...');
+                            print('🔙 Back button (UI) pressed, auto-saving...');
+                            await _autoSaveOnBack();
+                            await Future.delayed(const Duration(milliseconds: 100));
+                            
                             // If we can pop (came from asset_upload_detail_page), just pop
                             // Otherwise use navigateBackOrToHome for other navigation paths
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            } else {
-                              navigateBackOrToHome(
-                                context,
-                                targetContext: widget.parentContext ?? context,
-                              );
+                            if (mounted) {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              } else {
+                                navigateBackOrToHome(
+                                  context,
+                                  targetContext: widget.parentContext ?? context,
+                                );
+                              }
                             }
                           },
                           style: ElevatedButton.styleFrom(
@@ -2006,6 +2280,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
