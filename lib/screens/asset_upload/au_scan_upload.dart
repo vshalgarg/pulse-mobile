@@ -1721,7 +1721,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             jsonEncodedRequestData: jsonEncode(requestList),
           );
 
-      // Also update SQLite with current state so it shows when opening from my_tickets
+        // Also update SQLite with current state so it can be restored later
       try {
         Logger.debugLog('💾 Updating SQLite with current asset upload state...');
         final apiResponseData = _buildApiResponseFromAssetGroups(
@@ -1743,7 +1743,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
               raisedDt: '',
               dueDt: '',
               status: '',
-              isDownloaded: true,
+              // Mark as not-downloaded so it doesn't appear in My Tickets
+              isDownloaded: false,
               activityType: ActivityTypeEnum.assetUpload,
               latitude: widget.siteData.latitude != null
                   ? double.tryParse(widget.siteData.latitude!) ?? 0
@@ -2147,7 +2148,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       Logger.debugLog('💾 Built API response data, saving to SQLite...');
       Logger.debugLog('💾 SiteId: ${widget.siteData.siteId}');
 
-      // Save to SQLite so data persists when user comes back
+      // Save to SQLite so data persists when user comes back,
+      // but do NOT mark it as downloaded (My Tickets should only show
+      // entries that came from explicit download flow).
       final isUpdated = await ServiceLocator()
           .centralAssetAuditDataService
           .saveRawApiData(
@@ -2161,7 +2164,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             raisedDt: '',
             dueDt: '',
             status: '',
-            isDownloaded: true,
+            // Keep as not-downloaded; explicit "download" flow will
+            // create a downloaded entry that My Tickets can show.
+            isDownloaded: false,
             activityType: ActivityTypeEnum.assetUpload,
             latitude: widget.siteData.latitude != null
                 ? double.tryParse(widget.siteData.latitude!) ?? 0
