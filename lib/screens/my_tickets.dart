@@ -823,7 +823,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         // Check if distance is more than the allowed distance
         // distanceFromLocation is in meters; convert to km for comparison
         final maxDistanceKm =
-            double.parse(ApiCodes.distanceFromLocation) / 1000.0;
+            double.parse(ApiCodes.distanceFromLocation) ;
         if (distanceInKm > maxDistanceKm) {
           // Hide loader before showing toast
           LoaderWidget.hideLoader();
@@ -1383,13 +1383,13 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
           // Check if distance is more than the allowed distance
           // distanceFromLocation is in meters; convert to km for comparison
           final maxDistanceKm =
-              double.parse(ApiCodes.distanceFromLocation) / 1000.0;
+              double.parse(ApiCodes.distanceFromLocation) ;
           if (distanceInKm > maxDistanceKm) {
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
             if (mounted) {
               Toastbar.showErrorToastbar(
-                "You are not in the radius of site.",
+                "You are not in the radius of site. distanceInKm: $distanceInKm",
                 context,
               );
             }

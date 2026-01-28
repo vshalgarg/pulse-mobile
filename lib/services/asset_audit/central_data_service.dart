@@ -891,6 +891,7 @@ class CentralAssetAuditDataService {
       await txn.delete('cm_checklist_data');
       await txn.delete('incident_checklist_data');
       await txn.delete('incident_sites_data');
+      await txn.delete('au_sites_data');
 
 
     });
