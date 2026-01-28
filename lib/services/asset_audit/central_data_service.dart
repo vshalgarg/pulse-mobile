@@ -2151,6 +2151,39 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Check if Asset Upload (AU) site is downloaded
+  Future<bool> isAUSiteDownloaded(int siteId) async {
+    try {
+      final db = await database;
+
+      // Check if au_sites_data table exists (backward compatibility / migration safety)
+      final tableInfo = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='au_sites_data'",
+      );
+
+      if (tableInfo.isEmpty) {
+        // Table doesn't exist yet, so no AU sites are downloaded
+        return false;
+      }
+
+      final List<Map<String, dynamic>> maps = await db.query(
+        'au_sites_data',
+        columns: ['is_downloaded'],
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        return maps.first['is_downloaded'] == 1;
+      }
+      return false;
+    } catch (e) {
+      Logger.errorLog('❌ Error checking AU site download status: $e');
+      return false;
+    }
+  }
+
   /// Check if incident site is downloaded
   Future<bool> isIncidentSiteDownloaded(int siteId) async {
     try {

@@ -588,10 +588,18 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     }
 
     try {
-      
+      final dataService = ServiceLocator().centralAssetAuditDataService;
 
-      final cmDownloaded = await ServiceLocator().centralAssetAuditDataService
-          .isCMSiteDownloaded(site.siteId);
+      // For Asset Upload, check AU-specific downloaded table
+      if (widget.ActivityType == 'AU' ||
+          widget.ActivityType == 'Asset Upload') {
+        final auDownloaded =
+            await dataService.isAUSiteDownloaded(site.siteId);
+        return auDownloaded;
+      }
+
+      // Default flow: check CM site data first
+      final cmDownloaded = await dataService.isCMSiteDownloaded(site.siteId);
 
       if (!cmDownloaded) {
         return false;
@@ -600,17 +608,15 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       // Check site data download status based on activity type
       if (widget.ActivityType == 'Incident') {
         // Also check if checklist data is downloaded
-        final incidentChecklistDownloaded = await ServiceLocator()
-            .centralAssetAuditDataService
-            .isIncidentChecklistDownloaded(site.siteId);
+        final incidentChecklistDownloaded =
+            await dataService.isIncidentChecklistDownloaded(site.siteId);
         return incidentChecklistDownloaded;
       }
-      // For other activity types, check CM site data first
 
       // For GI sites, also check if checklist data is downloaded
       if (widget.ActivityType == 'GI') {
-        final giDownloaded = await ServiceLocator().centralAssetAuditDataService
-            .isGIChecklistDownloaded(site.siteId);
+        final giDownloaded =
+            await dataService.isGIChecklistDownloaded(site.siteId);
         return giDownloaded;
       } else {
         // For other activity types, CM site data is sufficient
