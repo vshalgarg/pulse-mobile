@@ -19,7 +19,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.pulse"
+    namespace = "com.pulse.nexgeninfra"
     compileSdk = 36
     ndkVersion = "27.0.12077973"
 
@@ -34,7 +34,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.pulse"
+        applicationId = "com.pulse.nexgeninfra"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -43,7 +43,7 @@ android {
     }
 
     /* =========================
-       Signing config (RELEASE)
+       Signing config
        ========================= */
     signingConfigs {
         create("release") {
@@ -54,9 +54,24 @@ android {
         }
     }
 
+    /* =========================
+       Build types
+       ========================= */
     buildTypes {
         getByName("release") {
             signingConfig = signingConfigs.getByName("release")
+
+            // 🔥 Enable R8 / ProGuard
+            isMinifyEnabled = false
+            isShrinkResources = false
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+
+        getByName("debug") {
             isMinifyEnabled = false
             isShrinkResources = false
         }
@@ -64,10 +79,14 @@ android {
 }
 
 dependencies {
+    // Java 8+ desugaring
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    
 
+    // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.2.0"))
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.android.play:core:1.10.3")
 }
 
 flutter {

@@ -524,6 +524,20 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
 
   Future<void> postAssetUpload() async {
     try {
+      // maker_selfie_image_id must be a valid server-side image_mst id.
+      // Sending 0 causes a FK violation on the backend.
+      final parsedSelfieId =
+          (_selfieImgId != null && _selfieImgId!.isNotEmpty)
+              ? int.tryParse(_selfieImgId!)
+              : null;
+      if (parsedSelfieId == null || parsedSelfieId <= 0) {
+        Toastbar.showErrorToastbar(
+          'Selfie is required. Please upload the selfie again before submitting.',
+          context,
+        );
+        return;
+      }
+
       final requestData = {
         "siteId": widget.siteData.siteId,
         "assetName": _assetNameController.text.trim(),
@@ -532,11 +546,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
         "assetModel": _assetModelController.text.trim(),
         "assetCapacity": _assetCapacityController.text.trim(),
         "assetLocation": _assetLocationController.text.trim(),
-        "maker_selfie_image_id": _selfieImgId != null
-            ? (_selfieImgId!.contains("LOCAL_IMAGE_ID")
-                  ? _selfieImgId!
-                  : (int.tryParse(_selfieImgId!) ?? 0))
-            : 0,
+        "maker_selfie_image_id": parsedSelfieId,
         "isActive": true,
         "remarks": "",
       };

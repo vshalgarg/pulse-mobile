@@ -345,7 +345,7 @@ class AssetAuditPostService {
           Logger.errorLog(
             '❌ Failed to upload selfie image: $makerSelfieImageId',
           );
-          request['makerSelfieImageId'] = 0;
+          request['makerSelfieImageId'] = null;
         }
       }
 
@@ -382,7 +382,7 @@ class AssetAuditPostService {
                       Logger.errorLog(
                         '❌ Failed to upload asset image: $photoId',
                       );
-                      image['photoId'] = 0;
+                      image['photoId'] = null;
                     }
                   }
                 }

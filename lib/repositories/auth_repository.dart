@@ -21,6 +21,8 @@ class AuthRepository {
     try {
 
       final firebaseToken = LocalStorageDB.getFireBaseToken;
+
+      print('firebaseToken: $firebaseToken');
       
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'authenticate/login',

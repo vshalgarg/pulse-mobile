@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:551410385511:android:22014ff170feca8ab70ac2",
+        "mobilesdk_app_id": "1:551410385511:android:6570dae6e552026eb70ac2",
         "android_client_info": {
-          "package_name": "com.pulse"
+          "package_name": "com.pulse.nexgeninfra"
         }
       },
       "oauth_client": [],
