@@ -522,6 +522,8 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
     }
   }
 
+
+
   Future<void> postAssetUpload() async {
     try {
       // maker_selfie_image_id must be a valid server-side image_mst id.
