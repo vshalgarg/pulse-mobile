@@ -62,7 +62,7 @@ android {
             signingConfig = signingConfigs.getByName("release")
 
             // 🔥 Enable R8 / ProGuard
-            isMinifyEnabled = false
+            isMinifyEnabled = true
             isShrinkResources = false
 
             proguardFiles(

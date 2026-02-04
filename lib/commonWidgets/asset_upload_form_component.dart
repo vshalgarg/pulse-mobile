@@ -1509,11 +1509,15 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         widget.disabledFieldLabel != null &&
         widget.disabledFieldLabel!.isNotEmpty;
 
-    // Create a unique key for the row to force rebuild when item changes
-    final itemKey = item['mfg_serial_no']?.toString() ?? 
-                   item['full_scanned_code']?.toString() ?? 
-                   item['timestamp']?.toString() ?? 
-                   'item_${item.hashCode}';
+    // Create a unique key for the row to force rebuild when item changes.
+    // Include aui_id (when present) so that two DB rows with the same
+    // serial number but different IDs don't collide.
+    final auiIdPart = item['aui_id']?.toString() ?? '';
+    final itemKey = '$auiIdPart-' +
+        (item['mfg_serial_no']?.toString() ??
+            item['full_scanned_code']?.toString() ??
+            item['timestamp']?.toString() ??
+            'item_${item.hashCode}');
     final photoKey = item['photo_id']?.toString() ?? 
                     item['photoPath']?.toString() ?? 
                     '';
