@@ -92,12 +92,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         ? CMScreenModeEnum.edit
         : widget.mode;
 
-    Logger.debugLog(
-      '📋 AUScanUploadScreen - Mode: ${widget.mode}, Actual Mode: $_actualMode, preloadedAuId: ${widget.preloadedAuId}',
-    );
-    print(
-      '📋 AUScanUploadScreen - Mode: ${widget.mode}, Actual Mode: $_actualMode, preloadedAuId: ${widget.preloadedAuId}',
-    );
     _assetUploadRepository = AssetUploadRepository(ServiceLocator().apiService);
     _assetAuditService = ServiceLocator().centralAssetAuditService;
     _loadExistingAssets();

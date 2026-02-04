@@ -13,6 +13,49 @@ class ApiService {
 
   ApiService(this.apiProvider);
 
+  /// Internal helper to send mobile logs whenever an API call fails.
+  /// This mirrors the `sendMobileLogs` behaviour in `AuthRepository`, but is
+  /// centralized here so it can be used for **all** API failures.
+  Future<void> _sendMobileLogs({
+    required String path,
+    required String method,
+    int? statusCode,
+    String? errorMessage,
+    DioExceptionType? dioErrorType,
+    dynamic responseData,
+  }) async {
+    try {
+      String? backendError;
+      if (responseData is Map && responseData['error'] != null) {
+        backendError = responseData['error'].toString();
+      }
+
+      final logData = {
+        'timestamp': DateTime.now().toIso8601String(),
+        'event': 'API_FAILURE',
+        'method': method,
+        'path': path,
+        'baseUrl': baseUrl,
+        'statusCode': statusCode,
+        'errorMessage': errorMessage,
+        'dioErrorType': dioErrorType?.toString(),
+        'backendError': backendError,
+        'rawResponse': responseData,
+      };
+
+      // Use the raw Dio client directly so that logging itself does not
+      // go through ApiService (avoids recursive logging on failure).
+      await apiProvider.getClient().post(
+        'api/v1/mobile/upload/MobileLogs',
+        data: {
+          'logs': jsonEncode(logData),
+        },
+      );
+    } catch (_) {
+      // Swallow any errors from log sending – logging must never break the app.
+    }
+  }
+
   Future<ResponseResult<T>> get<T>({
     required String path,
     Map<String, dynamic>? queryParameters,
@@ -35,6 +78,14 @@ class ApiService {
         }
         return ResponseResult.success(result.data, result.statusCode);
       } else {
+        await _sendMobileLogs(
+          path: path,
+          method: 'GET',
+          statusCode: result.statusCode,
+          errorMessage:
+              'Request failed with status code: ${result.statusCode}',
+          responseData: result.data,
+        );
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${result.statusCode}',
           statusCode: result.statusCode,
@@ -43,6 +94,15 @@ class ApiService {
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
+      await _sendMobileLogs(
+        path: path,
+        method: 'GET',
+        statusCode: e.response?.statusCode,
+        errorMessage:
+            DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        responseData: e.response?.data,
+      );
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
@@ -97,6 +157,14 @@ class ApiService {
         }
         return ResponseResult.success(result.data, result.statusCode);
       } else {
+        await _sendMobileLogs(
+          path: path,
+          method: 'POST',
+          statusCode: result.statusCode,
+          errorMessage:
+              'Request failed with status code: ${result.statusCode}',
+          responseData: result.data,
+        );
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${result.statusCode}',
           statusCode: result.statusCode,
@@ -105,6 +173,15 @@ class ApiService {
     } on DioException catch (e) {
        // log("path: $path");
       _recordError(e);
+      await _sendMobileLogs(
+        path: path,
+        method: 'POST',
+        statusCode: e.response?.statusCode,
+        errorMessage:
+            DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        responseData: e.response?.data,
+      );
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
@@ -112,6 +189,12 @@ class ApiService {
       );
     } catch (e) {
 
+      await _sendMobileLogs(
+        path: path,
+        method: 'POST',
+        errorMessage: 'Request failed: $e',
+        responseData: null,
+      );
       return ResponseResult.error(
         errorMessage: 'Request failed: $e',
       );
@@ -147,6 +230,14 @@ class ApiService {
       if (result.statusCode == 200) {
         return ResponseResult.success(result.data, result.statusCode);
       } else {
+        await _sendMobileLogs(
+          path: path,
+          method: 'PUT',
+          statusCode: result.statusCode,
+          errorMessage:
+              'Request failed with status code: ${result.statusCode}',
+          responseData: result.data,
+        );
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${result.statusCode}',
           statusCode: result.statusCode,
@@ -155,6 +246,15 @@ class ApiService {
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
+      await _sendMobileLogs(
+        path: path,
+        method: 'PUT',
+        statusCode: e.response?.statusCode,
+        errorMessage:
+            DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        responseData: e.response?.data,
+      );
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
@@ -179,6 +279,14 @@ class ApiService {
       if (result.statusCode == 200) {
         return ResponseResult.success(result.data, result.statusCode);
       } else {
+        await _sendMobileLogs(
+          path: path,
+          method: 'PATCH',
+          statusCode: result.statusCode,
+          errorMessage:
+              'Request failed with status code: ${result.statusCode}',
+          responseData: result.data,
+        );
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${result.statusCode}',
           statusCode: result.statusCode,
@@ -187,6 +295,15 @@ class ApiService {
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
+      await _sendMobileLogs(
+        path: path,
+        method: 'PATCH',
+        statusCode: e.response?.statusCode,
+        errorMessage:
+            DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        responseData: e.response?.data,
+      );
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,
@@ -209,6 +326,14 @@ class ApiService {
       if (result.statusCode == 200) {
         return ResponseResult.success(result.data, result.statusCode);
       } else {
+        await _sendMobileLogs(
+          path: path,
+          method: 'DELETE',
+          statusCode: result.statusCode,
+          errorMessage:
+              'Request failed with status code: ${result.statusCode}',
+          responseData: result.data,
+        );
         return ResponseResult.error(
           errorMessage: 'Request failed with status code: ${result.statusCode}',
           statusCode: result.statusCode,
@@ -217,6 +342,15 @@ class ApiService {
     } on DioException catch (e) {
       // log("path: $path");
       _recordError(e);
+      await _sendMobileLogs(
+        path: path,
+        method: 'DELETE',
+        statusCode: e.response?.statusCode,
+        errorMessage:
+            DioExceptions.fromDioError(dioError: e).errorMessage(),
+        dioErrorType: e.type,
+        responseData: e.response?.data,
+      );
       return ResponseResult.error(
         errorMessage: DioExceptions.fromDioError(dioError: e).errorMessage(),
         dioErrorType: e.type,

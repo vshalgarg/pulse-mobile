@@ -277,7 +277,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
 
           const SizedBox(height: 5),
           const Text(
-            "Version 0.0.2",
+            "Version 0.0.3",
 
             style: TextStyle(
               fontSize: 8,
