@@ -15,6 +15,10 @@ class LocalStorageDB {
   static String? get getFireBaseToken =>
       LocalStorageService.getString(LocalStorageConstants.firebaseToken);
 
+  static Future<void> saveFireBaseToken(String token) async {
+    await LocalStorageService.setString(LocalStorageConstants.firebaseToken, token);
+  }
+
   static String? get getEmail =>
       LocalStorageService.getString(LocalStorageConstants.email);
 

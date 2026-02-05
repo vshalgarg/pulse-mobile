@@ -92,6 +92,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         ? CMScreenModeEnum.edit
         : widget.mode;
 
+
     _assetUploadRepository = AssetUploadRepository(ServiceLocator().apiService);
     _assetAuditService = ServiceLocator().centralAssetAuditService;
     _loadExistingAssets();

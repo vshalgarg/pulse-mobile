@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:app/services/local_storage_db.dart';
 import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import '../models/auth_model.dart';
 import '../models/forgot_password_model.dart';
@@ -19,17 +20,28 @@ class AuthRepository {
     required String password,
   }) async {
     try {
+      // Use stored token, or fetch from FCM if not yet available (e.g. slow init on some devices)
+      String? firebaseToken = LocalStorageDB.getFireBaseToken;
+      if (firebaseToken == null || firebaseToken.isEmpty) {
+        try {
+          final fcmToken = await FirebaseMessaging.instance.getToken();
+          if (fcmToken != null && fcmToken.isNotEmpty) {
+            await LocalStorageDB.saveFireBaseToken(fcmToken);
+            firebaseToken = fcmToken;
+          }
+        } catch (_) {
+          // FCM not available (emulator, no Play Services, etc.) - continue with null/empty
+        }
+      }
+      // Send empty string instead of null to avoid backend 500 when token is unavailable
+      final tokenForApi = firebaseToken ?? '';
 
-      final firebaseToken = LocalStorageDB.getFireBaseToken;
-
-      print('firebaseToken: $firebaseToken');
-      
       final response = await _apiService.post<Map<String, dynamic>>(
         path: 'authenticate/login',
         data: {
           'username': username,
           'password': password,
-          'firebaseAccessToken': firebaseToken,
+          'firebaseAccessToken': tokenForApi,
         },
       );
 
