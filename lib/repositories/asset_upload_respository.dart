@@ -16,10 +16,10 @@ class AssetUploadRepository {
   }) async {
     try {
       // Build the request data matching the curl structure
-      // Handle makerSelfieImageId - can be int or string (LOCAL_IMAGE_ID)
+      // Handle makerSelfieImageId - can be int, string (LOCAL_IMAGE_ID), or null (upload failed)
       dynamic finalMakerSelfieImageId;
       if (makerSelfieImageId == null) {
-        finalMakerSelfieImageId = 0;
+        finalMakerSelfieImageId = null; // Send null when missing or when upload failed
       } else if (makerSelfieImageId is String && makerSelfieImageId.contains("LOCAL_IMAGE_ID")) {
         // Keep LOCAL_IMAGE_ID as string for offline mode
         finalMakerSelfieImageId = makerSelfieImageId;
@@ -190,10 +190,10 @@ class AssetUploadItemImage {
   });
 
   Map<String, dynamic> toJson() {
-    // Handle photoId - keep as string if LOCAL_IMAGE_ID, otherwise convert to int
+    // Handle photoId - keep as string if LOCAL_IMAGE_ID, null if upload failed, otherwise int
     dynamic finalPhotoId;
     if (photoId == null) {
-      finalPhotoId = 0;
+      finalPhotoId = null; // Send null when missing or when upload failed
     } else if (photoId is String && photoId.contains("LOCAL_IMAGE_ID")) {
       // Keep LOCAL_IMAGE_ID as string for offline mode
       finalPhotoId = photoId;

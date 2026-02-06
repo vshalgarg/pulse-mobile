@@ -1006,6 +1006,69 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     }
   }
 
+  /// When online, replaces LOCAL_IMAGE_ID with server IDs in asset item images
+  /// so the API receives only numeric photo IDs (same as asset audit and offline sync).
+  Future<List<AssetUploadItem>> _replaceLocalImageIdsWithServerIdsInItems(
+    List<AssetUploadItem> items,
+  ) async {
+    final List<AssetUploadItem> result = [];
+    for (final item in items) {
+      final List<AssetUploadItemImage> newImages = [];
+      for (final img in item.assetUploadItemImages) {
+        final photoId = img.photoId;
+        if (photoId != null &&
+            photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+          final imageModel = await ServiceLocator().imageUploadService
+              .getServerIdFromUniqueIdTryUploading(photoId.toString());
+          if (imageModel != null && imageModel.serverId != null) {
+            final serverId =
+                int.tryParse(imageModel.serverId.toString()) ?? 0;
+            newImages.add(AssetUploadItemImage(
+              auiiId: img.auiiId,
+              photoId: serverId,
+              photoTakenTs: img.photoTakenTs,
+              longitude: img.longitude,
+              latitude: img.latitude,
+              isActive: img.isActive,
+              remarks: img.remarks,
+            ));
+            Logger.debugLog(
+              '✅ Asset image LOCAL_IMAGE_ID replaced with server ID: $serverId',
+            );
+          } else {
+            Logger.debugLog(
+              '❌ Failed to upload asset image: $photoId, sending null',
+            );
+            newImages.add(AssetUploadItemImage(
+              auiiId: img.auiiId,
+              photoId: null,
+              photoTakenTs: img.photoTakenTs,
+              longitude: img.longitude,
+              latitude: img.latitude,
+              isActive: img.isActive,
+              remarks: img.remarks,
+            ));
+          }
+        } else {
+          newImages.add(img);
+        }
+      }
+      result.add(AssetUploadItem(
+        auiId: item.auiId,
+        auId: item.auId,
+        nexgenSerialNo: item.nexgenSerialNo,
+        itemId: item.itemId,
+        longitude: item.longitude,
+        latitude: item.latitude,
+        isActive: item.isActive,
+        remarks: item.remarks,
+        assetUploadItemImages: newImages,
+        isModified: item.isModified,
+      ));
+    }
+    return result;
+  }
+
   /// Transforms assets from _assetGroups to AssetUploadItem format
   List<AssetUploadItem> _transformAssetsToApiFormat(LocationModel? location) {
     final List<AssetUploadItem> assetUploadItems = [];
@@ -1150,6 +1213,16 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                 }
               }
 
+              // Use location when image lat/long is null or empty (e.g. when added without location)
+              final imgLon = (img['longitude']?.toString() ?? '').trim();
+              final imgLat = (img['latitude']?.toString() ?? '').trim();
+              final longitude = imgLon.isEmpty
+                  ? (location?.longitude.toString() ?? '')
+                  : imgLon;
+              final latitude = imgLat.isEmpty
+                  ? (location?.latitude.toString() ?? '')
+                  : imgLat;
+
               itemImages.add(
                 AssetUploadItemImage(
                   auiiId: img['auiiId'] as int?,
@@ -1159,14 +1232,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                         item['timestamp']?.toString() ??
                         item['qr_code_scanned_ts']?.toString(),
                   ),
-                  longitude:
-                      img['longitude']?.toString() ??
-                      location?.longitude.toString() ??
-                      '',
-                  latitude:
-                      img['latitude']?.toString() ??
-                      location?.latitude.toString() ??
-                      '',
+                  longitude: longitude,
+                  latitude: latitude,
                   isActive: img['isActive'] as bool? ?? true,
                   remarks: img['remarks']?.toString() ?? '',
                 ),
@@ -1290,7 +1357,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       final isConnected = await ConnectivityHelper.isConnected();
 
       // Transform assets to API format
-      final assetUploadItems = _transformAssetsToApiFormat(location);
+      List<AssetUploadItem> assetUploadItems = _transformAssetsToApiFormat(location);
 
       if (assetUploadItems.isEmpty) {
         LoaderWidget.hideLoader();
@@ -1298,9 +1365,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         return;
       }
 
-      // Process LOCAL_IMAGE_ID in assetUploadItemImages if online
-      // Note: photoId is already handled in _transformAssetsToApiFormat to keep LOCAL_IMAGE_ID as string
-      // The repository's toJson() will handle converting it properly
+      // When online: replace LOCAL_IMAGE_ID with server IDs in item images (same as asset audit)
+      // so the API receives only numeric photo IDs. Offline sync already does this in AssetAuditPostService.
+      if (isConnected) {
+        assetUploadItems = await _replaceLocalImageIdsWithServerIdsInItems(assetUploadItems);
+      }
 
       // Handle makerSelfieImageId - keep LOCAL_IMAGE_ID as string if offline
       dynamic finalSelfieImageId;
@@ -1319,15 +1388,15 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                 '✅ Converted LOCAL_IMAGE_ID to server ID for selfie: $finalSelfieImageId',
               );
             } else {
-              // Keep as LOCAL_IMAGE_ID string if upload fails
-              finalSelfieImageId = selfieImageId;
+              // Upload failed: send null so API never receives LOCAL_IMAGE_ID
+              finalSelfieImageId = null;
               Logger.debugLog(
-                '⚠️ Failed to upload selfie, keeping LOCAL_IMAGE_ID',
+                '⚠️ Failed to upload selfie, sending null',
               );
             }
           } catch (e) {
             Logger.errorLog('❌ Error uploading selfie: $e');
-            finalSelfieImageId = selfieImageId;
+            finalSelfieImageId = null;
           }
         } else {
           // Offline: keep as LOCAL_IMAGE_ID string
