@@ -1005,12 +1005,23 @@ class _TicketScreenState extends State<TicketScreen>
       // For GI tickets, check if checklist data is downloaded
       return await ServiceLocator().centralAssetAuditDataService
           .isGIChecklistDownloaded(ticket.ticketSchId);
-    } else {
-      // For other ticket types, check database for existing downloads
+    }
+    if (_currentActivityType == ActivityTypeEnum.assetUpload) {
+      // AU: row may be keyed by ticketSchId (downloaded from ticket screen) or siteId (downloaded from All Sites)
       RawApiDataModel? data = await ServiceLocator().centralAssetAuditService
           .getDataFromSqlite(siteAuditSchId: ticket.ticketSchId.toString());
-      return data != null && data.isDownloaded;
+      if (data != null && data.isDownloaded) return true;
+      if (ticket.siteId != null) {
+        data = await ServiceLocator().centralAssetAuditService
+            .getDataFromSqlite(siteAuditSchId: ticket.siteId.toString());
+        if (data != null && data.isDownloaded) return true;
+      }
+      return false;
     }
+    // For other ticket types, check database for existing downloads
+    RawApiDataModel? data = await ServiceLocator().centralAssetAuditService
+        .getDataFromSqlite(siteAuditSchId: ticket.ticketSchId.toString());
+    return data != null && data.isDownloaded;
   }
 
   @override
