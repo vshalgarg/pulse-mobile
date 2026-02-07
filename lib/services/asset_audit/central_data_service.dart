@@ -2151,37 +2151,61 @@ class CentralAssetAuditDataService {
     }
   }
 
-  /// Check if Asset Upload (AU) site is downloaded
+  /// Check if Asset Upload (AU) site is downloaded.
+  /// Returns true if: (1) site was downloaded from All Sites (au_sites_data or raw_api_data by siteId),
+  /// or (2) ticket for this site was downloaded from ticket screen (raw_api_data keyed by ticketSchId with api_data.site_id = siteId).
   Future<bool> isAUSiteDownloaded(int siteId) async {
     try {
       final db = await database;
 
-      // Check if au_sites_data table exists (backward compatibility / migration safety)
+      // 1) au_sites_data: downloaded from All Sites
       final tableInfo = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type='table' AND name='au_sites_data'",
       );
-
-      if (tableInfo.isEmpty) {
-        // Table doesn't exist yet, so no AU sites are downloaded
-        return false;
+      if (tableInfo.isNotEmpty) {
+        final maps = await db.query(
+          'au_sites_data',
+          columns: ['is_downloaded'],
+          where: 'site_id = ?',
+          whereArgs: [siteId],
+          limit: 1,
+        );
+        if (maps.isNotEmpty && maps.first['is_downloaded'] == 1) {
+          return true;
+        }
       }
 
-      final List<Map<String, dynamic>> maps = await db.query(
-        'au_sites_data',
-        columns: ['is_downloaded'],
-        where: 'site_id = ?',
-        whereArgs: [siteId],
-        limit: 1,
-      );
-
-      if (maps.isNotEmpty) {
-        return maps.first['is_downloaded'] == 1;
+      // 2) raw_api_data: by site_audit_sch_id = siteId (downloaded from All Sites) or by api_data.site_id = siteId (downloaded from ticket screen)
+      final byKey = await getRawApiData(siteId.toString());
+      if (byKey != null &&
+          byKey.activityType == ActivityTypeEnum.assetUpload &&
+          byKey.isDownloaded) {
+        return true;
+      }
+      final all = await getAllDownloadedTickets();
+      final siteIdStr = siteId.toString();
+      for (final row in all) {
+        if (row.activityType != ActivityTypeEnum.assetUpload) continue;
+        final v = _siteIdFromRawApiData(row.apiData);
+        if (v != null && (v == siteId || v.toString() == siteIdStr)) {
+          return true;
+        }
       }
       return false;
     } catch (e) {
       Logger.errorLog('❌ Error checking AU site download status: $e');
       return false;
     }
+  }
+
+  static dynamic _siteIdFromRawApiData(Map<String, dynamic> d) {
+    final top = d['site_id'];
+    if (top != null) return top;
+    for (final key in ['siteDetails', 'site_details', 'assetUpload', 'asset_upload']) {
+      final m = d[key];
+      if (m is Map && m['site_id'] != null) return m['site_id'];
+    }
+    return null;
   }
 
   /// Check if incident site is downloaded

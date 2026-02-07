@@ -1253,11 +1253,12 @@ class _TicketScreenState extends State<TicketScreen>
                     }
 
                     if (responseData != null) {
-                      // Include total_asset_cnt in apiData so My Tickets can show it
+                      // Include total_asset_cnt and site_id so My Tickets and All Sites can match this ticket/site
                       final apiDataToSave = Map<String, dynamic>.from(responseData);
                       if (ticket.totalAssets != null) {
                         apiDataToSave['total_asset_cnt'] = ticket.totalAssets;
                       }
+                      apiDataToSave['site_id'] = ticket.siteId ?? ticket.ticketSchId;
                       // Save to SQLite using saveRawApiData
                       // Note: Image processing will be handled when data is loaded/used
                       isDownloaded = await ServiceLocator()
