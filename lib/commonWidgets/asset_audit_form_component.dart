@@ -1000,6 +1000,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
         // Photo picker container (matching CustomInfoCard)
         GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: _pickImage,
           child: Container(
             width: double.infinity,

@@ -1242,6 +1242,11 @@ class _TicketScreenState extends State<TicketScreen>
                     }
 
                     if (responseData != null) {
+                      // Include total_asset_cnt in apiData so My Tickets can show it
+                      final apiDataToSave = Map<String, dynamic>.from(responseData);
+                      if (ticket.totalAssets != null) {
+                        apiDataToSave['total_asset_cnt'] = ticket.totalAssets;
+                      }
                       // Save to SQLite using saveRawApiData
                       // Note: Image processing will be handled when data is loaded/used
                       isDownloaded = await ServiceLocator()
@@ -1261,7 +1266,7 @@ class _TicketScreenState extends State<TicketScreen>
                             activityType: _currentActivityType,
                             latitude: ticket.latitude ?? 0,
                             longitude: ticket.longitude ?? 0,
-                            apiData: responseData,
+                            apiData: apiDataToSave,
                           );
                     } else {
                       Logger.errorLog(

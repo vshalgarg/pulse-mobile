@@ -885,6 +885,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
   // Convert RawApiDataModel to Ticket for display
   Ticket _convertToTicket(RawApiDataModel rawData) {
+    final totalAssets = rawData.apiData['total_asset_cnt'] != null
+        ? int.tryParse(rawData.apiData['total_asset_cnt'].toString())
+        : null;
     return Ticket(
       ticketSchId: int.tryParse(rawData.siteAuditSchId) ?? 0,
       pvTicketId: rawData.pvTicketId,
@@ -898,6 +901,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       longitude: rawData.longitude,
       auditSchId: int.tryParse(rawData.auditSchId),
       siteDomainName: rawData.siteType,
+      totalAssets: totalAssets,
     );
   }
 
@@ -1170,6 +1174,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
             statusText: ticket.status ?? 'N/A',
+            totalAssets: ticket.totalAssets,
             activityType: rawTicket.activityType,
             isDownloadedFunc: (ticket) async =>
                 true, // All tickets here are downloaded
