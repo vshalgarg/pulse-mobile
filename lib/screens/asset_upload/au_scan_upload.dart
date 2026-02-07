@@ -11,6 +11,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/location_model.dart';
+import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/repositories/asset_upload_respository.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
@@ -1488,7 +1489,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             }
 
             if (responseData != null) {
-              // Process images in API data (download and replace server IDs with unique IDs)
               Logger.debugLog('🖼️ Processing images in Asset Upload refresh data...');
               final processedApiData = await ServiceLocator()
                   .centralAssetAuditService
@@ -1497,21 +1497,27 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                     ActivityTypeEnum.assetUpload,
                     widget.siteData.siteId.toString(),
                   );
+              final au = processedApiData['assetUpload'] ?? processedApiData['asset_upload'];
+              final items = (au is Map ? (au['asset_upload_item'] ?? au['assetUploadItem']) : null) as List? ?? [];
+              if (processedApiData['total_asset_cnt'] == null) {
+                processedApiData['total_asset_cnt'] = items.length;
+              }
 
-              // Update SQLite with latest data
+              final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
+              final id = existing?.siteAuditSchId ?? widget.siteData.siteId.toString();
               final isUpdated = await ServiceLocator()
                   .centralAssetAuditDataService
                   .saveRawApiData(
-                    siteAuditSchId: widget.siteData.siteId.toString(),
+                    siteAuditSchId: id,
                     siteType: widget.siteData.siteDomainName ?? 'Solar',
-                    auditSchId: '',
-                    pvTicketId: '',
+                    auditSchId: existing?.auditSchId ?? '',
+                    pvTicketId: existing?.pvTicketId ?? '',
                     siteCode: widget.siteData.siteCode,
                     cluster: widget.siteData.clusterDistrictName,
                     operator: widget.siteData.clientName ?? '',
-                    raisedDt: '',
-                    dueDt: '',
-                    status: '',
+                    raisedDt: existing?.raisedDt ?? '',
+                    dueDt: existing?.dueDt ?? '',
+                    status: existing?.status ?? '',
                     isDownloaded: true,
                     activityType: ActivityTypeEnum.assetUpload,
                     latitude: widget.siteData.latitude != null
@@ -1522,15 +1528,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                         : 0,
                     apiData: processedApiData,
                   );
-
               if (isUpdated) {
-                Logger.debugLog(
-                  '✅ Asset Upload data refreshed in SQLite successfully',
-                );
+                Logger.debugLog('✅ Asset Upload data refreshed in SQLite successfully');
               } else {
-                Logger.errorLog(
-                  '⚠️ Failed to refresh Asset Upload data in SQLite',
-                );
+                Logger.errorLog('⚠️ Failed to refresh Asset Upload data in SQLite');
               }
             } else {
               Logger.errorLog('⚠️ Asset Upload refresh response data is null');
@@ -1660,11 +1661,47 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       'owner_contact_no': widget.siteData.ownerPhone,
     };
     
-    // Build final response structure
+    // Build final response structure; total_asset_cnt for My Tickets
     return {
       'assetUpload': assetUpload,
       'siteDetails': siteDetails,
+      'total_asset_cnt': assetUploadItems.length,
     };
+  }
+
+  /// Returns the stored row for this site's downloaded asset-upload ticket, or null.
+  /// Tries site_audit_sch_id = siteId first; then searches by site_id inside api_data.
+  Future<RawApiDataModel?> _findDownloadedAssetUploadRow(int siteId) async {
+    final dataService = ServiceLocator().centralAssetAuditDataService;
+    try {
+      final byKey = await dataService.getRawApiData(siteId.toString());
+      if (byKey != null &&
+          byKey.activityType == ActivityTypeEnum.assetUpload &&
+          byKey.isDownloaded) {
+        return byKey;
+      }
+      final all = await dataService.getAllDownloadedTickets();
+      final siteIdStr = siteId.toString();
+      for (final row in all) {
+        if (row.activityType != ActivityTypeEnum.assetUpload) continue;
+        final v = _siteIdFromApiData(row.apiData);
+        if (v == null) continue;
+        if (v == siteId || v.toString() == siteIdStr) return row;
+      }
+    } catch (e) {
+      Logger.errorLog('_findDownloadedAssetUploadRow($siteId): $e');
+    }
+    return null;
+  }
+
+  static dynamic _siteIdFromApiData(Map<String, dynamic> d) {
+    final top = d['site_id'];
+    if (top != null) return top;
+    for (final key in ['siteDetails', 'site_details', 'assetUpload', 'asset_upload']) {
+      final m = d[key];
+      if (m is Map && m['site_id'] != null) return m['site_id'];
+    }
+    return null;
   }
 
   /// Saves asset upload data to local storage when offline
@@ -1785,48 +1822,49 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             jsonEncodedRequestData: jsonEncode(requestList),
           );
 
-        // Also update SQLite with current state so it can be restored later
+        // Keep downloaded ticket in sync: update its api_data if it exists
       try {
         Logger.debugLog('💾 Updating SQLite with current asset upload state...');
         final apiResponseData = _buildApiResponseFromAssetGroups(
           auId: auId,
           makerSelfieImageId: makerSelfieImageId,
         );
-        
-        // Update SQLite with latest data
-        final isUpdated = await ServiceLocator()
-            .centralAssetAuditDataService
-            .saveRawApiData(
-              siteAuditSchId: widget.siteData.siteId.toString(),
-              siteType: widget.siteData.siteDomainName ?? 'Solar',
-              auditSchId: '',
-              pvTicketId: '',
-              siteCode: widget.siteData.siteCode,
-              cluster: widget.siteData.clusterDistrictName,
-              operator: widget.siteData.clientName ?? '',
-              raisedDt: '',
-              dueDt: '',
-              status: '',
-              // Mark as not-downloaded so it doesn't appear in My Tickets
-              isDownloaded: false,
-              activityType: ActivityTypeEnum.assetUpload,
-              latitude: widget.siteData.latitude != null
-                  ? double.tryParse(widget.siteData.latitude!) ?? 0
-                  : 0,
-              longitude: widget.siteData.longitude != null
-                  ? double.tryParse(widget.siteData.longitude!) ?? 0
-                  : 0,
-              apiData: apiResponseData,
-            );
-        
-        if (isUpdated) {
-          Logger.debugLog('✅ SQLite updated with current asset upload state');
+        final dataService = ServiceLocator().centralAssetAuditDataService;
+        final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
+        if (existing != null) {
+          final ok = await dataService.updateRawApiData(
+            siteAuditSchId: existing.siteAuditSchId,
+            apiData: apiResponseData,
+          );
+          if (ok) Logger.debugLog('✅ Downloaded ticket api_data updated (offline)');
+          else Logger.errorLog('⚠️ updateRawApiData failed for ${existing.siteAuditSchId}');
         } else {
-          Logger.errorLog('⚠️ Failed to update SQLite with asset upload state');
+          final ok = await dataService.saveRawApiData(
+            siteAuditSchId: widget.siteData.siteId.toString(),
+            siteType: widget.siteData.siteDomainName ?? 'Solar',
+            auditSchId: '',
+            pvTicketId: '',
+            siteCode: widget.siteData.siteCode,
+            cluster: widget.siteData.clusterDistrictName,
+            operator: widget.siteData.clientName ?? '',
+            raisedDt: '',
+            dueDt: '',
+            status: '',
+            isDownloaded: false,
+            activityType: ActivityTypeEnum.assetUpload,
+            latitude: widget.siteData.latitude != null
+                ? double.tryParse(widget.siteData.latitude!) ?? 0
+                : 0,
+            longitude: widget.siteData.longitude != null
+                ? double.tryParse(widget.siteData.longitude!) ?? 0
+                : 0,
+            apiData: apiResponseData,
+          );
+          if (ok) Logger.debugLog('✅ SQLite updated with current asset upload state');
+          else Logger.errorLog('⚠️ Failed to update SQLite with asset upload state');
         }
       } catch (e) {
         Logger.errorLog('❌ Error updating SQLite with asset upload state: $e');
-        // Don't fail the whole operation if SQLite update fails
       }
 
       LoaderWidget.hideLoader();
@@ -2212,51 +2250,43 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       Logger.debugLog('💾 Built API response data, saving to SQLite...');
       Logger.debugLog('💾 SiteId: ${widget.siteData.siteId}');
 
-      // Save to SQLite so data persists when user comes back,
-      // but do NOT mark it as downloaded (My Tickets should only show
-      // entries that came from explicit download flow).
-      final isUpdated = await ServiceLocator()
-          .centralAssetAuditDataService
-          .saveRawApiData(
-            siteAuditSchId: widget.siteData.siteId.toString(),
-            siteType: widget.siteData.siteDomainName ?? 'Solar',
-            auditSchId: '',
-            pvTicketId: '',
-            siteCode: widget.siteData.siteCode,
-            cluster: widget.siteData.clusterDistrictName,
-            operator: widget.siteData.clientName ?? '',
-            raisedDt: '',
-            dueDt: '',
-            status: '',
-            // Keep as not-downloaded; explicit "download" flow will
-            // create a downloaded entry that My Tickets can show.
-            isDownloaded: false,
-            activityType: ActivityTypeEnum.assetUpload,
-            latitude: widget.siteData.latitude != null
-                ? double.tryParse(widget.siteData.latitude!) ?? 0
-                : 0,
-            longitude: widget.siteData.longitude != null
-                ? double.tryParse(widget.siteData.longitude!) ?? 0
-                : 0,
-            apiData: apiResponseData,
-          );
-
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
+      bool isUpdated;
+      if (existing != null) {
+        isUpdated = await dataService.updateRawApiData(
+          siteAuditSchId: existing.siteAuditSchId,
+          apiData: apiResponseData,
+        );
+      } else {
+        isUpdated = await dataService.saveRawApiData(
+          siteAuditSchId: widget.siteData.siteId.toString(),
+          siteType: widget.siteData.siteDomainName ?? 'Solar',
+          auditSchId: '',
+          pvTicketId: '',
+          siteCode: widget.siteData.siteCode,
+          cluster: widget.siteData.clusterDistrictName,
+          operator: widget.siteData.clientName ?? '',
+          raisedDt: '',
+          dueDt: '',
+          status: '',
+          isDownloaded: false,
+          activityType: ActivityTypeEnum.assetUpload,
+          latitude: widget.siteData.latitude != null
+              ? double.tryParse(widget.siteData.latitude!) ?? 0
+              : 0,
+          longitude: widget.siteData.longitude != null
+              ? double.tryParse(widget.siteData.longitude!) ?? 0
+              : 0,
+          apiData: apiResponseData,
+        );
+      }
       if (isUpdated) {
         Logger.debugLog('✅ Assets auto-saved to SQLite successfully');
         print('✅ Assets auto-saved to SQLite successfully');
-        print('✅ Saved data structure: ${apiResponseData.keys.toList()}');
-        if (apiResponseData.containsKey('assetUpload')) {
-          final assetUpload = apiResponseData['assetUpload'] as Map<String, dynamic>?;
-          if (assetUpload != null && assetUpload.containsKey('asset_upload_item')) {
-            final items = assetUpload['asset_upload_item'] as List?;
-            print('✅ Saved ${items?.length ?? 0} asset items');
-          }
-        }
-        // Don't show toast during navigation as context might be invalid
       } else {
-        Logger.errorLog('⚠️ Failed to auto-save assets to SQLite - saveRawApiData returned false');
-        print('⚠️ Failed to auto-save assets to SQLite - saveRawApiData returned false');
-        print('⚠️ SiteId: ${widget.siteData.siteId}, SiteCode: ${widget.siteData.siteCode}');
+        Logger.errorLog('⚠️ Failed to auto-save assets to SQLite');
+        print('⚠️ Failed to auto-save assets to SQLite');
       }
 
       return true; // Allow navigation
