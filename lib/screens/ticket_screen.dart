@@ -1259,8 +1259,15 @@ class _TicketScreenState extends State<TicketScreen>
                         apiDataToSave['total_asset_cnt'] = ticket.totalAssets;
                       }
                       apiDataToSave['site_id'] = ticket.siteId ?? ticket.ticketSchId;
-                      // Save to SQLite using saveRawApiData
-                      // Note: Image processing will be handled when data is loaded/used
+                      // Download all images and replace server IDs with local unique_ids so offline mode can show selfie and asset images
+                      final processedApiData = await ServiceLocator()
+                          .centralAssetAuditService
+                          .processImagesInApiData(
+                            apiDataToSave,
+                            ActivityTypeEnum.assetUpload,
+                            ticket.ticketSchId.toString(),
+                          );
+                      // Save processed data (with unique_ids) to SQLite
                       isDownloaded = await ServiceLocator()
                           .centralAssetAuditDataService
                           .saveRawApiData(
@@ -1278,7 +1285,7 @@ class _TicketScreenState extends State<TicketScreen>
                             activityType: _currentActivityType,
                             latitude: ticket.latitude ?? 0,
                             longitude: ticket.longitude ?? 0,
-                            apiData: apiDataToSave,
+                            apiData: processedApiData,
                           );
                     } else {
                       Logger.errorLog(
