@@ -42,6 +42,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
   List<RawApiDataModel> _filteredTickets = [];
   List<Map<String, dynamic>> _downloadedSites = [];
   List<Map<String, dynamic>> _filteredSites = [];
+  /// For Asset Upload sites: siteId -> total asset count (from raw_api_data)
+  Map<int, int> _siteIdToTotalAssets = {};
   bool _isLoading = true;
   String? _errorMessage;
   ActivityTypeEnum? _selectedActivityType;
@@ -125,9 +127,31 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       final sites = await ServiceLocator().centralAssetAuditDataService
           .getAllDownloadedCMSites();
 
+      // For Asset Upload sites, get total_asset_cnt from raw_api_data so My Tickets can show it
+      final Map<int, int> siteIdToTotalAssets = {};
+      for (final siteMap in sites) {
+        final activityTypeStr = siteMap['activity_type']?.toString() ?? '';
+        if (_parseActivityTypeFromString(activityTypeStr) !=
+            ActivityTypeEnum.assetUpload) continue;
+        final siteId = siteMap['site_id'];
+        if (siteId == null) continue;
+        final sid = siteId is int ? siteId : int.tryParse(siteId.toString());
+        if (sid == null) continue;
+        try {
+          final raw = await ServiceLocator().centralAssetAuditDataService
+              .getRawApiData(sid.toString());
+          if (raw != null &&
+              raw.apiData['total_asset_cnt'] != null) {
+            final cnt = int.tryParse(raw.apiData['total_asset_cnt'].toString());
+            if (cnt != null) siteIdToTotalAssets[sid] = cnt;
+          }
+        } catch (_) {}
+      }
+
       setState(() {
         _downloadedTickets = tickets;
         _downloadedSites = sites;
+        _siteIdToTotalAssets = siteIdToTotalAssets;
         _selectedActivityType = ActivityTypeEnum.assetAudit;
         _filteredTickets = tickets
             .where(
@@ -1264,6 +1288,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               dueDate: '',
               statusText: 'Site',
               activityType: activityType,
+              totalAssets: activityType == ActivityTypeEnum.assetUpload
+                  ? _siteIdToTotalAssets[site.siteId]
+                  : null,
               isDownloadedFunc: (ticket) async => true,
               onPdfDownloadTap: () {},
               onTap: () async => await _navigateToDownloadedSite(site, activityType),

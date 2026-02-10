@@ -231,6 +231,14 @@ class CentralAssetAuditService {
               site.siteId.toString(),
             );
 
+            // Ensure total_asset_cnt is set for My Tickets display
+            final au = processedApiData['assetUpload'] ?? processedApiData['asset_upload'];
+            final items = (au is Map ? (au['asset_upload_item'] ?? au['assetUploadItem']) : null) as List? ?? [];
+            if (processedApiData['total_asset_cnt'] == null) {
+              processedApiData['total_asset_cnt'] = items.length;
+            }
+            processedApiData['site_id'] = site.siteId;
+
             // Save to raw_api_data table so it can be retrieved later
             final apiDataSaved = await ServiceLocator()
                 .centralAssetAuditDataService
