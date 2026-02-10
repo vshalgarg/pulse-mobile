@@ -54,7 +54,7 @@ class SiteCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      "${site.siteName} (Site ID : ${site.siteCode})",
+                      "${site.siteName}",
                       style: const TextStyle(
                         fontSize: 14,
                         color: Colors.black87,

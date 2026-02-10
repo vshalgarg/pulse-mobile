@@ -15,16 +15,15 @@ class AssetUploadRepository {
     required List<AssetUploadItem> assetUploadItems,
   }) async {
     try {
-      // Build the request data matching the curl structure
-      // Handle makerSelfieImageId - can be int, string (LOCAL_IMAGE_ID), or null (upload failed)
+      // Build the request data matching the curl structure.
+      // In online mode (this POST is only used when online) makerSelfieImageId must be a valid server ID.
+      // Never send null or LOCAL_IMAGE_ID to the API.
       dynamic finalMakerSelfieImageId;
       if (makerSelfieImageId == null) {
-        finalMakerSelfieImageId = null; // Send null when missing or when upload failed
-      } else if (makerSelfieImageId is String && makerSelfieImageId.contains("LOCAL_IMAGE_ID")) {
-        // Keep LOCAL_IMAGE_ID as string for offline mode
-        finalMakerSelfieImageId = makerSelfieImageId;
+        finalMakerSelfieImageId = null;
+      } else if (makerSelfieImageId is String && makerSelfieImageId.toString().contains('LOCAL_IMAGE_ID')) {
+        finalMakerSelfieImageId = null; // Never send LOCAL_IMAGE_ID to API; caller must replace before calling
       } else {
-        // Convert to int for server IDs
         finalMakerSelfieImageId = makerSelfieImageId is int ? makerSelfieImageId : (int.tryParse(makerSelfieImageId.toString()) ?? 0);
       }
       

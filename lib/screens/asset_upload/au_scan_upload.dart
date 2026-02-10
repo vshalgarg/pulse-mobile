@@ -1115,7 +1115,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
             if (img is Map<String, dynamic>) {
               // Handle photoId - can be int (server ID) or string (LOCAL_IMAGE_ID)
               dynamic photoIdValue;
-              final photoIdRaw = img['photoId'];
+              final photoIdRaw = img['photoId'] ?? img['photo_id'];
               Logger.debugLog(
                 '📸 Raw photoId from img: $photoIdRaw (type: ${photoIdRaw.runtimeType})',
               );
