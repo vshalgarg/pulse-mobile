@@ -9,32 +9,64 @@ class AssetUploadRepository {
     required int auId,
     required int siteId,
     int? entityId,
-    dynamic makerSelfieImageId, // Can be int (server ID) or String (LOCAL_IMAGE_ID)
+    dynamic makerSelfieImageId, // Must be valid server ID (int > 0) when used for online POST
     bool isActive = true,
     String? remarks,
     required List<AssetUploadItem> assetUploadItems,
   }) async {
     try {
-      // Build the request data matching the curl structure.
-      // In online mode (this POST is only used when online) makerSelfieImageId must be a valid server ID.
-      // Never send null or LOCAL_IMAGE_ID to the API.
-      dynamic finalMakerSelfieImageId;
-      if (makerSelfieImageId == null) {
-        finalMakerSelfieImageId = null;
-      } else if (makerSelfieImageId is String && makerSelfieImageId.toString().contains('LOCAL_IMAGE_ID')) {
-        finalMakerSelfieImageId = null; // Never send LOCAL_IMAGE_ID to API; caller must replace before calling
-      } else {
-        finalMakerSelfieImageId = makerSelfieImageId is int ? makerSelfieImageId : (int.tryParse(makerSelfieImageId.toString()) ?? 0);
+      // API requires valid server IDs only. Refuse to send if any value is null or LOCAL_IMAGE_ID.
+      final selfieStr = makerSelfieImageId?.toString() ?? '';
+      if (selfieStr.isEmpty ||
+          selfieStr == '0' ||
+          selfieStr.contains('LOCAL_IMAGE_ID')) {
+        return ResponseResult.error(
+          errorMessage:
+              'Selfie is required (valid server ID). Cannot send null or LOCAL_IMAGE_ID.',
+        );
       }
-      
-      // Log the makerSelfieImageId value for debugging
-      print('🔍 AssetUploadRepository: makerSelfieImageId = $finalMakerSelfieImageId (input: $makerSelfieImageId, type: ${finalMakerSelfieImageId.runtimeType})');
-      
+      final selfieInt = makerSelfieImageId is int
+          ? makerSelfieImageId
+          : int.tryParse(selfieStr);
+      if (selfieInt == null || selfieInt <= 0) {
+        return ResponseResult.error(
+          errorMessage:
+              'makerSelfieImageId must be a valid server ID (int > 0).',
+        );
+      }
+
+      for (final item in assetUploadItems) {
+        for (final img in item.assetUploadItemImages) {
+          final pid = img.photoId;
+          if (pid == null) {
+            return ResponseResult.error(
+              errorMessage:
+                  'Each asset must have a valid photoId (cannot be null).',
+            );
+          }
+          final pidStr = pid.toString();
+          if (pidStr.contains('LOCAL_IMAGE_ID')) {
+            return ResponseResult.error(
+              errorMessage:
+                  'Asset photoId cannot be LOCAL_IMAGE_ID. Replace with server ID before calling.',
+            );
+          }
+          final pidInt = pid is int ? pid : int.tryParse(pidStr);
+          if (pidInt == null || pidInt <= 0) {
+            return ResponseResult.error(
+              errorMessage:
+                  'Each asset photoId must be a valid server ID (int > 0).',
+            );
+          }
+        }
+      }
+
+      // Build the request data with validated values only
       final requestData = <String, dynamic>{
         'auId': auId,
         'siteId': siteId,
         'entityId': entityId ?? 0,
-        'makerSelfieImageId': finalMakerSelfieImageId,
+        'makerSelfieImageId': selfieInt,
         'isActive': isActive,
         'remarks': remarks ?? '',
         'assetUploadItems': assetUploadItems
@@ -42,7 +74,30 @@ class AssetUploadRepository {
             .toList(),
       };
 
-      print('🔍 AssetUploadRepository: Request data - makerSelfieImageId: ${requestData['makerSelfieImageId']} (type: ${requestData['makerSelfieImageId'].runtimeType})');
+      // Final safety: ensure no LOCAL_IMAGE_ID in item images (should already be validated above)
+      final items = requestData['assetUploadItems'] as List<dynamic>?;
+      if (items != null) {
+        for (final item in items) {
+          if (item is Map<String, dynamic>) {
+            final images = item['assetUploadItemImages'] as List<dynamic>?;
+            if (images != null) {
+              for (final img in images) {
+                if (img is Map<String, dynamic>) {
+                  final pid = img['photoId'];
+                  if (pid == null ||
+                      pid.toString().contains('LOCAL_IMAGE_ID') ||
+                      (pid is int ? pid <= 0 : (int.tryParse(pid.toString()) ?? 0) <= 0)) {
+                    return ResponseResult.error(
+                      errorMessage:
+                          'Invalid asset photoId in request. Cannot send to API.',
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
 
       final result = await apiService.post<Map<String, dynamic>>(
         path: 'api/v1/mobile/assetUpload',
@@ -189,7 +244,7 @@ class AssetUploadItemImage {
   });
 
   Map<String, dynamic> toJson() {
-    // Handle photoId - keep as string if LOCAL_IMAGE_ID, null if upload failed, otherwise int
+    // Handle photoId - keep as string if LOCAL_IMAGE_ID (for offline payload), null if upload failed, otherwise int
     dynamic finalPhotoId;
     if (photoId == null) {
       finalPhotoId = null; // Send null when missing or when upload failed
@@ -200,7 +255,7 @@ class AssetUploadItemImage {
       // Convert to int for server IDs
       finalPhotoId = photoId is int ? photoId : (int.tryParse(photoId.toString()) ?? 0);
     }
-    
+
     return {
       'auiiId': auiiId ?? 0,
       'photoId': finalPhotoId,

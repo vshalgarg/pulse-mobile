@@ -809,6 +809,7 @@ class CentralAssetAuditService {
         // Check if this is a photo_id or maker_selfie_image_id field
         else if ((key == 'photo_id' ||
                 key == 'maker_selfie_image_id' ||
+                key == 'makerSelfieImageId' ||
                 key == 'ebAttachmentFileId' ||
                 key == 'visitingPersonImageId' ||
                 key == 'visiting_person_image_id' ||

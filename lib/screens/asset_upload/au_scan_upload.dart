@@ -1444,7 +1444,51 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         return;
       }
 
-      // Online - submit to API
+      // Online: API requires valid server IDs only. Do not send if any value is null or LOCAL_IMAGE_ID.
+      final selfieInt = finalSelfieImageId is int
+          ? finalSelfieImageId
+          : int.tryParse(finalSelfieImageId?.toString() ?? '');
+      if (selfieInt == null || selfieInt <= 0) {
+        LoaderWidget.hideLoader();
+        Toastbar.showErrorToastbar(
+          'Selfie is required. Please add a selfie and try again, or check your connection if it was added offline.',
+          context,
+        );
+        return;
+      }
+      for (final item in assetUploadItems) {
+        for (final img in item.assetUploadItemImages) {
+          final pid = img.photoId;
+          if (pid == null) {
+            LoaderWidget.hideLoader();
+            Toastbar.showErrorToastbar(
+              'Each asset must have a valid photo. Please add photos and try again, or check your connection.',
+              context,
+            );
+            return;
+          }
+          final pidStr = pid.toString();
+          if (pidStr.contains('LOCAL_IMAGE_ID')) {
+            LoaderWidget.hideLoader();
+            Toastbar.showErrorToastbar(
+              'Asset photo could not be uploaded. Please check your connection and try again.',
+              context,
+            );
+            return;
+          }
+          final pidInt = pid is int ? pid : int.tryParse(pidStr);
+          if (pidInt == null || pidInt <= 0) {
+            LoaderWidget.hideLoader();
+            Toastbar.showErrorToastbar(
+              'Each asset must have a valid photo. Please add photos and try again.',
+              context,
+            );
+            return;
+          }
+        }
+      }
+
+      // Online - submit to API (only with valid makerSelfieImageId and asset photoIds)
       final result = await _assetUploadRepository.assetUpload(
         auId: auId,
         siteId: widget.siteData.siteId,
