@@ -1246,7 +1246,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
           // For sites, display site name with site code in parentheses if available
           final siteDisplayName = site.siteName.isNotEmpty
-              ? "${site.siteName} (${site.siteCode})"
+              ? "${site.siteName}"
               : site.siteCode;
 
           return Padding(
