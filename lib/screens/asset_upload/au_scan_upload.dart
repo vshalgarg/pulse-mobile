@@ -1505,6 +1505,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
 
               final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
               final id = existing?.siteAuditSchId ?? widget.siteData.siteId.toString();
+              // Preserve existing downloaded state: only mark as downloaded if user had already
+              // downloaded the ticket; do not auto-mark as downloaded just because they saved assets
+              final markAsDownloaded = existing?.isDownloaded ?? false;
               final isUpdated = await ServiceLocator()
                   .centralAssetAuditDataService
                   .saveRawApiData(
@@ -1518,7 +1521,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                     raisedDt: existing?.raisedDt ?? '',
                     dueDt: existing?.dueDt ?? '',
                     status: existing?.status ?? '',
-                    isDownloaded: true,
+                    isDownloaded: markAsDownloaded,
                     activityType: ActivityTypeEnum.assetUpload,
                     latitude: widget.siteData.latitude != null
                         ? double.tryParse(widget.siteData.latitude!) ?? 0
