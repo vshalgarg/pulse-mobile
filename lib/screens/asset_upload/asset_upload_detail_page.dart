@@ -759,8 +759,8 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
 
     // Navigate to scan upload screen without calling any API
     // Pass the selfie image ID and preloaded asset items if available
-    // Use preloaded selfie image ID if available, otherwise use current _selfieImgId
-    final selfieImageIdToPass = widget.preloadedSelfieImageId ?? _selfieImgId;
+    // Prefer current _selfieImgId (e.g. just uploaded) so save on scan screen uses latest selfie
+    final selfieImageIdToPass = _selfieImgId ?? widget.preloadedSelfieImageId;
     
     Logger.debugLog('📸 ========== NAVIGATING TO SCAN UPLOAD ==========');
     Logger.debugLog('📸 selfieImageIdToPass: $selfieImageIdToPass');
