@@ -120,7 +120,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
     super.dispose();
   }
 
-  /// Load existing assets from storage or preloaded data
+  /// Load existing assets from storage or preloaded data.
+  /// Tries SQLite first so that assets added then saved on Back (detail -> scan -> back -> scan again) are shown.
   Future<void> _loadExistingAssets() async {
     try {
       Logger.debugLog('📦 Loading existing assets...');
@@ -132,7 +133,15 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         '📦 preloadedSelfieImageId: ${widget.preloadedSelfieImageId}',
       );
 
-      // If preloaded assets are provided, load them
+      // Try SQLite first so we pick up assets saved when user went back (e.g. detail -> scan -> back -> scan again)
+      await _loadAssetsFromSqlite();
+      if (_assetGroups.isNotEmpty && _totalAssetCount > 0) {
+        Logger.debugLog('📦 Loaded $_totalAssetCount assets from SQLite');
+        if (mounted) setState(() {});
+        return;
+      }
+
+      // No SQLite data or empty: use preloaded if provided
       if (widget.preloadedAssets != null &&
           widget.preloadedAssets!.isNotEmpty) {
         Logger.debugLog(
@@ -141,10 +150,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         await _loadPreloadedAssets(widget.preloadedAssets!);
       } else {
         Logger.debugLog(
-          '⚠️ No preloaded assets provided, loading from SQLite...',
+          '⚠️ No preloaded assets provided and none in SQLite',
         );
-        // Load from SQLite if available
-        await _loadAssetsFromSqlite();
+        if (mounted) setState(() {});
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading existing assets: $e');
