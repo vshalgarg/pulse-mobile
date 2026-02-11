@@ -946,6 +946,7 @@ class _TicketScreenState extends State<TicketScreen>
                 preloadedAuId: finalAuId,
                 mode: CMScreenModeEnum
                     .edit, // Edit mode when coming from ticket screen
+                siteAuditSchIdForStorage: ticket.ticketSchId.toString(),
               ),
             ),
           );

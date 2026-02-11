@@ -27,6 +27,9 @@ class AssetUploadDetailPage extends StatefulWidget {
   final List<Map<String, dynamic>>? preloadedAssetItems;
   final int? preloadedAuId;
   final CMScreenModeEnum mode;
+  /// When opening from a downloaded ticket, pass the same key used to load the ticket
+  /// so that persist updates that row (e.g. ticket.siteAuditSchId or ticket.ticketSchId).
+  final String? siteAuditSchIdForStorage;
 
   const AssetUploadDetailPage({
     super.key,
@@ -36,6 +39,7 @@ class AssetUploadDetailPage extends StatefulWidget {
     this.preloadedAssetItems,
     this.preloadedAuId,
     this.mode = CMScreenModeEnum.create,
+    this.siteAuditSchIdForStorage,
   });
 
   @override
@@ -664,19 +668,61 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
     );
   }
 
+  /// Persist current form and selfie to the downloaded ticket row so it stays in sync.
+  Future<void> _persistDetailPageToSqlite() async {
+    final storageKey = widget.siteAuditSchIdForStorage;
+    if (storageKey == null || storageKey.isEmpty) return;
+    try {
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      final row = await dataService.getRawApiData(storageKey);
+      if (row == null) return;
+      final apiData = Map<String, dynamic>.from(row.apiData);
+      // Merge site_details (snake_case)
+      final siteDetails = (apiData['site_details'] ?? apiData['siteDetails'] ?? {}) as Map<String, dynamic>?;
+      final siteDetailsMap = siteDetails != null ? Map<String, dynamic>.from(siteDetails) : <String, dynamic>{};
+      siteDetailsMap['infra_district_engineer_name'] = _infraEngineerController.text.trim().isEmpty ? null : _infraEngineerController.text.trim();
+      siteDetailsMap['infra_district_engineer_contact_no'] = _infraEngineerContactController.text.trim().isEmpty ? null : _infraEngineerContactController.text.trim();
+      siteDetailsMap['owner_name'] = _ownerController.text.trim().isEmpty ? null : _ownerController.text.trim();
+      siteDetailsMap['owner_contact_no'] = _ownerContactController.text.trim().isEmpty ? null : _ownerContactController.text.trim();
+      apiData['site_details'] = siteDetailsMap;
+      apiData['siteDetails'] = siteDetailsMap;
+      // Merge maker_selfie_image_id into asset_upload
+      if (_selfieImgId != null && _selfieImgId!.isNotEmpty) {
+        final au = (apiData['asset_upload'] ?? apiData['assetUpload'] ?? {}) as Map<String, dynamic>?;
+        final auMap = au != null ? Map<String, dynamic>.from(au) : <String, dynamic>{};
+        auMap['maker_selfie_image_id'] = _selfieImgId;
+        auMap['makerSelfieImageId'] = _selfieImgId;
+        apiData['asset_upload'] = auMap;
+        apiData['assetUpload'] = auMap;
+      }
+      await dataService.updateRawApiData(siteAuditSchId: storageKey, apiData: apiData);
+      Logger.debugLog('✅ Asset upload detail page persisted to SQLite for key: $storageKey');
+    } catch (e) {
+      Logger.errorLog('❌ _persistDetailPageToSqlite: $e');
+    }
+  }
+
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
       showDialog(
         context: context,
         barrierDismissible: true,
         builder: (dialogContext) => UnsavedChangesDialog(
-          siteAuditSchId: widget.siteData.siteId.toString(),
+          siteAuditSchId: widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString(),
           section: "Asset Upload",
           parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
             await _submitForm(navigateOnSuccess: false);
           },
-          onDiscard: () {},
+          onDiscard: () {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
+          },
+          onDiscardAsync: () async {
+            await _persistDetailPageToSqlite();
+          },
         ),
       );
     } else {
@@ -736,6 +782,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
             preloadedAssets: widget.preloadedAssetItems, // Pass preloaded asset items
             preloadedAuId: widget.preloadedAuId, // Pass auId for update
             mode: _actualMode, // Pass the actual mode (may be overridden if au_id is not null)
+            siteAuditSchIdForStorage: widget.siteAuditSchIdForStorage,
           ),
         ),
       );

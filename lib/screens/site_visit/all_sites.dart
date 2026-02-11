@@ -491,6 +491,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                   preloadedAssetItems: preloadedAssetItems,
                   preloadedAuId: preloadedAuId,
                   mode: CMScreenModeEnum.create, // Mode will be auto-detected based on preloadedAuId
+                  siteAuditSchIdForStorage: site.siteId.toString(),
                 ),
               ),
             );
@@ -507,6 +508,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                   siteData: site,
                   parentContext: parentContext,
                   mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+                  siteAuditSchIdForStorage: site.siteId.toString(),
                 ),
               ),
             );
@@ -524,6 +526,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 siteData: site,
                 parentContext: parentContext,
                 mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+                siteAuditSchIdForStorage: site.siteId.toString(),
               ),
             ),
           );

@@ -31,6 +31,9 @@ class AUScanUploadScreen extends StatefulWidget {
   final String? preloadedSelfieImageId;
   final int? preloadedAuId;
   final CMScreenModeEnum mode;
+  /// When opening from a downloaded ticket, pass the same key used to load the ticket
+  /// so that persist updates that row (e.g. ticket.siteAuditSchId or ticket.ticketSchId).
+  final String? siteAuditSchIdForStorage;
 
   const AUScanUploadScreen({
     super.key,
@@ -40,6 +43,7 @@ class AUScanUploadScreen extends StatefulWidget {
     this.preloadedSelfieImageId,
     this.preloadedAuId,
     this.mode = CMScreenModeEnum.create,
+    this.siteAuditSchIdForStorage,
   });
 
   @override
@@ -273,16 +277,18 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   /// Loads assets from SQLite when preloaded assets are not provided
   Future<void> _loadAssetsFromSqlite() async {
     try {
-      Logger.debugLog('📦 Loading assets from SQLite for siteId: ${widget.siteData.siteId}');
-      print('📦 Loading assets from SQLite for siteId: ${widget.siteData.siteId}');
+      // Use storage key when provided (downloaded ticket row); else siteId
+      final storageKey = widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString();
+      Logger.debugLog('📦 Loading assets from SQLite for key: $storageKey');
+      print('📦 Loading assets from SQLite for key: $storageKey');
       
       // Get data from SQLite
       final stored = await _assetAuditService.getDataFromSqlite(
-        siteAuditSchId: widget.siteData.siteId.toString(),
+        siteAuditSchId: storageKey,
       );
       
       if (stored == null) {
-        Logger.debugLog('⚠️ No stored data found in SQLite for siteId: ${widget.siteData.siteId}');
+        Logger.debugLog('⚠️ No stored data found in SQLite for key: $storageKey');
         print('⚠️ No stored data found in SQLite');
         setState(() {});
         return;
@@ -1555,8 +1561,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
                 processedApiData['total_asset_cnt'] = items.length;
               }
 
-              final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
-              final id = existing?.siteAuditSchId ?? widget.siteData.siteId.toString();
+              final storageKey = widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString();
+              final existing = widget.siteAuditSchIdForStorage != null
+                  ? await ServiceLocator().centralAssetAuditDataService.getRawApiData(widget.siteAuditSchIdForStorage!)
+                  : await _findDownloadedAssetUploadRow(widget.siteData.siteId);
+              final id = existing?.siteAuditSchId ?? storageKey;
               // Preserve existing downloaded state: only mark as downloaded if user had already
               // downloaded the ticket; do not auto-mark as downloaded just because they saved assets
               final markAsDownloaded = existing?.isDownloaded ?? false;
@@ -1885,7 +1894,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           makerSelfieImageId: makerSelfieImageId,
         );
         final dataService = ServiceLocator().centralAssetAuditDataService;
-        final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
+        final storageKey = widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString();
+        final existing = widget.siteAuditSchIdForStorage != null
+            ? await dataService.getRawApiData(widget.siteAuditSchIdForStorage!)
+            : await _findDownloadedAssetUploadRow(widget.siteData.siteId);
         if (existing != null) {
           final ok = await dataService.updateRawApiData(
             siteAuditSchId: existing.siteAuditSchId,
@@ -1895,7 +1907,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
           else Logger.errorLog('⚠️ updateRawApiData failed for ${existing.siteAuditSchId}');
         } else {
           final ok = await dataService.saveRawApiData(
-            siteAuditSchId: widget.siteData.siteId.toString(),
+            siteAuditSchId: storageKey,
             siteType: widget.siteData.siteDomainName ?? 'Solar',
             auditSchId: '',
             pvTicketId: '',
@@ -2303,10 +2315,13 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       );
 
       Logger.debugLog('💾 Built API response data, saving to SQLite...');
-      Logger.debugLog('💾 SiteId: ${widget.siteData.siteId}');
+      final storageKey = widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString();
+      Logger.debugLog('💾 Storage key: $storageKey');
 
       final dataService = ServiceLocator().centralAssetAuditDataService;
-      final existing = await _findDownloadedAssetUploadRow(widget.siteData.siteId);
+      final existing = widget.siteAuditSchIdForStorage != null
+          ? await dataService.getRawApiData(widget.siteAuditSchIdForStorage!)
+          : await _findDownloadedAssetUploadRow(widget.siteData.siteId);
       bool isUpdated;
       if (existing != null) {
         isUpdated = await dataService.updateRawApiData(
@@ -2315,7 +2330,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
         );
       } else {
         isUpdated = await dataService.saveRawApiData(
-          siteAuditSchId: widget.siteData.siteId.toString(),
+          siteAuditSchId: storageKey,
           siteType: widget.siteData.siteDomainName ?? 'Solar',
           auditSchId: '',
           pvTicketId: '',

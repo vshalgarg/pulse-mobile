@@ -740,6 +740,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
                   : null,
               mode: CMScreenModeEnum
                   .edit, // Edit mode when coming from my tickets
+              siteAuditSchIdForStorage: ticket.siteAuditSchId,
             ),
           ),
         );
@@ -1780,6 +1781,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
                 : null,
             mode:
                 CMScreenModeEnum.edit, // Edit mode when coming from my tickets
+            siteAuditSchIdForStorage: site.siteId.toString(),
           ),
         ),
       );
