@@ -999,37 +999,37 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     }
 
     // When online, do not send LOCAL_IMAGE_ID — all compulsory images must be uploaded first
-    final isOnline = await ConnectivityHelper.isConnected();
-    if (isOnline) {
-      if (_uploadedImgId!.contains('LOCAL_IMAGE_ID')) {
-        showCustomToast(
-          context,
-          "Please upload selfie before submitting when online",
-        );
-        return;
-      }
-      if (_officialIdImageId!.contains('LOCAL_IMAGE_ID')) {
-        showCustomToast(
-          context,
-          "Please upload Official ID Card before submitting when online",
-        );
-        return;
-      }
-      if (_aadharCardImageId!.contains('LOCAL_IMAGE_ID')) {
-        showCustomToast(
-          context,
-          "Please upload Aadhar Card before submitting when online",
-        );
-        return;
-      }
-      if (_leavingStatusImageId!.contains('LOCAL_IMAGE_ID')) {
-        showCustomToast(
-          context,
-          "Please upload Status of site at time of leaving before submitting when online",
-        );
-        return;
-      }
-    }
+    // final isOnline = await ConnectivityHelper.isConnected();
+    // if (isOnline) {
+    //   if (_uploadedImgId!.contains('LOCAL_IMAGE_ID')) {
+    //     showCustomToast(
+    //       context,
+    //       "Please upload selfie before submitting when online",
+    //     );
+    //     return;
+    //   }
+    //   if (_officialIdImageId!.contains('LOCAL_IMAGE_ID')) {
+    //     showCustomToast(
+    //       context,
+    //       "Please upload Official ID Card before submitting when online",
+    //     );
+    //     return;
+    //   }
+    //   if (_aadharCardImageId!.contains('LOCAL_IMAGE_ID')) {
+    //     showCustomToast(
+    //       context,
+    //       "Please upload Aadhar Card before submitting when online",
+    //     );
+    //     return;
+    //   }
+    //   if (_leavingStatusImageId!.contains('LOCAL_IMAGE_ID')) {
+    //     showCustomToast(
+    //       context,
+    //       "Please upload Status of site at time of leaving before submitting when online",
+    //     );
+    //     return;
+    //   }
+    // }
 
     try {
       // Show loader

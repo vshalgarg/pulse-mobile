@@ -455,7 +455,17 @@ class _TicketScreenState extends State<TicketScreen>
           }
         });
       } else if (_currentActivityType == ActivityTypeEnum.siteVisit) {
-        // Create site data from API response with correct field mapping
+        // Create site data from API response with correct field mapping.
+        // Support both camelCase and snake_case for image IDs (API/DB may use either).
+        final visitingPersonImageId = apiData['visitingPersonImageId']?.toString() ??
+            apiData['visiting_person_image_id']?.toString();
+        final officialIdImageId = apiData['officialIdImageId']?.toString() ??
+            apiData['official_id_image_id']?.toString();
+        final aadharCardImageId = apiData['aadharCardImageId']?.toString() ??
+            apiData['aadhar_card_image_id']?.toString();
+        final leavingStatusImageId = apiData['leavingStatusImageId']?.toString() ??
+            apiData['leaving_status_image_id']?.toString();
+
         final siteData = AllSiteModel(
           siteId: apiData['siteId'] ?? ticket.ticketSchId,
           entityId: 0, // Default value
@@ -481,10 +491,10 @@ class _TicketScreenState extends State<TicketScreen>
           siteVisitLogId: apiData['svlId']?.toString(),
           siteVisitLogDate: apiData['visitDate']?.toString(),
           purposeOfVisit: apiData['purposeOfVisit']?.toString(),
-          visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
-          officialIdImageId: apiData['officialIdImageId']?.toString(),
-          aadharCardImageId: apiData['aadharCardImageId']?.toString(),
-          leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
+          visitingPersonImageId: visitingPersonImageId,
+          officialIdImageId: officialIdImageId,
+          aadharCardImageId: aadharCardImageId,
+          leavingStatusImageId: leavingStatusImageId,
           visitorName:
               apiData['visitorName']?.toString() ??
               apiData['visitor_name']?.toString(),
