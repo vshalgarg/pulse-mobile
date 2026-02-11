@@ -400,6 +400,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               siteData: siteData,
               parentContext: parentContext,
               preloadedOrganisationList: organisationList,
+              siteAuditSchIdForStorage: ticket.siteAuditSchId,
             ),
           ),
         );
@@ -1559,6 +1560,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               siteData: siteDataToUse,
               parentContext: parentContext,
               preloadedOrganisationList: organisationList,
+              siteAuditSchIdForStorage: site.siteId.toString(),
             ),
           ),
         );

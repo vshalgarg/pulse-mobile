@@ -534,6 +534,7 @@ class _TicketScreenState extends State<TicketScreen>
               siteData: siteData,
               parentContext: parentContext,
               preloadedOrganisationList: organisationList,
+              siteAuditSchIdForStorage: ticket.ticketSchId.toString(),
             ),
           ),
         );

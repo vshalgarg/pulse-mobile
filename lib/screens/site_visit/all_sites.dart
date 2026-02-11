@@ -364,6 +364,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                   siteData: siteData,
                   parentContext: parentContext,
                   preloadedOrganisationList: organisationList,
+                  siteAuditSchIdForStorage: site.siteId.toString(),
                 ),
               ),
             );
@@ -538,7 +539,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       context,
       MaterialPageRoute(
         builder: (_) => widget.ActivityType == 'SV'
-            ? SiteVisitScreen(siteData: site, parentContext: parentContext)
+            ? SiteVisitScreen(
+                siteData: site,
+                parentContext: parentContext,
+                siteAuditSchIdForStorage: site.siteId.toString(),
+              )
             : widget.ActivityType == 'GI'
             ? GInspectionDetailScreen(
                 siteData: site,

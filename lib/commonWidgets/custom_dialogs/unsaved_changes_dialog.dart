@@ -10,6 +10,8 @@ class UnsavedChangesDialog extends StatefulWidget {
   final String? message;
   final Future<void> Function() onSaveAndExit;
   final VoidCallback onDiscard;
+  /// If set, called before closing on Discard; awaited so e.g. local persist can finish.
+  final Future<void> Function()? onDiscardAsync;
   final String? siteAuditSchId;
   final String? section;
   final BuildContext? parentContext;
@@ -19,6 +21,7 @@ class UnsavedChangesDialog extends StatefulWidget {
     this.message,
     required this.onSaveAndExit,
     required this.onDiscard,
+    this.onDiscardAsync,
     this.siteAuditSchId,
     this.section,
     this.parentContext,
@@ -169,7 +172,12 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
   }
 
   void _onDiscard(BuildContext context) async {
-    // Close the dialog first
+    // Run optional async work (e.g. persist to SQLite) before closing
+    if (widget.onDiscardAsync != null) {
+      await widget.onDiscardAsync!();
+    }
+    if (!context.mounted) return;
+    // Close the dialog
     Navigator.of(context).pop();
 
     // Use parentContext if available, otherwise use the dialog context

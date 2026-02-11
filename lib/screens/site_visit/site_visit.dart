@@ -17,7 +17,6 @@ import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/screens/ticket_screen.dart';
-import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -27,12 +26,16 @@ class SiteVisitScreen extends StatefulWidget {
   final AllSiteModel siteData;
   final BuildContext? parentContext;
   final List<Map<String, dynamic>>? preloadedOrganisationList;
+  /// Key used to load/save raw_api_data in SQLite. If null, [siteData.siteId] is used.
+  /// Ticket Screen uses ticket.ticketSchId; My Tickets/All Sites use site.siteId.
+  final String? siteAuditSchIdForStorage;
 
   const SiteVisitScreen({
     super.key,
     required this.siteData,
     this.parentContext,
     this.preloadedOrganisationList,
+    this.siteAuditSchIdForStorage,
   });
 
   @override
@@ -419,6 +422,51 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     );
   }
 
+  /// Persist current form data and image IDs to raw_api_data so the downloaded
+  /// ticket shows updated data when reopened from My Tickets or Ticket Screen.
+  Future<void> _persistSiteVisitDataToSqlite() async {
+    try {
+      final siteAuditSchId = widget.siteAuditSchIdForStorage ??
+          widget.siteData.siteId.toString();
+      final dbData = await _service.getActualDataFromSqlite(
+        siteAuditSchId: siteAuditSchId,
+      );
+      if (dbData == null) return;
+
+      // Update with current form and image IDs (camelCase + snake_case for compatibility)
+      dbData['visitingPersonImageId'] = _uploadedImgId;
+      dbData['visiting_person_image_id'] = _uploadedImgId;
+      dbData['officialIdImageId'] = _officialIdImageId;
+      dbData['official_id_image_id'] = _officialIdImageId;
+      dbData['aadharCardImageId'] = _aadharCardImageId;
+      dbData['aadhar_card_image_id'] = _aadharCardImageId;
+      dbData['leavingStatusImageId'] = _leavingStatusImageId;
+      dbData['leaving_status_image_id'] = _leavingStatusImageId;
+      dbData['purposeOfVisit'] = _purposeController.text.trim();
+      dbData['purpose_of_visit'] = _purposeController.text.trim();
+      dbData['visitorName'] = _visitorNameController.text.trim();
+      dbData['visitor_name'] = _visitorNameController.text.trim();
+      dbData['visitorContactNo'] = _visitorContactNoController.text.trim();
+      dbData['visitor_contact_no'] = _visitorContactNoController.text.trim();
+      dbData['orgId'] = _selectedOrganizationId;
+      dbData['org_id'] = _selectedOrganizationId;
+      dbData['roleDesignation'] = _roleDesignationController.text.trim();
+      dbData['role_designation'] = _roleDesignationController.text.trim();
+      dbData['reportingManager'] = _reportingManagerController.text.trim();
+      dbData['reporting_manager'] = _reportingManagerController.text.trim();
+      dbData['organisationName'] = _getOrganizationNameById(_selectedOrganizationId);
+      dbData['organisation_name'] = dbData['organisationName'];
+
+      await _service.updateDataInSqlite(
+        siteAuditSchId: siteAuditSchId,
+        updatedData: dbData,
+      );
+      Logger.debugLog('✅ Site Visit data persisted to SQLite for ticket $siteAuditSchId');
+    } catch (e) {
+      Logger.errorLog('❌ Error persisting Site Visit data to SQLite: $e');
+    }
+  }
+
   Future<void> _uploadSelfie() async {
     try {
       if (_selectedImage == null) {
@@ -434,32 +482,13 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         activityType: ActivityTypeEnum.siteVisit,
       );
 
-      // Update the database with the new image ID
-      final dbData = await _service.getActualDataFromSqlite(
-        siteAuditSchId: widget.siteData.siteId.toString(),
-      );
-      if (dbData != null) {
-        final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
-        final pageHeader = pageHeaders?.isNotEmpty == true
-            ? pageHeaders!.first as Map<String, dynamic>
-            : null;
-        if (pageHeader != null) {
-          pageHeader['maker_selfie_image_id'] = imgId;
-
-          // Save the updated data back to the database
-          await _service.updateDataInSqlite(
-            siteAuditSchId: widget.siteData.siteId.toString(),
-            updatedData: dbData,
-          );
-        }
-      }
-
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
           _uploadedImgId = imgId;
 
           _hasFormDataChanges = true;
         });
+        await _persistSiteVisitDataToSqlite();
 
         // Show appropriate message based on whether it's server or local ID
         if (imgId.contains("LOCAL_IMAGE_ID")) {
@@ -495,6 +524,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _officialIdImageId = imgId;
           _hasFormDataChanges = true;
         });
+        await _persistSiteVisitDataToSqlite();
 
         if (imgId.contains("LOCAL_IMAGE_ID")) {
           showCustomToast(context, 'Official ID Card saved locally (offline mode)');
@@ -529,6 +559,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _aadharCardImageId = imgId;
           _hasFormDataChanges = true;
         });
+        await _persistSiteVisitDataToSqlite();
 
         if (imgId.contains("LOCAL_IMAGE_ID")) {
           showCustomToast(context, 'Aadhar Card saved locally (offline mode)');
@@ -563,6 +594,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _leavingStatusImageId = imgId;
           _hasFormDataChanges = true;
         });
+        await _persistSiteVisitDataToSqlite();
 
         if (imgId.contains("LOCAL_IMAGE_ID")) {
           showCustomToast(context, 'Leaving status saved locally (offline mode)');
@@ -747,6 +779,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           isRequired: false,
           isEditable: true,
           keyboardType: TextInputType.phone,
+          maxLength: 10,
         ),
         const SizedBox(height: 15),
 
@@ -931,6 +964,10 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
             await _submitForm(navigateOnSuccess: false);
           },
           onDiscard: () {},
+          onDiscardAsync: () async {
+            // Persist current edits to SQLite so the downloaded ticket shows updates when reopened
+            await _persistSiteVisitDataToSqlite();
+          },
         ),
       );
     } else {
@@ -1037,6 +1074,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
       // Submit the form with already uploaded image
       await postSiteVisitLog();
+
+      // Persist to SQLite so the downloaded ticket shows updated data when reopened
+      await _persistSiteVisitDataToSqlite();
 
       // Hide loader
       LoaderWidget.hideLoader();
