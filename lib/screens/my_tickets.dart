@@ -1474,11 +1474,92 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         break;
       case ActivityTypeEnum.siteVisit:
         final parentContext = context;
+        // Load raw_api_data so we can pass organisationList for dropdown (offline/online)
+        List<Map<String, dynamic>>? organisationList;
+        AllSiteModel siteDataToUse = site;
+        try {
+          final rawData = await ServiceLocator().centralAssetAuditService
+              .getDataFromSqlite(siteAuditSchId: site.siteId.toString());
+          if (rawData != null && rawData.apiData.isNotEmpty) {
+            final apiData = rawData.apiData;
+            if (apiData['organisationList'] != null) {
+              organisationList = (apiData['organisationList'] as List)
+                  .map((e) => Map<String, dynamic>.from(e))
+                  .toList();
+            }
+            siteDataToUse = AllSiteModel(
+              siteId: apiData['siteId'] ?? site.siteId,
+              entityId: site.entityId,
+              siteCode: apiData['siteCode'] ?? site.siteCode,
+              siteName: apiData['siteName'] ?? site.siteName,
+              clusterDistrictId: site.clusterDistrictId,
+              clusterDistrictName: apiData['cluster'] ?? site.clusterDistrictName,
+              circleStateId: site.circleStateId,
+              circleStateName: apiData['circle'] ?? site.circleStateName,
+              clientId: site.clientId,
+              clientName: apiData['client'] ?? site.clientName,
+              oem: site.oem,
+              oemId: site.oemId,
+              self: site.self,
+              selfId: site.selfId,
+              siteDomainName: site.siteDomainName,
+              distanceKM: site.distanceKM,
+              infraEngineerName:
+                  apiData['infraDistrictEngineerName'] ?? site.infraEngineerName,
+              infraEngineerPhone:
+                  apiData['infraDistrictEngineerContactNo'] ?? site.infraEngineerPhone,
+              ownerName: apiData['ownerName'] ?? site.ownerName,
+              ownerPhone: apiData['ownerContactNo'] ?? site.ownerPhone,
+              siteVisitLogId: apiData['svlId']?.toString(),
+              siteVisitLogDate: apiData['visitDate']?.toString(),
+              purposeOfVisit: apiData['purposeOfVisit']?.toString(),
+              visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
+              officialIdImageId: apiData['officialIdImageId']?.toString(),
+              aadharCardImageId: apiData['aadharCardImageId']?.toString(),
+              leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
+              visitorName:
+                  apiData['visitorName']?.toString() ??
+                  apiData['visitor_name']?.toString(),
+              visitorContactNo:
+                  apiData['visitorContactNo']?.toString() ??
+                  apiData['visitor_contact_no']?.toString(),
+              organisationName:
+                  apiData['organisationName']?.toString() ??
+                  apiData['organisation_name']?.toString() ??
+                  apiData['organizationName']?.toString() ??
+                  apiData['organization_name']?.toString(),
+              orgId: apiData['orgId'] != null
+                  ? (apiData['orgId'] is int
+                      ? apiData['orgId'] as int
+                      : int.tryParse(apiData['orgId'].toString()))
+                  : null,
+              roleDesignation:
+                  apiData['roleDesignation']?.toString() ??
+                  apiData['role_designation']?.toString(),
+              reportingManager:
+                  apiData['reportingManager']?.toString() ??
+                  apiData['reporting_manager']?.toString(),
+              latitude: site.latitude,
+              longitude: site.longitude,
+            );
+          }
+        } catch (_) {}
+        // If no organisationList from raw_api_data, try cached list (e.g. offline)
+        if ((organisationList == null || organisationList.isEmpty)) {
+          try {
+            organisationList = await ServiceLocator()
+                .sitesRepository
+                .getOrganisationList();
+          } catch (_) {}
+        }
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                SiteVisitScreen(siteData: site, parentContext: parentContext),
+            builder: (_) => SiteVisitScreen(
+              siteData: siteDataToUse,
+              parentContext: parentContext,
+              preloadedOrganisationList: organisationList,
+            ),
           ),
         );
         break;

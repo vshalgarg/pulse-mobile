@@ -118,8 +118,9 @@ class CentralAssetAuditService {
   }
 
   /// Download Site Visit site data and save to SQLite.
-  /// Also fetches and saves organisationList (and site visit log if any) to raw_api_data
+  /// Stores the same data as in online mode (site from list + organisationList) to raw_api_data
   /// so the organisation dropdown works when opening from My Tickets in offline mode.
+  /// Does NOT call /api/v1/om-schedule/siteVisitLog — only fetches organisation list.
   Future<bool> downloadSVSiteData({
     required AllSiteModel site,
   }) async {
@@ -154,51 +155,35 @@ class CentralAssetAuditService {
             longitude: site.longitude,
           );
 
-      // Fetch site visit log + organisationList (or at least organisationList) and save to raw_api_data
-      // so My Tickets → Site Visit shows organisation dropdown in offline mode
-      Map<String, dynamic>? apiData;
+      // Build payload with same data as online mode (site from list + organisationList).
+      // Do NOT call siteVisitLog API — only fetch organisation list.
+      final Map<String, dynamic> apiData = {
+        'siteId': site.siteId,
+        'siteCode': site.siteCode,
+        'siteName': site.siteName,
+        'cluster': site.clusterDistrictName,
+        'circle': site.circleStateName,
+        'client': site.clientName,
+        'infraDistrictEngineerName': site.infraEngineerName,
+        'infraDistrictEngineerContactNo': site.infraEngineerPhone,
+        'ownerName': site.ownerName,
+        'ownerContactNo': site.ownerPhone,
+        'orgId': site.orgId,
+        'organisationName': site.organisationName,
+      };
+
       try {
-        apiData = await ServiceLocator().centralApiService.fetchSiteVisitData(
-          siteType: 'SV',
-          auditSchId: site.siteId.toString(),
-          siteAuditSchId: site.siteId.toString(),
-        );
-      } catch (e) {
-        Logger.debugLog('⚠️ fetchSiteVisitData failed (site may have no visit log): $e');
-      }
-
-      // If no visit log data, build minimal payload with site info so we can still save organisationList
-      if (apiData == null || apiData.isEmpty) {
-        apiData = {
-          'siteId': site.siteId,
-          'siteCode': site.siteCode,
-          'siteName': site.siteName,
-          'cluster': site.clusterDistrictName,
-          'circle': site.circleStateName,
-          'client': site.clientName,
-          'infraDistrictEngineerName': site.infraEngineerName,
-          'infraDistrictEngineerContactNo': site.infraEngineerPhone,
-          'ownerName': site.ownerName,
-          'ownerContactNo': site.ownerPhone,
-          'orgId': site.orgId,
-          'organisationName': site.organisationName,
-        };
-      }
-
-      // Ensure organisationList is present (visit log API may omit it for empty response)
-      if (apiData['organisationList'] == null ||
-          (apiData['organisationList'] is List && (apiData['organisationList'] as List).isEmpty)) {
-        try {
-          final organisationList = await ServiceLocator()
-              .sitesRepository
-              .getOrganisationList();
-          if (organisationList.isNotEmpty) {
-            apiData['organisationList'] = organisationList;
-            Logger.debugLog('✅ Organisation list fetched and added to payload (${organisationList.length} items)');
-          }
-        } catch (e) {
-          Logger.debugLog('⚠️ Could not fetch organisation list: $e');
+        final organisationList = await ServiceLocator()
+            .sitesRepository
+            .getOrganisationList();
+        if (organisationList.isNotEmpty) {
+          apiData['organisationList'] = organisationList;
+          Logger.debugLog(
+            '✅ Organisation list fetched and added to payload (${organisationList.length} items)',
+          );
         }
+      } catch (e) {
+        Logger.debugLog('⚠️ Could not fetch organisation list: $e');
       }
 
       if (apiData.isNotEmpty) {

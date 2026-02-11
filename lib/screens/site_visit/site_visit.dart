@@ -156,7 +156,26 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading organisation list: $e');
-      // Keep empty list on error
+      // Offline fallback: use site organisation name as single option so dropdown is clickable
+      final name = widget.siteData.organisationName?.trim();
+      if (name != null && name.isNotEmpty) {
+        final orgId = widget.siteData.orgId;
+        setState(() {
+          _organizationList = [
+            {'org_id': orgId ?? 0, 'org_name': name}
+          ];
+          _organizationOptions = [name];
+          _selectedOrganizationId = orgId;
+        });
+      } else {
+        // No name either: add placeholder so dropdown has one option and is clickable
+        setState(() {
+          _organizationList = [
+            {'org_id': 0, 'org_name': 'Select organisation'}
+          ];
+          _organizationOptions = ['Select organisation'];
+        });
+      }
     }
   }
 
@@ -1032,10 +1051,13 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         return;
       }
 
-      // Navigate back to the originating screen after a short delay
+      // Go back to the screen we came from (My Tickets, Ticket Screen, or All Sites)
       await Future.delayed(const Duration(milliseconds: 500));
 
-      if (mounted) {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else if (mounted) {
+        // Fallback if we have no route to pop (e.g. opened directly)
         final navContext = widget.parentContext ?? context;
         Navigator.pushAndRemoveUntil(
           navContext,

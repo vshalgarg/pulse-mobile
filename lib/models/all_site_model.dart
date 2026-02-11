@@ -237,13 +237,21 @@ class AllSiteModel {
           : null,
 
 
-          longitude: json['longitude'] != null
-          ? json['longitude'].toString()
-          : null,
-      latitude: json['latitude'] != null
-          ? json['latitude'].toString()
-          : null,
+      longitude: _parseLatLngString(json, 'longitude'),
+      latitude: _parseLatLngString(json, 'latitude'),
     );
+  }
+
+  /// Parse latitude or longitude from JSON, supporting multiple common API key names.
+  static String? _parseLatLngString(Map<String, dynamic> json, String which) {
+    const latKeys = ['latitude', 'lat', 'site_latitude', 'site_lat'];
+    const lngKeys = ['longitude', 'lng', 'lon', 'site_longitude', 'site_lng'];
+    final keys = which == 'latitude' ? latKeys : lngKeys;
+    for (final key in keys) {
+      final v = json[key];
+      if (v != null && v.toString().trim().isNotEmpty) return v.toString().trim();
+    }
+    return null;
   }
 
   Map<String, dynamic> toJson() {
