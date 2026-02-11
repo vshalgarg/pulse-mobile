@@ -17,6 +17,7 @@ import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/screens/ticket_screen.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -976,6 +977,39 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
     if (_leavingStatusImageId == null || _leavingStatusImageId!.isEmpty) {
       showCustomToast(context, "Please add Status of site at time of leaving");
       return;
+    }
+
+    // When online, do not send LOCAL_IMAGE_ID — all compulsory images must be uploaded first
+    final isOnline = await ConnectivityHelper.isConnected();
+    if (isOnline) {
+      if (_uploadedImgId!.contains('LOCAL_IMAGE_ID')) {
+        showCustomToast(
+          context,
+          "Please upload selfie before submitting when online",
+        );
+        return;
+      }
+      if (_officialIdImageId!.contains('LOCAL_IMAGE_ID')) {
+        showCustomToast(
+          context,
+          "Please upload Official ID Card before submitting when online",
+        );
+        return;
+      }
+      if (_aadharCardImageId!.contains('LOCAL_IMAGE_ID')) {
+        showCustomToast(
+          context,
+          "Please upload Aadhar Card before submitting when online",
+        );
+        return;
+      }
+      if (_leavingStatusImageId!.contains('LOCAL_IMAGE_ID')) {
+        showCustomToast(
+          context,
+          "Please upload Status of site at time of leaving before submitting when online",
+        );
+        return;
+      }
     }
 
     try {

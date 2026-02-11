@@ -117,7 +117,9 @@ class CentralAssetAuditService {
     }
   }
 
-  /// Download Site Visit site data and save to SQLite
+  /// Download Site Visit site data and save to SQLite.
+  /// Also fetches and saves organisationList (and site visit log if any) to raw_api_data
+  /// so the organisation dropdown works when opening from My Tickets in offline mode.
   Future<bool> downloadSVSiteData({
     required AllSiteModel site,
   }) async {
@@ -152,11 +154,90 @@ class CentralAssetAuditService {
             longitude: site.longitude,
           );
 
-      // Note: Sites downloaded from "All Sites" should NOT be saved to raw_api_data table
-      // as they are not tickets. They should only appear in sv_sites_data table.
-      // The raw_api_data table is reserved for actual tickets downloaded from the Tickets screen.
+      // Fetch site visit log + organisationList (or at least organisationList) and save to raw_api_data
+      // so My Tickets → Site Visit shows organisation dropdown in offline mode
+      Map<String, dynamic>? apiData;
+      try {
+        apiData = await ServiceLocator().centralApiService.fetchSiteVisitData(
+          siteType: 'SV',
+          auditSchId: site.siteId.toString(),
+          siteAuditSchId: site.siteId.toString(),
+        );
+      } catch (e) {
+        Logger.debugLog('⚠️ fetchSiteVisitData failed (site may have no visit log): $e');
+      }
 
-      Logger.debugLog('✅ Site Visit site data saved successfully to SQLite: $isSaved');
+      // If no visit log data, build minimal payload with site info so we can still save organisationList
+      if (apiData == null || apiData.isEmpty) {
+        apiData = {
+          'siteId': site.siteId,
+          'siteCode': site.siteCode,
+          'siteName': site.siteName,
+          'cluster': site.clusterDistrictName,
+          'circle': site.circleStateName,
+          'client': site.clientName,
+          'infraDistrictEngineerName': site.infraEngineerName,
+          'infraDistrictEngineerContactNo': site.infraEngineerPhone,
+          'ownerName': site.ownerName,
+          'ownerContactNo': site.ownerPhone,
+          'orgId': site.orgId,
+          'organisationName': site.organisationName,
+        };
+      }
+
+      // Ensure organisationList is present (visit log API may omit it for empty response)
+      if (apiData['organisationList'] == null ||
+          (apiData['organisationList'] is List && (apiData['organisationList'] as List).isEmpty)) {
+        try {
+          final organisationList = await ServiceLocator()
+              .sitesRepository
+              .getOrganisationList();
+          if (organisationList.isNotEmpty) {
+            apiData['organisationList'] = organisationList;
+            Logger.debugLog('✅ Organisation list fetched and added to payload (${organisationList.length} items)');
+          }
+        } catch (e) {
+          Logger.debugLog('⚠️ Could not fetch organisation list: $e');
+        }
+      }
+
+      if (apiData.isNotEmpty) {
+        try {
+          final lat = site.latitude != null
+              ? double.tryParse(site.latitude!) ?? 0.0
+              : 0.0;
+          final lng = site.longitude != null
+              ? double.tryParse(site.longitude!) ?? 0.0
+              : 0.0;
+          await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
+            siteAuditSchId: site.siteId.toString(),
+            siteType: site.siteDomainName ?? 'Solar',
+            auditSchId: '',
+            pvTicketId: site.siteCode,
+            siteCode: site.siteCode,
+            cluster: site.clusterDistrictName,
+            operator: site.clientName ?? '',
+            raisedDt: '',
+            dueDt: '',
+            status: 'Site',
+            isDownloaded: true,
+            activityType: ActivityTypeEnum.siteVisit,
+            latitude: lat,
+            longitude: lng,
+            apiData: apiData,
+          );
+          Logger.debugLog(
+            '✅ Site Visit API data (with organisationList) saved to raw_api_data',
+          );
+        } catch (e) {
+          Logger.debugLog(
+            '⚠️ Could not save Site Visit data to raw_api_data: $e',
+          );
+        }
+      }
+
+      Logger.debugLog(
+          '✅ Site Visit site data saved successfully to SQLite: $isSaved');
       return isSaved;
     } catch (e) {
       Logger.errorLog('❌ Error downloading Site Visit site data: $e');
