@@ -1304,37 +1304,69 @@ class AssetAuditPostService {
         return request;
       }
 
-      // Check if photo_id is a unique_id (starts with LOCAL_IMAGE_ID_)
-      if (photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
-        // This is a unique_id, get the server_id using ImageUploadService
+      // Check if photo_id is a unique_id (contains LOCAL_IMAGE_ID - do not send to API)
+      final photoIdStr = photoId.toString();
+      if (photoIdStr.contains('LOCAL_IMAGE_ID')) {
+        // Only try upload for full format LOCAL_IMAGE_ID_*; otherwise set 0 so we never send local id
+        if (photoIdStr.startsWith('LOCAL_IMAGE_ID_')) {
+          final imageModel = await ServiceLocator().imageUploadService
+              .getServerIdFromUniqueIdTryUploading(photoIdStr);
+          if (imageModel != null ) {
+            final serverId = imageModel.serverId;
+            final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
 
-        final imageModel = await ServiceLocator().imageUploadService
-            .getServerIdFromUniqueIdTryUploading(photoId.toString());
-        if (imageModel != null) {
-          final serverId = imageModel.serverId;
+            if (request.containsKey("energyReadingId")) {
+              request['ebAttachmentFileId'] = serverId;
+            } else if (request.containsKey("visitingPersonName") ||
+                request.containsKey("visitingPersonId") ||
+                request.containsKey("svlId")) {
+              request['visitingPersonImageId'] = serverId;
+            } else if (request.containsKey("gispId")) {
+              request['respPhotoId'] = serverId;
+            } else if (request.containsKey("incidentImgId")) {
+              request['incidentImgId'] = serverId;
+            } else {
+              request['photo_id'] = serverId;
+            }
 
-          final timestamp = Utils.getTmeFromMSForAPICall(imageModel.createdAt);
-
-          if (request.containsKey("energyReadingId")) {
-            request['ebAttachmentFileId'] = serverId;
-          } else if (request.containsKey("visitingPersonName") ||
-              request.containsKey("visitingPersonId")) {
-            request['visitingPersonImageId'] = serverId;
-          } else if (request.containsKey("gispId")) {
-            request['respPhotoId'] = serverId;
-          } else if (request.containsKey("incidentImgId")) {
-            request['incidentImgId'] = serverId;
+            if (timestamp != null) {
+              request['photo_taken_ts'] = timestamp;
+            }
           } else {
-            request['photo_id'] = serverId;
-          }
-
-          if (timestamp != null) {
-            request['photo_taken_ts'] = timestamp;
+            Logger.debugLog(
+              "FAILED to get server_id for LOCAL_IMAGE_ID: $photoId - setting to 0 so we do not send local id",
+            );
+            if (request.containsKey("visitingPersonName") ||
+                request.containsKey("visitingPersonId") ||
+                request.containsKey("svlId")) {
+              request['visitingPersonImageId'] = null;
+            } else if (request.containsKey("energyReadingId")) {
+              request['ebAttachmentFileId'] = null;
+            } else if (request.containsKey("gispId")) {
+              request['respPhotoId'] = null;
+            } else if (request.containsKey("incidentImgId")) {
+              request['incidentImgId'] = null;
+            } else {
+              request['photo_id'] = null;
+            }
           }
         } else {
           Logger.debugLog(
-            "FAILED to get server_id for LOCAL_IMAGE_ID: $photoId",
+            "photo_id contains LOCAL_IMAGE_ID but not replaceable: $photoIdStr - setting to 0",
           );
+          if (request.containsKey("visitingPersonName") ||
+              request.containsKey("visitingPersonId") ||
+              request.containsKey("svlId")) {
+            request['visitingPersonImageId'] = null;
+          } else if (request.containsKey("energyReadingId")) {
+            request['ebAttachmentFileId'] = null;
+          } else if (request.containsKey("gispId")) {
+            request['respPhotoId'] = null;
+          } else if (request.containsKey("incidentImgId")) {
+            request['incidentImgId'] = null;
+          } else {
+            request['photo_id'] = null;
+          }
         }
       } else {
         // This is already a server_id, just add photo_taken_ts if not present
@@ -1471,32 +1503,37 @@ class AssetAuditPostService {
             continue;
           }
 
-          // Check if it's a LOCAL_IMAGE_ID
-          if (imageId.toString().startsWith('LOCAL_IMAGE_ID_')) {
-            Logger.debugLog('🔄 Processing $fieldName: $imageId');
+          // Check if it's a LOCAL_IMAGE_ID - never send to API
+          final imageIdStr = imageId.toString();
+          if (imageIdStr.contains('LOCAL_IMAGE_ID')) {
+            if (imageIdStr.startsWith('LOCAL_IMAGE_ID_')) {
+              Logger.debugLog('🔄 Processing $fieldName: $imageId');
 
-            // Upload image and get server ID
-            final imageModel = await ServiceLocator().imageUploadService
-                .getServerIdFromUniqueIdTryUploading(imageId.toString());
+              final imageModel = await ServiceLocator().imageUploadService
+                  .getServerIdFromUniqueIdTryUploading(imageIdStr);
 
-            if (imageModel != null && imageModel.serverId != null) {
-              // Replace LOCAL_IMAGE_ID with server ID (as integer)
-              final serverId =
-                  int.tryParse(imageModel.serverId.toString()) ?? 0;
-              request[fieldName] = serverId;
-              Logger.debugLog(
-                '✅ $fieldName replaced with server ID: $serverId (was: $imageId)',
-              );
+              if (imageModel != null && imageModel.serverId != null) {
+                final serverId =
+                    int.tryParse(imageModel.serverId.toString()) ?? 0;
+                request[fieldName] = serverId;
+                Logger.debugLog(
+                  '✅ $fieldName replaced with server ID: $serverId (was: $imageId)',
+                );
+              } else {
+                Logger.errorLog(
+                  '❌ Failed to upload image for $fieldName: $imageId - setting to 0',
+                );
+                request[fieldName] = 0;
+              }
             } else {
-              Logger.errorLog(
-                '❌ Failed to upload image for $fieldName: $imageId',
+              Logger.debugLog(
+                '⚠️ $fieldName contains LOCAL_IMAGE_ID but not replaceable - setting to 0',
               );
-              // Set to 0 if upload fails (server expects integer, not string)
               request[fieldName] = 0;
             }
           } else {
             // Already a server ID, ensure it's an integer
-            final serverId = int.tryParse(imageId.toString()) ?? 0;
+            final serverId = int.tryParse(imageIdStr) ?? 0;
             request[fieldName] = serverId;
             Logger.debugLog('✅ $fieldName already has server ID: $serverId');
           }

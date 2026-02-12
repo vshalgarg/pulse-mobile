@@ -17,6 +17,7 @@ import 'package:app/screens/my_tickets.dart';
 import 'package:app/screens/notifications.dart';
 import 'package:app/services/notification_service.dart';
 import 'package:app/utils/logger.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class PulseDashboard extends StatefulWidget {
   const PulseDashboard({Key? key}) : super(key: key);
@@ -30,11 +31,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
       GlobalKey<PopupMenuButtonState>();
 
   String _notificationCount = "0";
+  String version = "";
 
   @override
   void initState() {
     super.initState();
     _loadNotifications();
+    loadVersion();
   }
 
   @override
@@ -43,6 +46,15 @@ class _PulseDashboardState extends State<PulseDashboard> {
     // Refresh notifications when the screen becomes visible
     _loadNotifications();
   }
+
+
+
+void loadVersion() async {
+  final info = await PackageInfo.fromPlatform();
+  setState(() {
+    version = info.version;
+  });
+}
 
   Future<void> _loadNotifications() async {
     try {
@@ -276,10 +288,9 @@ class _PulseDashboardState extends State<PulseDashboard> {
           ),
 
           const SizedBox(height: 5),
-          const Text(
-            "Version 1.7.0",
-
-            style: TextStyle(
+          Text(
+            "Version $version",
+            style: const TextStyle(
               fontSize: 8,
               color: Colors.white,
               fontWeight: FontWeight.w400,

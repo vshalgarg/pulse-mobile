@@ -1023,6 +1023,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
 
   /// When online, replaces LOCAL_IMAGE_ID with server IDs in asset item images
   /// so the API receives only numeric photo IDs (same as asset audit and offline sync).
+  /// Any photoId containing LOCAL_IMAGE_ID is either replaced or set to null so it is never sent in POST.
   Future<List<AssetUploadItem>> _replaceLocalImageIdsWithServerIdsInItems(
     List<AssetUploadItem> items,
   ) async {
@@ -1031,28 +1032,46 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
       final List<AssetUploadItemImage> newImages = [];
       for (final img in item.assetUploadItemImages) {
         final photoId = img.photoId;
-        if (photoId != null &&
-            photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
-          final imageModel = await ServiceLocator().imageUploadService
-              .getServerIdFromUniqueIdTryUploading(photoId.toString());
-          if (imageModel != null && imageModel.serverId != null) {
-            final serverId =
-                int.tryParse(imageModel.serverId.toString()) ?? 0;
-            newImages.add(AssetUploadItemImage(
-              auiiId: img.auiiId,
-              photoId: serverId,
-              photoTakenTs: img.photoTakenTs,
-              longitude: img.longitude,
-              latitude: img.latitude,
-              isActive: img.isActive,
-              remarks: img.remarks,
-            ));
-            Logger.debugLog(
-              '✅ Asset image LOCAL_IMAGE_ID replaced with server ID: $serverId',
-            );
+        final photoIdStr = photoId?.toString() ?? '';
+        final isLocalImageId = photoIdStr.contains('LOCAL_IMAGE_ID');
+        if (photoId != null && isLocalImageId) {
+          // Only try upload for full format LOCAL_IMAGE_ID_*; otherwise set null so we never send local id
+          if (photoIdStr.startsWith('LOCAL_IMAGE_ID_')) {
+            final imageModel = await ServiceLocator().imageUploadService
+                .getServerIdFromUniqueIdTryUploading(photoIdStr);
+            if (imageModel != null && imageModel.serverId != null) {
+              final serverId =
+                  int.tryParse(imageModel.serverId.toString()) ?? 0;
+              newImages.add(AssetUploadItemImage(
+                auiiId: img.auiiId,
+                photoId: serverId,
+                photoTakenTs: img.photoTakenTs,
+                longitude: img.longitude,
+                latitude: img.latitude,
+                isActive: img.isActive,
+                remarks: img.remarks,
+              ));
+              Logger.debugLog(
+                '✅ Asset image LOCAL_IMAGE_ID replaced with server ID: $serverId',
+              );
+            } else {
+              Logger.debugLog(
+                '❌ Failed to upload asset image: $photoId, sending null',
+              );
+              newImages.add(AssetUploadItemImage(
+                auiiId: img.auiiId,
+                photoId: null,
+                photoTakenTs: img.photoTakenTs,
+                longitude: img.longitude,
+                latitude: img.latitude,
+                isActive: img.isActive,
+                remarks: img.remarks,
+              ));
+            }
           } else {
+            // Malformed or unknown local id format - do not send in online POST
             Logger.debugLog(
-              '❌ Failed to upload asset image: $photoId, sending null',
+              '⚠️ Skipping LOCAL_IMAGE_ID (not replaceable): $photoIdStr, sending null',
             );
             newImages.add(AssetUploadItemImage(
               auiiId: img.auiiId,
