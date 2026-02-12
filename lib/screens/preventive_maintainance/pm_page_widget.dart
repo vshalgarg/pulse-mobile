@@ -175,55 +175,51 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         continue; // Skip validation for Remarks fields
       }
 
-      // Check if field is mandatory based on mandatoryIfValue
-      // Only validate if field is mandatory
+      // Check if PARENT field is mandatory based on parent's mandatoryIfValue
+      // (Dependent elements have their own mandatoryIfValue and are validated in STEP 2)
       final mandatoryIfValue = pmItem['mandatoryIfValue'];
-      bool isMandatory = false;
-      
+      bool isParentMandatory = false;
+
       if (mandatoryIfValue == true) {
-        isMandatory = true;
+        isParentMandatory = true;
       } else if (mandatoryIfValue is bool && mandatoryIfValue == false) {
-        isMandatory = false;
+        isParentMandatory = false;
       } else if (mandatoryIfValue == null) {
-        isMandatory = false; // Default to not mandatory if null
-      }
-      
-      // Skip validation if field is not mandatory
-      if (!isMandatory) {
-        continue;
+        isParentMandatory = false; // Parent has no mandatoryIfValue - still run STEP 2 for dependents
       }
 
-      // Check if any required field is empty (basic validation)
-      bool isParentFieldEmpty = false;
-      String? errorMessage;
-      final checklistDescDisplay = pmItem['checklist_desc']?.toString() ?? 'This field';
+      // Only validate parent field value when parent itself is mandatory
+      if (isParentMandatory) {
+        bool isParentFieldEmpty = false;
+        String? errorMessage;
+        final checklistDescDisplay = pmItem['checklist_desc']?.toString() ?? 'This field';
 
-      if (respTypes.contains('DROPDOWN') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        isParentFieldEmpty = true;
-        errorMessage = '$checklistDescDisplay is required';
-      } else if (respTypes.contains('RADIO') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        isParentFieldEmpty = true;
-        errorMessage = '$checklistDescDisplay is required';
-      } else if (respTypes.contains('TEXT') &&
-          (respValue == null || respValue.toString().trim().isEmpty)) {
-        isParentFieldEmpty = true;
-        errorMessage = '$checklistDescDisplay is required';
-      } else if (respTypes.contains('NUMERIC') &&
-          (respValue == null || respValue.toString().trim().isEmpty)) {
-        isParentFieldEmpty = true;
-        errorMessage = '$checklistDescDisplay is required';
-      } else if (respTypes.contains('IMG') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        isParentFieldEmpty = true;
-        errorMessage = '$checklistDescDisplay is required';
-      }
+        if (respTypes.contains('DROPDOWN') &&
+            (respValue == null || respValue.toString().isEmpty)) {
+          isParentFieldEmpty = true;
+          errorMessage = '$checklistDescDisplay is required';
+        } else if (respTypes.contains('RADIO') &&
+            (respValue == null || respValue.toString().isEmpty)) {
+          isParentFieldEmpty = true;
+          errorMessage = '$checklistDescDisplay is required';
+        } else if (respTypes.contains('TEXT') &&
+            (respValue == null || respValue.toString().trim().isEmpty)) {
+          isParentFieldEmpty = true;
+          errorMessage = '$checklistDescDisplay is required';
+        } else if (respTypes.contains('NUMERIC') &&
+            (respValue == null || respValue.toString().trim().isEmpty)) {
+          isParentFieldEmpty = true;
+          errorMessage = '$checklistDescDisplay is required';
+        } else if (respTypes.contains('IMG') &&
+            (respValue == null || respValue.toString().isEmpty)) {
+          isParentFieldEmpty = true;
+          errorMessage = '$checklistDescDisplay is required';
+        }
 
-      // If parent field is empty, show error and STOP
-      if (isParentFieldEmpty) {
-        _showValidationErrorDialog(errorMessage!);
-        return false;
+        if (isParentFieldEmpty) {
+          _showValidationErrorDialog(errorMessage!);
+          return false;
+        }
       }
 
       // ============================================================

@@ -16,19 +16,31 @@ List<Map<String, dynamic>>? parseDependentElements(Map<String, dynamic> pmItem) 
 }
 
 /// Check if dependent element should be visible based on parent response
-/// 
+///
 /// Rules:
-/// 1. If visibleIfValue == null → Always visible (default)
-/// 2. If visibleIfValue == true → Visible when parent has any response
-/// 3. If visibleIfValue == false → Never visible
-/// 4. If visibleIfValue is a List (e.g., ["No", "Not Ok"]) → Visible only when parent response matches
+/// 1. If visibleIfValue == null and mandatoryIfValue is a List → Visible only when parent matches that list (so red * and field vanish when parent is e.g. "OK")
+/// 2. If visibleIfValue == null and no mandatoryIfValue list → Always visible (default)
+/// 3. If visibleIfValue == true → Visible when parent has any response
+/// 4. If visibleIfValue == false → Never visible
+/// 5. If visibleIfValue is a List → Visible only when parent response matches
 bool shouldDependentElementBeVisible(
   Map<String, dynamic> dependentElement,
   String? parentResponse,
 ) {
   final visibleIfValue = dependentElement['visibleIfValue'];
-  
+  final mandatoryIfValue = dependentElement['mandatoryIfValue'];
+
   if (visibleIfValue == null) {
+    // When no visibleIfValue but mandatoryIfValue is a List (e.g. ["Not OK"]),
+    // show dependent only when parent matches - so when user selects "OK" the field and red * vanish
+    if (mandatoryIfValue is List && mandatoryIfValue.isNotEmpty) {
+      if (parentResponse == null || parentResponse.isEmpty) return false;
+      final mandatoryValues = mandatoryIfValue
+          .map((e) => e.toString().trim().toLowerCase())
+          .toList();
+      final parentValueLower = parentResponse.trim().toLowerCase();
+      return mandatoryValues.contains(parentValueLower);
+    }
     return true; // Default to visible if not specified
   }
   
