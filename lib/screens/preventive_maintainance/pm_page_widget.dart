@@ -358,7 +358,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       }
       
       if (!hasUploadedImage && !hasServerImage) {
-        return '$checklistDesc is required';
+        return 'Photo is required';
       }
     } else if (respType == 'TEXT') {
       // TEXT: Non-empty text required (REMARKS are optional)
