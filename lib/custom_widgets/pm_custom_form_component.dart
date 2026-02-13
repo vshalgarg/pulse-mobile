@@ -1340,32 +1340,39 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                 else
                   // All resp_dtl_checklist fields (original single section)
                   ...respDtlChecklistItems.map((item) => _buildFieldForItem(item)).toList(),
-
-                // Save button at bottom right - disabled when parent empty or when no edits since last save
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton(
-                    onPressed: (_isParentFieldEmpty || !_hasEditsSinceLastSave) ? null : _onSaveAllEntries,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: (_isParentFieldEmpty || !_hasEditsSinceLastSave)
-                          ? Colors.grey.shade400
-                          : AppColors.primaryGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(5),
+                // Save button: for Battery SOH only, disable when no edits since last save; others always enabled when parent has value
+                Builder(
+                  builder: (context) {
+                    final hasSerialNumberFields = respDtlChecklistItems.any((item) =>
+                        item['resp_type']?.toString() == 'NUMERIC' && _shouldShowSerialNumberDropdown(item));
+                    final isSaveDisabled = _isParentFieldEmpty ||
+                        (hasSerialNumberFields && !_hasEditsSinceLastSave);
+                    return Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: isSaveDisabled ? null : _onSaveAllEntries,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isSaveDisabled
+                              ? Colors.grey.shade400
+                              : AppColors.primaryGreen,
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          minimumSize: const Size(0, 36),
+                        ),
+                        child: Text(
+                          _getSaveButtonText(),
+                          style: TextStyle(
+                            color: isSaveDisabled ? Colors.grey : Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            fontFamily: fontFamilyMontserrat,
+                          ),
+                        ),
                       ),
-                      minimumSize: const Size(0, 36),
-                    ),
-                    child: Text(
-                      _getSaveButtonText(),
-                      style: TextStyle(
-                        color: (_isParentFieldEmpty || !_hasEditsSinceLastSave) ? Colors.grey : Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
             ],
           ),
