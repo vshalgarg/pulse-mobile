@@ -429,13 +429,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text(
-            'Validation Error',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          
           content: Text(
             errorMessage,
             style: const TextStyle(fontSize: 16),
