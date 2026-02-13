@@ -1192,6 +1192,7 @@ class _TicketScreenState extends State<TicketScreen>
         final statusText = ticket.status?.isNotEmpty == true
             ? ticket.status!
             : (_currentActivityType == ActivityTypeEnum.assetUpload &&
+                  ticket.status == null ) || (_currentActivityType == ActivityTypeEnum.siteVisit &&
                   ticket.status == null)
             ? '' // Empty string for asset upload with null status
             : _getStatusFromTicketType(_currentTicketType);

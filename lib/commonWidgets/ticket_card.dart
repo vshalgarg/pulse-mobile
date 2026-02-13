@@ -48,6 +48,8 @@ class TicketCard extends StatelessWidget {
 
   // Method to get status color based on status text
   Color _getStatusColor(String status) {
+    print("statusText: $status");
+
     switch (status.toLowerCase()) {
       case 'allocated':
         return AppColors.forgotColor;
@@ -102,9 +104,8 @@ class TicketCard extends StatelessWidget {
                     ),
                   ),
 
-                 
                   const SizedBox(width: 8),
-                  statusText != null && statusText.isNotEmpty && activityType != ActivityTypeEnum.siteVisit
+                  statusText != null && statusText.isNotEmpty
                       ? Container(
                           padding: const EdgeInsets.symmetric(
                             vertical: 4,
@@ -184,8 +185,8 @@ class TicketCard extends StatelessWidget {
                   // Add document icon for completed/closed tickets (but not for sites)
                   if (statusText.toLowerCase() != 'site' &&
                       (activityType == ActivityTypeEnum.generalInspection ||
-                      statusText.toLowerCase() == 'completed' ||
-                      statusText.toLowerCase() == 'closed'))
+                          statusText.toLowerCase() == 'completed' ||
+                          statusText.toLowerCase() == 'closed'))
                     IconButton(
                       icon: const Icon(
                         Icons.description,
@@ -237,7 +238,7 @@ class TicketCard extends StatelessWidget {
                       activityType == ActivityTypeEnum.assetUpload
                           ? "Last Uploaded On: ${Utils.formatDataForTicketCard(raisedOn)}"
                           : "Raised On : ${Utils.formatDataForTicketCard(raisedOn)}",
-                     
+
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
@@ -253,8 +254,11 @@ class TicketCard extends StatelessWidget {
                     child: Text(
                       activityType == ActivityTypeEnum.assetUpload
                           ? "Total Assets : ${totalAssets ?? 0}"
-                          : activityType != ActivityTypeEnum.assetUpload && activityType != ActivityTypeEnum.siteVisit ? "Due : ${Utils.formatDataForTicketCard(dueDate)}" : "",
-                      
+                          : activityType != ActivityTypeEnum.assetUpload &&
+                                activityType != ActivityTypeEnum.siteVisit
+                          ? "Due : ${Utils.formatDataForTicketCard(dueDate)}"
+                          : "",
+
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w400,
