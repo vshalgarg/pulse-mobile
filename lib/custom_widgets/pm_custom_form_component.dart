@@ -44,6 +44,9 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
   // Reset counter to force widget rebuild when form is cleared
   int _resetCounter = 0;
 
+  // True when user has edited any field since last save; Save button disabled when false
+  bool _hasEditsSinceLastSave = false;
+
   @override
   void initState() {
     super.initState();
@@ -307,6 +310,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       controller: controller,
       onChanged: (value) {
         setState(() {
+          _hasEditsSinceLastSave = true;
           _formValues[sectionKey] = {'value': value};
         });
       },
@@ -357,6 +361,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       initialValue: currentValue,
       onChanged: (value) {
         setState(() {
+          _hasEditsSinceLastSave = true;
           // Use mapped value if available, otherwise use the label
           final mappedValue = valueMap[value] ?? value;
           _formValues[sectionKey] = {'value': mappedValue};
@@ -380,6 +385,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       controller: controller,
       onChanged: (value) {
         setState(() {
+          _hasEditsSinceLastSave = true;
           _formValues[sectionKey] = {'value': value};
         });
       },
@@ -602,6 +608,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       controller: controller,
       onChanged: (value) {
         setState(() {
+          _hasEditsSinceLastSave = true;
           final key = pmCheckListMstId.toString();
           _formValues[key] = {'value': value};
         });
@@ -653,6 +660,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       initialValue: currentValue,
       onChanged: (value) {
         setState(() {
+          _hasEditsSinceLastSave = true;
           // Use mapped value if available, otherwise use the label
           final mappedValue = valueMap[value] ?? value;
           _formValues[key] = {'value': mappedValue};
@@ -682,6 +690,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
       controller: controller,
       onChanged: (value) {
         setState(() {
+          _hasEditsSinceLastSave = true;
           final key = pmCheckListMstId.toString();
           _formValues[key] = {'value': value};
         });
@@ -711,16 +720,16 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         
         // Load existing value if available
         if (responseDetails != null) {
-          final matchingItem = responseDetails.firstWhere(
+          final matching = responseDetails.where(
             (detail) =>
                 detail is Map<String, dynamic> &&
                 detail['mfg_serial_no']?.toString() == serialNumber &&
                 detail['pm_check_list_mst_id'] == pmCheckListMstId &&
                 detail['resp'] != null &&
                 detail['resp'].toString().isNotEmpty,
-            orElse: () => null,
           );
-          if (matchingItem != null && matchingItem is Map<String, dynamic>) {
+          if (matching.isNotEmpty) {
+            final matchingItem = matching.first as Map<String, dynamic>;
             _serialNumberControllers[controllerKey]!.text = matchingItem['resp']?.toString() ?? '';
           }
         }
@@ -773,6 +782,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                       controller: controller,
                       onChanged: (value) {
                         setState(() {
+                          _hasEditsSinceLastSave = true;
                           // Store value in formValues with serial number key
                           final key = pmCheckListMstId.toString();
                           if (!_formValues.containsKey(key)) {
@@ -1076,6 +1086,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     if (!hasSerialNumberFields) {
       // Clear form and increment reset counter to force widget rebuild
       setState(() {
+        _hasEditsSinceLastSave = false;
         _formValues.clear();
         for (final controller in _textControllers.values) {
           controller.clear();
@@ -1091,7 +1102,9 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         _resetCounter++; // Increment to force widgets to rebuild with new keys
       });
     } else {
-      setState(() {});
+      setState(() {
+        _hasEditsSinceLastSave = false;
+      });
     }
 
     // Show success message
@@ -1328,13 +1341,13 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                   // All resp_dtl_checklist fields (original single section)
                   ...respDtlChecklistItems.map((item) => _buildFieldForItem(item)).toList(),
 
-                // Save button at bottom right
+                // Save button at bottom right - disabled when parent empty or when no edits since last save
                 Align(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton(
-                    onPressed: _isParentFieldEmpty ? null : _onSaveAllEntries,
+                    onPressed: (_isParentFieldEmpty || !_hasEditsSinceLastSave) ? null : _onSaveAllEntries,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isParentFieldEmpty
+                      backgroundColor: (_isParentFieldEmpty || !_hasEditsSinceLastSave)
                           ? Colors.grey.shade400
                           : AppColors.primaryGreen,
                       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
@@ -1346,7 +1359,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                     child: Text(
                       _getSaveButtonText(),
                       style: TextStyle(
-                        color: _isParentFieldEmpty ? Colors.grey : Colors.white,
+                        color: (_isParentFieldEmpty || !_hasEditsSinceLastSave) ? Colors.grey : Colors.white,
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         fontFamily: fontFamilyMontserrat,
