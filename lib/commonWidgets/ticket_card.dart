@@ -253,7 +253,7 @@ class TicketCard extends StatelessWidget {
                     child: Text(
                       activityType == ActivityTypeEnum.assetUpload
                           ? "Total Assets : ${totalAssets ?? 0}"
-                          : "Due : ${Utils.formatDataForTicketCard(dueDate)}",
+                          : activityType != ActivityTypeEnum.assetUpload && activityType != ActivityTypeEnum.siteVisit ? "Due : ${Utils.formatDataForTicketCard(dueDate)}" : "",
                       
                       style: const TextStyle(
                         fontSize: 13,
