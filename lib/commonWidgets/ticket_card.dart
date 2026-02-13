@@ -104,7 +104,7 @@ class TicketCard extends StatelessWidget {
 
                  
                   const SizedBox(width: 8),
-                  statusText != null && statusText.isNotEmpty
+                  statusText != null && statusText.isNotEmpty && activityType != ActivityTypeEnum.siteVisit
                       ? Container(
                           padding: const EdgeInsets.symmetric(
                             vertical: 4,
