@@ -1068,22 +1068,31 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     updatedItem['response_details'] = updatedResponseDetails;
     widget.onChange(updatedItem);
 
-    // Clear form and increment reset counter to force widget rebuild
-    setState(() {
-      _formValues.clear();
-      for (final controller in _textControllers.values) {
-        controller.clear();
-      }
-      for (final controller in _numericControllers.values) {
-        controller.clear();
-      }
-      for (final controller in _serialNumberControllers.values) {
-        controller.clear();
-      }
-      _textControllers.clear();
-      _numericControllers.clear();
-      _resetCounter++; // Increment to force widgets to rebuild with new keys
-    });
+    // For NUMERIC with serial numbers (e.g. Battery SOH): do not clear form so values stay in text fields.
+    // User can edit and save again with current values. Other form types still clear after save.
+    final hasSerialNumberFields = respDtlChecklistItems.any((item) =>
+        item['resp_type']?.toString() == 'NUMERIC' && _shouldShowSerialNumberDropdown(item));
+
+    if (!hasSerialNumberFields) {
+      // Clear form and increment reset counter to force widget rebuild
+      setState(() {
+        _formValues.clear();
+        for (final controller in _textControllers.values) {
+          controller.clear();
+        }
+        for (final controller in _numericControllers.values) {
+          controller.clear();
+        }
+        for (final controller in _serialNumberControllers.values) {
+          controller.clear();
+        }
+        _textControllers.clear();
+        _numericControllers.clear();
+        _resetCounter++; // Increment to force widgets to rebuild with new keys
+      });
+    } else {
+      setState(() {});
+    }
 
     // Show success message
     if (mounted) {
