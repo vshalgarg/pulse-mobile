@@ -606,6 +606,13 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         return auDownloaded;
       }
 
+      // For Site Visit, check SV-specific table (downloads save to sv_sites_data, not cm_sites_data)
+      if (widget.ActivityType == 'SV') {
+        final svDownloaded =
+            await dataService.isSVSiteDownloaded(site.siteId);
+        return svDownloaded;
+      }
+
       // Default flow: check CM site data first
       final cmDownloaded = await dataService.isCMSiteDownloaded(site.siteId);
 

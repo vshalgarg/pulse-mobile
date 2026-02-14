@@ -2151,6 +2151,42 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Check if Site Visit (SV) site is downloaded.
+  /// Site Visit downloads save to sv_sites_data, not cm_sites_data.
+  Future<bool> isSVSiteDownloaded(int siteId) async {
+    try {
+      final db = await database;
+      final tableInfo = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='sv_sites_data'",
+      );
+      if (tableInfo.isEmpty) return false;
+
+      final List<Map<String, dynamic>> maps = await db.query(
+        'sv_sites_data',
+        columns: ['is_downloaded'],
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty && maps.first['is_downloaded'] == 1) {
+        return true;
+      }
+
+      // Also check raw_api_data (Site Visit saves there with siteAuditSchId = siteId)
+      final raw = await getRawApiData(siteId.toString());
+      if (raw != null &&
+          raw.activityType == ActivityTypeEnum.siteVisit &&
+          raw.isDownloaded) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      Logger.errorLog('❌ Error checking SV site download status: $e');
+      return false;
+    }
+  }
+
   /// Check if Asset Upload (AU) site is downloaded.
   /// Returns true if: (1) site was downloaded from All Sites (au_sites_data or raw_api_data by siteId),
   /// or (2) ticket for this site was downloaded from ticket screen (raw_api_data keyed by ticketSchId with api_data.site_id = siteId).
