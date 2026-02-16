@@ -365,6 +365,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                   parentContext: parentContext,
                   preloadedOrganisationList: organisationList,
                   siteAuditSchIdForStorage: site.siteId.toString(),
+                  clearStoredDataAfterSubmit: true,
                 ),
               ),
             );
@@ -546,6 +547,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 siteData: site,
                 parentContext: parentContext,
                 siteAuditSchIdForStorage: site.siteId.toString(),
+                clearStoredDataAfterSubmit: true,
               )
             : widget.ActivityType == 'GI'
             ? GInspectionDetailScreen(

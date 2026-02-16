@@ -1064,6 +1064,39 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Delete raw API data for the given key (e.g. after site visit submit when opened from All Sites).
+  Future<void> deleteRawApiData(String siteAuditSchId) async {
+    try {
+      final db = await database;
+      final count = await db.delete(
+        'raw_api_data',
+        where: 'site_audit_sch_id = ?',
+        whereArgs: [siteAuditSchId],
+      );
+      Logger.debugLog('✅ Deleted raw_api_data for site_audit_sch_id: $siteAuditSchId (rows: $count)');
+    } catch (e) {
+      Logger.errorLog('❌ Error deleting raw_api_data for $siteAuditSchId: $e');
+    }
+  }
+
+  /// Delete raw API data for Site Visit only (by site_audit_sch_id and activity_type = SV).
+  /// Returns the number of rows deleted. Use this when clearing after site visit submit from All Sites.
+  Future<int> deleteRawApiDataForSiteVisit(String siteAuditSchId) async {
+    try {
+      final db = await database;
+      final count = await db.delete(
+        'raw_api_data',
+        where: 'site_audit_sch_id = ? AND activity_type = ?',
+        whereArgs: [siteAuditSchId, ActivityTypeEnum.siteVisit.value],
+      );
+      Logger.debugLog('✅ Deleted raw_api_data (SV) for site_audit_sch_id: $siteAuditSchId (rows: $count)');
+      return count;
+    } catch (e) {
+      Logger.errorLog('❌ Error deleting raw_api_data (SV) for $siteAuditSchId: $e');
+      return 0;
+    }
+  }
+
   /// Get raw API data
   Future<RawApiDataModel?> getRawApiData(String siteAuditSchId) async {
     try {

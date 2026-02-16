@@ -1562,6 +1562,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               parentContext: parentContext,
               preloadedOrganisationList: organisationList,
               siteAuditSchIdForStorage: site.siteId.toString(),
+              clearStoredDataAfterSubmit: true,
             ),
           ),
         );

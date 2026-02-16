@@ -17,7 +17,6 @@ import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/screens/ticket_screen.dart';
-import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -30,6 +29,9 @@ class SiteVisitScreen extends StatefulWidget {
   /// Key used to load/save raw_api_data in SQLite. If null, [siteData.siteId] is used.
   /// Ticket Screen uses ticket.ticketSchId; My Tickets/All Sites use site.siteId.
   final String? siteAuditSchIdForStorage;
+  /// When true (opened from All Sites), stored data is cleared after successful submit
+  /// so the site opens with a fresh form next time. When false (opened from ticket), data is kept.
+  final bool clearStoredDataAfterSubmit;
 
   const SiteVisitScreen({
     super.key,
@@ -37,6 +39,7 @@ class SiteVisitScreen extends StatefulWidget {
     this.parentContext,
     this.preloadedOrganisationList,
     this.siteAuditSchIdForStorage,
+    this.clearStoredDataAfterSubmit = false,
   });
 
   @override
@@ -1073,10 +1076,23 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       // Show loader
       LoaderWidget.showLoader(context);
 
-      // Submit the form with already uploaded image
+      // Submit the form with already uploaded image (online: POST; offline: save to pending)
       await postSiteVisitLog();
 
-      // Persist to SQLite so the downloaded ticket shows updated data when reopened
+      // When opened from All Sites, clear stored data first (online and offline) so the
+      // next open from All Sites shows a blank form. Do this before persist so we never
+      // re-write the row; persist only updates existing rows so it will no-op after delete.
+      if (widget.clearStoredDataAfterSubmit) {
+        final key = (widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString()).trim();
+        final dataService = ServiceLocator().centralAssetAuditDataService;
+        int deleted = await dataService.deleteRawApiDataForSiteVisit(key);
+        if (deleted == 0) {
+          // Fallback: delete any row with this key (e.g. if activity_type differed)
+          await dataService.deleteRawApiData(key);
+        }
+      }
+
+      // Persist to SQLite so the downloaded ticket shows updated data when reopened (ticket flow).
       await _persistSiteVisitDataToSqlite();
 
       // Hide loader
