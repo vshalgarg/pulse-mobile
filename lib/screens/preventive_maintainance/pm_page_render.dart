@@ -233,6 +233,17 @@ class _PMPageRenderState extends State<PMPageRender> {
 
         if (success) {
           await _postPmDataToApi(dataToPost);
+          // Update status in raw_api_data so My Tickets shows correct status (COMPLETED / IN-PROGRESS)
+          final newStatus = _isLastPage ? 'COMPLETED' : 'IN-PROGRESS';
+          try {
+            await ServiceLocator().centralAssetAuditDataService.updateRawApiDataStatus(
+              siteAuditSchId: siteAuditSchId,
+              status: newStatus,
+            );
+            Logger.debugLog('✅ PM status updated to $newStatus in SQLite for My Tickets');
+          } catch (statusErr) {
+            Logger.errorLog('⚠️ Failed to update PM status in SQLite: $statusErr');
+          }
         } else {
 
         }
