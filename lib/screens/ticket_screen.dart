@@ -338,14 +338,17 @@ class _TicketScreenState extends State<TicketScreen>
             ticket.latitude!,
             ticket.longitude!,
           );
-          
+
+           
           // Check if distance is more than the allowed distance (in km)
           final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation) ; // Convert meters to km
           if (distanceInKm > maxDistanceKm) {
+
+         
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
             Toastbar.showErrorToastbar(
-              "You are not in the radius of site.",
+              "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
               context,
             );
             // Prevent ticket from opening if distance exceeds the allowed radius

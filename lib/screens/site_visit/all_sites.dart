@@ -209,7 +209,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 return;
               }
             }
-            
+
             if (permission == LocationPermission.deniedForever) {
               LoaderWidget.hideLoader();
               final shouldOpenSettings = await showDialog<bool>(
@@ -234,13 +234,13 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                   );
                 },
               );
-              
+
               if (shouldOpenSettings == true) {
                 await openAppSettings();
               }
               return;
             }
-            
+
             // Get current location
             // Note: If location services (GPS) are disabled, calling getCurrentLocation()
             // will trigger Android's system dialog asking to enable location.
@@ -257,12 +257,14 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             );
 
             // Check if distance is more than the allowed distance (in meters, converted to km)
-            final maxDistanceKm = double.parse(ApiCodes.distanceFromLocation); // Convert meters to km
+            final maxDistanceKm = double.parse(
+              ApiCodes.distanceFromLocation,
+            ); // Convert meters to km
             if (distanceInKm > maxDistanceKm) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
               Toastbar.showErrorToastbar(
-                "You are not in the radius of site",
+                "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
                 context,
               );
               // Prevent site from opening if distance exceeds the allowed radius
@@ -282,225 +284,280 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       }
 
       // For Site Visit, check if we have stored API data with organisation list
-    if (widget.ActivityType == 'SV') {
-      try {
-        final service = ServiceLocator().centralAssetAuditService;
-        final storedData = await service.getDataFromSqlite(
-          siteAuditSchId: site.siteId.toString(),
-        );
-
-        if (storedData != null && storedData.apiData.isNotEmpty) {
-          // Use stored API data to create AllSiteModel with all fields
-          final apiData = storedData.apiData;
-          final siteData = AllSiteModel(
-            siteId: apiData['siteId'] ?? site.siteId,
-            entityId: site.entityId,
-            siteCode: apiData['siteCode'] ?? site.siteCode,
-            siteName: apiData['siteName'] ?? site.siteName,
-            clusterDistrictId: site.clusterDistrictId,
-            clusterDistrictName: apiData['cluster'] ?? site.clusterDistrictName,
-            circleStateId: site.circleStateId,
-            circleStateName: apiData['circle'] ?? site.circleStateName,
-            clientId: site.clientId,
-            clientName: apiData['client'] ?? site.clientName,
-            oem: site.oem,
-            oemId: site.oemId,
-            self: site.self,
-            selfId: site.selfId,
-            siteDomainName: site.siteDomainName,
-            distanceKM: site.distanceKM,
-            infraEngineerName:
-                apiData['infraDistrictEngineerName'] ?? site.infraEngineerName,
-            infraEngineerPhone:
-                apiData['infraDistrictEngineerContactNo'] ??
-                site.infraEngineerPhone,
-            ownerName: apiData['ownerName'] ?? site.ownerName,
-            ownerPhone: apiData['ownerContactNo'] ?? site.ownerPhone,
-            siteVisitLogId: apiData['svlId']?.toString(),
-            siteVisitLogDate: apiData['visitDate']?.toString(),
-            purposeOfVisit: apiData['purposeOfVisit']?.toString(),
-            visitingPersonImageId: apiData['visitingPersonImageId']?.toString(),
-            officialIdImageId: apiData['officialIdImageId']?.toString(),
-            aadharCardImageId: apiData['aadharCardImageId']?.toString(),
-            leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
-            visitorName:
-                apiData['visitorName']?.toString() ??
-                apiData['visitor_name']?.toString(),
-            visitorContactNo:
-                apiData['visitorContactNo']?.toString() ??
-                apiData['visitor_contact_no']?.toString(),
-            organisationName:
-                apiData['organisationName']?.toString() ??
-                apiData['organisation_name']?.toString() ??
-                apiData['organizationName']?.toString() ??
-                apiData['organization_name']?.toString(),
-            orgId: apiData['orgId'] != null
-                ? (apiData['orgId'] is int
-                      ? apiData['orgId'] as int
-                      : int.tryParse(apiData['orgId'].toString()))
-                : null,
-            roleDesignation:
-                apiData['roleDesignation']?.toString() ??
-                apiData['role_designation']?.toString(),
-            reportingManager:
-                apiData['reportingManager']?.toString() ??
-                apiData['reporting_manager']?.toString(),
+      if (widget.ActivityType == 'SV') {
+        try {
+          final service = ServiceLocator().centralAssetAuditService;
+          final storedData = await service.getDataFromSqlite(
+            siteAuditSchId: site.siteId.toString(),
           );
 
-          // Extract organisation list from API response if available
-          final organisationList = apiData['organisationList'] != null
-              ? (apiData['organisationList'] as List)
-                    .map((org) => Map<String, dynamic>.from(org))
-                    .toList()
-              : null;
-
-          // Hide loader before navigation
-          LoaderWidget.hideLoader();
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => SiteVisitScreen(
-                  siteData: siteData,
-                  parentContext: parentContext,
-                  preloadedOrganisationList: organisationList,
-                  siteAuditSchIdForStorage: site.siteId.toString(),
-                  clearStoredDataAfterSubmit: true,
-                ),
-              ),
+          if (storedData != null && storedData.apiData.isNotEmpty) {
+            // Use stored API data to create AllSiteModel with all fields
+            final apiData = storedData.apiData;
+            final siteData = AllSiteModel(
+              siteId: apiData['siteId'] ?? site.siteId,
+              entityId: site.entityId,
+              siteCode: apiData['siteCode'] ?? site.siteCode,
+              siteName: apiData['siteName'] ?? site.siteName,
+              clusterDistrictId: site.clusterDistrictId,
+              clusterDistrictName:
+                  apiData['cluster'] ?? site.clusterDistrictName,
+              circleStateId: site.circleStateId,
+              circleStateName: apiData['circle'] ?? site.circleStateName,
+              clientId: site.clientId,
+              clientName: apiData['client'] ?? site.clientName,
+              oem: site.oem,
+              oemId: site.oemId,
+              self: site.self,
+              selfId: site.selfId,
+              siteDomainName: site.siteDomainName,
+              distanceKM: site.distanceKM,
+              infraEngineerName:
+                  apiData['infraDistrictEngineerName'] ??
+                  site.infraEngineerName,
+              infraEngineerPhone:
+                  apiData['infraDistrictEngineerContactNo'] ??
+                  site.infraEngineerPhone,
+              ownerName: apiData['ownerName'] ?? site.ownerName,
+              ownerPhone: apiData['ownerContactNo'] ?? site.ownerPhone,
+              siteVisitLogId: apiData['svlId']?.toString(),
+              siteVisitLogDate: apiData['visitDate']?.toString(),
+              purposeOfVisit: apiData['purposeOfVisit']?.toString(),
+              visitingPersonImageId: apiData['visitingPersonImageId']
+                  ?.toString(),
+              officialIdImageId: apiData['officialIdImageId']?.toString(),
+              aadharCardImageId: apiData['aadharCardImageId']?.toString(),
+              leavingStatusImageId: apiData['leavingStatusImageId']?.toString(),
+              visitorName:
+                  apiData['visitorName']?.toString() ??
+                  apiData['visitor_name']?.toString(),
+              visitorContactNo:
+                  apiData['visitorContactNo']?.toString() ??
+                  apiData['visitor_contact_no']?.toString(),
+              organisationName:
+                  apiData['organisationName']?.toString() ??
+                  apiData['organisation_name']?.toString() ??
+                  apiData['organizationName']?.toString() ??
+                  apiData['organization_name']?.toString(),
+              orgId: apiData['orgId'] != null
+                  ? (apiData['orgId'] is int
+                        ? apiData['orgId'] as int
+                        : int.tryParse(apiData['orgId'].toString()))
+                  : null,
+              roleDesignation:
+                  apiData['roleDesignation']?.toString() ??
+                  apiData['role_designation']?.toString(),
+              reportingManager:
+                  apiData['reportingManager']?.toString() ??
+                  apiData['reporting_manager']?.toString(),
             );
+
+            // Extract organisation list from API response if available
+            final organisationList = apiData['organisationList'] != null
+                ? (apiData['organisationList'] as List)
+                      .map((org) => Map<String, dynamic>.from(org))
+                      .toList()
+                : null;
+
+            // Hide loader before navigation
+            LoaderWidget.hideLoader();
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SiteVisitScreen(
+                    siteData: siteData,
+                    parentContext: parentContext,
+                    preloadedOrganisationList: organisationList,
+                    siteAuditSchIdForStorage: site.siteId.toString(),
+                    clearStoredDataAfterSubmit: true,
+                  ),
+                ),
+              );
+            }
+            return;
           }
-          return;
+        } catch (e) {
+          // Fall through to use basic site data
         }
-      } catch (e) {
-        // Fall through to use basic site data
       }
-    }
 
-    // For Asset Upload, call getUploadedAssets before navigating
-    if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
-      try {
-        // Loader is already shown at the beginning of the function
-        final repository = AssetUploadRepository(ServiceLocator().apiService);
-        final result = await repository.getUploadedAssets(siteId: site.siteId);
+      // For Asset Upload, call getUploadedAssets before navigating
+      if (widget.ActivityType == 'AU' ||
+          widget.ActivityType == 'Asset Upload') {
+        try {
+          // Loader is already shown at the beginning of the function
+          final repository = AssetUploadRepository(ServiceLocator().apiService);
+          final result = await repository.getUploadedAssets(
+            siteId: site.siteId,
+          );
 
-        if (result.isSuccess && result.data != null) {
-          Logger.debugLog('✅ Successfully fetched uploaded assets for site ${site.siteId}');
-          
-          // Parse response structure - check if data is wrapped or direct
-          Map<String, dynamic>? responseData;
-          if (result.data!.containsKey('data')) {
-            // Response has data wrapper: { data: { assetUpload: ..., siteDetails: ... } }
-            responseData = result.data!['data'] as Map<String, dynamic>?;
-            Logger.debugLog('📦 Found data wrapper, extracting inner data');
-          } else {
-            // Response might be direct: { assetUpload: ..., siteDetails: ... }
-            responseData = result.data;
-            Logger.debugLog('📦 Using data directly (no wrapper)');
-          }
+          if (result.isSuccess && result.data != null) {
+            Logger.debugLog(
+              '✅ Successfully fetched uploaded assets for site ${site.siteId}',
+            );
 
-          // Extract data if available
-          String? preloadedSelfieImageId;
-          int? preloadedAuId;
-          List<Map<String, dynamic>>? preloadedAssetItems;
-          AllSiteModel? enhancedSiteData;
-
-          if (responseData != null) {
-            // Try both camelCase and snake_case field names
-            final assetUploadData = responseData['assetUpload'] ?? 
-                                   responseData['asset_upload'] as Map<String, dynamic>?;
-            final siteDetailsData = responseData['siteDetails'] ?? 
-                                   responseData['site_details'] as Map<String, dynamic>?;
-
-            if (assetUploadData != null) {
-              // Extract maker_selfie_image_id from assetUploadData (try both formats)
-              final makerSelfieImageId = assetUploadData['maker_selfie_image_id'] ?? 
-                                        assetUploadData['makerSelfieImageId'];
-              
-              // Extract auId from assetUploadData (try both formats)
-              final auId = assetUploadData['au_id'] ?? 
-                          assetUploadData['auId'] ?? 
-                          assetUploadData['id'];
-              
-              // Extract asset_upload_item array (try both formats)
-              final assetUploadItems = (assetUploadData['asset_upload_item'] ?? 
-                                       assetUploadData['assetUploadItem'] ?? 
-                                       []) as List<dynamic>? ?? [];
-
-              preloadedSelfieImageId = makerSelfieImageId?.toString();
-              preloadedAuId = auId != null ? (auId is int ? auId : int.tryParse(auId.toString())) : null;
-              
-              // Convert asset_upload_item to format expected by AssetUploadDetailPage
-              preloadedAssetItems = assetUploadItems.map((item) {
-                if (item is Map<String, dynamic>) {
-                  return Map<String, dynamic>.from(item);
-                }
-                return <String, dynamic>{};
-              }).where((item) => item.isNotEmpty).toList();
-              
-              if (preloadedAssetItems.isEmpty) {
-                preloadedAssetItems = null;
-              }
-
-              Logger.debugLog('📦 Extracted data - auId: $preloadedAuId, selfieId: $preloadedSelfieImageId, items: ${preloadedAssetItems?.length ?? 0}');
+            // Parse response structure - check if data is wrapped or direct
+            Map<String, dynamic>? responseData;
+            if (result.data!.containsKey('data')) {
+              // Response has data wrapper: { data: { assetUpload: ..., siteDetails: ... } }
+              responseData = result.data!['data'] as Map<String, dynamic>?;
+              Logger.debugLog('📦 Found data wrapper, extracting inner data');
+            } else {
+              // Response might be direct: { assetUpload: ..., siteDetails: ... }
+              responseData = result.data;
+              Logger.debugLog('📦 Using data directly (no wrapper)');
             }
 
-            // Enhance site data with siteDetails if available
-            if (siteDetailsData != null) {
-              enhancedSiteData = AllSiteModel(
-                siteId: siteDetailsData['site_id'] ?? site.siteId,
-                entityId: siteDetailsData['entity_id'] ?? site.entityId,
-                siteCode: siteDetailsData['site_code']?.toString() ?? site.siteCode,
-                siteName: siteDetailsData['site_name']?.toString() ?? site.siteName,
-                clusterDistrictId: site.clusterDistrictId,
-                clusterDistrictName: siteDetailsData['cluster']?.toString() ?? site.clusterDistrictName,
-                circleStateId: site.circleStateId,
-                circleStateName: siteDetailsData['circle']?.toString() ?? site.circleStateName,
-                clientId: site.clientId,
-                clientName: siteDetailsData['client']?.toString() ?? site.clientName,
-                svlId: null,
-                oem: site.oem,
-                oemId: site.oemId,
-                self: site.self,
-                selfId: site.selfId,
-                siteDomainName: site.siteDomainName,
-                distanceKM: site.distanceKM,
-                infraEngineerName: siteDetailsData['infra_district_engineer_name']?.toString(),
-                infraEngineerPhone: siteDetailsData['infra_district_engineer_contact_no']?.toString(),
-                ownerName: siteDetailsData['owner_name']?.toString(),
-                ownerPhone: siteDetailsData['owner_contact_no']?.toString(),
-                siteVisitLogId: null,
-                siteVisitLogDate: null,
-                purposeOfVisit: null,
-                visitingPersonImageId: null,
-                checklistItems: null,
+            // Extract data if available
+            String? preloadedSelfieImageId;
+            int? preloadedAuId;
+            List<Map<String, dynamic>>? preloadedAssetItems;
+            AllSiteModel? enhancedSiteData;
+
+            if (responseData != null) {
+              // Try both camelCase and snake_case field names
+              final assetUploadData =
+                  responseData['assetUpload'] ??
+                  responseData['asset_upload'] as Map<String, dynamic>?;
+              final siteDetailsData =
+                  responseData['siteDetails'] ??
+                  responseData['site_details'] as Map<String, dynamic>?;
+
+              if (assetUploadData != null) {
+                // Extract maker_selfie_image_id from assetUploadData (try both formats)
+                final makerSelfieImageId =
+                    assetUploadData['maker_selfie_image_id'] ??
+                    assetUploadData['makerSelfieImageId'];
+
+                // Extract auId from assetUploadData (try both formats)
+                final auId =
+                    assetUploadData['au_id'] ??
+                    assetUploadData['auId'] ??
+                    assetUploadData['id'];
+
+                // Extract asset_upload_item array (try both formats)
+                final assetUploadItems =
+                    (assetUploadData['asset_upload_item'] ??
+                            assetUploadData['assetUploadItem'] ??
+                            [])
+                        as List<dynamic>? ??
+                    [];
+
+                preloadedSelfieImageId = makerSelfieImageId?.toString();
+                preloadedAuId = auId != null
+                    ? (auId is int ? auId : int.tryParse(auId.toString()))
+                    : null;
+
+                // Convert asset_upload_item to format expected by AssetUploadDetailPage
+                preloadedAssetItems = assetUploadItems
+                    .map((item) {
+                      if (item is Map<String, dynamic>) {
+                        return Map<String, dynamic>.from(item);
+                      }
+                      return <String, dynamic>{};
+                    })
+                    .where((item) => item.isNotEmpty)
+                    .toList();
+
+                if (preloadedAssetItems.isEmpty) {
+                  preloadedAssetItems = null;
+                }
+
+                Logger.debugLog(
+                  '📦 Extracted data - auId: $preloadedAuId, selfieId: $preloadedSelfieImageId, items: ${preloadedAssetItems?.length ?? 0}',
+                );
+              }
+
+              // Enhance site data with siteDetails if available
+              if (siteDetailsData != null) {
+                enhancedSiteData = AllSiteModel(
+                  siteId: siteDetailsData['site_id'] ?? site.siteId,
+                  entityId: siteDetailsData['entity_id'] ?? site.entityId,
+                  siteCode:
+                      siteDetailsData['site_code']?.toString() ?? site.siteCode,
+                  siteName:
+                      siteDetailsData['site_name']?.toString() ?? site.siteName,
+                  clusterDistrictId: site.clusterDistrictId,
+                  clusterDistrictName:
+                      siteDetailsData['cluster']?.toString() ??
+                      site.clusterDistrictName,
+                  circleStateId: site.circleStateId,
+                  circleStateName:
+                      siteDetailsData['circle']?.toString() ??
+                      site.circleStateName,
+                  clientId: site.clientId,
+                  clientName:
+                      siteDetailsData['client']?.toString() ?? site.clientName,
+                  svlId: null,
+                  oem: site.oem,
+                  oemId: site.oemId,
+                  self: site.self,
+                  selfId: site.selfId,
+                  siteDomainName: site.siteDomainName,
+                  distanceKM: site.distanceKM,
+                  infraEngineerName:
+                      siteDetailsData['infra_district_engineer_name']
+                          ?.toString(),
+                  infraEngineerPhone:
+                      siteDetailsData['infra_district_engineer_contact_no']
+                          ?.toString(),
+                  ownerName: siteDetailsData['owner_name']?.toString(),
+                  ownerPhone: siteDetailsData['owner_contact_no']?.toString(),
+                  siteVisitLogId: null,
+                  siteVisitLogDate: null,
+                  purposeOfVisit: null,
+                  visitingPersonImageId: null,
+                  checklistItems: null,
+                );
+              }
+            }
+
+            // Hide loader before navigation
+            LoaderWidget.hideLoader();
+            // Navigate with the fetched data
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AssetUploadDetailPage(
+                    siteData: enhancedSiteData ?? site,
+                    parentContext: parentContext,
+                    preloadedSelfieImageId: preloadedSelfieImageId,
+                    preloadedAssetItems: preloadedAssetItems,
+                    preloadedAuId: preloadedAuId,
+                    mode: CMScreenModeEnum
+                        .create, // Mode will be auto-detected based on preloadedAuId
+                    siteAuditSchIdForStorage: site.siteId.toString(),
+                  ),
+                ),
+              );
+            }
+          } else {
+            // Even if fetch fails, still navigate (might be a new site with no assets)
+            Logger.debugLog(
+              '⚠️ Failed to fetch uploaded assets, navigating anyway: ${result.errorMessage}',
+            );
+            LoaderWidget.hideLoader();
+            if (mounted) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => AssetUploadDetailPage(
+                    siteData: site,
+                    parentContext: parentContext,
+                    mode: CMScreenModeEnum
+                        .create, // Create mode when coming from all sites
+                    siteAuditSchIdForStorage: site.siteId.toString(),
+                  ),
+                ),
               );
             }
           }
-
-          // Hide loader before navigation
+        } catch (e) {
           LoaderWidget.hideLoader();
-          // Navigate with the fetched data
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => AssetUploadDetailPage(
-                  siteData: enhancedSiteData ?? site,
-                  parentContext: parentContext,
-                  preloadedSelfieImageId: preloadedSelfieImageId,
-                  preloadedAssetItems: preloadedAssetItems,
-                  preloadedAuId: preloadedAuId,
-                  mode: CMScreenModeEnum.create, // Mode will be auto-detected based on preloadedAuId
-                  siteAuditSchIdForStorage: site.siteId.toString(),
-                ),
-              ),
-            );
-          }
-        } else {
-          // Even if fetch fails, still navigate (might be a new site with no assets)
-          Logger.debugLog('⚠️ Failed to fetch uploaded assets, navigating anyway: ${result.errorMessage}');
-          LoaderWidget.hideLoader();
+          Logger.errorLog('❌ Error fetching uploaded assets: $e');
+          // Still navigate even if there's an error
           if (mounted) {
             Navigator.push(
               context,
@@ -508,60 +565,43 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                 builder: (_) => AssetUploadDetailPage(
                   siteData: site,
                   parentContext: parentContext,
-                  mode: CMScreenModeEnum.create, // Create mode when coming from all sites
+                  mode: CMScreenModeEnum
+                      .create, // Create mode when coming from all sites
                   siteAuditSchIdForStorage: site.siteId.toString(),
                 ),
               ),
             );
           }
         }
-      } catch (e) {
-        LoaderWidget.hideLoader();
-        Logger.errorLog('❌ Error fetching uploaded assets: $e');
-        // Still navigate even if there's an error
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => AssetUploadDetailPage(
-                siteData: site,
-                parentContext: parentContext,
-                mode: CMScreenModeEnum.create, // Create mode when coming from all sites
-                siteAuditSchIdForStorage: site.siteId.toString(),
-              ),
-            ),
-          );
-        }
+        return;
       }
-      return;
-    }
 
-    // Use basic site data if no stored data available
-    // Hide loader before navigation
-    LoaderWidget.hideLoader();
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => widget.ActivityType == 'SV'
-            ? SiteVisitScreen(
-                siteData: site,
-                parentContext: parentContext,
-                siteAuditSchIdForStorage: site.siteId.toString(),
-                clearStoredDataAfterSubmit: true,
-              )
-            : widget.ActivityType == 'GI'
-            ? GInspectionDetailScreen(
-                siteData: site,
-                mode: CMScreenModeEnum.create,
-                parentContext: parentContext,
-              )
-            : IncidentDetilScreen(
-                siteData: site,
-                mode: CMScreenModeEnum.create,
-                parentContext: parentContext,
-              ),
-      ),
-    );
+      // Use basic site data if no stored data available
+      // Hide loader before navigation
+      LoaderWidget.hideLoader();
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => widget.ActivityType == 'SV'
+              ? SiteVisitScreen(
+                  siteData: site,
+                  parentContext: parentContext,
+                  siteAuditSchIdForStorage: site.siteId.toString(),
+                  clearStoredDataAfterSubmit: true,
+                )
+              : widget.ActivityType == 'GI'
+              ? GInspectionDetailScreen(
+                  siteData: site,
+                  mode: CMScreenModeEnum.create,
+                  parentContext: parentContext,
+                )
+              : IncidentDetilScreen(
+                  siteData: site,
+                  mode: CMScreenModeEnum.create,
+                  parentContext: parentContext,
+                ),
+        ),
+      );
     } catch (e) {
       // Hide loader on error
       if (LoaderWidget.isShowing) {
@@ -603,15 +643,13 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       // For Asset Upload, check AU-specific downloaded table
       if (widget.ActivityType == 'AU' ||
           widget.ActivityType == 'Asset Upload') {
-        final auDownloaded =
-            await dataService.isAUSiteDownloaded(site.siteId);
+        final auDownloaded = await dataService.isAUSiteDownloaded(site.siteId);
         return auDownloaded;
       }
 
       // For Site Visit, check SV-specific table (downloads save to sv_sites_data, not cm_sites_data)
       if (widget.ActivityType == 'SV') {
-        final svDownloaded =
-            await dataService.isSVSiteDownloaded(site.siteId);
+        final svDownloaded = await dataService.isSVSiteDownloaded(site.siteId);
         return svDownloaded;
       }
 
@@ -625,15 +663,16 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       // Check site data download status based on activity type
       if (widget.ActivityType == 'Incident') {
         // Also check if checklist data is downloaded
-        final incidentChecklistDownloaded =
-            await dataService.isIncidentChecklistDownloaded(site.siteId);
+        final incidentChecklistDownloaded = await dataService
+            .isIncidentChecklistDownloaded(site.siteId);
         return incidentChecklistDownloaded;
       }
 
       // For GI sites, also check if checklist data is downloaded
       if (widget.ActivityType == 'GI') {
-        final giDownloaded =
-            await dataService.isGIChecklistDownloaded(site.siteId);
+        final giDownloaded = await dataService.isGIChecklistDownloaded(
+          site.siteId,
+        );
         return giDownloaded;
       } else {
         // For other activity types, CM site data is sufficient
@@ -662,7 +701,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         print('Downloading incident site data');
         isDownloaded = await service.downloadIncidentSiteData(site: site);
         print('Incident site data downloaded: $isDownloaded');
-      } else if (widget.ActivityType == 'AU' || widget.ActivityType == 'Asset Upload') {
+      } else if (widget.ActivityType == 'AU' ||
+          widget.ActivityType == 'Asset Upload') {
         // downloadAssetUploadSiteData now handles fetching and saving both site data and API data
         isDownloaded = await service.downloadAssetUploadSiteData(site: site);
       }
@@ -1007,7 +1047,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
                     // Convert String to double
                     final lat = double.tryParse(site.latitude!);
                     final lng = double.tryParse(site.longitude!);
-                    
+
                     if (lat != null && lng != null) {
                       // Open Google Maps with directions to the site
                       LocationService.openDirectionsToSite(

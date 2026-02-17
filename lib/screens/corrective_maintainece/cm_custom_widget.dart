@@ -508,20 +508,37 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     return fieldNames;
   }
 
-  // Helper method to get all child items from impacted_item_check_list
+  // Helper method to get all child items from impacted_item_check_list.
+  // Includes items with resp_type NONE (empty checklist_desc) so we can show only dependent_elements.
   List<Map<String, dynamic>> _getAllChildItems() {
-    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
+    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ??
                       _currentItem['childitemData'] as List<dynamic>? ?? [];
     final result = <Map<String, dynamic>>[];
-    
+
     for (var childItem in childItems) {
       final fieldName = childItem['checklist_desc']?.toString() ?? '';
-      if (fieldName.isNotEmpty) {
+      final respType = childItem['resp_type']?.toString() ?? '';
+      if (fieldName.isNotEmpty || respType == 'NONE') {
         result.add(Map<String, dynamic>.from(childItem));
       }
     }
-    
+
     return result;
+  }
+
+  /// Column label for a child item. For NONE with empty checklist_desc, use first dependent element's label or "Photo".
+  String _getChildItemColumnLabel(Map<String, dynamic> childItem) {
+    final desc = childItem['checklist_desc']?.toString() ?? '';
+    if (desc.isNotEmpty) return desc;
+    final dependentElements = childItem['dependent_elements'] as List<dynamic>? ??
+        childItem['dependentElements'] as List<dynamic>? ?? [];
+    if (dependentElements.isNotEmpty) {
+      final first = dependentElements.first;
+      final map = first is Map<String, dynamic> ? first : Map<String, dynamic>.from(first as Map);
+      final elementDesc = map['checklist_desc']?.toString() ?? '';
+      if (elementDesc.isNotEmpty) return elementDesc;
+    }
+    return 'Photo';
   }
 
   // Helper method to get dependent elements from child items
@@ -860,9 +877,23 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             if (_isDependentElementMandatory(mandatoryIfValue, 'true') && 
                 (_childItemDependentImageData[childId]?[elementKey] == null)) {
               final elementDesc = element['checklist_desc']?.toString() ?? 'photo';
-              Toastbar.showErrorToastbar('Please upload $elementDesc for: $fieldName', context);
+              Toastbar.showErrorToastbar('Please upload photo for: $fieldName', context);
               return;
             }
+          }
+        }
+      } else if (respType == 'NONE') {
+        // NONE: no main field; validate dependent_elements (e.g. mandatory photo) if applicable
+        final dependentElements = childItem['dependent_elements'] as List<dynamic>? ?? [];
+        for (int i = 0; i < dependentElements.length; i++) {
+          final element = dependentElements[i] as Map<String, dynamic>;
+          final elementKey = '${childId}_$i';
+          final mandatoryIfValue = element['mandatoryIfValue'];
+          if (_isDependentElementMandatory(mandatoryIfValue, 'true') &&
+              (_childItemDependentImageData[childId]?[elementKey] == null || _childItemDependentImageData[childId]![elementKey]?.isEmpty == true)) {
+            final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
+            Toastbar.showErrorToastbar('Please upload photo', context);
+            return;
           }
         }
       } else {
@@ -976,6 +1007,22 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           'clOrder': clOrder, // Also add camelCase version
         });
         Logger.infoLog('[CM CustomWidget] Added child response (CHECKBOX_NUMERIC/TEXT) - childId: $childId, parentId: $parentCheckListGroupId, checklistDesc: $checklistDesc, numericValue: $numericValue');
+      } else if (respType == 'NONE') {
+        // NONE: no main response value; add entry so dependent_elements (e.g. IMG) can be attached
+        childItemResponses.add({
+          'cm_check_list_mst_id': childId,
+          'cmCheckListMstId': childId,
+          'parent_cm_check_list_mst_id': parentCheckListGroupId,
+          'parentCmCheckListMstId': parentCheckListGroupId,
+          'checklist_desc': checklistDesc,
+          'checklistDesc': checklistDesc,
+          'resp': '',
+          'resp_type': respType,
+          'respType': respType,
+          'cl_order': clOrder,
+          'clOrder': clOrder,
+        });
+        Logger.infoLog('[CM CustomWidget] Added child response (NONE) - childId: $childId, parentId: $parentCheckListGroupId');
       }
       // Add dependent images for this child item
       final dependentImages = <Map<String, dynamic>>[];
@@ -1906,6 +1953,46 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           ],
         );
         
+      case 'NONE':
+        // resp_type NONE: no main field; show only dependent_elements (e.g. Upload photo)
+        if (dependentElements.isEmpty) return const SizedBox.shrink();
+        return Column(
+          key: ValueKey('child_none_$childId'),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ...dependentElements.asMap().entries.map((entry) {
+              final index = entry.key;
+              final element = entry.value as Map<String, dynamic>;
+              final elementKey = '${childId}_$index';
+              final elementRespType = element['resp_type']?.toString() ?? '';
+              final isReadonly = widget.readonlyFields.contains(
+                _currentItem['checklist_desc']?.toString(),
+              );
+
+              if (elementRespType == 'IMG') {
+                final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ImageUploadField(
+                    key: ValueKey('child_none_dependent_$elementKey'),
+                    label: elementDesc,
+                    placeholder: 'Upload Photos',
+                    isRequired: false,
+                    externalImageUrl: _childItemDependentImageData[childId]![elementKey],
+                    isDisabled: isReadonly,
+                    onImageSelected: isReadonly ? (File? file) {} : (File? file) async {
+                      if (file != null) {
+                        await _uploadChildItemDependentImage(childId, elementKey, file);
+                      }
+                    },
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            }),
+          ],
+        );
+
       case 'TEXT':
       case 'NUMERIC':
         // For TEXT or NUMERIC, check if they have impacted_item_value_map (old behavior)
@@ -2081,15 +2168,13 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   // Add columns for all child items from impacted_item_check_list
-                  // (dependent_elements will be shown in the same column as the parent checklist_desc)
+                  // (for resp_type NONE with empty checklist_desc, use dependent_elements label e.g. "Upload photo")
                   ..._getAllChildItems().map((childItem) {
-                    final checklistDesc = childItem['checklist_desc']?.toString() ?? '';
-                    if (checklistDesc.isEmpty) return null;
-                    
+                    final label = _getChildItemColumnLabel(childItem);
                     return DataColumn(
-                      label: Text(checklistDesc, style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
                     );
-                  }).whereType<DataColumn>().toList(),
+                  }).toList(),
                   // Add Photo column if there's an IMG dependent element at parent level
                   if (_hasImgDependentElement()) ...[
                     DataColumn(
@@ -3132,20 +3217,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
 
   /// Build readonly table for impacted items in edit/view mode
   Widget _buildReadonlyImpactedItemsTable(List<dynamic> impactedItems) {
-    // Get checklist descriptions from child items template
-    final childItems = _currentItem['impacted_item_check_list'] as List<dynamic>? ?? 
-                      _currentItem['childitemData'] as List<dynamic>? ?? [];
+    // Get checklist descriptions from child items template (include NONE with empty desc - use column label)
+    final childItems = _getAllChildItems();
     final Map<int, String> mstIdToDesc = {};
     final List<MapEntry<int, String>> orderedDescs = [];
-    
+
     for (var childItem in childItems) {
-      if (childItem is Map<String, dynamic>) {
-        final mstId = childItem['cm_check_list_mst_id'] as int?;
-        final desc = childItem['checklist_desc']?.toString() ?? '';
-        if (mstId != null && desc.isNotEmpty) {
-          mstIdToDesc[mstId] = desc;
-          orderedDescs.add(MapEntry(mstId, desc));
-        }
+      final mstId = childItem['cm_check_list_mst_id'] as int?;
+      if (mstId != null) {
+        final desc = _getChildItemColumnLabel(childItem);
+        mstIdToDesc[mstId] = desc;
+        orderedDescs.add(MapEntry(mstId, desc));
       }
     }
     
@@ -3266,6 +3348,14 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                                 ),
                             ],
                           );
+                        } else if (respType == 'NONE') {
+                          // NONE: only dependent_elements (e.g. photo) - no main value
+                          cellContent = images.isNotEmpty
+                              ? InkWell(
+                                  onTap: () => _showImageGallery(images),
+                                  child: const Icon(Icons.camera_alt, size: 20, color: Colors.blue),
+                                )
+                              : const Text('');
                         } else {
                           cellContent = Text(resp);
                         }

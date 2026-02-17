@@ -231,9 +231,9 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
               Toastbar.showErrorToastbar(
-                "You are not in the radius of site",
-                context,
-              );
+              "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
+              context,
+            );
               // Prevent site from opening if distance exceeds the allowed radius
               return;
             }
