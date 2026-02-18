@@ -50,7 +50,8 @@ class AUScanUploadScreen extends StatefulWidget {
   State<AUScanUploadScreen> createState() => _AUScanUploadScreenState();
 }
 
-class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
+class _AUScanUploadScreenState extends State<AUScanUploadScreen>
+    with WidgetsBindingObserver {
   // Map of asset type (display name) to list of assets
   final Map<String, List<Map<String, dynamic>>> _assetGroups = {};
 
@@ -91,6 +92,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
 
     // If preloadedAuId is not null, treat as edit mode even if mode is create
     _actualMode = (widget.preloadedAuId != null && widget.preloadedAuId! > 0)
@@ -104,7 +106,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Force rebuild when returning from camera (fixes white screen on some devices)
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // Auto-save before disposing (fallback in case PopScope doesn't catch it)
     if (_assetGroups.isNotEmpty && _totalAssetCount > 0) {
       Logger.debugLog('💾 Widget disposing, auto-saving assets as fallback...');

@@ -855,7 +855,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
           LoaderWidget.hideLoader();
           if (mounted) {
             Toastbar.showErrorToastbar(
-              "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
+              "You are not in the radius of site.",
               context,
             );
           }
@@ -1423,9 +1423,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             LoaderWidget.hideLoader();
             if (mounted) {
               Toastbar.showErrorToastbar(
-              "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
-              context,
-            );
+                "You are not in the radius of site. distanceInKm: $distanceInKm",
+                context,
+              );
             }
             // Prevent site from opening if distance exceeds the allowed radius
             return;

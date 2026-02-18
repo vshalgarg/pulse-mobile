@@ -331,37 +331,43 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     // Photo selection is handled internally, no parent callback needed
   }
 
-  /// Picks image from camera (matching CustomInfoCard)
+  /// Picks image from camera (matching CustomInfoCard).
+  /// Defers processing to next frame + short delay so Flutter view can restore after camera
+  /// intent (fixes white screen on some devices when user taps Save in camera).
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.camera);
 
     if (pickedFile != null) {
-      final originalFile = File(pickedFile.path);
-
-      try {
-        // Run compression in background to avoid blocking UI
-        final compressedFile = await Future(
-          () => ImageCompressionHelper.compressImageTo2MB(originalFile),
-        );
-
-        if (mounted) {
-          if (compressedFile != null) {
-            _handlePhotoSelection(compressedFile.path);
-          } else {
-            _handlePhotoSelection(originalFile.path);
+      final path = pickedFile.path;
+      // Defer so the route/activity is fully restored after camera (avoids white screen on some devices)
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        await Future.delayed(const Duration(milliseconds: 150));
+        if (!mounted) return;
+        final originalFile = File(path);
+        try {
+          final compressedFile = await Future(
+            () => ImageCompressionHelper.compressImageTo2MB(originalFile),
+          );
+          if (mounted) {
+            if (compressedFile != null) {
+              _handlePhotoSelection(compressedFile.path);
+            } else {
+              _handlePhotoSelection(originalFile.path);
+            }
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error compressing image: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
           }
         }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error compressing image: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
+      });
     }
   }
 
