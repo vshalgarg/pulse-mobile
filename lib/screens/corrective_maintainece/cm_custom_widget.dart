@@ -2164,9 +2164,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   DataColumn(
                     label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  DataColumn(
-                    label: Text('Scanned', style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
+                  // DataColumn(
+                  //   label: Text('Scanned not added', style: TextStyle(fontWeight: FontWeight.bold)),
+                  // ),
                   // Add columns for all child items from impacted_item_check_list
                   // (for resp_type NONE with empty checklist_desc, use dependent_elements label e.g. "Upload photo")
                   ..._getAllChildItems().map((childItem) {
@@ -2217,7 +2217,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   return DataRow(
                     cells: [
                       DataCell(Text(item['mfgSerialNo']?.toString() ?? '')),
-                      DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
+                      // DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
                       // Add cells for all child items from impacted_item_check_list
                       // (combining value and dependent_elements in the same cell)
                       ..._getAllChildItems().map((childItem) {

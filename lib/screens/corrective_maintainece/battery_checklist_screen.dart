@@ -366,7 +366,7 @@ class _BatteryChecklistSectionState extends State<BatteryChecklistSection> {
           child: Row(
             children: [
               const Expanded(child: Text("Serial Number", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
-              const Expanded(child: Text("Scanned", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
+              const Expanded(child: Text("ScannedB", style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500))),
               ..._getFieldNamesFromChildItems(item).keys.map((fieldName) => 
                 Expanded(child: Text(fieldName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500)))
               ).toList(),

@@ -21,6 +21,7 @@ import 'services/local_storage_db.dart';
 import 'database/asset_audit_database.dart';
 import 'services/app_initialization_service.dart';
 import 'utils.dart';
+import 'utils/CrashLogger.dart';
 import 'utils/file_logger.dart';
 import 'services/log_push_service.dart';
 import 'services/log_push_config.dart';
@@ -31,91 +32,120 @@ AppConfig? globalConfig;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Force portrait orientation
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  // ✅ Wrap EVERYTHING inside zone (VERY IMPORTANT)
+  runZonedGuarded(() async {
 
-  // System UI overlay style
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-    ),
-  );
+    // Force portrait orientation
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
 
-  // Load environment, local storage, DB, location permissions
-  await init();
+    // System UI overlay style
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+      ),
+    );
 
-  // Initialize Firebase
-  try {
-    if (Firebase.apps.isEmpty) {
-      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    // Load environment, local storage, DB, location permissions
+    await init();
 
-    } 
-  } catch (e) {
-
-    // Continue without Firebase if initialization fails
-  }
-  // Setup Crashlytics only if Firebase is available
-  try {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-  } catch (e) {
-
-    throw Exception(e);
-  }
-
-  // Initialize push notifications only if Firebase is available
-  try {
-    if (Firebase.apps.isNotEmpty) {
-      await PushNotificationApi().initNotifications();
-
-    } else {
-
+    // Initialize Firebase
+    try {
+      if (Firebase.apps.isEmpty) {
+        await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform,
+        );
+      }
+    } catch (e) {
+      // continue without firebase
     }
-  } catch (e) {
 
-  }
+    // ✅ SINGLE unified Flutter error handler
+    FlutterError.onError = (FlutterErrorDetails details) async {
+      // 👉 always save locally
+      await CrashLogger().logCrash(
+        details.exception,
+        details.stack,
+      );
 
-  // Initialize app configuration
-  final _baseUrl = dotenv.env['BASE_URL_DEV'];
-  final globalLoadingCubit = GlobalLoadingCubit();
-  globalConfig = AppConfig(baseUrl: _baseUrl!, loadingCubit: globalLoadingCubit);
+      // 👉 send to Crashlytics if available
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+        }
+      } catch (_) {}
+    };
 
-  // Initialize file logger
-  await FileLogger.initialize();
-  await FileLogger.info('App starting up');
+    // Initialize push notifications
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        await PushNotificationApi().initNotifications();
+      }
+    } catch (_) {}
 
-  // Initialize all app services
+    // Initialize app configuration
+    final _baseUrl = dotenv.env['BASE_URL_DEV'];
+    final globalLoadingCubit = GlobalLoadingCubit();
+    globalConfig = AppConfig(
+      baseUrl: _baseUrl!,
+      loadingCubit: globalLoadingCubit,
+    );
 
-  await FileLogger.info('Initializing all services');
-  final success = await AppInitializationService.initializeApp(globalConfig!.apiService);
-  if (!success) {
-    await FileLogger.error('Failed to initialize app services');
-    throw Exception('Failed to initialize app services');
-  }
+    // Initialize file logger
+    await FileLogger.initialize();
+    await FileLogger.info('App starting up');
 
-  await FileLogger.info('All services initialized successfully');
+    // Initialize all app services
+    await FileLogger.info('Initializing all services');
+    final success =
+        await AppInitializationService.initializeApp(
+            globalConfig!.apiService);
 
-  // Start log push service if enabled
-  if (LogPushConfig.autoStartOnAppLaunch) {
-    await LogPushService.startLogPushing(globalConfig!.apiService);
-    await FileLogger.info('Log push service started');
-  }
+    if (!success) {
+      await FileLogger.error('Failed to initialize app services');
+      throw Exception('Failed to initialize app services');
+    }
 
-  // HTTP overrides
-  HttpOverrides.global = MyHttpOverrides();
+    await FileLogger.info('All services initialized successfully');
 
-  // Bloc observer
-  Bloc.observer = GlobalBlocObserver();
+    // Start log push service
+    if (LogPushConfig.autoStartOnAppLaunch) {
+      await LogPushService.startLogPushing(globalConfig!.apiService);
+      await FileLogger.info('Log push service started');
+    }
 
-  // Check token status
-  _checkTokenStatus();
+    // HTTP overrides
+    HttpOverrides.global = MyHttpOverrides();
 
-  // Run app
-  runApp(AppRoot(
-    config: globalConfig!,
-  ));
+    // Bloc observer
+    Bloc.observer = GlobalBlocObserver();
+
+    // Check token status
+    _checkTokenStatus();
+
+    // ✅ finally run app
+    runApp(
+      AppRoot(
+        config: globalConfig!,
+      ),
+    );
+
+  }, (error, stack) async {
+    // ✅ catches async/native errors
+    await CrashLogger().logCrash(error, stack);
+
+    try {
+      if (Firebase.apps.isNotEmpty) {
+        FirebaseCrashlytics.instance.recordError(
+          error,
+          stack,
+          fatal: true,
+        );
+      }
+    } catch (_) {}
+  });
 }
 
 Future<void> init() async {

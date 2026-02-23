@@ -133,8 +133,8 @@ class _CorrectiveMaintenanceScreenState
   final List<String> _priorityOptions = ['Critical', 'Non Critical'];
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
-  final List<String> _scopeOfTicketOptions = ['Warranty', 'Warranty Out'];
-  final List<String> _statusOptions = ['Open','Closed'];
+  final List<String> _scopeOfTicketOptions = ['In Warranty', 'Warranty Out'];
+  final List<String> _statusOptions = ['Open','In-Progress','Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
 

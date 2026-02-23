@@ -17,6 +17,7 @@ import 'package:app/screens/my_tickets.dart';
 import 'package:app/screens/notifications.dart';
 import 'package:app/services/notification_service.dart';
 import 'package:app/utils/logger.dart';
+import 'package:app/utils/crash_logs_debug_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class PulseDashboard extends StatefulWidget {
@@ -78,14 +79,35 @@ void loadVersion() async {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _syncOfflineData();
-        },
-        backgroundColor: Colors.blue,
-        heroTag: "sync_fab",
-        child: const Icon(Icons.sync, color: Colors.white),
-        tooltip: 'Sync Offline Data',
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const CrashLogsDebugScreen(),
+                ),
+              );
+            },
+            backgroundColor: Colors.orange,
+            heroTag: "crash_logs_fab",
+            child: const Icon(Icons.bug_report, color: Colors.white),
+            tooltip: 'Crash Logs',
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            onPressed: () {
+              _syncOfflineData();
+            },
+            backgroundColor: Colors.blue,
+            heroTag: "sync_fab",
+            child: const Icon(Icons.sync, color: Colors.white),
+            tooltip: 'Sync Offline Data',
+          ),
+        ],
       ),
       body: Stack(
         children: [

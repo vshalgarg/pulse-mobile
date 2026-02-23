@@ -48,7 +48,7 @@ class TicketCard extends StatelessWidget {
 
   // Method to get status color based on status text
   Color _getStatusColor(String status) {
-    print("statusText: $status");
+    
 
     switch (status.toLowerCase()) {
       case 'allocated':

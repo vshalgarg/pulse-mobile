@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/utils/CrashLogger.dart';
+import 'package:app/utils/device_memory_helper.dart';
+import 'package:app/utils/file_logger.dart';
 import 'package:app/utils/image_compression_helper.dart';
 import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/services/image_upload_service.dart';
@@ -89,6 +92,8 @@ class AssetUploadFormComponent extends StatefulWidget {
   /// If false, only the table will be shown
   final bool showForm;
 
+  
+
   const AssetUploadFormComponent({
     super.key,
     required this.componentId,
@@ -115,6 +120,10 @@ class AssetUploadFormComponent extends StatefulWidget {
     this.showForm = true,
   });
 
+  static const _cameraQuality = 85;
+  static const _maxWidthLowRam = 1280;
+  static const _maxWidthNormal = 1920;
+
   @override
   State<AssetUploadFormComponent> createState() =>
       _AssetUploadFormComponentState();
@@ -126,6 +135,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   bool _isQRCodeScanned = false;
 
   bool _isUploading = false;
+  bool _isLoadingPhoto = false; // True while processing/displaying photo after camera
   String? qrCodeScannedTs = null;
   String? _uploadedImageId; // Photo ID from server
   String? _photoData; // Photo byte data or base64
@@ -328,49 +338,123 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       _hasNewPhotoSelected = true; // Mark that user selected a new photo
       _showValidationErrors = false;
     });
-    // Photo selection is handled internally, no parent callback needed
+    // Force a second rebuild so image shows on first tap (file may not be ready immediately on some devices)
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || _selectedPhotoPath != photoPath) return;
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (mounted && _selectedPhotoPath == photoPath) {
+        setState(() {});
+      }
+    });
   }
 
   /// Picks image from camera (matching CustomInfoCard).
   /// Defers processing to next frame + short delay so Flutter view can restore after camera
   /// intent (fixes white screen on some devices when user taps Save in camera).
-  Future<void> _pickImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.camera);
+ Future<void> _pickImage() async {
+  final picker = ImagePicker();
 
-    if (pickedFile != null) {
-      final path = pickedFile.path;
-      // Defer so the route/activity is fully restored after camera (avoids white screen on some devices)
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (!mounted) return;
-        await Future.delayed(const Duration(milliseconds: 150));
-        if (!mounted) return;
-        final originalFile = File(path);
-        try {
-          final compressedFile = await Future(
-            () => ImageCompressionHelper.compressImageTo2MB(originalFile),
-          );
-          if (mounted) {
-            if (compressedFile != null) {
-              _handlePhotoSelection(compressedFile.path);
-            } else {
-              _handlePhotoSelection(originalFile.path);
-            }
-          }
-        } catch (e) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Error compressing image: $e'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      });
-    }
+  bool isLowRam = await DeviceMemoryHelper.isLowRamDevice();
+  final deviceInfo = await DeviceMemoryHelper.getDeviceSnapshot();
+
+  await FileLogger.info('Opening camera', data: {
+    "lowRam": isLowRam,
+    "device": deviceInfo,
+  });
+
+  XFile? pickedFile;
+
+  try {
+    pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: AssetUploadFormComponent._cameraQuality,
+      maxWidth: (isLowRam ? AssetUploadFormComponent._maxWidthLowRam : AssetUploadFormComponent._maxWidthNormal).toDouble(),
+    );
+  } catch (e, s) {
+    await CrashLogger().logCrash(e, s);
+
+    await FileLogger.error('Camera open failed', data: {
+      "device": deviceInfo,
+      "lowRam": isLowRam,
+    });
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Camera failed to open'),
+        backgroundColor: Colors.red,
+      ),
+    );
+    return;
   }
 
+  if (pickedFile == null) return;
+
+  final path = pickedFile.path;
+  if (path.isEmpty) return;
+
+  // Show "Loading image..." right away so user sees feedback after tapping tick
+  if (mounted) setState(() => _isLoadingPhoto = true);
+
+  // Defer heavy work to next frame to avoid crash when returning from camera (tick/save)
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (!mounted) return;
+    // Show image in one go (no second tap)
+    try {
+      _handlePhotoSelection(path);
+      if (mounted) setState(() => _isLoadingPhoto = false);
+    } catch (e, s) {
+      await CrashLogger().logCrash(e, s);
+      if (mounted) {
+        setState(() => _isLoadingPhoto = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not show photo'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Then compress in background and replace when done
+    await Future.delayed(const Duration(milliseconds: 150));
+    if (!mounted) return;
+
+    try {
+      final originalFile = File(path);
+      if (!await originalFile.exists()) return;
+
+      final compressedFile = await Future(
+        () => ImageCompressionHelper.compressImageTo2MB(originalFile),
+      );
+      if (!mounted) return;
+      await FileLogger.info('Image processed', data: {
+        "compressed": compressedFile != null,
+        "path": path,
+      });
+      if (compressedFile != null) {
+        _handlePhotoSelection(compressedFile.path);
+      }
+    } catch (e, s) {
+      await CrashLogger().logCrash(e, s);
+      await FileLogger.error('Compression failed', data: {
+        "path": path,
+        "device": deviceInfo,
+      });
+      if (!mounted) return;
+      try {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Image compression failed, using original'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      } catch (_) {}
+    }
+  });
+}
   /// Checks if image should be shown
   bool _shouldShowImage() {
     return _selectedPhotoPath != null && _selectedPhotoPath!.isNotEmpty;
@@ -400,7 +484,8 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
             },
           );
         }
-      } catch (e) {
+      } catch (e, s) {
+        CrashLogger().logCrash(e, s);
         return _buildErrorWidget('Image decode error');
       }
     } else if (int.tryParse(_selectedPhotoPath!) != null) {
@@ -431,16 +516,22 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         ),
       );
     } else {
-      // File path
-      return Image.file(
-        File(_selectedPhotoPath!),
-        fit: BoxFit.cover,
-        width: double.infinity,
-        height: 150,
-        errorBuilder: (context, error, stackTrace) {
-          return _buildErrorWidget('Failed to load image');
-        },
-      );
+      // File path (wrap in try-catch; path can be invalid on some devices after camera)
+      try {
+        final file = File(_selectedPhotoPath!);
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: 150,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildErrorWidget('Failed to load image');
+          },
+        );
+      } catch (e, s) {
+        CrashLogger().logCrash(e, s);
+        return _buildErrorWidget('Invalid image path');
+      }
     }
 
     return _buildErrorWidget('Unsupported image type');
@@ -881,6 +972,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     setState(() {
       widget.serialController.clear();
       _selectedPhotoPath = null;
+      _isLoadingPhoto = false;
       _isQRCodeScanned = false;
       qrCodeScannedTs = null;
       _uploadedImageId = null;
@@ -1230,36 +1322,63 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
               borderRadius: BorderRadius.circular(5),
               border: Border.all(color: Colors.grey.shade400),
             ),
-            child: _shouldShowImage()
-                ? Stack(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(5),
-                        child: _buildImageWidget(),
-                      ),
-                    ],
-                  )
-                : Center(
-                    child: Row(
+            child: _isLoadingPhoto
+                ? Center(
+                    child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(
-                          Icons.camera_alt_outlined,
-                          size: 20,
-                          color: AppColors.color555555,
+                        const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                          ),
                         ),
-                        const SizedBox(width: 6),
+                        const SizedBox(height: 8),
                         Text(
-                          widget.photoLabel,
-                          style: const TextStyle(
+                          'Loading image...',
+                          style: TextStyle(
                             fontWeight: FontWeight.w400,
                             color: AppColors.color555555,
                             fontFamily: fontFamilyMontserrat,
+                            fontSize: 14,
                           ),
                         ),
                       ],
                     ),
-                  ),
+                  )
+                : _shouldShowImage()
+                    ? Stack(
+                        key: ValueKey(_selectedPhotoPath ?? ''),
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(5),
+                            child: _buildImageWidget(),
+                          ),
+                        ],
+                      )
+                    : Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.camera_alt_outlined,
+                              size: 20,
+                              color: AppColors.color555555,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              widget.photoLabel,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.color555555,
+                                fontFamily: fontFamilyMontserrat,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
           ),
         ),
 
