@@ -682,6 +682,19 @@ class _CorrectiveMaintenanceScreenState
     return strValue.isEmpty ? null : strValue;
   }
 
+  /// Normalize API status to match _statusOptions so dropdown displays correctly (e.g. "IN-PROGRESS" -> "In-Progress").
+  String _normalizeStatusFromApi(String apiStatus) {
+    final normalized = apiStatus.trim().toUpperCase().replaceAll(' ', '-');
+    if (normalized == 'IN-PROGRESS' || normalized == 'INPROGRESS') return 'In-Progress';
+    if (normalized == 'OPEN') return 'Open';
+    if (normalized == 'CLOSED') return 'Closed';
+    // If already matches an option, use it; otherwise return as-is
+    for (final option in _statusOptions) {
+      if (option.trim().toUpperCase().replaceAll(' ', '-') == normalized) return option;
+    }
+    return apiStatus.trim();
+  }
+
   void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
     Logger.infoLog('[CM] Initializing ticket controllers from preloadedSite');
     Logger.infoLog('[CM] Available keys: ${preloadedSite.keys.toList()}');
@@ -810,10 +823,12 @@ class _CorrectiveMaintenanceScreenState
     }
     
     // Set status from preloaded data (handle both camelCase and snake_case)
-    final status = _getValue(preloadedSite, 'status', 'status') ?? preloadedSite['Status']?.toString().trim();
-    if (status != null && status.isNotEmpty) {
-      _statusController.text = status;
-      Logger.infoLog('[CM] Status initialized: $status');
+    // Normalize API status to match _statusOptions (e.g. "IN-PROGRESS" -> "In-Progress") so dropdown shows correctly
+    final statusRaw = _getValue(preloadedSite, 'status', 'status') ?? preloadedSite['Status']?.toString().trim();
+    if (statusRaw != null && statusRaw.isNotEmpty) {
+      final statusNormalized = _normalizeStatusFromApi(statusRaw);
+      _statusController.text = statusNormalized;
+      Logger.infoLog('[CM] Status initialized: $statusRaw -> $statusNormalized');
     }
     
     // Set remarks from preloaded data (API may send simple "remarks" key)
