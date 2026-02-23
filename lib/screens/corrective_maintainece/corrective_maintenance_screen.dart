@@ -134,7 +134,7 @@ class _CorrectiveMaintenanceScreenState
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
   final List<String> _scopeOfTicketOptions = ['In Warranty', 'Warranty Out'];
-  final List<String> _statusOptions = ['Open','In-Progress','Closed'];
+  final List<String> _statusOptions = ['Open', 'In-Progress', 'Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
 
@@ -214,6 +214,18 @@ class _CorrectiveMaintenanceScreenState
       _siteOptions = [site];
       _initializeTicketControllers(preloadedSite);
       _onSiteSelected(site);
+      // Ensure remarks from API ("remarks" key in data) shows in edit mode - set again after first frame so UI picks it up
+      if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+        final remarksFromApi = preloadedSite['remarks'] ?? preloadedSite['Remarks'];
+        if (remarksFromApi != null && remarksFromApi.toString().trim().isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _remarksController.text != remarksFromApi.toString().trim()) {
+              _remarksController.text = remarksFromApi.toString().trim();
+              setState(() {});
+            }
+          });
+        }
+      }
     }
   }
 
@@ -387,6 +399,15 @@ class _CorrectiveMaintenanceScreenState
             Logger.infoLog('[CM] Loaded remarks attachment - ID: $_remarksAttachmentId, Name: $_remarksAttachmentName');
           }
         });
+      } else {
+        // Fallback: API may send simple "remarks" key (when cmRemarksList is absent or empty)
+        final remarksText = preloadedSite['remarks'] ?? preloadedSite['Remarks'];
+        if (remarksText != null && remarksText.toString().trim().isNotEmpty) {
+          setState(() {
+            _remarksController.text = remarksText.toString().trim();
+            Logger.infoLog('[CM] Loaded remarks text from "remarks" key');
+          });
+        }
       }
     }
   }
@@ -793,6 +814,13 @@ class _CorrectiveMaintenanceScreenState
     if (status != null && status.isNotEmpty) {
       _statusController.text = status;
       Logger.infoLog('[CM] Status initialized: $status');
+    }
+    
+    // Set remarks from preloaded data (API may send simple "remarks" key)
+    final remarks = _getValue(preloadedSite, 'remarks', 'remarks');
+    if (remarks != null && remarks.toString().trim().isNotEmpty) {
+      _remarksController.text = remarks.toString().trim();
+      Logger.infoLog('[CM] Remarks initialized from API (remarks key)');
     }
     
     // Set equipment type (handle both camelCase and snake_case)
@@ -2255,10 +2283,9 @@ class _CorrectiveMaintenanceScreenState
             label: "Remarks",
             hintText: "Enter remarks",
             controller: _remarksController,
-            isRequired: widget.mode == CMScreenModeEnum.edit && 
+            isRequired: widget.mode == CMScreenModeEnum.edit &&
                        _statusController.text.trim().toUpperCase() == 'CLOSED',
-            isDisabled: widget.mode == CMScreenModeEnum.view || 
-                       _statusController.text.trim().toUpperCase() == 'CLOSED',
+            isDisabled: widget.mode == CMScreenModeEnum.view,
           ),
           getHeight(15),
           CustomFileUploadNew(
@@ -2284,8 +2311,7 @@ class _CorrectiveMaintenanceScreenState
                         }
                       }
                     : null,
-                onServerAttachmentDeleted: widget.mode == CMScreenModeEnum.edit && 
-                    _statusController.text.trim().toUpperCase() != 'CLOSED'
+                onServerAttachmentDeleted: widget.mode == CMScreenModeEnum.edit
                     ? () {
                         setState(() {
                           _remarksAttachmentId = null;
@@ -2294,8 +2320,7 @@ class _CorrectiveMaintenanceScreenState
                         });
                       }
                     : null,
-            onFileSelected: widget.mode == CMScreenModeEnum.edit && 
-                _statusController.text.trim().toUpperCase() != 'CLOSED'
+            onFileSelected: widget.mode == CMScreenModeEnum.edit
                 ? (File? file) {
                     if (file != null) {
                       setState(() {
@@ -2312,8 +2337,7 @@ class _CorrectiveMaintenanceScreenState
                 : (File? file) {
                     // No-op when disabled
                   },
-            onFileDeleted: widget.mode == CMScreenModeEnum.edit && 
-                _statusController.text.trim().toUpperCase() != 'CLOSED'
+            onFileDeleted: widget.mode == CMScreenModeEnum.edit
                 ? (File file) {
                     // Handle file deletion
                     setState(() {
@@ -2328,8 +2352,7 @@ class _CorrectiveMaintenanceScreenState
                        _statusController.text.trim().toUpperCase() == 'CLOSED',
             maxSizeText: "(Max Size: 2MB)",
                 acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
-            isDisabled: widget.mode == CMScreenModeEnum.view || 
-                       _statusController.text.trim().toUpperCase() == 'CLOSED',
+            isDisabled: widget.mode == CMScreenModeEnum.view,
           ),
           getHeight(30),
         ],
@@ -3456,12 +3479,12 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Remarks attachment - required in edit mode
-      // Check if there's either a new attachment or an existing server attachment
-      if (widget.mode == CMScreenModeEnum.edit && 
-          _remarksAttachments.isEmpty && 
+      // Remarks attachment - required in edit mode only when status is "Closed"
+      if (widget.mode == CMScreenModeEnum.edit &&
+          _statusController.text.trim().toUpperCase() == 'CLOSED' &&
+          _remarksAttachments.isEmpty &&
           (_remarksAttachmentId == null || _remarksAttachmentId == 0)) {
-        errors.add('Remarks attachment is required');
+        errors.add('Remarks attachment is required when Status is Closed');
       }
     }
     
