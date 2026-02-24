@@ -679,7 +679,10 @@ class _CorrectiveMaintenanceScreenState
     final value = preloadedSite[camelCaseKey] ?? preloadedSite[snakeCaseKey];
     if (value == null) return null;
     final strValue = value.toString().trim();
-    return strValue.isEmpty ? null : strValue;
+    if (strValue.isEmpty) return null;
+    // Treat "n/a" as null so UI shows blank instead of "n/a"
+    if (strValue.toUpperCase() == 'N/A') return null;
+    return strValue;
   }
 
   /// Normalize API status to match _statusOptions so dropdown displays correctly (e.g. "IN-PROGRESS" -> "In-Progress").
@@ -693,6 +696,16 @@ class _CorrectiveMaintenanceScreenState
       if (option.trim().toUpperCase().replaceAll(' ', '-') == normalized) return option;
     }
     return apiStatus.trim();
+  }
+
+  /// Match API value to a static option ignoring case; returns the option string so UI shows exact option (e.g. "Self" not "SELF").
+  String? _matchOptionIgnoreCase(String? apiValue, List<String> options) {
+    if (apiValue == null || apiValue.trim().isEmpty) return null;
+    final upper = apiValue.trim().toUpperCase();
+    for (final option in options) {
+      if (option.trim().toUpperCase() == upper) return option;
+    }
+    return null;
   }
 
   void _initializeTicketControllers(Map<String, dynamic> preloadedSite) {
@@ -709,9 +722,11 @@ class _CorrectiveMaintenanceScreenState
     }
     
     // Map all fields with support for both camelCase and snake_case
+    // Match dropdown fields to static options ignore-case so we show exact option text (e.g. "Self" not "SELF")
     // Responsible Party (Category)
-    final responsibleParty = _getValue(preloadedSite, 'responsibleParty', 'responsible_party');
-    if (responsibleParty != null) {
+    final responsiblePartyRaw = _getValue(preloadedSite, 'responsibleParty', 'responsible_party');
+    final responsibleParty = _matchOptionIgnoreCase(responsiblePartyRaw, _responsiblePartyOptions) ?? responsiblePartyRaw;
+    if (responsibleParty != null && responsibleParty.isNotEmpty) {
       controllers['responsible_party']!.text = responsibleParty;
       Logger.infoLog('[CM] Responsible Party initialized: $responsibleParty');
     }
@@ -724,8 +739,9 @@ class _CorrectiveMaintenanceScreenState
     }
     
     // Priority
-    final priority = _getValue(preloadedSite, 'priority', 'priority');
-    if (priority != null) {
+    final priorityRaw = _getValue(preloadedSite, 'priority', 'priority');
+    final priority = _matchOptionIgnoreCase(priorityRaw, _priorityOptions) ?? priorityRaw;
+    if (priority != null && priority.isNotEmpty) {
       controllers['priority']!.text = priority;
       Logger.infoLog('[CM] Priority initialized: $priority');
     }
@@ -752,8 +768,9 @@ class _CorrectiveMaintenanceScreenState
     }
     
     // Scope of Ticket
-    final scopeOfTicket = _getValue(preloadedSite, 'scopeOfTicket', 'scope_of_ticket');
-    if (scopeOfTicket != null) {
+    final scopeOfTicketRaw = _getValue(preloadedSite, 'scopeOfTicket', 'scope_of_ticket');
+    final scopeOfTicket = _matchOptionIgnoreCase(scopeOfTicketRaw, _scopeOfTicketOptions) ?? scopeOfTicketRaw;
+    if (scopeOfTicket != null && scopeOfTicket.isNotEmpty) {
       controllers['scope_of_ticket']!.text = scopeOfTicket;
       Logger.infoLog('[CM] Scope of Ticket initialized: $scopeOfTicket');
     }
@@ -1920,11 +1937,12 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        // 👇 OEM Ticket ID - Required only when OEM is selected
+        // 👇 OEM Ticket ID - Required only when OEM is selected; disabled when Category is Self
         CustomFormField(
           label: "OEM Ticket ID",
           controller: controllers['oem_ticket_id'],
-          isEditable: widget.mode == CMScreenModeEnum.create,
+          isEditable: widget.mode == CMScreenModeEnum.create &&
+              (controllers['responsible_party']?.text.trim() != 'Self'),
           isRequired:
               controllers['responsible_party'] != null &&
               controllers['responsible_party']?.text == 'OEM',
@@ -2385,6 +2403,30 @@ class _CorrectiveMaintenanceScreenState
   /// Format date to dd/MM/yyyy format as required by API
   String _formatDateForApi(DateTime date) {
     return DateFormat('dd/MM/yyyy').format(date);
+  }
+
+  /// For correctiveMaintenance POST: send null instead of "" for actionTaken, rca, problemSummary when empty.
+  void _nullifyEmptyCmTextFields(Map<String, dynamic> requestData) {
+    final actionTaken = requestData['action_taken'];
+    if (actionTaken is String && actionTaken.trim().isEmpty) {
+      requestData['action_taken'] = null;
+      requestData['actionTaken'] = null;
+    }
+    final rca = requestData['rca'];
+    if (rca is String && rca.trim().isEmpty) {
+      requestData['rca'] = null;
+    }
+    final problemSummary = requestData['problem_summary'];
+    if (problemSummary is String && problemSummary.trim().isEmpty) {
+      requestData['problem_summary'] = null;
+      requestData['problemSummary'] = null;
+    }
+    // When Category is Self, send oemTicketId as null
+    final responsibleParty = requestData['responsible_party']?.toString().trim().toUpperCase();
+    if (responsibleParty == 'SELF') {
+      requestData['oem_ticket_id'] = null;
+      requestData['oemTicketId'] = null;
+    }
   }
 
   /// Format date string to dd/MM/yyyy format
@@ -3606,11 +3648,14 @@ class _CorrectiveMaintenanceScreenState
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;
       }
+      _nullifyEmptyCmTextFields(requestData);
       
-      // Explicitly ensure these key fields are set
-      requestData['scope_of_ticket'] = controllers['scope_of_ticket']!.text;
+      // Explicitly ensure these key fields are set and sent in UPPERCASE
+      requestData['scope_of_ticket'] = controllers['scope_of_ticket']!.text.trim().toUpperCase();
       requestData['fault_description'] = controllers['fault_description']!.text;
-      requestData['responsible_party'] = controllers['responsible_party']!.text; // Value from Category dropdown
+      requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
+      requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
+      requestData['status'] = (_statusController.text.trim().isNotEmpty ? _statusController.text.trim() : 'Open').toUpperCase();
       
       // Set OEM Representative Contact with correct key for edit mode
       if (controllers['oem_representative_contact']!.text.trim().isNotEmpty) {
@@ -3618,9 +3663,9 @@ class _CorrectiveMaintenanceScreenState
       }
       
       // Set assigned_to based on responsible_party
-      if (controllers['responsible_party']!.text == 'OEM') {
+      if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
         requestData['assigned_to'] = _selectedSite!.oemId;
-      } else if (controllers['responsible_party']!.text == 'Self') {
+      } else if (controllers['responsible_party']!.text.trim().toUpperCase() == 'SELF') {
         requestData['assigned_to'] = _selectedSite!.selfId;
       }
       
@@ -3640,15 +3685,12 @@ class _CorrectiveMaintenanceScreenState
         requestData['circle'] = _selectedSite!.circleStateName;
         requestData['cluster'] = _selectedSite!.clusterDistrictName;
         requestData['client'] = _selectedSite!.clientName ?? '';
-        requestData['assigned_to_name'] = controllers['responsible_party']!.text == 'OEM' 
-            ? _selectedSite!.oem 
+        requestData['assigned_to_name'] = controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM'
+            ? _selectedSite!.oem
             : _selectedSite!.self;
       }
       
-      // Set status and remarks
-      requestData['status'] = _statusController.text.isNotEmpty 
-          ? _statusController.text 
-          : 'Open';
+      // Set status and remarks (status already set in uppercase above)
       requestData['remarks'] = _remarksController.text;
       requestData['is_active'] = true;
       
@@ -4148,16 +4190,19 @@ class _CorrectiveMaintenanceScreenState
       for (var entry in controllers.entries) {
         requestData[entry.key] = entry.value.text;
       }
+      _nullifyEmptyCmTextFields(requestData);
       
-      // Explicitly ensure these key fields are set
-      requestData['scope_of_ticket'] = controllers['scope_of_ticket']!.text;
+      // Explicitly ensure these key fields are set and sent in UPPERCASE
+      requestData['scope_of_ticket'] = controllers['scope_of_ticket']!.text.trim().toUpperCase();
       requestData['fault_description'] = controllers['fault_description']!.text;
-      requestData['responsible_party'] = controllers['responsible_party']!.text; // Value from Category dropdown
+      requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
+      requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
+      requestData['status'] = (_statusController.text.trim().isNotEmpty ? _statusController.text.trim() : 'Open').toUpperCase();
       
       // Set assigned_to based on responsible_party
-      if (controllers['responsible_party']!.text == 'OEM') {
+      if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
         requestData['assigned_to'] = _selectedSite!.oemId;
-      } else if (controllers['responsible_party']!.text == 'Self') {
+      } else if (controllers['responsible_party']!.text.trim().toUpperCase() == 'SELF') {
         requestData['assigned_to'] = _selectedSite!.selfId;
       }
       
@@ -4180,15 +4225,12 @@ class _CorrectiveMaintenanceScreenState
         requestData['circle'] = _selectedSite!.circleStateName;
         requestData['cluster'] = _selectedSite!.clusterDistrictName;
         requestData['client'] = _selectedSite!.clientName ?? '';
-        requestData['assigned_to_name'] = controllers['responsible_party']!.text == 'OEM' 
-            ? _selectedSite!.oem 
+        requestData['assigned_to_name'] = controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM'
+            ? _selectedSite!.oem
             : _selectedSite!.self;
       }
       
-      // Set status and remarks
-      requestData['status'] = _statusController.text.isNotEmpty 
-          ? _statusController.text 
-          : 'Open';
+      // Set status and remarks (status already set in uppercase above)
       requestData['remarks'] = _remarksController.text;
       requestData['is_active'] = true;
       
@@ -4475,9 +4517,9 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Add status and remarks if not already in requestData
+      // Add status and remarks if not already in requestData (status sent in uppercase)
       if (!requestData.containsKey('status') || requestData['status'] == null || requestData['status'].toString().isEmpty) {
-        requestData['status'] = _statusController.text.isNotEmpty ? _statusController.text : 'Open';
+        requestData['status'] = (_statusController.text.trim().isNotEmpty ? _statusController.text.trim() : 'Open').toUpperCase();
       }
       if (!requestData.containsKey('remarks') || requestData['remarks'] == null) {
         requestData['remarks'] = _remarksController.text;
