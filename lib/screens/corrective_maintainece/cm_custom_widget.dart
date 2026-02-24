@@ -73,6 +73,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   // Child items state (for impacted_item_check_list) - keyed by cm_check_list_mst_id
   Map<int, bool> _childItemCheckboxStates = {}; // childId -> isChecked
   Map<int, String> _childItemNumericValues = {}; // childId -> numeric value
+  Map<int, TextEditingController> _childItemNumericControllers = {}; // childId -> controller (stable across rebuilds, fixes focus/single-digit)
   Map<int, Map<String, String?>> _childItemDependentImageData = {}; // childId -> {elementKey -> imageData}
   Map<int, Map<String, File?>> _childItemDependentImageFiles = {}; // childId -> {elementKey -> imageFile}
   
@@ -201,6 +202,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Clear child item states
     _childItemCheckboxStates.clear();
     _childItemNumericValues.clear();
+    _childItemNumericControllers.values.forEach((c) => c.dispose());
+    _childItemNumericControllers.clear();
     _childItemDependentImageData.clear();
     _childItemDependentImageFiles.clear();
     
@@ -231,6 +234,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _checkboxNumericController.dispose();
     _dynamicNumericController.dispose();
     _childFieldControllers.values.forEach((controller) => controller.dispose());
+    _childItemNumericControllers.values.forEach((c) => c.dispose());
+    _childItemNumericControllers.clear();
     super.dispose();
   }
 
@@ -809,8 +814,10 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Clear child item checkbox states
     _childItemCheckboxStates.clear();
     
-    // Clear child item numeric values
+    // Clear child item numeric values and controllers
     _childItemNumericValues.clear();
+    _childItemNumericControllers.values.forEach((c) => c.dispose());
+    _childItemNumericControllers.clear();
     
     // Clear child item dependent images
     _childItemDependentImageData.clear();
@@ -1177,6 +1184,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Clear child item states
     _childItemCheckboxStates.clear();
     _childItemNumericValues.clear();
+    _childItemNumericControllers.values.forEach((c) => c.dispose());
+    _childItemNumericControllers.clear();
     _childItemDependentImageData.clear();
     _childItemDependentImageFiles.clear();
     
@@ -1897,21 +1906,33 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 });
               },
             ),
-            // Show numeric field when checked
+            // Show numeric field when checked (use dedicated controller to avoid rebuild/focus issues and allow multiple digits)
             if (isChecked) ...[
               Padding(
                 padding: const EdgeInsets.only(left: 40, bottom: 16),
-                child: CustomFormField(
-                  label: 'Enter value',
-                  initialValue: numericValue,
-                  onChanged: isReadonly ? null : (String value) {
-                    setState(() {
-                      _childItemNumericValues[childId] = value;
-                    });
+                child: Builder(
+                  builder: (context) {
+                    final controller = _childItemNumericControllers.putIfAbsent(
+                      childId,
+                      () => TextEditingController(text: numericValue),
+                    );
+                    final syncValue = _childItemNumericValues[childId] ?? '';
+                    if (controller.text != syncValue) {
+                      controller.text = syncValue;
+                      controller.selection = TextSelection.collapsed(offset: syncValue.length);
+                    }
+                    return CustomFormField(
+                      label: 'Enter value',
+                      controller: controller,
+                      onChanged: isReadonly ? null : (String value) {
+                        _childItemNumericValues[childId] = value;
+                        setState(() {});
+                      },
+                      isRequired: false,
+                      inputType: InputType.number,
+                      isEditable: !isReadonly,
+                    );
                   },
-                  isRequired: false,
-                  inputType: InputType.number,
-                  isEditable: !isReadonly,
                 ),
               ),
             ],
