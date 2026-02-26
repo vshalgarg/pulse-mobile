@@ -2600,6 +2600,120 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Get CM checklist data from SQLite by entity_id (for offline ticket open when siteId differs from entityId)
+  Future<Map<String, List<Map<String, dynamic>>>> getCMChecklistDataByEntityId(
+    int entityId,
+  ) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_checklist_data',
+        where: 'entity_id = ?',
+        whereArgs: [entityId],
+        orderBy: 'cl_order ASC',
+      );
+
+      final Map<String, List<Map<String, dynamic>>> checklistByType = {};
+
+      for (final map in maps) {
+        final itemType = map['item_type'] as String;
+
+        if (!checklistByType.containsKey(itemType)) {
+          checklistByType[itemType] = [];
+        }
+
+        List<dynamic> childitemData = [];
+        if (map['childitem_data'] != null) {
+          try {
+            childitemData = jsonDecode(map['childitem_data']);
+          } catch (e) {
+            Logger.errorLog('❌ Error parsing childitem_data: $e');
+          }
+        }
+
+        List<dynamic>? dependentElements;
+        if (map['dependent_elements'] != null) {
+          try {
+            final parsed = jsonDecode(map['dependent_elements']);
+            if (parsed is List) {
+              dependentElements = parsed;
+            }
+          } catch (e) {
+            Logger.errorLog('❌ Error parsing dependent_elements: $e');
+          }
+        }
+
+        final itemData = {
+          'checklist_desc': map['checklist_desc'],
+          'resp_type': map['resp_type'],
+          'resp_type_value_map': map['resp_type_value_map'],
+          'impacted_item_value_map': map['impacted_item_value_map'],
+          'item_type_id': map['item_type_id'],
+          'item_type': map['item_type'],
+          'check_list_group_id': map['check_list_group_id'],
+          'cm_check_list_mst_id': map['cm_check_list_mst_id'],
+          'is_mandatory': map['is_mandatory'] == 1,
+          'childitemData': childitemData,
+          'impacted_item_check_list': childitemData,
+          'cl_order': map['cl_order'],
+          'sub_item_type': map['sub_item_type'],
+        };
+
+        if (dependentElements != null) {
+          itemData['dependent_elements'] = dependentElements;
+        }
+
+        checklistByType[itemType]!.add(itemData);
+      }
+
+      if (checklistByType.isNotEmpty) {
+        Logger.debugLog(
+          '✅ Retrieved CM checklist data by entity_id $entityId with ${checklistByType.length} item types',
+        );
+      }
+      return checklistByType;
+    } catch (e) {
+      Logger.errorLog('❌ Error getting CM checklist data by entityId: $e');
+      return {};
+    }
+  }
+
+  /// Get CM site data with checklist from SQLite by entity_id (for offline ticket open)
+  Future<Map<String, dynamic>?> getCMSiteDataWithChecklistByEntityId(
+    int entityId,
+  ) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_sites_data',
+        where: 'entity_id = ?',
+        whereArgs: [entityId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        final siteData = Map<String, dynamic>.from(maps.first);
+
+        if (siteData['checklist_data'] != null) {
+          try {
+            final checklistData = jsonDecode(siteData['checklist_data']);
+            siteData['checklist_items'] = checklistData;
+          } catch (e) {
+            Logger.errorLog('❌ Error parsing checklist_data: $e');
+          }
+        }
+
+        return siteData;
+      }
+      return null;
+    } catch (e) {
+      Logger.errorLog(
+        '❌ Error getting CM site data with checklist by entityId: $e',
+      );
+      return null;
+    }
+  }
+
   /// Check if CM checklist is downloaded for a site
   Future<bool> isCMChecklistDownloaded(int siteId) async {
     try {
@@ -2614,6 +2728,25 @@ class CentralAssetAuditDataService {
       return maps.isNotEmpty;
     } catch (e) {
       Logger.errorLog('❌ Error checking if CM checklist is downloaded: $e');
+      return false;
+    }
+  }
+
+  /// Check if CM checklist is downloaded for an entity_id (for ticket flow / offline)
+  Future<bool> isCMChecklistDownloadedByEntityId(int entityId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_checklist_data',
+        where: 'entity_id = ? AND is_downloaded = 1',
+        whereArgs: [entityId],
+        limit: 1,
+      );
+      return maps.isNotEmpty;
+    } catch (e) {
+      Logger.errorLog(
+        '❌ Error checking if CM checklist is downloaded by entityId: $e',
+      );
       return false;
     }
   }

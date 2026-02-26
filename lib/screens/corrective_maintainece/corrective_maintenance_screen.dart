@@ -184,9 +184,18 @@ class _CorrectiveMaintenanceScreenState
         return value != null ? value as T : defaultValue;
       }
       
+      int siteIdVal = _getSiteValue(preloadedSite, 'siteId', 'site_id', 0);
+      int entityIdVal = _getSiteValue(preloadedSite, 'entityId', 'entity_id', 0);
+      // For ticket open from My Tickets: API may not return entity_id; use cmSiteReqId so checklist lookup by entityId finds downloaded data
+      if (entityIdVal == 0 && cmSiteReqId != null) {
+        final parsed = cmSiteReqId is int ? cmSiteReqId : int.tryParse(cmSiteReqId.toString());
+        if (parsed != null && parsed != 0) entityIdVal = parsed;
+      }
+      if (siteIdVal == 0 && entityIdVal != 0) siteIdVal = entityIdVal;
+      
       CMSite site = CMSite(
-        siteId: _getSiteValue(preloadedSite, 'siteId', 'site_id', 0),
-        entityId: _getSiteValue(preloadedSite, 'entityId', 'entity_id', 0),
+        siteId: siteIdVal,
+        entityId: entityIdVal,
         siteCode: _getSiteValue(preloadedSite, 'siteCode', 'site_code', '').toString(),
         siteName: _getSiteValue(preloadedSite, 'siteName', 'site_name', '').toString(),
         clusterDistrictId: _getSiteValue(preloadedSite, 'clusterDistrictId', 'cluster_district_id', 0),
@@ -970,57 +979,116 @@ class _CorrectiveMaintenanceScreenState
               Logger.infoLog("✅ [CM] Checklist data loaded from separate table with types: ${localChecklistData.keys.toList()}");
               checklistData = localChecklistData;
             } else {
+              // Fallback for offline ticket open: lookup by entityId or cmSiteReqId (ticket/site may use these as key)
+              final effectiveEntityId = selectedSite.entityId != 0
+                  ? selectedSite.entityId
+                  : (cmSiteReqId is int
+                      ? cmSiteReqId
+                      : int.tryParse(cmSiteReqId?.toString() ?? ''));
+              if (effectiveEntityId != null && effectiveEntityId != 0) {
+                Logger.infoLog("🔄 [CM] No checklist by siteId, trying by entityId: $effectiveEntityId");
+                final siteDataByEntityId = await ServiceLocator()
+                    .centralAssetAuditDataService
+                    .getCMSiteDataWithChecklistByEntityId(effectiveEntityId);
+                if (siteDataByEntityId != null &&
+                    siteDataByEntityId['checklist_items'] != null) {
+                  checklistData = Map<String, dynamic>.from(
+                      siteDataByEntityId['checklist_items'] as Map);
+                  Logger.infoLog(
+                      "✅ [CM] Checklist loaded from site data by entityId with types: ${checklistData.keys.toList()}");
+                } else {
+                  final checklistByEntityId = await ServiceLocator()
+                      .centralAssetAuditDataService
+                      .getCMChecklistDataByEntityId(effectiveEntityId);
+                  if (checklistByEntityId.isNotEmpty) {
+                    checklistData = checklistByEntityId;
+                    Logger.infoLog(
+                        "✅ [CM] Checklist loaded from separate table by entityId with types: ${checklistData.keys.toList()}");
+                  }
+                }
+              }
+            }
+            if (checklistData.isEmpty) {
               Logger.infoLog("⚠️ [CM] No local checklist data found, fetching from API");
               try {
                 // Check connectivity first
                 final isOnline = await ConnectivityHelper.isConnected();
                 
-                // Check if site is downloaded
-                final isSiteDownloaded = await ServiceLocator()
+                // Check if site is downloaded (by siteId or by entityId for ticket/open-from-my-tickets flow)
+                bool isSiteDownloaded = await ServiceLocator()
                     .centralAssetAuditDataService
                     .isCMSiteDownloaded(selectedSite.siteId);
+                final effectiveEntityIdForCheck = selectedSite.entityId != 0
+                    ? selectedSite.entityId
+                    : (cmSiteReqId is int
+                        ? cmSiteReqId
+                        : int.tryParse(cmSiteReqId?.toString() ?? ''));
+                if (!isSiteDownloaded &&
+                    effectiveEntityIdForCheck != null &&
+                    effectiveEntityIdForCheck != 0) {
+                  isSiteDownloaded = await ServiceLocator()
+                      .centralAssetAuditDataService
+                      .isCMChecklistDownloadedByEntityId(effectiveEntityIdForCheck);
+                  if (isSiteDownloaded) {
+                    final retryByEntityId = await ServiceLocator()
+                        .centralAssetAuditDataService
+                        .getCMChecklistDataByEntityId(effectiveEntityIdForCheck);
+                    if (retryByEntityId.isNotEmpty) {
+                      checklistData = retryByEntityId;
+                      Logger.infoLog(
+                          "✅ [CM] Checklist loaded by entityId on offline check: ${checklistData.keys.toList()}");
+                    }
+                  }
+                }
                 
                 // If offline and site is not downloaded, throw error
                 if (!isOnline && !isSiteDownloaded) {
                   throw Exception("This site is not downloaded. Please download the site data first to use it offline.");
                 }
                 
-                // If online, allow API call even if site is not downloaded
-                if (isOnline) {
-                  Logger.infoLog("🌐 [CM] Online mode - fetching checklist from API");
-                  final apiResponse = await ServiceLocator().cmRepository
-                      .getChecklistData(selectedSite.entityId);
-                  
-                  // API now returns both checkListDetails and siteDeployedItems
-                  if (apiResponse.containsKey('checkListDetails')) {
-                    checklistData = Map<String, dynamic>.from(apiResponse['checkListDetails']);
-                    // Add siteDeployedItems to checklistData
-                    if (apiResponse.containsKey('siteDeployedItems')) {
-                      checklistData['siteDeployedItems'] = apiResponse['siteDeployedItems'];
+                // Only fetch from API or throw when we still don't have checklist (e.g. just loaded by entityId retry above)
+                if (checklistData.isEmpty) {
+                  if (isOnline) {
+                    Logger.infoLog("🌐 [CM] Online mode - fetching checklist from API");
+                    final effectiveEntityIdForApi = selectedSite.entityId != 0
+                        ? selectedSite.entityId
+                        : (cmSiteReqId is int
+                            ? cmSiteReqId
+                            : int.tryParse(cmSiteReqId?.toString() ?? ''));
+                    final apiResponse = await ServiceLocator().cmRepository
+                        .getChecklistData(effectiveEntityIdForApi ?? selectedSite.entityId);
+                    
+                    // API now returns both checkListDetails and siteDeployedItems
+                    if (apiResponse.containsKey('checkListDetails')) {
+                      checklistData = Map<String, dynamic>.from(apiResponse['checkListDetails']);
+                      // Add siteDeployedItems to checklistData
+                      if (apiResponse.containsKey('siteDeployedItems')) {
+                        checklistData['siteDeployedItems'] = apiResponse['siteDeployedItems'];
+                      }
+                    } else {
+                      // Fallback for old format
+                      checklistData = apiResponse;
+                    }
+                    
+                    Logger.infoLog("✅ [CM] Checklist data fetched from API");
+                    
+                    // Save to local database for offline use
+                    try {
+                      await ServiceLocator().centralAssetAuditService.downloadCMChecklist(
+                        siteId: selectedSite.siteId,
+                        entityId: effectiveEntityIdForApi ?? selectedSite.entityId,
+                        siteCode: selectedSite.siteCode,
+                        siteName: selectedSite.siteName,
+                      );
+                      Logger.infoLog("✅ [CM] Checklist data saved to local database");
+                    } catch (saveError) {
+                      Logger.errorLog("⚠️ [CM] Failed to save checklist to local database: $saveError");
+                      // Continue even if save fails
                     }
                   } else {
-                    // Fallback for old format
-                    checklistData = apiResponse;
+                    // Offline mode but no local data - should not reach here if entityId retry succeeded
+                    throw Exception("No internet connection and site data not downloaded. Please download the site data first.");
                   }
-                  
-                  Logger.infoLog("✅ [CM] Checklist data fetched from API");
-                  
-                  // Save to local database for offline use
-                  try {
-                    await ServiceLocator().centralAssetAuditService.downloadCMChecklist(
-                      siteId: selectedSite.siteId,
-                      entityId: selectedSite.entityId,
-                      siteCode: selectedSite.siteCode,
-                      siteName: selectedSite.siteName,
-                    );
-                    Logger.infoLog("✅ [CM] Checklist data saved to local database");
-                  } catch (saveError) {
-                    Logger.errorLog("⚠️ [CM] Failed to save checklist to local database: $saveError");
-                    // Continue even if save fails
-                  }
-                } else {
-                  // Offline mode but no local data - should not reach here due to check above
-                  throw Exception("No internet connection and site data not downloaded. Please download the site data first.");
                 }
               } catch (apiError) {
                 Logger.errorLog("❌ [CM] Failed to fetch checklist from API: $apiError");
@@ -1072,6 +1140,31 @@ class _CorrectiveMaintenanceScreenState
             if (localChecklistData.isNotEmpty) {
               checklistTemplate = localChecklistData;
             } else {
+              // Fallback for offline ticket open: lookup by entityId or cmSiteReqId
+              final effectiveEntityId = _selectedSite!.entityId != 0
+                  ? _selectedSite!.entityId
+                  : (cmSiteReqId is int
+                      ? cmSiteReqId
+                      : int.tryParse(cmSiteReqId?.toString() ?? ''));
+              if (effectiveEntityId != null && effectiveEntityId != 0) {
+                final siteDataByEntityId = await ServiceLocator()
+                    .centralAssetAuditDataService
+                    .getCMSiteDataWithChecklistByEntityId(effectiveEntityId);
+                if (siteDataByEntityId != null &&
+                    siteDataByEntityId['checklist_items'] != null) {
+                  checklistTemplate = Map<String, dynamic>.from(
+                      siteDataByEntityId['checklist_items'] as Map);
+                } else {
+                  final checklistByEntityId = await ServiceLocator()
+                      .centralAssetAuditDataService
+                      .getCMChecklistDataByEntityId(effectiveEntityId);
+                  if (checklistByEntityId.isNotEmpty) {
+                    checklistTemplate = checklistByEntityId;
+                  }
+                }
+              }
+            }
+            if (checklistTemplate.isEmpty) {
               // Fetch from API if online
               final isOnline = await ConnectivityHelper.isConnected();
               if (isOnline) {
