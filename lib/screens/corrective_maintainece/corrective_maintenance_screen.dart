@@ -967,13 +967,28 @@ class _CorrectiveMaintenanceScreenState
             Logger.infoLog("⚠️ [CM] No checklist in site data, checking separate checklist table...");
 
             Logger.infoLog("🆔 [CM] Looking for checklist data for site ID: ${selectedSite.siteId}");
-            final localChecklistData = await ServiceLocator()
-                .centralAssetAuditDataService
-                .getCMChecklistData(selectedSite.siteId);
-            
+            Map<String, List<Map<String, dynamic>>> localChecklistData =
+                await ServiceLocator()
+                    .centralAssetAuditDataService
+                    .getCMChecklistData(selectedSite.siteId);
+
             Logger.infoLog("🔍 [CM] Separate checklist lookup result: ${localChecklistData.length} equipment types");
-            
-            Logger.infoLog("🔍 [CM] Local checklist table returned ${localChecklistData.length} equipment types");
+
+            // If no rows by site_id, try entity_id stored in cm_checklist_data (offline open from My Tickets)
+            if (localChecklistData.isEmpty) {
+              final entityIdFromDb = await ServiceLocator()
+                  .centralAssetAuditDataService
+                  .getEntityIdFromCMChecklistForSite(selectedSite.siteId);
+              if (entityIdFromDb != null && entityIdFromDb != 0) {
+                Logger.infoLog("🔄 [CM] No checklist by site_id, trying entity_id from DB: $entityIdFromDb");
+                localChecklistData = await ServiceLocator()
+                    .centralAssetAuditDataService
+                    .getCMChecklistDataByEntityId(entityIdFromDb);
+                if (localChecklistData.isNotEmpty) {
+                  Logger.infoLog("✅ [CM] Checklist loaded by entity_id from cm_checklist_data");
+                }
+              }
+            }
 
             if (localChecklistData.isNotEmpty) {
               Logger.infoLog("✅ [CM] Checklist data loaded from separate table with types: ${localChecklistData.keys.toList()}");
@@ -1011,13 +1026,34 @@ class _CorrectiveMaintenanceScreenState
             if (checklistData.isEmpty) {
               Logger.infoLog("⚠️ [CM] No local checklist data found, fetching from API");
               try {
+                // Last-chance: resolve entity_id from cm_checklist_data and load (offline My Tickets flow)
+                final entityIdFromDb = await ServiceLocator()
+                    .centralAssetAuditDataService
+                    .getEntityIdFromCMChecklistForSite(selectedSite.siteId);
+                if (entityIdFromDb != null && entityIdFromDb != 0) {
+                  final byEntity = await ServiceLocator()
+                      .centralAssetAuditDataService
+                      .getCMChecklistDataByEntityId(entityIdFromDb);
+                  if (byEntity.isNotEmpty) {
+                    checklistData = byEntity;
+                    Logger.infoLog("✅ [CM] Checklist loaded by entity_id from DB (last-chance fallback)");
+                  }
+                }
+
                 // Check connectivity first
                 final isOnline = await ConnectivityHelper.isConnected();
-                
+
                 // Check if site is downloaded (by siteId or by entityId for ticket/open-from-my-tickets flow)
                 bool isSiteDownloaded = await ServiceLocator()
                     .centralAssetAuditDataService
                     .isCMSiteDownloaded(selectedSite.siteId);
+                if (!isSiteDownloaded &&
+                    entityIdFromDb != null &&
+                    entityIdFromDb != 0) {
+                  isSiteDownloaded = await ServiceLocator()
+                      .centralAssetAuditDataService
+                      .isCMChecklistDownloadedByEntityId(entityIdFromDb);
+                }
                 final effectiveEntityIdForCheck = selectedSite.entityId != 0
                     ? selectedSite.entityId
                     : (cmSiteReqId is int

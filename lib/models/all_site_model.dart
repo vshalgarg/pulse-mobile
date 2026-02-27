@@ -175,11 +175,7 @@ class AllSiteModel {
               ? json['last_pm_audit_sch_id'] as int
               : int.tryParse(json['last_pm_audit_sch_id'].toString()))
           : null,
-      lastCMSiteReqId: json['last_cm_site_req_id'] != null
-          ? (json['last_cm_site_req_id'] is int
-              ? json['last_cm_site_req_id'] as int
-              : int.tryParse(json['last_cm_site_req_id'].toString()))
-          : null,
+      lastCMSiteReqId: _parseIntFromJson(json, 'last_cm_site_req_id', 'lastCMSiteReqId'),
       lastAADate: json['last_aa_date'] != null
           ? json['last_aa_date'].toString()
           : null,
@@ -240,6 +236,14 @@ class AllSiteModel {
       longitude: _parseLatLngString(json, 'longitude'),
       latitude: _parseLatLngString(json, 'latitude'),
     );
+  }
+
+  /// Parse int from JSON with optional snake_case and camelCase keys (for API/DB compatibility).
+  static int? _parseIntFromJson(Map<String, dynamic> json, String snakeKey, String camelKey) {
+    final v = json[snakeKey] ?? json[camelKey];
+    if (v == null) return null;
+    if (v is int) return v;
+    return int.tryParse(v.toString());
   }
 
   /// Parse latitude or longitude from JSON, supporting multiple common API key names.

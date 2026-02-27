@@ -2600,6 +2600,29 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Returns entity_id stored in cm_checklist_data for this site_id (if any).
+  /// Use when opening from My Tickets with entity_id=0 to still find offline checklist.
+  Future<int?> getEntityIdFromCMChecklistForSite(int siteId) async {
+    try {
+      final db = await database;
+      final List<Map<String, dynamic>> maps = await db.query(
+        'cm_checklist_data',
+        columns: ['entity_id'],
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+      if (maps.isEmpty) return null;
+      final v = maps.first['entity_id'];
+      if (v == null) return null;
+      if (v is int) return v;
+      return int.tryParse(v.toString());
+    } catch (e) {
+      Logger.errorLog('❌ getEntityIdFromCMChecklistForSite: $e');
+      return null;
+    }
+  }
+
   /// Get CM checklist data from SQLite by entity_id (for offline ticket open when siteId differs from entityId)
   Future<Map<String, List<Map<String, dynamic>>>> getCMChecklistDataByEntityId(
     int entityId,

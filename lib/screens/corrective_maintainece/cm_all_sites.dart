@@ -331,20 +331,26 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
       final service = ServiceLocator().centralAssetAuditService;
       bool isDownloaded = false;
 
-      // Always download CM site data first
+      // Use entityId for checklist; when API returns 0, use lastCMSiteReqId so checklist saves and offline open works
+      final effectiveEntityId = site.entityId != 0
+          ? site.entityId
+          : (site.lastCMSiteReqId ?? 0);
+
+      // Save site with effective entity_id so My Tickets opens with correct entityId for checklist lookup
       isDownloaded = await service.downloadCMSiteData(
         site: site,
         siteType: 'correctiveMaintenance',
+        entityIdOverride: effectiveEntityId != 0 ? effectiveEntityId : null,
       );
 
       if (isDownloaded) {
         Logger.infoLog(
-          '🔄 Starting checklist download for site: ${site.siteName} (ID: ${site.siteId})',
+          '🔄 Starting checklist download for site: ${site.siteName} (ID: ${site.siteId}, entityId: $effectiveEntityId)',
         );
 
         final checklistDownloaded = await service.downloadCMChecklist(
           siteId: site.siteId,
-          entityId: site.entityId,
+          entityId: effectiveEntityId != 0 ? effectiveEntityId : site.entityId,
           siteCode: site.siteCode,
           siteName: site.siteName,
         );

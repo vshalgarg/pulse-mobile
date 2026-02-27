@@ -73,21 +73,25 @@ class CentralAssetAuditService {
     }
   }
 
-  /// Download CM site data and save to SQLite
+  /// Download CM site data and save to SQLite.
+  /// [entityIdOverride] When set (e.g. for CM), use as entity_id so offline open from My Tickets finds checklist.
   Future<bool> downloadCMSiteData({
     required AllSiteModel site,
     required String siteType,
+    int? entityIdOverride,
   }) async {
     try {
       Logger.debugLog(
         'Starting to download CM site data for site: ${site.siteName}',
       );
 
+      final entityId = entityIdOverride ?? site.entityId;
+
       // Save to SQLite using the new CM site data service
       bool isSaved = await ServiceLocator().centralAssetAuditDataService
           .saveCMSiteData(
             siteId: site.siteId,
-            entityId: site.entityId,
+            entityId: entityId,
             siteCode: site.siteCode,
             siteName: site.siteName,
             clusterDistrictId: site.clusterDistrictId,
@@ -530,19 +534,21 @@ class CentralAssetAuditService {
         'Starting to download CM checklist data for site: $siteName',
       );
 
-      // Get checklist data from API
+      // Get checklist data from API (returns { checkListDetails: { DG: [...], ... }, siteDeployedItems: {...} })
       final checklistDataRaw = await ServiceLocator().cmRepository
           .getChecklistData(entityId);
 
-      // Convert to the expected format
       final Map<String, List<Map<String, dynamic>>> checklistData = {};
-      checklistDataRaw.forEach((key, value) {
-        if (value is List) {
-          checklistData[key] = List<Map<String, dynamic>>.from(
-            value.map((item) => Map<String, dynamic>.from(item)),
-          );
-        }
-      });
+      final checkListDetails = checklistDataRaw['checkListDetails'] as Map<String, dynamic>?;
+      if (checkListDetails != null) {
+        checkListDetails.forEach((key, value) {
+          if (value is List) {
+            checklistData[key] = List<Map<String, dynamic>>.from(
+              value.map((item) => Map<String, dynamic>.from(item)),
+            );
+          }
+        });
+      }
 
       // Save to SQLite using the central data service
       bool isSaved = await ServiceLocator().centralAssetAuditDataService
