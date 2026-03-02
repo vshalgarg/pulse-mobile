@@ -2590,7 +2590,10 @@ class _CorrectiveMaintenanceScreenState
     Logger.infoLog('[CM] Starting to upload checklist images...');
     
     // Helper function to upload a single image
-    Future<String?> _uploadSingleImage(Map<String, dynamic> imageData, String context) async {
+    Future<String?> _uploadSingleImage(
+      Map<String, dynamic> imageData,
+      String context,
+    ) async {
       final photoId = imageData['photo_id']?.toString() ?? imageData['photoId']?.toString();
       
       // Only upload if it's a LOCAL_IMAGE_ID
@@ -2611,7 +2614,9 @@ class _CorrectiveMaintenanceScreenState
         }
         
         if (base64Image == null || base64Image.isEmpty) {
-          Logger.errorLog('[CM] No image_data found for LOCAL_IMAGE_ID in $context');
+          Logger.errorLog('[CM] No image_data found for LOCAL_IMAGE_ID in $context - clearing photoId so it is not sent');
+          imageData['photo_id'] = null;
+          imageData['photoId'] = null;
           return null;
         }
         
@@ -2633,11 +2638,15 @@ class _CorrectiveMaintenanceScreenState
           Logger.infoLog('[CM] ✅ Image uploaded successfully. Photo ID: $serverPhotoId');
           return serverPhotoId;
         } else {
-          Logger.errorLog('[CM] ❌ Failed to upload image - empty photo ID returned');
+          Logger.errorLog('[CM] ❌ Failed to upload image - empty photo ID returned, clearing photoId so it is not sent');
+          imageData['photo_id'] = null;
+          imageData['photoId'] = null;
           return null;
         }
       } catch (e) {
-        Logger.errorLog('[CM] ❌ Error uploading image: $e');
+        Logger.errorLog('[CM] ❌ Error uploading image: $e - clearing photoId so it is not sent');
+        imageData['photo_id'] = null;
+        imageData['photoId'] = null;
         return null;
       }
     }
@@ -2845,7 +2854,10 @@ class _CorrectiveMaintenanceScreenState
     Logger.infoLog('[CM] Starting to upload impacted item images...');
     
     // Helper function to upload a single image
-    Future<String?> _uploadSingleImage(Map<String, dynamic> imageData, String context) async {
+    Future<String?> _uploadSingleImage(
+      Map<String, dynamic> imageData,
+      String context,
+    ) async {
       final photoId = imageData['photoId']?.toString() ?? 
                      imageData['photo_id']?.toString();
       
@@ -2868,7 +2880,9 @@ class _CorrectiveMaintenanceScreenState
         }
         
         if (base64Image == null || base64Image.isEmpty) {
-          Logger.errorLog('[CM] No imageData/image_data found for LOCAL_IMAGE_ID in $context');
+          Logger.errorLog('[CM] No imageData/image_data found for LOCAL_IMAGE_ID in $context - clearing photoId so it is not sent');
+          imageData['photoId'] = null;
+          imageData['photo_id'] = null;
           return null;
         }
         
@@ -2890,11 +2904,15 @@ class _CorrectiveMaintenanceScreenState
           Logger.infoLog('[CM] ✅ Impacted item image uploaded successfully. Photo ID: $serverPhotoId');
           return serverPhotoId;
         } else {
-          Logger.errorLog('[CM] ❌ Failed to upload impacted item image - empty photo ID returned');
+          Logger.errorLog('[CM] ❌ Failed to upload impacted item image - empty photo ID returned, clearing photoId so it is not sent');
+          imageData['photoId'] = null;
+          imageData['photo_id'] = null;
           return null;
         }
       } catch (e) {
-        Logger.errorLog('[CM] ❌ Error uploading impacted item image: $e');
+        Logger.errorLog('[CM] ❌ Error uploading impacted item image: $e - clearing photoId so it is not sent');
+        imageData['photoId'] = null;
+        imageData['photo_id'] = null;
         return null;
       }
     }

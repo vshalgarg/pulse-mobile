@@ -12,6 +12,7 @@ import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:dio/dio.dart';
+import 'package:intl/intl.dart';
 
 /// Service for posting asset audit data with photo ID replacement
 /// This service handles replacing local unique_id photo IDs with server_id
@@ -427,13 +428,17 @@ class AssetAuditPostService {
         return;
       }
 
-      final request = requests.first;
+      final request = requests.first as Map<String, dynamic>;
       Logger.infoLog("Processing CM request: ${request.keys}");
 
-      // Convert keys to camelCase
+      // Convert to camelCase first (creates a deep copy), then process images on that copy.
+      // We must replace LOCAL_IMAGE_ID on the same object we send, else the copy still has old values.
       final processedData = DataTransformationHelper.convertKeysToCamelCase(
         request,
       );
+
+      // Upload all LOCAL_IMAGE_ID photos and replace with server IDs in processedData (the payload we send).
+      await _processCMRequestForImages(processedData);
 
       // Extract image IDs before removing them from the request
       final customerPhotoId =
@@ -1408,6 +1413,166 @@ class AssetAuditPostService {
           // Recursively process nested maps
           await _processNestedObjects(value);
         }
+      }
+    }
+  }
+
+  /// Process CM request: upload all LOCAL_IMAGE_ID and replace with server IDs
+  /// (top-level photo fields + nested checklist/impacted item response_images).
+  Future<void> _processCMRequestForImages(Map<String, dynamic> request) async {
+    final imageUploadService = ServiceLocator().imageUploadService;
+
+    // 1) Top-level image fields (snake_case and camelCase)
+    final topLevelFields = [
+      'customer_photo_id',
+      'customerPhotoId',
+      'customer_attachment_id',
+      'customerAttachmentId',
+      'identification_img_id',
+      'identificationImgId',
+      'timestamp_img_id',
+      'timestampImgId',
+      'fsr_attachment_id',
+      'fsrAttachmentId',
+    ];
+    for (final key in topLevelFields) {
+      if (!request.containsKey(key)) continue;
+      final value = request[key];
+      if (value == null ||
+          value.toString().trim().isEmpty ||
+          !value.toString().startsWith('LOCAL_IMAGE_ID_')) {
+        continue;
+      }
+      final imageModel = await imageUploadService
+          .getServerIdFromUniqueIdTryUploading(value.toString());
+      if (imageModel != null && imageModel.serverId != null) {
+        request[key] = imageModel.serverId is int
+            ? imageModel.serverId
+            : int.tryParse(imageModel.serverId.toString());
+        Logger.debugLog('✅ CM sync: $key replaced with server ID');
+      } else {
+        Logger.errorLog('❌ CM sync: failed to upload $key: $value');
+        request[key] = null;
+      }
+    }
+
+    // 2) Nested checklist: process cmCheckListSiteRespImagesList and response_images per item
+    List<dynamic>? checklistList;
+    // Support all key variants we use in offline/online flows
+    if (request['cmCheckListSiteRespList'] is List) {
+      checklistList = request['cmCheckListSiteRespList'] as List<dynamic>;
+    } else if (request['cm_check_list_site_resp_list'] is List) {
+      checklistList = request['cm_check_list_site_resp_list'] as List<dynamic>;
+    } else if (request['checkListSiteRespList'] is List) {
+      checklistList = request['checkListSiteRespList'] as List<dynamic>;
+    } else if (request['check_list_site_resp_list'] is List) {
+      checklistList = request['check_list_site_resp_list'] as List<dynamic>;
+    }
+
+    if (checklistList != null) {
+      for (final item in checklistList) {
+        if (item is! Map<String, dynamic>) continue;
+        await _processCMChecklistItemImages(item, imageUploadService);
+        final impactedList = item['cm_impacted_item_list'] ??
+            item['cmImpactedItemList'] as List<dynamic>?;
+        if (impactedList != null) {
+          for (final child in impactedList) {
+            if (child is Map<String, dynamic>) {
+              await _processCMChecklistItemImages(child, imageUploadService);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Process all image lists in a checklist/impacted item: cmCheckListSiteRespImagesList and response_images.
+  Future<void> _processCMChecklistItemImages(
+    Map<String, dynamic> obj,
+    dynamic imageUploadService,
+  ) async {
+    // API payload uses cmCheckListSiteRespImagesList (list of { photoId, cclsriId, photoTakenTs, ... })
+    final imagesList = obj['cm_check_list_site_resp_images_list'] ??
+        obj['cmCheckListSiteRespImagesList'] as List<dynamic>?;
+    if (imagesList != null) {
+      await _processCMPhotoIdList(imagesList, imageUploadService, 'cmCheckListSiteRespImagesList');
+    }
+    // Legacy / alternate key: response_images (list of { photo_id / photoId })
+    await _processCMResponseImagesInMap(obj, imageUploadService);
+  }
+
+  /// Process a list of maps that have photoId or photo_id (e.g. cmCheckListSiteRespImagesList).
+  Future<void> _processCMPhotoIdList(
+    List<dynamic> list,
+    dynamic imageUploadService,
+    String contextLabel,
+  ) async {
+    for (int i = 0; i < list.length; i++) {
+      final entry = list[i];
+      if (entry is! Map<String, dynamic>) continue;
+      final photoId = entry['photo_id'] ?? entry['photoId'];
+      if (photoId == null ||
+          !photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+        continue;
+      }
+      final imageModel = await imageUploadService
+          .getServerIdFromUniqueIdTryUploading(photoId.toString());
+      if (imageModel != null && imageModel.serverId != null) {
+        final serverId = imageModel.serverId is int
+            ? imageModel.serverId
+            : int.tryParse(imageModel.serverId.toString());
+        entry['photo_id'] = serverId;
+        entry['photoId'] = serverId;
+        // Format photoTakenTs as dd/MM/yyyy as required by backend
+        if (imageModel.createdAt != null) {
+          final dt = DateTime.fromMillisecondsSinceEpoch(imageModel.createdAt!);
+          final ts = DateFormat('dd/MM/yyyy').format(dt);
+          entry['photo_taken_ts'] = ts;
+          entry['photoTakenTs'] = ts;
+        }
+        Logger.debugLog('✅ CM sync: $contextLabel[$i] photoId replaced with server ID');
+      } else {
+        Logger.errorLog('❌ CM sync: failed to upload $contextLabel[$i]: $photoId');
+        entry['photo_id'] = null;
+        entry['photoId'] = null;
+      }
+    }
+  }
+
+  /// Process response_images / responseImages in a single map (checklist or impacted item).
+  Future<void> _processCMResponseImagesInMap(
+    Map<String, dynamic> obj,
+    dynamic imageUploadService,
+  ) async {
+    final list = obj['response_images'] ?? obj['responseImages'];
+    if (list == null || list is! List) return;
+    for (int i = 0; i < list.length; i++) {
+      final entry = list[i];
+      if (entry is! Map<String, dynamic>) continue;
+      final photoId = entry['photo_id'] ?? entry['photoId'];
+      if (photoId == null ||
+          !photoId.toString().startsWith('LOCAL_IMAGE_ID_')) {
+        continue;
+      }
+      final imageModel = await imageUploadService
+          .getServerIdFromUniqueIdTryUploading(photoId.toString());
+      if (imageModel != null && imageModel.serverId != null) {
+        final serverId = imageModel.serverId is int
+            ? imageModel.serverId
+            : int.tryParse(imageModel.serverId.toString());
+        entry['photo_id'] = serverId;
+        entry['photoId'] = serverId;
+        // Format photoTakenTs as dd/MM/yyyy as required by backend
+        if (imageModel.createdAt != null) {
+          final dt = DateTime.fromMillisecondsSinceEpoch(imageModel.createdAt!);
+          final ts = DateFormat('dd/MM/yyyy').format(dt);
+          entry['photo_taken_ts'] = ts;
+        }
+        Logger.debugLog('✅ CM sync: response_images[$i] replaced with server ID');
+      } else {
+        Logger.errorLog('❌ CM sync: failed to upload response_images[$i]: $photoId');
+        entry['photo_id'] = null;
+        entry['photoId'] = null;
       }
     }
   }
