@@ -80,7 +80,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     'Resolved',
     'Unresolved',
   ];
-  final List<String> _statusOptions = ['OPEN', 'CLOSED'];
+  final List<String> _statusOptions = ['OPEN', 'CLOSE'];
 
   // Check if mode is view (read-only)
   bool get _isViewMode => widget.mode == CMScreenModeEnum.view;
@@ -154,7 +154,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     }
 
     // In view mode, if status is CLOSE, mark all as read-only
-    if (_isViewMode || _selectedStatus == 'CLOSED') {
+    if (_isViewMode || _selectedStatus == 'CLOSE') {
       setState(() {
         _hasFormDataChanges = false;
       });
@@ -570,7 +570,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
       // Set closedDt only when status is CLOSE, format: "yyyy-MM-dd HH:mm:ss.SSS" in IST
       String? closedDt;
-      if (_selectedStatus == 'CLOSED') {
+      if (_selectedStatus == 'CLOSE') {
         // Convert UTC to IST (UTC+5:30)
         final utcNow = DateTime.now().toUtc();
         final istNow = utcNow.add(const Duration(hours: 5, minutes: 30));
@@ -941,7 +941,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             });
           },
           // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -952,7 +952,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           hintText: "Enter incident remarks",
           controller: _incidentRemarksController,
           // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
         ),
         const SizedBox(height: 15),
 
@@ -972,7 +972,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             });
           },
           // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -983,7 +983,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           hintText: "Enter remarks",
           controller: _remarksController,
           // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
         ),
         const SizedBox(height: 15),
 
@@ -1014,7 +1014,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                 }
               },
               // Only disable when view mode AND status is CLOSE
-              isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
+              isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
             );
           },
         ),
@@ -1039,7 +1039,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           isDisabled:
               (widget.mode == CMScreenModeEnum.create &&
                   _selectedStatus == 'OPEN') ||
-              (_isViewMode && _selectedStatus == 'CLOSED'),
+              (_isViewMode && _selectedStatus == 'CLOSE'),
           isRequired: true,
         ),
         const SizedBox(height: 15),

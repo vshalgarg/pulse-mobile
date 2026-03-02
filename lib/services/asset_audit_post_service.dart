@@ -452,15 +452,21 @@ class AssetAuditPostService {
           processedData['fsrAttachmentId'];
 
       // Extract original file info for customer attachment (to preserve filename)
+      // Support both snake_case (raw stored) and camelCase (after convertKeysToCamelCase)
       final customerOriginalFilePath =
-          processedData['customer_original_file_path'];
+          processedData['customer_original_file_path'] ??
+          processedData['customerOriginalFilePath'];
       final customerOriginalFileName =
-          processedData['customer_original_file_name'];
+          processedData['customer_original_file_name'] ??
+          processedData['customerOriginalFileName'];
 
       // Extract FSR attachment file info
-      final fsrOriginalFilePath = processedData['fsr_original_file_path'];
+      final fsrOriginalFilePath =
+          processedData['fsr_original_file_path'] ??
+          processedData['fsrOriginalFilePath'];
       final fsrOriginalFileName =
           processedData['fsr_original_file_name'] ??
+          processedData['fsrOriginalFileName'] ??
           processedData['fsrAttachmentName'] ??
           processedData['fsr_attachment_name'];
 
@@ -1419,21 +1425,20 @@ class AssetAuditPostService {
 
   /// Process CM request: upload all LOCAL_IMAGE_ID and replace with server IDs
   /// (top-level photo fields + nested checklist/impacted item response_images).
+  /// Customer photo, customer attachment, and FSR attachment are NOT processed here:
+  /// they are left as string IDs (e.g. LOCAL_IMAGE_ID_xxx) so that after creating the
+  /// CM ticket, _uploadCMImagesAndAttachments can look them up and upload via /upload API.
   Future<void> _processCMRequestForImages(Map<String, dynamic> request) async {
     final imageUploadService = ServiceLocator().imageUploadService;
 
-    // 1) Top-level image fields (snake_case and camelCase)
+    // 1) Top-level image fields that are sent in the JSON body (replace with server ID).
+    // Exclude customer_photo_id, customer_attachment_id, fsr_attachment_id - those are
+    // uploaded separately via correctiveMaintenance/upload using the string ID to look up file data.
     final topLevelFields = [
-      'customer_photo_id',
-      'customerPhotoId',
-      'customer_attachment_id',
-      'customerAttachmentId',
       'identification_img_id',
       'identificationImgId',
       'timestamp_img_id',
       'timestampImgId',
-      'fsr_attachment_id',
-      'fsrAttachmentId',
     ];
     for (final key in topLevelFields) {
       if (!request.containsKey(key)) continue;
