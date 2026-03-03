@@ -56,7 +56,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   double? _latitude;
   double? _longitude;
 
-  // Close remarks when status is CLOSE
+  // Close remarks when status is CLOSED
   final TextEditingController _closedRemarksController =
       TextEditingController();
   
@@ -66,8 +66,8 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
   // Check if mode is edit or view (parent checkbox should be disabled)
   bool get _isEditOrViewMode => widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view;
   
-  // Check if status is CLOSE AND mode is view (all items should be disabled only in view mode with CLOSE)
-  bool get _isStatusClose => widget.currentStatus == 'CLOSE' && widget.mode == CMScreenModeEnum.view;
+  // Check if status is CLOSED AND mode is view (all items should be disabled only in view mode with CLOSED)
+  bool get _isStatusClose => widget.currentStatus == 'CLOSED' && widget.mode == CMScreenModeEnum.view;
 
   @override
   void dispose() {
@@ -357,8 +357,8 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
     }
 
     try {
-      // If status is CLOSE, show dialog to get closing remarks
-      if (widget.currentStatus == 'CLOSE') {
+      // If status is CLOSED, show dialog to get closing remarks
+      if (widget.currentStatus == 'CLOSED') {
         final closedRemarks = await _showCloseRemarksDialog();
         if (closedRemarks == null) {
           // User cancelled the dialog
@@ -557,7 +557,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
              
               child: Row(
                 children: [
-                  // Parent Checkbox - disabled in edit, view mode, or when status is CLOSE
+                  // Parent Checkbox - disabled in edit, view mode, or when status is CLOSED
                   Checkbox(
                     value: isSelected,
                     onChanged: (_isEditOrViewMode || _isStatusClose)
@@ -573,7 +573,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
                     child: GestureDetector(
                       onTap: (_isEditOrViewMode || _isStatusClose)
                           ? () {
-                              // In edit/view mode or when status is CLOSE, only allow toggling expansion if parent is selected
+                              // In edit/view mode or when status is CLOSED, only allow toggling expansion if parent is selected
                               if (isSelected) {
                                 setState(() {
                                   _expandedStates[parentKey] = !isExpanded;
@@ -600,7 +600,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
                       ),
                     ),
                   ),
-                  // Expand/Collapse Icon - allow expansion even when status is CLOSE for viewing
+                  // Expand/Collapse Icon - allow expansion even when status is CLOSED for viewing
                   if (isSelected)
                     IconButton(
                       onPressed: _isViewMode

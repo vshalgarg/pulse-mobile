@@ -58,7 +58,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
   String? _uploadedImgId;
   String? _fetchedImageData;
 
-  // Closed remarks (read-only, displayed when status is CLOSE)
+  // Closed remarks (read-only, displayed when status is CLOSED)
   String? _closedRemarks;
 
   bool _hasFormDataChanges = false;
@@ -80,7 +80,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     'Resolved',
     'Unresolved',
   ];
-  final List<String> _statusOptions = ['OPEN', 'CLOSE'];
+  final List<String> _statusOptions = ['OPEN', 'CLOSED'];
 
   // Check if mode is view (read-only)
   bool get _isViewMode => widget.mode == CMScreenModeEnum.view;
@@ -139,7 +139,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         _loadExistingImage(imageId);
       }
 
-      // If status is CLOSE, ensure it's set
+      // If status is CLOSED, ensure it's set
       if (_selectedStatus == null || _selectedStatus!.isEmpty) {
         _selectedStatus =
             widget.apiResponseData!['status']?.toString() ?? 'OPEN';
@@ -153,8 +153,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       _incidentRemarksController.text = "";
     }
 
-    // In view mode, if status is CLOSE, mark all as read-only
-    if (_isViewMode || _selectedStatus == 'CLOSE') {
+    // In view mode, if status is CLOSED, mark all as read-only
+    if (_isViewMode || _selectedStatus == 'CLOSED') {
       setState(() {
         _hasFormDataChanges = false;
       });
@@ -565,12 +565,12 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       final incidentTicketId =
           widget.apiResponseData?['incidentTicketId'] as int? ?? 0;
 
-      // Get closedRemarks from checklist data if status is CLOSE
+      // Get closedRemarks from checklist data if status is CLOSED
       final closedRemarks = checklistData['closedRemarks']?.toString();
 
-      // Set closedDt only when status is CLOSE, format: "yyyy-MM-dd HH:mm:ss.SSS" in IST
+      // Set closedDt only when status is CLOSED, format: "yyyy-MM-dd HH:mm:ss.SSS" in IST
       String? closedDt;
-      if (_selectedStatus == 'CLOSE') {
+      if (_selectedStatus == 'CLOSED') {
         // Convert UTC to IST (UTC+5:30)
         final utcNow = DateTime.now().toUtc();
         final istNow = utcNow.add(const Duration(hours: 5, minutes: 30));
@@ -836,7 +836,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                   padding: const EdgeInsets.all(16),
                   child: CustomSubmitButtonV2(
                     text: "Next",
-                    // Disable only in view mode, allow in edit mode even when status is CLOSE
+                    // Disable only in view mode, allow in edit mode even when status is CLOSED
                     onPressed: _submitForm,
                   ),
                 ),
@@ -940,8 +940,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               _selectedIncidentTicketReason = value;
             });
           },
-          // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSED
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -951,8 +951,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           label: "Incident Remarks",
           hintText: "Enter incident remarks",
           controller: _incidentRemarksController,
-          // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSED
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
         ),
         const SizedBox(height: 15),
 
@@ -971,8 +971,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               _selectedCurrentSiteStatus = value;
             });
           },
-          // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSED
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
           isRequired: true,
         ),
         const SizedBox(height: 15),
@@ -982,8 +982,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           label: "Remarks",
           hintText: "Enter remarks",
           controller: _remarksController,
-          // Only disable when view mode AND status is CLOSE
-          isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
+          // Only disable when view mode AND status is CLOSED
+          isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
         ),
         const SizedBox(height: 15),
 
@@ -1013,8 +1013,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
                   });
                 }
               },
-              // Only disable when view mode AND status is CLOSE
-              isDisabled: _isViewMode && _selectedStatus == 'CLOSE',
+              // Only disable when view mode AND status is CLOSED
+              isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
             );
           },
         ),
@@ -1035,24 +1035,24 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               _selectedStatus = value;
             });
           },
-          // Disable in create mode when status is OPEN, or when view mode AND status is CLOSE
+          // Disable in create mode when status is OPEN, or when view mode AND status is CLOSED
           isDisabled:
               (widget.mode == CMScreenModeEnum.create &&
                   _selectedStatus == 'OPEN') ||
-              (_isViewMode && _selectedStatus == 'CLOSE'),
+              (_isViewMode && _selectedStatus == 'CLOSED'),
           isRequired: true,
         ),
         const SizedBox(height: 15),
 
-        // Closed Remarks (only show when status is CLOSE and mode is VIEW)
-        if ((_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED') && _isViewMode)
+        // Closed Remarks (only show when status is CLOSED and mode is VIEW)
+        if (_selectedStatus == 'CLOSED' && _isViewMode)
           CustomFormField(
             label: "Closed Remarks",
             initialValue: _closedRemarks ?? 'N/A',
             isRequired: false,
             isEditable: false, // Always read-only
           ),
-        if ((_selectedStatus == 'CLOSE' || _selectedStatus == 'CLOSED') && _isViewMode)
+        if (_selectedStatus == 'CLOSED' && _isViewMode)
           const SizedBox(height: 15),
       ],
     );
