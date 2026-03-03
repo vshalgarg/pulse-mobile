@@ -1946,6 +1946,26 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// Get incident checklist data for any site (first available).
+  /// Used when opening a ticket offline and the primary siteId does not match
+  /// the site_id used when the checklist was downloaded (e.g. ticket id vs site id).
+  Future<Map<String, List<Map<String, dynamic>>>> getIncidentChecklistDataAny() async {
+    try {
+      final db = await database;
+      await _ensureIncidentChecklistTableExists(db);
+      final rows = await db.rawQuery(
+        'SELECT DISTINCT site_id FROM incident_checklist_data WHERE is_downloaded = 1 LIMIT 1',
+      );
+      if (rows.isEmpty) return {};
+      final firstSiteId = rows.first['site_id'] as int?;
+      if (firstSiteId == null) return {};
+      return getIncidentChecklistData(firstSiteId);
+    } catch (e) {
+      Logger.errorLog('❌ Error getting incident checklist data (any): $e');
+      return {};
+    }
+  }
+
   /// Check if incident checklist is downloaded for a site
   Future<bool> isIncidentChecklistDownloaded(int siteId) async {
     try {

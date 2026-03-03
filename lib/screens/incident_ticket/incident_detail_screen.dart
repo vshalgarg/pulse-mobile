@@ -255,14 +255,25 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         'Loading incident checklist data for site ID: ${widget.siteData.siteId}',
       );
 
-      // First, try to get checklist data from local database
+      // First, try to get checklist data from local database (by siteId)
       try {
-        final localChecklistData = await ServiceLocator()
+        var localChecklistData = await ServiceLocator()
             .centralAssetAuditDataService
             .getIncidentChecklistData(widget.siteData.siteId);
 
+        // If empty, try any stored incident checklist (e.g. downloaded with different site_id)
+        if (localChecklistData.isEmpty) {
+          localChecklistData = await ServiceLocator()
+              .centralAssetAuditDataService
+              .getIncidentChecklistDataAny();
+          if (localChecklistData.isNotEmpty) {
+            Logger.debugLog(
+              '✅ Using incident checklist data from fallback (any site_id)',
+            );
+          }
+        }
+
         if (localChecklistData.isNotEmpty) {
-          // Use local data if available
           Logger.debugLog(
             '✅ Using local incident checklist data: ${localChecklistData.length} item types',
           );
