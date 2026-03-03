@@ -55,22 +55,14 @@ class _CloseRemarksDialogState extends State<CloseRemarksDialog> {
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.color555555,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Add Ticket Closing Remark',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                     
                       const SizedBox(height: 20),
                       CustomRemarksField(
                         label: 'Add Ticket Closing Remark',
@@ -78,13 +70,16 @@ class _CloseRemarksDialogState extends State<CloseRemarksDialog> {
                         controller: _remarksController,
                         maxLines: 4,
                         isDisabled: false,
+                        isRequired: true,
+                        
+
                       ),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: 10),
 
               // Buttons outside container
               Row(
