@@ -83,20 +83,20 @@ void loadVersion() async {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CrashLogsDebugScreen(),
-                ),
-              );
-            },
-            backgroundColor: Colors.orange,
-            heroTag: "crash_logs_fab",
-            child: const Icon(Icons.bug_report, color: Colors.white),
-            tooltip: 'Crash Logs',
-          ),
+          // FloatingActionButton(
+          //   onPressed: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //         builder: (context) => const CrashLogsDebugScreen(),
+          //       ),
+          //     );
+          //   },
+          //   backgroundColor: Colors.orange,
+          //   heroTag: "crash_logs_fab",
+          //   child: const Icon(Icons.bug_report, color: Colors.white),
+          //   tooltip: 'Crash Logs',
+          // ),
           const SizedBox(height: 12),
           FloatingActionButton(
             onPressed: () {

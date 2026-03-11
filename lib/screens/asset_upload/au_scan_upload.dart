@@ -937,12 +937,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       }
 
       // Fallback to storage if preloaded ID is not available
+      // Use same key as save path: ticket/site row key so we find data saved from detail or offline
+      final storageKey = widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString();
       Logger.debugLog('🔍 Checking database for selfie image ID...');
-      Logger.debugLog('🔍 Using siteId: ${widget.siteData.siteId}');
+      Logger.debugLog('🔍 Using storageKey: $storageKey (siteId: ${widget.siteData.siteId})');
 
-      // Try to get from database using siteId
+      // Try to get from database using same key we use when saving (avoids "selfie required" when opened from downloaded ticket)
       final storedData = await _assetAuditService.getActualDataFromSqlite(
-        siteAuditSchId: widget.siteData.siteId.toString(),
+        siteAuditSchId: storageKey,
       );
 
       if (storedData != null) {
@@ -1020,8 +1022,35 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         }
       } else {
         Logger.debugLog(
-          '⚠️ No stored data found in database for siteId: ${widget.siteData.siteId}',
+          '⚠️ No stored data found in database for storageKey: $storageKey',
         );
+      }
+
+      // If we used ticket key and found nothing, try siteId (e.g. data saved before siteAuditSchIdForStorage existed)
+      if (storedData == null &&
+          widget.siteAuditSchIdForStorage != null &&
+          widget.siteAuditSchIdForStorage != widget.siteData.siteId.toString()) {
+        final fallbackData = await _assetAuditService.getActualDataFromSqlite(
+          siteAuditSchId: widget.siteData.siteId.toString(),
+        );
+        if (fallbackData != null) {
+          final pageHeaders = fallbackData['pageHeader'] as List<dynamic>?;
+          final pageHeader = pageHeaders?.isNotEmpty == true
+              ? pageHeaders!.first as Map<String, dynamic>?
+              : null;
+          final selfieImageIdValue = pageHeader?['maker_selfie_image_id'] ??
+              pageHeader?['makerSelfieImageId'];
+          if (selfieImageIdValue != null) {
+            final selfieImageId = selfieImageIdValue.toString();
+            if (selfieImageId.isNotEmpty &&
+                selfieImageId != "0" &&
+                selfieImageId != "null" &&
+                selfieImageId.toLowerCase() != "null") {
+              Logger.debugLog('📸 Found selfie image ID from siteId fallback: $selfieImageId');
+              return selfieImageId;
+            }
+          }
+        }
       }
 
       Logger.debugLog('⚠️ No valid selfie image ID found, returning null');
@@ -1493,7 +1522,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       final selfieInt = finalSelfieImageId is int
           ? finalSelfieImageId
           : int.tryParse(finalSelfieImageId?.toString() ?? '');
-      if (selfieInt == null || selfieInt <= 0) {
+      if (selfieInt == null || selfieInt == 0) {
         LoaderWidget.hideLoader();
         Toastbar.showErrorToastbar(
           'Selfie is required. Please add a selfie and try again, or check your connection if it was added offline.',
@@ -1506,8 +1535,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final pid = img.photoId;
           if (pid == null) {
             LoaderWidget.hideLoader();
+            final serialNo = item.nexgenSerialNo.trim().isNotEmpty
+                ? item.nexgenSerialNo
+                : 'Unknown';
+            Logger.debugLog(
+              '⚠️ Asset upload validation: showing toast — asset has image with null photoId (asset may need photo or connection issue)',
+            );
             Toastbar.showErrorToastbar(
-              'Each asset must have a valid photo. Please add photos and try again, or check your connection.',
+              'Asset "$serialNo" must have a valid photo. Please add a photo and try again, or check your connection.',
               context,
             );
             return;
@@ -1515,8 +1550,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final pidStr = pid.toString();
           if (pidStr.contains('LOCAL_IMAGE_ID')) {
             LoaderWidget.hideLoader();
+            final serialNo = item.nexgenSerialNo.trim().isNotEmpty
+                ? item.nexgenSerialNo
+                : 'Unknown';
             Toastbar.showErrorToastbar(
-              'Asset photo could not be uploaded. Please check your connection and try again.',
+              'Asset "$serialNo": photo could not be uploaded. Please check your connection and try again.',
               context,
             );
             return;
@@ -1524,8 +1562,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final pidInt = pid is int ? pid : int.tryParse(pidStr);
           if (pidInt == null || pidInt <= 0) {
             LoaderWidget.hideLoader();
+            final serialNo = item.nexgenSerialNo.trim().isNotEmpty
+                ? item.nexgenSerialNo
+                : 'Unknown';
             Toastbar.showErrorToastbar(
-              'Each asset must have a valid photo. Please add photos and try again.',
+              'Asset "$serialNo" must have a valid photo. Please add a photo and try again.',
               context,
             );
             return;

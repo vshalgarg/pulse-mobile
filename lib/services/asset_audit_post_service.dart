@@ -263,6 +263,7 @@ class AssetAuditPostService {
       }
     } catch (e) {
       Logger.errorLog(e.toString());
+      rethrow;
     }
   }
 

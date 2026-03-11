@@ -64,7 +64,9 @@
         android:label="Pulse Mobile"
         android:requestLegacyExternalStorage="true"
         tools:replace="android:label"
-        android:enableOnBackInvokedCallback="false">
+        android:enableOnBackInvokedCallback="false"
+        android:largeHeap="true"
+        android:hardwareAccelerated="true">
 
         <activity
             android:name=".MainActivity"
