@@ -427,6 +427,7 @@ class _PMPageRenderState extends State<PMPageRender> {
     }
 
     // Show PM section page
+    final bool isView = widget.isViewMode;
     return Container(
       key: ValueKey('pm_page_${_currentPageName}_$_currentPageIndex'),
       child: PMPageWidget.forSection(
@@ -434,9 +435,20 @@ class _PMPageRenderState extends State<PMPageRender> {
         sectionName: _currentPageName,
         pageTitle: 'Preventive Maintenance',
         leftButtonText: _isFirstPage ? 'Save' : _getPreviousPageName(),
-        rightButtonText: _isLastPage ? 'Submit' : _getNextPageName(),
+        // In non-editable (view) mode, show "Done" instead of "Submit" on last page.
+        rightButtonText: _isLastPage
+            ? (isView ? 'Done' : 'Submit')
+            : _getNextPageName(),
         onLeftButtonPressed: _isFirstPage ? _onSave : _onPreviousPage,
-        onRightButtonPressed: _isLastPage ? _onSubmit : _onNextPageWrapper,
+        onRightButtonPressed: _isLastPage
+            ? (isView
+                // View mode: do not call any API, just go back to tickets.
+                ? () => navigateBackOrToHome(
+                      context,
+                      targetContext: widget.parentContext,
+                    )
+                : _onSubmit)
+            : _onNextPageWrapper,
         onDataChanged: (data) =>
             _onPageDataChanged(data, shouldUpdateApi: true),
         isLoading: widget.isLoading,
