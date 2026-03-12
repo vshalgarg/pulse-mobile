@@ -449,7 +449,8 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
     final checklistDesc =
         widget.checklistItem['checklist_desc']?.toString() ?? '';
     final respType = _parentRespType;
-    final isReadonly = widget.checklistItem['is_readonly'] == true;
+    final isReadonly =
+        widget.isViewMode || widget.checklistItem['is_readonly'] == true;
 
     if (respType.isEmpty) return const SizedBox.shrink();
 
@@ -576,7 +577,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
     final key = pmCheckListMstId.toString();
     final currentValue = _formValues[key]?['value'] as String?;
-    final isDisabled = _isParentFieldEmpty;
+    final isDisabled = widget.isViewMode || _isParentFieldEmpty;
 
     return CustomRadioButton(
       key: ValueKey('radio_${pmCheckListMstId}_$_resetCounter'),
@@ -610,7 +611,9 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
     return CustomFormField(
       controller: controller,
-      onChanged: (value) {
+      onChanged: widget.isViewMode
+          ? null
+          : (value) {
         setState(() {
           _hasEditsSinceLastSave = true;
           final key = pmCheckListMstId.toString();
@@ -618,6 +621,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
         });
       },
       isRequired: true,
+      isEditable: !widget.isViewMode,
       inputType: InputType.text,
       hintText: 'Enter text',
     );
@@ -656,7 +660,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
     final key = pmCheckListMstId.toString();
     final currentValue = _formValues[key]?['value'] as String?;
-    final isDisabled = _isParentFieldEmpty;
+    final isDisabled = widget.isViewMode || _isParentFieldEmpty;
 
     return CustomDropdown(
       key: ValueKey('dropdown_${pmCheckListMstId}_$_resetCounter'),
@@ -692,15 +696,17 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
     return CustomFormField(
       controller: controller,
-      onChanged: (value) {
-        setState(() {
-          _hasEditsSinceLastSave = true;
-          final key = pmCheckListMstId.toString();
-          _formValues[key] = {'value': value};
-        });
-      },
+      onChanged: widget.isViewMode
+          ? null
+          : (value) {
+              setState(() {
+                _hasEditsSinceLastSave = true;
+                final key = pmCheckListMstId.toString();
+                _formValues[key] = {'value': value};
+              });
+            },
       isRequired: true,
-      isEditable: !_isParentFieldEmpty,
+      isEditable: !widget.isViewMode && !_isParentFieldEmpty,
       inputType: InputType.number,
       hintText: 'Enter numeric value',
     );
@@ -784,28 +790,33 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                     flex: 1,
                     child: CustomFormField(
                       controller: controller,
-                      onChanged: (value) {
-                        setState(() {
-                          _hasEditsSinceLastSave = true;
-                          // Store value in formValues with serial number key
-                          final key = pmCheckListMstId.toString();
-                          if (!_formValues.containsKey(key)) {
-                            _formValues[key] = {};
-                          }
-                          final serialValues = _formValues[key]?['serialValues'] as Map<String, String>? ?? {};
-                          if (value.isEmpty) {
-                            serialValues.remove(serialNumber);
-                          } else {
-                            serialValues[serialNumber] = value;
-                          }
-                          _formValues[key] = {
-                            ..._formValues[key] ?? {},
-                            'serialValues': serialValues,
-                          };
-                        });
-                      },
+                      onChanged: widget.isViewMode
+                          ? null
+                          : (value) {
+                              setState(() {
+                                _hasEditsSinceLastSave = true;
+                                // Store value in formValues with serial number key
+                                final key = pmCheckListMstId.toString();
+                                if (!_formValues.containsKey(key)) {
+                                  _formValues[key] = {};
+                                }
+                                final serialValues =
+                                    _formValues[key]?['serialValues']
+                                            as Map<String, String>? ??
+                                        {};
+                                if (value.isEmpty) {
+                                  serialValues.remove(serialNumber);
+                                } else {
+                                  serialValues[serialNumber] = value;
+                                }
+                                _formValues[key] = {
+                                  ..._formValues[key] ?? {},
+                                  'serialValues': serialValues,
+                                };
+                              });
+                            },
                       isRequired: false,
-                      isEditable: !_isParentFieldEmpty,
+                      isEditable: !widget.isViewMode && !_isParentFieldEmpty,
                       inputType: InputType.number,
                       hintText: '',
                     ),
@@ -1347,9 +1358,14 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
                 // Save button: for Battery SOH only, disable when no edits since last save; others always enabled when parent has value
                 Builder(
                   builder: (context) {
-                    final hasSerialNumberFields = respDtlChecklistItems.any((item) =>
-                        item['resp_type']?.toString() == 'NUMERIC' && _shouldShowSerialNumberDropdown(item));
-                    final isSaveDisabled = _isParentFieldEmpty ||
+                    final hasSerialNumberFields = respDtlChecklistItems.any(
+                      (item) =>
+                          item['resp_type']?.toString() == 'NUMERIC' &&
+                          _shouldShowSerialNumberDropdown(item),
+                    );
+                    // In view mode (Completed), always disable Save.
+                    final isSaveDisabled = widget.isViewMode ||
+                        _isParentFieldEmpty ||
                         (hasSerialNumberFields && !_hasEditsSinceLastSave);
                     return Align(
                       alignment: Alignment.centerRight,
