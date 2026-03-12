@@ -999,12 +999,16 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       valueMap = {'Yes': 'Yes', 'No': 'No'};
     }
     
-    return CustomRadioButton(
-      options: radioOptions,
-      initialValue: _selectedRadioValue,
-      onChanged: (value) => _onRadioChanged(value),
-      isRequired: _isFieldRequired(),
-      horizontalSpacing: 30.0, // Reduced spacing between radio button options
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: CustomRadioButton(
+        options: radioOptions,
+        initialValue: _selectedRadioValue,
+        onChanged: (value) => _onRadioChanged(value),
+        isRequired: _isFieldRequired(),
+        // Slightly reduced spacing so the options sit closer to the label/left edge.
+        horizontalSpacing: 30.0,
+      ),
     );
   }
 
@@ -1262,6 +1266,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
               (e) => e['resp_type']?.toString() == 'IMG',
             )
           : false;
+      final currentMainResponse = _getCurrentMainResponse();
 
       // Container with label + value + images
       return Container(
@@ -1309,14 +1314,18 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
               _buildImageField(isDisabled: true),
             ],
 
-            // Dependent IMG elements (e.g. "Add a photo")
+            // Dependent IMG elements (e.g. "Add a photo") that are actually visible
             if (dependentElements != null && hasImageDependent) ...[
               for (int j = 0; j < dependentElements.length; j++)
-                if (dependentElements[j]['resp_type']?.toString() == 'IMG')
+                if (dependentElements[j]['resp_type']?.toString() == 'IMG' &&
+                    shouldDependentElementBeVisible(
+                      dependentElements[j],
+                      currentMainResponse,
+                    ))
                   _buildDependentElement(
                     dependentElements[j],
                     false, // not editable
-                    _getCurrentMainResponse(),
+                    currentMainResponse,
                     j,
                     isGrouped: false,
                   ),
@@ -1414,6 +1423,19 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     
     final currentMainResponse = _getCurrentMainResponse();
     List<Widget> widgets = [];
+
+    // EDIT MODE ONLY: Special-case CT Availability so that when it's "No"
+    // we don't render its dependent fields (Add a photo, CT Name, CT Contact, etc.)
+    // to avoid the weird empty block you reported. View mode has its own
+    // dedicated layout and is unaffected by this.
+    if (!widget.isViewMode) {
+      final desc =
+          _currentItem['checklist_desc']?.toString().toLowerCase() ?? '';
+      final resp = currentMainResponse?.toLowerCase() ?? '';
+      if (desc.contains('ct availability') && resp == 'no') {
+        return [];
+      }
+    }
     
     // Count visible elements first
     int visibleCount = 0;
