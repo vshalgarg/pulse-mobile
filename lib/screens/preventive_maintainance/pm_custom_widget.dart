@@ -1548,6 +1548,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                 key: ValueKey('${_currentItem['pm_check_list_site_resp_id']}_${elementKey}_image'),
                 placeholder: checklistDesc,
                 isRequired: shouldShowAsRequired,
+                isDisabled: !isEditable,
                 onImageSelected: isEditable
                     ? (File? file) {
                         if (file != null) {
