@@ -1228,16 +1228,102 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       _currentItem['checklist_desc']?.toString(),
     );
     final isReadonlyFromItem = _currentItem['is_readonly'] == true;
-    final isReadonly = widget.isViewMode || isReadonlyFromList || isReadonlyFromItem;
+    final isReadonly = isReadonlyFromList || isReadonlyFromItem;
     final respTypeList = _currentItem['resp_type'];
     final checklistDesc = _currentItem['checklist_desc']?.toString() ?? '';
 
     // Handle resp_type as array or string
     List<String> respTypes = [];
     if (respTypeList is List) {
-      respTypes = respTypeList.map((e) => e.toString()).toList();
+      for (final e in respTypeList) {
+        final parts = e.toString().split(',');
+        for (final p in parts) {
+          final trimmed = p.trim();
+          if (trimmed.isNotEmpty) {
+            respTypes.add(trimmed);
+          }
+        }
+      }
     } else if (respTypeList is String) {
-      respTypes = [respTypeList];
+      respTypes = respTypeList
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+
+    // Special handling for view mode (ticket Completed):
+    // - show main response as read-only text
+    // - show any images (main IMG or dependent IMG) as disabled image widgets
+    if (widget.isViewMode) {
+      final dependentElements = parseDependentElements(_currentItem);
+      final hasImageDependent = (dependentElements != null)
+          ? dependentElements.any(
+              (e) => e['resp_type']?.toString() == 'IMG',
+            )
+          : false;
+
+      // Container with label + value + images
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Label
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: checklistDesc,
+                    style: const TextStyle(
+                      color: AppColors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+                  if (_isFieldRequired())
+                    const TextSpan(
+                      text: " *",
+                      style: TextStyle(fontSize: 16, color: Colors.red),
+                    ),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+
+            // Main value as read-only text
+            CustomFormField(
+              initialValue: _currentItem['resp']?.toString() ?? 'N/A',
+              isRequired: true,
+              isEditable: false,
+              inputType: respTypes.contains('NUMERIC') ? InputType.number : null,
+              hintText: respTypes.contains('NUMERIC') ? 'Enter Number' : null,
+            ),
+
+            // Main IMG (if any)
+            if (respTypes.contains('IMG')) ...[
+              const SizedBox(height: 12),
+              _buildImageField(isDisabled: true),
+            ],
+
+            // Dependent IMG elements (e.g. "Add a photo")
+            if (dependentElements != null && hasImageDependent) ...[
+              for (int j = 0; j < dependentElements.length; j++)
+                if (dependentElements[j]['resp_type']?.toString() == 'IMG')
+                  _buildDependentElement(
+                    dependentElements[j],
+                    false, // not editable
+                    _getCurrentMainResponse(),
+                    j,
+                    isGrouped: false,
+                  ),
+            ],
+          ],
+        ),
+      );
     }
 
     return Container(
@@ -1271,7 +1357,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           ),
           const SizedBox(height: 8),
 
-          // Field based on resp_type (view mode or readonly: show value; if IMG type show image too)
+          // Field based on resp_type for editable / PM-readonly mode
           if (isReadonly && !respTypes.contains('IMG'))
             CustomFormField(
               initialValue: _currentItem['resp']?.toString() ?? 'N/A',
