@@ -27,6 +27,7 @@ class PMPageWidget extends StatefulWidget {
   final String siteAuditSchId;
   final String sectionName;
   final BuildContext parentContext;
+  final bool isViewMode;
 
   const PMPageWidget({
     super.key,
@@ -44,6 +45,7 @@ class PMPageWidget extends StatefulWidget {
     required this.siteAuditSchId,
     this.sectionName = '',
     required this.parentContext,
+    this.isViewMode = false,
   });
 
   // Convenience constructor that automatically determines readonly fields
@@ -62,6 +64,7 @@ class PMPageWidget extends StatefulWidget {
     required Future<void> Function() submitDataWhenExit,
     required String siteAuditSchId,
     required BuildContext parentContext,
+    bool isViewMode = false,
   }) {
     return PMPageWidget(
       pmItems: pmItems,
@@ -80,6 +83,7 @@ class PMPageWidget extends StatefulWidget {
       siteAuditSchId: siteAuditSchId,
       sectionName: sectionName,
       parentContext: parentContext,
+      isViewMode: isViewMode,
     );
   }
 
@@ -611,6 +615,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                                         'pm_form_${pmItem['pm_check_list_site_resp_id']}_$index',
                                       ),
                                       checklistItem: pmItem,
+                                      isViewMode: widget.isViewMode,
                                       onChange: (updatedItem) {
                                         if (mounted) {
                                           _onItemChanged(
@@ -639,6 +644,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                                     ),
                                     pmItem: pmItem,
                                     readonlyFields: widget.readonlyFields,
+                                    isViewMode: widget.isViewMode,
                                     onValueChanged: (updatedItem) {
                                       if (mounted) {
                                         _onItemChanged(

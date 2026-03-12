@@ -428,11 +428,19 @@ class _TicketScreenState extends State<TicketScreen>
 
       if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
         final parentContext = context;
+        // View mode when ticket status is Completed: all elements/images visible but non-editable.
+        final statusText = ticket.status ?? '';
+        final isViewMode =
+            statusText.trim().toLowerCase() == 'completed';
+
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) =>
-                PMPageRender(pmData: apiData, parentContext: parentContext),
+            builder: (_) => PMPageRender(
+              pmData: apiData,
+              parentContext: parentContext,
+              isViewMode: isViewMode,
+            ),
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {

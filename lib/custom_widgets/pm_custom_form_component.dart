@@ -17,10 +17,14 @@ class PMCustomFormComponent extends StatefulWidget {
   /// Callback when the form data changes
   final Function(Map<String, dynamic>) onChange;
 
+  /// When true, form is read-only (e.g. completed ticket PM view)
+  final bool isViewMode;
+
   const PMCustomFormComponent({
     super.key,
     required this.checklistItem,
     required this.onChange,
+    this.isViewMode = false,
   });
 
   @override

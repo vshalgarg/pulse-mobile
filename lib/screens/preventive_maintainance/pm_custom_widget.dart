@@ -21,12 +21,14 @@ class PMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
   final List<String> readonlyFields;
   final Function(Map<String, dynamic>) onValueChanged;
+  final bool isViewMode;
 
   const PMCustomWidget({
     super.key,
     required this.pmItem,
     required this.readonlyFields,
     required this.onValueChanged,
+    this.isViewMode = false,
   });
 
   @override
@@ -1026,7 +1028,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     );
   }
 
-  Widget _buildImageField() {
+  Widget _buildImageField({bool isDisabled = false}) {
     // Use a more reliable key that changes when image data changes
     // Include the length and first few chars to ensure uniqueness
     final imageKey = _imageData != null && _imageData!.isNotEmpty
@@ -1079,6 +1081,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       key: ValueKey('${uniqueKey}_${finalImageData.length > 0 ? finalImageData.substring(0, finalImageData.length > 20 ? 20 : finalImageData.length).hashCode : 0}'),
       placeholder: 'Upload Photos',
       isRequired: _isFieldRequired(),
+      isDisabled: isDisabled,
       externalImageUrl: _imageData,
       onImageSelected: (File? file) async {
         if (file != null) {
@@ -1135,7 +1138,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     );
   }
 
-  Widget _buildFieldByType(List<String> respTypesArr) {
+  Widget _buildFieldByType(List<String> respTypesArr, {bool isDisabled = false}) {
     Logger.infoLog('[PM] 🔧 _buildFieldByType called with respTypesArr: $respTypesArr');
     print('[PM] 🔧 _buildFieldByType called with respTypesArr: $respTypesArr');
     final respTypes = respTypesArr.first.split(",");
@@ -1153,7 +1156,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
           if (_selectedDropdownValue != 'Not Applicable') ...[
             const SizedBox(height: 12),
-            _buildImageField(),
+            _buildImageField(isDisabled: isDisabled),
           ],
         ],
       );
@@ -1164,7 +1167,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         children: [
           _buildRadioField(),
           const SizedBox(height: 12),
-          _buildImageField(),
+          _buildImageField(isDisabled: isDisabled),
         ],
       );
     } else if (respTypes.contains('TEXT') && respTypes.contains('IMG')) {
@@ -1172,7 +1175,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         children: [
           _buildTextField(),
           const SizedBox(height: 12),
-          _buildImageField(),
+          _buildImageField(isDisabled: isDisabled),
         ],
       );
     } else if (respTypes.contains('NUMERIC') && respTypes.contains('IMG')) {
@@ -1180,7 +1183,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         children: [
           _buildNumericField(),
           const SizedBox(height: 12),
-          _buildImageField(),
+          _buildImageField(isDisabled: isDisabled),
         ],
       );
     } else if (respTypes.contains('DROPDOWN')) {
@@ -1194,7 +1197,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     } else if (respTypes.contains('IMG')) {
       Logger.infoLog('[PM] 🔧 Building IMG-only field');
       print('[PM] 🔧 Building IMG-only field');
-      return _buildImageField();
+      return _buildImageField(isDisabled: isDisabled);
     } else {
       return Container(
         decoration: BoxDecoration(
@@ -1225,7 +1228,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       _currentItem['checklist_desc']?.toString(),
     );
     final isReadonlyFromItem = _currentItem['is_readonly'] == true;
-    final isReadonly = isReadonlyFromList || isReadonlyFromItem;
+    final isReadonly = widget.isViewMode || isReadonlyFromList || isReadonlyFromItem;
     final respTypeList = _currentItem['resp_type'];
     final checklistDesc = _currentItem['checklist_desc']?.toString() ?? '';
 
@@ -1268,8 +1271,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           ),
           const SizedBox(height: 8),
 
-          // Field based on resp_type
-          if (isReadonly)
+          // Field based on resp_type (view mode or readonly: show value; if IMG type show image too)
+          if (isReadonly && !respTypes.contains('IMG'))
             CustomFormField(
               initialValue: _currentItem['resp']?.toString() ?? 'N/A',
               isRequired: true,
@@ -1285,7 +1288,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildFieldByType(respTypes),
+                _buildFieldByType(respTypes, isDisabled: isReadonly),
                 // Render dependent elements (pass !isReadonly as isEditable)
                 ..._buildDependentElements(!isReadonly),
               ],
@@ -1479,7 +1482,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                       }
                     : (File? file) {},
                 externalImageUrl: _dependentImageData[elementKey],
-                isDisabled: !isEditable,
               ),
             ],
           ),

@@ -22,6 +22,8 @@ class PMPageRender extends StatefulWidget {
   final bool isLoading;
   final String? errorMessage;
   final BuildContext parentContext;
+  /// When true, PM is in view (non-editable) mode.
+  final bool isViewMode;
 
   const PMPageRender({
     super.key,
@@ -30,6 +32,7 @@ class PMPageRender extends StatefulWidget {
     this.isLoading = false,
     this.errorMessage,
     required this.parentContext,
+    this.isViewMode = false,
   });
 
   @override
@@ -442,6 +445,7 @@ class _PMPageRenderState extends State<PMPageRender> {
         siteAuditSchId:
             _pmData['pageHeader']?[0]?['site_audit_sch_id']?.toString() ?? '',
         parentContext: widget.parentContext,
+        isViewMode: widget.isViewMode,
       ),
     );
   }
