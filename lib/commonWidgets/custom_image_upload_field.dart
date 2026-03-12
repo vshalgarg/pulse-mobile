@@ -1,31 +1,25 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:app/constants/constants_strings.dart';
+
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:app/utils/image_compression_helper.dart';
-import 'package:app/utils/CrashLogger.dart';
-import 'package:app/utils/file_logger.dart';
-import 'package:app/commonWidgets/selfie_camera_screen.dart';
-
-import '../constants/app_colors.dart';
 
 class ImageUploadField extends StatefulWidget {
   final String? label;
   final String? placeholder;
   final bool isRequired;
+  final bool isDisabled;
   final Function(File?) onImageSelected;
-  final String? externalImageUrl; // Add external image URL parameter
-  final bool isDisabled; // Add isDisabled parameter
+  final String? externalImageUrl;
 
   const ImageUploadField({
     super.key,
     this.label,
     this.placeholder,
     this.isRequired = false,
+    this.isDisabled = false,
     required this.onImageSelected,
-    this.externalImageUrl, // Add external image URL parameter
-    this.isDisabled = false, // Default value is false
+    this.externalImageUrl,
   });
 
   @override
@@ -33,178 +27,104 @@ class ImageUploadField extends StatefulWidget {
 }
 
 class _ImageUploadFieldState extends State<ImageUploadField> {
+  final ImagePicker _picker = ImagePicker();
+
   File? _selectedImage;
   Widget? _externalImageWidget;
   String? _lastExternalUrl;
 
+  bool _isLoading = false;
+  bool _isPickingImage = false;
+
   @override
   void initState() {
     super.initState();
-    if (widget.externalImageUrl != null &&
-        widget.externalImageUrl!.isNotEmpty) {
-      _selectedImage = null;
-      _prepareExternalImageWidget(widget.externalImageUrl!);
-    }
+    _loadExternalImage();
   }
 
   @override
   void didUpdateWidget(ImageUploadField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final externalUrlChanged =
-        widget.externalImageUrl != oldWidget.externalImageUrl;
-    final hadExternalUrl =
-        oldWidget.externalImageUrl != null &&
-        oldWidget.externalImageUrl!.isNotEmpty;
-    final hasExternalUrl =
-        widget.externalImageUrl != null && widget.externalImageUrl!.isNotEmpty;
-    if (externalUrlChanged) {
-      if (hasExternalUrl && !hadExternalUrl) {
-        // External URL was added (new external image loaded)
-        setState(() {
-          _selectedImage = null;
-        });
-        _prepareExternalImageWidget(widget.externalImageUrl!);
-      } else if (hasExternalUrl && hadExternalUrl) {
-        // External URL changed (external image updated)
-        setState(() {
-          _selectedImage = null;
-        });
-        _prepareExternalImageWidget(widget.externalImageUrl!);
-      } else if (!hasExternalUrl && hadExternalUrl) {
-        // External URL was removed (external image cleared)
-        // Don't clear selected image in this case - user might have selected a new image
-        setState(() {
-          _externalImageWidget = null;
-          _lastExternalUrl = null;
-        });
-      }
+
+    if (widget.externalImageUrl != oldWidget.externalImageUrl) {
+      _loadExternalImage();
     }
-    // If external URL hasn't changed, don't clear selected image
-    // This allows newly selected images to display even if external URL still exists
   }
 
-  Future<void> _pickImage() async {
-    // Check if label or placeholder contains "selfie" (case-insensitive)
-    final label = widget.label?.toLowerCase() ?? '';
-    final placeholder = widget.placeholder?.toLowerCase() ?? '';
-    final isSelfie = label.contains('selfie') || placeholder.contains('selfie');
+  void _loadExternalImage() {
+    final url = widget.externalImageUrl;
 
-    File? pickedFile;
-
-    try {
-      if (isSelfie) {
-        // Use custom camera screen for selfies to ensure front camera opens
-        final result = await Navigator.push<File>(
-          context,
-          MaterialPageRoute(builder: (context) => const SelfieCameraScreen()),
-        );
-
-        if (result != null) {
-          pickedFile = result;
-        }
-      } else {
-        // Use image_picker for non-selfie photos
-        final picker = ImagePicker();
-        final pickedImage = await picker.pickImage(
-          source: ImageSource.camera,
-          preferredCameraDevice: CameraDevice.rear,
-          imageQuality: 60,
-          maxWidth: 1280,
-          maxHeight: 1280,
-        );
-
-        if (pickedImage != null) {
-          pickedFile = File(pickedImage.path);
-        }
-      }
-    } catch (e, s) {
-      // Camera open / pick failed (permission, crash, or user cancel thrown as error)
-      await CrashLogger().logCrash(e, s);
-      await FileLogger.error(
-        'Camera open or image pick failed',
-        data: {'error': e.toString()},
-        stackTrace: s,
-      );
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Camera failed: ${e.toString()}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+    if (url == null || url.isEmpty) {
+      _externalImageWidget = null;
       return;
     }
 
-    if (pickedFile != null) {
-      final originalFile = pickedFile;
+    if (_lastExternalUrl == url) return;
 
-      // Show loading indicator while compressing
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(
-          child: CircularProgressIndicator(color: AppColors.primaryGreen),
-        ),
+    _lastExternalUrl = url;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _externalImageWidget = _buildImageFromUrl(url);
+      });
+    });
+  }
+
+  Future<void> _pickImage() async {
+    if (_isPickingImage || widget.isDisabled) return;
+
+    _isPickingImage = true;
+
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+
+        // VERY IMPORTANT FOR STABILITY
+        imageQuality: 60,
+        maxWidth: 1280,
+        maxHeight: 1280,
       );
 
-      try {
-        // Compress the image to 2MB
-        final compressedFile = await ImageCompressionHelper.compressImageTo2MB(
-          originalFile,
-        );
+      if (!mounted) return;
 
-        // Close loading dialog
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
-
-        if (compressedFile != null) {
-          setState(() {
-            _selectedImage = compressedFile;
-          });
-          widget.onImageSelected(_selectedImage);
-        } else {
-          // If compression fails, use original file
-          setState(() {
-            _selectedImage = originalFile;
-          });
-          widget.onImageSelected(_selectedImage);
-
-          // Show warning that compression failed
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Image compression failed, using original image'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-        }
-      } catch (e, s) {
-        await CrashLogger().logCrash(e, s);
-        await FileLogger.error(
-          'Image compression failed',
-          data: {'error': e.toString()},
-          stackTrace: s,
-        );
-
-        // If compression fails, use original file
-        setState(() {
-          _selectedImage = originalFile;
-        });
-        widget.onImageSelected(_selectedImage);
-
-        // Show error message
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error compressing image: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+      if (image == null) {
+        setState(() => _isLoading = false);
+        return;
       }
+
+      final file = File(image.path);
+
+      if (!file.existsSync()) {
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      setState(() {
+        _selectedImage = file;
+        _isLoading = false;
+      });
+
+      widget.onImageSelected(file);
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Unable to open camera on this device"),
+        ),
+      );
+    } finally {
+      _isPickingImage = false;
     }
   }
 
@@ -213,20 +133,9 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.camera_alt_outlined,
-            size: 20,
-            color: AppColors.color555555,
-          ),
+          const Icon(Icons.camera_alt_outlined, size: 22),
           const SizedBox(width: 6),
-          Text(
-            widget.placeholder ?? '',
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppColors.color555555,
-              fontFamily: fontFamilyMontserrat,
-            ),
-          ),
+          Text(widget.placeholder ?? "Take Photo"),
         ],
       ),
     );
@@ -235,132 +144,93 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   Widget _buildImageFromUrl(String url) {
     try {
       if (url.startsWith('data:image')) {
-        // Handle base64 data URL - normalize jpg to jpeg
-        String normalizedUrl = url;
-        if (url.startsWith('data:image/jpg')) {
-          normalizedUrl = url.replaceFirst('data:image/jpg', 'data:image/jpeg');
-        }
+        final parts = url.split(',');
+        if (parts.length < 2) return _buildPlaceholder();
 
-        final parts = normalizedUrl.split(',');
-        if (parts.length < 2) {
-          return _buildPlaceholder();
-        }
-        final base64Data = parts[1];
-        try {
-          final bytes = base64Decode(base64Data);
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            cacheWidth: 800,
-            cacheHeight: 800,
-            filterQuality: FilterQuality.low,
-            errorBuilder: (context, error, _) {
-              return _buildPlaceholder();
-            },
-          );
-        } catch (e) {
-          return _buildPlaceholder();
-        }
-      } else if (url.contains('/data/user/') ||
-          url.contains('.jpg') ||
-          url.contains('.png')) {
-        // Handle local file path
-        return _buildLocalImage(url);
-      } else {
-        // Handle raw base64 data (from API response)
-        try {
-          final bytes = base64Decode(url);
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            cacheWidth: 800,
-            cacheHeight: 800,
-            filterQuality: FilterQuality.low,
-            errorBuilder: (context, error, _) {
-              return _buildPlaceholder();
-            },
-          );
-        } catch (e) {
-          return _buildPlaceholder();
-        }
-      }
-    } catch (e) {
-      return _buildPlaceholder();
-    }
-  }
+        final bytes = base64Decode(parts[1]);
 
-  Widget _buildLocalImage(String filePath) {
-    try {
-      final file = File(filePath);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
+        return Image.memory(
+          bytes,
           fit: BoxFit.cover,
           width: double.infinity,
-          errorBuilder: (context, error, _) {
-            return _buildPlaceholder();
-          },
+          filterQuality: FilterQuality.low,
+          errorBuilder: (_, __, ___) => _buildPlaceholder(),
         );
-      } else {
-        return _buildPlaceholder();
       }
-    } catch (e) {
+
+      if (url.startsWith('/data/') ||
+          url.endsWith('.jpg') ||
+          url.endsWith('.png')) {
+        final file = File(url);
+
+        if (file.existsSync()) {
+          return Image.file(
+            file,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            errorBuilder: (_, __, ___) => _buildPlaceholder(),
+          );
+        }
+      }
+
+      final bytes = base64Decode(url);
+
+      return Image.memory(
+        bytes,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (_, __, ___) => _buildPlaceholder(),
+      );
+    } catch (_) {
       return _buildPlaceholder();
     }
-  }
-
-  Future<void> _prepareExternalImageWidget(String url) async {
-    if (url.isEmpty || url == _lastExternalUrl) return;
-    _lastExternalUrl = url;
-    // Decode on a future microtask to avoid blocking the current frame
-    await Future<void>.delayed(Duration.zero);
-    final widgetFromUrl = _buildImageFromUrl(url);
-    if (!mounted) return;
-    setState(() {
-      _externalImageWidget = widgetFromUrl;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    Widget child;
+
+    if (_isLoading) {
+      child = const Center(child: CircularProgressIndicator());
+    } else if (_selectedImage != null) {
+      child = ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.file(
+          _selectedImage!,
+          fit: BoxFit.cover,
+          width: double.infinity,
+        ),
+      );
+    } else if (_externalImageWidget != null) {
+      child = ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: _externalImageWidget!,
+      );
+    } else {
+      child = _buildPlaceholder();
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label with required mark
-        if (widget.label != null) ...[
+        if (widget.label != null)
           Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Flexible(
+              Expanded(
                 child: Text(
                   widget.label!,
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
               ),
               if (widget.isRequired)
-                Text(
-                  ' *',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: Colors.red,
-                    fontFamily: fontFamilyMontserrat,
-                  ),
+                const Text(
+                  " *",
+                  style: TextStyle(color: Colors.red),
                 ),
             ],
           ),
-        ],
-        const SizedBox(height: 5),
-
-        // Upload box
+        const SizedBox(height: 6),
         GestureDetector(
           onTap: widget.isDisabled ? null : _pickImage,
           child: Container(
@@ -368,34 +238,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
             height: 150,
             decoration: BoxDecoration(
               color: widget.isDisabled ? Colors.grey.shade200 : Colors.white,
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.grey),
             ),
-            child: _selectedImage != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: Image.file(
-                      _selectedImage!,
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                    ),
-                  )
-                : widget.externalImageUrl != null &&
-                      widget.externalImageUrl!.isNotEmpty
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(5),
-                    child: Builder(
-                      builder: (context) {
-                        _prepareExternalImageWidget(widget.externalImageUrl!);
-                        return _externalImageWidget ?? _buildPlaceholder();
-                      },
-                    ),
-                  )
-                : Builder(
-                    builder: (context) {
-                      return _buildPlaceholder();
-                    },
-                  ),
+            child: child,
           ),
         ),
       ],
