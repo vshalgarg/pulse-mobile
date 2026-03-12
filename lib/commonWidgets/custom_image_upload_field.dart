@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -220,7 +221,15 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
               Expanded(
                 child: Text(
                   widget.label!,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                 style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    fontFamily: fontFamilyMontserrat,
+                   
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (widget.isRequired)
