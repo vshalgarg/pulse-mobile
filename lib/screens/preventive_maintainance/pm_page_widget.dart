@@ -555,135 +555,119 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                           ),
                         )
                       : widget.errorMessage != null
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    widget.errorMessage!,
-                                    style: const TextStyle(
-                                      color: AppColors.white,
-                                      fontSize: 16,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                  const SizedBox(height: 20),
-                                  ElevatedButton(
-                                    onPressed: () {
-                                      // Retry logic can be added here
-                                    },
-                                    child: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              padding: EdgeInsets.only(
-                                bottom:
-                                    MediaQuery.of(context).viewInsets.bottom +
-                                        100,
-                              ),
-                              child: Container(
-                                padding: const EdgeInsets.only(
-                                  top: 20,
-                                  left: 16,
-                                  right: 16,
-                                  bottom: 20,
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                widget.errorMessage!,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
                                 ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // Render filtered PM items
-                                    ...filteredItems
-                                        .asMap()
-                                        .entries
-                                        .map((entry) {
-                                      final index = entry.key;
-                                      final pmItem = entry.value;
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 20),
+                              ElevatedButton(
+                                onPressed: () {
+                                  // Retry logic can be added here
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : SingleChildScrollView(
+                          padding: EdgeInsets.only(
+                            bottom:
+                                MediaQuery.of(context).viewInsets.bottom + 100,
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.only(
+                              top: 20,
+                              left: 16,
+                              right: 16,
+                              bottom: 20,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Render filtered PM items
+                                ...filteredItems.asMap().entries.map((entry) {
+                                  final index = entry.key;
+                                  final pmItem = entry.value;
 
-                                      // Find the original index in _pmItems for proper state management
-                                      final originalIndex =
-                                          _pmItems.indexWhere(
-                                        (item) =>
-                                            item['pm_check_list_site_resp_id'] ==
-                                            pmItem[
-                                                'pm_check_list_site_resp_id'],
-                                      );
+                                  // Find the original index in _pmItems for proper state management
+                                  final originalIndex = _pmItems.indexWhere(
+                                    (item) =>
+                                        item['pm_check_list_site_resp_id'] ==
+                                        pmItem['pm_check_list_site_resp_id'],
+                                  );
 
-                                      // Check if this is a grouped item with resp_dtl_checklist
-                                      final isGroup =
-                                          pmItem['is_group'] == true;
-                                      final hasRespDtlChecklist =
-                                          pmItem['resp_dtl_checklist'] != null;
+                                  // Check if this is a grouped item with resp_dtl_checklist
+                                  final isGroup = pmItem['is_group'] == true;
+                                  final hasRespDtlChecklist = pmItem['resp_dtl_checklist'] != null;
 
-                                      // Use PMCustomFormComponent for grouped items with resp_dtl_checklist
-                                      if (isGroup && hasRespDtlChecklist) {
-                                        return PMCustomFormComponent(
-                                          key: ValueKey(
-                                            'pm_form_${pmItem['pm_check_list_site_resp_id']}_$index',
-                                          ),
-                                          checklistItem: pmItem,
-                                          isViewMode: widget.isViewMode,
-                                          onChange: (updatedItem) {
-                                            if (mounted) {
-                                              _onItemChanged(
-                                                originalIndex,
-                                                updatedItem,
-                                              );
-                                            }
-                                          },
+                                  // Use PMCustomFormComponent for grouped items with resp_dtl_checklist
+                                  if (isGroup && hasRespDtlChecklist) {
+                                    return PMCustomFormComponent(
+                                      key: ValueKey(
+                                        'pm_form_${pmItem['pm_check_list_site_resp_id']}_$index',
+                                      ),
+                                      checklistItem: pmItem,
+                                      isViewMode: widget.isViewMode,
+                                      onChange: (updatedItem) {
+                                        if (mounted) {
+                                          _onItemChanged(
+                                            originalIndex,
+                                            updatedItem,
+                                          );
+                                        }
+                                      },
+                                    );
+                                  }
+
+                                  // Use regular PMCustomWidget for non-grouped items
+                                  final pmCheckListSiteRespId = pmItem['pm_check_list_site_resp_id'] as int?;
+                                  final widgetKey = pmCheckListSiteRespId != null 
+                                      ? _widgetKeys[pmCheckListSiteRespId] 
+                                      : null;
+                                  
+                                  // Create GlobalKey if it doesn't exist
+                                  if (pmCheckListSiteRespId != null && widgetKey == null) {
+                                    _widgetKeys[pmCheckListSiteRespId] = GlobalKey<PMCustomWidgetState>();
+                                  }
+                                  
+                                  return PMCustomWidget(
+                                    key: widgetKey ?? ValueKey(
+                                      'pm_item_${pmCheckListSiteRespId}_$index',
+                                    ),
+                                    pmItem: pmItem,
+                                    readonlyFields: widget.readonlyFields,
+                                    isViewMode: widget.isViewMode,
+                                    onValueChanged: (updatedItem) {
+                                      if (mounted) {
+                                        _onItemChanged(
+                                          originalIndex,
+                                          updatedItem,
                                         );
                                       }
+                                    },
+                                  );
+                                }),
 
-                                      // Use regular PMCustomWidget for non-grouped items
-                                      final pmCheckListSiteRespId =
-                                          pmItem['pm_check_list_site_resp_id']
-                                              as int?;
-                                      final widgetKey =
-                                          pmCheckListSiteRespId != null
-                                              ? _widgetKeys[
-                                                  pmCheckListSiteRespId]
-                                              : null;
-
-                                      // Create GlobalKey if it doesn't exist
-                                      if (pmCheckListSiteRespId != null &&
-                                          widgetKey == null) {
-                                        _widgetKeys[pmCheckListSiteRespId] =
-                                            GlobalKey<PMCustomWidgetState>();
-                                      }
-
-                                      return PMCustomWidget(
-                                        key: widgetKey ??
-                                            ValueKey(
-                                              'pm_item_${pmCheckListSiteRespId}_$index',
-                                            ),
-                                        pmItem: pmItem,
-                                        readonlyFields: widget.readonlyFields,
-                                        isViewMode: widget.isViewMode,
-                                        onValueChanged: (updatedItem) {
-                                          if (mounted) {
-                                            _onItemChanged(
-                                              originalIndex,
-                                              updatedItem,
-                                            );
-                                          }
-                                        },
-                                      );
-                                    }),
-
-                                    // Add some bottom padding
-                                    getHeight(20),
-                                  ],
-                                ),
-                              ),
+                                // Add some bottom padding
+                                getHeight(20),
+                              ],
                             ),
+                          ),
+                        ),
                 ),
                 // Bottom buttons - matching asset audit style
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration:
-                      const BoxDecoration(color: Colors.transparent),
+                  decoration: const BoxDecoration(color: Colors.transparent),
                   child: CustomPMBottomButtons(
                     leftButtonText: widget.leftButtonText,
                     rightButtonText: widget.rightButtonText,
