@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/services/push_notification_api.dart';
@@ -62,6 +63,10 @@ Future<void> main() async {
       // continue without firebase
     }
 
+   
+
+  
+
     // ✅ SINGLE unified Flutter error handler
     FlutterError.onError = (FlutterErrorDetails details) async {
       // 👉 always save locally
@@ -69,6 +74,11 @@ Future<void> main() async {
         details.exception,
         details.stack,
       );
+
+      PlatformDispatcher.instance.onError = (error, stack) {
+        CrashLogger().logCrash(error, stack);
+        return true;
+      };
 
       // 👉 send to Crashlytics if available
       try {

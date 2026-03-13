@@ -10,6 +10,8 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/utils/image_compression_helper.dart';
 import 'package:app/utils/CrashLogger.dart';
 import 'package:app/utils/file_logger.dart';
+import 'package:app/utils/toastbar.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:app/commonWidgets/selfie_camera_screen.dart';
 
 class ImageUploadField extends StatefulWidget {
@@ -44,6 +46,9 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   bool _isLoading = false;
   bool _isPickingImage = false;
 
+  /// Prevent base64 memory crash
+  static const int maxBase64Length = 5000000;
+
   @override
   void initState() {
     super.initState();
@@ -74,7 +79,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     });
   }
 
-  /// Camera picker with selfie support
+  /// Camera picker
   Future<void> _pickImage() async {
     if (_isPickingImage || widget.isDisabled) return;
 
@@ -88,22 +93,24 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
     try {
       if (!mounted) return;
+
       setState(() => _isLoading = true);
 
       if (isSelfie) {
-        /// Use custom selfie screen (front camera)
+        /// Front camera selfie
         final result = await Navigator.push<File>(
           context,
-          MaterialPageRoute(builder: (_) => const SelfieCameraScreen()),
+          MaterialPageRoute(
+            builder: (_) => const SelfieCameraScreen(),
+          ),
         );
 
         if (result != null) pickedFile = result;
       } else {
-        /// Standard camera
+        /// Normal camera
         final picked = await _picker.pickImage(
           source: ImageSource.camera,
-          preferredCameraDevice: CameraDevice.rear,
-          imageQuality: 60,
+          imageQuality: 65,
           maxWidth: 1280,
           maxHeight: 1280,
         );
@@ -118,7 +125,6 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         return;
       }
 
-      /// Validate file
       if (!pickedFile.existsSync()) {
         if (mounted) setState(() => _isLoading = false);
         return;
@@ -136,11 +142,6 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         }
       } catch (e, s) {
         await CrashLogger().logCrash(e, s);
-        await FileLogger.error(
-          'Image compression failed',
-          data: {'error': e.toString()},
-          stackTrace: s,
-        );
       }
 
       if (!mounted) return;
@@ -160,15 +161,17 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         stackTrace: s,
       );
 
+      final api = ServiceLocator().apiService;
+      api.sendCameraCrashLogs(
+        'Camera open failed in ImageUploadField: ${e.toString()}',
+      );
+
+      Toastbar.showErrorWithoutContext(
+        "Unable to open camera on this device",
+      );
+
       if (mounted) {
         setState(() => _isLoading = false);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Unable to open camera on this device'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
     } finally {
       _isPickingImage = false;
@@ -180,13 +183,13 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.camera_alt_outlined,
+        children: const [
+          Icon(Icons.camera_alt_outlined,
               size: 20, color: AppColors.color555555),
-          const SizedBox(width: 6),
+          SizedBox(width: 6),
           Text(
-            widget.placeholder ?? "Take Photo",
-            style: const TextStyle(
+            "Take Photo",
+            style: TextStyle(
               fontWeight: FontWeight.w500,
               color: AppColors.color555555,
               fontFamily: fontFamilyMontserrat,
@@ -197,19 +200,18 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     );
   }
 
-  /// Render image from URL/base64/path
+  /// Render image safely
   Widget _buildImageFromUrl(String url) {
     try {
+      /// Prevent large base64 crash
+      if (url.length > maxBase64Length) {
+        return _buildPlaceholder();
+      }
+
       /// data:image/jpeg;base64
       if (url.startsWith('data:image')) {
-        String normalized = url;
+        final parts = url.split(',');
 
-        if (normalized.startsWith('data:image/jpg')) {
-          normalized =
-              normalized.replaceFirst('data:image/jpg', 'data:image/jpeg');
-        }
-
-        final parts = normalized.split(',');
         if (parts.length < 2) return _buildPlaceholder();
 
         final bytes = base64Decode(parts[1]);
@@ -218,18 +220,14 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           bytes,
           fit: BoxFit.cover,
           width: double.infinity,
-          cacheWidth: 800,
-          cacheHeight: 800,
+          cacheWidth: 600,
+          cacheHeight: 600,
           filterQuality: FilterQuality.low,
-          errorBuilder: (_, __, ___) => _buildPlaceholder(),
         );
       }
 
       /// Local file path
-      if (url.startsWith('/data/') ||
-          url.contains('/data/user/') ||
-          url.endsWith('.jpg') ||
-          url.endsWith('.png')) {
+      if (url.startsWith('/data/') || url.contains('/storage/')) {
         final file = File(url);
 
         if (file.existsSync()) {
@@ -237,7 +235,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
             file,
             fit: BoxFit.cover,
             width: double.infinity,
-            errorBuilder: (_, __, ___) => _buildPlaceholder(),
+            cacheWidth: 600,
           );
         }
       }
@@ -249,10 +247,9 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         bytes,
         fit: BoxFit.cover,
         width: double.infinity,
-        cacheWidth: 800,
-        cacheHeight: 800,
+        cacheWidth: 600,
+        cacheHeight: 600,
         filterQuality: FilterQuality.low,
-        errorBuilder: (_, __, ___) => _buildPlaceholder(),
       );
     } catch (_) {
       return _buildPlaceholder();
@@ -266,20 +263,14 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     if (_isLoading) {
       child = const Center(child: CircularProgressIndicator());
     } else if (_selectedImage != null) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.file(
-          _selectedImage!,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          errorBuilder: (_, __, ___) => _buildPlaceholder(),
-        ),
+      child = Image.file(
+        _selectedImage!,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        cacheWidth: 600,
       );
     } else if (_externalImageWidget != null) {
-      child = ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: _externalImageWidget!,
-      );
+      child = _externalImageWidget!;
     } else {
       child = _buildPlaceholder();
     }

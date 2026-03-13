@@ -42,7 +42,7 @@ class _SelfieCameraScreenState extends State<SelfieCameraScreen> {
       
       _controller = CameraController(
         frontCamera,
-        ResolutionPreset.high,
+        ResolutionPreset.low,
         enableAudio: false,
       );
       

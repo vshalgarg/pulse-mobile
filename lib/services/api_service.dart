@@ -56,6 +56,22 @@ class ApiService {
     }
   }
 
+  /// Public helper to send **camera crash logs** (plain text only) to backend.
+  /// This is used by camera/selfie flows to push a simple text log without
+  /// any structured payload.
+  Future<void> sendCameraCrashLogs(String message) async {
+    try {
+      await apiProvider.getClient().post(
+        'api/v1/mobile/upload/MobileLogs',
+        data: {
+          'logs': message,
+        },
+      );
+    } catch (_) {
+      // Never throw from logging – failures here must not crash the app.
+    }
+  }
+
   Future<ResponseResult<T>> get<T>({
     required String path,
     Map<String, dynamic>? queryParameters,

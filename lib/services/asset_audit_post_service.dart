@@ -186,11 +186,11 @@ class AssetAuditPostService {
       );
     }
     if (response != null && response.isSuccess && response.data != null) {
-      Toastbar.showSuccessToastWithoutContext("Data posted successfully for url: $url");
+      Toastbar.showSuccessToastWithoutContext("Data posted successfully");
       Logger.infoLog("Data posted successfully");
     } else {
       Toastbar.showErrorWithoutContext(
-        "Data posted failed for url: $url",
+        "Data posted failed for url",
       );
       throw Exception((response.errorMessage ?? 'Unknown error from server'));
     }
