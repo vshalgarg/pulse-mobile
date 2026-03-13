@@ -186,9 +186,12 @@ class AssetAuditPostService {
       );
     }
     if (response != null && response.isSuccess && response.data != null) {
-      Toastbar.showSuccessToastWithoutContext("Data posted successfully");
+      Toastbar.showSuccessToastWithoutContext("Data posted successfully for url: $url");
       Logger.infoLog("Data posted successfully");
     } else {
+      Toastbar.showErrorWithoutContext(
+        "Data posted failed for url: $url",
+      );
       throw Exception((response.errorMessage ?? 'Unknown error from server'));
     }
   }
@@ -252,7 +255,7 @@ class AssetAuditPostService {
         // Special handling for incident tickets - expects single object, not array
         await _syncIncidentTicketRequestWhenOnline(copiedRequests, requestId);
         return;
-      } else if (url.contains('/assetUpload') || url.contains('assetUpload')) {
+      } else if (url.contains('api/v1/mobile/assetUpload') || url.contains('assetUpload')) {
         // Special handling for asset upload - expects single object, not array
         await _syncAssetUploadRequestWhenOnline(copiedRequests, requestId);
         return;
@@ -409,10 +412,18 @@ class AssetAuditPostService {
         // Delete from pending requests on success
         await ServiceLocator().pendingRequestService.deleteRequest(requestId);
       } else {
+
+        Toastbar.showErrorWithoutContext(
+          "Asset upload failed: ${response.errorMessage}",
+        );
         throw Exception(response.errorMessage ?? 'Unknown error from server');
+        
       }
     } catch (e) {
       Logger.errorLog("Error syncing asset upload request: $e");
+      Toastbar.showErrorWithoutContext(
+        "Asset upload failed: ${e.toString()}",
+      );
       rethrow;
     }
   }

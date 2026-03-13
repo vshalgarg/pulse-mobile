@@ -1,9 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import 'package:app/constants/constants_strings.dart';
+import 'package:app/constants/app_colors.dart';
+
+import 'package:app/utils/image_compression_helper.dart';
+import 'package:app/utils/CrashLogger.dart';
+import 'package:app/utils/file_logger.dart';
+import 'package:app/commonWidgets/selfie_camera_screen.dart';
 
 class ImageUploadField extends StatefulWidget {
   final String? label;
@@ -40,7 +47,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   @override
   void initState() {
     super.initState();
-    _loadExternalImage();
+    _prepareExternalImageWidget(widget.externalImageUrl);
   }
 
   @override
@@ -48,104 +55,161 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     super.didUpdateWidget(oldWidget);
 
     if (widget.externalImageUrl != oldWidget.externalImageUrl) {
-      _loadExternalImage();
+      _prepareExternalImageWidget(widget.externalImageUrl);
     }
   }
 
-  void _loadExternalImage() {
-    final url = widget.externalImageUrl;
-
-    if (url == null || url.isEmpty) {
-      _externalImageWidget = null;
-      return;
-    }
-
-    if (_lastExternalUrl == url) return;
+  /// Prepare external image safely
+  Future<void> _prepareExternalImageWidget(String? url) async {
+    if (url == null || url.isEmpty || url == _lastExternalUrl) return;
 
     _lastExternalUrl = url;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+    await Future<void>.delayed(Duration.zero);
 
-      setState(() {
-        _externalImageWidget = _buildImageFromUrl(url);
-      });
+    if (!mounted) return;
+
+    setState(() {
+      _externalImageWidget = _buildImageFromUrl(url);
     });
   }
 
+  /// Camera picker with selfie support
   Future<void> _pickImage() async {
     if (_isPickingImage || widget.isDisabled) return;
 
     _isPickingImage = true;
 
+    final label = widget.label?.toLowerCase() ?? '';
+    final placeholder = widget.placeholder?.toLowerCase() ?? '';
+    final isSelfie = label.contains('selfie') || placeholder.contains('selfie');
+
+    File? pickedFile;
+
     try {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.camera,
-
-        // VERY IMPORTANT FOR STABILITY
-        imageQuality: 60,
-        maxWidth: 1280,
-        maxHeight: 1280,
-      );
-
       if (!mounted) return;
+      setState(() => _isLoading = true);
 
-      if (image == null) {
-        setState(() => _isLoading = false);
+      if (isSelfie) {
+        /// Use custom selfie screen (front camera)
+        final result = await Navigator.push<File>(
+          context,
+          MaterialPageRoute(builder: (_) => const SelfieCameraScreen()),
+        );
+
+        if (result != null) pickedFile = result;
+      } else {
+        /// Standard camera
+        final picked = await _picker.pickImage(
+          source: ImageSource.camera,
+          preferredCameraDevice: CameraDevice.rear,
+          imageQuality: 60,
+          maxWidth: 1280,
+          maxHeight: 1280,
+        );
+
+        if (picked != null) {
+          pickedFile = File(picked.path);
+        }
+      }
+
+      if (pickedFile == null) {
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      final file = File(image.path);
-
-      if (!file.existsSync()) {
-        setState(() => _isLoading = false);
+      /// Validate file
+      if (!pickedFile.existsSync()) {
+        if (mounted) setState(() => _isLoading = false);
         return;
       }
 
-      setState(() {
-        _selectedImage = file;
-        _isLoading = false;
-      });
+      /// Compress image
+      File finalFile = pickedFile;
 
-      widget.onImageSelected(file);
-    } catch (e) {
+      try {
+        final compressed =
+            await ImageCompressionHelper.compressImageTo2MB(pickedFile);
+
+        if (compressed != null) {
+          finalFile = compressed;
+        }
+      } catch (e, s) {
+        await CrashLogger().logCrash(e, s);
+        await FileLogger.error(
+          'Image compression failed',
+          data: {'error': e.toString()},
+          stackTrace: s,
+        );
+      }
+
       if (!mounted) return;
 
       setState(() {
+        _selectedImage = finalFile;
         _isLoading = false;
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Unable to open camera on this device"),
-        ),
+      widget.onImageSelected(finalFile);
+    } catch (e, s) {
+      await CrashLogger().logCrash(e, s);
+
+      await FileLogger.error(
+        'Camera open failed',
+        data: {'error': e.toString()},
+        stackTrace: s,
       );
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Unable to open camera on this device'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       _isPickingImage = false;
     }
   }
 
+  /// Placeholder
   Widget _buildPlaceholder() {
     return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.camera_alt_outlined, size: 22),
+          const Icon(Icons.camera_alt_outlined,
+              size: 20, color: AppColors.color555555),
           const SizedBox(width: 6),
-          Text(widget.placeholder ?? "Take Photo"),
+          Text(
+            widget.placeholder ?? "Take Photo",
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: AppColors.color555555,
+              fontFamily: fontFamilyMontserrat,
+            ),
+          ),
         ],
       ),
     );
   }
 
+  /// Render image from URL/base64/path
   Widget _buildImageFromUrl(String url) {
     try {
+      /// data:image/jpeg;base64
       if (url.startsWith('data:image')) {
-        final parts = url.split(',');
+        String normalized = url;
+
+        if (normalized.startsWith('data:image/jpg')) {
+          normalized =
+              normalized.replaceFirst('data:image/jpg', 'data:image/jpeg');
+        }
+
+        final parts = normalized.split(',');
         if (parts.length < 2) return _buildPlaceholder();
 
         final bytes = base64Decode(parts[1]);
@@ -154,12 +218,16 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           bytes,
           fit: BoxFit.cover,
           width: double.infinity,
+          cacheWidth: 800,
+          cacheHeight: 800,
           filterQuality: FilterQuality.low,
           errorBuilder: (_, __, ___) => _buildPlaceholder(),
         );
       }
 
+      /// Local file path
       if (url.startsWith('/data/') ||
+          url.contains('/data/user/') ||
           url.endsWith('.jpg') ||
           url.endsWith('.png')) {
         final file = File(url);
@@ -174,12 +242,15 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         }
       }
 
+      /// Raw base64
       final bytes = base64Decode(url);
 
       return Image.memory(
         bytes,
         fit: BoxFit.cover,
         width: double.infinity,
+        cacheWidth: 800,
+        cacheHeight: 800,
         filterQuality: FilterQuality.low,
         errorBuilder: (_, __, ___) => _buildPlaceholder(),
       );
@@ -201,6 +272,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           _selectedImage!,
           fit: BoxFit.cover,
           width: double.infinity,
+          errorBuilder: (_, __, ___) => _buildPlaceholder(),
         ),
       );
     } else if (_externalImageWidget != null) {
@@ -221,15 +293,12 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
               Expanded(
                 child: Text(
                   widget.label!,
-                 style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
+                  style: const TextStyle(
                     fontWeight: FontWeight.w500,
                     fontFamily: fontFamilyMontserrat,
-                   
+                    fontSize: 16,
+                    color: AppColors.white,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               if (widget.isRequired)
