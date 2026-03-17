@@ -1086,7 +1086,7 @@ class _PMCustomFormComponentState extends State<PMCustomFormComponent> {
 
     // Console log the response_details array
     Logger.infoLog('response_details after save: ${jsonEncode(updatedResponseDetails)}');
-    print('response_details after save: ${jsonEncode(updatedResponseDetails)}');
+    
 
     // Update the checklist item
     final updatedItem = Map<String, dynamic>.from(widget.checklistItem);

@@ -679,7 +679,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         return cmDownloaded;
       }
     } catch (e) {
-      print('Error checking site download status: $e');
+      Logger.errorLog('Error checking site download status: $e');
       return false;
     }
   }
@@ -698,9 +698,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       } else if (widget.ActivityType == 'GI') {
         isDownloaded = await service.downloadGISiteData(site: site);
       } else if (widget.ActivityType == 'Incident') {
-        print('Downloading incident site data');
         isDownloaded = await service.downloadIncidentSiteData(site: site);
-        print('Incident site data downloaded: $isDownloaded');
       } else if (widget.ActivityType == 'AU' ||
           widget.ActivityType == 'Asset Upload') {
         // downloadAssetUploadSiteData now handles fetching and saving both site data and API data
@@ -721,14 +719,11 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             // Still consider it successful since CM data was downloaded
           }
         } else if (widget.ActivityType == 'Incident') {
-          print('Downloading incident checklist data');
           final incidentDownloaded = await service.downloadIncidentChecklist(
             siteId: site.siteId,
             siteCode: site.siteCode,
             siteName: site.siteName,
           );
-
-          print('Incident checklist data downloaded: $incidentDownloaded');
 
           if (!incidentDownloaded) {
             // Still consider it successful since CM data was downloaded

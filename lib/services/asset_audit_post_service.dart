@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'dart:typed_data';
 import 'package:app/models/location_model.dart';
 import 'package:app/enum/activity_type_enum.dart';

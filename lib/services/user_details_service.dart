@@ -172,7 +172,7 @@ class UserDetailsService {
         headers: {'Authorization': 'Bearer $token'},
       );
 
-      print('response: user profile ${response.data}');
+      
 
       if (response.isSuccess && response.data != null) {
         await LocalStorageDB.saveUserProfile(response.data['userprofile']);

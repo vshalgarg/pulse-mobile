@@ -80,7 +80,7 @@ await LogPushService.pushLogsNow(apiService);
 
 // Check service status
 final status = LogPushService.getServiceStatus();
-print('Service running: ${status['isRunning']}');
+
 ```
 
 ### Log Viewer Integration

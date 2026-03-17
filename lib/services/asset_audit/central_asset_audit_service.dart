@@ -486,7 +486,7 @@ class CentralAssetAuditService {
     required String siteName,
   }) async {
     try {
-      print('Downloading incident checklist data');
+     
       Logger.debugLog(
         'Starting to download incident checklist data for site: $siteName',
       );
@@ -495,7 +495,7 @@ class CentralAssetAuditService {
       final checklistData = await ServiceLocator().incidentRepository
           .getIncidentChecklist();
 
-      print('Incident checklist data: $checklistData');
+ 
 
       // Save to SQLite using the central data service
       bool isSaved = await ServiceLocator().centralAssetAuditDataService
@@ -507,7 +507,7 @@ class CentralAssetAuditService {
             activityType: 'incident',
           );
 
-      print('Incident checklist data saved: $isSaved');
+      
 
       Logger.debugLog(
         '✅ Incident checklist data saved successfully to SQLite: $isSaved',
@@ -516,8 +516,7 @@ class CentralAssetAuditService {
     } catch (e, stackTrace) {
       Logger.errorLog('❌ Error downloading incident checklist data: $e');
       Logger.errorLog('❌ Stack trace: $stackTrace');
-      print('❌ Error downloading incident checklist data: $e');
-      print('❌ Stack trace: $stackTrace');
+      
       return false;
     }
   }

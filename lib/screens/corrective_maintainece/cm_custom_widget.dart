@@ -95,16 +95,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       _currentItem['dependentElements'] = widget.pmItem['dependentElements'];
     }
     
-    // Debug logging to check if dependent_elements is present
-    if (_currentItem['resp_type'] == 'CHECKBOX' || _currentItem['resp_type'] == 'CHECKBOX_NUMERIC') {
-      print('[CM] initState - widget.pmItem keys: ${widget.pmItem.keys.toList()}');
-      print('[CM] initState - widget.pmItem[dependent_elements]: ${widget.pmItem['dependent_elements']}');
-      print('[CM] initState - widget.pmItem[dependentElements]: ${widget.pmItem['dependentElements']}');
-      print('[CM] initState - _currentItem[dependent_elements]: ${_currentItem['dependent_elements']}');
-      print('[CM] initState - _currentItem[dependentElements]: ${_currentItem['dependentElements']}');
-      print('[CM] initState - _currentItem[resp_type]: ${_currentItem['resp_type']}');
-      print('[CM] initState - _currentItem[checklist_desc]: ${_currentItem['checklist_desc']}');
-    }
+    // Debug logging removed
     
     _initializeValues();
 
@@ -151,8 +142,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         _currentItem['numeric_value'] = null;
         _currentItem['resp_numeric'] = null;
         _currentItem['child_item_responses'] = null;
-        
-        print('[CM] didUpdateWidget - Cleared response data. Old ID: $oldChecklistId, New ID: $newChecklistId, Checklist changed: $checklistIdChanged, ItemType changed: $itemTypeChanged');
         
         _initializeValues();
       });
@@ -222,8 +211,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     _currentItem['resp'] = null;
     _currentItem['numeric_value'] = null;
     _currentItem['resp_numeric'] = null;
-    
-    print('[CM] Cleared all state - checklist item or equipment type changed');
   }
 
   @override
@@ -326,8 +313,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     }
     
     final responseImages = _currentItem['response_images'] as List<dynamic>? ?? [];
-    
-    print('[CM] _initializeDependentElements - dependentElements.length: ${dependentElements.length}');
     
     // Initialize dependent image data from response_images
     for (int i = 0; i < dependentElements.length; i++) {
@@ -596,7 +581,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
 
   void _onTextChanged(String value) {
-    print('[CM] _onTextChanged - value: $value, resp_type: ${_currentItem['resp_type']}, old _textValue: $_textValue');
     
     setState(() {
       _textValue = value;
@@ -604,7 +588,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       
       // For NUMERIC and TEXT fields, initialize dependent elements if value is not empty
       if ((_currentItem['resp_type'] == 'NUMERIC' || _currentItem['resp_type'] == 'TEXT') && value.isNotEmpty) {
-        print('[CM] _onTextChanged - Initializing dependent elements for ${_currentItem['resp_type']} field');
         _initializeDependentElements();
       }
     });
@@ -622,7 +605,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
   }
   
   void _onCheckboxChanged(bool? value) {
-    print('[CM] _onCheckboxChanged called - value: $value');
     setState(() {
       _isCheckboxChecked = value ?? false;
       final respType = _currentItem['resp_type']?.toString() ?? '';
@@ -636,9 +618,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       } else {
         _currentItem['resp'] = _isCheckboxChecked ? 'true' : 'false';
       }
-      
-      print('[CM] _onCheckboxChanged - _isCheckboxChecked set to: $_isCheckboxChecked');
-      print('[CM] _onCheckboxChanged - _currentItem[resp] set to: ${_currentItem['resp']}');
       
       // Clear dependent elements if unchecked
       if (!_isCheckboxChecked) {
@@ -834,8 +813,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     
     // Notify parent widget of the change
     _notifyValueChanged();
-    
-    print('[CM] Cleared previous checklist response data');
   }
 
   void _saveDynamicDropdownData() {
@@ -883,7 +860,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             final mandatoryIfValue = element['mandatoryIfValue'];
             if (_isDependentElementMandatory(mandatoryIfValue, 'true') && 
                 (_childItemDependentImageData[childId]?[elementKey] == null)) {
-              final elementDesc = element['checklist_desc']?.toString() ?? 'photo';
               Toastbar.showErrorToastbar('Please upload photo for: $fieldName', context);
               return;
             }
@@ -898,7 +874,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           final mandatoryIfValue = element['mandatoryIfValue'];
           if (_isDependentElementMandatory(mandatoryIfValue, 'true') &&
               (_childItemDependentImageData[childId]?[elementKey] == null || _childItemDependentImageData[childId]![elementKey]?.isEmpty == true)) {
-            final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
             Toastbar.showErrorToastbar('Please upload photo', context);
             return;
           }
@@ -1286,7 +1261,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   
                   _childItemDependentImageData[childId] ??= {};
                   _childItemDependentImageData[childId]![elementKey] = imageDataUrl;
-                  print('[CM] _editDynamicDropdownItem - Loaded child item image for childId: $childId, elementKey: $elementKey');
                 }
               }
             }
@@ -1339,7 +1313,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 : 'data:image/jpeg;base64,$imageDataBase64';
             
             _dependentImageData[elementKey] = imageDataUrl;
-            print('[CM] _editDynamicDropdownItem - Loaded image for elementKey: $elementKey');
           }
         }
       } else {
@@ -1466,7 +1439,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             dependentElements = parsed;
           }
         } catch (e) {
-          print('[CM] Error parsing dependent_elements in TEXT: $e');
+          // Ignore parse errors, fall back to defaults
         }
       }
     }
@@ -1483,9 +1456,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     
     // Get parent response value (for TEXT, use the text value)
     final parentResponse = _textValue != null && _textValue!.isNotEmpty ? _textValue : null;
-    
-    print('[CM] _buildTextField - _textValue: $_textValue');
-    print('[CM] _buildTextField - dependentElements.length: ${dependentElements.length}');
     
     // Create unique key that includes value and dependent_elements
     final dependentElementsHash = dependentElements.isNotEmpty 
@@ -1527,18 +1497,8 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             
             // For TEXT fields, show dependent element when value is not empty
             final shouldShow = parentResponse != null && parentResponse.isNotEmpty;
-            
-            print('[CM] TEXT dependent element $index - respType: $respType, shouldShow: $shouldShow, parentResponse: $parentResponse');
-            
             if (respType == 'IMG' && shouldShow) {
               final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Upload photo';
-              final isRequired = _isDependentElementMandatory(
-                elementMap['mandatoryIfValue'],
-                parentResponse,
-    );
-              
-              print('[CM] Building TEXT IMG field - checklistDesc: $checklistDesc, isRequired: $isRequired');
-              
               final isReadonly = widget.readonlyFields.contains(
                 _currentItem['checklist_desc']?.toString(),
               );
@@ -1804,10 +1764,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     List<dynamic> dependentElements = childItem['dependent_elements'] as List<dynamic>? ?? 
                                        childItem['dependentElements'] as List<dynamic>? ?? [];
     
-    // Debug logging for child items with dependent_elements
-    if (dependentElements.isNotEmpty) {
-      print('[CM] _buildChildItemField - Child $childId ($respType) has ${dependentElements.length} dependent_elements');
-    }
+    // Debug logging removed
     
     // Initialize state for this child item if not exists
     if (!_childItemCheckboxStates.containsKey(childId)) {
@@ -1841,8 +1798,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               onChanged: isReadonly ? null : (bool? value) {
                 setState(() {
                   _childItemCheckboxStates[childId] = value ?? false;
-                  print('[CM] Child CHECKBOX $childId changed to: $value');
-                  print('[CM] Child CHECKBOX $childId - dependentElements.length: ${dependentElements.length}');
                 });
               },
             ),
@@ -1860,7 +1815,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
-                  
                   return Padding(
                     padding: const EdgeInsets.only(left: 40, bottom: 16),
                     child: ImageUploadField(
@@ -1901,8 +1855,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
               onChanged: isReadonly ? null : (bool? value) {
                 setState(() {
                   _childItemCheckboxStates[childId] = value ?? false;
-                  print('[CM] Child CHECKBOX_NUMERIC $childId changed to: $value');
-                  print('[CM] Child CHECKBOX_NUMERIC $childId - dependentElements.length: ${dependentElements.length}');
                 });
               },
             ),
@@ -1950,7 +1902,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 
                 if (elementRespType == 'IMG') {
                   final elementDesc = element['checklist_desc']?.toString() ?? 'Upload photo';
-                  
                   return Padding(
                     padding: const EdgeInsets.only(left: 40, bottom: 16),
                     child: ImageUploadField(
@@ -2479,9 +2430,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
           
           final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
           final respType = elementMap['resp_type']?.toString() ?? '';
-          
-          print('[CM] DYNAMIC_DROPDOWN dependent element $index - respType: $respType, shouldShow: $shouldShow');
-          
           if (respType == 'IMG' && shouldShow) {
             final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Add a photo';
             final mandatoryIfValue = elementMap['mandatoryIfValue'];
@@ -2681,7 +2629,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             dependentElements = parsed;
           }
         } catch (e) {
-          print('[CM] Error parsing dependent_elements: $e');
+          // Ignore parse errors, fall back to defaults
         }
       }
     }
@@ -2689,19 +2637,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // Also store in _currentItem for future reference
     if (dependentElements.isNotEmpty && _currentItem['dependent_elements'] == null) {
       _currentItem['dependent_elements'] = dependentElements;
-    }
-    
-    // Get parent response value (checkbox checked = "true", unchecked = null/empty)
-    final parentResponse = _isCheckboxChecked ? 'true' : null;
-    
-    // Debug logging
-    print('[CM] _buildCheckboxField - _isCheckboxChecked: $_isCheckboxChecked');
-    print('[CM] _buildCheckboxField - widget.pmItem keys: ${widget.pmItem.keys.toList()}');
-    print('[CM] _buildCheckboxField - widget.pmItem[dependent_elements]: ${widget.pmItem['dependent_elements']}');
-    print('[CM] _buildCheckboxField - widget.pmItem[dependentElements]: ${widget.pmItem['dependentElements']}');
-    print('[CM] _buildCheckboxField - dependentElements.length: ${dependentElements.length}');
-    if (dependentElements.isNotEmpty) {
-      print('[CM] _buildCheckboxField - dependentElements[0]: ${dependentElements[0]}');
     }
     
     // Create a unique key that includes checkbox state and dependent_elements
@@ -2720,8 +2655,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             Checkbox(
               value: _isCheckboxChecked,
               onChanged: isReadonly ? null : (bool? value) {
-                print('[CM] Checkbox clicked - value: $value');
-                print('[CM] Checkbox - dependentElements.length: ${dependentElements.length}');
                 _onCheckboxChanged(value);
               },
             ),
@@ -2754,21 +2687,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             
             final elementKey = '${_currentItem['cm_check_list_mst_id']}_$index';
             final respType = elementMap['resp_type']?.toString() ?? '';
-            
-            print('[CM] Processing dependent element $index - respType: $respType, elementKey: $elementKey');
-            print('[CM] Element data: $elementMap');
-            
             // Show all dependent elements when checkbox is checked
             if (respType == 'IMG') {
               final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Add a photo';
-              final mandatoryIfValue = elementMap['mandatoryIfValue'];
-              final isMandatory = _isDependentElementMandatory(mandatoryIfValue, parentResponse);
               final isReadonly = widget.readonlyFields.contains(
                 _currentItem['checklist_desc']?.toString(),
               );
-              
-              print('[CM] Building IMG field - checklistDesc: $checklistDesc, isMandatory: $isMandatory');
-              
               return Padding(
                 padding: const EdgeInsets.only(left: 32, bottom: 16),
                 child: ImageUploadField(
@@ -2821,7 +2745,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             dependentElements = parsed;
           }
         } catch (e) {
-          print('[CM] Error parsing dependent_elements in CHECKBOX_NUMERIC: $e');
+          // Ignore parse errors, fall back to defaults
         }
       }
     }
@@ -2935,27 +2859,22 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     final visibleIfValue = element['visibleIfValue'];
     final mandatoryIfValue = element['mandatoryIfValue'];
     
-    print('[CM] _shouldDependentElementBeVisible - visibleIfValue: $visibleIfValue, mandatoryIfValue: $mandatoryIfValue, parentResponse: $parentResponse');
-    
     // If visibleIfValue is specified, use it
     if (visibleIfValue != null) {
       // Case 1: Boolean true - show when parent has a response
       if (visibleIfValue is bool && visibleIfValue == true) {
         final result = parentResponse != null && parentResponse.isNotEmpty;
-        print('[CM] visibleIfValue is bool true, returning: $result');
         return result;
       }
       
       // Case 2: Boolean false - never show
       if (visibleIfValue is bool && visibleIfValue == false) {
-        print('[CM] visibleIfValue is bool false, returning: false');
         return false;
       }
       
       // Case 3: Array of values - show only when parent response matches
       if (visibleIfValue is List) {
         if (parentResponse == null || parentResponse.isEmpty) {
-          print('[CM] visibleIfValue is List but parentResponse is empty, returning: false');
           return false;
         }
         
@@ -2965,7 +2884,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         final parentValueLower = parentResponse.trim().toLowerCase();
         
         final result = visibleValues.contains(parentValueLower);
-        print('[CM] visibleIfValue is List: $visibleValues, parentValueLower: $parentValueLower, returning: $result');
         return result;
       }
     }
@@ -2976,14 +2894,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
       // Case 1: Boolean true - show when parent has any response
       if (mandatoryIfValue is bool && mandatoryIfValue == true) {
         final result = parentResponse != null && parentResponse.isNotEmpty;
-        print('[CM] mandatoryIfValue is bool true, returning: $result');
         return result;
       }
       
       // Case 2: Array of values - show only when parent response matches
       if (mandatoryIfValue is List) {
         if (parentResponse == null || parentResponse.isEmpty) {
-          print('[CM] mandatoryIfValue is List but parentResponse is empty, returning: false');
           return false;
         }
         
@@ -2993,14 +2909,12 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         final parentValueLower = parentResponse.trim().toLowerCase();
         
         final result = mandatoryValues.contains(parentValueLower);
-        print('[CM] mandatoryIfValue is List: $mandatoryValues, parentValueLower: $parentValueLower, returning: $result');
         return result;
       }
     }
     
     // Default: show if parent has a response (for checkboxes, this means checked)
     final defaultResult = parentResponse != null && parentResponse.isNotEmpty;
-    print('[CM] Using default logic, returning: $defaultResult');
     return defaultResult;
   }
   
@@ -3114,7 +3028,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             dependentElements = parsed;
           }
         } catch (e) {
-          print('[CM] Error parsing dependent_elements in NUMERIC: $e');
+          // Ignore parse errors, fall back to defaults
         }
       }
     }
@@ -3133,20 +3047,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
     // For mandatoryIfValue: true, any non-empty value should show the dependent element
     final parentResponse = _textValue != null && _textValue!.isNotEmpty ? _textValue : null;
     
-    print('[CM] _buildNumericField - _textValue: $_textValue');
-    print('[CM] _buildNumericField - parentResponse: $parentResponse');
-    print('[CM] _buildNumericField - dependentElements.length: ${dependentElements.length}');
-    print('[CM] _buildNumericField - widget.pmItem keys: ${widget.pmItem.keys.toList()}');
-    print('[CM] _buildNumericField - widget.pmItem[dependent_elements]: ${widget.pmItem['dependent_elements']}');
-    if (dependentElements.isNotEmpty) {
-      print('[CM] _buildNumericField - dependentElements[0]: ${dependentElements[0]}');
-      final firstElement = dependentElements[0] as Map<String, dynamic>?;
-      if (firstElement != null) {
-        print('[CM] _buildNumericField - firstElement[mandatoryIfValue]: ${firstElement['mandatoryIfValue']}');
-        print('[CM] _buildNumericField - firstElement[mandatoryIfValue] type: ${firstElement['mandatoryIfValue'].runtimeType}');
-      }
-    }
-    
     // Create unique key that includes value and dependent_elements
     // Use the actual value (or hash) to ensure rebuild when value changes
     final valueHash = _textValue != null && _textValue!.isNotEmpty 
@@ -3156,8 +3056,6 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
         ? dependentElements.length.toString() 
         : '0';
     final numericKey = 'numeric_${_currentItem['cm_check_list_mst_id']}_${valueHash}_$dependentElementsHash';
-    
-    print('[CM] _buildNumericField - Building with key: $numericKey, _textValue: $_textValue');
     
     return Column(
       key: ValueKey(numericKey),
@@ -3197,21 +3095,11 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             // The mandatoryIfValue only determines if it's required, not visibility
             // parentResponse is already checked in the outer if, so it's guaranteed to be non-null here
             final shouldShow = true; // Already checked in outer if condition
-            
-            print('[CM] NUMERIC dependent element $index - respType: $respType, shouldShow: $shouldShow, parentResponse: $parentResponse');
-            
             if (respType == 'IMG' && shouldShow) {
               final checklistDesc = elementMap['checklist_desc']?.toString() ?? 'Upload photo';
-              final isRequired = _isDependentElementMandatory(
-                elementMap['mandatoryIfValue'],
-                parentResponse,
-              );
               final isReadonly = widget.readonlyFields.contains(
                 _currentItem['checklist_desc']?.toString(),
               );
-              
-              print('[CM] Building NUMERIC IMG field - checklistDesc: $checklistDesc, isRequired: $isRequired');
-              
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: ImageUploadField(

@@ -1789,12 +1789,11 @@ class CentralAssetAuditDataService {
       Logger.debugLog(
         '📝 Saving $totalItems incident checklist items to database',
       );
-      print('📝 Saving $totalItems incident checklist items to database');
-      print('📝 Checklist data keys: ${checklistData.keys.toList()}');
+      
 
       if (totalItems == 0) {
         Logger.errorLog('❌ No checklist items to save!');
-        print('❌ No checklist items to save!');
+      
         return false;
       }
 
@@ -1803,8 +1802,7 @@ class CentralAssetAuditDataService {
         for (final entry in checklistData.entries) {
           final incidentItemType = entry.key;
           final items = entry.value;
-          print('📝 Processing item type: $incidentItemType with ${items.length} items');
-
+          
           for (final item in items) {
             try {
               itemIndex++;
@@ -1818,11 +1816,10 @@ class CentralAssetAuditDataService {
               final clOrder = item['cl_order'] as int? ?? 
                             item['clOrder'] as int? ?? 0;
 
-              print('📝 Item $itemIndex: iclmId=$iclmId, desc=$checklistDesc, order=$clOrder');
-              
+                
               if (iclmId == 0) {
                 Logger.errorLog('❌ Warning: iclm_id is 0 for item $itemIndex. Item data: $item');
-                print('❌ Warning: iclm_id is 0 for item $itemIndex. Item data: $item');
+               
               }
 
               Logger.debugLog(
@@ -1877,21 +1874,16 @@ class CentralAssetAuditDataService {
       Logger.debugLog(
         '🔍 Verification: ${savedItems.length} items saved to database for site_id: $siteId',
       );
-      print('🔍 Verification: ${savedItems.length} items saved to database for site_id: $siteId');
 
       if (savedItems.isEmpty) {
         Logger.errorLog('❌ No items were saved to database for site_id: $siteId');
-        print('❌ No items were saved to database for site_id: $siteId');
         Logger.errorLog('❌ Checklist data had ${checklistData.length} item types');
-        print('❌ Checklist data had ${checklistData.length} item types');
       }
 
       return savedItems.isNotEmpty;
     } catch (e, stackTrace) {
       Logger.errorLog('❌ Error saving incident checklist data: $e');
       Logger.errorLog('❌ Stack trace: $stackTrace');
-      print('❌ Error saving incident checklist data: $e');
-      print('❌ Stack trace: $stackTrace');
       return false;
     }
   }
@@ -2325,7 +2317,7 @@ class CentralAssetAuditDataService {
       }
       return false;
     } catch (e) {
-      print('Error checking incident site download status: $e');
+  
       Logger.errorLog('❌ Error checking incident site download status: $e');
       return false;
     }

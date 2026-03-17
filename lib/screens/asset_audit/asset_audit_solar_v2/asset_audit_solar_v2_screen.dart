@@ -111,7 +111,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
           formData['project_capacity'] =
               pageHeader['project_capacity']?.toString() ?? "0";
 
-          print("pc_Activity: ${pageHeader['project_capacity']}");
+         
 
           // Format audit due date
           String formattedAuditDueDate = "N/A";

@@ -94,14 +94,12 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       // If we already have image data, don't check again
       if (_imageData != null && _imageData!.isNotEmpty) {
         Logger.infoLog('[PM] Image already loaded, skipping check');
-        print('[PM] Image already loaded, skipping check');
         return;
       }
       
       // Check response_images again (might have been updated)
       final responseImages = _currentItem['response_images'] ?? _currentItem['responseImages'];
       Logger.infoLog('[PM] 🔍 Checking for images - response_images: $responseImages');
-      print('[PM] 🔍 Checking for images - response_images: $responseImages');
       
       if (responseImages != null && responseImages is List && responseImages.isNotEmpty) {
         final firstImage = responseImages[0];
@@ -109,7 +107,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           final photoId = firstImage['photo_id'] ?? firstImage['photoId'];
           if (photoId != null && photoId.toString().trim().isNotEmpty) {
             Logger.infoLog('[PM] ✅ Found photo_id in delayed check: $photoId');
-            print('[PM] ✅ Found photo_id in delayed check: $photoId');
             await _loadImageFromServerPhotoId(photoId.toString());
             return;
           }
@@ -121,16 +118,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       if (directPhotoId != null && directPhotoId.toString().trim().isNotEmpty && 
           directPhotoId.toString() != '0' && directPhotoId.toString() != 'null') {
         Logger.infoLog('[PM] ✅ Found photo_id directly on item in delayed check: $directPhotoId');
-        print('[PM] ✅ Found photo_id directly on item in delayed check: $directPhotoId');
         await _loadImageFromServerPhotoId(directPhotoId.toString());
         return;
       }
       
       Logger.infoLog('[PM] ⚠️ No images found - response_images is null and no photo_id on item');
-      print('[PM] ⚠️ No images found - response_images is null and no photo_id on item');
     } catch (e) {
       Logger.errorLog('[PM] ❌ Error checking for downloaded images: $e');
-      print('[PM] ❌ Error checking for downloaded images: $e');
     }
   }
 
@@ -235,9 +229,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     Logger.infoLog('[PM] pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
     Logger.infoLog('[PM] checklist_desc: ${_currentItem['checklist_desc']}');
 
-    // here print complete currentItem
-    print('[PM] currentItem: ${_currentItem}');
-    
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
 
@@ -273,22 +264,15 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     final responseImages = _currentItem['response_images'] ?? _currentItem['responseImages'];
     
     Logger.infoLog('[PM] ========== _initializeValues - Image Loading ==========');
-    print('[PM] ========== _initializeValues - Image Loading ==========');
     Logger.infoLog('[PM] Checking for images...');
-    print('[PM] Checking for images...');
     Logger.infoLog('[PM] response_images type: ${responseImages}');
     Logger.infoLog('[PM] response_images value: $responseImages');
-    print('[PM] response_images value: $responseImages');
     Logger.infoLog('[PM] response_images is List: ${responseImages is List}');
-    print('[PM] response_images is List: ${responseImages is List}');
     if (responseImages is List) {
       Logger.infoLog('[PM] response_images isNotEmpty: ${responseImages.isNotEmpty}');
-      print('[PM] response_images isNotEmpty: ${responseImages.isNotEmpty}');
       Logger.infoLog('[PM] response_images length: ${responseImages.length}');
-      print('[PM] response_images length: ${responseImages.length}');
       if (responseImages.isNotEmpty) {
         Logger.infoLog('[PM] response_images[0]: ${responseImages[0]}');
-        print('[PM] response_images[0]: ${responseImages[0]}');
       }
     }
     
@@ -317,16 +301,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                     final checklistDesc = element['checklist_desc']?.toString() ?? '';
                     dependentElementKey = 'IMG_${checklistDesc}_$currentImgIndex';
                     Logger.infoLog('[PM] 🎯 Mapping response_images[$i] (photo_id: $photoId) to IMG element at index $currentImgIndex, key: $dependentElementKey');
-                    print('[PM] 🎯 Mapping response_images[$i] (photo_id: $photoId) to IMG element at index $currentImgIndex, key: $dependentElementKey');
                     
                     // Load this image with the correct elementKey
                     final photoIdStr = photoId.toString();
                     _loadImageFromServerPhotoId(photoIdStr, dependentElementKey: dependentElementKey).then((_) {
                       Logger.infoLog('[PM] ✅ Image loading completed for photo_id: $photoIdStr, elementKey: $dependentElementKey');
-                      print('[PM] ✅ Image loading completed for photo_id: $photoIdStr, elementKey: $dependentElementKey');
                     }).catchError((e) {
                       Logger.errorLog('[PM] ❌ Error loading image for photo_id $photoIdStr: $e');
-                      print('[PM] ❌ Error loading image for photo_id $photoIdStr: $e');
                     });
                     break;
                   }
@@ -340,7 +321,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       }
       // Return early since we've handled all images from response_images
       Logger.infoLog('[PM] ========== _initializeValues completed ==========');
-      print('[PM] ========== _initializeValues completed ==========');
       return;
     }
     
@@ -351,38 +331,28 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       if (directPhotoId.isNotEmpty && directPhotoId != '0' && directPhotoId != 'null') {
         photoIdToLoad = directPhotoId;
         Logger.infoLog('[PM] ✅ Found photo_id directly on item: $photoIdToLoad');
-        print('[PM] ✅ Found photo_id directly on item: $photoIdToLoad');
       }
     }
     
     // Load image if we found a photo_id (for main field, not dependent elements)
     if (photoIdToLoad != null) {
       Logger.infoLog('[PM] 🚀 Starting image load for photo_id: $photoIdToLoad');
-      print('[PM] 🚀 Starting image load for photo_id: $photoIdToLoad');
       
       // Load image asynchronously - don't await to avoid blocking UI
       _loadImageFromServerPhotoId(photoIdToLoad).then((_) {
         Logger.infoLog('[PM] ✅ Image loading completed for photo_id: $photoIdToLoad');
-        print('[PM] ✅ Image loading completed for photo_id: $photoIdToLoad');
       }).catchError((e) {
         Logger.errorLog('[PM] ❌ Error loading image for photo_id $photoIdToLoad: $e');
-        print('[PM] ❌ Error loading image for photo_id $photoIdToLoad: $e');
       });
     } else {
       Logger.infoLog('[PM] ❌ No response_images or photo_id found in item');
-      print('[PM] ❌ No response_images or photo_id found in item');
       Logger.infoLog('[PM] Item keys: ${_currentItem.keys.toList()}');
-      print('[PM] Item keys: ${_currentItem.keys.toList()}');
       Logger.infoLog('[PM] response_images value: ${_currentItem['response_images']}');
-      print('[PM] response_images value: ${_currentItem['response_images']}');
       Logger.infoLog('[PM] responseImages value: ${_currentItem['responseImages']}');
-      print('[PM] responseImages value: ${_currentItem['responseImages']}');
       Logger.infoLog('[PM] photo_id value: ${_currentItem['photo_id']}');
-      print('[PM] photo_id value: ${_currentItem['photo_id']}');
     }
     
     Logger.infoLog('[PM] ========== _initializeValues completed ==========');
-    print('[PM] ========== _initializeValues completed ==========');
   }
 
   /// Load image from photo_id (unique ID from database or server ID)
@@ -392,21 +362,17 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     try {
       if (photoId.isEmpty || photoId == '0' || photoId == 'null') {
         Logger.infoLog('[PM] Invalid photo ID: $photoId');
-        print('Invalid photo ID: $photoId');
         return;
       }
 
       Logger.infoLog('[PM] 🔄 Loading image from photo_id: $photoId');
 
-      print('photoId: $photoId');
-      
       String? imageDataLocal;
       
       // Check if this is a numeric server ID (needs download) or unique ID (already cached)
       if (int.tryParse(photoId) != null && !photoId.contains("LOCAL_IMAGE_ID")) {
         // This is a numeric server ID - download it first to get unique ID
         Logger.infoLog('[PM] 📥 Detected numeric server ID: $photoId, checking cache first...');
-        print('[PM] 📥 Detected numeric server ID: $photoId, checking cache first...');
         
         
         // First, check if already cached by server ID
@@ -418,11 +384,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           // Found in cache
           imageDataLocal = cachedImage.imageData;
           Logger.infoLog('[PM] ✅ Image found in cache by server ID, data length: ${imageDataLocal?.length ?? 0}');
-          print('[PM] ✅ Image found in cache by server ID, data length: ${imageDataLocal?.length ?? 0}');
         } else {
           // Not in cache, download from server
           Logger.infoLog('[PM] ⬇️ Image not in cache, downloading from server...');
-          print('[PM] ⬇️ Image not in cache, downloading from server...');
           
           final uniqueId = await ServiceLocator()
               .imageUploadService
@@ -434,7 +398,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           
           if (uniqueId != null) {
             Logger.infoLog('[PM] ✅ Image downloaded, uniqueId: $uniqueId');
-            print('[PM] ✅ Image downloaded, uniqueId: $uniqueId');
             // Get image data using unique ID via getImageAsDataUrl (same as asset audit)
             imageDataLocal = await ServiceLocator()
                 .centralAssetAuditService
@@ -443,43 +406,36 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
             if (imageDataLocal == null || imageDataLocal.isEmpty) {
               // Fallback: try direct getImageUsingUniqueId
               Logger.infoLog('[PM] 🔄 Fallback: trying getImageUsingUniqueId with uniqueId');
-              print('[PM] 🔄 Fallback: trying getImageUsingUniqueId with uniqueId');
               imageDataLocal = await ServiceLocator()
                   .imageUploadService
                   .getImageUsingUniqueId(uniqueId);
             }
           } else {
             Logger.errorLog('[PM] ❌ Failed to download image - uniqueId is null');
-            print('[PM] ❌ Failed to download image - uniqueId is null');
           }
         }
       } else {
         // This is a unique ID (LOCAL_IMAGE_ID or processed unique ID) - use getImageAsDataUrl
         Logger.infoLog('[PM] 🔑 Using unique ID: $photoId, loading via getImageAsDataUrl');
-        print('[PM] 🔑 Using unique ID: $photoId, loading via getImageAsDataUrl');
         
         imageDataLocal = await ServiceLocator()
             .centralAssetAuditService
             .getImageAsDataUrl(photoId);
         
         Logger.infoLog('[PM] 🔑 getImageAsDataUrl result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
-        print('[PM] 🔑 getImageAsDataUrl result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
         
         if (imageDataLocal == null || imageDataLocal.isEmpty) {
           // Fallback: try direct getImageUsingUniqueId
           Logger.infoLog('[PM] 🔄 Fallback: trying getImageUsingUniqueId');
-          print('[PM] 🔄 Fallback: trying getImageUsingUniqueId');
           imageDataLocal = await ServiceLocator()
               .imageUploadService
               .getImageUsingUniqueId(photoId);
 
           Logger.infoLog('[PM] 🔄 getImageUsingUniqueId result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
-          print('[PM] 🔄 getImageUsingUniqueId result: ${imageDataLocal != null ? "NOT NULL (${imageDataLocal.length} chars)" : "NULL"}');
           
           if (imageDataLocal == null || imageDataLocal.isEmpty) {
             // Second fallback: try getImagesByServerId (in case it's stored by server ID)
             Logger.infoLog('[PM] 🔄 Second fallback: trying getImagesByServerId');
-            print('[PM] 🔄 Second fallback: trying getImagesByServerId');
             final cachedImage = await ServiceLocator()
                 .imageUploadService
                 .getImagesByServerId(photoId);
@@ -487,7 +443,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
             if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
               imageDataLocal = cachedImage.imageData;
               Logger.infoLog('[PM] 🔄 Found via getImagesByServerId, data length: ${imageDataLocal?.length ?? 0}');
-              print('[PM] 🔄 Found via getImagesByServerId, data length: ${imageDataLocal?.length ?? 0}');
             }
           }
         }
@@ -517,12 +472,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           }
           
           Logger.infoLog('[PM] ✅ Base64 data validated successfully');
-          print('[PM] ✅ Base64 data validated successfully');
         } catch (e) {
           Logger.errorLog('[PM] ❌ Invalid base64 data: $e');
-          print('[PM] ❌ Invalid base64 data: $e');
           Logger.errorLog('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
-          print('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
           if (mounted) {
         setState(() {
               _imageData = null;
@@ -545,56 +497,43 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         }
         
         Logger.infoLog('[PM] ✅ Image data loaded successfully');
-        print('[PM] ✅ Image data loaded successfully');
         Logger.infoLog('[PM] Original data length: ${imageDataLocal.length}');
-        print('[PM] Original data length: ${imageDataLocal.length}');
         Logger.infoLog('[PM] Formatted data length: ${formattedImageData.length}');
-        print('[PM] Formatted data length: ${formattedImageData.length}');
         Logger.infoLog('[PM] Formatted data starts with: ${formattedImageData.substring(0, formattedImageData.length > 100 ? 100 : formattedImageData.length)}');
-        print('[PM] Formatted data starts with: ${formattedImageData.substring(0, formattedImageData.length > 100 ? 100 : formattedImageData.length)}');
         
         if (mounted) {
           Logger.infoLog('[PM] 🔄 About to set image data in state...');
-          print('[PM] 🔄 About to set image data in state...');
           
           // Set image data and trigger rebuild
           setState(() {
             _imageData = formattedImageData;
             Logger.infoLog('[PM] 🔄 Inside setState: _imageData set to ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-            print('[PM] 🔄 Inside setState: _imageData set to ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
             
             // If this image is for a dependent element, also set it in _dependentImageData
             if (dependentElementKey != null && formattedImageData.isNotEmpty) {
               _dependentImageData[dependentElementKey] = formattedImageData;
               Logger.infoLog('[PM] 🎯 Also set _dependentImageData[$dependentElementKey] to ${formattedImageData.length} chars');
-              print('[PM] 🎯 Also set _dependentImageData[$dependentElementKey] to ${formattedImageData.length} chars');
             }
           });
           
           Logger.infoLog('[PM] ✅ Image data set in state successfully');
-          print('[PM] ✅ Image data set in state successfully');
           Logger.infoLog('[PM] _imageData is now: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-          print('[PM] _imageData is now: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
           
           // Force multiple rebuilds to ensure ImageUploadField gets the update
           // Sometimes Flutter needs multiple frames to properly update nested widgets
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               Logger.infoLog('[PM] 🔄 PostFrameCallback 1: About to force rebuild');
-              print('[PM] 🔄 PostFrameCallback 1: About to force rebuild');
               setState(() {
                 Logger.infoLog('[PM] 🔄 PostFrameCallback 1: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-                print('[PM] 🔄 PostFrameCallback 1: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
               });
               
               // Second callback after a short delay
               Future.delayed(const Duration(milliseconds: 100), () {
                 if (mounted) {
                   Logger.infoLog('[PM] 🔄 PostFrameCallback 2: About to force rebuild');
-                  print('[PM] 🔄 PostFrameCallback 2: About to force rebuild');
                   setState(() {
                     Logger.infoLog('[PM] 🔄 PostFrameCallback 2: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-                    print('[PM] 🔄 PostFrameCallback 2: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
                   });
                 }
               });
@@ -602,13 +541,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           });
         } else {
           Logger.errorLog('[PM] ❌ Widget not mounted, cannot set state');
-          print('[PM] ❌ Widget not mounted, cannot set state');
         }
       } else {
         Logger.errorLog('[PM] ❌ Failed to load image: No data retrieved');
-        print('[PM] ❌ Failed to load image: No data retrieved');
         Logger.errorLog('[PM] imageDataLocal is: ${imageDataLocal != null ? "NOT NULL but empty (length: ${imageDataLocal.length})" : "NULL"}');
-        print('[PM] imageDataLocal is: ${imageDataLocal != null ? "NOT NULL but empty (length: ${imageDataLocal.length})" : "NULL"}');
         if (mounted) {
           setState(() {
             _imageData = null;
@@ -656,12 +592,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         }
         responseImages[elementIndex] = imageData;
         Logger.infoLog('[PM] 🔄 Replaced image at index $elementIndex with new image: $photoId');
-        print('[PM] 🔄 Replaced image at index $elementIndex with new image: $photoId');
       } else {
         // Replace all existing images with the new one
         responseImages = [imageData];
         Logger.infoLog('[PM] 🔄 Replaced all existing images with new image: $photoId');
-        print('[PM] 🔄 Replaced all existing images with new image: $photoId');
       }
     } else {
     // Check if photoId already exists, update it; otherwise add new
@@ -677,11 +611,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         imageData['pclsri_id'] = existingPclsriId;
       responseImages[existingIndex] = imageData;
         Logger.infoLog('[PM] 🔄 Updated existing image at index $existingIndex: $photoId');
-        print('[PM] 🔄 Updated existing image at index $existingIndex: $photoId');
     } else {
       responseImages.add(imageData);
         Logger.infoLog('[PM] ➕ Added new image: $photoId');
-        print('[PM] ➕ Added new image: $photoId');
       }
     }
     
@@ -1040,19 +972,13 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         : 'pm_image_${_currentItem['pm_check_list_site_resp_id']}_null';
     
     Logger.infoLog('[PM] 🖼️ Building ImageUploadField');
-    print('[PM] 🖼️ Building ImageUploadField');
     Logger.infoLog('[PM] 🖼️ _imageData in _buildImageField: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-    print('[PM] 🖼️ _imageData in _buildImageField: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     Logger.infoLog('[PM] 🖼️ externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-    print('[PM] 🖼️ externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     if (_imageData != null && _imageData!.isNotEmpty) {
       Logger.infoLog('[PM] 🖼️ externalImageUrl preview: ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}...');
-      print('[PM] 🖼️ externalImageUrl preview: ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}...');
     }
     Logger.infoLog('[PM] 🖼️ Image key: $imageKey');
-    print('[PM] 🖼️ Image key: $imageKey');
     Logger.infoLog('[PM] 🖼️ pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
-    print('[PM] 🖼️ pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
     
     // Force a unique key that changes when _imageData changes to ensure widget rebuilds
     // Use a combination of length and hash to create a stable but changing key
@@ -1063,19 +989,14 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     final uniqueKey = 'pm_img_${_currentItem['pm_check_list_site_resp_id']}_$imageDataHash';
     
     Logger.infoLog('[PM] 🖼️ Using unique key: $uniqueKey');
-    print('[PM] 🖼️ Using unique key: $uniqueKey');
     Logger.infoLog('[PM] 🖼️ imageDataHash: $imageDataHash');
-    print('[PM] 🖼️ imageDataHash: $imageDataHash');
     Logger.infoLog('[PM] 🖼️ _imageData is: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-    print('[PM] 🖼️ _imageData is: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     
     // CRITICAL: Pass _imageData directly to externalImageUrl
     // The key will force a rebuild, but we also need to ensure the prop is passed correctly
     Logger.infoLog('[PM] 🖼️ About to create ImageUploadField with externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-    print('[PM] 🖼️ About to create ImageUploadField with externalImageUrl: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     if (_imageData != null && _imageData!.isNotEmpty) {
       Logger.infoLog('[PM] 🖼️ externalImageUrl preview (first 100 chars): ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}');
-      print('[PM] 🖼️ externalImageUrl preview (first 100 chars): ${_imageData!.substring(0, _imageData!.length > 100 ? 100 : _imageData!.length)}');
     }
     
     // Create a StatefulBuilder to ensure the widget rebuilds when _imageData changes
@@ -1144,16 +1065,12 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
   Widget _buildFieldByType(List<String> respTypesArr, {bool isDisabled = false}) {
     Logger.infoLog('[PM] 🔧 _buildFieldByType called with respTypesArr: $respTypesArr');
-    print('[PM] 🔧 _buildFieldByType called with respTypesArr: $respTypesArr');
     final respTypes = respTypesArr.first.split(",");
     Logger.infoLog('[PM] 🔧 respTypes after split: $respTypes');
-    print('[PM] 🔧 respTypes after split: $respTypes');
     Logger.infoLog('[PM] 🔧 _imageData in _buildFieldByType: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-    print('[PM] 🔧 _imageData in _buildFieldByType: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     // Handle combined types like DROPDOWN,IMG
     if (respTypes.contains('DROPDOWN') && respTypes.contains('IMG')) {
       Logger.infoLog('[PM] 🔧 Building DROPDOWN+IMG field');
-      print('[PM] 🔧 Building DROPDOWN+IMG field');
       return Column(
         children: [
           _buildDropdownField(),
@@ -1166,7 +1083,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       );
     } else if (respTypes.contains('RADIO') && respTypes.contains('IMG')) {
       Logger.infoLog('[PM] 🔧 Building RADIO+IMG field');
-      print('[PM] 🔧 Building RADIO+IMG field');
       return Column(
         children: [
           _buildRadioField(),
@@ -1200,7 +1116,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       return _buildNumericField();
     } else if (respTypes.contains('IMG')) {
       Logger.infoLog('[PM] 🔧 Building IMG-only field');
-      print('[PM] 🔧 Building IMG-only field');
       return _buildImageField(isDisabled: isDisabled);
     } else {
       return Container(
@@ -1224,9 +1139,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   @override
   Widget build(BuildContext context) {
     Logger.infoLog('[PM] 🔨 build() called for pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
-    print('[PM] 🔨 build() called for pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
     Logger.infoLog('[PM] 🔨 _imageData in build(): ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-    print('[PM] 🔨 _imageData in build(): ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     
     final isReadonlyFromList = widget.readonlyFields.contains(
       _currentItem['checklist_desc']?.toString(),
@@ -1521,8 +1434,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       Logger.infoLog('[PM] 🎨 hasExistingImage: $hasExistingImage');
       Logger.infoLog('[PM] 🎨 isMandatory: $isMandatory');
       Logger.infoLog('[PM] 🎨 shouldShowAsRequired: ${isMandatory && !hasExistingImage}');
-      print('[PM] 🎨 Building IMG element: $elementKey');
-      print('[PM] 🎨 hasExistingImage: $hasExistingImage, shouldShowAsRequired: ${isMandatory && !hasExistingImage}');
       
       // Show red asterisk when mandatory (regardless of whether image exists)
       // isRequired flag is used for validation, asterisk is shown when isMandatory is true
@@ -1694,7 +1605,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           }
         } catch (e) {
           Logger.errorLog('[PM] ❌ Error extracting index from elementKey $elementKey: $e');
-          print('[PM] ❌ Error extracting index from elementKey $elementKey: $e');
         }
         
         setState(() {
@@ -1826,17 +1736,12 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         Logger.infoLog('[PM] 🔍 Validation for IMG element: $elementKey');
         Logger.infoLog('[PM] 🔍 hasUploadedImage: $hasUploadedImage (imageId: $imageId, imageData: ${imageData != null ? "exists (${imageData.length} chars)" : "null"})');
         Logger.infoLog('[PM] 🔍 hasServerImage: $hasServerImage (response_images: $responseImages)');
-        print('[PM] 🔍 Validation for IMG element: $elementKey');
-        print('[PM] 🔍 hasUploadedImage: $hasUploadedImage');
-        print('[PM] 🔍 hasServerImage: $hasServerImage');
         
         if (!hasUploadedImage && !hasServerImage) {
           errors.add('$checklistDesc is required');
           Logger.infoLog('[PM] ❌ Validation error: $checklistDesc is required');
-          print('[PM] ❌ Validation error: $checklistDesc is required');
         } else {
           Logger.infoLog('[PM] ✅ Validation passed: Image exists');
-          print('[PM] ✅ Validation passed: Image exists');
         }
       } else if (respType == 'TEXT') {
         // TEXT: Non-empty text required (REMARKS are optional)

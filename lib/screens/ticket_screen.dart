@@ -68,13 +68,6 @@ class _TicketScreenState extends State<TicketScreen>
 
     _currentTicketType = _getInitialTicketTypeFromStatus(widget.status);
     _currentActivityType = _getActivityTypeFromAuditName(widget.auditName);
-
-    print('[TicketScreen] Current activity type: $_currentTicketType');
-    print('[TicketScreen] Current activity enum: $_currentActivityType');
-    print('[TicketScreen] Audit name: ${widget.auditName}');
-    print(
-      '[TicketScreen] Checking FAB visibility for: ${_currentActivityType == ActivityTypeEnum.assetUpload}',
-    );
     Logger.debugLog(
       '📋 TicketScreen initialized - ActivityType: $_currentActivityType, AuditName: ${widget.auditName}',
     );
@@ -374,8 +367,6 @@ class _TicketScreenState extends State<TicketScreen>
       RawApiDataModel? data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.ticketSchId.toString(),
       );
-
-      print('data from download: $data');
 
       // For incident and asset upload tickets, use special handling
       if (_currentActivityType == ActivityTypeEnum.incident ||
@@ -1497,9 +1488,6 @@ class _TicketScreenState extends State<TicketScreen>
   }
 
   Widget _buildFloatingActionButtons() {
-    // Debug: Log current activity type to verify it's being set correctly
-    print('[TicketScreen] Current activity type: $_currentActivityType');
-
     if (_currentActivityType == ActivityTypeEnum.siteVisit ||
         _currentActivityType == ActivityTypeEnum.generalInspection ||
         _currentActivityType == ActivityTypeEnum.incident ||

@@ -86,12 +86,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
         ? CMScreenModeEnum.edit
         : widget.mode;
     
-    print('📋 AssetUploadDetailPage - Mode: ${widget.mode}, Actual Mode: $_actualMode, preloadedAuId: ${widget.preloadedAuId}');
-    Logger.debugLog('📋 AssetUploadDetailPage - Received preloaded data:');
-    Logger.debugLog('📋   preloadedSelfieImageId: ${widget.preloadedSelfieImageId}');
-    Logger.debugLog('📋   preloadedAuId: ${widget.preloadedAuId}');
-    Logger.debugLog('📋   preloadedAssetItems: ${widget.preloadedAssetItems != null ? widget.preloadedAssetItems!.length : "null"}');
-    _service = ServiceLocator().centralAssetAuditService;
+      _service = ServiceLocator().centralAssetAuditService;
     _assetUploadRepository = AssetUploadRepository(
       ServiceLocator().apiService,
     );

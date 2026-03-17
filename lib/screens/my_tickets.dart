@@ -215,22 +215,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         }
       }
     });
-    
-    // Print arrays when tab is clicked (after setState completes)
-    print('📊 ========== TAB CLICKED: ${activityType != null ? _getActivityTypeDisplayName(activityType) : "All"} ==========');
-    print('📊 Filtered Tickets Count: ${_filteredTickets.length}');
-    print('📊 Filtered Sites Count: ${_filteredSites.length}');
-    print('📊 Filtered Tickets Array:');
-    for (int i = 0; i < _filteredTickets.length; i++) {
-      final ticket = _filteredTickets[i];
-      print('  [$i] Ticket ID: ${ticket.siteAuditSchId}, SiteCode: ${ticket.siteCode}, Activity: ${ticket.activityType}, Status: ${ticket.status}');
-    }
-    print('📊 Filtered Sites Array:');
-    for (int i = 0; i < _filteredSites.length; i++) {
-      final site = _filteredSites[i];
-      print('  [$i] Site ID: ${site['site_id']}, SiteCode: ${site['site_code']}, Activity: ${site['activity_type']}');
-    }
-    print('📊 ============================================================');
   }
 
   int _getTicketCountForActivityType(ActivityTypeEnum activityType) {

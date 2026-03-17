@@ -120,7 +120,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     // Auto-save before disposing (fallback in case PopScope doesn't catch it)
     if (_assetGroups.isNotEmpty && _totalAssetCount > 0) {
       Logger.debugLog('💾 Widget disposing, auto-saving assets as fallback...');
-      print('💾 Widget disposing, auto-saving assets as fallback...');
+   
       // Don't await - just fire and forget to avoid blocking dispose
       _autoSaveOnBack().catchError((e) {
         Logger.errorLog('❌ Error in dispose auto-save: $e');
@@ -292,7 +292,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       // Use storage key when provided (downloaded ticket row); else siteId
       final storageKey = widget.siteAuditSchIdForStorage ?? widget.siteData.siteId.toString();
       Logger.debugLog('📦 Loading assets from SQLite for key: $storageKey');
-      print('📦 Loading assets from SQLite for key: $storageKey');
+      
       
       // Get data from SQLite
       final stored = await _assetAuditService.getDataFromSqlite(
@@ -301,20 +301,20 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       
       if (stored == null) {
         Logger.debugLog('⚠️ No stored data found in SQLite for key: $storageKey');
-        print('⚠️ No stored data found in SQLite');
+      
         setState(() {});
         return;
       }
       
       if (stored.apiData == null) {
         Logger.debugLog('⚠️ Stored data has null apiData');
-        print('⚠️ Stored data has null apiData');
+       
         setState(() {});
         return;
       }
       
       Logger.debugLog('📦 Found stored data, apiData keys: ${stored.apiData.keys.toList()}');
-      print('📦 Found stored data, apiData keys: ${stored.apiData.keys.toList()}');
+      
       
       // Extract asset_upload_item from apiData
       Map<String, dynamic>? responseData = stored.apiData;
@@ -327,13 +327,13 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       
       if (responseData == null) {
         Logger.debugLog('⚠️ No response data in SQLite after unwrapping');
-        print('⚠️ No response data in SQLite');
+        
         setState(() {});
         return;
       }
       
       Logger.debugLog('📦 Response data keys: ${responseData.keys.toList()}');
-      print('📦 Response data keys: ${responseData.keys.toList()}');
+      
       
       // Get assetUpload object (try both camelCase and snake_case)
       final assetUpload = responseData['assetUpload'] ?? 
@@ -341,14 +341,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       
       if (assetUpload == null) {
         Logger.debugLog('⚠️ No assetUpload found in SQLite data');
-        print('⚠️ No assetUpload found in SQLite data');
+        
         Logger.debugLog('📦 Available keys in responseData: ${responseData.keys.toList()}');
         setState(() {});
         return;
       }
       
       Logger.debugLog('📦 Found assetUpload, keys: ${assetUpload.keys.toList()}');
-      print('📦 Found assetUpload');
+      
       
       // Get asset_upload_item array (try both formats)
       final assetUploadItems = assetUpload['asset_upload_item'] ?? 
@@ -356,13 +356,13 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       
       if (assetUploadItems == null || assetUploadItems.isEmpty) {
         Logger.debugLog('⚠️ No asset items found in SQLite (null or empty)');
-        print('⚠️ No asset items found in SQLite');
+   
         setState(() {});
         return;
       }
       
       Logger.debugLog('📦 Found ${assetUploadItems.length} asset items in SQLite');
-      print('📦 Found ${assetUploadItems.length} asset items in SQLite');
+  
       
       // Convert to format expected by _loadPreloadedAssets
       final List<Map<String, dynamic>> convertedAssets = [];
@@ -404,17 +404,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       
       if (convertedAssets.isNotEmpty) {
         Logger.debugLog('📦 Loading ${convertedAssets.length} assets from SQLite');
-        print('📦 Loading ${convertedAssets.length} assets from SQLite');
+        
         await _loadPreloadedAssets(convertedAssets);
       } else {
         Logger.debugLog('⚠️ No valid assets to load from SQLite after conversion');
-        print('⚠️ No valid assets to load from SQLite');
+       
         setState(() {});
       }
     } catch (e, stackTrace) {
       Logger.errorLog('❌ Error loading assets from SQLite: $e');
       Logger.errorLog('❌ Stack trace: $stackTrace');
-      print('❌ Error loading assets from SQLite: $e');
+    
       setState(() {});
     }
   }
@@ -643,9 +643,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             Logger.debugLog(
               '📝 Asset marked as modified: ${updatedItem['full_scanned_code']}',
             );
-            print(
-              '📝 Asset marked as modified: ${updatedItem['full_scanned_code']}',
-            );
+            
           } else {
             // New item added in edit mode - not modified (it's new)
             updatedItem['isModified'] = false;
@@ -778,9 +776,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             Logger.debugLog(
               '📝 Asset marked as modified (from edit): ${updatedItem['full_scanned_code']}',
             );
-            print(
-              '📝 Asset marked as modified (from edit): ${updatedItem['full_scanned_code']}',
-            );
+           
           } else {
             // New item added in edit mode - not modified (it's new)
             updatedItem['isModified'] = false;
@@ -1168,9 +1164,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         Logger.debugLog(
           '  - assetUploadItemImages: ${item['assetUploadItemImages']}',
         );
-        print('📦 Item data for $nexgenSerialNo:');
-        print('  - photo_id: ${item['photo_id']}');
-        print('  - assetUploadItemImages: ${item['assetUploadItemImages']}');
+       
 
         // Build assetUploadItemImages from photo data
         final List<AssetUploadItemImage> itemImages = [];
@@ -1182,9 +1176,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           Logger.debugLog(
             '📦 Processing ${images.length} images from assetUploadItemImages',
           );
-          print(
-            '📦 Processing ${images.length} images from assetUploadItemImages',
-          );
+          
           for (final img in images) {
             if (img is Map<String, dynamic>) {
               // Handle photoId - can be int (server ID) or string (LOCAL_IMAGE_ID)
@@ -1193,9 +1185,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
               Logger.debugLog(
                 '📸 Raw photoId from img: $photoIdRaw (type: ${photoIdRaw.runtimeType})',
               );
-              print(
-                '📸 Raw photoId from img: $photoIdRaw (type: ${photoIdRaw.runtimeType})',
-              );
+             
 
               if (photoIdRaw != null) {
                 // If it's already a string with LOCAL_IMAGE_ID, use it directly
@@ -1205,7 +1195,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                   Logger.debugLog(
                     '📸 Keeping LOCAL_IMAGE_ID as string: $photoIdValue',
                   );
-                  print('📸 Keeping LOCAL_IMAGE_ID as string: $photoIdValue');
+                
                 } else {
                   // Convert to string first to check
                   final photoIdStr = photoIdRaw.toString();
@@ -1215,9 +1205,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                     Logger.debugLog(
                       '📸 Keeping LOCAL_IMAGE_ID for asset image: $photoIdValue',
                     );
-                    print(
-                      '📸 Keeping LOCAL_IMAGE_ID for asset image: $photoIdValue',
-                    );
+                   
                   } else if (photoIdStr == "0" ||
                       photoIdStr == "null" ||
                       photoIdStr.isEmpty ||
@@ -1227,9 +1215,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                     Logger.debugLog(
                       '📸 photoIdRaw is 0/null, checking item photo_id: $itemPhotoId',
                     );
-                    print(
-                      '📸 photoIdRaw is 0/null, checking item photo_id: $itemPhotoId',
-                    );
+                   
                     if (itemPhotoId != null &&
                         itemPhotoId.isNotEmpty &&
                         itemPhotoId != "0" &&
@@ -1239,17 +1225,13 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                       Logger.debugLog(
                         '✅ Using LOCAL_IMAGE_ID from item photo_id: $photoIdValue',
                       );
-                      print(
-                        '✅ Using LOCAL_IMAGE_ID from item photo_id: $photoIdValue',
-                      );
+                      
                     } else {
                       photoIdValue = 0;
                       Logger.debugLog(
                         '⚠️ photoId is 0/null/empty, no LOCAL_IMAGE_ID found in item photo_id either',
                       );
-                      print(
-                        '⚠️ photoId is 0/null/empty, no LOCAL_IMAGE_ID found in item photo_id either',
-                      );
+                     
                     }
                   } else {
                     // Convert to int for server IDs
@@ -1265,9 +1247,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                 Logger.debugLog(
                   '📸 photoIdRaw is null, checking item photo_id: $itemPhotoId',
                 );
-                print(
-                  '📸 photoIdRaw is null, checking item photo_id: $itemPhotoId',
-                );
+                
                 if (itemPhotoId != null &&
                     itemPhotoId.isNotEmpty &&
                     itemPhotoId != "0" &&
@@ -1277,9 +1257,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                   Logger.debugLog(
                     '✅ Using LOCAL_IMAGE_ID from item photo_id (photoIdRaw was null): $photoIdValue',
                   );
-                  print(
-                    '✅ Using LOCAL_IMAGE_ID from item photo_id (photoIdRaw was null): $photoIdValue',
-                  );
+                 
                 } else {
                   photoIdValue = 0;
                   Logger.debugLog(
@@ -1326,7 +1304,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             Logger.debugLog(
               '📸 Keeping LOCAL_IMAGE_ID from photo_id: $photoIdValue',
             );
-            print('📸 Keeping LOCAL_IMAGE_ID from photo_id: $photoIdValue');
+           
           } else {
             // Convert to int for server IDs
             photoIdValue = int.tryParse(photoId) ?? 0;
@@ -1358,9 +1336,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         Logger.debugLog(
           '📦 Creating AssetUploadItem - Serial: $nexgenSerialNo, isModified: $isModified',
         );
-        print(
-          '📦 Creating AssetUploadItem - Serial: $nexgenSerialNo, isModified: $isModified',
-        );
+       
 
         // Create AssetUploadItem
         assetUploadItems.add(
@@ -1864,7 +1840,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
       if (existingRequest != null) {
         Logger.debugLog('📦 Found existing pending request for siteId $siteId, merging assets...');
-        print('📦 Found existing pending request for siteId $siteId, merging assets...');
         
         try {
           // Parse existing request data
@@ -1879,7 +1854,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             if (existingAuId > 0) {
               finalAuId = existingAuId;
               Logger.debugLog('📦 Using existing auId: $finalAuId');
-              print('📦 Using existing auId: $finalAuId');
+             
             }
             
             // Get existing asset items
@@ -1912,25 +1887,24 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                 mergedAssetItems.add(itemJson);
                 existingSerialNumbers.add(serial);
                 Logger.debugLog('📦 Adding new asset: $serial');
-                print('📦 Adding new asset: $serial');
+               
               } else if (serial.isNotEmpty) {
                 Logger.debugLog('⚠️ Skipping duplicate asset: $serial');
-                print('⚠️ Skipping duplicate asset: $serial');
+              
               }
             }
             
             Logger.debugLog('📦 Merged ${existingItems.length} existing + ${assetUploadItems.length} new = ${mergedAssetItems.length} total assets');
-            print('📦 Merged ${existingItems.length} existing + ${assetUploadItems.length} new = ${mergedAssetItems.length} total assets');
-          }
+                      }
         } catch (e) {
           Logger.errorLog('❌ Error parsing existing request data: $e');
-          print('❌ Error parsing existing request data: $e');
+          
           // Fall back to using only new items
           mergedAssetItems = assetUploadItems.map((item) => item.toJson()).toList();
         }
       } else {
         Logger.debugLog('📦 No existing pending request, creating new one...');
-        print('📦 No existing pending request, creating new one...');
+       
         // No existing request, use new items as-is
         mergedAssetItems = assetUploadItems.map((item) => item.toJson()).toList();
       }
@@ -2349,21 +2323,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
   /// Auto-saves current asset state to SQLite when user navigates back
   Future<bool> _autoSaveOnBack() async {
-    print('🔵 _autoSaveOnBack() CALLED - Asset groups: ${_assetGroups.length}, Total count: $_totalAssetCount');
     Logger.debugLog('🔵 _autoSaveOnBack() CALLED - Asset groups: ${_assetGroups.length}, Total count: $_totalAssetCount');
     
     // Only save if there are assets to save
     if (_assetGroups.isEmpty || _totalAssetCount == 0) {
       Logger.debugLog('💾 No assets to save, allowing navigation');
-      print('💾 No assets to save, allowing navigation');
       return true; // Allow navigation if no assets
     }
 
     try {
       Logger.debugLog('💾 Auto-saving ${_totalAssetCount} assets before navigation...');
       Logger.debugLog('💾 Asset groups: ${_assetGroups.keys.toList()}');
-      print('💾 Auto-saving ${_totalAssetCount} assets before navigation...');
-      print('💾 Asset groups: ${_assetGroups.keys.toList()}');
       
       // Get selfie image ID
       final selfieImageId = await _getSelfieImageId();
@@ -2425,18 +2395,14 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       }
       if (isUpdated) {
         Logger.debugLog('✅ Assets auto-saved to SQLite successfully');
-        print('✅ Assets auto-saved to SQLite successfully');
       } else {
         Logger.errorLog('⚠️ Failed to auto-save assets to SQLite');
-        print('⚠️ Failed to auto-save assets to SQLite');
       }
 
       return true; // Allow navigation
     } catch (e, stackTrace) {
       Logger.errorLog('❌ Error auto-saving assets: $e');
       Logger.errorLog('❌ Stack trace: $stackTrace');
-      print('❌ Error auto-saving assets: $e');
-      print('❌ Stack trace: $stackTrace');
       // Still allow navigation even if save fails
       return true;
     }
@@ -2450,7 +2416,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         if (didPop) return;
         
         Logger.debugLog('🔙 Back button pressed, auto-saving...');
-        print('🔙 Back button pressed, auto-saving...');
         
         // Auto-save before allowing navigation
         await _autoSaveOnBack();
@@ -2469,7 +2434,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         title: 'Asset Upload',
         onClose: () async {
           Logger.debugLog('❌ Close button pressed, auto-saving...');
-          print('❌ Close button pressed, auto-saving...');
           
           // Auto-save before closing - await it fully
           await _autoSaveOnBack();
@@ -2532,7 +2496,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                           onPressed: () async {
                             // Auto-save before navigating back
                             Logger.debugLog('🔙 Back button (UI) pressed, auto-saving...');
-                            print('🔙 Back button (UI) pressed, auto-saving...');
+                         
                             await _autoSaveOnBack();
                             await Future.delayed(const Duration(milliseconds: 100));
                             

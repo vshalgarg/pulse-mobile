@@ -39,7 +39,7 @@ dependencies:
 ```dart
 // Get current location (works offline)
 final location = await OfflineLocationService.getCurrentLocationOffline();
-print('Lat: ${location['latitude']}, Lng: ${location['longitude']}');
+
 ```
 
 ### Data Submission
@@ -117,8 +117,7 @@ final location = await OfflineLocationService.getLocationWithAccuracy(
 ### Check Offline Data Status
 ```dart
 final stats = await OfflinePostHelper.getOfflineStats();
-print('Pending items: ${stats['pendingItems']}');
-print('Is online: ${stats['isOnline']}');
+
 ```
 
 ### Process Pending Data

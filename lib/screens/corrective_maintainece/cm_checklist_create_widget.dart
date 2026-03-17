@@ -63,21 +63,9 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
       _checklistItems = data.map((item) {
         final Map<String, dynamic> pmItem = Map<String, dynamic>.from(item);
 
-        // Debug logging for dependent_elements (for all types that can have them)
-        if (pmItem['resp_type'] == 'CHECKBOX' || pmItem['resp_type'] == 'CHECKBOX_NUMERIC' || 
-            pmItem['resp_type'] == 'NUMERIC' || pmItem['resp_type'] == 'TEXT') {
-          print('[CM] _initializeChecklistData - resp_type: ${pmItem['resp_type']}, checklist_desc: ${pmItem['checklist_desc']}');
-          print('[CM] _initializeChecklistData - item keys: ${item.keys.toList()}');
-          print('[CM] _initializeChecklistData - item[dependent_elements]: ${item['dependent_elements']}');
-          print('[CM] _initializeChecklistData - item[dependentElements]: ${item['dependentElements']}');
-          print('[CM] _initializeChecklistData - pmItem keys: ${pmItem.keys.toList()}');
-          print('[CM] _initializeChecklistData - pmItem[dependent_elements]: ${pmItem['dependent_elements']}');
-        }
-
         // Ensure dependent_elements is preserved (try both field names) - for ALL field types
         if (item['dependent_elements'] != null) {
           pmItem['dependent_elements'] = item['dependent_elements'];
-          print('[CM] _initializeChecklistData - Preserved dependent_elements for ${pmItem['resp_type']}: ${pmItem['dependent_elements']}');
         }
         if (item['dependentElements'] != null && pmItem['dependentElements'] == null) {
           pmItem['dependentElements'] = item['dependentElements'];
@@ -116,12 +104,6 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
         // Add required fields for pm_custom_widget compatibility
         pmItem['pm_check_list_site_resp_id'] = pmItem['item_type_id'] ?? DateTime.now().millisecondsSinceEpoch;
         pmItem['site_audit_sch_id'] = widget.entityId;
-
-        // Final check for dependent_elements
-        if ((pmItem['resp_type'] == 'CHECKBOX' || pmItem['resp_type'] == 'CHECKBOX_NUMERIC') && 
-            pmItem['dependent_elements'] != null) {
-          print('[CM] _initializeChecklistData - Final pmItem[dependent_elements]: ${pmItem['dependent_elements']}');
-        }
 
         return pmItem;
       }).toList();

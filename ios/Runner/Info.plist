@@ -42,6 +42,8 @@
 	<string>CLIENT-TOKEN</string>
 	<key>FacebookDisplayName</key>
 	<string>{your-app-name}</string>
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>sms</string>
@@ -50,7 +52,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>This app needs camera access to scan QR codes</string>
+	<string>This app requires camera access to scan QR codes</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Why is my app authenticating using face id?</string>
 	<key>NSLocationAlwaysUsageDescription</key>
@@ -88,10 +90,5 @@
 	<false/>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
-	<key>FlutterDeepLinkingEnabled</key>
-	<true/>
-	<key>NSCameraUsageDescription</key>
-    <string>This app requires camera access to scan QR codes</string>
-
 </dict>
 </plist>
