@@ -990,7 +990,7 @@ class _TicketScreenState extends State<TicketScreen>
 
     // Check if ticket status is completed, closed, or missed deadline
     final status = ticket.status?.toLowerCase() ?? '';
-    if (status == 'missed deadline') {
+    if (status == 'missed deadline' ||  (status == 'completed' && (_currentActivityType == ActivityTypeEnum.assetAudit || _currentActivityType == ActivityTypeEnum.preventiveMaintenance || _currentActivityType == ActivityTypeEnum.energyReading ))) {
       Toastbar.showInfoToastbar(
         "Ticket can't be opened. Please download PDF.",
         context,

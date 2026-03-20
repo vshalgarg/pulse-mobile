@@ -13,6 +13,7 @@ import 'package:app/utils/file_logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/commonWidgets/selfie_camera_screen.dart';
+import 'package:app/services/local_storage_service.dart';
 
 class ImageUploadField extends StatefulWidget {
   final String? label;
@@ -39,6 +40,8 @@ class ImageUploadField extends StatefulWidget {
 class _ImageUploadFieldState extends State<ImageUploadField> {
   final ImagePicker _picker = ImagePicker();
 
+  static const String _cameraInProgressKey = 'image_upload_field_camera_in_progress';
+
   File? _selectedImage;
   Widget? _externalImageWidget;
   String? _lastExternalUrl;
@@ -53,6 +56,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   void initState() {
     super.initState();
     _prepareExternalImageWidget(widget.externalImageUrl);
+    _handleCameraRecovery();
   }
 
   @override
@@ -61,6 +65,65 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
     if (widget.externalImageUrl != oldWidget.externalImageUrl) {
       _prepareExternalImageWidget(widget.externalImageUrl);
+    }
+  }
+
+  /// Recover camera result on Android if activity was killed/recreated.
+  /// This happens on some devices after confirming a photo in the system camera.
+  Future<File?> _recoverLostImage() async {
+    if (_selectedImage != null) return null;
+
+    try {
+      final lost = await _picker.retrieveLostData();
+      if (lost.isEmpty) return null;
+
+      final xFile = lost.file;
+      if (xFile == null) return null;
+
+      final file = File(xFile.path);
+      if (!file.existsSync()) return null;
+
+      File finalFile = file;
+      try {
+        final compressed = await ImageCompressionHelper.compressImageTo2MB(file);
+        if (compressed != null) {
+          finalFile = compressed;
+        }
+      } catch (e, s) {
+        await CrashLogger().logCrash(e, s);
+      }
+
+      if (!mounted) return null;
+      setState(() {
+        _selectedImage = finalFile;
+        _isLoading = false;
+      });
+
+      widget.onImageSelected(finalFile);
+      return finalFile;
+    } catch (e, s) {
+      await CrashLogger().logCrash(e, s);
+    }
+
+    return null;
+  }
+
+  Future<void> _handleCameraRecovery() async {
+    // If the app was killed while the system camera was open, show a friendly message on next launch.
+    final wasCameraInProgress = LocalStorageService.getBool(_cameraInProgressKey) == true;
+
+    final recovered = await _recoverLostImage();
+
+    if (wasCameraInProgress) {
+      await LocalStorageService.setBool(_cameraInProgressKey, false);
+
+      // If we couldn't recover a file, it likely means the camera closed/crashed or Android
+      // killed the activity before delivering the result.
+      if (recovered == null && mounted) {
+        Toastbar.showErrorWithoutContext(
+          'Camera closed unexpectedly. Please try again.',
+        );
+      }
     }
   }
 
@@ -95,6 +158,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       if (!mounted) return;
 
       setState(() => _isLoading = true);
+      await LocalStorageService.setBool(_cameraInProgressKey, true);
 
       if (isSelfie) {
         /// Front camera selfie
@@ -110,9 +174,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         /// Normal camera
         final picked = await _picker.pickImage(
           source: ImageSource.camera,
-          imageQuality: 65,
-          maxWidth: 1280,
-          maxHeight: 1280,
+          preferredCameraDevice: CameraDevice.rear,
+          imageQuality: 55,
+          maxWidth: 1024,
+          maxHeight: 1024,
         );
 
         if (picked != null) {
@@ -121,12 +186,14 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       }
 
       if (pickedFile == null) {
-        if (mounted) setState(() => _isLoading = false);
+        await LocalStorageService.setBool(_cameraInProgressKey, false);
+        Toastbar.showErrorWithoutContext('Camera closed without saving image.');
         return;
       }
 
       if (!pickedFile.existsSync()) {
-        if (mounted) setState(() => _isLoading = false);
+        await LocalStorageService.setBool(_cameraInProgressKey, false);
+        Toastbar.showErrorWithoutContext('Unable to read captured image. Please try again.');
         return;
       }
 
@@ -152,6 +219,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       });
 
       widget.onImageSelected(finalFile);
+      await LocalStorageService.setBool(_cameraInProgressKey, false);
     } catch (e, s) {
       await CrashLogger().logCrash(e, s);
 
@@ -175,6 +243,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       }
     } finally {
       _isPickingImage = false;
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      await LocalStorageService.setBool(_cameraInProgressKey, false);
     }
   }
 

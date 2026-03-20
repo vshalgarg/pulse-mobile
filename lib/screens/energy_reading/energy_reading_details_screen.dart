@@ -62,12 +62,13 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   final TextEditingController _ebKvaInSebMeterController =
       TextEditingController();
   final TextEditingController _remarksController = TextEditingController();
-  
+
   // New field controllers
   final TextEditingController _ccuEbReadingController = TextEditingController();
   final TextEditingController _ccuLoadController = TextEditingController();
   final TextEditingController _ccuSolarLoadController = TextEditingController();
-  final TextEditingController _ccuBatteryLoadController = TextEditingController();
+  final TextEditingController _ccuBatteryLoadController =
+      TextEditingController();
   final TextEditingController _dgRunHourController = TextEditingController();
   final TextEditingController _dieselStockController = TextEditingController();
 
@@ -110,10 +111,8 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           .getActualDataFromSqlite(siteAuditSchId: widget.siteAuditSchId);
 
       // Check both key formats for backward compatibility
-      final erData = data?['EnergyReadingData'] ?? 
-                     data?['energyReading'] ?? 
-                     {};
-      
+      final erData = data?['EnergyReadingData'] ?? data?['energyReading'] ?? {};
+
       // Also check EBPageData for DG availability if not found in EnergyReadingData
       final ebPageData = data?['EBPageData']?.first as Map<String, dynamic>?;
 
@@ -134,12 +133,13 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         _ebKvaInSebMeterController.text =
             erData['ebKvaInSebMeter']?.toString() ?? '';
         _remarksController.text = erData['remarks']?.toString() ?? '';
-        
+
         // Initialize new field controllers
         _ccuEbReadingController.text = erData['ccuEbReading']?.toString() ?? '';
         _ccuLoadController.text = erData['ccuLoad']?.toString() ?? '';
         _ccuSolarLoadController.text = erData['ccuSolarLoad']?.toString() ?? '';
-        _ccuBatteryLoadController.text = erData['ccuBatteryLoad']?.toString() ?? '';
+        _ccuBatteryLoadController.text =
+            erData['ccuBatteryLoad']?.toString() ?? '';
         _dgRunHourController.text = erData['dgRunHour']?.toString() ?? '';
         _dieselStockController.text = erData['dieselStock']?.toString() ?? '';
 
@@ -150,27 +150,30 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         _selectedEbConnectionType = erData['ebConnectionType']?.toString();
         _selectedBatteryStatus = erData['anyMajorHazardousPunchPoint']
             ?.toString();
-        _selectedEbMeterDisplayStatus = erData['ebBillReadingDisplayStatus']?.toString();
-        
+        _selectedEbMeterDisplayStatus = erData['ebBillReadingDisplayStatus']
+            ?.toString();
+
         // Initialize DG Availability - convert boolean to Yes/No
         // Check from multiple possible sources (backend might store it differently)
         // First check EnergyReadingData, then EBPageData, then other possible keys
-        dynamic dgAvailability = erData['dgAvailability'] ?? 
-                                erData['dg_availability'] ?? 
-                                erData['dgAvailable'];
-        
+        dynamic dgAvailability =
+            erData['dgAvailability'] ??
+            erData['dg_availability'] ??
+            erData['dgAvailable'];
+
         // If not found in EnergyReadingData, check EBPageData
         if (dgAvailability == null && ebPageData != null) {
-          dgAvailability = ebPageData['dg_availability'] ?? 
-                          ebPageData['dgAvailability'] ?? 
-                          ebPageData['dgAvailable'];
+          dgAvailability =
+              ebPageData['dg_availability'] ??
+              ebPageData['dgAvailability'] ??
+              ebPageData['dgAvailable'];
         }
-        
+
         if (dgAvailability != null) {
           // Handle boolean, string 'true'/'false', or 'Yes'/'No'
-          if (dgAvailability == true || 
-              dgAvailability == 'true' || 
-              dgAvailability == 'True' || 
+          if (dgAvailability == true ||
+              dgAvailability == 'true' ||
+              dgAvailability == 'True' ||
               dgAvailability == 'Yes' ||
               dgAvailability == 1) {
             _selectedDgAvailability = 'Yes';
@@ -191,16 +194,17 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         Logger.debugLog(
           'ℹ️ No existing energy reading form data found - fresh form',
         );
-        
+
         // Check EBPageData for DG availability even when EnergyReadingData is empty
         if (ebPageData != null) {
-          final dgAvailability = ebPageData['dg_availability'] ?? 
-                                 ebPageData['dgAvailability'] ?? 
-                                 ebPageData['dgAvailable'];
+          final dgAvailability =
+              ebPageData['dg_availability'] ??
+              ebPageData['dgAvailability'] ??
+              ebPageData['dgAvailable'];
           if (dgAvailability != null) {
-            if (dgAvailability == true || 
-                dgAvailability == 'true' || 
-                dgAvailability == 'True' || 
+            if (dgAvailability == true ||
+                dgAvailability == 'true' ||
+                dgAvailability == 'True' ||
                 dgAvailability == 'Yes' ||
                 dgAvailability == 1) {
               _selectedDgAvailability = 'Yes';
@@ -259,18 +263,22 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
   double? _parseDouble(String? value) {
     if (value == null) return null;
     final trimmed = value.trim();
-    if (trimmed.isEmpty || trimmed == 'null' || trimmed == 'Null' || trimmed == 'NULL') return null;
-    
+    if (trimmed.isEmpty ||
+        trimmed == 'null' ||
+        trimmed == 'Null' ||
+        trimmed == 'NULL')
+      return null;
+
     // Try to parse as double
     final parsed = double.tryParse(trimmed);
     if (parsed != null) {
       return parsed;
     }
-    
+
     // If parsing fails, try to remove any non-numeric characters except decimal point and minus sign
     final cleaned = trimmed.replaceAll(RegExp(r'[^\d.-]'), '');
     if (cleaned.isEmpty) return null;
-    
+
     return double.tryParse(cleaned);
   }
 
@@ -286,7 +294,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       Logger.debugLog('  ebKvaInCcu: "${_ebKvhInCcuController.text}"');
       Logger.debugLog('  voltage: "${_voltageController.text}"');
       Logger.debugLog('  load: "${_loadController.text}"');
-      
+
       final energyReading = {
         "createdby": null,
         "createddt": null,
@@ -297,12 +305,24 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         "auditSchId": widget.auditSchId,
         "siteAuditSchId": widget.siteAuditSchId,
         "siteId": widget.siteId,
-        "connectionType": _selectedConnectionType?.isNotEmpty == true ? _selectedConnectionType : null,
-        "consumerNo": _consumerNoController.text.trim().isNotEmpty ? _consumerNoController.text.trim() : null,
-        "ebMeterStatus": _selectedStatus?.isNotEmpty == true ? _selectedStatus : null,
-        "ebConnectionType": _selectedEbConnectionType?.isNotEmpty == true ? _selectedEbConnectionType : null,
-        "ebMeterType": _selectedMeterType?.isNotEmpty == true ? _selectedMeterType : null,
-        "ebMeterNo": _meterNoController.text.trim().isNotEmpty ? _meterNoController.text.trim() : null,
+        "connectionType": _selectedConnectionType?.isNotEmpty == true
+            ? _selectedConnectionType
+            : null,
+        "consumerNo": _consumerNoController.text.trim().isNotEmpty
+            ? _consumerNoController.text.trim()
+            : null,
+        "ebMeterStatus": _selectedStatus?.isNotEmpty == true
+            ? _selectedStatus
+            : null,
+        "ebConnectionType": _selectedEbConnectionType?.isNotEmpty == true
+            ? _selectedEbConnectionType
+            : null,
+        "ebMeterType": _selectedMeterType?.isNotEmpty == true
+            ? _selectedMeterType
+            : null,
+        "ebMeterNo": _meterNoController.text.trim().isNotEmpty
+            ? _meterNoController.text.trim()
+            : null,
         "ebMeterReading": _parseDouble(_ebMeterReadingController.text),
         "ebKwhInSebMeter": _parseDouble(_ebKwhInSebMeterController.text),
         "ebKvaInSebMeter": _parseDouble(_ebKvaInSebMeterController.text),
@@ -315,21 +335,31 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         "loadInYPhaseAmpsInEbMeter": null,
         "load": _parseDouble(_loadController.text),
         "rectificationRequired": null,
-        "anyMajorHazardousPunchPoint": _selectedBatteryStatus?.isNotEmpty == true ? _selectedBatteryStatus : null,
+        "anyMajorHazardousPunchPoint":
+            _selectedBatteryStatus?.isNotEmpty == true
+            ? _selectedBatteryStatus
+            : null,
         "ebAttachmentFileId": _ERImageID,
-        "ebBillReadingDisplayStatus": _selectedEbMeterDisplayStatus?.isNotEmpty == true ? _selectedEbMeterDisplayStatus : null,
+        "ebBillReadingDisplayStatus":
+            _selectedEbMeterDisplayStatus?.isNotEmpty == true
+            ? _selectedEbMeterDisplayStatus
+            : null,
         "ccuEbReading": _parseDouble(_ccuEbReadingController.text),
         "ccuLoad": _parseDouble(_ccuLoadController.text),
         "ccuSolarLoad": _parseDouble(_ccuSolarLoadController.text),
         "ccuBatteryLoad": _parseDouble(_ccuBatteryLoadController.text),
-        "dgRunHour": _dgRunHourController.text.trim().isNotEmpty ? _dgRunHourController.text.trim() : null,
+        "dgRunHour": _dgRunHourController.text.trim().isNotEmpty
+            ? _dgRunHourController.text.trim()
+            : null,
         "dieselStock": _parseDouble(_dieselStockController.text),
         "isActive": true,
         "documentName": null,
-        "remarks": _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+        "remarks": _remarksController.text.trim().isNotEmpty
+            ? _remarksController.text.trim()
+            : null,
         "dgAvailability": _selectedDgAvailability == 'Yes',
       };
-      
+
       // Debug: Log parsed values
       Logger.debugLog('📤 Parsed values:');
       Logger.debugLog('  ebMeterReading: ${energyReading["ebMeterReading"]}');
@@ -359,7 +389,9 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           );
 
       if (success) {
-        Logger.debugLog("✅ Energy Reading data auto-saved to SQLite successfully");
+        Logger.debugLog(
+          "✅ Energy Reading data auto-saved to SQLite successfully",
+        );
         // Update local state with saved data
         setState(() {
           _energyReadingData = updatedData;
@@ -384,7 +416,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       Logger.debugLog('  ebKvaInCcu: "${_ebKvhInCcuController.text}"');
       Logger.debugLog('  voltage: "${_voltageController.text}"');
       Logger.debugLog('  load: "${_loadController.text}"');
-      
+
       final energyReading = {
         "createdby": null,
         "createddt": null,
@@ -395,12 +427,24 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         "auditSchId": widget.auditSchId,
         "siteAuditSchId": widget.siteAuditSchId,
         "siteId": widget.siteId,
-        "connectionType": _selectedConnectionType?.isNotEmpty == true ? _selectedConnectionType : null,
-        "consumerNo": _consumerNoController.text.trim().isNotEmpty ? _consumerNoController.text.trim() : null,
-        "ebMeterStatus": _selectedStatus?.isNotEmpty == true ? _selectedStatus : null,
-        "ebConnectionType": _selectedEbConnectionType?.isNotEmpty == true ? _selectedEbConnectionType : null,
-        "ebMeterType": _selectedMeterType?.isNotEmpty == true ? _selectedMeterType : null,
-        "ebMeterNo": _meterNoController.text.trim().isNotEmpty ? _meterNoController.text.trim() : null,
+        "connectionType": _selectedConnectionType?.isNotEmpty == true
+            ? _selectedConnectionType
+            : null,
+        "consumerNo": _consumerNoController.text.trim().isNotEmpty
+            ? _consumerNoController.text.trim()
+            : null,
+        "ebMeterStatus": _selectedStatus?.isNotEmpty == true
+            ? _selectedStatus
+            : null,
+        "ebConnectionType": _selectedEbConnectionType?.isNotEmpty == true
+            ? _selectedEbConnectionType
+            : null,
+        "ebMeterType": _selectedMeterType?.isNotEmpty == true
+            ? _selectedMeterType
+            : null,
+        "ebMeterNo": _meterNoController.text.trim().isNotEmpty
+            ? _meterNoController.text.trim()
+            : null,
         "ebMeterReading": _parseDouble(_ebMeterReadingController.text),
         "ebKwhInSebMeter": _parseDouble(_ebKwhInSebMeterController.text),
         "ebKvaInSebMeter": _parseDouble(_ebKvaInSebMeterController.text),
@@ -413,21 +457,31 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         "loadInYPhaseAmpsInEbMeter": null,
         "load": _parseDouble(_loadController.text),
         "rectificationRequired": null,
-        "anyMajorHazardousPunchPoint": _selectedBatteryStatus?.isNotEmpty == true ? _selectedBatteryStatus : null,
+        "anyMajorHazardousPunchPoint":
+            _selectedBatteryStatus?.isNotEmpty == true
+            ? _selectedBatteryStatus
+            : null,
         "ebAttachmentFileId": _ERImageID,
-        "ebBillReadingDisplayStatus": _selectedEbMeterDisplayStatus?.isNotEmpty == true ? _selectedEbMeterDisplayStatus : null,
+        "ebBillReadingDisplayStatus":
+            _selectedEbMeterDisplayStatus?.isNotEmpty == true
+            ? _selectedEbMeterDisplayStatus
+            : null,
         "ccuEbReading": _parseDouble(_ccuEbReadingController.text),
         "ccuLoad": _parseDouble(_ccuLoadController.text),
         "ccuSolarLoad": _parseDouble(_ccuSolarLoadController.text),
         "ccuBatteryLoad": _parseDouble(_ccuBatteryLoadController.text),
-        "dgRunHour": _dgRunHourController.text.trim().isNotEmpty ? _dgRunHourController.text.trim() : null,
+        "dgRunHour": _dgRunHourController.text.trim().isNotEmpty
+            ? _dgRunHourController.text.trim()
+            : null,
         "dieselStock": _parseDouble(_dieselStockController.text),
         "isActive": true,
         "documentName": null,
-        "remarks": _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+        "remarks": _remarksController.text.trim().isNotEmpty
+            ? _remarksController.text.trim()
+            : null,
         "dgAvailability": _selectedDgAvailability == 'Yes',
       };
-      
+
       // Debug: Log parsed values
       Logger.debugLog('📤 Parsed values for submit:');
       Logger.debugLog('  ebMeterReading: ${energyReading["ebMeterReading"]}');
@@ -485,10 +539,11 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
       // Update status in SQLite to "IN PROGRESS" after successful submission
       try {
-        await ServiceLocator().centralAssetAuditDataService.updateRawApiDataStatus(
-          siteAuditSchId: widget.siteAuditSchId,
-          status: 'IN PROGRESS',
-        );
+        await ServiceLocator().centralAssetAuditDataService
+            .updateRawApiDataStatus(
+              siteAuditSchId: widget.siteAuditSchId,
+              status: 'IN PROGRESS',
+            );
         Logger.debugLog("✅ Status updated to IN PROGRESS in SQLite");
       } catch (e) {
         Logger.errorLog("⚠️ Failed to update status in SQLite: $e");
@@ -549,67 +604,50 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       return false;
     }
 
-    if (_selectedEbMeterDisplayStatus == null || _selectedEbMeterDisplayStatus!.isEmpty) {
-      Toastbar.showErrorToastbar("EB Meter Display Status is required", context);
+    if (_selectedEbMeterDisplayStatus == null ||
+        _selectedEbMeterDisplayStatus!.isEmpty) {
+      Toastbar.showErrorToastbar(
+        "EB Meter Display Status is required",
+        context,
+      );
       return false;
     }
 
-    if (_selectedStatus == 'OK') {
-      if (_ERImageID == null || _ERImageID!.isEmpty) {
-        Toastbar.showErrorToastbar("EB Meter photo is required", context);
-        return false;
-      }
+    // if (_selectedStatus == 'OK') {
+    //   if (_ERImageID == null || _ERImageID!.isEmpty) {
+    //     Toastbar.showErrorToastbar("EB Meter photo is required", context);
+    //     return false;
+    //   }
+    // }
 
-      if (_selectedMeterType == null || _selectedMeterType!.isEmpty) {
-        Toastbar.showErrorToastbar("EB Meter Type is required", context);
-        return false;
-      }
-
-      if (_selectedConnectionType == null || _selectedConnectionType!.isEmpty) {
-        Toastbar.showErrorToastbar("Connection Type is required", context);
-        return false;
-      }
-
-      if (_selectedEbConnectionType == null ||
-          _selectedEbConnectionType!.isEmpty) {
-        Toastbar.showErrorToastbar("EB Connection Type is required", context);
-        return false;
-      }
-
-      // Check text fields
-      if (_meterNoController.text.trim().isEmpty) {
-        Toastbar.showErrorToastbar("EB Meter No is required", context);
-        return false;
-      }
-
-      if (_ebMeterReadingController.text.trim().isEmpty) {
-        Toastbar.showErrorToastbar("EB Meter Reading is required", context);
-        return false;
-      }
-
-      if (_ebKwhInCcuController.text.trim().isEmpty) {
-        Toastbar.showErrorToastbar("EB KWH in CCU is required", context);
-        return false;
-      }
-
-      if (_voltageController.text.trim().isEmpty) {
-        Toastbar.showErrorToastbar("Voltage is required", context);
-        return false;
-      }
-
-      if (_loadController.text.trim().isEmpty) {
-        Toastbar.showErrorToastbar("Load (Amps) is required", context);
-        return false;
-      }
-    }
-
-    // Validate CCU fields
-    if (_ccuEbReadingController.text.trim().isEmpty) {
-      Toastbar.showErrorToastbar("CCU EB Reading(kWh) is required", context);
+    if (_selectedMeterType == null || _selectedMeterType!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Type is required", context);
       return false;
     }
 
-    if (_ccuLoadController.text.trim().isEmpty) {
+    if (_selectedConnectionType == null || _selectedConnectionType!.isEmpty) {
+      Toastbar.showErrorToastbar("Connection Type is required", context);
+      return false;
+    }
+
+    if (_selectedEbConnectionType == null ||
+        _selectedEbConnectionType!.isEmpty) {
+      Toastbar.showErrorToastbar("EB Connection Type is required", context);
+      return false;
+    }
+
+    // Check text fields
+    if (_meterNoController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter No is required", context);
+      return false;
+    }
+
+    if (_ebMeterReadingController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB Meter Reading is required", context);
+      return false;
+    }
+
+     if (_ccuLoadController.text.trim().isEmpty) {
       Toastbar.showErrorToastbar("CCU Load(kWh) is required", context);
       return false;
     }
@@ -658,6 +696,31 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       Toastbar.showErrorToastbar("EB KVA in CCU is required", context);
       return false;
     }
+
+    if (_ebKwhInCcuController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("EB KWH in CCU is required", context);
+      return false;
+    }
+
+    if (_voltageController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Voltage is required", context);
+      return false;
+    }
+
+    if (_loadController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("Load (Amps) is required", context);
+      return false;
+    }
+
+    // Validate CCU fields
+    if (_ccuEbReadingController.text.trim().isEmpty) {
+      Toastbar.showErrorToastbar("CCU EB Reading(kWh) is required", context);
+      return false;
+    }
+
+   
+
+    
 
     if (_selectedBatteryStatus == null || _selectedBatteryStatus!.isEmpty) {
       Toastbar.showErrorToastbar(
@@ -862,7 +925,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         CustomDropdown(
           label: "EB Meter Status",
           items: _meterStatusOptions,
-           isRequired: true,
+          isRequired: true,
           initialValue: _selectedStatus,
           onChanged: (value) {
             setState(() {
@@ -876,7 +939,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         CustomDropdown(
           label: "EB Meter Display Status",
           items: _meterStatusOptions,
-           isRequired: true,
+          isRequired: true,
           initialValue: _selectedEbMeterDisplayStatus,
           onChanged: (value) {
             setState(() {
@@ -889,7 +952,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
         CustomDropdown(
           label: "EB Meter Type",
-           isRequired: true,
+          isRequired: true,
           items: _meterTypeOptions,
           initialValue: _selectedMeterType,
           onChanged: (value) {
@@ -902,7 +965,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
         CustomDropdown(
           label: "Connection Type",
-           isRequired: true,
+          isRequired: true,
           items: _connectionTypeOptions,
           initialValue: _selectedConnectionType,
           onChanged: (value) {
@@ -915,7 +978,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
         getHeight(15),
         CustomDropdown(
           label: "EB Connection Type",
-           isRequired: true,
+          isRequired: true,
           items: _ebConnectionTypeOptions,
           initialValue: _selectedEbConnectionType,
           onChanged: (value) {
@@ -1119,7 +1182,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           isInputEditable: false,
           inputInitialValue: '',
 
-          photoLabel: "Add a Photo",
+          photoLabel: "Add a Photo*",
           isPhotoRequired: true,
           uploadedImageId: _ERImageID,
           onImageSelected: _onFencingImageSelected,
