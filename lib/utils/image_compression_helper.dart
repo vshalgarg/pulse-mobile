@@ -4,6 +4,13 @@ import 'package:path_provider/path_provider.dart';
 import 'package:app/utils/logger.dart';
 
 class ImageCompressionHelper {
+  /// Use with [ImagePicker.pickImage] on Android/iOS so the platform decodes/scales
+  /// **before** returning a file path. Reduces native OOM from huge buffers in the
+  /// method channel (e.g. full-resolution camera output ~100MB+).
+  static const double pickImageMaxWidth = 2048;
+  static const double pickImageMaxHeight = 2048;
+  static const int pickImageQuality = 80;
+
   /// Compresses an image file to approximately 2MB or less
   /// Returns the compressed file path, or null if compression fails
   static Future<File?> compressImageTo2MB(File imageFile) async {

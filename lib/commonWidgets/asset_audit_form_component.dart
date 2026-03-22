@@ -300,7 +300,12 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   /// Picks image from camera (matching CustomInfoCard)
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.camera);
+    final pickedFile = await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: ImageCompressionHelper.pickImageMaxWidth,
+      maxHeight: ImageCompressionHelper.pickImageMaxHeight,
+      imageQuality: ImageCompressionHelper.pickImageQuality,
+    );
 
     if (pickedFile != null) {
       final originalFile = File(pickedFile.path);

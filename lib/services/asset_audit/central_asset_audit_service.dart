@@ -7,6 +7,7 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:app/repositories/asset_upload_respository.dart';
 import '../../utils/logger.dart';
+import '../../utils/image_compression_helper.dart';
 
 class CentralAssetAuditService {
   Future<bool> getDataFromApiAndSaveToSqlite({
@@ -1012,8 +1013,18 @@ class CentralAssetAuditService {
     bool isSelfie = false,
   }) async {
     try {
-      // Read file as bytes and convert to base64 string
-      final imageBytes = await imageFile.readAsBytes();
+      // Avoid loading multi‑100MB files into a single base64 string (Dart OOM).
+      // Compress first when large; native pickImage limits also reduce size at source.
+      File fileToRead = imageFile;
+      final fileLen = await imageFile.length();
+      if (fileLen > 3 * 1024 * 1024) {
+        final compressed =
+            await ImageCompressionHelper.compressImageTo2MB(imageFile);
+        if (compressed != null) {
+          fileToRead = compressed;
+        }
+      }
+      final imageBytes = await fileToRead.readAsBytes();
       final imageData = base64Encode(imageBytes);
 
       // Upload using ImageUploadService
