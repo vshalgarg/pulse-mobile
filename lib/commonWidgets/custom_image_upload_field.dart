@@ -264,7 +264,8 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       }
     } finally {
       _isPickingImage = false;
-      if (mounted) {
+      // Avoid a second rebuild when the success path already cleared loading (reduces preview flicker).
+      if (mounted && _isLoading) {
         setState(() => _isLoading = false);
       }
       await LocalStorageService.setBool(_cameraInProgressKey, false);

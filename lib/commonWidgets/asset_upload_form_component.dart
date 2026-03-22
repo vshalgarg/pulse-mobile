@@ -331,20 +331,18 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   }
 
   /// Handles photo selection
-  void _handlePhotoSelection(String? photoPath) {
+  void _handlePhotoSelection(
+    String? photoPath, {
+    bool clearPhotoLoading = false,
+  }) {
     setState(() {
       _selectedPhotoPath = photoPath;
       _photoData = photoPath; // Store the photo data
       _uploadedImageId = null; // Reset photo ID since we have new photo data
       _hasNewPhotoSelected = true; // Mark that user selected a new photo
       _showValidationErrors = false;
-    });
-    // Force a second rebuild so image shows on first tap (file may not be ready immediately on some devices)
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || _selectedPhotoPath != photoPath) return;
-      await Future.delayed(const Duration(milliseconds: 100));
-      if (mounted && _selectedPhotoPath == photoPath) {
-        setState(() {});
+      if (clearPhotoLoading) {
+        _isLoadingPhoto = false;
       }
     });
   }
@@ -400,13 +398,50 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   // Show "Loading image..." right away so user sees feedback after tapping tick
   if (mounted) setState(() => _isLoadingPhoto = true);
 
-  // Defer heavy work to next frame to avoid crash when returning from camera (tick/save)
+  // Defer heavy work to next frame to avoid crash when returning from camera (tick/save).
+  // Compress first, then set the preview once — avoids double flicker (original → compressed).
   WidgetsBinding.instance.addPostFrameCallback((_) async {
     if (!mounted) return;
-    // Show image in one go (no second tap)
+
     try {
-      _handlePhotoSelection(path);
-      if (mounted) setState(() => _isLoadingPhoto = false);
+      final originalFile = File(path);
+      if (!await originalFile.exists()) {
+        if (mounted) setState(() => _isLoadingPhoto = false);
+        return;
+      }
+
+      File displayFile = originalFile;
+      try {
+        final compressedFile = await Future(
+          () => ImageCompressionHelper.compressImageTo2MB(originalFile),
+        );
+        if (!mounted) return;
+        await FileLogger.info('Image processed', data: {
+          "compressed": compressedFile != null,
+          "path": path,
+        });
+        if (compressedFile != null) {
+          displayFile = compressedFile;
+        }
+      } catch (e, s) {
+        await CrashLogger().logCrash(e, s);
+        await FileLogger.error('Compression failed', data: {
+          "path": path,
+          "device": deviceInfo,
+        });
+        if (!mounted) return;
+        try {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image compression failed, using original'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        } catch (_) {}
+      }
+
+      if (!mounted) return;
+      _handlePhotoSelection(displayFile.path, clearPhotoLoading: true);
     } catch (e, s) {
       await CrashLogger().logCrash(e, s);
       if (mounted) {
@@ -418,43 +453,6 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           ),
         );
       }
-      return;
-    }
-
-    // Then compress in background and replace when done
-    await Future.delayed(const Duration(milliseconds: 150));
-    if (!mounted) return;
-
-    try {
-      final originalFile = File(path);
-      if (!await originalFile.exists()) return;
-
-      final compressedFile = await Future(
-        () => ImageCompressionHelper.compressImageTo2MB(originalFile),
-      );
-      if (!mounted) return;
-      await FileLogger.info('Image processed', data: {
-        "compressed": compressedFile != null,
-        "path": path,
-      });
-      if (compressedFile != null) {
-        _handlePhotoSelection(compressedFile.path);
-      }
-    } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
-      await FileLogger.error('Compression failed', data: {
-        "path": path,
-        "device": deviceInfo,
-      });
-      if (!mounted) return;
-      try {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Image compression failed, using original'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      } catch (_) {}
     }
   });
 }
