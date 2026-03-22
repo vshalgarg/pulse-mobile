@@ -1,4 +1,35 @@
-/// Helper functions for working with dependent_elements in PM (uses Map instead of typed models)
+// Helper functions for working with dependent_elements in PM (uses Map instead of typed models).
+
+/// Whether the **main** PM checklist row must have a response (`is_mandatory` from API).
+///
+/// - `is_mandatory: true` → required (unless [checklist_desc] is a remarks field).
+/// - `is_mandatory: false` → optional.
+/// - If `is_mandatory` is absent, falls back to legacy `mandatoryIfValue == true` on the item.
+bool isPmMainFieldMandatory(Map<String, dynamic> pmItem) {
+  final checklistDesc = pmItem['checklist_desc']?.toString().toLowerCase() ?? '';
+  if (checklistDesc.contains('remarks')) {
+    return false;
+  }
+
+  final im = pmItem['is_mandatory'];
+  if (im == true || im == 1) {
+    return true;
+  }
+  if (im == false || im == 0) {
+    return false;
+  }
+  if (im is String) {
+    final s = im.toLowerCase().trim();
+    if (s == 'true' || s == '1') return true;
+    if (s == 'false' || s == '0') return false;
+  }
+
+  final mandatoryIfValue = pmItem['mandatoryIfValue'];
+  if (mandatoryIfValue == true) {
+    return true;
+  }
+  return false;
+}
 
 /// Parse dependent_elements from PM item Map
 List<Map<String, dynamic>>? parseDependentElements(Map<String, dynamic> pmItem) {

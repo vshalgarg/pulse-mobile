@@ -10,7 +10,8 @@ import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../routes/route_generator.dart';
 import '../../custom_widgets/pm_custom_form_component.dart';
 import 'pm_custom_widget.dart' show PMCustomWidget, PMCustomWidgetState;
-import 'pm_dependent_element_helpers.dart' show parseDependentElements, isDependentElementMandatory;
+import 'pm_dependent_element_helpers.dart'
+    show isDependentElementMandatory, isPmMainFieldMandatory, parseDependentElements;
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PMPageWidget extends StatefulWidget {
@@ -180,18 +181,8 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         continue; // Skip validation for Remarks fields
       }
 
-      // Check if PARENT field is mandatory based on parent's mandatoryIfValue
-      // (Dependent elements have their own mandatoryIfValue and are validated in STEP 2)
-      final mandatoryIfValue = pmItem['mandatoryIfValue'];
-      bool isParentMandatory = false;
-
-      if (mandatoryIfValue == true) {
-        isParentMandatory = true;
-      } else if (mandatoryIfValue is bool && mandatoryIfValue == false) {
-        isParentMandatory = false;
-      } else if (mandatoryIfValue == null) {
-        isParentMandatory = false; // Parent has no mandatoryIfValue - still run STEP 2 for dependents
-      }
+      // Parent row: API `is_mandatory` (see [isPmMainFieldMandatory]); dependents use STEP 2.
+      final isParentMandatory = isPmMainFieldMandatory(pmItem);
 
       // Only validate parent field value when parent itself is mandatory
       if (isParentMandatory) {
@@ -389,6 +380,8 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     );
 
     for (final pmItem in filteredItems) {
+      if (!isPmMainFieldMandatory(pmItem)) continue;
+
       final respValue = pmItem['resp'];
       final respTypeList = pmItem['resp_type'];
       final checklistDesc =
@@ -414,6 +407,11 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       }
 
       if (respTypes.contains('TEXT') &&
+          (respValue == null || respValue.toString().trim().isEmpty)) {
+        errors.add('$checklistDesc is required');
+      }
+
+      if (respTypes.contains('NUMERIC') &&
           (respValue == null || respValue.toString().trim().isEmpty)) {
         errors.add('$checklistDesc is required');
       }

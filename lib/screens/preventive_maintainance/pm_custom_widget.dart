@@ -15,7 +15,12 @@ import '../../utils/logger.dart';
 import '../../utils/toastbar.dart';
 import '../../utils.dart';
 import '../../services/service_locator.dart';
-import 'pm_dependent_element_helpers.dart';
+import 'pm_dependent_element_helpers.dart'
+    show
+        isDependentElementMandatory,
+        isPmMainFieldMandatory,
+        parseDependentElements,
+        shouldDependentElementBeVisible;
 
 class PMCustomWidget extends StatefulWidget {
   final Map<String, dynamic> pmItem;
@@ -628,6 +633,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
   /// Validate if all required fields are filled
   bool validateForm() {
+    if (!_isFieldRequired()) {
+      return true;
+    }
+
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
 
@@ -655,6 +664,11 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       return false;
     }
 
+    if (respTypes.contains('NUMERIC') &&
+        (respValue == null || respValue.toString().trim().isEmpty)) {
+      return false;
+    }
+
     if (respTypes.contains('IMG') &&
         (respValue == null || respValue.toString().isEmpty)) {
       return false;
@@ -665,6 +679,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
   /// Get validation error message for this field
   String? getValidationError() {
+    if (!_isFieldRequired()) {
+      return null;
+    }
+
     final respValue = _currentItem['resp'];
     final respTypeList = _currentItem['resp_type'];
     final checklistDesc =
@@ -849,36 +867,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     );
   }
 
-  /// Determine if a field is required based on mandatoryIfValue
-  /// Returns false if mandatoryIfValue is null, false, or if checklist_desc contains "Remarks"
-  bool _isFieldRequired() {
-    // Check if checklist_desc contains "Remarks" (case-insensitive) - always non-mandatory
-    // This handles cases like "Remarks, if any" where resp_type is TEXT but it's still a remarks field
-    final checklistDesc = _currentItem['checklist_desc']?.toString().trim().toLowerCase() ?? '';
-    if (checklistDesc.contains('remarks')) {
-      return false; // Always non-mandatory if description contains "remarks"
-    }
-    
-    // Check mandatoryIfValue - only required if explicitly true
-    final mandatoryIfValue = _currentItem['mandatoryIfValue'];
-    
-    if (mandatoryIfValue == null) {
-      return false; // Default to not mandatory if null
-    }
-    
-    if (mandatoryIfValue is bool) {
-      return mandatoryIfValue; // If true, required; if false, not required
-    }
-    
-    // If mandatoryIfValue is a List, for main field we consider it as not mandatory
-    // (List-based mandatoryIfValue is typically used for dependent elements based on parent response)
-    if (mandatoryIfValue is List) {
-      return false;
-    }
-    
-    // Default to false for any other value
-    return false;
-  }
+  /// Required when API sends `is_mandatory: true` for this row (and remarks rows stay optional).
+  bool _isFieldRequired() => isPmMainFieldMandatory(_currentItem);
 
   Widget _buildRadioField() {
     // Parse resp_type_value_map to get radio options
