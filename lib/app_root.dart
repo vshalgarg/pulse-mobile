@@ -27,6 +27,7 @@ import 'repositories/audit_schedule_repository.dart';
 import 'l10n/l10n.dart';
 import 'services/service_locator.dart';
 import 'utils/logger.dart';
+import 'utils/crashlytics_navigation_observer.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -174,6 +175,7 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
           },
           themeMode: ThemeMode.system,
           theme: MyThemes.lightThemeMustard,
+          navigatorObservers: [CrashlyticsNavigationObserver()],
           onGenerateRoute: generateRoute, // 🚀 uses _noSwipeRoute inside
         ),
       ),

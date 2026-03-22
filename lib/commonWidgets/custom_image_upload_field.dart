@@ -102,7 +102,15 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       widget.onImageSelected(finalFile);
       return finalFile;
     } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
+      await CrashLogger().logCrash(
+        e,
+        s,
+        reason: 'ImageUploadField._recoverLostImage',
+        context: {
+          'label': widget.label ?? '',
+          'placeholder': widget.placeholder ?? '',
+        },
+      );
     }
 
     return null;
@@ -221,7 +229,19 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       widget.onImageSelected(finalFile);
       await LocalStorageService.setBool(_cameraInProgressKey, false);
     } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
+      await CrashLogger().logCrash(
+        e,
+        s,
+        reason: 'ImageUploadField._pickImage',
+        context: {
+          'feature': 'camera',
+          'camera_flow': isSelfie ? 'selfie' : 'rear',
+          'action': 'pick_image',
+          'isSelfie': isSelfie,
+          'label': widget.label ?? '',
+          'placeholder': widget.placeholder ?? '',
+        },
+      );
 
       await FileLogger.error(
         'Camera open failed',

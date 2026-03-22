@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import 'package:app/utils/CrashLogger.dart';
 
 class SelfieCameraScreen extends StatefulWidget {
   const SelfieCameraScreen({super.key});
@@ -54,6 +55,11 @@ class _SelfieCameraScreenState extends State<SelfieCameraScreen> {
         });
       }
     } catch (e) {
+      await CrashLogger().logCrash(
+        e,
+        StackTrace.current,
+        reason: 'SelfieCameraScreen._initializeCamera',
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -81,7 +87,20 @@ class _SelfieCameraScreenState extends State<SelfieCameraScreen> {
       if (mounted) {
         Navigator.pop(context, File(image.path));
       }
-    } catch (e) {
+    } catch (e, s) {
+      await CrashLogger().logCrash(
+        e,
+        s,
+        reason: 'SelfieCameraScreen._takePicture',
+        context: {
+          'feature': 'camera',
+          'camera_flow': 'selfie',
+          'action': 'take_picture',
+          'isInitialized': _isInitialized,
+          'isCapturing': _isCapturing,
+          'controllerInitialized': _controller?.value.isInitialized ?? false,
+        },
+      );
       if (mounted) {
         setState(() {
           _isCapturing = false;

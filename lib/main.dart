@@ -59,6 +59,9 @@ Future<void> main() async {
           options: DefaultFirebaseOptions.currentPlatform,
         );
       }
+      if (Firebase.apps.isNotEmpty) {
+        await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(true);
+      }
     } catch (e) {
       // continue without firebase
     }
@@ -73,12 +76,9 @@ Future<void> main() async {
       await CrashLogger().logCrash(
         details.exception,
         details.stack,
+        reason: 'FlutterError.onError',
+        fatal: true,
       );
-
-      PlatformDispatcher.instance.onError = (error, stack) {
-        CrashLogger().logCrash(error, stack);
-        return true;
-      };
 
       // 👉 send to Crashlytics if available
       try {
@@ -86,6 +86,17 @@ Future<void> main() async {
           FirebaseCrashlytics.instance.recordFlutterFatalError(details);
         }
       } catch (_) {}
+    };
+
+    // Capture uncaught async/platform errors.
+    PlatformDispatcher.instance.onError = (error, stack) {
+      CrashLogger().logCrash(
+        error,
+        stack,
+        reason: 'PlatformDispatcher.onError',
+        fatal: true,
+      );
+      return true;
     };
 
     // Initialize push notifications
@@ -144,7 +155,12 @@ Future<void> main() async {
 
   }, (error, stack) async {
     // ✅ catches async/native errors
-    await CrashLogger().logCrash(error, stack);
+    await CrashLogger().logCrash(
+      error,
+      stack,
+      reason: 'runZonedGuarded',
+      fatal: true,
+    );
 
     try {
       if (Firebase.apps.isNotEmpty) {
