@@ -116,6 +116,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
   }
 
   Future<void> _loadDownloadedTickets() async {
+    if (!mounted) return;
     try {
       setState(() {
         _isLoading = true;
@@ -148,6 +149,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         } catch (_) {}
       }
 
+      if (!mounted) return;
       setState(() {
         _downloadedTickets = tickets;
         _downloadedSites = sites;
@@ -170,6 +172,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;

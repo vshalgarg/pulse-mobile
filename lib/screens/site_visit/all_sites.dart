@@ -616,8 +616,12 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
     _isInitializingDownloadedSites = true;
 
     try {
+      // Snapshot: `sites` is often the same instance as `_allSites` / `_filteredSites`.
+      // Those lists can be `.clear()`-ed from filter/search while this async loop runs,
+      // which causes "Concurrent modification during iteration".
+      final sitesSnapshot = List<AllSiteModel>.from(sites);
       bool hasChanges = false;
-      for (final site in sites) {
+      for (final site in sitesSnapshot) {
         final isDownloaded = await _isSiteDownloaded(site);
         if (isDownloaded && !_downloadedSiteIds.contains(site.siteId)) {
           _downloadedSiteIds.add(site.siteId);
