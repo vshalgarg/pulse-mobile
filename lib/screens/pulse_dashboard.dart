@@ -48,27 +48,28 @@ class _PulseDashboardState extends State<PulseDashboard> {
     _loadNotifications();
   }
 
-
-
-void loadVersion() async {
-  final info = await PackageInfo.fromPlatform();
-  setState(() {
-    version = info.version;
-  });
-}
+  Future<void> loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() {
+      version = info.version;
+    });
+  }
 
   Future<void> _loadNotifications() async {
     try {
       final notificationService = NotificationService(
         ServiceLocator().apiService,
-      ); 
+      );
 
       final count = await notificationService.getNotificationsCount();
 
+      if (!mounted) return;
       setState(() {
         _notificationCount = count;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _notificationCount = "0";
       });

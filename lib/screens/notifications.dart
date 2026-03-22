@@ -43,6 +43,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _loadNotifications() async {
+    if (!mounted) return;
     try {
       setState(() {
         _isLoading = true;
@@ -61,12 +62,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         pageNo: _currentPage,
       );
 
+      if (!mounted) return;
       setState(() {
         _notifications = notifications;
         _isLoading = false;
         _hasMorePages = notifications.length >= _pageSize;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = 'Failed to load notifications: $e';
         _isLoading = false;
@@ -76,6 +79,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _loadMoreNotifications() async {
     if (_isLoadingMore || !_hasMorePages) return;
+    if (!mounted) return;
 
     try {
       setState(() {
@@ -93,6 +97,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         pageNo: nextPage,
       );
 
+      if (!mounted) return;
       setState(() {
         _notifications.addAll(newNotifications);
         _currentPage = nextPage;
@@ -100,6 +105,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         _isLoadingMore = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoadingMore = false;
       });
