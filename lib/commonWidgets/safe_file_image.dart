@@ -1,9 +1,14 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 /// Local file preview that won't crash the app when bytes are missing,
 /// empty, or not a decodable image ([instantiateImageCodec] failure).
+///
+/// Uses [Image.memory] after reading bytes instead of [Image.file], so we never
+/// hit [FileImage._loadAsync]'s `Bad state: ... is empty` when cache/camera files
+/// are truncated or race with another writer.
 class SafeImageFile extends StatelessWidget {
   const SafeImageFile({
     super.key,
@@ -46,19 +51,22 @@ class SafeImageFile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    late final Uint8List bytes;
     try {
       if (!file.existsSync()) {
         return _error(context, StateError('File missing'), null);
       }
-      if (file.lengthSync() == 0) {
+      // Read once; avoids FileImage empty-file Bad state + TOCTOU with lengthSync.
+      bytes = file.readAsBytesSync();
+      if (bytes.isEmpty) {
         return _error(context, StateError('Empty file'), null);
       }
-    } catch (e) {
-      return _error(context, e, StackTrace.current);
+    } catch (e, st) {
+      return _error(context, e, st);
     }
 
-    return Image.file(
-      file,
+    return Image.memory(
+      bytes,
       fit: fit,
       width: width,
       height: height,
