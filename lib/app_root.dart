@@ -17,7 +17,6 @@ import 'package:app/commonWidgets/global_loading_overlay.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:fluttertoast/fluttertoast.dart';
 import 'package:provider/provider.dart';
 
 import 'app_config.dart';
@@ -168,10 +167,9 @@ class _AppRootState extends State<AppRoot> with WidgetsBindingObserver {
           supportedLocales: L10n.all,
           locale: localeProvider!.locale,
           builder: (context, child) {
-            return FToastBuilder()(
-              context,
-              GlobalLoadingOverlay(child: child!),
-            );
+            // Do not use FToastBuilder here: FToast overlay requires a valid Overlay
+            // ancestor on every init(context); showCustomToast now uses Fluttertoast.
+            return GlobalLoadingOverlay(child: child!);
           },
           themeMode: ThemeMode.system,
           theme: MyThemes.lightThemeMustard,

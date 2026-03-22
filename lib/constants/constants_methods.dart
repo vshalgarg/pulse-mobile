@@ -79,23 +79,15 @@ kRoundedShape([double radius = 10]) =>
 
 const kCircularProgressIndicator = Center(child: CircularProgressIndicator());
 
+/// Uses platform [Fluttertoast] (no Overlay). Avoids FToast overlay crashes when
+/// [context] has no Overlay ancestor (see fluttertoast #393 / #234).
 void showCustomToast(BuildContext context, String message) {
-  FToast().init(context);
-  FToast().showToast(
-    child: callToast(message),
+  Fluttertoast.showToast(
+    msg: message,
+    toastLength: Toast.LENGTH_SHORT,
     gravity: ToastGravity.CENTER,
-    toastDuration: const Duration(seconds: 2),
-  );
-}
-
-Widget callToast(String message) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
-    decoration: BoxDecoration(
-      borderRadius: BorderRadius.circular(25.0),
-      color: AppColors.primaryGreen,
-    ),
-    child: CustomTextWidget(message, color: Colors.white),
+    backgroundColor: AppColors.primaryGreen,
+    textColor: Colors.white,
   );
 }
 
