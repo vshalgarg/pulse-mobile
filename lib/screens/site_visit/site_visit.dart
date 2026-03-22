@@ -135,15 +135,20 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         final repository = ServiceLocator().sitesRepository;
         organisations = await repository.getOrganisationList();
              }
-      
+
+      if (!mounted) return;
+
       setState(() {
         _organizationList = organisations;
-        _organizationOptions = organisations.map((org) => org['org_name'] as String).toList();
+        _organizationOptions = organisations
+            .map((org) => (org['org_name'] ?? '').toString())
+            .toList();
       });
 
       // After loading, initialize the selected organization ID
       // First try to use orgId directly from siteData (most reliable)
       if (widget.siteData.orgId != null) {
+        if (!mounted) return;
         setState(() {
           _selectedOrganizationId = widget.siteData.orgId;
         });
@@ -153,6 +158,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           final matchingOrg = _organizationList.firstWhere(
             (org) => org['org_name'] == widget.siteData.organisationName,
           );
+          if (!mounted) return;
           setState(() {
             _selectedOrganizationId = matchingOrg['org_id'] as int?;
           });
@@ -163,6 +169,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       }
     } catch (e) {
       Logger.errorLog('❌ Error loading organisation list: $e');
+      if (!mounted) return;
       // Offline fallback: use site organisation name as single option so dropdown is clickable
       final name = widget.siteData.organisationName?.trim();
       if (name != null && name.isNotEmpty) {
