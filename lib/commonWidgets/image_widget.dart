@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../constants/constants_methods.dart';
 import '../enum/image_type_enum.dart';
+import 'safe_file_image.dart';
 
 class ImageWidget extends StatelessWidget {
   final ImageTypeEnum? imageType;
@@ -28,6 +29,8 @@ class ImageWidget extends StatelessWidget {
           height: height,
           width: width,
           fit: boxFit ?? BoxFit.scaleDown,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.broken_image_outlined),
         );
       case 'network':
         return Image.network(
@@ -35,10 +38,12 @@ class ImageWidget extends StatelessWidget {
           height: height,
           width: width,
           fit: boxFit ?? BoxFit.scaleDown,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.broken_image_outlined),
         );
       case 'file':
-        return Image.file(
-          File(imagePath ?? ''),
+        return SafeImageFile(
+          file: File(imagePath ?? ''),
           height: height,
           width: width,
           fit: boxFit ?? BoxFit.scaleDown,
@@ -49,6 +54,8 @@ class ImageWidget extends StatelessWidget {
           height: height,
           width: width,
           fit: boxFit ?? BoxFit.scaleDown,
+          errorBuilder: (context, error, stackTrace) =>
+              const Icon(Icons.broken_image_outlined),
         );
     }
   }

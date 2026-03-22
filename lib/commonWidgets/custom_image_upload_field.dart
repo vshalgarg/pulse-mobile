@@ -13,6 +13,7 @@ import 'package:app/utils/file_logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/commonWidgets/selfie_camera_screen.dart';
+import 'package:app/commonWidgets/safe_file_image.dart';
 import 'package:app/services/local_storage_service.dart';
 
 class ImageUploadField extends StatefulWidget {
@@ -315,6 +316,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           cacheWidth: 600,
           cacheHeight: 600,
           filterQuality: FilterQuality.low,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
         );
       }
 
@@ -323,11 +325,12 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         final file = File(url);
 
         if (file.existsSync()) {
-          return Image.file(
-            file,
+          return SafeImageFile(
+            file: file,
             fit: BoxFit.cover,
             width: double.infinity,
             cacheWidth: 600,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
           );
         }
       }
@@ -342,6 +345,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         cacheWidth: 600,
         cacheHeight: 600,
         filterQuality: FilterQuality.low,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
       );
     } catch (_) {
       return _buildPlaceholder();
@@ -355,11 +359,12 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     if (_isLoading) {
       child = const Center(child: CircularProgressIndicator());
     } else if (_selectedImage != null) {
-      child = Image.file(
-        _selectedImage!,
+      child = SafeImageFile(
+        file: _selectedImage!,
         fit: BoxFit.cover,
         width: double.infinity,
         cacheWidth: 600,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
       );
     } else if (_externalImageWidget != null) {
       child = _externalImageWidget!;

@@ -12,7 +12,7 @@ import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
-
+import 'package:app/commonWidgets/safe_file_image.dart';
 
 class CctvFormComponent extends StatefulWidget {
   /// Unique identifier for this component instance
@@ -337,8 +337,8 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
       );
     } else {
       // File path
-      return Image.file(
-        File(_selectedPhotoPath!),
+      return SafeImageFile(
+        file: File(_selectedPhotoPath!),
         fit: BoxFit.cover,
         width: double.infinity,
         height: 150,
@@ -374,6 +374,33 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
         ),
       ),
     );
+  }
+
+  Widget _buildSafeMemoryImage(String base64Payload) {
+    try {
+      final bytes = base64Decode(base64Payload);
+      return Image.memory(
+        bytes,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(
+              Icons.broken_image,
+              color: Colors.white,
+              size: 48,
+            ),
+          );
+        },
+      );
+    } catch (_) {
+      return const Center(
+        child: Icon(
+          Icons.broken_image,
+          color: Colors.white,
+          size: 48,
+        ),
+      );
+    }
   }
 
   /// Handles status change
@@ -1590,11 +1617,22 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
                       maxWidth: MediaQuery.of(context).size.width * 0.9,
                     ),
                     child: imageData!.startsWith('data:image/')
-                        ? Image.memory(
-                            base64Decode(imageData.split(',').last),
-                            fit: BoxFit.contain,
+                        ? _buildSafeMemoryImage(
+                            imageData.split(',').last,
                           )
-                        : Image.file(File(imageData), fit: BoxFit.contain),
+                        : SafeImageFile(
+                            file: File(imageData),
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.white,
+                                  size: 48,
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ),
                 Positioned(

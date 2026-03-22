@@ -15,6 +15,7 @@ import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/app_config.dart';
+import 'package:app/commonWidgets/safe_file_image.dart';
 
 class AssetUploadFormComponent extends StatefulWidget {
   /// Unique identifier for this component instance
@@ -521,8 +522,8 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       // File path (wrap in try-catch; path can be invalid on some devices after camera)
       try {
         final file = File(_selectedPhotoPath!);
-        return Image.file(
-          file,
+        return SafeImageFile(
+          file: file,
           fit: BoxFit.cover,
           width: double.infinity,
           height: 150,
@@ -562,6 +563,33 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         ),
       ),
     );
+  }
+
+  Widget _buildSafeMemoryImage(String base64Payload) {
+    try {
+      final bytes = base64Decode(base64Payload);
+      return Image.memory(
+        bytes,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Icon(
+              Icons.broken_image,
+              color: Colors.white,
+              size: 48,
+            ),
+          );
+        },
+      );
+    } catch (_) {
+      return const Center(
+        child: Icon(
+          Icons.broken_image,
+          color: Colors.white,
+          size: 48,
+        ),
+      );
+    }
   }
 
   /// Handles save button click
@@ -1972,11 +2000,22 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
                       maxWidth: MediaQuery.of(context).size.width * 0.9,
                     ),
                     child: imageData!.startsWith('data:image/')
-                        ? Image.memory(
-                            base64Decode(imageData.split(',').last),
-                            fit: BoxFit.contain,
+                        ? _buildSafeMemoryImage(
+                            imageData.split(',').last,
                           )
-                        : Image.file(File(imageData), fit: BoxFit.contain),
+                        : SafeImageFile(
+                            file: File(imageData),
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Center(
+                                child: Icon(
+                                  Icons.broken_image,
+                                  color: Colors.white,
+                                  size: 48,
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ),
                 Positioned(

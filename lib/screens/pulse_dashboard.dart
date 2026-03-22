@@ -146,6 +146,51 @@ class _PulseDashboardState extends State<PulseDashboard> {
     );
   }
 
+  /// Avoids [MemoryImage] / [instantiateImageCodec] crashes on corrupt profile data.
+  Widget _buildProfileAvatar() {
+    const double size = 40;
+    final String? raw = LocalStorageDB.getUserProfile;
+    if (raw == null || raw.isEmpty) {
+      return const CircleAvatar(
+        radius: 20,
+        backgroundImage: AssetImage(AppImages.userPlaceholder),
+      );
+    }
+    try {
+      final bytes = base64Decode(raw);
+      if (bytes.isEmpty) {
+        return const CircleAvatar(
+          radius: 20,
+          backgroundImage: AssetImage(AppImages.userPlaceholder),
+        );
+      }
+      return CircleAvatar(
+        radius: 20,
+        child: ClipOval(
+          child: Image.memory(
+            bytes,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Image.asset(
+                AppImages.userPlaceholder,
+                width: size,
+                height: size,
+                fit: BoxFit.cover,
+              );
+            },
+          ),
+        ),
+      );
+    } catch (_) {
+      return const CircleAvatar(
+        radius: 20,
+        backgroundImage: AssetImage(AppImages.userPlaceholder),
+      );
+    }
+  }
+
   Widget _buildHeader() {
     return Container(
       color: Colors.white,
@@ -270,12 +315,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
                 ),
               ),
             ],
-            child: CircleAvatar(
-              radius: 20,
-              backgroundImage: LocalStorageDB.getUserProfile != null
-                  ? MemoryImage(base64Decode(LocalStorageDB.getUserProfile!))
-                  : const AssetImage(AppImages.userPlaceholder),
-            ),
+            child: _buildProfileAvatar(),
           ),
         ],
       ),
