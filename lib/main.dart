@@ -30,11 +30,10 @@ import 'services/log_push_config.dart';
 // Global config variable
 AppConfig? globalConfig;
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
-  // ✅ Wrap EVERYTHING inside zone (VERY IMPORTANT)
+void main() {
+  // ✅ Same zone for binding init + runApp (must not call ensureInitialized outside this zone)
   runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
     // Force portrait orientation
     await SystemChrome.setPreferredOrientations([
