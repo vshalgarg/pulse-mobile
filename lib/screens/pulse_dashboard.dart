@@ -3,7 +3,6 @@ import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
@@ -19,6 +18,7 @@ import 'package:app/services/notification_service.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/crash_logs_debug_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PulseDashboard extends StatefulWidget {
   const PulseDashboard({Key? key}) : super(key: key);
@@ -114,7 +114,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
         children: [
           // Background - same as HomeScreen
           Positioned.fill(
-            child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
+            child: SafeSvgPicture.asset(AppImages.home, fit: BoxFit.cover),
           ),
 
           // Header Section
@@ -444,13 +444,12 @@ class _PulseDashboardState extends State<PulseDashboard> {
                     ),
                   ],
                 ),
-                child: SvgPicture.asset(
+                child: SafeSvgPicture.asset(
                   iconPath,
                   fit: BoxFit.contain,
                   width: 0,
                   height: 0,
                   allowDrawingOutsideViewBox: true,
-                  color: null,
                 ),
               ),
               // Coming Soon badge in top right corner

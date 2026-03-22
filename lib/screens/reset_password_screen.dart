@@ -10,6 +10,7 @@ import '../commonWidgets/text_form_field_widget.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../constants/constants_strings.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   final String? email;
@@ -50,7 +51,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                   child: Stack(
                     children: [
                       Positioned.fill(
-                        child: SvgPicture.asset(
+                        child: SafeSvgPicture.asset(
                           AppImages.loginBackground,
                           fit: BoxFit.cover,
                           width: double.infinity,

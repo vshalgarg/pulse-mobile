@@ -8,6 +8,7 @@ import 'custom_form_appbar.dart';
 import 'custom_buttons/arrow_botton.dart';
 import 'custom_form_field.dart';
 import '../utils/pm_navigation_helper.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PMPageHeader extends StatelessWidget {
   final Map<String, dynamic>? pageHeader;
@@ -40,7 +41,7 @@ class PMPageHeader extends StatelessWidget {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

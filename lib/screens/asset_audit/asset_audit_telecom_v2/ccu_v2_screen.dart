@@ -28,6 +28,7 @@ import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class CCUV2Screen extends StatefulWidget {
   final String siteType;
@@ -926,7 +927,7 @@ class _CCUV2ScreenState extends State<CCUV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

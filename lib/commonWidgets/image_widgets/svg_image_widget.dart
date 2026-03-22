@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../constants/constants_methods.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class CustomSvgImageWidget extends StatelessWidget {
   final String imagePath;
@@ -27,7 +27,7 @@ class CustomSvgImageWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SvgPicture.asset(
+    return SafeSvgPicture.asset(
       '$assetSvgPathIcons$imagePath',
       height: height,
       width: width,

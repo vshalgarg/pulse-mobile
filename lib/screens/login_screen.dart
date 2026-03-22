@@ -15,6 +15,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../commonWidgets/custom_buttons/custom_text_button.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -86,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Stack(
                   children: [
                     Positioned.fill(
-                      child: SvgPicture.asset(
+                      child: SafeSvgPicture.asset(
                         AppImages.loginBackground,
                         fit: BoxFit.cover,
                         width: double.infinity,

@@ -18,6 +18,7 @@ import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_remark.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/app_colors.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class EnergyReadingDetailScreen extends StatefulWidget {
   final String siteAuditSchId;
@@ -751,7 +752,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -17,6 +17,7 @@ import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class SolarPlateV2Screen extends StatefulWidget {
   final String siteAuditSchId;
@@ -324,7 +325,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

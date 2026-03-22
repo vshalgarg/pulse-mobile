@@ -22,6 +22,7 @@ import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class SurveillanceV2Screen extends StatefulWidget {
   final String siteAuditSchId;
@@ -259,7 +260,7 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

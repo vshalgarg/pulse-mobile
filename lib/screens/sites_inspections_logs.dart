@@ -15,6 +15,7 @@ import 'package:flutter_svg/svg.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class SitesInspectionsLogsScreen extends StatefulWidget {
   final String activityType;
@@ -198,7 +199,7 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
         children: [
           // Background image that fully covers the screen
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

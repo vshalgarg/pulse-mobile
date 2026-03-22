@@ -12,6 +12,7 @@ import 'package:flutter_svg/svg.dart';
 
 import '../commonWidgets/custom_buttons/custom_text_button.dart';
 import 'login_screen.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -50,7 +51,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
               child: Stack(
                 children: [
                   Positioned.fill(
-                    child: SvgPicture.asset(
+                    child: SafeSvgPicture.asset(
                       AppImages.loginBackground,
                       fit: BoxFit.cover,
                       width: double.infinity,

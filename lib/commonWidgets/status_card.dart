@@ -3,6 +3,7 @@ import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class StatusCard extends StatelessWidget {
   final String count;
@@ -151,7 +152,7 @@ class StatusCard extends StatelessWidget {
     
     if (icon is String) {
       // SVG asset
-      return SvgPicture.asset(
+      return SafeSvgPicture.asset(
         icon,
         height: 24,
         width: 24,

@@ -12,6 +12,7 @@ import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class IncidentChecklistScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -445,7 +446,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -11,6 +11,7 @@ import '../../routes/route_generator.dart';
 import '../../custom_widgets/pm_custom_form_component.dart';
 import 'pm_custom_widget.dart' show PMCustomWidget, PMCustomWidgetState;
 import 'pm_dependent_element_helpers.dart' show parseDependentElements, isDependentElementMandatory;
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PMPageWidget extends StatefulWidget {
   final List<Map<String, dynamic>> pmItems;
@@ -537,7 +538,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -21,6 +21,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class SiteVisitScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -388,7 +389,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           // Background - Use RepaintBoundary to prevent unnecessary repaints
           Positioned.fill(
             child: RepaintBoundary(
-              child: SvgPicture.asset(
+              child: SafeSvgPicture.asset(
                 AppImages.home,
                 fit: BoxFit.cover,
                 width: double.infinity,

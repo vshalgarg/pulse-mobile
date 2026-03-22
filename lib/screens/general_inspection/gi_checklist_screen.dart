@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'gi_custom_widget.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class GIChecklistScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -144,7 +145,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

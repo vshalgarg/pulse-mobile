@@ -23,6 +23,7 @@ import 'package:flutter_svg/svg.dart';
 import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class AllSitesScreen extends StatefulWidget {
   final String ActivityType;
@@ -763,7 +764,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

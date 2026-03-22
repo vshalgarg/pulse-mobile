@@ -23,6 +23,7 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter_svg/svg.dart';
 import 'asset_type_mapper.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class AUScanUploadScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -2459,7 +2460,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

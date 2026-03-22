@@ -20,6 +20,7 @@ import '../../utils/calculate_distance.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'corrective_maintenance_screen.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class CMAllSitesScreen extends StatefulWidget {
   const CMAllSitesScreen({super.key});
@@ -405,7 +406,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         children: [
           // Background image that fully covers the screen
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -11,6 +11,7 @@ import 'package:flutter_svg/svg.dart';
 
 import '../../routes/route_generator.dart';
 import 'energy_reading_details_screen.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class EnergyReadingScreen extends StatefulWidget {
   final String siteType;
@@ -126,7 +127,7 @@ class _EnergyReadingScreenState extends State<EnergyReadingScreen> {
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -27,6 +27,7 @@ import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
 import '../../../enum/activity_type_enum.dart';
 import '../../../app_config.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class SCADAV2Screen extends StatefulWidget {
   final String siteAuditSchId;
@@ -271,7 +272,7 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -20,6 +20,7 @@ import '../../../services/asset_audit/central_asset_audit_service.dart';
 import '../../../services/asset_audit_post_service.dart';
 import '../../../services/image_upload_service.dart';
 import '../../../app_config.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class ACDBV2Screen extends StatefulWidget {
   final String siteAuditSchId;
@@ -251,7 +252,7 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

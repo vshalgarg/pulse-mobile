@@ -28,6 +28,7 @@ import 'preventive_maintainance/pm_page_render.dart';
 import 'site_visit/site_visit.dart';
 import 'asset_upload/asset_upload_detail_page.dart';
 import '../enum/corrective_maintenance_screen_mode_enum.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class MyTicketsScreen extends StatefulWidget {
   const MyTicketsScreen({super.key});
@@ -994,7 +995,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         children: [
           // Background image that fully covers the screen
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

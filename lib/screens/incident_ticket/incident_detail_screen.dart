@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'incident_checklist.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class IncidentDetilScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -816,7 +817,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

@@ -32,6 +32,7 @@ import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../models/cm_site_model.dart';
 import '../../../routes/route_generator.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class CorrectiveMaintenanceScreen extends StatefulWidget {
   final CMScreenModeEnum mode;
@@ -1917,7 +1918,7 @@ class _CorrectiveMaintenanceScreenState
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
+            child: SafeSvgPicture.asset(AppImages.home, fit: BoxFit.cover),
           ),
           SafeArea(
             child: Column(

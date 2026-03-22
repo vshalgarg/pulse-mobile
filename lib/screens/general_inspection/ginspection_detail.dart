@@ -22,6 +22,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'gi_checklist_screen.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class GInspectionDetailScreen extends StatefulWidget {
   final AllSiteModel siteData;
@@ -420,7 +421,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         children: [
           // Background
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

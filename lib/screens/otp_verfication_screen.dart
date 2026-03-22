@@ -18,6 +18,7 @@ import '../../constants/constants_strings.dart';
 import '../commonWidgets/custom_buttons/custom_rounded_button.dart';
 import '../commonWidgets/custom_buttons/custom_text_button.dart';
 import 'login_screen.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 Timer? _globalResendTimer;
 int _globalRemainingSeconds = 60;
@@ -168,7 +169,7 @@ class _EnterVerificationCodeScreenState
               children: [
                 // Background
                 Positioned.fill(
-                  child: SvgPicture.asset(
+                  child: SafeSvgPicture.asset(
                     AppImages.loginBackground,
                     fit: BoxFit.cover,
                   ),

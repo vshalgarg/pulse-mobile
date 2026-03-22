@@ -34,6 +34,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'asset_upload/asset_upload_detail_page.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'preventive_maintainance/pm_page_render.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class TicketScreen extends StatefulWidget {
   final String auditName;
@@ -1070,7 +1071,7 @@ class _TicketScreenState extends State<TicketScreen>
         children: [
           // Background image that fully covers the screen
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

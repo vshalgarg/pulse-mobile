@@ -7,6 +7,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../constants/constants_methods.dart';
 import '../constants/constants_strings.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PasswordUpdatedScreen extends StatefulWidget {
   const PasswordUpdatedScreen({super.key});
@@ -23,7 +24,7 @@ class _PasswordUpdatedScreenState extends State<PasswordUpdatedScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.loginBackground,
               fit: BoxFit.cover,
               width: double.infinity,

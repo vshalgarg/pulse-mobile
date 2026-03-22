@@ -30,6 +30,7 @@ import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../utils/user_name_utils.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? selectedActivity;
@@ -217,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Background
               Positioned.fill(
-                child: SvgPicture.asset(AppImages.home, fit: BoxFit.cover),
+                child: SafeSvgPicture.asset(AppImages.home, fit: BoxFit.cover),
               ),
               Positioned(
                 top: 100,

@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
 import '../../../services/service_locator.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class CCTVV2Screen extends StatefulWidget {
   final String siteAuditSchId;
@@ -330,7 +331,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

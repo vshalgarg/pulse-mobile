@@ -8,6 +8,7 @@ import 'package:app/commonWidgets/custom_form_appbar.dart';
 import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/utils/pm_navigation_helper.dart';
 import '../../routes/route_generator.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PMPageHeaderTelecom extends StatelessWidget {
   final Map<String, dynamic>? pageHeader;
@@ -45,7 +46,7 @@ class PMPageHeaderTelecom extends StatelessWidget {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,

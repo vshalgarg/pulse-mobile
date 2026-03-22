@@ -8,6 +8,7 @@ import 'package:lottie/lottie.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
 import '../constants/constants_strings.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -113,7 +114,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   margin: const EdgeInsets.only(left: 20),
   child: Row(
     children: [
-      SvgPicture.asset(AppImages.tickIcon),
+      SafeSvgPicture.asset(AppImages.tickIcon),
       getWidth(10),
       Expanded(
         child: Text(

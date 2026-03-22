@@ -15,6 +15,7 @@ import '../../commonWidgets/custom_form_appbar.dart';
 import '../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../utils/pm_navigation_helper.dart';
 import '../../routes/route_generator.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PMPageRender extends StatefulWidget {
   final Map<String, dynamic> pmData;
@@ -373,7 +374,7 @@ class _PMPageRenderState extends State<PMPageRender> {
           children: [
             // Background image
             Positioned.fill(
-              child: SvgPicture.asset(
+              child: SafeSvgPicture.asset(
                 AppImages.home,
                 fit: BoxFit.cover,
                 width: double.infinity,

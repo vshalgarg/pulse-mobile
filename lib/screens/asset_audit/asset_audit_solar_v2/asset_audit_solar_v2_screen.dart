@@ -15,6 +15,7 @@ import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../utils/logger.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
+import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class AssetAuditSolarV2Screen extends StatefulWidget {
   final String siteType;
@@ -275,7 +276,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         children: [
           // Background image
           Positioned.fill(
-            child: SvgPicture.asset(
+            child: SafeSvgPicture.asset(
               AppImages.home,
               fit: BoxFit.cover,
               width: double.infinity,
