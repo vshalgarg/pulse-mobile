@@ -21,7 +21,6 @@ import 'package:app/utils.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
-import 'package:flutter_svg/svg.dart';
 import 'asset_type_mapper.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
@@ -278,7 +277,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
       _updateTotalCount();
       Logger.debugLog(
-        '✅ Successfully loaded ${_totalAssetCount} assets into ${_assetGroups.length} groups',
+        '✅ Successfully loaded $_totalAssetCount assets into ${_assetGroups.length} groups',
       );
 
       setState(() {});
@@ -303,13 +302,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       if (stored == null) {
         Logger.debugLog('⚠️ No stored data found in SQLite for key: $storageKey');
       
-        setState(() {});
-        return;
-      }
-      
-      if (stored.apiData == null) {
-        Logger.debugLog('⚠️ Stored data has null apiData');
-       
         setState(() {});
         return;
       }
@@ -421,7 +413,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
   }
 
   /// Validates and parses scanned code
-  /// Format: NG-<ACRONYM>-<SERIAL_NUMBER>
+  /// Format: `NG-<ACRONYM>-<SERIAL_NUMBER>`
   /// Returns: Map with 'acronym', 'serialNumber', 'displayName' or null if invalid
   Map<String, String>? _parseScannedCode(String scannedCode) {
     if (scannedCode.isEmpty) return null;
@@ -1388,6 +1380,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
       // Get selfie image ID from storage
       final selfieImageId = await _getSelfieImageId();
+      if (!mounted) {
+        LoaderWidget.hideLoader();
+        return;
+      }
       Logger.debugLog(
         '📸 Retrieved selfie image ID for asset upload: $selfieImageId',
       );
@@ -1398,6 +1394,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         location = await LocationService.getCurrentLocation();
       } catch (e) {
         LoaderWidget.hideLoader();
+        if (!mounted) return;
         Toastbar.showErrorToastbar(
           'Please enable location services to save assets',
           context,
@@ -1407,12 +1404,17 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
       // Check connectivity to handle LOCAL_IMAGE_ID properly
       final isConnected = await ConnectivityHelper.isConnected();
+      if (!mounted) {
+        LoaderWidget.hideLoader();
+        return;
+      }
 
       // Transform assets to API format
       List<AssetUploadItem> assetUploadItems = _transformAssetsToApiFormat(location);
 
       if (assetUploadItems.isEmpty) {
         LoaderWidget.hideLoader();
+        if (!mounted) return;
         Toastbar.showErrorToastbar('No valid assets to save', context);
         return;
       }
@@ -1421,6 +1423,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       // so the API receives only numeric photo IDs. Offline sync already does this in AssetAuditPostService.
       if (isConnected) {
         assetUploadItems = await _replaceLocalImageIdsWithServerIdsInItems(assetUploadItems);
+        if (!mounted) {
+          LoaderWidget.hideLoader();
+          return;
+        }
       }
 
       // Handle makerSelfieImageId - keep LOCAL_IMAGE_ID as string if offline
@@ -1501,6 +1507,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           : int.tryParse(finalSelfieImageId?.toString() ?? '');
       if (selfieInt == null || selfieInt == 0) {
         LoaderWidget.hideLoader();
+        if (!mounted) return;
         Toastbar.showErrorToastbar(
           'Selfie is required. Please add a selfie and try again, or check your connection if it was added offline.',
           context,
@@ -1512,6 +1519,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final pid = img.photoId;
           if (pid == null) {
             LoaderWidget.hideLoader();
+            if (!mounted) return;
             final serialNo = item.nexgenSerialNo.trim().isNotEmpty
                 ? item.nexgenSerialNo
                 : 'Unknown';
@@ -1527,6 +1535,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final pidStr = pid.toString();
           if (pidStr.contains('LOCAL_IMAGE_ID')) {
             LoaderWidget.hideLoader();
+            if (!mounted) return;
             final serialNo = item.nexgenSerialNo.trim().isNotEmpty
                 ? item.nexgenSerialNo
                 : 'Unknown';
@@ -1539,6 +1548,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final pidInt = pid is int ? pid : int.tryParse(pidStr);
           if (pidInt == null || pidInt <= 0) {
             LoaderWidget.hideLoader();
+            if (!mounted) return;
             final serialNo = item.nexgenSerialNo.trim().isNotEmpty
                 ? item.nexgenSerialNo
                 : 'Unknown';
@@ -1561,6 +1571,10 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         remarks: '',
         assetUploadItems: assetUploadItems,
       );
+      if (!mounted) {
+        LoaderWidget.hideLoader();
+        return;
+      }
 
       LoaderWidget.hideLoader();
 
@@ -1582,6 +1596,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           final refreshResult = await repository.getUploadedAssets(
             siteId: widget.siteData.siteId,
           );
+          if (!mounted) return;
 
           if (refreshResult.isSuccess && refreshResult.data != null) {
             // Parse response structure - check if data is wrapped or direct
@@ -1673,6 +1688,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       } else {
         // Error
         final errorMessage = result.errorMessage ?? 'Failed to save assets';
+        if (!mounted) return;
         Toastbar.showErrorToastbar(errorMessage, context);
         Logger.errorLog('❌ Failed to upload assets: $errorMessage');
       }
@@ -1682,12 +1698,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       }
 
       Logger.errorLog('❌ Error saving assets: $e');
-      if (mounted) {
-        Toastbar.showErrorToastbar(
-          'Error saving assets: ${e.toString()}',
-          context,
-        );
-      }
+      if (!mounted) return;
+      Toastbar.showErrorToastbar(
+        'Error saving assets: ${e.toString()}',
+        context,
+      );
     }
   }
 
@@ -1700,7 +1715,6 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     final List<Map<String, dynamic>> assetUploadItems = [];
     
     for (final entry in _assetGroups.entries) {
-      final assetType = entry.key;
       final items = entry.value;
       
       for (final item in items) {
@@ -1752,7 +1766,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     final assetUpload = <String, dynamic>{
       'au_id': auId,
       'site_id': widget.siteData.siteId,
-      'entity_id': widget.siteData.entityId ?? 0,
+      'entity_id': widget.siteData.entityId,
       'maker_selfie_image_id': makerSelfieImageId,
       'is_active': true,
       'remarks': '',
@@ -1762,7 +1776,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     // Build siteDetails object
     final siteDetails = <String, dynamic>{
       'site_id': widget.siteData.siteId,
-      'entity_id': widget.siteData.entityId ?? 0,
+      'entity_id': widget.siteData.entityId,
       'site_code': widget.siteData.siteCode,
       'site_name': widget.siteData.siteName,
       'cluster': widget.siteData.clusterDistrictName,
@@ -1829,7 +1843,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       Logger.debugLog('💾 Saving asset upload data to offline storage...');
 
       // Use consistent requestId based on siteId (not timestamp) so we can update existing requests
-      final requestId = 'asset_upload_${siteId}';
+      final requestId = 'asset_upload_$siteId';
       final url = 'api/v1/mobile/assetUpload';
 
       // Check if there's an existing pending request for this site
@@ -1950,8 +1964,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             siteAuditSchId: existing.siteAuditSchId,
             apiData: apiResponseData,
           );
-          if (ok) Logger.debugLog('✅ Downloaded ticket api_data updated (offline)');
-          else Logger.errorLog('⚠️ updateRawApiData failed for ${existing.siteAuditSchId}');
+          if (ok) {
+            Logger.debugLog('✅ Downloaded ticket api_data updated (offline)');
+          } else {
+            Logger.errorLog('⚠️ updateRawApiData failed for ${existing.siteAuditSchId}');
+          }
         } else {
           final ok = await dataService.saveRawApiData(
             siteAuditSchId: storageKey,
@@ -1974,8 +1991,11 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                 : 0,
             apiData: apiResponseData,
           );
-          if (ok) Logger.debugLog('✅ SQLite updated with current asset upload state');
-          else Logger.errorLog('⚠️ Failed to update SQLite with asset upload state');
+          if (ok) {
+            Logger.debugLog('✅ SQLite updated with current asset upload state');
+          } else {
+            Logger.errorLog('⚠️ Failed to update SQLite with asset upload state');
+          }
         }
       } catch (e) {
         Logger.errorLog('❌ Error updating SQLite with asset upload state: $e');
@@ -2143,7 +2163,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
+        color: Colors.white.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(5),
       ),
       child: Row(
@@ -2231,7 +2251,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(5),
             ),
             child: Padding(
@@ -2317,7 +2337,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         const SizedBox(height: 8),
         ..._assetGroups.entries.map((entry) {
           return _buildAssetTypeSection(entry.key, entry.value);
-        }).toList(),
+        }),
       ],
     );
   }
@@ -2333,7 +2353,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     }
 
     try {
-      Logger.debugLog('💾 Auto-saving ${_totalAssetCount} assets before navigation...');
+      Logger.debugLog('💾 Auto-saving $_totalAssetCount assets before navigation...');
       Logger.debugLog('💾 Asset groups: ${_assetGroups.keys.toList()}');
       
       // Get selfie image ID
@@ -2413,20 +2433,20 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
-      onPopInvoked: (didPop) async {
+      onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         
         Logger.debugLog('🔙 Back button pressed, auto-saving...');
         
         // Auto-save before allowing navigation
         await _autoSaveOnBack();
+        if (!context.mounted) return;
         
         // Wait a bit to ensure save completes
         await Future.delayed(const Duration(milliseconds: 100));
+        if (!context.mounted) return;
         
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+        Navigator.of(context).pop();
       },
       child: Scaffold(
       extendBodyBehindAppBar: true,
@@ -2438,21 +2458,21 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
           
           // Auto-save before closing - await it fully
           await _autoSaveOnBack();
+          if (!context.mounted) return;
           
           // Wait a bit to ensure save completes
           await Future.delayed(const Duration(milliseconds: 100));
+          if (!context.mounted) return;
           
           // If we can pop (came from asset_upload_detail_page), just pop
           // Otherwise use navigateBackOrToHome for other navigation paths
-          if (mounted) {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              navigateBackOrToHome(
-                context,
-                targetContext: widget.parentContext ?? context,
-              );
-            }
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          } else {
+            navigateBackOrToHome(
+              context,
+              targetContext: widget.parentContext ?? context,
+            );
           }
         },
       ),
@@ -2499,19 +2519,19 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                             Logger.debugLog('🔙 Back button (UI) pressed, auto-saving...');
                          
                             await _autoSaveOnBack();
+                            if (!context.mounted) return;
                             await Future.delayed(const Duration(milliseconds: 100));
+                            if (!context.mounted) return;
                             
                             // If we can pop (came from asset_upload_detail_page), just pop
                             // Otherwise use navigateBackOrToHome for other navigation paths
-                            if (mounted) {
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                              } else {
-                                navigateBackOrToHome(
-                                  context,
-                                  targetContext: widget.parentContext ?? context,
-                                );
-                              }
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            } else {
+                              navigateBackOrToHome(
+                                context,
+                                targetContext: widget.parentContext ?? context,
+                              );
                             }
                           },
                           style: ElevatedButton.styleFrom(

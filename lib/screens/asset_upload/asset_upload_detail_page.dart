@@ -17,7 +17,6 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'au_scan_upload.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
@@ -353,8 +352,9 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
         if (imageModel != null &&
             imageModel.imageData != null &&
             imageModel.imageData!.isNotEmpty) {
-          imageData = imageModel.imageData;
           uniqueId = imageModel.uniqueId;
+          imageData = await ServiceLocator().imageUploadService
+              .getImageUsingUniqueId(uniqueId);
         } else {
           imageData = await ServiceLocator().imageUploadService
               .getImageUsingUniqueId(imageId);

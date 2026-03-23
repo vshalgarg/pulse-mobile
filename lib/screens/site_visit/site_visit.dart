@@ -20,7 +20,6 @@ import 'package:app/screens/ticket_screen.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class SiteVisitScreen extends StatefulWidget {
@@ -288,8 +287,9 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         // First try to get from local SQLite by server_id (might already be cached)
         final imageModel = await ServiceLocator().imageUploadService.getImagesByServerId(imageId);
         if (imageModel != null && imageModel.imageData != null && imageModel.imageData!.isNotEmpty) {
-          imageData = imageModel.imageData;
           uniqueId = imageModel.uniqueId;
+          imageData = await ServiceLocator().imageUploadService
+              .getImageUsingUniqueId(uniqueId);
         } else {
 
           // Also try by unique_id (in case server_id wasn't set but unique_id matches)
@@ -322,6 +322,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
       }
 
       if (imageData != null && imageData.isNotEmpty) {
+        if (!mounted) return;
         
         setState(() {
           if (isSelfie) {
@@ -493,6 +494,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         isSelfie: false,
         activityType: ActivityTypeEnum.siteVisit,
       );
+      if (!mounted) return;
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
@@ -501,6 +503,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _hasFormDataChanges = true;
         });
         await _persistSiteVisitDataToSqlite();
+        if (!mounted) return;
 
         // Show appropriate message based on whether it's server or local ID
         if (imgId.contains("LOCAL_IMAGE_ID")) {
@@ -509,6 +512,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           showCustomToast(context, 'Selfie uploaded successfully');
         }
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload selfie');
         throw Exception('Failed to get image ID');
       }
@@ -530,6 +534,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         isSelfie: false,
         activityType: ActivityTypeEnum.siteVisit,
       );
+      if (!mounted) return;
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
@@ -537,6 +542,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _hasFormDataChanges = true;
         });
         await _persistSiteVisitDataToSqlite();
+        if (!mounted) return;
 
         if (imgId.contains("LOCAL_IMAGE_ID")) {
           showCustomToast(context, 'Official ID Card saved locally (offline mode)');
@@ -544,6 +550,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           showCustomToast(context, 'Official ID Card uploaded successfully');
         }
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload Official ID Card');
         throw Exception('Failed to get image ID');
       }
@@ -565,6 +572,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         isSelfie: false,
         activityType: ActivityTypeEnum.siteVisit,
       );
+      if (!mounted) return;
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
@@ -572,6 +580,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _hasFormDataChanges = true;
         });
         await _persistSiteVisitDataToSqlite();
+        if (!mounted) return;
 
         if (imgId.contains("LOCAL_IMAGE_ID")) {
           showCustomToast(context, 'Aadhar Card saved locally (offline mode)');
@@ -579,6 +588,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           showCustomToast(context, 'Aadhar Card uploaded successfully');
         }
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload Aadhar Card');
         throw Exception('Failed to get image ID');
       }
@@ -600,6 +610,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         isSelfie: false,
         activityType: ActivityTypeEnum.siteVisit,
       );
+      if (!mounted) return;
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
@@ -607,6 +618,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           _hasFormDataChanges = true;
         });
         await _persistSiteVisitDataToSqlite();
+        if (!mounted) return;
 
         if (imgId.contains("LOCAL_IMAGE_ID")) {
           showCustomToast(context, 'Leaving status saved locally (offline mode)');
@@ -614,6 +626,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           showCustomToast(context, 'Leaving status uploaded successfully');
         }
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload leaving status');
         throw Exception('Failed to get image ID');
       }
@@ -1086,6 +1099,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
 
       // Submit the form with already uploaded image (online: POST; offline: save to pending)
       await postSiteVisitLog();
+      if (!mounted) return;
 
       // When opened from All Sites, clear stored data first (online and offline) so the
       // next open from All Sites shows a blank form. Do this before persist so we never
@@ -1098,10 +1112,12 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
           // Fallback: delete any row with this key (e.g. if activity_type differed)
           await dataService.deleteRawApiData(key);
         }
+        if (!mounted) return;
       }
 
       // Persist to SQLite so the downloaded ticket shows updated data when reopened (ticket flow).
       await _persistSiteVisitDataToSqlite();
+      if (!mounted) return;
 
       // Hide loader
       LoaderWidget.hideLoader();
@@ -1123,9 +1139,8 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         Navigator.of(context).pop();
       } else if (mounted) {
         // Fallback if we have no route to pop (e.g. opened directly)
-        final navContext = widget.parentContext ?? context;
         Navigator.pushAndRemoveUntil(
-          navContext,
+          context,
           MaterialPageRoute(
             builder: (_) => const TicketScreen(
               auditName: "SV",

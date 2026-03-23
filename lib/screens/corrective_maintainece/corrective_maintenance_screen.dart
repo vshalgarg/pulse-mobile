@@ -18,7 +18,6 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:app/utils/connectivity_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import '../../../services/file_download_service.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
@@ -3943,6 +3942,7 @@ class _CorrectiveMaintenanceScreenState
           );
         } catch (e) {
           Logger.infoLog('Error getting location: $e');
+          if (!mounted) return;
           Toastbar.showErrorToastbar(
             ExceptionConstants.UNABLE_TO_GET_LOCATION,
             context,
@@ -4014,6 +4014,7 @@ class _CorrectiveMaintenanceScreenState
             );
           } catch (e) {
             Logger.errorLog('Error getting location for offline submission: $e');
+            if (!mounted) return;
             Toastbar.showErrorToastbar(
               ExceptionConstants.UNABLE_TO_GET_LOCATION,
               context,
@@ -4105,14 +4106,13 @@ class _CorrectiveMaintenanceScreenState
         });
       }
       
+      if (!mounted) return;
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      if (shouldNavigate && mounted) {
-        Future.microtask(() {
-          navigateBackOrToHome(
-            context,
-            targetContext: widget.parentContext ?? context,
-          );
-        });
+      if (shouldNavigate) {
+        navigateBackOrToHome(
+          context,
+          targetContext: widget.parentContext ?? context,
+        );
       }
     } catch (e) {
       Logger.errorLog("Error in online edit submission: $e");
@@ -4296,23 +4296,23 @@ class _CorrectiveMaintenanceScreenState
           Logger.infoLog("CM remarks saved to pending requests successfully");
         }
         
+        if (!mounted) return;
         Toastbar.showSuccessToastbar(
           "Data saved offline. Will sync when online.",
           context,
         );
-        if (shouldNavigate && mounted) {
-          Future.microtask(() {
-            navigateBackOrToHome(
-              context,
-              targetContext: widget.parentContext ?? context,
-            );
-          });
+        if (shouldNavigate) {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
         }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
     } catch (e) {
       Logger.errorLog("Error in offline edit submission: $e");
+      if (!mounted) return;
       Toastbar.showErrorToastbar(
         "Failed to save form edit offline: $e",
         context,
@@ -4473,6 +4473,7 @@ class _CorrectiveMaintenanceScreenState
         );
       } catch (e) {
         Logger.infoLog('Error getting location: $e');
+        if (!mounted) return;
         Toastbar.showErrorToastbar(
           ExceptionConstants.UNABLE_TO_GET_LOCATION,
           context,
@@ -4555,14 +4556,13 @@ class _CorrectiveMaintenanceScreenState
         }
       }
 
+      if (!mounted) return;
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
-      if (shouldNavigate && mounted) {
-        Future.microtask(() {
-          navigateBackOrToHome(
-            context,
-            targetContext: widget.parentContext ?? context,
-          );
-        });
+      if (shouldNavigate) {
+        navigateBackOrToHome(
+          context,
+          targetContext: widget.parentContext ?? context,
+        );
       }
     } catch (e) {
       Logger.errorLog("Error in online submission: $e");
@@ -4688,23 +4688,23 @@ class _CorrectiveMaintenanceScreenState
 
       if (isSaved) {
         Logger.infoLog("CM data saved to pending requests successfully");
+        if (!mounted) return;
         Toastbar.showSuccessToastbar(
           "Data saved offline. Will sync when online.",
           context,
         );
-        if (shouldNavigate && mounted) {
-          Future.microtask(() {
-            navigateBackOrToHome(
-              context,
-              targetContext: widget.parentContext ?? context,
-            );
-          });
+        if (shouldNavigate) {
+          navigateBackOrToHome(
+            context,
+            targetContext: widget.parentContext ?? context,
+          );
         }
       } else {
         throw Exception('Failed to save data to offline storage');
       }
     } catch (e) {
       Logger.errorLog("Error in offline submission: $e");
+      if (!mounted) return;
       Toastbar.showErrorToastbar(
         "Failed to save form offline: $e",
         context,

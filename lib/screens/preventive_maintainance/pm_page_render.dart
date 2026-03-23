@@ -3,7 +3,6 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import '../../constants/app_images.dart';
 import '../../constants/constants_strings.dart';
 import '../../constants/constants_methods.dart';
@@ -316,6 +315,7 @@ class _PMPageRenderState extends State<PMPageRender> {
   void _onSubmit() async {
     // Update data in SQLite and post to API
     await _updateDataInSqliteAndCallApi();
+    if (!mounted) return;
 
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
@@ -328,7 +328,9 @@ class _PMPageRenderState extends State<PMPageRender> {
     // Navigate to home screen
     navigateBackOrToHome(
       context,
-      targetContext: widget.parentContext,
+      targetContext: widget.parentContext.mounted
+          ? widget.parentContext
+          : context,
     );
   }
 

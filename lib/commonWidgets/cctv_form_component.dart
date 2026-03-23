@@ -240,38 +240,54 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
   /// Picks image from camera (matching CustomInfoCard)
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
-      maxWidth: ImageCompressionHelper.pickImageMaxWidth,
-      maxHeight: ImageCompressionHelper.pickImageMaxHeight,
-      imageQuality: ImageCompressionHelper.pickImageQuality,
-    );
+    XFile? pickedFile;
+    try {
+      pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: ImageCompressionHelper.pickImageMaxWidth,
+        maxHeight: ImageCompressionHelper.pickImageMaxHeight,
+        imageQuality: ImageCompressionHelper.pickImageQuality,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera failed to open: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
-    if (pickedFile != null) {
-      final originalFile = File(pickedFile.path);
+    if (pickedFile == null || pickedFile.path.isEmpty) return;
 
-      try {
-        // Run compression in background to avoid blocking UI
-        final compressedFile = await Future(
-          () => ImageCompressionHelper.compressImageTo2MB(originalFile),
+    final originalFile = File(pickedFile.path);
+    if (!await originalFile.exists()) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Captured image not found. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    try {
+      await Future.delayed(const Duration(milliseconds: 120));
+      final compressedFile = await Future(
+        () => ImageCompressionHelper.compressImageTo2MB(originalFile),
+      );
+      if (!mounted) return;
+      _handlePhotoSelection((compressedFile ?? originalFile).path);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error compressing image: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
-
-        if (mounted) {
-          if (compressedFile != null) {
-            _handlePhotoSelection(compressedFile.path);
-          } else {
-            _handlePhotoSelection(originalFile.path);
-          }
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error compressing image: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
       }
     }
   }

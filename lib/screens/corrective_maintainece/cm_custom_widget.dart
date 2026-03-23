@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:app/commonWidgets/custom_radio_options.dart';
 import 'package:app/commonWidgets/qr_screen_form_field.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
@@ -41,6 +42,19 @@ class CMCustomWidget extends StatefulWidget {
 }
 
 class _CMCustomWidgetState extends State<CMCustomWidget> {
+  Uint8List? _safeDecodeDataUrl(String? dataUrlOrBase64) {
+    if (dataUrlOrBase64 == null || dataUrlOrBase64.isEmpty) return null;
+    try {
+      final raw = dataUrlOrBase64.startsWith('data:image/')
+          ? dataUrlOrBase64.split(',').last
+          : dataUrlOrBase64;
+      if (raw.isEmpty) return null;
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
+
   late Map<String, dynamic> _currentItem;
   String? _selectedDropdownValue;
   String? _selectedRadioValue;
@@ -2362,15 +2376,28 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     maxHeight: MediaQuery.of(context).size.height * 0.8,
                     maxWidth: MediaQuery.of(context).size.width * 0.9,
                   ),
-                  child: Image.memory(
-                    base64Decode(finalImageData.split(',').last),
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Text(
-                          'Failed to load image',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                  child: Builder(
+                    builder: (context) {
+                      final bytes = _safeDecodeDataUrl(finalImageData);
+                      if (bytes == null || bytes.isEmpty) {
+                        return const Center(
+                          child: Text(
+                            'Failed to load image',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        );
+                      }
+                      return Image.memory(
+                        bytes,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Text(
+                              'Failed to load image',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),
@@ -3324,11 +3351,20 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                         }
                         
                         if (snapshot.hasData && snapshot.data != null) {
+                          final bytes = _safeDecodeDataUrl(snapshot.data);
+                          if (bytes == null || bytes.isEmpty) {
+                            return const Padding(
+                              padding: EdgeInsets.all(8.0),
+                              child: Center(child: Text('Failed to load image')),
+                            );
+                          }
                           return Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Image.memory(
-                              base64Decode(snapshot.data!.split(',')[1]),
+                              bytes,
                               fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Center(child: Text('Failed to load image')),
                             ),
                           );
                         }

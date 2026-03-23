@@ -1015,6 +1015,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
             );
 
             if (photoId.isNotEmpty) {
+              if (!mounted) return;
               setState(() {
                 // Replace existing images with the new one
                 _addImageToResponseImages(photoId, replaceExisting: true);
@@ -1597,6 +1598,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           Logger.errorLog('[PM] ❌ Error extracting index from elementKey $elementKey: $e');
         }
         
+        if (!mounted) return;
         setState(() {
           _dependentImageIds[elementKey] = photoId;
           // Store base64 image data for display
