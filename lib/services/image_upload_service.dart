@@ -9,6 +9,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'api_service.dart';
 import '../utils/logger.dart';
 
@@ -20,6 +21,7 @@ class ImageUploadService {
 
   final ApiService _apiService;
   final Uuid _uuid = const Uuid();
+  static const String _imagesDirName = 'app_data/images';
 
   ImageUploadService({required ApiService apiService})
     : _apiService = apiService;
@@ -97,6 +99,61 @@ class ImageUploadService {
     return 'LOCAL_IMAGE_ID_${timestamp}_$random';
   }
 
+  Future<Directory> _getImagesDirectory() async {
+    final appDir = await getApplicationSupportDirectory();
+    final imagesDir = Directory('${appDir.path}/$_imagesDirName');
+    if (!await imagesDir.exists()) {
+      await imagesDir.create(recursive: true);
+    }
+    return imagesDir;
+  }
+
+  bool _looksLikeStoredPath(String value) {
+    return value.startsWith('/') || value.startsWith('file://');
+  }
+
+  String _normalizeStoredPath(String value) {
+    if (value.startsWith('file://')) {
+      return value.replaceFirst('file://', '');
+    }
+    return value;
+  }
+
+  Future<String> _persistImageDataToFile({
+    required String uniqueId,
+    required String imageData,
+  }) async {
+    final dir = await _getImagesDirectory();
+    final filePath = '${dir.path}/$uniqueId.jpg';
+    final file = File(filePath);
+
+    Uint8List imageBytes;
+    if (imageData.startsWith('data:image/')) {
+      imageBytes = base64Decode(imageData.split(',')[1]);
+    } else {
+      imageBytes = base64Decode(imageData);
+    }
+    await file.writeAsBytes(imageBytes, flush: true);
+    return file.path;
+  }
+
+  Future<String?> _readStoredImageDataAsBase64(String? storedValue) async {
+    if (storedValue == null || storedValue.isEmpty) return null;
+    if (!_looksLikeStoredPath(storedValue)) {
+      return storedValue; // legacy base64 in DB
+    }
+    try {
+      final path = _normalizeStoredPath(storedValue);
+      final file = File(path);
+      if (!await file.exists()) return null;
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return null;
+      return base64Encode(bytes);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 1. Upload image - Save to SQLite and try to upload to server
   ///
   Future<String> uploadImage(
@@ -108,11 +165,15 @@ class ImageUploadService {
     try {
       final uniqueId = _generateUniqueId();
       final now = DateTime.now().millisecondsSinceEpoch;
+      final storedPath = await _persistImageDataToFile(
+        uniqueId: uniqueId,
+        imageData: imageData,
+      );
 
       // Save image to SQLite first
       await _saveImageToSQLite(
         uniqueId: uniqueId,
-        imageData: imageData,
+        imageData: storedPath,
         isSelfie: isSelfie,
         activityType: activityType,
         schId: siteSchId,
@@ -178,8 +239,15 @@ class ImageUploadService {
           'Server ID not found in SQLite, uploading image to server $uniqueId',
         );
         // Upload to server
+        final uploadBase64 = await _readStoredImageDataAsBase64(
+          imageModel.imageData,
+        );
+        if (uploadBase64 == null || uploadBase64.isEmpty) {
+          Logger.errorLog('Image bytes/path missing for unique ID: $uniqueId');
+          return null;
+        }
         final newServerId = await _uploadToServer(
-          imageModel.imageData!,
+          uploadBase64,
           imageModel.activityType,
           imageModel.schId ?? "",
           imageModel.isSelfie,
@@ -212,21 +280,30 @@ class ImageUploadService {
     try {
       // Download image from server first
       final imageData = await downloadFromServer(serverId);
+      if (imageData == null || imageData.isEmpty) return null;
 
       // Check if record with this server_id already exists
       final existingRecord = await getImagesByServerId(serverId);
       if (existingRecord != null) {
         // Update existing record with new image data
-        await _updateImageData(existingRecord.uniqueId, imageData);
+        final storedPath = await _persistImageDataToFile(
+          uniqueId: existingRecord.uniqueId,
+          imageData: imageData,
+        );
+        await _updateImageData(existingRecord.uniqueId, storedPath);
         return existingRecord.uniqueId;
       } else {
         // Create new record
         final uniqueId = _generateUniqueId();
         final now = DateTime.now().millisecondsSinceEpoch;
+        final storedPath = await _persistImageDataToFile(
+          uniqueId: uniqueId,
+          imageData: imageData,
+        );
 
         await _saveImageToSQLite(
           uniqueId: uniqueId,
-          imageData: imageData,
+          imageData: storedPath,
           serverId: serverId,
           isSelfie: false,
           activityType: activityType,
@@ -250,8 +327,11 @@ class ImageUploadService {
     Logger.debugLog('🖼️ getImageUsingUniqueId called with uniqueId: $uniqueId');
     final result = await _getByUniqueIdFromSQLite(uniqueId);
     if (result != null) {
-      Logger.debugLog('🖼️ getImageUsingUniqueId: Found image data, length: ${result.imageData?.length ?? 0}');
-      return result.imageData;
+      final imageData = await _readStoredImageDataAsBase64(result.imageData);
+      Logger.debugLog(
+        '🖼️ getImageUsingUniqueId: Found image data, length: ${imageData?.length ?? 0}',
+      );
+      return imageData;
     }
     Logger.debugLog('🖼️ getImageUsingUniqueId: No image data found for uniqueId: $uniqueId');
     return null;
@@ -643,6 +723,14 @@ class ImageUploadService {
   /// Clear all images
   Future<void> clearAllImages() async {
     final db = await database;
+    try {
+      final dir = await _getImagesDirectory();
+      if (await dir.exists()) {
+        await dir.delete(recursive: true);
+      }
+    } catch (e) {
+      Logger.errorLog('Failed to clear local image files: $e');
+    }
     await db.delete(_tableName);
     Logger.debugLog('✅ All images cleared');
   }
