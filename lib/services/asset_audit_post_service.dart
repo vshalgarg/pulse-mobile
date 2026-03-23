@@ -189,7 +189,7 @@ class AssetAuditPostService {
       Logger.infoLog("Data posted successfully");
     } else {
       Toastbar.showErrorWithoutContext(
-        "Data posted failed for url",
+        "Data posted failed",
       );
       throw Exception((response.errorMessage ?? 'Unknown error from server'));
     }
