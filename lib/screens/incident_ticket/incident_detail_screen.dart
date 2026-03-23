@@ -20,7 +20,6 @@ import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'incident_checklist.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
@@ -186,6 +185,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             .getImageAsDataUrl(uniqueId);
 
         if (imageData != null) {
+          if (!mounted) return;
           Logger.debugLog(
             '✅ Image data received: ${imageData.length} characters',
           );
@@ -208,6 +208,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
   Future<void> _uploadImage() async {
     try {
+      if (!mounted) return;
       if (_selectedImage == null) {
         Toastbar.showErrorToastbar('Please select an image first', context);
         return;
@@ -220,6 +221,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         isSelfie: false,
         activityType: ActivityTypeEnum.incident,
       );
+      if (!mounted) return;
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {
@@ -247,6 +249,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
   Future<void> _loadChecklistData() async {
     try {
+      if (!mounted) return;
       setState(() {
         _isLoadingChecklist = true;
         _checklistError = null;
@@ -261,12 +264,14 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         var localChecklistData = await ServiceLocator()
             .centralAssetAuditDataService
             .getIncidentChecklistData(widget.siteData.siteId);
+        if (!mounted) return;
 
         // If empty, try any stored incident checklist (e.g. downloaded with different site_id)
         if (localChecklistData.isEmpty) {
           localChecklistData = await ServiceLocator()
               .centralAssetAuditDataService
               .getIncidentChecklistDataAny();
+          if (!mounted) return;
           if (localChecklistData.isNotEmpty) {
             Logger.debugLog(
               '✅ Using incident checklist data from fallback (any site_id)',
@@ -294,6 +299,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       // If no local data, try to fetch from API
       try {
         final checklistData = await _repository.getIncidentChecklist();
+        if (!mounted) return;
 
         setState(() {
           _checklistData = checklistData;
@@ -305,6 +311,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         );
       } catch (apiError) {
         Logger.errorLog('❌ API call failed: $apiError');
+        if (!mounted) return;
 
         // If API failed, show error
         setState(() {
@@ -315,6 +322,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       }
     } catch (e) {
       Logger.errorLog('❌ Unexpected error loading checklist data: $e');
+      if (!mounted) return;
       setState(() {
         _isLoadingChecklist = false;
         _checklistError = 'Unexpected error: ${e.toString()}';
@@ -460,6 +468,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           ),
         ),
       );
+      if (!mounted) return;
 
       // Store the result if it exists (could be from Previous button or Submit)
       if (result != null && result.isNotEmpty) {
@@ -487,6 +496,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       if (!mounted) return;
       // Check internet connectivity
       final isConnected = await ConnectivityHelper.isConnected();
+      if (!mounted) return;
       Logger.debugLog('Internet connectivity: $isConnected');
 
       // Extract checklist responses
@@ -538,6 +548,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             try {
               final imageModel = await ServiceLocator().imageUploadService
                   .getServerIdFromUniqueIdTryUploading(_uploadedImgId!);
+              if (!mounted) return;
               if (imageModel != null && imageModel.serverId != null) {
                 imageId = int.tryParse(imageModel.serverId.toString()) ?? 0;
                 Logger.debugLog(
@@ -635,16 +646,13 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
     try {
       if (!mounted) return;
       // Show loading indicator
-      await Future.microtask(() {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          useRootNavigator: true,
-          builder: (context) =>
-              const Center(child: CircularProgressIndicator()),
-        );
-        loaderOpen = true;
-      });
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      loaderOpen = true;
 
       Logger.debugLog('Submitting incident ticket online: ${request.toJson()}');
 
@@ -695,17 +703,15 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
   ) async {
     bool loaderOpen = false;
     try {
+      if (!mounted) return;
       // Show loading indicator
-      await Future.microtask(() {
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          useRootNavigator: true,
-          builder: (context) =>
-              const Center(child: CircularProgressIndicator()),
-        );
-        loaderOpen = true;
-      });
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        useRootNavigator: true,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+      loaderOpen = true;
 
       // Create a unique request ID for this incident ticket submission
       final requestId =
@@ -758,6 +764,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             headers: {},
             jsonEncodedRequestData: jsonEncode(requestList),
           );
+      if (!mounted) return;
 
       // Close loader
       if (loaderOpen && mounted) {

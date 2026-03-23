@@ -2,11 +2,8 @@ import 'package:app/commonWidgets/custom_buttons/arrow_botton.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
-import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../constants/app_colors.dart';
-import '../../bloc/global_loading_cubit.dart';
 
 class AssetAuditTelecomBottomButtons extends StatelessWidget {
   final Future<void> Function() onNextButtonClick;
@@ -82,6 +79,7 @@ class AssetAuditTelecomBottomButtons extends StatelessWidget {
                 LoaderWidget.showLoader(context);
                 try {
                   await onNextButtonClick();
+                  if (!context.mounted) return;
 
                   // Only navigate if no error occurred
                   AssetAuditNavigationHelper.navigateToNextTelecomScreen(

@@ -115,7 +115,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
   bool _isQRCodeScanned = false;
 
   bool _isUploading = false;
-  String? qrCodeScannedTs = null;
+  String? qrCodeScannedTs;
   String? _uploadedImageId; // Photo ID from server
   String? _photoData; // Photo byte data or base64
   bool _hasNewPhotoSelected = false; // Track if user selected a new photo
@@ -469,6 +469,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
         // User actually selected a new photo - upload it
 
         await _uploadPhoto();
+        if (!mounted) return;
       } else {
         // No new photo selected by user
         if (_isEditing && _uploadedImageId != null) {
@@ -536,6 +537,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
           _savedItems[existingIndex] = itemData;
         }
 
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Item updated successfully!'),
@@ -552,6 +554,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
           // Update existing item instead of creating duplicate
           _savedItems[existingIndex] = itemData;
 
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Item updated successfully!'),
@@ -562,6 +565,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
           // Add new item to the internal list
           _savedItems.add(itemData);
 
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Item saved successfully!'),
@@ -580,6 +584,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
       // Step 6: Clear form
       _clearForm();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isUploading = false;
       });
@@ -619,6 +624,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
         widget.siteAuditSchId,
       );
 
+      if (!mounted) return;
       setState(() {
         _isUploading = false;
         _uploadedImageId = uniqueId;
@@ -626,6 +632,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
 
       if (uniqueId.isEmpty) {
 
+        if (!mounted) return;
         setState(() {
           _isUploading = false;
         });
@@ -634,6 +641,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
 
     } catch (e) {
 
+      if (!mounted) return;
       setState(() {
         _isUploading = false;
       });
@@ -695,13 +703,13 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
     final photoPath = item['photoPath']; // This is the local path or base64 data
 
     // Check if photoPath is base64 data first (faster, no fetch needed)
-    final photoPathString = photoPath != null ? photoPath.toString() : null;
+    final photoPathString = photoPath?.toString();
     if (photoPathString != null && 
         photoPathString.isNotEmpty && 
         photoPathString.startsWith('data:image/')) {
       // We have base64 image data - use it immediately
 
-      _uploadedImageId = photoId != null ? photoId.toString() : null;
+      _uploadedImageId = photoId?.toString();
       _photoData = photoPathString;
       setState(() {
         _selectedPhotoPath = photoPathString;
@@ -712,7 +720,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
     }
 
     // Convert photo_id to string if it's numeric
-    final uniqueIdString = photoId != null ? photoId.toString() : null;
+    final uniqueIdString = photoId?.toString();
 
     if (uniqueIdString != null && 
         uniqueIdString.isNotEmpty && 
@@ -802,7 +810,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
           _isUploading = false; // Clear loading state
         });
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
 
       if (mounted) {
         setState(() {
@@ -881,6 +889,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
                     });
                   }
                 } catch (e) {
+                  if (!mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text('Error scanning QR code: $e'),
@@ -973,7 +982,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
             fontSize: 16,
             color: widget.isCustomFieldEditable 
                 ? AppColors.color555555 
-                : AppColors.color555555.withOpacity(0.6),
+                : AppColors.color555555.withValues(alpha: 0.6),
             ),
           ),
       ],
@@ -1107,7 +1116,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
               fontSize: 16,
-              color: AppColors.color555555.withOpacity(0.6),
+              color: AppColors.color555555.withValues(alpha: 0.6),
             ),
           ),
           style: TextStyle(
@@ -1153,62 +1162,64 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
         ),
 
         // Radio buttons (matching CustomInfoCard) - more compact layout
-        Wrap(
-          spacing: 20,
-          children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<bool>(
-                  value: true,
-                  groupValue: _selectedStatus,
-                  onChanged: _handleStatusChange,
-                  activeColor: const Color(0xFF5678BA),
-                  fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                    if (states.contains(MaterialState.selected)) {
-                      return const Color(0xFF5678BA);
-                    }
-                    return Colors.white;
-                  }),
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  "Ok",
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 16,
-                    fontFamily: fontFamilyMontserrat,
+        RadioGroup<bool>(
+          groupValue: _selectedStatus,
+          onChanged: (bool? value) {
+            _handleStatusChange(value);
+          },
+          child: Wrap(
+            spacing: 20,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Radio<bool>(
+                    value: true,
+                    activeColor: const Color(0xFF5678BA),
+                    fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const Color(0xFF5678BA);
+                      }
+                      return Colors.white;
+                    }),
                   ),
-                ),
-              ],
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Radio<bool>(
-                  value: false,
-                  groupValue: _selectedStatus,
-                  onChanged: _handleStatusChange,
-                  activeColor: const Color(0xFF5678BA),
-                  fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                    if (states.contains(MaterialState.selected)) {
-                      return const Color(0xFF5678BA);
-                    }
-                    return Colors.white;
-                  }),
-                ),
-                const SizedBox(width: 4),
-                const Text(
-                  "Not Ok",
-                  style: TextStyle(
-                    color: AppColors.white,
-                    fontSize: 16,
-                    fontFamily: fontFamilyMontserrat,
+                  const SizedBox(width: 4),
+                  const Text(
+                    "Ok",
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 16,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Radio<bool>(
+                    value: false,
+                    activeColor: const Color(0xFF5678BA),
+                    fillColor: WidgetStateProperty.resolveWith<Color>((states) {
+                      if (states.contains(WidgetState.selected)) {
+                        return const Color(0xFF5678BA);
+                      }
+                      return Colors.white;
+                    }),
+                  ),
+                  const SizedBox(width: 4),
+                  const Text(
+                    "Not Ok",
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontSize: 16,
+                      fontFamily: fontFamilyMontserrat,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
 
         // Validation error
@@ -1417,7 +1428,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
 
     // Convert photo_id to string if it's numeric, and check if valid
     final photoId = item['photo_id'];
-    final photoIdString = photoId != null ? photoId.toString() : null;
+    final photoIdString = photoId?.toString();
     final hasValidPhotoId = photoIdString != null && 
                            photoIdString.isNotEmpty && 
                            photoIdString != "null" && 
@@ -1425,7 +1436,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
     
     // Check photoPath
     final photoPath = item['photoPath'];
-    final photoPathString = photoPath != null ? photoPath.toString() : null;
+    final photoPathString = photoPath?.toString();
     final hasValidPhotoPath = photoPathString != null && photoPathString.isNotEmpty;
     
     // Determine which photo to show (prefer photo_id over photoPath)
@@ -1546,6 +1557,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
     // Case 3: Photo is a unique ID from ImageUploadService (can be numeric server ID or string local ID)
     else {
       // Show loading dialog while fetching from ImageUploadService
+      if (!context.mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -1600,12 +1612,13 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
         if (context.mounted) {
           Navigator.of(context).pop();
         }
-      } catch (e, stackTrace) {
+      } catch (e) {
 
         // Close loading dialog on error
         if (context.mounted) {
           Navigator.of(context).pop();
         }
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to load image: $e'),
@@ -1669,6 +1682,7 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
         );
       }
     } else {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Unable to load photo.'),

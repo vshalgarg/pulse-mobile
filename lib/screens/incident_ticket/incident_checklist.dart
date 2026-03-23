@@ -10,7 +10,6 @@ import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
@@ -361,6 +360,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
       // If status is CLOSED, show dialog to get closing remarks
       if (widget.currentStatus == 'CLOSED') {
         final closedRemarks = await _showCloseRemarksDialog();
+        if (!mounted) return;
         if (closedRemarks == null) {
           // User cancelled the dialog
           return;
@@ -388,6 +388,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
       }
     } catch (e) {
       Logger.errorLog('❌ Error submitting incident checklist: $e');
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Failed to prepare checklist data', context);
     }
   }
@@ -421,6 +422,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
           },
         ),
       );
+      if (!mounted) return;
 
       if (result == 'save') {
         await _submitForm();
@@ -623,7 +625,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
             if (isSelected && isExpanded)
               Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE6F5EF).withOpacity(0.3),
+                  color: const Color(0xFFE6F5EF).withValues(alpha: 0.3),
                   borderRadius: const BorderRadius.only(
                     bottomLeft: Radius.circular(8),
                     bottomRight: Radius.circular(8),
@@ -671,7 +673,7 @@ class _IncidentChecklistScreenState extends State<IncidentChecklistScreen> {
             color: Colors.white,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: Colors.grey.withOpacity(0.3),
+              color: Colors.grey.withValues(alpha: 0.3),
             ),
           ),
           child: CheckboxListTile(

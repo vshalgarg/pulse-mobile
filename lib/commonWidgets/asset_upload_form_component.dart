@@ -137,7 +137,8 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
   bool _isUploading = false;
   bool _isLoadingPhoto = false; // True while processing/displaying photo after camera
-  String? qrCodeScannedTs = null;
+  bool _isSaving = false; // Prevent duplicate save taps/races
+  String? qrCodeScannedTs;
   String? _uploadedImageId; // Photo ID from server
   String? _photoData; // Photo byte data or base64
   bool _hasNewPhotoSelected = false; // Track if user selected a new photo
@@ -351,6 +352,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   /// Defers processing to next frame + short delay so Flutter view can restore after camera
   /// intent (fixes white screen on some devices when user taps Save in camera).
  Future<void> _pickImage() async {
+  if (_isSaving || _isUploading || _isLoadingPhoto) return;
   final picker = ImagePicker();
 
   bool isLowRam = await DeviceMemoryHelper.isLowRamDevice();
@@ -592,6 +594,9 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
   /// Handles save button click
   Future<void> _handleSave() async {
+    if (_isSaving) return;
+    if (!mounted) return;
+    setState(() => _isSaving = true);
     try {
       // Reset validation state
       setState(() {
@@ -628,6 +633,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         // User actually selected a new photo - upload it
 
         await _uploadPhoto();
+        if (!mounted) return;
       } else {
         // No new photo selected by user
         if (_isEditing && _uploadedImageId != null) {
@@ -850,6 +856,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
         final suppress = widget.shouldSuppressSuccessToast?.call(itemData) ?? false;
         if (!suppress) {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Item updated successfully!'),
@@ -874,6 +881,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
           final suppress = widget.shouldSuppressSuccessToast?.call(itemData) ?? false;
           if (!suppress) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Item updated successfully!'),
@@ -887,6 +895,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
           final suppress = widget.shouldSuppressSuccessToast?.call(itemData) ?? false;
           if (!suppress) {
+            if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                 content: Text('Item saved successfully!'),
@@ -906,6 +915,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       // Step 6: Clear form
       _clearForm();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isUploading = false;
       });
@@ -915,6 +925,10 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -961,6 +975,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       // Create data URL format for immediate display
       final dataUrl = 'data:image/jpeg;base64,$base64Image';
 
+      if (!mounted) return;
       setState(() {
         _isUploading = false;
         _uploadedImageId = uniqueId;
@@ -970,12 +985,14 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
       });
 
       if (uniqueId.isEmpty) {
+        if (!mounted) return;
         setState(() {
           _isUploading = false;
         });
         throw Exception('Photo upload failed - no unique ID returned');
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isUploading = false;
       });
@@ -1051,13 +1068,13 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         item['photoPath']; // This is the local path or base64 data
 
     // Check if photoPath is base64 data first (faster, no fetch needed)
-    final photoPathString = photoPath != null ? photoPath.toString() : null;
+    final photoPathString = photoPath?.toString();
     if (photoPathString != null &&
         photoPathString.isNotEmpty &&
         photoPathString.startsWith('data:image/')) {
       // We have base64 image data - use it immediately
 
-      _uploadedImageId = photoId != null ? photoId.toString() : null;
+      _uploadedImageId = photoId?.toString();
       _photoData = photoPathString;
       setState(() {
         _selectedPhotoPath = photoPathString;
@@ -1068,7 +1085,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     }
 
     // Convert photo_id to string if it's numeric
-    final uniqueIdString = photoId != null ? photoId.toString() : null;
+    final uniqueIdString = photoId?.toString();
 
     if (uniqueIdString != null &&
         uniqueIdString.isNotEmpty &&
@@ -1260,6 +1277,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
                           }
                         }
                       } catch (e) {
+                        if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text('Error scanning QR code: $e'),
@@ -1461,7 +1479,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
               fontSize: 16,
-              color: AppColors.color555555.withOpacity(0.6),
+              color: AppColors.color555555.withValues(alpha: 0.6),
             ),
           ),
           style: TextStyle(
@@ -1513,7 +1531,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
               fontWeight: FontWeight.w400,
               fontFamily: fontFamilyMontserrat,
               fontSize: 16,
-              color: AppColors.color555555.withOpacity(0.6),
+              color: AppColors.color555555.withValues(alpha: 0.6),
             ),
           ),
           style: TextStyle(
@@ -1530,20 +1548,20 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   /// Builds the save button (matching CustomInfoCard design exactly)
   Widget _buildSaveButton() {
     return ElevatedButton(
-      onPressed: _isUploading
+      onPressed: (_isUploading || _isSaving || _isLoadingPhoto)
           ? null
           : _handleSave, // Disable button when uploading
       style: ElevatedButton.styleFrom(
-        backgroundColor: _isUploading
+        backgroundColor: (_isUploading || _isSaving || _isLoadingPhoto)
             ? Colors.grey.shade400
             : const Color(0xFFDBE2F0),
-        foregroundColor: _isUploading
+        foregroundColor: (_isUploading || _isSaving || _isLoadingPhoto)
             ? Colors.grey.shade600
             : const Color(0xFF2D426E),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
-      child: _isUploading
+      child: (_isUploading || _isSaving || _isLoadingPhoto)
           ? const SizedBox(
               width: 16,
               height: 16,
@@ -1666,11 +1684,11 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     // Include aui_id (when present) so that two DB rows with the same
     // serial number but different IDs don't collide.
     final auiIdPart = item['aui_id']?.toString() ?? '';
-    final itemKey = '$auiIdPart-' +
-        (item['mfg_serial_no']?.toString() ??
-            item['full_scanned_code']?.toString() ??
-            item['timestamp']?.toString() ??
-            'item_${item.hashCode}');
+    final itemIdentity = item['mfg_serial_no']?.toString() ??
+        item['full_scanned_code']?.toString() ??
+        item['timestamp']?.toString() ??
+        'item_${item.hashCode}';
+    final itemKey = '$auiIdPart-$itemIdentity';
     final photoKey = item['photo_id']?.toString() ?? 
                     item['photoPath']?.toString() ?? 
                     '';
@@ -1773,7 +1791,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   Widget _buildTablePhotoCell(Map<String, dynamic> item, double width) {
     // Convert photo_id to string if it's numeric, and check if valid
     final photoId = item['photo_id'];
-    final photoIdString = photoId != null ? photoId.toString() : null;
+    final photoIdString = photoId?.toString();
     final hasValidPhotoId =
         photoIdString != null &&
         photoIdString.isNotEmpty &&
@@ -1782,7 +1800,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
 
     // Check photoPath
     final photoPath = item['photoPath'];
-    final photoPathString = photoPath != null ? photoPath.toString() : null;
+    final photoPathString = photoPath?.toString();
     final hasValidPhotoPath =
         photoPathString != null && photoPathString.isNotEmpty;
 
@@ -1845,7 +1863,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
             margin: const EdgeInsets.symmetric(vertical: 10),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(5),
             ),
             child: Column(
@@ -1916,6 +1934,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     // Case 3: Photo is a unique ID from ImageUploadService (can be numeric server ID or string local ID)
     else {
       // Show loading dialog while fetching from ImageUploadService
+      if (!context.mounted) return;
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -1971,6 +1990,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         if (context.mounted) {
           Navigator.of(context).pop();
         }
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to load image: $e'),
@@ -2034,6 +2054,7 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
         );
       }
     } else {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Unable to load photo.'),

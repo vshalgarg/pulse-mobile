@@ -66,6 +66,7 @@ class SerialNumberField extends StatelessWidget {
                     context,
                     MaterialPageRoute(builder: (_) => const QRScannerScreen()),
                   );
+                  if (!context.mounted) return;
                   
                   // Debug print to see what's returned
                   

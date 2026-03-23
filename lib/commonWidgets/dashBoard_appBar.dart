@@ -1,6 +1,5 @@
 import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 
 import '../constants/app_images.dart';
 import '../services/service_locator.dart';
@@ -32,6 +31,7 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                     // Clear all asset audit data
                     await ServiceLocator().centralAssetAuditService
                         .clearAllData();
+                    if (!context.mounted) return;
 
                     // Show success message
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -43,6 +43,7 @@ class DashBoardAppBar extends StatelessWidget implements PreferredSizeWidget {
                       ),
                     );
                   } catch (e) {
+                    if (!context.mounted) return;
                     // Show error message
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

@@ -53,6 +53,7 @@ class LocationService {
       Toastbar.showInfoToastbar('Getting your current location...', context);
       // Get current location
       LocationModel currentPosition = await getCurrentLocation();
+      if (!context.mounted) return;
       // Build Google Maps URL
       String url;
       if (destinationName != null) {
@@ -68,13 +69,17 @@ class LocationService {
       // Launch URL
       final Uri uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
+        if (!context.mounted) return;
         await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!context.mounted) return;
         Toastbar.showSuccessToastbar("Redirecting to google maps", context);
       } else {
+        if (!context.mounted) return;
         Toastbar.showErrorToastbar('Could not open Google Maps. Please install Google Maps app.', context);
       }
     } catch (e) {
       Logger.errorLog('Error opening Google Maps: $e');
+      if (!context.mounted) return;
       Toastbar.showErrorToastbar(e.toString(), context);
     }
   }

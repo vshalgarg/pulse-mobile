@@ -203,6 +203,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
               try {
                 // Clear all asset audit data
                 await ServiceLocator().centralAssetAuditService.clearAllData();
+                if (!mounted) return;
 
                 // Show success message
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -212,6 +213,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
                   ),
                 );
               } catch (e) {
+                if (!mounted) return;
                 // Show error message
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -574,6 +576,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
       // Get pending requests
       final pendingRequestsService = ServiceLocator().pendingRequestService;
       final pendingRequests = await pendingRequestsService.getPendingRequests();
+      if (!mounted) return;
 
       Logger.infoLog(
         'PulseDashboard: Found ${pendingRequests.length} pending requests',
@@ -607,9 +610,11 @@ class _PulseDashboardState extends State<PulseDashboard> {
       final message =
           'Sync completed: $successCount successful, out of $totalCount';
       Logger.infoLog('PulseDashboard: $message');
+      if (!mounted) return;
       Toastbar.showSuccessToastbar(message, context);
     } catch (e) {
       Logger.errorLog('PulseDashboard: Error during sync: $e');
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Sync failed: $e', context);
     }
   }

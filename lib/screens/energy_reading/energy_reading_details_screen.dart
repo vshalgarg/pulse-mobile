@@ -8,7 +8,6 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 
@@ -843,12 +842,14 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                                 backgroundColor: AppColors.buttonColorBackBg,
                                 textColor: AppColors.buttonColorTextBg,
                                 onPressed: () async {
+                                  final actionContext = context;
                                   // Auto-save data silently if there are changes
                                   if (_hasFormDataChanges) {
                                     await _saveDataToSqliteOnly();
+                                    if (!actionContext.mounted) return;
                                   }
                                   // Navigate back
-                                  Navigator.pop(context);
+                                  Navigator.pop(actionContext);
                                 },
                               ),
                             ),
@@ -860,22 +861,25 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                                 backgroundColor: AppColors.buttonColorBg,
                                 textColor: AppColors.buttonColorSite,
                                 onPressed: () async {
+                                  final actionContext = context;
                                   // Validate form fields first
                                   if (!_validateFormFields()) {
                                     return; // Stop execution if validation fails
                                   }
 
                                   if (_hasFormDataChanges) {
-                                    LoaderWidget.showLoader(context);
+                                    LoaderWidget.showLoader(actionContext);
                                     bool dataSavedSuccessfully = false;
 
                                     try {
                                       await postCurrentScreenData();
+                                      if (!actionContext.mounted) return;
                                       dataSavedSuccessfully = true;
                                     } catch (e) {
+                                      if (!actionContext.mounted) return;
                                       Toastbar.showErrorToastbar(
                                         "Error saving data: $e",
-                                        context,
+                                        actionContext,
                                       );
                                       // Don't navigate on error - stay on current screen
                                       return;
@@ -886,16 +890,16 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
                                     // Only navigate if data was saved successfully
                                     if (dataSavedSuccessfully) {
                                       navigateBackOrToHome(
-                                        context,
+                                        actionContext,
                                         targetContext:
-                                            widget.parentContext ?? context,
+                                            widget.parentContext ?? actionContext,
                                       );
                                     }
                                   } else {
                                     navigateBackOrToHome(
-                                      context,
+                                      actionContext,
                                       targetContext:
-                                          widget.parentContext ?? context,
+                                          widget.parentContext ?? actionContext,
                                     );
                                   }
                                 },

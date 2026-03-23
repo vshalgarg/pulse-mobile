@@ -168,6 +168,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
       setState(() => _isLoading = true);
       await LocalStorageService.setBool(_cameraInProgressKey, true);
+      if (!mounted) return;
 
       if (isSelfie) {
         /// Front camera selfie
@@ -177,6 +178,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
             builder: (_) => const SelfieCameraScreen(),
           ),
         );
+        if (!mounted) return;
 
         if (result != null) pickedFile = result;
       } else {
@@ -188,6 +190,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           maxWidth: 1024,
           maxHeight: 1024,
         );
+        if (!mounted) return;
 
         if (picked != null) {
           pickedFile = File(picked.path);
@@ -399,7 +402,9 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           ),
         const SizedBox(height: 6),
         GestureDetector(
-          onTap: widget.isDisabled ? null : _pickImage,
+          onTap: (widget.isDisabled || _isLoading || _isPickingImage)
+              ? null
+              : _pickImage,
           child: Container(
             width: double.infinity,
             height: 150,

@@ -35,12 +35,14 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
   bool _isLoading = false;
 
   void _saveAndExit(BuildContext context) async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
     });
 
     try {
       await widget.onSaveAndExit();
+      if (!mounted) return;
 
       // Use parentContext if available, otherwise use the dialog context
       final contextToUse = widget.parentContext ?? context;
@@ -51,6 +53,7 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
       });
 
       // Close the UnsavedChangesDialog before showing success/error dialog
+      if (!context.mounted) return;
       Navigator.of(context).pop();
 
       // Call the API to update audit schedule status if siteAuditSchId is provided
@@ -58,6 +61,7 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
         // Get the current state after the API call
         AuditScheduleStatusState? currentState;
         try {
+          if (!contextToUse.mounted) return;
           currentState = contextToUse.read<AuditScheduleStatusCubit>().state;
         } catch (_) {
           currentState = null;
@@ -69,18 +73,18 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
           // Show error message if API call fails
           _showErrorDialog(contextToUse, currentState.error);
         } else if (widget.section == 'Incident Checklist') {
+          if (!contextToUse.mounted) return;
           Toastbar.showSuccessToastbar(
             "Incident Ticket has been recorded and saved.",
             contextToUse,
           );
-          Future.microtask(() {
-            navigateBackOrToHome(
-              contextToUse,
-              targetContext: widget.parentContext,
-            );
-            
-          });
+          if (!contextToUse.mounted) return;
+          navigateBackOrToHome(
+            contextToUse,
+            targetContext: widget.parentContext,
+          );
         } else {
+          if (!contextToUse.mounted) return;
           // Fallback if state is not what we expect
           _showSuccessDialogWithMessage(
             contextToUse,
@@ -89,6 +93,7 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
           );
         }
       } else {
+        if (!contextToUse.mounted) return;
         // Fallback message if no siteAuditSchId provided
         _showSuccessDialogWithMessage(
           contextToUse,
@@ -97,17 +102,21 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       // Close the loading dialog first
       setState(() {
         _isLoading = false;
       });
 
       // Close the UnsavedChangesDialog before showing success dialog
+      if (!context.mounted) return;
       Navigator.of(context).pop();
 
       // Fallback message if API call fails
+      final contextToUse = widget.parentContext ?? context;
+      if (!contextToUse.mounted) return;
       _showSuccessDialogWithMessage(
-        widget.parentContext ?? context,
+        contextToUse,
         (widget.section ?? "Data") +
             " for Site (ID: ${widget.siteAuditSchId ?? 'Unknown'}) has been recorded and saved locally.",
       );
@@ -130,12 +139,11 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
             dialogContext,
           ).pop(); // Close the success dialog using dialog context
 
-          Future.microtask(() {
-            navigateBackOrToHome(
-              navigationContext,
-              targetContext: widget.parentContext,
-            );
-          });
+          if (!navigationContext.mounted) return;
+          navigateBackOrToHome(
+            navigationContext,
+            targetContext: widget.parentContext,
+          );
         },
       ),
     );
@@ -157,12 +165,11 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
               Navigator.of(
                 dialogContext,
               ).pop(); // Close the error dialog using dialog context
-              Future.microtask(() {
-                navigateBackOrToHome(
-                  navigationContext,
-                  targetContext: widget.parentContext,
-                );
-              });
+              if (!navigationContext.mounted) return;
+              navigateBackOrToHome(
+                navigationContext,
+                targetContext: widget.parentContext,
+              );
             },
             child: const Text('OK'),
           ),
@@ -176,17 +183,17 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
     if (widget.onDiscardAsync != null) {
       await widget.onDiscardAsync!();
     }
+    if (!mounted) return;
     if (!context.mounted) return;
     // Close the dialog
     Navigator.of(context).pop();
 
     // Use parentContext if available, otherwise use the dialog context
     final contextToUse = widget.parentContext ?? context;
+    if (!contextToUse.mounted) return;
 
-    Future.microtask(() {
-      navigateBackOrToHome(contextToUse, targetContext: widget.parentContext);
-      widget.onDiscard();
-    });
+    navigateBackOrToHome(contextToUse, targetContext: widget.parentContext);
+    widget.onDiscard();
   }
 
   @override
@@ -287,8 +294,8 @@ class _UnsavedChangesDialogState extends State<UnsavedChangesDialog> {
                   Navigator.pop(context); // Just close the dialog, no action
                 },
                 borderRadius: BorderRadius.circular(20),
-                splashColor: Colors.white.withOpacity(0.3),
-                highlightColor: Colors.white.withOpacity(0.1),
+                splashColor: Colors.white.withValues(alpha: 0.3),
+                highlightColor: Colors.white.withValues(alpha: 0.1),
                 child: Container(
                   width: 40,
                   height: 40,

@@ -1,35 +1,18 @@
 import 'dart:convert';
-import 'package:app/app_config.dart';
 import 'package:app/bloc/dashboard_cubit.dart';
-import 'package:app/bloc/login_bloc/auth_cubit.dart';
-import 'package:app/commonWidgets/dashBoard_appBar.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
-import 'package:app/constants/app_sizes.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
-import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
 import 'package:app/screens/corrective_maintainece/cm_all_sites.dart';
-import 'package:app/screens/login_screen.dart';
 import 'package:app/screens/ticket_screen.dart';
-import 'package:app/screens/sqlite_query_screen.dart';
-import 'package:app/screens/debug/log_viewer_screen.dart';
-import 'package:app/services/image_upload_service.dart';
-import 'package:app/services/asset_audit_post_service.dart';
-import 'package:app/services/pending_requests_service.dart';
 import 'package:app/services/service_locator.dart';
-import 'package:app/utils.dart';
-import 'package:app/utils/connectivity_helper.dart';
-import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../commonWidgets/custom_ticket_status_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
-import '../utils/user_name_utils.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -75,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Get pending requests
       final pendingRequestsService = ServiceLocator().pendingRequestService;
       final pendingRequests = await pendingRequestsService.getPendingRequests();
+      if (!mounted) return;
 
       Logger.infoLog(
         'HomeScreen: Found ${pendingRequests.length} pending requests',
@@ -108,9 +92,11 @@ class _HomeScreenState extends State<HomeScreen> {
       final message =
           'Sync completed: $successCount successful, out of $totalCount';
       Logger.infoLog('HomeScreen: $message');
+      if (!mounted) return;
       Toastbar.showSuccessToastbar(message, context);
     } catch (e) {
       Logger.errorLog('HomeScreen: Error during sync: $e');
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Sync failed: $e', context);
     }
   }
@@ -325,7 +311,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget assetAuditTicketStatus(DashboardState state) {
     String allTicketsCount = "0";
-    String dueCount = "0";
     String inProgressCount = "0";
     String completedCount = "0";
     String closedCount = "0";
@@ -340,7 +325,6 @@ class _HomeScreenState extends State<HomeScreen> {
               allTicketsCount = ticket.ticketCnt?.toString() ?? "0";
               break;
             case "Due":
-              dueCount = ticket.ticketCnt?.toString() ?? "0";
               break;
             case "In Progress":
               inProgressCount = ticket.ticketCnt?.toString() ?? "0";
@@ -459,7 +443,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget pmAuditTicketStatus(DashboardState state) {
     String allTicketsCount = "0";
-    String dueCount = "0";
     String inProgressCount = "0";
     String completedCount = "0";
     String closedCount = "0";
@@ -816,21 +799,4 @@ class _HomeScreenState extends State<HomeScreen> {
     return false;
   }
 
-  bool _hasEnergyReadingData(DashboardState state) {
-    if (state is DashboardSuccess) {
-      final erData = state.dashboardModel.data?["Energy Reading"];
-      return erData != null && erData.isNotEmpty;
-    }
-    return false;
-  }
-
-  bool _hasCorrectiveMaintenanceData(DashboardState state) {
-    if (state is DashboardSuccess) {
-      // For now, we'll check if there's any CM data in the response
-      // You can update this when the API includes CM data
-      final cmData = state.dashboardModel.data?["Corrective Maintenance"];
-      return cmData != null && cmData.isNotEmpty;
-    }
-    return false;
-  }
 }

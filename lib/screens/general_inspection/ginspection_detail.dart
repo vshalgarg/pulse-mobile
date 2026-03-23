@@ -20,7 +20,6 @@ import 'package:app/utils/toastbar.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'gi_checklist_screen.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
@@ -147,13 +146,12 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               continue;
             }
 
-            if (checklistItem != null) {
-              Map<String, dynamic> responseData = {
-                'giId': widget.apiResponseData!['giId']
-                    ?.toString(), // Include giId
-                'gispId':
-                    response['gispId'] as int?, // Include gispId for edit mode
-              };
+            Map<String, dynamic> responseData = {
+              'giId': widget.apiResponseData!['giId']
+                  ?.toString(), // Include giId
+              'gispId':
+                  response['gispId'] as int?, // Include gispId for edit mode
+            };
 
               // Set the appropriate response value based on the checklist item type
               if (checklistItem.respType.contains('RADIO')) {
@@ -211,8 +209,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                 responseData['dependent_remarks'] = remarksValue;
               }
 
-              _existingChecklistResponses[giclmId] = responseData;
-            }
+            _existingChecklistResponses[giclmId] = responseData;
           }
         }
       }
@@ -676,21 +673,26 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
             siteAuditSchId: widget.siteData.siteId.toString(),
             updatedData: dbData,
           );
+          if (!mounted) return;
         }
       }
 
       if (imgId != null && imgId.isNotEmpty) {
+        if (!mounted) return;
         setState(() {
           _uploadedImgId = imgId;
         });
 
         // Show appropriate message based on whether it's server or local ID
         if (imgId.contains("LOCAL_IMAGE_ID")) {
+          if (!mounted) return;
           showCustomToast(context, 'Selfie saved locally (offline mode)');
         } else {
+          if (!mounted) return;
           showCustomToast(context, 'Selfie uploaded successfully');
         }
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload selfie');
         throw Exception('Failed to get image ID');
       }
@@ -968,6 +970,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         ticketSchId: widget.siteData.siteId.toString(),
         activityType: activityType,
       );
+      if (!mounted) return;
 
       if (filePath != null) {
         String locationMessage;

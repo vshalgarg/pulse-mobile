@@ -2,9 +2,7 @@ import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/routes/route_generator.dart';
 import 'package:app/services/service_locator.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
@@ -226,19 +224,23 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
         }
       }
       if (imgId != null) {
+        if (!mounted) return;
         setState(() {
           _uploadedImgId = imgId;
           _hasFormDataChanges = true;
         });
 
+        if (!mounted) return;
         showCustomToast(context, 'Selfie uploaded successfully');
         Logger.debugLog('✅ Selfie uploaded with ID: $imgId');
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload selfie');
         Logger.errorLog('❌ Failed to upload selfie');
       }
     } catch (e) {
       Logger.errorLog('❌ Error uploading selfie: $e');
+      if (!mounted) return;
       showCustomToast(context, 'Failed to upload selfie: $e');
     }
   }
@@ -330,7 +332,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                               margin: const EdgeInsets.only(bottom: 20),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppColors.errorColor.withOpacity(0.1),
+                                color: AppColors.errorColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: AppColors.errorColor,
@@ -535,7 +537,7 @@ class _AssetAuditSolarV2ScreenState extends State<AssetAuditSolarV2Screen> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.errorColor.withOpacity(0.1),
+                  color: AppColors.errorColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: AppColors.errorColor, width: 1),
                 ),

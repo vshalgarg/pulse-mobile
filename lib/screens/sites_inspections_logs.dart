@@ -2,16 +2,13 @@ import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/commonWidgets/site_card.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/all_site_model.dart';
-import 'package:app/models/ticket_model.dart';
 import 'package:app/screens/general_inspection/ginspection_detail.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
@@ -31,9 +28,7 @@ class SitesInspectionsLogsScreen extends StatefulWidget {
 
 class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen> {
   List<AllSiteModel> _sites = [];
-  List<Ticket> _tickets = [];
   bool _isLoading = true;
-  bool _isLoadingTickets = false;
   String? _errorMessage;
   final Set<int> _downloadedSiteIds = <int>{};
   bool _isInitializingDownloadedSites = false;
@@ -143,6 +138,7 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
       // Use the new CM-specific download method
       final service = ServiceLocator().centralAssetAuditService;
       final isDownloaded = await service.downloadCMSiteData(site: site, siteType: widget.activityType);
+      if (!mounted) return;
 
       if (isDownloaded) {
         // Add to local state and trigger UI update
@@ -158,10 +154,11 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
           context,
         );
       } else {
+        if (!mounted) return;
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
-
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();
@@ -357,7 +354,7 @@ class _SitesInspectionsLogsScreenState extends State<SitesInspectionsLogsScreen>
             Text(
               errorMessage,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
                 fontFamily: fontFamilyMontserrat,
               ),

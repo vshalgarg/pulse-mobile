@@ -10,7 +10,6 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 
 import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
@@ -108,6 +107,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         // Initialize downloaded sites state after sites are loaded
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Future.delayed(const Duration(milliseconds: 500), () {
+            if (!mounted) return;
             if (sites.isNotEmpty) {
               _initializeDownloadedSites(sites);
             }
@@ -152,6 +152,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
 
   void _navigateToSite(CMSite site, AllSiteModel? allSiteModel) async {
     try {
+      if (!mounted) return;
       // Show loader immediately when site is clicked
       LoaderWidget.showLoader(context);
 
@@ -170,6 +171,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             LocationPermission permission = await Geolocator.checkPermission();
             if (permission == LocationPermission.denied) {
               permission = await Geolocator.requestPermission();
+              if (!mounted) return;
               if (permission == LocationPermission.denied) {
                 LoaderWidget.hideLoader();
                 Toastbar.showErrorToastbar(
@@ -181,6 +183,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             }
             
             if (permission == LocationPermission.deniedForever) {
+              if (!mounted) return;
               LoaderWidget.hideLoader();
               final shouldOpenSettings = await showDialog<bool>(
                 context: context,
@@ -217,6 +220,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             // The user can tap "TURN ON" in the system dialog to enable location directly.
             // This is the standard Android behavior, same as Google Maps.
             final currentLocation = await LocationService.getCurrentLocation();
+            if (!mounted) return;
 
             // Calculate distance in kilometers
             final distanceInKm = calculateDistance(
@@ -231,6 +235,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
             if (distanceInKm > maxDistanceKm) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
+              if (!mounted) return;
               Toastbar.showErrorToastbar(
               "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
               context,
@@ -243,6 +248,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
           // If location fetch fails, hide loader and show error
           LoaderWidget.hideLoader();
           Logger.errorLog('Error calculating distance: $e');
+          if (!mounted) return;
           Toastbar.showErrorToastbar(
             "Unable to get your location. Please ensure location services are enabled.",
             context,
@@ -253,6 +259,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
 
       // Hide loader before navigation
       LoaderWidget.hideLoader();
+      if (!mounted) return;
 
       // Navigate to corrective maintenance screen with the selected site data
       final parentContext = context;
@@ -343,6 +350,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
         siteType: 'correctiveMaintenance',
         entityIdOverride: effectiveEntityId != 0 ? effectiveEntityId : null,
       );
+      if (!mounted) return;
 
       if (isDownloaded) {
         Logger.infoLog(
@@ -355,6 +363,7 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
           siteCode: site.siteCode,
           siteName: site.siteName,
         );
+        if (!mounted) return;
 
         Logger.infoLog('📊 Checklist download result: $checklistDownloaded');
 
@@ -386,10 +395,11 @@ class _CMAllSitesScreenState extends State<CMAllSitesScreen> {
           context,
         );
       } else {
+        if (!mounted) return;
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
-
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();

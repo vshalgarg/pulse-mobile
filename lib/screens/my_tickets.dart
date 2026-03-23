@@ -283,6 +283,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       final data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.siteAuditSchId,
       );
+      if (!mounted) return;
 
       if (data == null) {
         Toastbar.showErrorToastbar("Failed to load data", context);
@@ -415,6 +416,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         final checklistData = await ServiceLocator()
             .centralAssetAuditDataService
             .getGIChecklistData(int.tryParse(ticket.siteAuditSchId) ?? 0);
+        if (!mounted) return;
 
         // Create site data for General Inspection using API response data
         final siteData = AllSiteModel(
@@ -488,6 +490,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               .getIncidentTicket(
                 incidentTicketId: int.tryParse(ticket.siteAuditSchId) ?? 0,
               );
+          if (!mounted) return;
 
           // Extract data from response (response has a 'data' wrapper)
           if (response.containsKey('data') && response['data'] is Map) {
@@ -741,6 +744,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
       Toastbar.showErrorToastbar("Failed to load data", context);
     } finally {
       LoaderWidget.hideLoader();
@@ -940,6 +944,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         ticketSchId: ticket.siteAuditSchId,
         activityType: ticket.activityType,
       );
+      if (!mounted) return;
 
       if (filePath != null) {
         // Check if it's in public Downloads or app storage
@@ -956,6 +961,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
         // Show additional info about file location
         Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('File saved to: $filePath'),
@@ -1540,8 +1546,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             organisationList = await ServiceLocator()
                 .sitesRepository
                 .getOrganisationList();
+            if (!mounted) return;
           } catch (_) {}
         }
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -1609,9 +1617,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       final data = await service.getDataFromSqlite(
         siteAuditSchId: site.siteId.toString(),
       );
+      if (!mounted) return;
 
       if (data == null) {
         LoaderWidget.hideLoader();
+        if (!mounted) return;
         Toastbar.showErrorToastbar("Failed to load asset upload data", context);
         return;
       }
@@ -1628,6 +1638,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
       if (responseData == null) {
         LoaderWidget.hideLoader();
+        if (!mounted) return;
         Logger.errorLog(
           '❌ Invalid asset upload data structure: responseData is null',
         );
@@ -1653,6 +1664,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
       if (assetUploadData == null || siteDetailsData == null) {
         LoaderWidget.hideLoader();
+        if (!mounted) return;
         final missingData = [];
         if (assetUploadData == null)
           missingData.add('assetUpload/asset_upload');
@@ -1755,6 +1767,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
       final parentContext = context;
       LoaderWidget.hideLoader();
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -1777,6 +1790,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
     } catch (e) {
       LoaderWidget.hideLoader();
       Logger.errorLog('❌ Error loading asset upload site: $e');
+      if (!mounted) return;
       Toastbar.showErrorToastbar("Failed to load asset upload data", context);
     }
   }

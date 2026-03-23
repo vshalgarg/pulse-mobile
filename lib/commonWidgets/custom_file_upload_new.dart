@@ -51,6 +51,7 @@ class CustomFileUploadNew extends StatelessWidget {
       // Check file size (2 MB = 2 * 1024 * 1024 bytes)
       const int maxSizeInBytes = 2 * 1024 * 1024; // 2 MB
       final int fileSizeInBytes = await file.length();
+      if (!context.mounted) return;
       
       if (fileSizeInBytes > maxSizeInBytes) {
         Toastbar.showErrorToastbar(
@@ -181,7 +182,7 @@ class CustomFileUploadNew extends StatelessWidget {
                             maxSizeText!,
                             style: TextStyle(
                               fontWeight: FontWeight.w400,
-                              color: AppColors.color555555.withOpacity(0.7),
+                              color: AppColors.color555555.withValues(alpha: 0.7),
                               fontFamily: fontFamilyMontserrat,
                               fontSize: 12,
                             ),
@@ -193,7 +194,7 @@ class CustomFileUploadNew extends StatelessWidget {
                             acceptedFileTypes!,
                             style: TextStyle(
                               fontWeight: FontWeight.w400,
-                              color: AppColors.color555555.withOpacity(0.7),
+                              color: AppColors.color555555.withValues(alpha: 0.7),
                               fontFamily: fontFamilyMontserrat,
                               fontSize: 10,
                             ),
@@ -217,7 +218,7 @@ class CustomFileUploadNew extends StatelessWidget {
         // Uploaded Files List
         if (uploadedFiles.isNotEmpty) ...[
           const SizedBox(height: 16),
-          ...uploadedFiles.map((file) => _buildUploadedFileItem(file)).toList(),
+          ...uploadedFiles.map((file) => _buildUploadedFileItem(file)),
         ],
         
       ],

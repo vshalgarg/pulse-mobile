@@ -88,6 +88,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
   // Actual mode - override to edit if au_id is not null
   late CMScreenModeEnum _actualMode;
+  bool _isSavingAsset = false;
 
   @override
   void initState() {
@@ -1365,12 +1366,15 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
   /// Handles Save Asset button click
   Future<void> _handleSaveAsset() async {
+    if (_isSavingAsset) return;
+    _isSavingAsset = true;
     // Check if there are any assets to save
     if (_assetGroups.isEmpty || _totalAssetCount == 0) {
       Toastbar.showErrorToastbar(
         'Please scan at least one asset before saving',
         context,
       );
+      _isSavingAsset = false;
       return;
     }
 
@@ -1703,6 +1707,8 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
         'Error saving assets: ${e.toString()}',
         context,
       );
+    } finally {
+      _isSavingAsset = false;
     }
   }
 
@@ -2435,6 +2441,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_isSavingAsset) return;
         
         Logger.debugLog('🔙 Back button pressed, auto-saving...');
         
@@ -2454,6 +2461,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       appBar: CustomFormAppbar(
         title: 'Asset Upload',
         onClose: () async {
+          if (_isSavingAsset) return;
           Logger.debugLog('❌ Close button pressed, auto-saving...');
           
           // Auto-save before closing - await it fully
@@ -2515,6 +2523,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
+                            if (_isSavingAsset) return;
                             // Auto-save before navigating back
                             Logger.debugLog('🔙 Back button (UI) pressed, auto-saving...');
                          
@@ -2556,7 +2565,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
                       const SizedBox(width: 16),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: _handleSaveAsset,
+                          onPressed: _isSavingAsset ? null : _handleSaveAsset,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.dashboardIconBoxColor,
                             foregroundColor: Colors.white,

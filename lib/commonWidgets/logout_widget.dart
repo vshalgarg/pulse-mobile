@@ -13,6 +13,7 @@ class LogoutWidget extends StatelessWidget {
     return IconButton(
       onPressed: () async {
         GoogleSignInAccount? user = await GoogleRepository().logout();
+        if (!context.mounted) return;
         if (user == null) {
           showCustomToast(context, "Logout");
           // pushNamedAndRemoveUntil(context, loginScreen);

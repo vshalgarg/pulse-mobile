@@ -79,6 +79,7 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
       final imageUploadService = ImageUploadService(apiService: apiService);
       
       final imageBytes = await _selectedImage!.readAsBytes();
+      if (!mounted) return;
       final imageData = base64Encode(imageBytes);
       
       final photoId = await imageUploadService.uploadImage(
@@ -87,6 +88,7 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
         false,
         widget.siteAuditSchId,
       );
+      if (!mounted) return;
 
       if (photoId.isNotEmpty) {
         setState(() {

@@ -2,28 +2,18 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:app/commonWidgets/asset_audit_telecom_bottom_buttons.dart';
 import 'package:app/enum/activity_type_enum.dart';
-import 'package:app/screens/home_screen.dart';
-import 'package:app/screens/pulse_dashboard.dart';
-import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/routes/route_generator.dart';
-import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:flutter_svg/svg.dart';
-import '../../../commonWidgets/asset_audit_solar_bottom_buttons.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
 import '../../../commonWidgets/custom_image_upload_field.dart';
-import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
 import '../../../constants/app_images.dart';
 import '../../../constants/constants_methods.dart';
 import '../../../services/service_locator.dart';
 import '../../../utils/logger.dart';
-import '../../../models/asset_audit_model.dart';
-import '../../../services/asset_audit/central_service_initializer.dart';
 import '../../../services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
@@ -243,13 +233,16 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       }
 
       if (imgId != null) {
+        if (!mounted) return;
         setState(() {
           _uploadedImgId = imgId;
           _hasFormDataChanges = true;
         });
 
+        if (!mounted) return;
         showCustomToast(context, 'Selfie uploaded successfully');
       } else {
+        if (!mounted) return;
         showCustomToast(context, 'Failed to upload selfie');
       }
     } catch (e) {
@@ -282,6 +275,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
             headers: {},
             jsonEncodedRequestData: jsonEncode([selfieData]),
           );
+      if (!mounted) return;
 
       if (isSaved) {
         Logger.infoLog("Selfie data saved to DB successfully");
@@ -300,6 +294,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
       }
     } catch (e) {
       Logger.errorLog('❌ Error saving selfie to local DB: $e');
+      if (!mounted) return;
       showCustomToast(context, 'Failed to save selfie offline: $e');
     }
   }
@@ -380,7 +375,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                               margin: const EdgeInsets.only(bottom: 20),
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: AppColors.errorColor.withOpacity(0.1),
+                                color: AppColors.errorColor.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: AppColors.errorColor,
@@ -555,7 +550,7 @@ class _AssetAuditTelecomV2ScreenState extends State<AssetAuditTelecomV2Screen> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.errorColor.withOpacity(0.1),
+                  color: AppColors.errorColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(4),
                   border: Border.all(color: AppColors.errorColor, width: 1),
                 ),

@@ -484,6 +484,7 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
       final dbData = await _service.getActualDataFromSqlite(
         siteAuditSchId: widget.siteData.siteId.toString(),
       );
+      if (!mounted) return;
       if (dbData != null) {
         final pageHeaders = dbData['pageHeader'] as List<dynamic>?;
         final pageHeader = pageHeaders?.isNotEmpty == true
@@ -497,10 +498,12 @@ class _AssetUploadDetailPageState extends State<AssetUploadDetailPage> {
             siteAuditSchId: widget.siteData.siteId.toString(),
             updatedData: dbData,
           );
+          if (!mounted) return;
         }
       }
 
       if (imgId != null && imgId.isNotEmpty) {
+        if (!mounted) return;
         Logger.debugLog('✅ Selfie uploaded successfully with imgId: $imgId');
         setState(() {
           _selfieImgId = imgId;

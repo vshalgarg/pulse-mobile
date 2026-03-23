@@ -13,7 +13,6 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'gi_custom_widget.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
@@ -537,6 +536,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
             activityType: ActivityTypeEnum.generalInspection,
             isLastPage: true,
           );
+      if (!mounted) return;
 
       showCustomToast(
         context,
@@ -548,14 +548,13 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         _hasFormDataChanges = false;
       });
 
-      Future.microtask(() {
-        navigateBackOrToHome(
-          context,
-          targetContext: widget.parentContext ?? context,
-        );
-      });
+      navigateBackOrToHome(
+        context,
+        targetContext: widget.parentContext ?? context,
+      );
     } catch (e) {
       Logger.errorLog('❌ Error submitting general inspection: $e');
+      if (!mounted) return;
       showCustomToast(context, "Failed to submit general inspection data");
       rethrow; // Re-throw so UnsavedChangesDialog can handle the error
     } finally {

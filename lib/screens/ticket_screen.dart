@@ -18,7 +18,6 @@ import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/svg.dart';
 
 import '../bloc/ticket_cubit.dart';
 import '../bloc/ticket_state.dart';
@@ -80,6 +79,7 @@ class _TicketScreenState extends State<TicketScreen>
     // Initialize downloaded tickets state after a short delay to ensure tickets are loaded
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
         final currentState = context.read<TicketCubit>().state;
         if (currentState is TicketSuccess &&
             currentState.ticketResponse.tickets.isNotEmpty) {
@@ -277,6 +277,7 @@ class _TicketScreenState extends State<TicketScreen>
           LocationPermission permission = await Geolocator.checkPermission();
           if (permission == LocationPermission.denied) {
             permission = await Geolocator.requestPermission();
+            if (!mounted) return;
             if (permission == LocationPermission.denied) {
               LoaderWidget.hideLoader();
               Toastbar.showErrorToastbar(
@@ -288,6 +289,7 @@ class _TicketScreenState extends State<TicketScreen>
           }
           
           if (permission == LocationPermission.deniedForever) {
+            if (!mounted) return;
             LoaderWidget.hideLoader();
             final shouldOpenSettings = await showDialog<bool>(
               context: context,
@@ -324,6 +326,7 @@ class _TicketScreenState extends State<TicketScreen>
           // The user can tap "TURN ON" in the system dialog to enable location directly.
           // This is the standard Android behavior, same as Google Maps.
           final currentLocation = await LocationService.getCurrentLocation();
+          if (!mounted) return;
           
           // Calculate distance in kilometers
           final distanceInKm = calculateDistance(
@@ -341,6 +344,7 @@ class _TicketScreenState extends State<TicketScreen>
          
             // Hide loader before showing toast
             LoaderWidget.hideLoader();
+            if (!mounted) return;
             Toastbar.showErrorToastbar(
               "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
               context,
@@ -352,6 +356,7 @@ class _TicketScreenState extends State<TicketScreen>
           // If location fetch fails, hide loader and show error
           LoaderWidget.hideLoader();
           Logger.errorLog('Error calculating distance: $e');
+          if (!mounted) return;
           Toastbar.showErrorToastbar(
             "Unable to get your location. Please ensure location services are enabled.",
             context,
@@ -368,6 +373,7 @@ class _TicketScreenState extends State<TicketScreen>
       RawApiDataModel? data = await service.getDataFromSqlite(
         siteAuditSchId: ticket.ticketSchId.toString(),
       );
+      if (!mounted) return;
 
       // For incident and asset upload tickets, use special handling
       if (_currentActivityType == ActivityTypeEnum.incident ||
@@ -392,6 +398,7 @@ class _TicketScreenState extends State<TicketScreen>
             dueDt: ticket.dueDt,
             status: ticket.status ?? "",
           );
+          if (!mounted) return;
           if (!isAvailable) {
             Toastbar.showErrorToastbar("Failed to load data", context);
             return;
@@ -401,6 +408,7 @@ class _TicketScreenState extends State<TicketScreen>
           data = await service.getDataFromSqlite(
             siteAuditSchId: ticket.ticketSchId.toString(),
           );
+          if (!mounted) return;
         } else {
           Logger.infoLog('✅ Using data from local database');
         }
@@ -419,6 +427,7 @@ class _TicketScreenState extends State<TicketScreen>
       final apiData = data?.apiData ?? <String, dynamic>{};
 
       if (_currentActivityType == ActivityTypeEnum.preventiveMaintenance) {
+        if (!mounted) return;
         final parentContext = context;
         // View mode when ticket status is Completed: all elements/images visible but non-editable.
         final statusText = ticket.status ?? '';
@@ -436,6 +445,7 @@ class _TicketScreenState extends State<TicketScreen>
           ),
         );
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
+        if (!mounted) return;
         final parentContext = context;
         Navigator.push(
           context,
@@ -449,6 +459,7 @@ class _TicketScreenState extends State<TicketScreen>
             ),
           ),
         ).then((_) {
+          if (!mounted) return;
           // Refresh ticket list when returning from Energy Reading screen
           _loadTickets();
           // Re-initialize downloaded tickets state
@@ -529,6 +540,7 @@ class _TicketScreenState extends State<TicketScreen>
                   .toList()
             : null;
 
+        if (!mounted) return;
         final parentContext = context;
         Navigator.push(
           context,
@@ -552,6 +564,7 @@ class _TicketScreenState extends State<TicketScreen>
           );
           final response = await ServiceLocator().incidentRepository
               .getIncidentTicket(incidentTicketId: ticket.ticketSchId);
+          if (!mounted) return;
 
           // Extract data from response (response has a 'data' wrapper)
           if (response.containsKey('data') && response['data'] is Map) {
@@ -575,6 +588,7 @@ class _TicketScreenState extends State<TicketScreen>
             }
             Logger.debugLog('⚠️ Using stored data as fallback');
           } else {
+            if (!mounted) return;
             Toastbar.showErrorToastbar(
               "Failed to load incident ticket data",
               context,
@@ -585,6 +599,7 @@ class _TicketScreenState extends State<TicketScreen>
 
         if (incidentTicketData.isEmpty) {
           LoaderWidget.hideLoader();
+          if (!mounted) return;
           Toastbar.showErrorToastbar(
             "Failed to load incident ticket data",
             context,
@@ -632,6 +647,7 @@ class _TicketScreenState extends State<TicketScreen>
           checklistItems: null,
         );
 
+        if (!mounted) return;
         final parentContext = context;
         Navigator.push(
           context,
@@ -647,6 +663,7 @@ class _TicketScreenState extends State<TicketScreen>
             ),
           ),
         ).then((_) {
+          if (!mounted) return;
           // Refresh ticket list when returning from Incident Detail screen
           _loadTickets();
           // Re-initialize downloaded tickets state
@@ -662,6 +679,7 @@ class _TicketScreenState extends State<TicketScreen>
         // Extract the actual data from the nested structure
         final actualData = genInspectionData['data'] as Map<String, dynamic>?;
 
+        if (!mounted) return;
         if (actualData == null) {
           Toastbar.showErrorToastbar(
             "General inspection data structure is invalid",
@@ -678,6 +696,7 @@ class _TicketScreenState extends State<TicketScreen>
         final checklistData = await ServiceLocator()
             .centralAssetAuditDataService
             .getGIChecklistData(ticket.ticketSchId);
+        if (!mounted) return;
 
         // Create site data for General Inspection using API response data
         final siteData = AllSiteModel(
@@ -709,6 +728,7 @@ class _TicketScreenState extends State<TicketScreen>
           checklistItems: checklistData,
         );
 
+        if (!mounted) return;
         final parentContext = context;
         Navigator.push(
           context,
@@ -725,6 +745,7 @@ class _TicketScreenState extends State<TicketScreen>
         );
       } else if (_currentActivityType ==
           ActivityTypeEnum.correctiveMaintenance) {
+        if (!mounted || !context.mounted) return;
         final parentContext = context;
         pushPage(
           context,
@@ -754,6 +775,7 @@ class _TicketScreenState extends State<TicketScreen>
           );
           final repository = AssetUploadRepository(ServiceLocator().apiService);
           final result = await repository.getUploadedAssets(siteId: siteId);
+          if (!mounted) return;
 
           Logger.debugLog(
             '📦 API Response - Success: ${result.isSuccess}, Status: ${result.statusCode}',
@@ -936,6 +958,7 @@ class _TicketScreenState extends State<TicketScreen>
           );
           Logger.debugLog('📤 =========================================');
 
+          if (!mounted) return;
           final parentContext = context;
           LoaderWidget.hideLoader();
           Navigator.push(
@@ -958,6 +981,7 @@ class _TicketScreenState extends State<TicketScreen>
           Logger.errorLog('❌ Error fetching asset upload data: $e');
           Logger.errorLog('❌ Stack trace: $stackTrace');
           final errorMessage = e.toString();
+          if (!mounted) return;
           Toastbar.showErrorToastbar(
             errorMessage.length > 100
                 ? 'Error loading asset upload data. Check logs for details.'
@@ -966,6 +990,7 @@ class _TicketScreenState extends State<TicketScreen>
           );
         }
       } else {
+        if (!mounted) return;
         AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
           siteType: siteType,
           auditSchId: ticket.auditSchId?.toString() ?? "",
@@ -974,6 +999,7 @@ class _TicketScreenState extends State<TicketScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
       Toastbar.showErrorToastbar("Failed to load data", context);
     } finally {
       LoaderWidget.hideLoader();
@@ -1188,7 +1214,7 @@ class _TicketScreenState extends State<TicketScreen>
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: ticketResponse.tickets.length,
-      itemBuilder: (context, index) {
+      itemBuilder: (itemContext, index) {
         final ticket = ticketResponse.tickets[index];
         // Use dynamic status from ticket data, fallback to filter-based status only if no status available
         // For asset upload tickets with null status, use empty string to avoid showing "Allocated"
@@ -1226,11 +1252,11 @@ class _TicketScreenState extends State<TicketScreen>
                   siteLat: ticket.latitude!,
                   siteLng: ticket.longitude!,
                   siteName: ticket.pvTicketId,
-                  context: context,
+                  context: itemContext,
                 );
               } else {
                 // Show a message to the user
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(itemContext).showSnackBar(
                   SnackBar(
                     content: Text('Directions are not available for this site'),
                     backgroundColor: AppColors.errorColor,
@@ -1240,7 +1266,7 @@ class _TicketScreenState extends State<TicketScreen>
             },
             onDownloadTap: () async {
               try {
-                LoaderWidget.showLoader(context);
+                LoaderWidget.showLoader(itemContext);
                 bool isDownloaded = false;
 
                 // Handle Asset Upload tickets differently
@@ -1257,6 +1283,7 @@ class _TicketScreenState extends State<TicketScreen>
                   final result = await repository.getUploadedAssets(
                     siteId: siteId,
                   );
+                  if (!mounted || !itemContext.mounted) return;
 
                   if (result.isSuccess && result.data != null) {
                     // Parse response structure - check if data is wrapped or direct
@@ -1303,13 +1330,14 @@ class _TicketScreenState extends State<TicketScreen>
                             longitude: ticket.longitude ?? 0,
                             apiData: processedApiData,
                           );
+                      if (!mounted) return;
                     } else {
                       Logger.errorLog(
                         '❌ Invalid asset upload data structure: responseData is null',
                       );
                       Toastbar.showErrorToastbar(
                         'Invalid asset upload data structure',
-                        context,
+                        itemContext,
                       );
                     }
                   } else {
@@ -1319,7 +1347,7 @@ class _TicketScreenState extends State<TicketScreen>
                     Logger.errorLog(
                       '❌ Failed to download asset upload data: $errorMsg',
                     );
-                    Toastbar.showErrorToastbar(errorMsg, context);
+                    Toastbar.showErrorToastbar(errorMsg, itemContext);
                   }
                 } else {
                   // Handle General Inspection tickets differently
@@ -1342,16 +1370,18 @@ class _TicketScreenState extends State<TicketScreen>
 
                     activityType: _currentActivityType,
                   );
+                  if (!mounted || !itemContext.mounted) return;
                 }
 
                 if (isDownloaded) {
+                  if (!mounted || !itemContext.mounted) return;
                   // Add to local state and trigger UI update
                   setState(() {
                     _downloadedTicketIds.add(ticket.ticketSchId);
                   });
 
                   // Re-initialize downloaded tickets state to ensure consistency
-                  final currentState = context.read<TicketCubit>().state;
+                  final currentState = itemContext.read<TicketCubit>().state;
                   if (currentState is TicketSuccess) {
                     _initializeDownloadedTickets(
                       currentState.ticketResponse.tickets,
@@ -1360,12 +1390,13 @@ class _TicketScreenState extends State<TicketScreen>
 
                   Toastbar.showSuccessToastbar(
                     "Data downloaded successfully",
-                    context,
+                    itemContext,
                   );
                 } else {
+                  if (!mounted || !itemContext.mounted) return;
                   Toastbar.showErrorToastbar(
                     "Failed to download data, please try again",
-                    context,
+                    itemContext,
                   );
                 }
               } finally {
@@ -1403,7 +1434,7 @@ class _TicketScreenState extends State<TicketScreen>
             Text(
               errorMessage,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
                 fontFamily: fontFamilyMontserrat,
               ),
@@ -1443,6 +1474,7 @@ class _TicketScreenState extends State<TicketScreen>
         ticketSchId: ticket.ticketSchId.toString(),
         activityType: _currentActivityType,
       );
+      if (!mounted) return;
 
       if (filePath != null) {
         // Check if it's in public Downloads or app storage
@@ -1459,6 +1491,7 @@ class _TicketScreenState extends State<TicketScreen>
 
         // Show additional info about file location
         Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('File saved to: $filePath'),
@@ -1468,6 +1501,7 @@ class _TicketScreenState extends State<TicketScreen>
           );
         });
       } else {
+        if (!mounted) return;
         Toastbar.showErrorToastbar('Failed to download PDF', context);
       }
     } catch (e) {
@@ -1482,6 +1516,7 @@ class _TicketScreenState extends State<TicketScreen>
         errorMessage = 'PDF report not found. Please try again later.';
       }
 
+      if (!mounted) return;
       Toastbar.showErrorToastbar(errorMessage, context);
     } finally {
       LoaderWidget.hideLoader();
@@ -1537,6 +1572,7 @@ class _TicketScreenState extends State<TicketScreen>
       // Get pending requests
       final pendingRequestsService = ServiceLocator().pendingRequestService;
       final pendingRequests = await pendingRequestsService.getPendingRequests();
+      if (!mounted) return;
 
       Logger.infoLog(
         'TicketScreen: Found ${pendingRequests.length} pending requests',
@@ -1570,9 +1606,11 @@ class _TicketScreenState extends State<TicketScreen>
       final message =
           'Sync completed: $successCount successful, out of $totalCount';
       Logger.infoLog('TicketScreen: $message');
+      if (!mounted) return;
       Toastbar.showSuccessToastbar(message, context);
     } catch (e) {
       Logger.errorLog('TicketScreen: Error during sync: $e');
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Sync failed: $e', context);
     }
   }

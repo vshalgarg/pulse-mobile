@@ -195,10 +195,12 @@ class FileDownloadService {
   }) async {
     try {
       final hasPermission = await requestStoragePermission();
+      if (!context.mounted) return hasPermission;
       
       if (!hasPermission) {
         final shouldShowRationale = await Permission.storage.shouldShowRequestRationale;
         final status = await Permission.storage.status;
+        if (!context.mounted) return hasPermission;
         
         if (shouldShowRationale || status.isPermanentlyDenied) {
           // Show dialog to request permission

@@ -543,6 +543,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
         isSelfie: false,
         activityType: ActivityTypeEnum.generalInspection,
       );
+      if (!mounted) return;
 
       if (imgId != null && imgId.isNotEmpty) {
         setState(() {

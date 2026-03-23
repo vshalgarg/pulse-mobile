@@ -117,6 +117,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   bool _isQRCodeScanned = false;
 
   bool _isUploading = false;
+  bool _isSaving = false; // Prevent duplicate save taps/races
   String? qrCodeScannedTs;
   String? _uploadedImageId; // Photo ID from server
   String? _photoData; // Photo byte data or base64
@@ -300,6 +301,7 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Picks image from camera (matching CustomInfoCard)
   Future<void> _pickImage() async {
+    if (_isSaving || _isUploading) return;
     final picker = ImagePicker();
     XFile? pickedFile;
     try {
@@ -491,6 +493,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
 
   /// Handles save button click
   Future<void> _handleSave() async {
+    if (_isSaving) return;
+    if (!mounted) return;
+    setState(() => _isSaving = true);
     try {
       // Reset validation state
       setState(() {
@@ -669,6 +674,10 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
           backgroundColor: Colors.red,
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
   }
 
@@ -1323,20 +1332,20 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   /// Builds the save button (matching CustomInfoCard design exactly)
   Widget _buildSaveButton() {
     return ElevatedButton(
-      onPressed: _isUploading
+      onPressed: (_isUploading || _isSaving)
           ? null
           : _handleSave, // Disable button when uploading
       style: ElevatedButton.styleFrom(
-        backgroundColor: _isUploading
+        backgroundColor: (_isUploading || _isSaving)
             ? Colors.grey.shade400
             : const Color(0xFFDBE2F0),
-        foregroundColor: _isUploading
+        foregroundColor: (_isUploading || _isSaving)
             ? Colors.grey.shade600
             : const Color(0xFF2D426E),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
-      child: _isUploading
+      child: (_isUploading || _isSaving)
           ? const SizedBox(
               width: 16,
               height: 16,

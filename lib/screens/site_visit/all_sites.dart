@@ -18,7 +18,6 @@ import 'package:app/utils/calculate_distance.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 
 import '../../commonWidgets/site_card.dart';
 import '../../constants/app_colors.dart';
@@ -112,6 +111,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           Future.delayed(const Duration(milliseconds: 500), () {
+            if (!mounted) return;
             if (sites.isNotEmpty) {
               _initializeDownloadedSites(sites);
             }
@@ -183,6 +183,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
   }
 
   void _navigateToSite(AllSiteModel site) async {
+    if (!mounted || !context.mounted) return;
     final parentContext = context;
 
     try {
@@ -201,6 +202,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             LocationPermission permission = await Geolocator.checkPermission();
             if (permission == LocationPermission.denied) {
               permission = await Geolocator.requestPermission();
+              if (!mounted) return;
               if (permission == LocationPermission.denied) {
                 LoaderWidget.hideLoader();
                 Toastbar.showErrorToastbar(
@@ -212,6 +214,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             }
 
             if (permission == LocationPermission.deniedForever) {
+              if (!mounted) return;
               LoaderWidget.hideLoader();
               final shouldOpenSettings = await showDialog<bool>(
                 context: context,
@@ -248,6 +251,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             // The user can tap "TURN ON" in the system dialog to enable location directly.
             // This is the standard Android behavior, same as Google Maps.
             final currentLocation = await LocationService.getCurrentLocation();
+            if (!mounted) return;
 
             // Calculate distance in kilometers
             final distanceInKm = calculateDistance(
@@ -264,6 +268,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             if (distanceInKm > maxDistanceKm) {
               // Hide loader before showing toast
               LoaderWidget.hideLoader();
+              if (!mounted) return;
               Toastbar.showErrorToastbar(
                 "You are not in the radius of site. Your distance from the site is: ${distanceInKm.toStringAsFixed(2)} km",
                 context,
@@ -276,6 +281,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           // If location fetch fails, hide loader and show error
           LoaderWidget.hideLoader();
           Logger.errorLog('Error calculating distance: $e');
+          if (!mounted) return;
           Toastbar.showErrorToastbar(
             "Unable to get your location. Please ensure location services are enabled.",
             context,
@@ -291,6 +297,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           final storedData = await service.getDataFromSqlite(
             siteAuditSchId: site.siteId.toString(),
           );
+          if (!mounted) return;
 
           if (storedData != null && storedData.apiData.isNotEmpty) {
             // Use stored API data to create AllSiteModel with all fields
@@ -392,6 +399,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           final result = await repository.getUploadedAssets(
             siteId: site.siteId,
           );
+          if (!mounted) return;
 
           if (result.isSuccess && result.data != null) {
             Logger.debugLog(
@@ -580,6 +588,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
       // Use basic site data if no stored data available
       // Hide loader before navigation
       LoaderWidget.hideLoader();
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -709,6 +718,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         // downloadAssetUploadSiteData now handles fetching and saving both site data and API data
         isDownloaded = await service.downloadAssetUploadSiteData(site: site);
       }
+      if (!mounted) return;
 
       if (isDownloaded) {
         // If CM site data downloaded successfully, also download checklist data
@@ -719,6 +729,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             siteName: site.siteName,
             siteDomainId: 1, // Default site domain ID
           );
+          if (!mounted) return;
 
           if (!giDownloaded) {
             // Still consider it successful since CM data was downloaded
@@ -729,6 +740,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             siteCode: site.siteCode,
             siteName: site.siteName,
           );
+          if (!mounted) return;
 
           if (!incidentDownloaded) {
             // Still consider it successful since CM data was downloaded
@@ -741,14 +753,17 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
 
         _initializeDownloadedSites(_allSites);
 
+        if (!mounted) return;
         Toastbar.showSuccessToastbar(
           'Site data downloaded successfully',
           context,
         );
       } else {
+        if (!mounted) return;
         Toastbar.showErrorToastbar('Failed to download site data', context);
       }
     } catch (e) {
+      if (!mounted) return;
       Toastbar.showErrorToastbar('Error downloading site data: $e', context);
     } finally {
       LoaderWidget.hideLoader();
@@ -929,7 +944,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
               child: Text(
                 'Press Enter to search',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   fontStyle: FontStyle.italic,
@@ -1116,7 +1131,7 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
             Text(
               errorMessage,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 14,
                 fontFamily: fontFamilyMontserrat,
               ),
