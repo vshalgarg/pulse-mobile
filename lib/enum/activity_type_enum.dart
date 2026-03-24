@@ -6,7 +6,9 @@ enum ActivityTypeEnum {
   siteVisit("SV"),
   generalInspection("GI"),
   incident("Incident"),
-  assetUpload("AU");
+  assetUpload("AU"),
+  siteVisitLog("siteVisit"),
+  siteVisitDocs("siteVisitDocs");
 
   const ActivityTypeEnum(this.value);
 
@@ -31,6 +33,10 @@ enum ActivityTypeEnum {
         return ActivityTypeEnum.incident;
       case "AU":
         return ActivityTypeEnum.assetUpload;
+      case "siteVisit":
+        return ActivityTypeEnum.siteVisitLog;
+      case "siteVisitDocs":
+        return ActivityTypeEnum.siteVisitDocs;
       default:
         throw ArgumentError('Unknown ActivityTypeEnum value: $value');
     }

@@ -492,7 +492,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _selectedImage!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.siteVisit,
+        activityType: ActivityTypeEnum.siteVisitLog,
       );
       if (!mounted) return;
 
@@ -532,7 +532,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _selectedOfficialIdImage!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.siteVisit,
+        activityType: ActivityTypeEnum.siteVisitDocs,
       );
       if (!mounted) return;
 
@@ -570,7 +570,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _selectedAadharCardImage!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.siteVisit,
+        activityType: ActivityTypeEnum.siteVisitDocs,
       );
       if (!mounted) return;
 
@@ -608,7 +608,7 @@ class _SiteVisitScreenState extends State<SiteVisitScreen> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _selectedLeavingStatusImage!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.siteVisit,
+        activityType: ActivityTypeEnum.siteVisitDocs,
       );
       if (!mounted) return;
 

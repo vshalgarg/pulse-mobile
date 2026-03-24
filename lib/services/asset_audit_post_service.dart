@@ -114,6 +114,8 @@ class AssetAuditPostService {
         url += 'correctiveMaintenance';
         break;
       case ActivityTypeEnum.siteVisit:
+      case ActivityTypeEnum.siteVisitLog:
+      case ActivityTypeEnum.siteVisitDocs:
         url = 'api/v1/om-schedule/siteVisitLog';
         break;
       case ActivityTypeEnum.generalInspection:

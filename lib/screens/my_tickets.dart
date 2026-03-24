@@ -264,6 +264,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       case ActivityTypeEnum.energyReading:
         return "Energy Reading";
       case ActivityTypeEnum.siteVisit:
+      case ActivityTypeEnum.siteVisitLog:
+      case ActivityTypeEnum.siteVisitDocs:
         return "Site Visit";
       case ActivityTypeEnum.generalInspection:
         return "General Inspection";
@@ -887,6 +889,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.siteVisit:
+      case ActivityTypeEnum.siteVisitLog:
+      case ActivityTypeEnum.siteVisitDocs:
         await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.generalInspection:
@@ -1469,6 +1473,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         );
         break;
       case ActivityTypeEnum.siteVisit:
+      case ActivityTypeEnum.siteVisitLog:
+      case ActivityTypeEnum.siteVisitDocs:
         final parentContext = context;
         // Load raw_api_data so we can pass organisationList for dropdown (offline/online)
         List<Map<String, dynamic>>? organisationList;
