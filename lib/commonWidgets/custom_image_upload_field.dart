@@ -164,6 +164,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     File? pickedFile;
 
     try {
+      await FileLogger.info(
+        'Camera flow started',
+        data: {'isSelfie': isSelfie, 'label': widget.label ?? ''},
+      );
       if (!mounted) return;
 
       setState(() => _isLoading = true);
@@ -199,12 +203,14 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
       if (pickedFile == null) {
         await LocalStorageService.setBool(_cameraInProgressKey, false);
+        await FileLogger.info('Camera closed without file');
         Toastbar.showErrorWithoutContext('Camera closed without saving image.');
         return;
       }
 
       if (!pickedFile.existsSync()) {
         await LocalStorageService.setBool(_cameraInProgressKey, false);
+        await FileLogger.error('Captured image file missing');
         Toastbar.showErrorWithoutContext('Unable to read captured image. Please try again.');
         return;
       }
@@ -231,6 +237,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       });
 
       widget.onImageSelected(finalFile);
+      await FileLogger.info(
+        'Camera flow success',
+        data: {'path': finalFile.path},
+      );
       await LocalStorageService.setBool(_cameraInProgressKey, false);
     } catch (e, s) {
       await CrashLogger().logCrash(

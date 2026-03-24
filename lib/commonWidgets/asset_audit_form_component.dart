@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/utils/device_memory_helper.dart';
 import 'package:app/utils/image_compression_helper.dart';
 import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/services/image_upload_service.dart';
@@ -303,13 +304,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
   Future<void> _pickImage() async {
     if (_isSaving || _isUploading) return;
     final picker = ImagePicker();
+    final isLowRam = await DeviceMemoryHelper.isLowRamDevice();
     XFile? pickedFile;
     try {
       pickedFile = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: ImageCompressionHelper.pickImageMaxWidth,
-        maxHeight: ImageCompressionHelper.pickImageMaxHeight,
-        imageQuality: ImageCompressionHelper.pickImageQuality,
+        maxWidth: (isLowRam ? 1280 : ImageCompressionHelper.pickImageMaxWidth),
+        maxHeight: (isLowRam ? 1280 : ImageCompressionHelper.pickImageMaxHeight),
+        imageQuality: (isLowRam ? 50 : ImageCompressionHelper.pickImageQuality),
       );
     } catch (e) {
       if (!mounted) return;
@@ -692,14 +694,14 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     });
 
     try {
-      // Read image file and convert to base64
       final imageFile = File(_selectedPhotoPath!);
-      final imageBytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
+      if (!await imageFile.exists()) {
+        throw Exception('Image file not found');
+      }
 
-      // Upload using ImageUploadService
-      final uniqueId = await _imageUploadService.uploadImage(
-        base64Image,
+      // Upload using file path to reduce runtime memory pressure.
+      final uniqueId = await _imageUploadService.uploadImageFromFilePath(
+        _selectedPhotoPath!,
         ActivityTypeEnum.assetAudit,
         false,
         widget.siteAuditSchId,

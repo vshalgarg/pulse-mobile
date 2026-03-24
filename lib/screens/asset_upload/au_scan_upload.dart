@@ -1368,6 +1368,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
   Future<void> _handleSaveAsset() async {
     if (_isSavingAsset) return;
     _isSavingAsset = true;
+    Logger.debugLog(
+      '📍 [AU_SAVE_FLOW] start: groups=${_assetGroups.length}, total=$_totalAssetCount',
+    );
     // Check if there are any assets to save
     if (_assetGroups.isEmpty || _totalAssetCount == 0) {
       Toastbar.showErrorToastbar(
@@ -1381,6 +1384,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     try {
       // Show loading indicator
       LoaderWidget.showLoader(context);
+      Logger.debugLog('📍 [AU_SAVE_FLOW] loader shown');
 
       // Get selfie image ID from storage
       final selfieImageId = await _getSelfieImageId();
@@ -1391,6 +1395,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       Logger.debugLog(
         '📸 Retrieved selfie image ID for asset upload: $selfieImageId',
       );
+      Logger.debugLog('📍 [AU_SAVE_FLOW] selfie_resolved');
 
       // Get current location
       LocationModel? location;
@@ -1415,6 +1420,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
 
       // Transform assets to API format
       List<AssetUploadItem> assetUploadItems = _transformAssetsToApiFormat(location);
+      Logger.debugLog(
+        '📍 [AU_SAVE_FLOW] transformed_items=${assetUploadItems.length}',
+      );
 
       if (assetUploadItems.isEmpty) {
         LoaderWidget.hideLoader();
@@ -1586,6 +1594,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       if (result.statusCode != null &&
           result.statusCode! >= 200 &&
           result.statusCode! < 300) {
+        Logger.debugLog('📍 [AU_SAVE_FLOW] submit_success');
         // Success
         Toastbar.showSuccessToastbar('Assets saved successfully', context);
         Logger.infoLog('✅ Assets uploaded successfully');
@@ -1692,6 +1701,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       } else {
         // Error
         final errorMessage = result.errorMessage ?? 'Failed to save assets';
+        Logger.debugLog('📍 [AU_SAVE_FLOW] submit_failed: $errorMessage');
         if (!mounted) return;
         Toastbar.showErrorToastbar(errorMessage, context);
         Logger.errorLog('❌ Failed to upload assets: $errorMessage');
@@ -1702,6 +1712,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       }
 
       Logger.errorLog('❌ Error saving assets: $e');
+      Logger.debugLog('📍 [AU_SAVE_FLOW] exception: $e');
       if (!mounted) return;
       Toastbar.showErrorToastbar(
         'Error saving assets: ${e.toString()}',
@@ -1709,6 +1720,7 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
       );
     } finally {
       _isSavingAsset = false;
+      Logger.debugLog('📍 [AU_SAVE_FLOW] end');
     }
   }
 

@@ -611,14 +611,14 @@ class _CCTVFormComponentState extends State<CctvFormComponent> {
 
     try {
 
-      // Read image file and convert to base64
       final imageFile = File(_selectedPhotoPath!);
-      final imageBytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(imageBytes);
+      if (!await imageFile.exists()) {
+        throw Exception('Image file not found');
+      }
 
-      // Upload using ImageUploadService
-      final uniqueId = await _imageUploadService.uploadImage(
-        base64Image,
+      // Upload using file path to reduce runtime memory pressure.
+      final uniqueId = await _imageUploadService.uploadImageFromFilePath(
+        _selectedPhotoPath!,
         ActivityTypeEnum.assetAudit,
         false,
         widget.siteAuditSchId,

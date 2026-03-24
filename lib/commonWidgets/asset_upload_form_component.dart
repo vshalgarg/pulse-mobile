@@ -943,45 +943,27 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     });
 
     try {
-      // Store the original file path before we might modify _selectedPhotoPath
       final originalPhotoPath = _selectedPhotoPath!;
-      
-      // Check if _selectedPhotoPath is already base64 (shouldn't be, but handle it)
-      String base64Image;
-      
-      if (originalPhotoPath.startsWith('data:image/')) {
-        // Already base64 - extract the base64 part
-        final parts = originalPhotoPath.split(',');
-        if (parts.length == 2) {
-          base64Image = parts[1];
-        } else {
-          throw Exception('Invalid base64 image format');
-        }
-      } else {
-        // It's a file path - read and convert to base64
-        final imageFile = File(originalPhotoPath);
-        final bytes = await imageFile.readAsBytes();
-        base64Image = base64Encode(bytes);
+      final imageFile = File(originalPhotoPath);
+      if (!await imageFile.exists()) {
+        throw Exception('Image file not found');
       }
 
-      // Upload using ImageUploadService
-      final uniqueId = await _imageUploadService.uploadImage(
-        base64Image,
+      // Upload using file path to reduce runtime memory pressure.
+      final uniqueId = await _imageUploadService.uploadImageFromFilePath(
+        originalPhotoPath,
         ActivityTypeEnum.assetAudit,
         false,
         widget.siteAuditSchId,
       );
 
-      // Create data URL format for immediate display
-      final dataUrl = 'data:image/jpeg;base64,$base64Image';
-
       if (!mounted) return;
       setState(() {
         _isUploading = false;
         _uploadedImageId = uniqueId;
-        // Update photo data with base64 for immediate display in table
-        _photoData = dataUrl;
-        _selectedPhotoPath = dataUrl; // Update to base64 format for display
+        // Keep file path in memory; avoid large base64 payloads in widget state.
+        _photoData = originalPhotoPath;
+        _selectedPhotoPath = originalPhotoPath;
       });
 
       if (uniqueId.isEmpty) {

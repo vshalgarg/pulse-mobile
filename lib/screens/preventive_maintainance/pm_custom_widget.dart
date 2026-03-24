@@ -1006,9 +1006,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
               apiService: apiService,
             );
 
-            final imageData = await file.readAsBytes();
-            final photoId = await imageUploadService.uploadImage(
-              base64Encode(imageData),
+            final photoId = await imageUploadService.uploadImageFromFilePath(
+              file.path,
               ActivityTypeEnum.preventiveMaintenance,
               false,
               _currentItem['site_audit_sch_id']?.toString() ?? '',
@@ -1019,7 +1018,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
               setState(() {
                 // Replace existing images with the new one
                 _addImageToResponseImages(photoId, replaceExisting: true);
-                _imageData = 'data:image/jpeg;base64,${base64Encode(imageData)}';
+                _imageData = file.path;
               });
 
               _notifyValueChanged();
@@ -1578,9 +1577,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
 
-      final imageData = await imageFile.readAsBytes();
-      final photoId = await imageUploadService.uploadImage(
-        base64Encode(imageData),
+      final photoId = await imageUploadService.uploadImageFromFilePath(
+        imageFile.path,
         ActivityTypeEnum.preventiveMaintenance,
         false,
         siteAuditSchId,
@@ -1601,8 +1599,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         if (!mounted) return;
         setState(() {
           _dependentImageIds[elementKey] = photoId;
-          // Store base64 image data for display
-          _dependentImageData[elementKey] = 'data:image/jpeg;base64,${base64Encode(imageData)}';
+          // Store file path for display to avoid in-memory base64 usage.
+          _dependentImageData[elementKey] = imageFile.path;
           // Replace existing image at the specific index in responseImages array
           _addImageToResponseImages(photoId, replaceExisting: true, elementIndex: elementIndex);
           // Clear any validation highlight since image is now present

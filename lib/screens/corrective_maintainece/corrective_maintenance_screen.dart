@@ -1465,6 +1465,9 @@ class _CorrectiveMaintenanceScreenState
                         'pclsri_id': mergedItem['cm_check_list_mst_id'] ?? mergedItem['cmCheckListMstId'],
                         'photo_taken_ts': img['photoTakenTs'] ?? img['photo_taken_ts'],
                         'image_data': imageData, // Add base64 image data for display
+                        'image_path': imageData != null && imageData.startsWith('/')
+                            ? imageData
+                            : null,
                       });
                     }
                   }
@@ -1542,6 +1545,9 @@ class _CorrectiveMaintenanceScreenState
                                     'photo_id': photoId,
                                     'photo_taken_ts': childImg['photoTakenTs'] ?? childImg['photo_taken_ts'],
                                     'image_data': imageData,
+                                    'image_path': imageData != null && imageData.startsWith('/')
+                                        ? imageData
+                                        : null,
                                   });
                                 }
                               }
@@ -2269,7 +2275,6 @@ class _CorrectiveMaintenanceScreenState
                 // Upload immediately if online
                 await _uploadPhotoImmediately(
                   file,
-                  encodedData,
                   'Identification',
                   (photoId) {
                     _originalIdentificationPhotoId = photoId;
@@ -2349,7 +2354,6 @@ class _CorrectiveMaintenanceScreenState
                 // Upload immediately if online
                 await _uploadPhotoImmediately(
                   file,
-                  encodedData,
                   'Time Stamp',
                   (photoId) {
                     _originalTimestampPhotoId = photoId;
@@ -2583,6 +2587,33 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
+  /// Normalizes image payload maps to keep local file paths in `image_path`.
+  /// This reduces base64 fallback during LOCAL_IMAGE_ID reconciliation uploads.
+  void _normalizeLocalImagePayload(Map<String, dynamic> imageData) {
+    final existingPath = imageData['image_path']?.toString() ??
+        imageData['imagePath']?.toString();
+    if (existingPath != null && existingPath.startsWith('/')) {
+      imageData['image_path'] = existingPath;
+      imageData['imagePath'] = existingPath;
+      return;
+    }
+
+    final candidates = <String?>[
+      imageData['image_url']?.toString(),
+      imageData['imageUrl']?.toString(),
+      imageData['image_data']?.toString(),
+      imageData['imageData']?.toString(),
+    ];
+
+    for (final candidate in candidates) {
+      if (candidate != null && candidate.startsWith('/')) {
+        imageData['image_path'] = candidate;
+        imageData['imagePath'] = candidate;
+        return;
+      }
+    }
+  }
+
   /// Upload all checklist images that have LOCAL_IMAGE_ID and replace with actual photo IDs
   Future<void> _uploadChecklistImagesAndUpdateIds(
     List<dynamic> checklistData,
@@ -2594,6 +2625,7 @@ class _CorrectiveMaintenanceScreenState
       Map<String, dynamic> imageData,
       String context,
     ) async {
+      _normalizeLocalImagePayload(imageData);
       final photoId = imageData['photo_id']?.toString() ?? imageData['photoId']?.toString();
       
       // Only upload if it's a LOCAL_IMAGE_ID
@@ -2602,47 +2634,68 @@ class _CorrectiveMaintenanceScreenState
       }
       
       try {
-        // Get base64 image data
-        var base64Image = imageData['image_data']?.toString();
-        
-        // If image_data is a data URL, extract the base64 part
-        if (base64Image != null && base64Image.startsWith('data:image')) {
-          final parts = base64Image.split(',');
-          if (parts.length > 1) {
-            base64Image = parts[1];
-          }
-        }
-        
-        if (base64Image == null || base64Image.isEmpty) {
-          Logger.errorLog('[CM] No image_data found for LOCAL_IMAGE_ID in $context - clearing photoId so it is not sent');
-          imageData['photo_id'] = null;
-          imageData['photoId'] = null;
-          return null;
-        }
-        
-        Logger.infoLog('[CM] Uploading image for: $context');
-        
-        // Upload image using ImageUploadService
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
-          base64Image,
-          ActivityTypeEnum.correctiveMaintenance,
-          false, // not a selfie
-          _selectedSite?.siteId.toString(),
-        );
-        
-        if (serverPhotoId.isNotEmpty) {
-          // Replace LOCAL_IMAGE_ID with actual server photo ID
-          imageData['photo_id'] = serverPhotoId;
-          imageData['photoId'] = serverPhotoId;
-          
-          Logger.infoLog('[CM] ✅ Image uploaded successfully. Photo ID: $serverPhotoId');
-          return serverPhotoId;
+        // Prefer file-path upload to reduce memory pressure; fallback to base64 for legacy payloads.
+        final imagePath =
+            imageData['image_path']?.toString() ??
+            imageData['imagePath']?.toString();
+        final imageFile =
+            imagePath != null && imagePath.isNotEmpty ? File(imagePath) : null;
+
+        String? serverPhotoId;
+        if (imageFile != null && await imageFile.exists()) {
+          Logger.infoLog('[CM] Uploading image for: $context using file path');
+          serverPhotoId = await ServiceLocator()
+              .imageUploadService
+              .uploadImageFromFilePath(
+                imageFile.path,
+                ActivityTypeEnum.correctiveMaintenance,
+                false,
+                _selectedSite?.siteId.toString(),
+              );
         } else {
-          Logger.errorLog('[CM] ❌ Failed to upload image - empty photo ID returned, clearing photoId so it is not sent');
+          var base64Image = imageData['image_data']?.toString();
+
+          // If image_data is a data URL, extract the base64 part
+          if (base64Image != null && base64Image.startsWith('data:image')) {
+            final parts = base64Image.split(',');
+            if (parts.length > 1) {
+              base64Image = parts[1];
+            }
+          }
+
+          if (base64Image == null || base64Image.isEmpty) {
+            Logger.errorLog(
+              '[CM] No image_data/image_path found for LOCAL_IMAGE_ID in $context - clearing photoId so it is not sent',
+            );
+            imageData['photo_id'] = null;
+            imageData['photoId'] = null;
+            return null;
+          }
+
+          Logger.infoLog('[CM] Uploading image for: $context using base64 fallback');
+          serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+            base64Image,
+            ActivityTypeEnum.correctiveMaintenance,
+            false, // not a selfie
+            _selectedSite?.siteId.toString(),
+          );
+        }
+
+        if (serverPhotoId.isEmpty) {
+          Logger.errorLog(
+            '[CM] ❌ Failed to upload image - empty photo ID returned, clearing photoId so it is not sent',
+          );
           imageData['photo_id'] = null;
           imageData['photoId'] = null;
           return null;
         }
+
+        // Replace LOCAL_IMAGE_ID with actual server photo ID
+        imageData['photo_id'] = serverPhotoId;
+        imageData['photoId'] = serverPhotoId;
+
+        Logger.infoLog('[CM] ✅ Image uploaded successfully. Photo ID: $serverPhotoId');
+        return serverPhotoId;
       } catch (e) {
         Logger.errorLog('[CM] ❌ Error uploading image: $e - clearing photoId so it is not sent');
         imageData['photo_id'] = null;
@@ -2713,6 +2766,13 @@ class _CorrectiveMaintenanceScreenState
               if (base64Image != null && base64Image.isNotEmpty) {
                 childImageData['image_data'] = base64Image;
               }
+              final imagePath = childImageData['imagePath']?.toString() ??
+                  childImageData['image_path']?.toString() ??
+                  childImageData['imageUrl']?.toString() ??
+                  childImageData['image_url']?.toString();
+              if (imagePath != null && imagePath.startsWith('/')) {
+                childImageData['image_path'] = imagePath;
+              }
               
               await _uploadSingleImage(
                 childImageData,
@@ -2730,7 +2790,6 @@ class _CorrectiveMaintenanceScreenState
   /// Upload a photo immediately when selected (if online)
   Future<void> _uploadPhotoImmediately(
     File file,
-    String base64Image,
     String photoName,
     Function(String) onPhotoIdReceived,
   ) async {
@@ -2745,8 +2804,8 @@ class _CorrectiveMaintenanceScreenState
       
       Logger.infoLog('[CM] Uploading $photoName photo immediately (online mode)...');
       
-      final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
-        base64Image,
+      final serverPhotoId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
+        file.path,
         ActivityTypeEnum.correctiveMaintenance,
         false, // not a selfie
         _selectedSite?.siteId.toString(),
@@ -2778,14 +2837,9 @@ class _CorrectiveMaintenanceScreenState
     // Upload Identification Photo (only if not already uploaded)
     if (identificationPhoto != null && (_originalIdentificationPhotoId == null || _originalIdentificationPhotoId.toString().trim().isEmpty)) {
       try {
-        Logger.infoLog('[CM] Reading Identification photo bytes...');
-        final bytes = await identificationPhoto!.readAsBytes();
-        final base64Image = base64Encode(bytes);
-        Logger.infoLog('[CM] Identification photo encoded, size: ${base64Image.length} chars');
-        
         Logger.infoLog('[CM] Uploading Identification photo to server...');
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
-          base64Image,
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
+          identificationPhoto!.path,
           ActivityTypeEnum.correctiveMaintenance,
           false, // not a selfie
           _selectedSite?.siteId.toString(),
@@ -2814,14 +2868,9 @@ class _CorrectiveMaintenanceScreenState
     // Upload Time Stamp Photo (only if not already uploaded)
     if (timestampPhoto != null && (_originalTimestampPhotoId == null || _originalTimestampPhotoId.toString().trim().isEmpty)) {
       try {
-        Logger.infoLog('[CM] Reading Time Stamp photo bytes...');
-        final bytes = await timestampPhoto!.readAsBytes();
-        final base64Image = base64Encode(bytes);
-        Logger.infoLog('[CM] Time Stamp photo encoded, size: ${base64Image.length} chars');
-        
         Logger.infoLog('[CM] Uploading Time Stamp photo to server...');
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
-          base64Image,
+        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
+          timestampPhoto!.path,
           ActivityTypeEnum.correctiveMaintenance,
           false, // not a selfie
           _selectedSite?.siteId.toString(),
@@ -2858,6 +2907,7 @@ class _CorrectiveMaintenanceScreenState
       Map<String, dynamic> imageData,
       String context,
     ) async {
+      _normalizeLocalImagePayload(imageData);
       final photoId = imageData['photoId']?.toString() ?? 
                      imageData['photo_id']?.toString();
       
@@ -2867,48 +2917,73 @@ class _CorrectiveMaintenanceScreenState
       }
       
       try {
-        // Get base64 image data - check both camelCase and snake_case
-        var base64Image = imageData['imageData']?.toString() ?? 
-                         imageData['image_data']?.toString();
-        
-        // If image_data is a data URL, extract the base64 part
-        if (base64Image != null && base64Image.startsWith('data:image')) {
-          final parts = base64Image.split(',');
-          if (parts.length > 1) {
-            base64Image = parts[1];
-          }
-        }
-        
-        if (base64Image == null || base64Image.isEmpty) {
-          Logger.errorLog('[CM] No imageData/image_data found for LOCAL_IMAGE_ID in $context - clearing photoId so it is not sent');
-          imageData['photoId'] = null;
-          imageData['photo_id'] = null;
-          return null;
-        }
-        
-        Logger.infoLog('[CM] Uploading impacted item image for: $context');
-        
-        // Upload image using ImageUploadService
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
-          base64Image,
-          ActivityTypeEnum.correctiveMaintenance,
-          false, // not a selfie
-          _selectedSite?.siteId.toString(),
-        );
-        
-        if (serverPhotoId.isNotEmpty) {
-          // Replace LOCAL_IMAGE_ID with actual server photo ID (update both field names)
-          imageData['photoId'] = serverPhotoId;
-          imageData['photo_id'] = serverPhotoId;
-          
-          Logger.infoLog('[CM] ✅ Impacted item image uploaded successfully. Photo ID: $serverPhotoId');
-          return serverPhotoId;
+        // Prefer file-path upload to reduce memory pressure; fallback to base64 for legacy payloads.
+        final imagePath =
+            imageData['imagePath']?.toString() ??
+            imageData['image_path']?.toString();
+        final imageFile =
+            imagePath != null && imagePath.isNotEmpty ? File(imagePath) : null;
+
+        String? serverPhotoId;
+        if (imageFile != null && await imageFile.exists()) {
+          Logger.infoLog(
+            '[CM] Uploading impacted item image for: $context using file path',
+          );
+          serverPhotoId = await ServiceLocator()
+              .imageUploadService
+              .uploadImageFromFilePath(
+                imageFile.path,
+                ActivityTypeEnum.correctiveMaintenance,
+                false,
+                _selectedSite?.siteId.toString(),
+              );
         } else {
-          Logger.errorLog('[CM] ❌ Failed to upload impacted item image - empty photo ID returned, clearing photoId so it is not sent');
+          var base64Image = imageData['imageData']?.toString() ??
+              imageData['image_data']?.toString();
+
+          // If image_data is a data URL, extract the base64 part
+          if (base64Image != null && base64Image.startsWith('data:image')) {
+            final parts = base64Image.split(',');
+            if (parts.length > 1) {
+              base64Image = parts[1];
+            }
+          }
+
+          if (base64Image == null || base64Image.isEmpty) {
+            Logger.errorLog(
+              '[CM] No imageData/image_data/imagePath found for LOCAL_IMAGE_ID in $context - clearing photoId so it is not sent',
+            );
+            imageData['photoId'] = null;
+            imageData['photo_id'] = null;
+            return null;
+          }
+
+          Logger.infoLog(
+            '[CM] Uploading impacted item image for: $context using base64 fallback',
+          );
+          serverPhotoId = await ServiceLocator().imageUploadService.uploadImage(
+            base64Image,
+            ActivityTypeEnum.correctiveMaintenance,
+            false, // not a selfie
+            _selectedSite?.siteId.toString(),
+          );
+        }
+
+        if (serverPhotoId.isEmpty) {
+          Logger.errorLog(
+            '[CM] ❌ Failed to upload impacted item image - empty photo ID returned, clearing photoId so it is not sent',
+          );
           imageData['photoId'] = null;
           imageData['photo_id'] = null;
           return null;
         }
+
+        // Replace LOCAL_IMAGE_ID with actual server photo ID (update both field names)
+        imageData['photoId'] = serverPhotoId;
+        imageData['photo_id'] = serverPhotoId;
+
+        Logger.infoLog('[CM] ✅ Impacted item image uploaded successfully. Photo ID: $serverPhotoId');
+        return serverPhotoId;
       } catch (e) {
         Logger.errorLog('[CM] ❌ Error uploading impacted item image: $e - clearing photoId so it is not sent');
         imageData['photoId'] = null;
@@ -4717,12 +4792,9 @@ class _CorrectiveMaintenanceScreenState
     ActivityTypeEnum activityType,
   ) async {
     try {
-      final bytes = await imageFile.readAsBytes();
-      final base64Image = base64Encode(bytes);
-      
       // Upload using ImageUploadService which handles offline automatically
-      final uniqueId = await ServiceLocator().imageUploadService.uploadImage(
-        base64Image,
+      final uniqueId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
+        imageFile.path,
         activityType,
         false, // not a selfie
         null, // no sch id for CM

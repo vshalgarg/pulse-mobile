@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
@@ -77,13 +76,9 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
     try {
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
-      
-      final imageBytes = await _selectedImage!.readAsBytes();
-      if (!mounted) return;
-      final imageData = base64Encode(imageBytes);
-      
-      final photoId = await imageUploadService.uploadImage(
-        imageData,
+
+      final photoId = await imageUploadService.uploadImageFromFilePath(
+        _selectedImage!.path,
         ActivityTypeEnum.assetAudit,
         false,
         widget.siteAuditSchId,
@@ -91,12 +86,13 @@ class _SimpleAssetAuditFormComponentState extends State<SimpleAssetAuditFormComp
       if (!mounted) return;
 
       if (photoId.isNotEmpty) {
+        final imagePath = _selectedImage!.path;
         setState(() {
           _currentPhotoId = photoId;
-          _currentImageData = imageData;
+          _currentImageData = imagePath;
         });
 
-        widget.onDataChanged?.call(photoId, imageData, _isQRCodeScanned, _qrCodeScannedTs);
+        widget.onDataChanged?.call(photoId, imagePath, _isQRCodeScanned, _qrCodeScannedTs);
         showCustomToast(context, 'Image uploaded successfully');
         Logger.debugLog('✅ Image uploaded with ID: $photoId');
       } else {

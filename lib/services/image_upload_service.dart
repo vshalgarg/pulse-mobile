@@ -137,6 +137,21 @@ class ImageUploadService {
     return file.path;
   }
 
+  Future<String> _persistImageFileToAppData({
+    required String uniqueId,
+    required String sourcePath,
+  }) async {
+    final dir = await _getImagesDirectory();
+    final targetPath = '${dir.path}/$uniqueId.jpg';
+    final source = File(sourcePath);
+    final target = File(targetPath);
+    if (await source.exists()) {
+      await source.copy(targetPath);
+      return target.path;
+    }
+    throw Exception('Source image file missing: $sourcePath');
+  }
+
   Future<String?> _readStoredImageDataAsBase64(String? storedValue) async {
     if (storedValue == null || storedValue.isEmpty) return null;
     if (!_looksLikeStoredPath(storedValue)) {
@@ -211,6 +226,54 @@ class ImageUploadService {
       return finalId;
     } catch (e) {
       Logger.errorLog('Error in uploadImage: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload image directly from local file path to reduce memory pressure.
+  Future<String> uploadImageFromFilePath(
+    String imageFilePath,
+    ActivityTypeEnum activityType,
+    bool isSelfie,
+    String? siteSchId,
+  ) async {
+    try {
+      final uniqueId = _generateUniqueId();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final storedPath = await _persistImageFileToAppData(
+        uniqueId: uniqueId,
+        sourcePath: imageFilePath,
+      );
+
+      await _saveImageToSQLite(
+        uniqueId: uniqueId,
+        imageData: storedPath,
+        isSelfie: isSelfie,
+        activityType: activityType,
+        schId: siteSchId,
+        serverId: null,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      String finalId = uniqueId;
+      try {
+        final serverId = await _uploadFileToServer(
+          imageFilePath: storedPath,
+          activityType: activityType,
+          siteSchId: siteSchId ?? '',
+          isSelfie: isSelfie,
+        );
+        if (serverId != null) {
+          await _updateServerId(uniqueId, serverId);
+          finalId = serverId;
+        }
+      } catch (e) {
+        Logger.errorLog('Server upload failed (file path): $e');
+      }
+      return finalId;
+    } catch (e) {
+      Logger.errorLog('Error in uploadImageFromFilePath: $e');
       rethrow;
     }
   }
@@ -645,6 +708,54 @@ class ImageUploadService {
       }
     } catch (e) {
       Logger.errorLog('❌ Error uploading to server: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _uploadFileToServer({
+    required String imageFilePath,
+    required ActivityTypeEnum activityType,
+    required String siteSchId,
+    required bool isSelfie,
+  }) async {
+    try {
+      final multipartFile = await MultipartFile.fromFile(
+        imageFilePath,
+        filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      ResponseResult? response;
+      if (isSelfie) {
+        if (await ConnectivityHelper.isConnected()) {
+          response = await _apiService.post<Map<String, dynamic>>(
+            path: "api/v1/mobile/uploadsSelfie",
+            data: {'selfie': multipartFile, 'imgId': '0', 'SchId': siteSchId},
+            useFormDataFormat: true,
+          );
+        }
+      } else {
+        response = await _apiService.post<Map<String, dynamic>>(
+          path: 'api/v1/mobile/uploads',
+          data: {
+            'imgFile': multipartFile,
+            'activityType': activityType.value,
+            'schId': siteSchId,
+          },
+          useFormDataFormat: true,
+        );
+      }
+
+      if (response != null && response.isSuccess && response.data != null) {
+        final photoId =
+            response.data!['imgId']?.toString() ??
+            response.data!['photoId']?.toString() ??
+            response.data!['id']?.toString();
+        if (photoId != null && photoId.isNotEmpty) {
+          return photoId;
+        }
+      }
+      return null;
+    } catch (e) {
+      Logger.errorLog('Error in _uploadFileToServer: $e');
       return null;
     }
   }

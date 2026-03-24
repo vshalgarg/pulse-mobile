@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/services/service_locator.dart';
@@ -92,9 +91,9 @@ class _CustomErFormState extends State<CustomErForm> {
       final apiService = AppConfig.of(context).apiService;
       final imageUploadService = ImageUploadService(apiService: apiService);
 
-      // Upload image using ImageUploadService
-      final uniqueId = await imageUploadService.uploadImage(
-        await imageFile.readAsBytes().then((bytes) => base64Encode(bytes)),
+      // Upload image using file path to reduce runtime memory pressure.
+      final uniqueId = await imageUploadService.uploadImageFromFilePath(
+        imageFile.path,
         ActivityTypeEnum.assetAudit,
         false,
         widget.siteAuditSchId,

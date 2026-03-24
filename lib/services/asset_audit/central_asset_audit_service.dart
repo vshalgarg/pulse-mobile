@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
@@ -1024,13 +1023,10 @@ class CentralAssetAuditService {
           fileToRead = compressed;
         }
       }
-      final imageBytes = await fileToRead.readAsBytes();
-      final imageData = base64Encode(imageBytes);
-
-      // Upload using ImageUploadService
-      return await ServiceLocator().imageUploadService.uploadImage(
-        imageData,
-        ActivityTypeEnum.assetAudit,
+      // Upload using persisted file path to reduce runtime memory pressure.
+      return await ServiceLocator().imageUploadService.uploadImageFromFilePath(
+        fileToRead.path,
+        activityType,
         isSelfie,
         siteAuditSchId,
       );
