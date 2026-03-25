@@ -537,14 +537,14 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
 
       Logger.debugLog("✅ Energy Reading posted to server successfully");
 
-      // Update status in SQLite to "IN PROGRESS" after successful submission
+      // Update status in SQLite to COMPLETED so My Tickets reflects final state offline too.
       try {
         await ServiceLocator().centralAssetAuditDataService
             .updateRawApiDataStatus(
               siteAuditSchId: widget.siteAuditSchId,
-              status: 'IN PROGRESS',
+              status: 'COMPLETED',
             );
-        Logger.debugLog("✅ Status updated to IN PROGRESS in SQLite");
+        Logger.debugLog("✅ Status updated to COMPLETED in SQLite");
       } catch (e) {
         Logger.errorLog("⚠️ Failed to update status in SQLite: $e");
       }
