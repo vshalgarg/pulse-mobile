@@ -1237,7 +1237,11 @@ class _TicketScreenState extends State<TicketScreen>
             siteId: ticket.cluster ?? 'N/A',
             location: ticket.cluster ?? 'N/A',
             company: ticket.operator ?? 'N/A',
-            raisedOn: ticket.raisedDt,
+            raisedOn: (_currentActivityType == ActivityTypeEnum.assetUpload &&
+                    ticket.lastModifiedDt != null &&
+                    ticket.lastModifiedDt!.trim().isNotEmpty)
+                ? ticket.lastModifiedDt!.trim()
+                : ticket.raisedDt,
             dueDate: ticket.dueDt,
             totalAssets: ticket.totalAssets,
             statusText: statusText,

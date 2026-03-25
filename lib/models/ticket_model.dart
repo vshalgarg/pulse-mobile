@@ -46,6 +46,7 @@ class Ticket extends Equatable {
   final String? cluster;
   final String? operator;
   final String raisedDt;
+  final String? lastModifiedDt;
   final String dueDt;
   final int? auditSchId;
   final double? longitude;
@@ -62,6 +63,7 @@ class Ticket extends Equatable {
     this.cluster,
     this.operator,
     required this.raisedDt,
+    this.lastModifiedDt,
     required this.dueDt,
     this.auditSchId,
     this.longitude,
@@ -100,6 +102,7 @@ class Ticket extends Equatable {
       cluster: json['cluster'],
       operator: json['operator'],
       raisedDt: json['raised_dt'] ?? '',
+      lastModifiedDt: json['last_modified_dt']?.toString(),
       dueDt: json['due_dt'] ?? '',
       auditSchId: json['audit_sch_id'] != null ? int.tryParse(json['audit_sch_id'].toString()) : null,
       longitude: parseDouble(json['longitude']),
@@ -124,6 +127,7 @@ class Ticket extends Equatable {
       'cluster': cluster,
       'operator': operator,
       'raised_dt': raisedDt,
+      'last_modified_dt': lastModifiedDt,
       'due_dt': dueDt,
       'audit_sch_id': auditSchId,
       'longitude': longitude,
@@ -143,6 +147,7 @@ class Ticket extends Equatable {
         cluster,
         operator,
         raisedDt,
+        lastModifiedDt,
         dueDt,
         auditSchId,
         longitude,
