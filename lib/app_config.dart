@@ -2,6 +2,7 @@ import 'package:app/bloc/global_loading_cubit.dart';
 import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
+import 'package:app/repositories/pmis_repository.dart';
 import 'package:app/repositories/ticket_repository.dart';
 import 'package:app/repositories/energy_reading_repository.dart';
 
@@ -12,6 +13,7 @@ import 'package:app/repositories/audit_schedule_repository.dart';
 
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
+import 'services/pmis_service.dart';
 import 'services/ticket_service.dart';
 import 'services/user_details_service.dart';
 
@@ -35,6 +37,7 @@ class AppConfig {
   late final AuthRepository authRepository;
   late final DashboardRepository dashboardRepository;
   late final TicketRepository ticketRepository;
+  late final PmisRepository pmisRepository;
   late final EnergyReadingRepository energyReadingRepository;
 
   late final SelfieUploadRepository selfieUploadRepository;
@@ -61,12 +64,14 @@ class AppConfig {
 
     // Initialize ticket service
     final ticketService = TicketService(apiService: apiService);
+    final pmisService = PmisService(apiService: apiService);
 
     // Initialize repositories
     askRepository = DemoRepository(apiService);
     authRepository = AuthRepository(apiService);
     dashboardRepository = DashboardRepository(apiService);
     ticketRepository = TicketRepository(ticketService: ticketService);
+    pmisRepository = PmisRepository(pmisService: pmisService);
 
     // Initialize user details service
     UserDetailsService.instance.initialize(apiService);

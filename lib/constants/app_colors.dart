@@ -87,6 +87,14 @@ class AppColors {
   static const Color reachBlackColor = Color(0xFF0E151E);
   static const Color lightGreenColor = Color(0xFF97D700);
   static const Color errorColor = Color(0xFFEA5455);
+
+  // PMIS card colors
+  static const Color pmisProgressComplete = Color(0xFF4CBB92);
+  static const Color pmisProgressIncomplete = Color(0xFFFF9F43);
+  static const Color pmisProgressTrack = Color(0xFF696969);
+  static const Color pmisStatusColor = Color(0xFFD93025);
+  static const Color pmisTitleColor = Color(0xFF00172F);
+
   static const Color pinTextBorderColor = Color(0xFFE8E6EA);
   static const Color faceIdBackgroundColor = Color(0xFFF4F4F4);
   static const Color cardBackgroundColor = Color(0xFFFFF0F4);

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:app/screens/pmis/project_list.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
@@ -435,7 +436,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
               iconPath: AppImages.project,
               label: 'Project',
               onTap: () => _navigateToTask('Project'),
-              isComingSoon: true,
+              isComingSoon: false,
             ),
             _buildTaskCard(
               iconPath: AppImages.warehouse,
@@ -539,6 +540,15 @@ class _PulseDashboardState extends State<PulseDashboard> {
   }
 
   void _navigateToTask(String taskName) {
+
+    if (taskName == 'Project') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProjectListScreen(),
+        ),
+      );
+    }else{
     if (taskName == 'SV' || 
         taskName == 'GI' || 
         taskName == 'Incident' || 
@@ -559,6 +569,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
         ),
       );
     }
+  }
   }
 
   void _navigateToMyTickets() {
