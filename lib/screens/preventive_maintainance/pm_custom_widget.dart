@@ -1480,14 +1480,20 @@ class PMCustomWidgetState extends State<PMCustomWidget>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    checklistDesc,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: shouldHighlight ? AppColors.errorColor : Colors.white,
-                      fontFamily: fontFamilyMontserrat,
+                  Expanded(
+                    child: Text(
+                      checklistDesc,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: shouldHighlight
+                            ? AppColors.errorColor
+                            : Colors.white,
+                        fontFamily: fontFamilyMontserrat,
+                      ),
+                      softWrap: true,
                     ),
                   ),
                   if (isMandatory)

@@ -46,14 +46,18 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
         // Label with required mark
         if(widget.label != null) ...[
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                widget.label ?? '',
-                style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                    fontFamily: fontFamilyMontserrat
+              Expanded(
+                child: Text(
+                  widget.label ?? '',
+                  style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.white,
+                      fontFamily: fontFamilyMontserrat
+                  ),
+                  softWrap: true,
                 ),
               ),
               if (widget.isRequired)
