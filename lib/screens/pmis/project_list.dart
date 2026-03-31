@@ -1,6 +1,7 @@
 import 'package:app/bloc/pmis_project_cubit.dart';
 import 'package:app/bloc/pmis_project_state.dart';
 import 'package:app/commonWidgets/pmis_card.dart';
+import 'package:app/screens/pmis/pmis_state.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
@@ -115,7 +116,20 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                     itemCount: state.projects.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
-                      return PmisCard(project: state.projects[index]);
+                      final project = state.projects[index];
+                      return PmisCard(
+                        project: project,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => PmisStateScreen(
+                                project: project,
+                                projectId: project.pmId,
+                              ),
+                            ),
+                          );
+                        },
+                      );
                     },
                   );
                 }

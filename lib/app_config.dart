@@ -3,6 +3,8 @@ import 'package:app/repositories/auth_repository.dart';
 import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
 import 'package:app/repositories/pmis_repository.dart';
+import 'package:app/repositories/pmis_activities_repository.dart';
+import 'package:app/repositories/pmis_state_repository.dart';
 import 'package:app/repositories/ticket_repository.dart';
 import 'package:app/repositories/energy_reading_repository.dart';
 
@@ -14,6 +16,8 @@ import 'package:app/repositories/audit_schedule_repository.dart';
 import 'services/api_provider.dart';
 import 'services/api_service.dart';
 import 'services/pmis_service.dart';
+import 'services/pmis_activities_service.dart';
+import 'services/pmis_state_service.dart';
 import 'services/ticket_service.dart';
 import 'services/user_details_service.dart';
 
@@ -38,6 +42,8 @@ class AppConfig {
   late final DashboardRepository dashboardRepository;
   late final TicketRepository ticketRepository;
   late final PmisRepository pmisRepository;
+  late final PmisActivitiesRepository pmisActivitiesRepository;
+  late final PmisStateRepository pmisStateRepository;
   late final EnergyReadingRepository energyReadingRepository;
 
   late final SelfieUploadRepository selfieUploadRepository;
@@ -72,6 +78,13 @@ class AppConfig {
     dashboardRepository = DashboardRepository(apiService);
     ticketRepository = TicketRepository(ticketService: ticketService);
     pmisRepository = PmisRepository(pmisService: pmisService);
+    final pmisActivitiesService =
+        PmisActivitiesService(apiService: apiService);
+    pmisActivitiesRepository =
+        PmisActivitiesRepository(pmisService: pmisActivitiesService);
+    final pmisStateService = PmisStateService(apiService: apiService);
+    pmisStateRepository =
+        PmisStateRepository(pmisStateService: pmisStateService);
 
     // Initialize user details service
     UserDetailsService.instance.initialize(apiService);
