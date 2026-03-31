@@ -353,4 +353,6 @@ class AppColors {
   static const Color myTickets = Color(0xFFC7FFE9);
   static const Color myTicketsSelected = Color(0xFF009663);
 
+  static const Color black25 = Color(0x40000000);
+
 }

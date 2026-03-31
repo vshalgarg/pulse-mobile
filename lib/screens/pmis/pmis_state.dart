@@ -197,13 +197,13 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 18),
-            color: const Color(0xFF2D4360),
+            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
+            
             child: const Text(
               'Project > State',
               style: TextStyle(
                 color: AppColors.white,
-                fontSize: 34 / 2,
+                fontSize: 14,
                 fontFamily: poppins,
                 fontWeight: FontWeight.w400,
               ),
@@ -212,16 +212,16 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-            color: const Color(0xFF7E8E9B),
+            color:  AppColors.black25,
             child: Text(
               'Project : ${widget.project.projectName}',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: AppColors.white,
-                fontSize: 36 / 2,
+                fontSize: 14,
                 fontFamily: poppins,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),

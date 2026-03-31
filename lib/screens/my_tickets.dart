@@ -617,8 +617,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             responseData['siteDetails'] ??
             responseData['site_details'] as Map<String, dynamic>?;
 
-        Logger.debugLog('📦 AssetUpload data: ${assetUploadData != null}');
-        Logger.debugLog('📦 SiteDetails data: ${siteDetailsData != null}');
+            
+
+        print('📦 AssetUpload data: ${assetUploadData != null}');
+        print('📦 SiteDetails data: ${siteDetailsData != null}');
 
         if (assetUploadData == null || siteDetailsData == null) {
           LoaderWidget.hideLoader();
@@ -632,7 +634,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             '❌ Available keys in response: ${responseData.keys.toList()}',
           );
           Toastbar.showErrorToastbar(
-            'Missing ${missingData.join(" or ")} data. Check logs for details.',
+            'Missing ${missingData.join(" or ")} data.',
             context,
           );
           return;
