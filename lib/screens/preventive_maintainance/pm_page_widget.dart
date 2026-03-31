@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_images.dart';
 import '../../constants/constants_methods.dart';
@@ -369,62 +368,6 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     return null; // Valid
   }
 
-  /// Get validation error messages for all fields
-  List<String> _getValidationErrors() {
-    List<String> errors = [];
-
-    // Get filtered items (excluding conditionally hidden fields)
-    final filteredItems = _filterItemsByConditions(
-      widget.sectionName,
-      _pmItems,
-    );
-
-    for (final pmItem in filteredItems) {
-      if (!isPmMainFieldMandatory(pmItem)) continue;
-
-      final respValue = pmItem['resp'];
-      final respTypeList = pmItem['resp_type'];
-      final checklistDesc =
-          pmItem['checklist_desc']?.toString() ?? 'This field';
-
-      // Handle resp_type as array or string
-      List<String> respTypes = [];
-      if (respTypeList is List) {
-        respTypes = respTypeList.map((e) => e.toString()).toList();
-      } else if (respTypeList is String) {
-        respTypes = respTypeList.split(",");
-      }
-
-      // Check if any required field is empty
-      if (respTypes.contains('DROPDOWN') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        errors.add('$checklistDesc is required');
-      }
-
-      if (respTypes.contains('RADIO') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        errors.add('$checklistDesc is required');
-      }
-
-      if (respTypes.contains('TEXT') &&
-          (respValue == null || respValue.toString().trim().isEmpty)) {
-        errors.add('$checklistDesc is required');
-      }
-
-      if (respTypes.contains('NUMERIC') &&
-          (respValue == null || respValue.toString().trim().isEmpty)) {
-        errors.add('$checklistDesc is required');
-      }
-
-      if (respTypes.contains('IMG') &&
-          (respValue == null || respValue.toString().isEmpty)) {
-        errors.add('$checklistDesc is required');
-      }
-    }
-
-    return errors;
-  }
-
   /// Show validation error dialog
   void _showValidationErrorDialog(String errorMessage) {
     showDialog(
@@ -576,90 +519,84 @@ class _PMPageWidgetState extends State<PMPageWidget> {
                             ],
                           ),
                         )
-                      : SingleChildScrollView(
+                      : ListView.builder(
+                          physics: const ClampingScrollPhysics(),
                           padding: EdgeInsets.only(
+                            top: 20,
+                            left: 16,
+                            right: 16,
                             bottom:
-                                MediaQuery.of(context).viewInsets.bottom + 100,
+                                MediaQuery.of(context).viewInsets.bottom + 120,
                           ),
-                          child: Container(
-                            padding: const EdgeInsets.only(
-                              top: 20,
-                              left: 16,
-                              right: 16,
-                              bottom: 20,
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Render filtered PM items
-                                ...filteredItems.asMap().entries.map((entry) {
-                                  final index = entry.key;
-                                  final pmItem = entry.value;
+                          itemCount: filteredItems.length + 1,
+                          itemBuilder: (context, index) {
+                            if (index == filteredItems.length) {
+                              return getHeight(20);
+                            }
 
-                                  // Find the original index in _pmItems for proper state management
-                                  final originalIndex = _pmItems.indexWhere(
-                                    (item) =>
-                                        item['pm_check_list_site_resp_id'] ==
-                                        pmItem['pm_check_list_site_resp_id'],
-                                  );
+                            final pmItem = filteredItems[index];
 
-                                  // Check if this is a grouped item with resp_dtl_checklist
-                                  final isGroup = pmItem['is_group'] == true;
-                                  final hasRespDtlChecklist = pmItem['resp_dtl_checklist'] != null;
+                            // Find the original index in _pmItems for proper state management.
+                            final originalIndex = _pmItems.indexWhere(
+                              (item) =>
+                                  item['pm_check_list_site_resp_id'] ==
+                                  pmItem['pm_check_list_site_resp_id'],
+                            );
 
-                                  // Use PMCustomFormComponent for grouped items with resp_dtl_checklist
-                                  if (isGroup && hasRespDtlChecklist) {
-                                    return PMCustomFormComponent(
-                                      key: ValueKey(
-                                        'pm_form_${pmItem['pm_check_list_site_resp_id']}_$index',
-                                      ),
-                                      checklistItem: pmItem,
-                                      isViewMode: widget.isViewMode,
-                                      onChange: (updatedItem) {
-                                        if (mounted) {
-                                          _onItemChanged(
-                                            originalIndex,
-                                            updatedItem,
-                                          );
-                                        }
-                                      },
+                            // Check if this is a grouped item with resp_dtl_checklist.
+                            final isGroup = pmItem['is_group'] == true;
+                            final hasRespDtlChecklist =
+                                pmItem['resp_dtl_checklist'] != null;
+
+                            if (isGroup && hasRespDtlChecklist) {
+                              return PMCustomFormComponent(
+                                key: ValueKey(
+                                  'pm_form_${pmItem['pm_check_list_site_resp_id']}_$index',
+                                ),
+                                checklistItem: pmItem,
+                                isViewMode: widget.isViewMode,
+                                onChange: (updatedItem) {
+                                  if (mounted) {
+                                    _onItemChanged(
+                                      originalIndex,
+                                      updatedItem,
                                     );
                                   }
+                                },
+                              );
+                            }
 
-                                  // Use regular PMCustomWidget for non-grouped items
-                                  final pmCheckListSiteRespId = pmItem['pm_check_list_site_resp_id'] as int?;
-                                  final widgetKey = pmCheckListSiteRespId != null 
-                                      ? _widgetKeys[pmCheckListSiteRespId] 
-                                      : null;
-                                  
-                                  // Create GlobalKey if it doesn't exist
-                                  if (pmCheckListSiteRespId != null && widgetKey == null) {
-                                    _widgetKeys[pmCheckListSiteRespId] = GlobalKey<PMCustomWidgetState>();
-                                  }
-                                  
-                                  return PMCustomWidget(
-                                    key: widgetKey ?? ValueKey(
-                                      'pm_item_${pmCheckListSiteRespId}_$index',
-                                    ),
-                                    pmItem: pmItem,
-                                    readonlyFields: widget.readonlyFields,
-                                    isViewMode: widget.isViewMode,
-                                    onValueChanged: (updatedItem) {
-                                      if (mounted) {
-                                        _onItemChanged(
-                                          originalIndex,
-                                          updatedItem,
-                                        );
-                                      }
-                                    },
+                            final pmCheckListSiteRespId =
+                                pmItem['pm_check_list_site_resp_id'] as int?;
+                            final widgetKey = pmCheckListSiteRespId != null
+                                ? _widgetKeys[pmCheckListSiteRespId]
+                                : null;
+
+                            // Create GlobalKey if it doesn't exist.
+                            if (pmCheckListSiteRespId != null &&
+                                widgetKey == null) {
+                              _widgetKeys[pmCheckListSiteRespId] =
+                                  GlobalKey<PMCustomWidgetState>();
+                            }
+
+                            return PMCustomWidget(
+                              key: widgetKey ??
+                                  ValueKey(
+                                    'pm_item_${pmCheckListSiteRespId}_$index',
+                                  ),
+                              pmItem: pmItem,
+                              readonlyFields: widget.readonlyFields,
+                              isViewMode: widget.isViewMode,
+                              onValueChanged: (updatedItem) {
+                                if (mounted) {
+                                  _onItemChanged(
+                                    originalIndex,
+                                    updatedItem,
                                   );
-                                }),
-
-                                // Add some bottom padding
-                                getHeight(20),
-                              ],
-                            ),
-                          ),
+                                }
+                              },
+                            );
+                          },
                         ),
                 ),
                 // Bottom buttons - matching asset audit style

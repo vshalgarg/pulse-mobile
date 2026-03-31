@@ -40,7 +40,8 @@ class PMCustomWidget extends StatefulWidget {
   State<PMCustomWidget> createState() => PMCustomWidgetState();
 }
 
-class PMCustomWidgetState extends State<PMCustomWidget> {
+class PMCustomWidgetState extends State<PMCustomWidget>
+    with AutomaticKeepAliveClientMixin<PMCustomWidget> {
   late Map<String, dynamic> _currentItem;
   String? _selectedDropdownValue;
   String? _selectedRadioValue;
@@ -60,11 +61,61 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   // Track which dependent fields should be highlighted (for validation errors)
   Set<String> _highlightedDependentFields = {};
 
+  String _imageValueKind(String? value) {
+    if (value == null || value.isEmpty) return 'empty';
+    if (value.startsWith('data:image/')) return 'dataUrl';
+    if (value.contains('base64,')) return 'base64';
+    if (value.startsWith('/') ||
+        value.startsWith('file://') ||
+        value.contains('.jpg') ||
+        value.contains('.jpeg') ||
+        value.contains('.png') ||
+        value.contains('.webp')) {
+      return 'path';
+    }
+    return 'unknown';
+  }
+
+  void _logImageMemorySnapshot(String stage) {
+    final mainLen = _imageData?.length ?? 0;
+    final mainKind = _imageValueKind(_imageData);
+    int dependentLen = 0;
+    int dependentCount = 0;
+    int dependentPathCount = 0;
+    int dependentDataUrlCount = 0;
+    int dependentBase64Count = 0;
+    int dependentUnknownCount = 0;
+    for (final value in _dependentImageData.values) {
+      if (value != null && value.isNotEmpty) {
+        dependentCount++;
+        dependentLen += value.length;
+        final kind = _imageValueKind(value);
+        if (kind == 'path') dependentPathCount++;
+        if (kind == 'dataUrl') dependentDataUrlCount++;
+        if (kind == 'base64') dependentBase64Count++;
+        if (kind == 'unknown') dependentUnknownCount++;
+      }
+    }
+
+    // Approximate only for in-memory strings currently held by this widget.
+    final totalChars = mainLen + dependentLen;
+    final approxKb = (totalChars / 1024).toStringAsFixed(1);
+    final message =
+        '[PM][MEM] $stage | pclsri=${_currentItem['pm_check_list_site_resp_id']} '
+        '| mainKind=$mainKind | mainChars=$mainLen '
+        '| depCount=$dependentCount | depChars=$dependentLen '
+        '| depKinds(path=$dependentPathCount,dataUrl=$dependentDataUrlCount,base64=$dependentBase64Count,unknown=$dependentUnknownCount) '
+        '| approxInMemoryKb=$approxKb';
+    Logger.infoLog(message);
+    debugPrint(message);
+  }
+
   @override
   void initState() {
     super.initState();
     _currentItem = Map<String, dynamic>.from(widget.pmItem);
     _initializeValues();
+    _logImageMemorySnapshot('init');
 
     // Add listener for remarks controller
     _remarksController.addListener(() {
@@ -219,6 +270,11 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
   @override
   void dispose() {
+    _logImageMemorySnapshot('dispose_before_clear');
+    // Drop potentially large in-memory image references early.
+    _imageData = null;
+    _dependentImageData.clear();
+    _dependentImageFiles.clear();
     _textController.dispose();
     _remarksController.dispose();
     // Dispose all dependent element controllers
@@ -284,6 +340,8 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     // Load images from response_images and map them to dependent elements by index
     final dependentElements = parseDependentElements(_currentItem);
     
+    final hasMainImageField = respTypes.contains('IMG');
+
     if (responseImages != null && responseImages is List && responseImages.isNotEmpty) {
       // Map each image in response_images to the corresponding IMG element by index
       int imgElementIndex = 0; // Track which IMG element we're on
@@ -292,35 +350,66 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         final imageData = responseImages[i];
         if (imageData is Map) {
           final photoId = imageData['photo_id'] ?? imageData['photoId'];
+          final pclsriIdRaw = imageData['pclsri_id'] ?? imageData['pclsriId'];
+          final pclsriId = int.tryParse(pclsriIdRaw?.toString() ?? '');
           if (photoId != null && photoId.toString().trim().isNotEmpty && 
               photoId.toString() != '0' && photoId.toString() != 'null') {
-            // Find the corresponding IMG element at this index
+            // Prefer stable restore via pclsri_id (dependent element index) when available.
             String? dependentElementKey;
             if (dependentElements != null && dependentElements.isNotEmpty) {
-              int currentImgIndex = 0;
-              for (int j = 0; j < dependentElements.length; j++) {
-                final element = dependentElements[j];
+              if (pclsriId != null &&
+                  pclsriId >= 0 &&
+                  pclsriId < dependentElements.length) {
+                final element = dependentElements[pclsriId];
                 if (element['resp_type']?.toString() == 'IMG') {
-                  if (currentImgIndex == imgElementIndex) {
-                    // This is the IMG element that corresponds to this image index
-                    final checklistDesc = element['checklist_desc']?.toString() ?? '';
-                    dependentElementKey = 'IMG_${checklistDesc}_$currentImgIndex';
-                    Logger.infoLog('[PM] 🎯 Mapping response_images[$i] (photo_id: $photoId) to IMG element at index $currentImgIndex, key: $dependentElementKey');
-                    
-                    // Load this image with the correct elementKey
-                    final photoIdStr = photoId.toString();
-                    _loadImageFromServerPhotoId(photoIdStr, dependentElementKey: dependentElementKey).then((_) {
-                      Logger.infoLog('[PM] ✅ Image loading completed for photo_id: $photoIdStr, elementKey: $dependentElementKey');
-                    }).catchError((e) {
-                      Logger.errorLog('[PM] ❌ Error loading image for photo_id $photoIdStr: $e');
-                    });
-                    break;
+                  final checklistDesc =
+                      element['checklist_desc']?.toString() ?? '';
+                  dependentElementKey = 'IMG_${checklistDesc}_$pclsriId';
+                  Logger.infoLog(
+                    '[PM] 🎯 Mapping by pclsri_id response_images[$i] (photo_id: $photoId, pclsri_id: $pclsriId) key: $dependentElementKey',
+                  );
+                }
+              }
+
+              // Fallback to sequential mapping for legacy payloads or mismatched pclsri_id.
+              // Keep pclsri_id = -1 as explicit main-image marker.
+              if (dependentElementKey == null &&
+                  !(pclsriId == -1 && hasMainImageField)) {
+                int currentImgIndex = 0;
+                for (int j = 0; j < dependentElements.length; j++) {
+                  final element = dependentElements[j];
+                  if (element['resp_type']?.toString() == 'IMG') {
+                    if (currentImgIndex == imgElementIndex) {
+                      final checklistDesc =
+                          element['checklist_desc']?.toString() ?? '';
+                      dependentElementKey =
+                          'IMG_${checklistDesc}_$currentImgIndex';
+                      Logger.infoLog(
+                        '[PM] 🎯 Mapping sequentially response_images[$i] (photo_id: $photoId) to key: $dependentElementKey',
+                      );
+                      break;
+                    }
+                    currentImgIndex++;
                   }
-                  currentImgIndex++;
                 }
               }
             }
-            imgElementIndex++; // Move to next IMG element for next image
+
+            // Always load image; if dependentElementKey is null it is treated as main image.
+            final photoIdStr = photoId.toString();
+            _loadImageFromServerPhotoId(
+              photoIdStr,
+              dependentElementKey: dependentElementKey,
+            ).then((_) {
+              Logger.infoLog(
+                '[PM] ✅ Image loading completed for photo_id: $photoIdStr, elementKey: $dependentElementKey',
+              );
+            }).catchError((e) {
+              Logger.errorLog(
+                '[PM] ❌ Error loading image for photo_id $photoIdStr: $e',
+              );
+            });
+            imgElementIndex++; // Move to next IMG element for fallback mapping
           }
         }
       }
@@ -453,42 +542,11 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
         }
       }
       
-      // Format and set image data
+      // Format and set image data.
       if (imageDataLocal != null && imageDataLocal.isNotEmpty) {
-        // Clean the image data
         String cleanedData = imageDataLocal.trim();
-        
-        // Validate base64 data before formatting
-        try {
-          // Try to decode a small portion to validate it's valid base64
-          String base64ToValidate = cleanedData;
-          if (cleanedData.startsWith('data:image/')) {
-            final parts = cleanedData.split(',');
-            if (parts.length > 1) {
-              base64ToValidate = parts[1];
-            }
-          }
-          
-          // Validate by trying to decode first 100 chars
-          if (base64ToValidate.length > 100) {
-            base64Decode(base64ToValidate.substring(0, 100));
-          } else {
-            base64Decode(base64ToValidate);
-          }
-          
-          Logger.infoLog('[PM] ✅ Base64 data validated successfully');
-        } catch (e) {
-          Logger.errorLog('[PM] ❌ Invalid base64 data: $e');
-          Logger.errorLog('[PM] Data preview: ${cleanedData.length > 200 ? cleanedData.substring(0, 200) : cleanedData}');
-          if (mounted) {
-        setState(() {
-              _imageData = null;
-            });
-          }
-          return;
-        }
-        
-        // Format as data URL if not already
+
+        // Keep file paths as-is; wrap only real base64 as data URL.
         String formattedImageData;
         if (cleanedData.startsWith('data:image/')) {
           // Normalize image/jpg to image/jpeg for consistency
@@ -497,55 +555,22 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       } else {
             formattedImageData = cleanedData;
       }
+        } else if (_imageValueKind(cleanedData) == 'path') {
+          formattedImageData = cleanedData;
         } else {
           formattedImageData = 'data:image/jpeg;base64,$cleanedData';
         }
-        
-        Logger.infoLog('[PM] ✅ Image data loaded successfully');
-        Logger.infoLog('[PM] Original data length: ${imageDataLocal.length}');
-        Logger.infoLog('[PM] Formatted data length: ${formattedImageData.length}');
-        Logger.infoLog('[PM] Formatted data starts with: ${formattedImageData.substring(0, formattedImageData.length > 100 ? 100 : formattedImageData.length)}');
-        
         if (mounted) {
-          Logger.infoLog('[PM] 🔄 About to set image data in state...');
-          
-          // Set image data and trigger rebuild
           setState(() {
             _imageData = formattedImageData;
-            Logger.infoLog('[PM] 🔄 Inside setState: _imageData set to ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-            
-            // If this image is for a dependent element, also set it in _dependentImageData
+            // If this image is for a dependent element, also set it in _dependentImageData.
             if (dependentElementKey != null && formattedImageData.isNotEmpty) {
               _dependentImageData[dependentElementKey] = formattedImageData;
-              Logger.infoLog('[PM] 🎯 Also set _dependentImageData[$dependentElementKey] to ${formattedImageData.length} chars');
             }
           });
-          
-          Logger.infoLog('[PM] ✅ Image data set in state successfully');
-          Logger.infoLog('[PM] _imageData is now: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-          
-          // Force multiple rebuilds to ensure ImageUploadField gets the update
-          // Sometimes Flutter needs multiple frames to properly update nested widgets
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              Logger.infoLog('[PM] 🔄 PostFrameCallback 1: About to force rebuild');
-              setState(() {
-                Logger.infoLog('[PM] 🔄 PostFrameCallback 1: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-              });
-              
-              // Second callback after a short delay
-              Future.delayed(const Duration(milliseconds: 100), () {
-                if (mounted) {
-                  Logger.infoLog('[PM] 🔄 PostFrameCallback 2: About to force rebuild');
-                  setState(() {
-                    Logger.infoLog('[PM] 🔄 PostFrameCallback 2: Inside setState, _imageData: ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
-                  });
-                }
-              });
-            }
-          });
-        } else {
-          Logger.errorLog('[PM] ❌ Widget not mounted, cannot set state');
+          _logImageMemorySnapshot(
+            dependentElementKey != null ? 'load_server_dependent_set' : 'load_server_main_set',
+          );
         }
       } else {
         Logger.errorLog('[PM] ❌ Failed to load image: No data retrieved');
@@ -571,7 +596,11 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
   /// Supports both snake_case (response_images) and camelCase (responseImages) formats
   /// If replaceExisting is true, replaces all existing images; otherwise updates by photoId or adds new
   /// If elementIndex is provided, replaces/updates the image at that specific index
-  void _addImageToResponseImages(String photoId, {bool replaceExisting = false, int? elementIndex}) {
+  void _addImageToResponseImages(
+    String photoId, {
+    bool replaceExisting = false,
+    int? elementIndex,
+  }) {
     // Use snake_case for API compatibility (response_images)
     if (!_currentItem.containsKey('response_images') || 
         _currentItem['response_images'] == null) {
@@ -585,7 +614,10 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
     final imageData = {
       'photo_id': photoId,
       'photo_taken_ts': Utils.getCurrentDateTimeForAPICall(),
-      'pclsri_id': 0, // Default to 0 for new uploads
+      // For dependent images this stores the dependent-element index.
+      // Use -1 for main image so restore logic does not map it to dependent index 0.
+      // It gives stable restore after page navigation.
+      'pclsri_id': elementIndex ?? -1,
     };
     
     if (replaceExisting) {
@@ -736,8 +768,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       }
     });
     _notifyValueChanged();
-    // Trigger rebuild to update dependent elements visibility
-    setState(() {});
   }
 
   void _onRadioChanged(String? value) {
@@ -747,8 +777,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       _currentItem['resp'] = value;
     });
     _notifyValueChanged();
-    // Trigger rebuild to update dependent elements visibility
-    setState(() {});
   }
 
   void _onTextChanged(String value) {
@@ -757,8 +785,6 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       _currentItem['resp'] = value;
     });
     _notifyValueChanged();
-    // Trigger rebuild to update dependent elements visibility
-    setState(() {});
   }
 
   void _onRemarksChanged(String value) {
@@ -1020,6 +1046,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                 _addImageToResponseImages(photoId, replaceExisting: true);
                 _imageData = file.path;
               });
+              _logImageMemorySnapshot('upload_main_set_path');
 
               _notifyValueChanged();
 
@@ -1128,6 +1155,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     Logger.infoLog('[PM] 🔨 build() called for pm_check_list_site_resp_id: ${_currentItem['pm_check_list_site_resp_id']}');
     Logger.infoLog('[PM] 🔨 _imageData in build(): ${_imageData != null ? "NOT NULL (${_imageData!.length} chars)" : "NULL"}');
     
@@ -1295,6 +1323,9 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
       ),
     );
   }
+
+  @override
+  bool get wantKeepAlive => true;
 
   /// Get current main field response value for dependent elements visibility
   String? _getCurrentMainResponse() {
@@ -1488,6 +1519,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
                             _currentItem['responseImages'] = [];
                             _notifyValueChanged();
                           });
+                          _logImageMemorySnapshot('dependent_remove');
                         }
                       }
                     : (File? file) {},
@@ -1606,6 +1638,7 @@ class PMCustomWidgetState extends State<PMCustomWidget> {
           // Clear any validation highlight since image is now present
           _highlightedDependentFields.remove(elementKey);
         });
+        _logImageMemorySnapshot('upload_dependent_set_path');
         
         _notifyValueChanged();
         

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
@@ -86,11 +85,10 @@ class PMPageHeaderTelecom extends StatelessWidget {
                                 ],
                               ),
                             )
-                          : SingleChildScrollView(
+                          : ListView(
+                              physics: const ClampingScrollPhysics(),
                               padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
+                              children: [
                                   // Circle
                                   CustomFormField(
                                     label: 'Circle',
@@ -187,7 +185,6 @@ class PMPageHeaderTelecom extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                            ),
                 ),
                 // Bottom navigation
                 Container(
