@@ -225,6 +225,15 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       
       // Only validate dependent elements if parent field has a response
       if (parentResponse != null && parentResponse.isNotEmpty) {
+        // ============================================================
+        // STEP 2A: Validate grouped child checklist (resp_dtl_checklist)
+        // ============================================================
+        final groupedValidationError = _validateGroupedChecklistItem(pmItem);
+        if (groupedValidationError != null) {
+          _showValidationErrorDialog(groupedValidationError);
+          return false;
+        }
+
         // Check if this item has dependent elements
         final dependentElements = parseDependentElements(pmItem);
         if (dependentElements != null && dependentElements.isNotEmpty) {
@@ -276,6 +285,70 @@ class _PMPageWidgetState extends State<PMPageWidget> {
     
     // All PM items validated successfully
     return true;
+  }
+
+  String? _validateGroupedChecklistItem(Map<String, dynamic> pmItem) {
+    final isGroup = pmItem['is_group'] == true;
+    final respDtlChecklist = pmItem['resp_dtl_checklist'];
+    if (!isGroup || respDtlChecklist is! List || respDtlChecklist.isEmpty) {
+      return null;
+    }
+
+    final responseDetails = pmItem['response_details'];
+    final responseDetailsList = responseDetails is List ? responseDetails : const [];
+
+    bool isMandatory(dynamic value) {
+      if (value == true || value == 1) return true;
+      if (value == false || value == 0 || value == null) return false;
+      final s = value.toString().trim().toLowerCase();
+      return s == 'true' || s == '1';
+    }
+
+    Map<String, dynamic>? firstMissingForMstId(int mstId) {
+      final matching = <Map<String, dynamic>>[];
+      for (final detail in responseDetailsList) {
+        if (detail is! Map) continue;
+        final map = Map<String, dynamic>.from(detail);
+        final detailMstId =
+            int.tryParse((map['pm_check_list_mst_id'] ?? '').toString());
+        if (detailMstId == mstId) {
+          matching.add(map);
+        }
+      }
+
+      // No rows found means mandatory grouped child has not been filled/saved.
+      if (matching.isEmpty) {
+        return <String, dynamic>{};
+      }
+
+      // Strict rule: all rows for this pm_check_list_mst_id must have resp value.
+      for (final row in matching) {
+        final resp = row['resp']?.toString().trim();
+        if (resp == null || resp.isEmpty) {
+          return row;
+        }
+      }
+      return null;
+    }
+
+    for (final child in respDtlChecklist) {
+      if (child is! Map<String, dynamic>) continue;
+      if (!isMandatory(child['is_mandatory'])) continue;
+      final mstId = int.tryParse((child['pm_check_list_mst_id'] ?? '').toString());
+      if (mstId == null) continue;
+      final missingRow = firstMissingForMstId(mstId);
+      if (missingRow != null) {
+        final desc = child['checklist_desc']?.toString().trim();
+        final fieldName = (desc == null || desc.isEmpty) ? 'Grouped field' : desc;
+        final ref = missingRow['checklist_ref']?.toString().trim();
+        if (ref != null && ref.isNotEmpty) {
+          return '$fieldName is required for $ref';
+        }
+        return '$fieldName is required for all items';
+      }
+    }
+
+    return null;
   }
   
   /// Get parent response value for a PM item
