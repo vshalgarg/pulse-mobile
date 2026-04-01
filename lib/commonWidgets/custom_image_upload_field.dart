@@ -130,7 +130,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       // killed the activity before delivering the result.
       if (recovered == null && mounted) {
         Toastbar.showErrorWithoutContext(
-          'Camera closed unexpectedly. Please try again.',
+          'Low Resouces. Please try again.',
         );
       }
     }
