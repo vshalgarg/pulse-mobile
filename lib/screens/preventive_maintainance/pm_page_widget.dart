@@ -296,6 +296,7 @@ class _PMPageWidgetState extends State<PMPageWidget> {
 
     final responseDetails = pmItem['response_details'];
     final responseDetailsList = responseDetails is List ? responseDetails : const [];
+    final parentCount = int.tryParse((pmItem['resp'] ?? '').toString()) ?? 0;
 
     bool isMandatory(dynamic value) {
       if (value == true || value == 1) return true;
@@ -321,6 +322,14 @@ class _PMPageWidgetState extends State<PMPageWidget> {
         return <String, dynamic>{};
       }
 
+      // If parent numeric count is present (e.g. Number of Earth Pits = 3),
+      // each mandatory grouped child must exist for all instances.
+      if (parentCount > 0 && matching.length < parentCount) {
+        return <String, dynamic>{
+          '_missing_count': parentCount - matching.length,
+        };
+      }
+
       // Strict rule: all rows for this pm_check_list_mst_id must have resp value.
       for (final row in matching) {
         final resp = row['resp']?.toString().trim();
@@ -340,6 +349,14 @@ class _PMPageWidgetState extends State<PMPageWidget> {
       if (missingRow != null) {
         final desc = child['checklist_desc']?.toString().trim();
         final fieldName = (desc == null || desc.isEmpty) ? 'Grouped field' : desc;
+        final missingCount =
+            int.tryParse((missingRow['_missing_count'] ?? '').toString());
+        if (missingCount != null && missingCount > 0) {
+          if (parentCount > 0) {
+            return '$fieldName is required for all $parentCount items';
+          }
+          return '$fieldName is required for all items';
+        }
         final ref = missingRow['checklist_ref']?.toString().trim();
         if (ref != null && ref.isNotEmpty) {
           return '$fieldName is required for $ref';
