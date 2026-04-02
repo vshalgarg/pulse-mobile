@@ -254,7 +254,7 @@ class _PMPageRenderState extends State<PMPageRender> {
 
       }
     } catch (e) {
-
+      Logger.errorLog('Error in _updateDataInSqliteAndCallApi: $e');
     }
   }
 
@@ -263,7 +263,7 @@ class _PMPageRenderState extends State<PMPageRender> {
       LoaderWidget.showLoader(context);
       await _updateDataInSqliteAndCallApi();
     } catch (e) {
-
+      Logger.errorLog('Error in _updateDataInSqliteAndCallApiWithLoader: $e');
     } finally {
       LoaderWidget.hideLoader();
     }
@@ -313,8 +313,16 @@ class _PMPageRenderState extends State<PMPageRender> {
   }
 
   void _onSubmit() async {
-    // Update data in SQLite and post to API
-    await _updateDataInSqliteAndCallApi();
+    try {
+      // Ensure loader is hidden even on last-page submit.
+      LoaderWidget.showLoader(context);
+
+      // Update data in SQLite and post to API
+      await _updateDataInSqliteAndCallApi();
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+
     if (!mounted) return;
 
     // Show success message

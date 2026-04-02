@@ -11,6 +11,7 @@ import '../../custom_widgets/pm_custom_form_component.dart';
 import 'pm_custom_widget.dart' show PMCustomWidget, PMCustomWidgetState;
 import 'pm_dependent_element_helpers.dart'
     show isDependentElementMandatory, isPmMainFieldMandatory, parseDependentElements;
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class PMPageWidget extends StatefulWidget {
@@ -490,12 +491,36 @@ class _PMPageWidgetState extends State<PMPageWidget> {
 
   /// Handle right button press with validation
   void _handleRightButtonPress() {
-    // Validate all fields including dependent elements
-    if (!_validateAllFields()) {
-      return; // Stop if validation fails
+    // IMPORTANT:
+    // Validation can be heavy (grouped checklist + dependent validations).
+    // Showing the loader but doing heavy synchronous work immediately can
+    // delay the first frame, making it *feel* like nothing happened.
+    // So we:
+    //  1) show loader now
+    //  2) run validation after the next frame
+    //  3) hide loader on validation failure (submit/next flow owns hiding)
+    final shouldShowLoader =
+        widget.rightButtonText.trim().toLowerCase() != 'done';
+
+    if (shouldShowLoader) {
+      LoaderWidget.showLoader(context);
     }
-    // If validation passes, proceed with the original callback
-    widget.onRightButtonPressed();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        if (shouldShowLoader) LoaderWidget.hideLoader();
+        return;
+      }
+
+      final isValid = _validateAllFields();
+      if (!isValid) {
+        if (shouldShowLoader) LoaderWidget.hideLoader();
+        return;
+      }
+
+      // If validation passes, proceed with the original callback.
+      // The submit/next flow will manage loader visibility.
+      widget.onRightButtonPressed();
+    });
   }
 
   void _sortItemsByOrder() {
