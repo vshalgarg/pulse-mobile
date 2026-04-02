@@ -359,6 +359,12 @@ class _PMPageWidgetState extends State<PMPageWidget> {
           }
           return '$fieldName is required for all items';
         }
+        // Prefer serial number for Battery-style grouped rows so user knows exactly
+        // which item instance is missing (more useful than "Battery 1").
+        final serial = missingRow['mfg_serial_no']?.toString().trim();
+        if (serial != null && serial.isNotEmpty) {
+          return '$fieldName is required for $serial';
+        }
         final ref = missingRow['checklist_ref']?.toString().trim();
         if (ref != null && ref.isNotEmpty) {
           return '$fieldName is required for $ref';

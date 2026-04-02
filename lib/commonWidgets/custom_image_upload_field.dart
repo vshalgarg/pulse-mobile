@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:app/commonWidgets/CustomCameraScreen.dart';
+import 'package:app/commonWidgets/selfie_camera_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -128,80 +130,103 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
   /// 🔥 CAMERA PICK (ULTIMATE SAFE FLOW)
   Future<void> _pickImage() async {
-    if (_isPickingImage || widget.isDisabled) return;
+  if (_isPickingImage || widget.isDisabled) return;
 
-    _isPickingImage = true;
+  _isPickingImage = true;
 
-    File? pickedFile;
+  final label = widget.label?.toLowerCase() ?? '';
+  final placeholder = widget.placeholder?.toLowerCase() ?? '';
 
-    try {
-      setState(() => _isLoading = true);
-      await LocalStorageService.setBool(_cameraInProgressKey, true);
+  /// 🔥 Detect selfie
+  final isSelfie =
+      label.contains('selfie') || placeholder.contains('selfie');
 
-      final picked = await _picker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.rear,
+  File? pickedFile;
 
-        /// 🔥 SAFE CONFIG
-        maxWidth: 800,
-        maxHeight: 800,
-        imageQuality: 40,
+  try {
+    setState(() => _isLoading = true);
+    await LocalStorageService.setBool(_cameraInProgressKey, true);
+
+    /// ✅ OPEN CUSTOM CAMERA
+    if (isSelfie) {
+      /// FRONT CAMERA
+      final result = await Navigator.push<File>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const SelfieCameraScreen(),
+        ),
       );
 
-      if (picked != null) {
-        pickedFile = File(picked.path);
-      }
+      if (result != null) pickedFile = result;
+    } else {
+      /// REAR CAMERA
+      final result = await Navigator.push<File>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CustomCameraScreen(),
+        ),
+      );
 
-      if (pickedFile == null || !pickedFile.existsSync()) {
-        Toastbar.showErrorWithoutContext(
-            'Camera closed without saving image.');
-        return;
-      }
+      if (result != null) pickedFile = result;
+    }
 
-      /// ✅ STEP 1: INSTANT PREVIEW
-      setState(() {
-        _selectedImage = pickedFile;
-        _isLoading = false;
-      });
+    /// ❌ User cancelled
+    if (pickedFile == null || !pickedFile.existsSync()) {
+      Toastbar.showErrorWithoutContext(
+          'Camera closed without saving image.');
+      return;
+    }
 
-      /// ✅ STEP 2: INSTANT CALLBACK (NO WAIT)
-      widget.onImageSelected(pickedFile);
+    /// ✅ STEP 1: INSTANT PREVIEW
+    setState(() {
+      _selectedImage = pickedFile;
+      _isLoading = false;
+    });
 
-      /// ✅ STEP 3: BACKGROUND COMPRESSION (NON-BLOCKING)
-      final size = await pickedFile.length();
-      const twoMb = 2 * 1024 * 1024;
+    /// ✅ STEP 2: INSTANT CALLBACK
+    widget.onImageSelected(pickedFile);
 
-      if (size > twoMb) {
-        compute(_compressInBackground, pickedFile.path)
+    /// ✅ STEP 3: BACKGROUND COMPRESSION
+    final size = await pickedFile.length();
+    const twoMb = 2 * 1024 * 1024;
+
+    if (size > twoMb) {
+      final originalPath = pickedFile.path;
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        compute(_compressInBackground, originalPath)
             .then((compressedPath) {
+          if (!mounted) return;
+
           if (compressedPath != null) {
             final compressedFile = File(compressedPath);
 
-            /// 🔥 Optional: update with compressed file
+            /// 🔥 Update with compressed file
             widget.onImageSelected(compressedFile);
           }
         });
-      }
-
-      await LocalStorageService.setBool(_cameraInProgressKey, false);
-    } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
-
-      Toastbar.showErrorWithoutContext(
-        "Unable to open camera",
-      );
-
-      if (mounted) setState(() => _isLoading = false);
-    } finally {
-      _isPickingImage = false;
-
-      if (mounted && _isLoading) {
-        setState(() => _isLoading = false);
-      }
-
-      await LocalStorageService.setBool(_cameraInProgressKey, false);
+      });
     }
+
+    await LocalStorageService.setBool(_cameraInProgressKey, false);
+  } catch (e, s) {
+    await CrashLogger().logCrash(e, s);
+
+    Toastbar.showErrorWithoutContext(
+      "Unable to open camera",
+    );
+
+    if (mounted) setState(() => _isLoading = false);
+  } finally {
+    _isPickingImage = false;
+
+    if (mounted && _isLoading) {
+      setState(() => _isLoading = false);
+    }
+
+    await LocalStorageService.setBool(_cameraInProgressKey, false);
   }
+}
 
   /// UI Helpers
 
