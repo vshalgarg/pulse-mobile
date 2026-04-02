@@ -6,6 +6,11 @@
 /// - `is_mandatory: false` → optional.
 /// - If `is_mandatory` is absent, falls back to legacy `mandatoryIfValue == true` on the item.
 bool isPmMainFieldMandatory(Map<String, dynamic> pmItem) {
+  // If the row is marked readonly by API, we must not enforce mandatory validation.
+  if (pmItem['is_readonly'] == true) {
+    return false;
+  }
+
   final checklistDesc = pmItem['checklist_desc']?.toString().toLowerCase() ?? '';
   if (checklistDesc.contains('remarks')) {
     return false;
@@ -38,8 +43,8 @@ List<Map<String, dynamic>>? parseDependentElements(Map<String, dynamic> pmItem) 
   
   if (dependentElements is List) {
     return dependentElements
-        .where((e) => e is Map<String, dynamic>)
-        .map((e) => Map<String, dynamic>.from(e as Map))
+        .whereType<Map<String, dynamic>>()
+        .map((e) => Map<String, dynamic>.from(e))
         .toList();
   }
   
@@ -112,6 +117,11 @@ bool isDependentElementMandatory(
   Map<String, dynamic> dependentElement,
   String? parentResponse,
 ) {
+  // If the dependent element is marked readonly by API, we must not enforce mandatory validation.
+  if (dependentElement['is_readonly'] == true) {
+    return false;
+  }
+
   final mandatoryIfValue = dependentElement['mandatoryIfValue'];
   
   if (mandatoryIfValue == null) {

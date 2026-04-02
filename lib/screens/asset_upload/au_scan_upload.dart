@@ -2303,37 +2303,38 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
     );
   }
 
-  /// Builds the scanned assets list
-  Widget _buildScannedAssetsList() {
-    if (_assetGroups.isEmpty) {
-      return Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.green7,
-          borderRadius: BorderRadius.circular(5),
-        ),
-        child: const Center(
-          child: Text(
-            'No assets scanned yet.\nScan a QR code to get started.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontFamily: fontFamilyMontserrat,
-            ),
+  Widget _buildScannedAssetsEmptyCard() {
+    return Container(
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppColors.green7,
+        borderRadius: BorderRadius.circular(5),
+      ),
+      child: const Center(
+        child: Text(
+          'No assets scanned yet.\nScan a QR code to get started.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontFamily: fontFamilyMontserrat,
           ),
         ),
-      );
-    }
+      ),
+    );
+  }
 
-    return Column(
+  /// Header strip above lazy-built asset sections.
+  Widget _buildScannedAssetsListHeader() {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Divider(color: Colors.white, thickness: 0.5, height: 1),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Align(
             alignment: Alignment.centerLeft,
@@ -2348,16 +2349,44 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             ),
           ),
         ),
-        const Padding(
+        Padding(
           padding: EdgeInsets.symmetric(horizontal: 16),
           child: Divider(color: Colors.white, thickness: 0.5, height: 1),
         ),
-        const SizedBox(height: 8),
-        ..._assetGroups.entries.map((entry) {
-          return _buildAssetTypeSection(entry.key, entry.value);
-        }),
+        SizedBox(height: 8),
       ],
     );
+  }
+
+  /// Single scroll surface with lazy-built sections to reduce peak memory (OOM) vs one huge Column.
+  List<Widget> _buildScanUploadBodySlivers() {
+    final slivers = <Widget>[
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      SliverToBoxAdapter(child: _buildInitialScanSection()),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      SliverToBoxAdapter(child: _buildTotalAssetsSummary()),
+    ];
+
+    if (_assetGroups.isEmpty) {
+      slivers.add(SliverToBoxAdapter(child: _buildScannedAssetsEmptyCard()));
+    } else {
+      slivers.add(SliverToBoxAdapter(child: _buildScannedAssetsListHeader()));
+      final entriesList = _assetGroups.entries.toList();
+      slivers.add(
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final e = entriesList[index];
+              return _buildAssetTypeSection(e.key, e.value);
+            },
+            childCount: entriesList.length,
+          ),
+        ),
+      );
+    }
+
+    slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 100)));
+    return slivers;
   }
 
   /// Auto-saves current asset state to SQLite when user navigates back
@@ -2511,19 +2540,9 @@ class _AUScanUploadScreenState extends State<AUScanUploadScreen>
             child: Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: CustomScrollView(
                     physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        _buildInitialScanSection(),
-                        const SizedBox(height: 16),
-                        _buildTotalAssetsSummary(),
-                        _buildScannedAssetsList(),
-                        const SizedBox(height: 100), // Space for bottom buttons
-                      ],
-                    ),
+                    slivers: _buildScanUploadBodySlivers(),
                   ),
                 ),
                 // Bottom buttons
