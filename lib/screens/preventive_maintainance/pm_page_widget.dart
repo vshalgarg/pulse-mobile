@@ -288,12 +288,6 @@ class _PMPageWidgetState extends State<PMPageWidget> {
   }
 
   String? _validateGroupedChecklistItem(Map<String, dynamic> pmItem) {
-    // When a PM row is readonly, we should not enforce any `is_mandatory` checks
-    // for its grouped `resp_dtl_checklist` children.
-    if (pmItem['is_readonly'] == true) {
-      return null;
-    }
-
     final isGroup = pmItem['is_group'] == true;
     final respDtlChecklist = pmItem['resp_dtl_checklist'];
     if (!isGroup || respDtlChecklist is! List || respDtlChecklist.isEmpty) {

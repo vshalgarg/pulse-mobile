@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/constants/app_colors.dart';
+
 import 'package:app/utils/image_compression_helper.dart';
 import 'package:app/utils/CrashLogger.dart';
 import 'package:app/utils/file_logger.dart';
@@ -39,8 +41,7 @@ class ImageUploadField extends StatefulWidget {
 class _ImageUploadFieldState extends State<ImageUploadField> {
   final ImagePicker _picker = ImagePicker();
 
-  static const String _cameraInProgressKey =
-      'image_upload_field_camera_in_progress';
+  static const String _cameraInProgressKey = 'image_upload_field_camera_in_progress';
 
   File? _selectedImage;
   Widget? _externalImageWidget;
@@ -49,6 +50,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   bool _isLoading = false;
   bool _isPickingImage = false;
 
+  /// Prevent base64 memory crash
   static const int maxBase64Length = 5000000;
 
   @override
@@ -58,122 +60,20 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     _handleCameraRecovery();
   }
 
-  /// -------------------- CAMERA PICK --------------------
+  @override
+  void didUpdateWidget(ImageUploadField oldWidget) {
+    super.didUpdateWidget(oldWidget);
 
-  Future<void> _pickImage() async {
-    if (_isPickingImage || widget.isDisabled) return;
-
-    _isPickingImage = true;
-
-    final label = widget.label?.toLowerCase() ?? '';
-    final placeholder = widget.placeholder?.toLowerCase() ?? '';
-    final isSelfie =
-        label.contains('selfie') || placeholder.contains('selfie');
-
-    File? pickedFile;
-
-    try {
-      setState(() => _isLoading = true);
-      await LocalStorageService.setBool(_cameraInProgressKey, true);
-
-      /// 📸 Camera
-      if (isSelfie) {
-        final result = await Navigator.push<File>(
-          context,
-          MaterialPageRoute(
-            builder: (_) => const SelfieCameraScreen(),
-          ),
-        );
-
-        if (result != null) pickedFile = result;
-      } else {
-        final picked = await _picker.pickImage(
-          source: ImageSource.camera,
-          preferredCameraDevice: CameraDevice.rear,
-
-          /// 🔥 OPTIMIZED (NO NEED HEAVY COMPRESSION)
-          imageQuality: 40,
-          maxWidth: 800,
-          maxHeight: 800,
-        );
-
-        if (picked != null) {
-          pickedFile = File(picked.path);
-        }
-      }
-
-      if (pickedFile == null || !pickedFile.existsSync()) {
-        Toastbar.showErrorWithoutContext(
-            'Camera closed without saving image.');
-        return;
-      }
-
-      /// ✅ STEP 1: INSTANT PREVIEW (FAST UX)
-      setState(() {
-        _selectedImage = pickedFile;
-        _isLoading = false;
-      });
-
-      /// 🔥 STEP 2: BACKGROUND PROCESSING
-      _processImageInBackground(pickedFile);
-
-    } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
-
-      Toastbar.showErrorWithoutContext(
-        "Unable to open camera",
-      );
-
-      if (mounted) setState(() => _isLoading = false);
-    } finally {
-      _isPickingImage = false;
-      await LocalStorageService.setBool(_cameraInProgressKey, false);
+    if (widget.externalImageUrl != oldWidget.externalImageUrl) {
+      _prepareExternalImageWidget(widget.externalImageUrl);
     }
   }
 
-  /// -------------------- BACKGROUND PROCESS --------------------
-
-  Future<void> _processImageInBackground(File file) async {
-    try {
-      final fileSize = await file.length();
-
-      File finalFile = file;
-
-      /// Only compress if > 2MB
-      if (fileSize > 2 * 1024 * 1024) {
-        final compressed = await compute(_compressInIsolate, file.path);
-
-        if (compressed != null && File(compressed).existsSync()) {
-          finalFile = File(compressed);
-        }
-      }
-
-      /// ✅ Send final file after processing
-      widget.onImageSelected(finalFile);
-
-    } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
-
-      /// fallback
-      widget.onImageSelected(file);
-    }
-  }
-
-  /// Isolate function
-  static Future<String?> _compressInIsolate(String path) async {
-    try {
-      final file = File(path);
-      final compressed =
-          await ImageCompressionHelper.compressImageTo2MB(file);
-      return compressed?.path;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// -------------------- RECOVERY FIX --------------------
-
+  /// Recover camera result on Android if activity was killed/recreated.
+  /// This happens on some devices after confirming a photo in the system camera.
   Future<File?> _recoverLostImage() async {
+    if (_selectedImage != null) return null;
+
     try {
       final lost = await _picker.retrieveLostData();
       if (lost.isEmpty) return null;
@@ -184,40 +84,59 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       final file = File(xFile.path);
       if (!file.existsSync()) return null;
 
-      /// ❌ NO COMPRESSION HERE
+      File finalFile = file;
+      try {
+        final compressed = await ImageCompressionHelper.compressImageTo2MB(file);
+        if (compressed != null) {
+          finalFile = compressed;
+        }
+      } catch (e, s) {
+        await CrashLogger().logCrash(e, s);
+      }
+
+      if (!mounted) return null;
       setState(() {
-        _selectedImage = file;
+        _selectedImage = finalFile;
         _isLoading = false;
       });
 
-      widget.onImageSelected(file);
-      return file;
+      widget.onImageSelected(finalFile);
+      return finalFile;
     } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
+      await CrashLogger().logCrash(
+        e,
+        s,
+        reason: 'ImageUploadField._recoverLostImage',
+        context: {
+          'label': widget.label ?? '',
+          'placeholder': widget.placeholder ?? '',
+        },
+      );
     }
 
     return null;
   }
 
   Future<void> _handleCameraRecovery() async {
-    final wasCameraInProgress =
-        LocalStorageService.getBool(_cameraInProgressKey) == true;
+    // If the app was killed while the system camera was open, show a friendly message on next launch.
+    final wasCameraInProgress = LocalStorageService.getBool(_cameraInProgressKey) == true;
 
     final recovered = await _recoverLostImage();
 
     if (wasCameraInProgress) {
       await LocalStorageService.setBool(_cameraInProgressKey, false);
 
+      // If we couldn't recover a file, it likely means the camera closed/crashed or Android
+      // killed the activity before delivering the result.
       if (recovered == null && mounted) {
         Toastbar.showErrorWithoutContext(
-          'Low Resources. Please try again.',
+          'Low Resouces. Please try again.',
         );
       }
     }
   }
 
-  /// -------------------- UI HELPERS --------------------
-
+  /// Prepare external image safely
   Future<void> _prepareExternalImageWidget(String? url) async {
     if (url == null || url.isEmpty || url == _lastExternalUrl) return;
 
@@ -232,11 +151,146 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     });
   }
 
+  /// Camera picker
+  Future<void> _pickImage() async {
+    if (_isPickingImage || widget.isDisabled) return;
+
+    _isPickingImage = true;
+
+    final label = widget.label?.toLowerCase() ?? '';
+    final placeholder = widget.placeholder?.toLowerCase() ?? '';
+    final isSelfie = label.contains('selfie') || placeholder.contains('selfie');
+
+    File? pickedFile;
+
+    try {
+      await FileLogger.info(
+        'Camera flow started',
+        data: {'isSelfie': isSelfie, 'label': widget.label ?? ''},
+      );
+      if (!mounted) return;
+
+      setState(() => _isLoading = true);
+      await LocalStorageService.setBool(_cameraInProgressKey, true);
+      if (!mounted) return;
+
+      if (isSelfie) {
+        /// Front camera selfie
+        final result = await Navigator.push<File>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const SelfieCameraScreen(),
+          ),
+        );
+        if (!mounted) return;
+
+        if (result != null) pickedFile = result;
+      } else {
+        /// Normal camera
+        final picked = await _picker.pickImage(
+          source: ImageSource.camera,
+          preferredCameraDevice: CameraDevice.rear,
+          imageQuality: 55,
+          maxWidth: 1024,
+          maxHeight: 1024,
+        );
+        if (!mounted) return;
+
+        if (picked != null) {
+          pickedFile = File(picked.path);
+        }
+      }
+
+      if (pickedFile == null) {
+        await LocalStorageService.setBool(_cameraInProgressKey, false);
+        await FileLogger.info('Camera closed without file');
+        Toastbar.showErrorWithoutContext('Camera closed without saving image.');
+        return;
+      }
+
+      if (!pickedFile.existsSync()) {
+        await LocalStorageService.setBool(_cameraInProgressKey, false);
+        await FileLogger.error('Captured image file missing');
+        Toastbar.showErrorWithoutContext('Unable to read captured image. Please try again.');
+        return;
+      }
+
+      /// Compress image
+      File finalFile = pickedFile;
+
+      try {
+        final compressed =
+            await ImageCompressionHelper.compressImageTo2MB(pickedFile);
+
+        if (compressed != null) {
+          finalFile = compressed;
+        }
+      } catch (e, s) {
+        await CrashLogger().logCrash(e, s);
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedImage = finalFile;
+        _isLoading = false;
+      });
+
+      widget.onImageSelected(finalFile);
+      await FileLogger.info(
+        'Camera flow success',
+        data: {'path': finalFile.path},
+      );
+      await LocalStorageService.setBool(_cameraInProgressKey, false);
+    } catch (e, s) {
+      await CrashLogger().logCrash(
+        e,
+        s,
+        reason: 'ImageUploadField._pickImage',
+        context: {
+          'feature': 'camera',
+          'camera_flow': isSelfie ? 'selfie' : 'rear',
+          'action': 'pick_image',
+          'isSelfie': isSelfie,
+          'label': widget.label ?? '',
+          'placeholder': widget.placeholder ?? '',
+        },
+      );
+
+      await FileLogger.error(
+        'Camera open failed',
+        data: {'error': e.toString()},
+        stackTrace: s,
+      );
+
+      final api = ServiceLocator().apiService;
+      api.sendCameraCrashLogs(
+        'Camera open failed in ImageUploadField: ${e.toString()}',
+      );
+
+      Toastbar.showErrorWithoutContext(
+        "Unable to open camera on this device",
+      );
+
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    } finally {
+      _isPickingImage = false;
+      // Avoid a second rebuild when the success path already cleared loading (reduces preview flicker).
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
+      }
+      await LocalStorageService.setBool(_cameraInProgressKey, false);
+    }
+  }
+
+  /// Placeholder
   Widget _buildPlaceholder() {
-    return const Center(
+    return Center(
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        children: [
+        children: const [
           Icon(Icons.camera_alt_outlined,
               size: 20, color: AppColors.color555555),
           SizedBox(width: 6),
@@ -253,36 +307,64 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     );
   }
 
+  /// Render image safely
   Widget _buildImageFromUrl(String url) {
     try {
+      /// Prevent large base64 crash
       if (url.length > maxBase64Length) {
         return _buildPlaceholder();
       }
 
+      /// data:image/jpeg;base64
       if (url.startsWith('data:image')) {
-        final bytes = base64Decode(url.split(',')[1]);
+        final parts = url.split(',');
+
+        if (parts.length < 2) return _buildPlaceholder();
+
+        final bytes = base64Decode(parts[1]);
 
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
+          width: double.infinity,
           cacheWidth: 600,
+          cacheHeight: 600,
           filterQuality: FilterQuality.low,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
         );
       }
 
+      /// Local file path
+      if (url.startsWith('/data/') || url.contains('/storage/')) {
+        final file = File(url);
+
+        if (file.existsSync()) {
+          return SafeImageFile(
+            file: file,
+            fit: BoxFit.cover,
+            width: double.infinity,
+            cacheWidth: 600,
+            errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+          );
+        }
+      }
+
+      /// Raw base64
       final bytes = base64Decode(url);
 
       return Image.memory(
         bytes,
         fit: BoxFit.cover,
+        width: double.infinity,
         cacheWidth: 600,
+        cacheHeight: 600,
+        filterQuality: FilterQuality.low,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
       );
     } catch (_) {
       return _buildPlaceholder();
     }
   }
-
-  /// -------------------- UI --------------------
 
   @override
   Widget build(BuildContext context) {
@@ -296,6 +378,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         fit: BoxFit.cover,
         width: double.infinity,
         cacheWidth: 600,
+        errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
       );
     } else if (_externalImageWidget != null) {
       child = _externalImageWidget!;
@@ -321,7 +404,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
                 ),
               ),
               if (widget.isRequired)
-                const Text(" *", style: TextStyle(color: Colors.red)),
+                const Text(
+                  " *",
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         const SizedBox(height: 6),
@@ -333,9 +419,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
             width: double.infinity,
             height: 150,
             decoration: BoxDecoration(
-              color: widget.isDisabled
-                  ? Colors.grey.shade200
-                  : Colors.white,
+              color: widget.isDisabled ? Colors.grey.shade200 : Colors.white,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: Colors.grey),
             ),

@@ -302,7 +302,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
               parentContext: parentContext,
             ),
           ),
-        );
+        ).then((_) {
+          if (!mounted) return;
+          // PM completion should reflect on the ticket list card status.
+          _loadDownloadedTickets();
+        });
       } else if (ticket.activityType == ActivityTypeEnum.energyReading) {
         final parentContext = context;
         Navigator.push(

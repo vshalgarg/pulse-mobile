@@ -443,7 +443,11 @@ class _TicketScreenState extends State<TicketScreen>
               isViewMode: isViewMode,
             ),
           ),
-        );
+        ).then((_) {
+          if (!mounted) return;
+          // PM completion should reflect on the ticket list card status.
+          _refreshTickets();
+        });
       } else if (_currentActivityType == ActivityTypeEnum.energyReading) {
         if (!mounted) return;
         final parentContext = context;
