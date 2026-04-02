@@ -368,10 +368,12 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   try {
     pickedFile = await picker.pickImage(
       source: ImageSource.camera,
-      imageQuality: AssetUploadFormComponent._cameraQuality,
-      maxWidth: (isLowRam ? AssetUploadFormComponent._maxWidthLowRam : AssetUploadFormComponent._maxWidthNormal).toDouble(),
-      // Android scales using both dimensions; omitting maxHeight can still decode full-res height → OOM.
-      maxHeight: (isLowRam ? AssetUploadFormComponent._maxWidthLowRam : AssetUploadFormComponent._maxWidthNormal).toDouble(),
+       imageQuality: ImageCompressionHelper.pickImageQuality,
+  maxWidth: ImageCompressionHelper.pickImageMaxWidth,
+  maxHeight: ImageCompressionHelper.pickImageMaxHeight,
+
+      
+      
     );
   } catch (e, s) {
     await CrashLogger().logCrash(e, s);

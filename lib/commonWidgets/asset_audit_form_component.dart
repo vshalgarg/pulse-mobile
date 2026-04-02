@@ -309,9 +309,9 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
     try {
       pickedFile = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: (isLowRam ? 1280 : ImageCompressionHelper.pickImageMaxWidth),
-        maxHeight: (isLowRam ? 1280 : ImageCompressionHelper.pickImageMaxHeight),
-        imageQuality: (isLowRam ? 50 : ImageCompressionHelper.pickImageQuality),
+        maxWidth: (isLowRam ? 800 : ImageCompressionHelper.pickImageMaxWidth),
+        maxHeight: (isLowRam ? 800 : ImageCompressionHelper.pickImageMaxHeight),
+        imageQuality: (isLowRam ? 35 : ImageCompressionHelper.pickImageQuality),
       );
     } catch (e) {
       if (!mounted) return;
