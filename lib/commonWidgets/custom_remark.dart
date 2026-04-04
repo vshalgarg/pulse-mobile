@@ -63,6 +63,9 @@ class CustomRemarksField extends StatelessWidget {
           controller: controller,
           maxLines: maxLines,
           readOnly: isDisabled,
+          // Extra bottom padding so ListView/Scaffold can scroll the field above
+          // the keyboard and bottom action bar without fighting the inset.
+          scrollPadding: const EdgeInsets.fromLTRB(8, 120, 8, 220),
           decoration: InputDecoration(
             hintText: hintText,
             hintStyle: const TextStyle(color: AppColors.color555555),

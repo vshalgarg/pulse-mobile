@@ -141,33 +141,82 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       ),
       body: Stack(
         children: [
-          // Background
+          // Background (isolated from viewInsets so keyboard animation does not repaint it)
           Positioned.fill(
-            child: SafeSvgPicture.asset(
-              AppImages.home,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
+            child: RepaintBoundary(
+              child: SafeSvgPicture.asset(
+                AppImages.home,
+                fit: BoxFit.cover,
+                width: double.infinity,
+                height: double.infinity,
+              ),
             ),
           ),
           SafeArea(
             child: Column(
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
+                  child: ListView.builder(
                     keyboardDismissBehavior:
                         ScrollViewKeyboardDismissBehavior.onDrag,
                     physics: const BouncingScrollPhysics(),
-                    padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 100,
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      20,
+                      16,
+                      16 + MediaQuery.viewInsetsOf(context).bottom + 100,
                     ),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [_buildChecklistContent()],
-                      ),
-                    ),
+                    itemCount: _checklistItems.length,
+                    itemBuilder: (context, index) {
+                      final item = _checklistItems[index];
+                      final existingResponse =
+                          _checklistResponses[item.giclmId];
+                      return RepaintBoundary(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 3,
+                            vertical: 3,
+                          ),
+                          child: GICustomChecklistItem(
+                            key: _widgetKeys[item.giclmId],
+                            checklistItem: item,
+                            siteData: widget.siteData,
+                            mode: widget.mode,
+                            existingResponse: existingResponse,
+                            onRadioChanged: (radioValue) {
+                              final currentResponse =
+                                  _checklistResponses[item.giclmId];
+                              _onChecklistItemChanged(
+                                item.giclmId,
+                                radioValue,
+                                currentResponse?['image_id'],
+                                currentResponse?['text_value'],
+                              );
+                            },
+                            onImageChanged: (imageId) {
+                              final currentResponse =
+                                  _checklistResponses[item.giclmId];
+                              _onChecklistItemChanged(
+                                item.giclmId,
+                                currentResponse?['radio_value'],
+                                imageId,
+                                currentResponse?['text_value'],
+                              );
+                            },
+                            onTextChanged: (textValue) {
+                              final currentResponse =
+                                  _checklistResponses[item.giclmId];
+                              _onChecklistItemChanged(
+                                item.giclmId,
+                                currentResponse?['radio_value'],
+                                currentResponse?['image_id'],
+                                textValue,
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 ),
                 Container(
@@ -214,58 +263,6 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildChecklistContent() {
-    return Column(
-      children: [
-        // Site Information Header
-        const SizedBox(height: 20),
-
-        // Checklist Items
-        ..._checklistItems.map((item) {
-          final existingResponse = _checklistResponses[item.giclmId];
-
-          return Container(
-            margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 3),
-            child: GICustomChecklistItem(
-              key: _widgetKeys[item.giclmId],
-              checklistItem: item,
-              siteData: widget.siteData,
-              mode: widget.mode,
-              existingResponse: existingResponse, // Pass existing response data
-              onRadioChanged: (radioValue) {
-                final currentResponse = _checklistResponses[item.giclmId];
-                _onChecklistItemChanged(
-                  item.giclmId,
-                  radioValue,
-                  currentResponse?['image_id'],
-                  currentResponse?['text_value'],
-                );
-              },
-              onImageChanged: (imageId) {
-                final currentResponse = _checklistResponses[item.giclmId];
-                _onChecklistItemChanged(
-                  item.giclmId,
-                  currentResponse?['radio_value'],
-                  imageId,
-                  currentResponse?['text_value'],
-                );
-              },
-              onTextChanged: (textValue) {
-                final currentResponse = _checklistResponses[item.giclmId];
-                _onChecklistItemChanged(
-                  item.giclmId,
-                  currentResponse?['radio_value'],
-                  currentResponse?['image_id'],
-                  textValue,
-                );
-              },
-            ),
-          );
-        }),
-      ],
     );
   }
 

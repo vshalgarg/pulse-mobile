@@ -39,7 +39,11 @@ class GICustomChecklistItem extends StatefulWidget {
   State<GICustomChecklistItem> createState() => GICustomChecklistItemState();
 }
 
-class GICustomChecklistItemState extends State<GICustomChecklistItem> {
+class GICustomChecklistItemState extends State<GICustomChecklistItem>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   String? _selectedRadioValue; // Stores the displayed value (e.g., "Yes")
   String? _selectedDropdownValue; // Stores the selected dropdown value
   File? _imageFile; // Stores the captured image file
@@ -56,6 +60,8 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
   
   // Track which dependent fields should be highlighted (for validation errors)
   Set<String> _highlightedDependentFields = {};
+
+  bool _mainTextRebuildScheduled = false;
 
   @override
   void initState() {
@@ -158,17 +164,27 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
         }
       }
     }
-    
-    // Add listener to text controller
-    _textController.addListener(() {
-      widget.onTextChanged?.call(_textController.text);
-      // Trigger rebuild to update flag condition and dependent elements
+
+    _textController.addListener(_onMainTextControllerChanged);
+  }
+
+  void _onMainTextControllerChanged() {
+    widget.onTextChanged?.call(_textController.text);
+    // RADIO/DROPDOWN/etc. do not use [_textController] for visibility; rebuilding
+    // every key event makes the checklist jank badly when the keyboard is open.
+    if (!widget.checklistItem.respType.contains('TEXT')) return;
+    if (_mainTextRebuildScheduled) return;
+    _mainTextRebuildScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mainTextRebuildScheduled = false;
       setState(() {});
     });
   }
 
   @override
   void dispose() {
+    _textController.removeListener(_onMainTextControllerChanged);
     _textController.dispose();
     // Dispose all dependent element controllers
     for (final controller in _dependentControllers.values) {
@@ -221,6 +237,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     bool isEditable = widget.mode != CMScreenModeEnum.view;
     bool hasRadio = widget.checklistItem.respType.contains('RADIO');
     bool hasDropdown = widget.checklistItem.respType.contains('DROPDOWN');
