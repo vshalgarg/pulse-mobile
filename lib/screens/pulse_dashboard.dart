@@ -436,7 +436,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
               iconPath: AppImages.project,
               label: 'Project',
               onTap: () => _navigateToTask('Project'),
-              isComingSoon: true,
+              isComingSoon: false,
             ),
             _buildTaskCard(
               iconPath: AppImages.warehouse,

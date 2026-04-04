@@ -331,22 +331,23 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.label != null)
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label!,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w500,
-                    fontFamily: fontFamilyMontserrat,
-                    fontSize: 16,
-                    color: AppColors.white,
-                  ),
-                ),
+          Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontWeight: FontWeight.w500,
+                fontFamily: fontFamilyMontserrat,
+                fontSize: 16,
+                color: AppColors.white,
               ),
-              if (widget.isRequired)
-                const Text(" *", style: TextStyle(color: Colors.red)),
-            ],
+              children: [
+                TextSpan(text: widget.label!),
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Colors.red),
+                  ),
+              ],
+            ),
           ),
         const SizedBox(height: 6),
         GestureDetector(

@@ -6,6 +6,7 @@ import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/pmis_project_model.dart';
 import 'package:app/models/pmis_project_state_model.dart';
+import 'package:app/screens/pmis/pmis_site.dart';
 import 'package:app/services/api_service.dart';
 import 'package:flutter/material.dart';
 
@@ -175,7 +176,21 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
                         itemBuilder: (context, index) {
                           final state = states[index];
                           final stateCardModel = _mapStateToCardModel(state);
-                          return PmisCard(project: stateCardModel);
+                          return PmisCard(
+                            project: stateCardModel,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (context) => PmisSiteScreen(
+                                    project: widget.project,
+                                    projectId: widget.projectId,
+                                    stateId: state.stateId,
+                                    stateName: state.state,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
                         },
                       );
                     },
