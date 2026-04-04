@@ -727,6 +727,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
             hintText: "Enter ${element.checklistDesc.toLowerCase()}",
             controller: _dependentControllers[element.respType]!,
             isDisabled: !isEditable,
+            isRequired: isMandatory,
           ),
         ),
       );
@@ -762,6 +763,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
             hintText: "Enter ${element.checklistDesc.toLowerCase()}",
             controller: _dependentControllers[element.respType]!,
             isDisabled: !isEditable,
+            isRequired: isMandatory,
           ),
         ),
       );
