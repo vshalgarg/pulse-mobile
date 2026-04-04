@@ -5,6 +5,7 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
+import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/calculate_distance.dart';
@@ -911,6 +912,21 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
     }
   }
 
+  /// My Tickets reads `raw_api_data.status`; asset audit only updated `api_data` until we
+  /// synced `pageHeader.status` on save. Prefer column, then payload (older rows).
+  String _displayStatusForTicket(RawApiDataModel rawData) {
+    final col = rawData.status.trim();
+    if (col.isNotEmpty && col.toUpperCase() != 'N/A') {
+      return col;
+    }
+    final fromPayload =
+        CentralAssetAuditService.statusFromAssetAuditApiData(rawData.apiData);
+    if (fromPayload != null && fromPayload.isNotEmpty) {
+      return fromPayload;
+    }
+    return col.isEmpty ? 'N/A' : rawData.status;
+  }
+
   // Convert RawApiDataModel to Ticket for display
   Ticket _convertToTicket(RawApiDataModel rawData) {
     final totalAssets = rawData.apiData['total_asset_cnt'] != null
@@ -924,7 +940,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       operator: rawData.operator,
       raisedDt: rawData.raisedDt,
       dueDt: rawData.dueDt,
-      status: rawData.status,
+      status: _displayStatusForTicket(rawData),
       latitude: rawData.latitude,
       longitude: rawData.longitude,
       auditSchId: int.tryParse(rawData.auditSchId),

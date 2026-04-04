@@ -189,11 +189,93 @@ class AssetAuditPostService {
     if (response != null && response.isSuccess && response.data != null) {
       Toastbar.showSuccessToastWithoutContext("Data posted successfully");
       Logger.infoLog("Data posted successfully");
+      await _syncLocalTicketRowAfterSuccessfulAssetAuditSiteResp(
+        url: url,
+        requests: requests,
+      );
     } else {
       Toastbar.showErrorWithoutContext(
         "Data posted failed",
       );
       throw Exception((response.errorMessage ?? 'Unknown error from server'));
+    }
+  }
+
+  /// After a successful [AssetAuditSiteResp] call, align SQLite with the server
+  /// (`?status=COMPLETED` / `IN-PROGRESS`) so [MyTicketsScreen] matches [TicketScreen].
+  Future<void> _syncLocalTicketRowAfterSuccessfulAssetAuditSiteResp({
+    required String url,
+    required List<dynamic> requests,
+  }) async {
+    if (!url.contains('AssetAuditSiteResp')) return;
+    final statusMatch = RegExp(r'[?&]status=([^&]+)').firstMatch(url);
+    if (statusMatch == null) return;
+    final statusValue = Uri.decodeComponent(statusMatch.group(1)!).trim();
+    if (statusValue.isEmpty) return;
+    if (requests.isEmpty) return;
+
+    final first = requests.first;
+    if (first is! Map) return;
+    final firstMap = Map<String, dynamic>.from(first);
+    // Asset Upload offline queue uses this URL shape but a different body; skip.
+    if (firstMap.containsKey('assetUploadItems')) return;
+
+    String? siteAuditSchId;
+    for (final r in requests) {
+      if (r is! Map) continue;
+      final m = Map<String, dynamic>.from(r);
+      final id = m['site_audit_sch_id'] ?? m['siteAuditSchId'];
+      if (id != null && id.toString().trim().isNotEmpty) {
+        siteAuditSchId = id.toString().trim();
+        break;
+      }
+    }
+    if (siteAuditSchId == null) return;
+
+    try {
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      await dataService.updateRawApiDataStatus(
+        siteAuditSchId: siteAuditSchId,
+        status: statusValue,
+      );
+      Logger.debugLog(
+        '✅ My Tickets: raw_api_data.status → $statusValue for $siteAuditSchId (after AssetAuditSiteResp)',
+      );
+      await _mergePageHeaderStatusIntoStoredApiData(
+        siteAuditSchId: siteAuditSchId,
+        status: statusValue,
+      );
+    } catch (e) {
+      Logger.errorLog(
+        '⚠️ My Tickets status sync after AssetAuditSiteResp failed: $e',
+      );
+    }
+  }
+
+  Future<void> _mergePageHeaderStatusIntoStoredApiData({
+    required String siteAuditSchId,
+    required String status,
+  }) async {
+    try {
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      final raw = await dataService.getRawApiData(siteAuditSchId);
+      if (raw == null) return;
+      final api = Map<String, dynamic>.from(raw.apiData);
+      final ph = api['pageHeader'];
+      if (ph is! List || ph.isEmpty) return;
+      final head = ph.first;
+      if (head is! Map) return;
+      final updatedHeader = Map<String, dynamic>.from(head);
+      updatedHeader['status'] = status;
+      final newPh = List<dynamic>.from(ph);
+      newPh[0] = updatedHeader;
+      api['pageHeader'] = newPh;
+      await dataService.updateRawApiData(
+        siteAuditSchId: siteAuditSchId,
+        apiData: api,
+      );
+    } catch (e) {
+      Logger.errorLog('⚠️ Could not merge pageHeader.status into api_data: $e');
     }
   }
 

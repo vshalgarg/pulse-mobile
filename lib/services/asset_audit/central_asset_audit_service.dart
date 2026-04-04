@@ -961,6 +961,22 @@ class CentralAssetAuditService {
     }
   }
 
+  /// Reads ticket/workflow status from saved asset audit JSON
+  /// (`pageHeader[0].status`). Used to keep `raw_api_data.status` in sync for My Tickets.
+  static String? statusFromAssetAuditApiData(Map<String, dynamic> data) {
+    try {
+      final ph = data['pageHeader'];
+      if (ph is! List || ph.isEmpty) return null;
+      final first = ph.first;
+      if (first is! Map) return null;
+      final s = first['status']?.toString().trim();
+      if (s == null || s.isEmpty || s.toUpperCase() == 'N/A') return null;
+      return s;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Update asset audit data in SQLite
   Future<bool> updateDataInSqlite({
     required String siteAuditSchId,
@@ -970,14 +986,30 @@ class CentralAssetAuditService {
       Logger.debugLog('🔄 Updating asset audit data for site $siteAuditSchId');
       Logger.debugLog('🔄 Updated data keys: ${updatedData.keys.toList()}');
 
-      // Update the raw API data in SQLite
-      await ServiceLocator().centralAssetAuditDataService.updateRawApiData(
+      final updated = await ServiceLocator().centralAssetAuditDataService
+          .updateRawApiData(
         siteAuditSchId: siteAuditSchId,
         apiData: updatedData,
       );
 
-      Logger.debugLog('✅ Asset audit data updated successfully');
-      return true;
+      if (updated) {
+        final status = statusFromAssetAuditApiData(updatedData);
+        if (status != null) {
+          await ServiceLocator().centralAssetAuditDataService
+              .updateRawApiDataStatus(
+            siteAuditSchId: siteAuditSchId,
+            status: status,
+          );
+          Logger.debugLog(
+            '✅ Synced raw_api_data.status ($status) for My Tickets',
+          );
+        }
+      }
+
+      if (updated) {
+        Logger.debugLog('✅ Asset audit data updated successfully');
+      }
+      return updated;
     } catch (e) {
       Logger.errorLog('❌ Error updating asset audit data: $e');
       return false;
