@@ -282,6 +282,18 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         );
       }
 
+      // Local filesystem path (e.g. Asset Upload / PM saved file paths)
+      final file = File(url);
+      if (file.existsSync()) {
+        return SafeImageFile(
+          file: file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          cacheWidth: 600,
+          errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
+        );
+      }
+
       final bytes = base64Decode(url);
 
       return Image.memory(

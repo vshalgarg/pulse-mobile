@@ -4,13 +4,9 @@ import 'dart:async';
 import 'package:app/utils.dart';
 import 'package:app/utils/uppercase_text_formatter.dart';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/utils/CrashLogger.dart';
-import 'package:app/utils/device_memory_helper.dart';
-import 'package:app/utils/file_logger.dart';
-import 'package:app/utils/image_compression_helper.dart';
+import 'package:app/commonWidgets/custom_image_upload_field.dart';
 import 'package:app/screens/qrScannerScreen.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/enum/activity_type_enum.dart';
@@ -121,10 +117,6 @@ class AssetUploadFormComponent extends StatefulWidget {
     this.showForm = true,
   });
 
-  static const _cameraQuality = 85;
-  static const _maxWidthLowRam = 1280;
-  static const _maxWidthNormal = 1920;
-
   @override
   State<AssetUploadFormComponent> createState() =>
       _AssetUploadFormComponentState();
@@ -136,7 +128,6 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   bool _isQRCodeScanned = false;
 
   bool _isUploading = false;
-  bool _isLoadingPhoto = false; // True while processing/displaying photo after camera
   bool _isSaving = false; // Prevent duplicate save taps/races
   String? qrCodeScannedTs;
   String? _uploadedImageId; // Photo ID from server
@@ -332,239 +323,23 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   }
 
   /// Handles photo selection
-  void _handlePhotoSelection(
-    String? photoPath, {
-    bool clearPhotoLoading = false,
-  }) {
+  void _handlePhotoSelection(String? photoPath) {
     setState(() {
       _selectedPhotoPath = photoPath;
       _photoData = photoPath; // Store the photo data
       _uploadedImageId = null; // Reset photo ID since we have new photo data
       _hasNewPhotoSelected = true; // Mark that user selected a new photo
       _showValidationErrors = false;
-      if (clearPhotoLoading) {
-        _isLoadingPhoto = false;
-      }
     });
   }
 
-  /// Picks image from camera (matching CustomInfoCard).
-  /// Defers processing to next frame + short delay so Flutter view can restore after camera
-  /// intent (fixes white screen on some devices when user taps Save in camera).
- Future<void> _pickImage() async {
-  if (_isSaving || _isUploading || _isLoadingPhoto) return;
-  final picker = ImagePicker();
-
-  bool isLowRam = await DeviceMemoryHelper.isLowRamDevice();
-  final deviceInfo = await DeviceMemoryHelper.getDeviceSnapshot();
-
-  await FileLogger.info('Opening camera', data: {
-    "lowRam": isLowRam,
-    "device": deviceInfo,
-  });
-
-  XFile? pickedFile;
-
-  try {
-    pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
-       imageQuality: ImageCompressionHelper.pickImageQuality,
-  maxWidth: ImageCompressionHelper.pickImageMaxWidth,
-  maxHeight: ImageCompressionHelper.pickImageMaxHeight,
-
-      
-      
-    );
-  } catch (e, s) {
-    await CrashLogger().logCrash(e, s);
-
-    await FileLogger.error('Camera open failed', data: {
-      "device": deviceInfo,
-      "lowRam": isLowRam,
-    });
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Camera failed to open'),
-        backgroundColor: Colors.red,
-      ),
-    );
-    return;
-  }
-
-  if (pickedFile == null) return;
-
-  final path = pickedFile.path;
-  if (path.isEmpty) return;
-
-  // Show "Loading image..." right away so user sees feedback after tapping tick
-  if (mounted) setState(() => _isLoadingPhoto = true);
-
-  // Defer heavy work to next frame to avoid crash when returning from camera (tick/save).
-  // Compress first, then set the preview once — avoids double flicker (original → compressed).
-  WidgetsBinding.instance.addPostFrameCallback((_) async {
-    if (!mounted) return;
-
-    try {
-      final originalFile = File(path);
-      if (!await originalFile.exists()) {
-        if (mounted) setState(() => _isLoadingPhoto = false);
-        return;
-      }
-
-      File displayFile = originalFile;
-      try {
-        final compressedFile = await Future(
-          () => ImageCompressionHelper.compressImageTo2MB(originalFile),
-        );
-        if (!mounted) return;
-        await FileLogger.info('Image processed', data: {
-          "compressed": compressedFile != null,
-          "path": path,
-        });
-        if (compressedFile != null) {
-          displayFile = compressedFile;
-        }
-      } catch (e, s) {
-        await CrashLogger().logCrash(e, s);
-        await FileLogger.error('Compression failed', data: {
-          "path": path,
-          "device": deviceInfo,
-        });
-        if (!mounted) return;
-        try {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Image compression failed, using original'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        } catch (_) {}
-      }
-
-      if (!mounted) return;
-      _handlePhotoSelection(displayFile.path, clearPhotoLoading: true);
-    } catch (e, s) {
-      await CrashLogger().logCrash(e, s);
-      if (mounted) {
-        setState(() => _isLoadingPhoto = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not show photo'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  });
-}
-  /// Checks if image should be shown
-  bool _shouldShowImage() {
-    return _selectedPhotoPath != null && _selectedPhotoPath!.isNotEmpty;
-  }
-
-  /// Builds image widget (matching CustomInfoCard)
-  Widget _buildImageWidget() {
-    if (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty) {
-      return Container();
-    }
-
-    if (_selectedPhotoPath!.startsWith('data:image')) {
-      // Base64 image data
-      try {
-        final parts = _selectedPhotoPath!.split(',');
-        if (parts.length == 2 && parts[1].isNotEmpty) {
-          final base64Data = parts[1];
-          final bytes = base64Decode(base64Data);
-
-          return Image.memory(
-            bytes,
-            fit: BoxFit.cover,
-            width: double.infinity,
-            height: 150,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildErrorWidget('Image display error');
-            },
-          );
-        }
-      } catch (e, s) {
-        CrashLogger().logCrash(e, s);
-        return _buildErrorWidget('Image decode error');
-      }
-    } else if (int.tryParse(_selectedPhotoPath!) != null) {
-      // Photo ID - show loading indicator while fetching
-      return Container(
-        color: Colors.grey.shade100,
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  AppColors.primaryGreen,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Loading image...',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
-                  fontFamily: fontFamilyMontserrat,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else {
-      // File path (wrap in try-catch; path can be invalid on some devices after camera)
-      try {
-        final file = File(_selectedPhotoPath!);
-        return SafeImageFile(
-          file: file,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: 150,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildErrorWidget('Failed to load image');
-          },
-        );
-      } catch (e, s) {
-        CrashLogger().logCrash(e, s);
-        return _buildErrorWidget('Invalid image path');
-      }
-    }
-
-    return _buildErrorWidget('Unsupported image type');
-  }
-
-  /// Builds error widget (matching CustomInfoCard)
-  Widget _buildErrorWidget(String message) {
-    return Container(
-      color: Colors.grey.shade300,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error, color: Colors.red, size: 24),
-            const SizedBox(height: 4),
-            Text(
-              message,
-              style: const TextStyle(
-                color: Colors.red,
-                fontSize: 12,
-                fontFamily: fontFamilyMontserrat,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+  /// Preview URL for [ImageUploadField]: data URLs / local paths only (not raw photo IDs).
+  String? _assetUploadPhotoExternalUrl() {
+    final p = _selectedPhotoPath;
+    if (p == null || p.isEmpty) return null;
+    if (p.startsWith('data:image')) return p;
+    if (int.tryParse(p) != null) return null;
+    return p;
   }
 
   Widget _buildSafeMemoryImage(String base64Payload) {
@@ -1001,7 +776,6 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     setState(() {
       widget.serialController.clear();
       _selectedPhotoPath = null;
-      _isLoadingPhoto = false;
       _isQRCodeScanned = false;
       qrCodeScannedTs = null;
       _uploadedImageId = null;
@@ -1309,110 +1083,22 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
     );
   }
 
-  /// Builds the photo upload field (matching CustomInfoCard design)
+  /// Builds the photo upload field (shared camera + compression via [ImageUploadField]).
   Widget _buildPhotoUploadField() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label with asterisk (matching CustomInfoCard)
-        RichText(
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: widget.photoLabel,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: fontFamilyMontserrat,
-                  fontSize: 16,
-                  color: AppColors.white,
-                ),
-              ),
-              const TextSpan(
-                text: " *",
-                style: TextStyle(
-                  fontWeight: FontWeight.w400,
-                  fontFamily: fontFamilyMontserrat,
-                  fontSize: 16,
-                  color: AppColors.errorColor,
-                ),
-              ),
-            ],
+        ImageUploadField(
+          key: ValueKey<String>(
+            '${_selectedPhotoPath ?? ''}|${_uploadedImageId ?? ''}',
           ),
+          label: widget.photoLabel,
+          placeholder: 'Tap to take photo',
+          isRequired: true,
+          isDisabled: _isSaving || _isUploading,
+          externalImageUrl: _assetUploadPhotoExternalUrl(),
+          onImageSelected: (file) => _handlePhotoSelection(file?.path),
         ),
-        const SizedBox(height: 6),
-
-        // Photo picker container (matching CustomInfoCard)
-        GestureDetector(
-          onTap: _pickImage,
-          child: Container(
-            width: double.infinity,
-            height: 150,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(5),
-              border: Border.all(color: Colors.grey.shade400),
-            ),
-            child: _isLoadingPhoto
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Loading image...',
-                          style: TextStyle(
-                            fontWeight: FontWeight.w400,
-                            color: AppColors.color555555,
-                            fontFamily: fontFamilyMontserrat,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : _shouldShowImage()
-                    ? Stack(
-                        key: ValueKey(_selectedPhotoPath ?? ''),
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(5),
-                            child: _buildImageWidget(),
-                          ),
-                        ],
-                      )
-                    : Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.camera_alt_outlined,
-                              size: 20,
-                              color: AppColors.color555555,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              widget.photoLabel,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w400,
-                                color: AppColors.color555555,
-                                fontFamily: fontFamilyMontserrat,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-          ),
-        ),
-
-        // Validation error
         if (_showValidationErrors &&
             (_selectedPhotoPath == null || _selectedPhotoPath!.isEmpty))
           const Padding(
@@ -1532,20 +1218,20 @@ class _AssetUploadFormComponentState extends State<AssetUploadFormComponent> {
   /// Builds the save button (matching CustomInfoCard design exactly)
   Widget _buildSaveButton() {
     return ElevatedButton(
-      onPressed: (_isUploading || _isSaving || _isLoadingPhoto)
+      onPressed: (_isUploading || _isSaving)
           ? null
           : _handleSave, // Disable button when uploading
       style: ElevatedButton.styleFrom(
-        backgroundColor: (_isUploading || _isSaving || _isLoadingPhoto)
+        backgroundColor: (_isUploading || _isSaving)
             ? Colors.grey.shade400
             : const Color(0xFFDBE2F0),
-        foregroundColor: (_isUploading || _isSaving || _isLoadingPhoto)
+        foregroundColor: (_isUploading || _isSaving)
             ? Colors.grey.shade600
             : const Color(0xFF2D426E),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
       ),
-      child: (_isUploading || _isSaving || _isLoadingPhoto)
+      child: (_isUploading || _isSaving)
           ? const SizedBox(
               width: 16,
               height: 16,
