@@ -37,6 +37,22 @@ class GInspectionDetailScreen extends StatefulWidget {
     this.parentContext,
   });
 
+  /// GI rows use ticket/schedule id for local DB keys; `genInspection` POST must send the
+  /// physical site id from the downloaded payload (`siteId` / `site_id`), not `giId`.
+  static int resolvedPhysicalSiteIdForApi({
+    Map<String, dynamic>? apiResponseData,
+    required int storageAlignedSiteId,
+  }) {
+    if (apiResponseData != null) {
+      final v = apiResponseData['siteId'] ?? apiResponseData['site_id'];
+      final parsed = int.tryParse(v?.toString() ?? '');
+      if (parsed != null && parsed > 0) {
+        return parsed;
+      }
+    }
+    return storageAlignedSiteId;
+  }
+
   @override
   State<GInspectionDetailScreen> createState() =>
       _GInspectionDetailScreenState();
@@ -133,7 +149,12 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               as List<dynamic>?;
       if (genInspectionSiteRespList != null) {
         for (final response in genInspectionSiteRespList) {
-          final giclmId = response['giclmId'] as int?;
+          if (response is! Map) continue;
+          final row = Map<String, dynamic>.from(response);
+          final giclmId = row['giclmId'] is int
+              ? row['giclmId'] as int
+              : int.tryParse(row['giclmId']?.toString() ?? '') ??
+                  int.tryParse(row['giclm_id']?.toString() ?? '');
           if (giclmId != null) {
             // Find the corresponding checklist item to determine response type
             GenInsCheckListData? checklistItem;
@@ -146,17 +167,21 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               continue;
             }
 
+            final gispRaw = row['gispId'] ?? row['gisp_id'];
+            final gispId = gispRaw is int
+                ? gispRaw
+                : int.tryParse(gispRaw?.toString() ?? '');
+
             Map<String, dynamic> responseData = {
               'giId': widget.apiResponseData!['giId']
                   ?.toString(), // Include giId
-              'gispId':
-                  response['gispId'] as int?, // Include gispId for edit mode
+              if (gispId != null) 'gispId': gispId,
             };
 
               // Set the appropriate response value based on the checklist item type
               if (checklistItem.respType.contains('RADIO')) {
                 // Map the resp value using respTypeValueMap to get the correct display value
-                final respValue = response['resp'] as String?;
+                final respValue = row['resp']?.toString();
                 if (respValue != null &&
                     respValue.isNotEmpty &&
                     checklistItem.respTypeValueMap != null) {
@@ -179,15 +204,16 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
                   responseData['radio_value'] = respValue;
                 }
               } else if (checklistItem.respType.contains('DROPDOWN')) {
-                final respValue = response['resp'] as String?;
+                final respValue = row['resp']?.toString();
                 responseData['radio_value'] =
                     respValue; // Dropdown uses same key as radio
               } else if (checklistItem.respType.contains('TEXT')) {
-                responseData['text_value'] = response['resp'] as String?;
+                responseData['text_value'] = row['resp']?.toString();
               }
 
-              // Handle image ID - check if main field has IMG type, otherwise it might be for dependent elements
-              final respPhotoId = response['respPhotoId']?.toString();
+              // Handle image ID - API may send camelCase or snake_case
+              final dynamic photoRaw = row['respPhotoId'] ?? row['resp_photo_id'];
+              final respPhotoId = photoRaw?.toString();
               if (respPhotoId != null &&
                   respPhotoId.isNotEmpty &&
                   respPhotoId != "0") {
@@ -202,7 +228,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
               }
 
               // Extract remarks from API response for dependent REMARKS elements
-              final remarksValue = response['remarks']?.toString();
+              final remarksValue = row['remarks']?.toString();
               if (remarksValue != null &&
                   remarksValue.isNotEmpty &&
                   remarksValue != "null") {
@@ -333,6 +359,11 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         MaterialPageRoute(
           builder: (_) => GIChecklistScreen(
             siteData: widget.siteData,
+            physicalSiteIdForPost:
+                GInspectionDetailScreen.resolvedPhysicalSiteIdForApi(
+              apiResponseData: widget.apiResponseData,
+              storageAlignedSiteId: widget.siteData.siteId,
+            ),
             mode: widget.mode,
             visitingPersonImageId: _uploadedImgId,
             checklistItems: _checklistItems,
@@ -652,7 +683,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _selectedImage!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.generalInspection,
+        activityType: ActivityTypeEnum.generalInspectionSelf,
       );
 
       // Update the database with the new image ID

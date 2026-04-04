@@ -269,8 +269,11 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       case ActivityTypeEnum.siteVisitDocs:
         return "Site Visit";
       case ActivityTypeEnum.generalInspection:
-        return "General Inspection";
+      case ActivityTypeEnum.generalInspectionSelf:
+      case ActivityTypeEnum.generalInspChecklist:
+        return "General Inspection";       
       case ActivityTypeEnum.incident:
+      case ActivityTypeEnum.incidentSelf:
         return "Incident";
       case ActivityTypeEnum.assetUpload:
         return "Asset Upload";
@@ -400,7 +403,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             ),
           ),
         );
-      } else if (ticket.activityType == ActivityTypeEnum.generalInspection) {
+      } else if (ticket.activityType == ActivityTypeEnum.generalInspection ||
+          ticket.activityType == ActivityTypeEnum.generalInspectionSelf ||
+          ticket.activityType == ActivityTypeEnum.generalInspChecklist) {
         // For General Inspection, get checklist data from API response
         final genInspectionData = data.apiData;
 
@@ -484,7 +489,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             ),
           ),
         );
-      } else if (ticket.activityType == ActivityTypeEnum.incident) {
+      } else if (ticket.activityType == ActivityTypeEnum.incident ||
+          ticket.activityType == ActivityTypeEnum.incidentSelf) {
         // For incident tickets, always fetch fresh data from API to get latest status
         Map<String, dynamic>? incidentTicketData;
 
@@ -901,9 +907,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.generalInspection:
+      case ActivityTypeEnum.generalInspectionSelf:
+      case ActivityTypeEnum.generalInspChecklist:
         await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.incident:
+      case ActivityTypeEnum.incidentSelf:
         await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.assetUpload:
@@ -1592,6 +1601,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         );
         break;
       case ActivityTypeEnum.generalInspection:
+      case ActivityTypeEnum.generalInspectionSelf:
+      case ActivityTypeEnum.generalInspChecklist:
         final parentContext = context;
         Navigator.push(
           context,
@@ -1605,6 +1616,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         );
         break;
       case ActivityTypeEnum.incident:
+      case ActivityTypeEnum.incidentSelf:
         final parentContext = context;
         Navigator.push(
           context,

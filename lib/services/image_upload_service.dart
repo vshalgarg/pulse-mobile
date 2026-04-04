@@ -664,16 +664,21 @@ class ImageUploadService {
           );
         }
       } else {
-        // Upload to server
-        response = await _apiService.post<Map<String, dynamic>>(
-          path: 'api/v1/mobile/uploads',
-          data: {
-            'imgFile': multipartFile,
-            'activityType': activityType.value,
-            'schId': siteSchId,
-          },
-          useFormDataFormat: true,
-        );
+        if (await ConnectivityHelper.isConnected()) {
+          response = await _apiService.post<Map<String, dynamic>>(
+            path: 'api/v1/mobile/uploads',
+            data: {
+              'imgFile': multipartFile,
+              'activityType': activityType.value,
+              'schId': siteSchId,
+            },
+            useFormDataFormat: true,
+          );
+        } else {
+          Logger.debugLog(
+            'Skipping api/v1/mobile/uploads (offline); image kept as LOCAL_IMAGE_ID',
+          );
+        }
       }
 
       // Clean up temp file
@@ -703,7 +708,9 @@ class ImageUploadService {
           return null;
         }
       } else {
-        Logger.errorLog('❌ Failed to upload image: ${response?.errorMessage}');
+        if (await ConnectivityHelper.isConnected()) {
+          Logger.errorLog('❌ Failed to upload image: ${response?.errorMessage}');
+        }
         return null;
       }
     } catch (e) {
@@ -723,7 +730,7 @@ class ImageUploadService {
         imageFilePath,
         filename: 'image_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
-      ResponseResult? response;
+      ResponseResult? response = null;
       if (isSelfie) {
         if (await ConnectivityHelper.isConnected()) {
           response = await _apiService.post<Map<String, dynamic>>(
@@ -733,15 +740,21 @@ class ImageUploadService {
           );
         }
       } else {
-        response = await _apiService.post<Map<String, dynamic>>(
-          path: 'api/v1/mobile/uploads',
-          data: {
-            'imgFile': multipartFile,
-            'activityType': activityType.value,
-            'schId': siteSchId,
-          },
-          useFormDataFormat: true,
-        );
+        if (await ConnectivityHelper.isConnected()) {
+          response = await _apiService.post<Map<String, dynamic>>(
+            path: 'api/v1/mobile/uploads',
+            data: {
+              'imgFile': multipartFile,
+              'activityType': activityType.value,
+              'schId': siteSchId,
+            },
+            useFormDataFormat: true,
+          );
+        } else {
+          Logger.debugLog(
+            'Skipping api/v1/mobile/uploads (offline); image kept as LOCAL_IMAGE_ID',
+          );
+        }
       }
 
       if (response != null && response.isSuccess && response.data != null) {

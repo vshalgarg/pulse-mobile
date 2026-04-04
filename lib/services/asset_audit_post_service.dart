@@ -119,9 +119,12 @@ class AssetAuditPostService {
         url = 'api/v1/om-schedule/siteVisitLog';
         break;
       case ActivityTypeEnum.generalInspection:
+      case ActivityTypeEnum.generalInspectionSelf:
+      case ActivityTypeEnum.generalInspChecklist:
         url = 'api/v1/om-schedule/genInspection';
         break;
       case ActivityTypeEnum.incident:
+      case ActivityTypeEnum.incidentSelf:
         url = 'api/v1/om-schedule/incident';
         break;
       case ActivityTypeEnum.assetUpload:
@@ -130,7 +133,9 @@ class AssetAuditPostService {
     }
 
     if (activityType == ActivityTypeEnum.siteVisit ||
-        activityType == ActivityTypeEnum.generalInspection) {
+        activityType == ActivityTypeEnum.generalInspection ||
+        activityType == ActivityTypeEnum.generalInspectionSelf ||
+        activityType == ActivityTypeEnum.generalInspChecklist) {
       // These endpoints don't need the status parameter
       // URL is already set in the switch statement
     } else {

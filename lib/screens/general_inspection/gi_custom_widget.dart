@@ -541,7 +541,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _imageFile!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.generalInspection,
+        activityType: ActivityTypeEnum.generalInspChecklist,
       );
       if (!mounted) return;
 
@@ -781,7 +781,7 @@ class GICustomChecklistItemState extends State<GICustomChecklistItem> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: imageFile,
         isSelfie: false,
-        activityType: ActivityTypeEnum.generalInspection,
+        activityType: ActivityTypeEnum.generalInspChecklist,
       );
 
       if (imgId != null && imgId.isNotEmpty) {

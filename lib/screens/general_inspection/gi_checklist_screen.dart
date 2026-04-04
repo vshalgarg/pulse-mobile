@@ -19,6 +19,8 @@ import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class GIChecklistScreen extends StatefulWidget {
   final AllSiteModel siteData;
+  /// Physical site id for `genInspection` POST (`siteId` field). When omitted, [siteData.siteId] is used.
+  final int? physicalSiteIdForPost;
   final CMScreenModeEnum mode;
   final String? visitingPersonImageId; // Image ID from the previous screen
   final List<GenInsCheckListData> checklistItems; // Pre-loaded checklist data
@@ -30,6 +32,7 @@ class GIChecklistScreen extends StatefulWidget {
   const GIChecklistScreen({
     super.key,
     required this.siteData,
+    this.physicalSiteIdForPost,
     required this.mode,
     this.visitingPersonImageId,
     required this.checklistItems,
@@ -115,20 +118,16 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
     String? imageId,
     String? textValue,
   ) {
+    // Merge so we never drop server-prepopulated fields (gispId, giId, dependent_image_id, etc.).
+    final merged = Map<String, dynamic>.from(_checklistResponses[giclmId] ?? {});
+    merged['radio_value'] = radioValue;
+    merged['image_id'] = imageId;
+    merged['text_value'] = textValue;
+    _checklistResponses[giclmId] = merged;
 
-    // Update the response data
-    _checklistResponses[giclmId] = {
-      'radio_value': radioValue,
-      'image_id': imageId,
-      'text_value': textValue,
-    };
-
-    // Track form changes
     if (!_hasFormDataChanges) {
-
       _hasFormDataChanges = true;
     }
-
   }
 
   @override
@@ -570,6 +569,8 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
     // Use giId from widget (passed from API response data)
     int giId = widget.giId ?? 0;
+    final siteIdForPayload =
+        widget.physicalSiteIdForPost ?? widget.siteData.siteId;
 
     // Create genInspectionSiteRespList
     List<Map<String, dynamic>> genInspectionSiteRespList = [];
@@ -587,15 +588,17 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           respValue = response['text_value'] ?? "";
         }
 
-        // Handle image ID - can be either integer (server ID) or string (local ID)
+        // Handle image ID - main IMG field or dependent IMG (stored as dependent_image_id when populated from API)
         dynamic respPhotoId;
-        final imageId = response['image_id']?.toString();
-        if (imageId != null && imageId.isNotEmpty && imageId != "0") {
-          // Check if it's a local image ID or server ID
-          if (imageId.contains("LOCAL_IMAGE_ID")) {
-            respPhotoId = imageId; // Keep as string for local image IDs
+        final imageIdStr = (response['image_id'] ?? response['dependent_image_id'])
+            ?.toString();
+        if (imageIdStr != null &&
+            imageIdStr.isNotEmpty &&
+            imageIdStr != "0") {
+          if (imageIdStr.contains("LOCAL_IMAGE_ID")) {
+            respPhotoId = imageIdStr;
           } else {
-            respPhotoId = int.tryParse(imageId); // Parse as int for server IDs
+            respPhotoId = int.tryParse(imageIdStr);
           }
         } else {
           respPhotoId = null;
@@ -625,11 +628,12 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
         }
 
         // Use existing gispId if available (for edit mode), otherwise use 0 (for create mode)
-        int gispId = response['gispId'] ?? 0;
+        final gispRaw = response['gispId'] ?? response['gisp_id'];
+        int gispId = gispRaw is int ? gispRaw : (int.tryParse(gispRaw?.toString() ?? '') ?? 0);
 
         Map<String, dynamic> respItem = {
           "gispId": gispId,
-          "siteId": widget.siteData.siteId,
+          "siteId": siteIdForPayload,
           "giclmId": item.giclmId,
           "checklistDesc": item.checklistDesc,
           "resp": respValue,
@@ -649,7 +653,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       "giId": giId,
       "visitDate":
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}.${now.millisecond.toString().padLeft(3, '0')}",
-      "siteId": widget.siteData.siteId,
+      "siteId": siteIdForPayload,
       "visitingPersonId": 0,
       "visitingPersonImageId": widget.visitingPersonImageId ?? "0",
       "isActive": true,

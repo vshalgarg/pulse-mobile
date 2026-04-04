@@ -163,4 +163,3 @@ class _CloseRemarksDialogState extends State<CloseRemarksDialog> {
     );
   }
 }
-
