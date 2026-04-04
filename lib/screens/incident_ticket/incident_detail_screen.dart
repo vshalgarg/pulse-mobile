@@ -174,7 +174,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         uniqueId = await ServiceLocator().imageUploadService
             .downloadImageUsingServerId(
               imageId,
-              ActivityTypeEnum.incident,
+              ActivityTypeEnum.incidentSelf,
               widget.siteData.siteId.toString(),
             );
       }
@@ -217,7 +217,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         siteAuditSchId: widget.siteData.siteId.toString(),
         imageFile: _selectedImage!,
         isSelfie: false,
-        activityType: ActivityTypeEnum.incident,
+        activityType: ActivityTypeEnum.incidentSelf,
       );
 
       if (imgId != null && imgId.isNotEmpty) {
