@@ -1,5 +1,6 @@
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/pmis_card.dart';
+import 'package:app/commonWidgets/pmis_header.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
@@ -113,7 +114,15 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
           SafeArea(
             child: Column(
               children: [
-                _buildProjectStateHeader(),
+                PmisHeader(
+                  breadcrumbText: 'Project > State',
+                  detailLines: [
+                    PmisHeaderDetailLine(
+                      label: 'Project',
+                      value: widget.project.projectName,
+                    ),
+                  ],
+                ),
                 Expanded(
                   child: FutureBuilder<ResponseResult<List<PmisProjectState>>>(
                     future: _future,
@@ -204,44 +213,4 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
     );
   }
 
-  Widget _buildProjectStateHeader() {
-    return Container(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 24),
-            
-            child: const Text(
-              'Project > State',
-              style: TextStyle(
-                color: AppColors.white,
-                fontSize: 14,
-                fontFamily: poppins,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-            color:  AppColors.black25,
-            child: Text(
-              'Project : ${widget.project.projectName}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: AppColors.white,
-                fontSize: 14,
-                fontFamily: poppins,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 }

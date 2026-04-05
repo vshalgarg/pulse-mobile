@@ -6,13 +6,14 @@ import 'package:flutter/material.dart';
 class PmisSiteCard extends StatelessWidget {
   final PmisProjectSite site;
   final VoidCallback? onTap;
-  final VoidCallback? onNavigateTap;
+  /// Same contract as [TicketCard.onDirectionTap] (maps / directions).
+  final VoidCallback? onDirectionTap;
 
   const PmisSiteCard({
     super.key,
     required this.site,
     this.onTap,
-    this.onNavigateTap,
+    this.onDirectionTap,
   });
 
   @override
@@ -58,11 +59,11 @@ class PmisSiteCard extends StatelessWidget {
                       color: Colors.amber,
                       size: 24,
                     ),
-                    onPressed: onNavigateTap,
+                    onPressed: onDirectionTap,
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -71,9 +72,9 @@ class PmisSiteCard extends StatelessWidget {
                       site.siteName,
                       style: const TextStyle(
                         fontFamily: poppins,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.pmisTitleColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.locationColor,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -89,9 +90,9 @@ class PmisSiteCard extends StatelessWidget {
                       textAlign: TextAlign.end,
                       style: TextStyle(
                         fontFamily: poppins,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade800,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w300,
+                        color: AppColors.color555555,
                       ),
                       maxLines: 3,
                       overflow: TextOverflow.ellipsis,
@@ -126,8 +127,8 @@ class PmisSiteCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: poppins,
                   fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade800,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.color555555,
                 ),
               ),
             ],

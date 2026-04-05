@@ -1,46 +1,46 @@
 import 'package:app/app_config.dart';
+import 'package:app/commonWidgets/pmis_card.dart';
 import 'package:app/commonWidgets/pmis_header.dart';
-import 'package:app/commonWidgets/pmis_site_card.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/pmis_project_model.dart';
+import 'package:app/models/pmis_project_module_model.dart';
 import 'package:app/models/pmis_project_site_model.dart';
-import 'package:app/screens/pmis/pmis_module.dart';
-import 'package:app/services/location_service.dart';
+import 'package:app/screens/pmis/pmis_sub_module.dart';
 import 'package:flutter/material.dart';
 
-class PmisSiteScreen extends StatefulWidget {
+class PmisModuleScreen extends StatefulWidget {
   final PmisProject project;
   final int projectId;
-  final int stateId;
   final String stateName;
+  final PmisProjectSite site;
 
-  const PmisSiteScreen({
+  const PmisModuleScreen({
     super.key,
     required this.project,
     required this.projectId,
-    required this.stateId,
     required this.stateName,
+    required this.site,
   });
 
   @override
-  State<PmisSiteScreen> createState() => _PmisSiteScreenState();
+  State<PmisModuleScreen> createState() => _PmisModuleScreenState();
 }
 
-class _PmisSiteScreenState extends State<PmisSiteScreen> {
+class _PmisModuleScreenState extends State<PmisModuleScreen> {
   bool _loading = true;
   String? _errorMessage;
-  List<PmisProjectSite> _sites = const [];
+  List<PmisProjectModule> _modules = const [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadSites());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadModules());
   }
 
-  Future<void> _loadSites() async {
+  Future<void> _loadModules() async {
     setState(() {
       _loading = true;
       _errorMessage = null;
@@ -48,12 +48,9 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
 
     try {
       final config = AppConfig.of(context);
-      final location = await LocationService.getCurrentLocation();
-      final result = await config.pmisSiteRepository.getProjectSiteList(
+      final result = await config.pmisModuleRepository.getProjectModuleList(
         projectId: widget.projectId,
-        stateId: widget.stateId,
-        latitude: location.latitude,
-        longitude: location.longitude,
+        siteId: widget.site.siteId,
       );
 
       if (!mounted) return;
@@ -61,12 +58,12 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
       if (result.isSuccess && result.data != null) {
         setState(() {
           _loading = false;
-          _sites = result.data!;
+          _modules = result.data!;
         });
       } else {
         setState(() {
           _loading = false;
-          _errorMessage = result.errorMessage ?? 'Failed to load sites';
+          _errorMessage = result.errorMessage ?? 'Failed to load modules';
         });
       }
     } catch (e) {
@@ -76,6 +73,19 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
         _errorMessage = e.toString();
       });
     }
+  }
+
+  PmisProject _mapModuleToCardModel(PmisProjectModule module) {
+    return PmisProject(
+      pmId: module.ppmId,
+      projectName: module.moduleName,
+      totalActivities: 0,
+      completedActivities: 0,
+      completionPercentage: module.completionPct,
+      status: module.scheduleStatus,
+      growth: module.progressDeltaValue,
+      growthColor: module.progressDeltaColor,
+    );
   }
 
   @override
@@ -109,7 +119,7 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.stateName,
+                    widget.site.siteName,
                     style: const TextStyle(
                       color: AppColors.white,
                       fontSize: 20,
@@ -133,15 +143,19 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
             child: Column(
               children: [
                 PmisHeader(
-                  breadcrumbText: 'Project > State > Site',
+                  breadcrumbText: 'Project > State > Site > Module',
                   detailLines: [
                     PmisHeaderDetailLine(
-                      label: 'Project',
+                      label: 'Project Name',
                       value: widget.project.projectName,
                     ),
                     PmisHeaderDetailLine(
                       label: 'State',
                       value: widget.stateName,
+                    ),
+                    PmisHeaderDetailLine(
+                      label: 'Site',
+                      value: widget.site.siteName,
                     ),
                   ],
                 ),
@@ -180,7 +194,7 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: _loadSites,
+                onPressed: _loadModules,
                 child: const Text(
                   'Retry',
                   style: TextStyle(color: AppColors.white),
@@ -192,10 +206,10 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
       );
     }
 
-    if (_sites.isEmpty) {
+    if (_modules.isEmpty) {
       return const Center(
         child: Text(
-          'No sites found',
+          'No modules found',
           style: TextStyle(
             color: AppColors.white,
             fontSize: 18,
@@ -207,42 +221,25 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
 
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      itemCount: _sites.length,
+      itemCount: _modules.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        final site = _sites[index];
-        return PmisSiteCard(
-          site: site,
+        final module = _modules[index];
+        final cardModel = _mapModuleToCardModel(module);
+        return PmisCard(
+          project: cardModel,
           onTap: () {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (context) => PmisModuleScreen(
+                builder: (context) => PmisSubModuleScreen(
                   project: widget.project,
                   projectId: widget.projectId,
                   stateName: widget.stateName,
-                  site: site,
+                  site: widget.site,
+                  module: module,
                 ),
               ),
             );
-          },
-          onDirectionTap: () {
-            if (site.latitude != null && site.longitude != null) {
-              LocationService.openDirectionsToSite(
-                siteLat: site.latitude!,
-                siteLng: site.longitude!,
-                siteName: site.siteCode,
-                context: context,
-              );
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text(
-                    'Directions are not available for this site',
-                  ),
-                  backgroundColor: AppColors.errorColor,
-                ),
-              );
-            }
           },
         );
       },
