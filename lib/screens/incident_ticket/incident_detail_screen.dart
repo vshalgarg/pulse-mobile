@@ -662,9 +662,8 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
       // Build toast message with ticketId/siteId if present
       final dynamic ticketId =
           response['incidentTicketId'] ?? response['data']?['incidentTicketId'];
-      final toastMsg = ticketId != null
-          ? 'Incident ticket $ticketId saved for Site ${widget.siteData.siteId}'
-          : 'Incident ticket saved for Site ${widget.siteData.siteId}';
+      final toastMsg =
+          'Incident ticket saved successfully';
 
       Toastbar.showSuccessToastbar(toastMsg, context);
 
@@ -953,7 +952,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           },
           // Only disable when view mode AND status is CLOSED
           isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
-          isRequired: true,
+          isRequired: !_isViewMode,
         ),
         const SizedBox(height: 15),
 
@@ -984,7 +983,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           },
           // Only disable when view mode AND status is CLOSED
           isDisabled: _isViewMode && _selectedStatus == 'CLOSED',
-          isRequired: true,
+          isRequired: !_isViewMode,
         ),
         const SizedBox(height: 15),
 
@@ -1004,7 +1003,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
             return ImageUploadField(
               label: "Add a Photo",
               placeholder: "Add a Photo",
-              isRequired: true,
+              isRequired: !_isViewMode,
               externalImageUrl: _fetchedImageData,
               onImageSelected: (file) {
                 if (file != null) {
@@ -1051,7 +1050,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               (widget.mode == CMScreenModeEnum.create &&
                   _selectedStatus == 'OPEN') ||
               (_isViewMode && _selectedStatus == 'CLOSED'),
-          isRequired: true,
+          isRequired: !_isViewMode,
         ),
         const SizedBox(height: 15),
 
