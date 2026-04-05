@@ -168,7 +168,9 @@ class _DGV2ScreenState extends State<DGV2Screen> {
   // Callback methods for AssetAuditFormComponent
   void _onDGItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
-      _savedDGItems = items;
+      _savedDGItems = List<Map<String, dynamic>>.from(items);
+      // Must mirror solar_plate_v2: post reads [_displayFormData]['dgAssets'], not [_savedDGItems].
+      _displayFormData?['dgAssets'] = List<dynamic>.from(items);
       _hasFormDataChanges = true;
     });
     Logger.debugLog('✅ DG items updated: ${_savedDGItems.length} items');
@@ -191,30 +193,33 @@ class _DGV2ScreenState extends State<DGV2Screen> {
       // Collect all modified assets
       final modifiedAssetsWithAllProperties = <dynamic>[];
       
-      // Add DG assets
-      final modifiedDGAssets = _displayFormData?['dgAssets'] as List<dynamic>? ?? [];
-      modifiedAssetsWithAllProperties.addAll(DataTransformationHelper.modifyData(finalDGAssets, modifiedDGAssets));
+      // Saved rows from AssetAuditFormComponent (kept in sync via _onDGItemSaved).
+      final modifiedDGAssets =
+          _displayFormData?['dgAssets'] as List<dynamic>? ?? [];
+      modifiedAssetsWithAllProperties.addAll(
+        DataTransformationHelper.modifyData(finalDGAssets, modifiedDGAssets),
+      );
 
-      modifiedAssetsWithAllProperties.add(finalDGAssets.first);
-
-      // Update remarks
+      // Update remarks (same pattern as solar_plate_v2_screen)
       final String remark = _remarksController.text;
-      if(remark.isNotEmpty && finalRemarks.isNotEmpty){
+      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
-          modifiedAssetsWithAllProperties.add(finalRemarks.first);
           Logger.debugLog('✅ Updated remarks: $remark');
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
-      
-      // Update local data
-      _service.updateDataInSqlite(siteAuditSchId: widget.siteAuditSchId, updatedData: _assetAuditData ?? {});
 
-      // Prepare data for posting
+      // Update local data
+      _service.updateDataInSqlite(
+        siteAuditSchId: widget.siteAuditSchId,
+        updatedData: _assetAuditData ?? {},
+      );
+
       final postObject = [
-        ...modifiedAssetsWithAllProperties
+        ...modifiedAssetsWithAllProperties,
+        ...finalRemarks,
       ];
 
       Logger.debugLog('📤 DG V2: Prepared ${postObject.length} items for posting');

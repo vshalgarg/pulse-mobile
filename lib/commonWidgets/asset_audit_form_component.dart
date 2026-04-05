@@ -387,15 +387,17 @@ class _AssetAuditFormComponentState extends State<AssetAuditFormComponent> {
         await _uploadPhoto();
         if (!mounted) return;
       } else {
-        // No new photo selected by user
+        // No new photo selected by user — keep existing server/local id (API uses photo_id).
         if (_isEditing && _uploadedImageId != null) {
-          // If we're editing and have a preserved photo ID, use it
-        } else if (existingItem.isNotEmpty &&
-            existingItem['photo'] != null &&
-            existingItem['photo'].toString().isNotEmpty) {
-          // If editing existing item with photo, preserve it
-
-          _uploadedImageId = existingItem['photo'];
+          // Preserved while loading edit row
+        } else if (existingItem.isNotEmpty) {
+          final existingPhotoId = existingItem['photo_id'] ?? existingItem['photo'];
+          if (existingPhotoId != null &&
+              existingPhotoId.toString().isNotEmpty &&
+              existingPhotoId.toString() != 'null' &&
+              existingPhotoId.toString() != '0') {
+            _uploadedImageId = existingPhotoId.toString();
+          }
         }
       }
 
