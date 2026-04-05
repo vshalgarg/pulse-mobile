@@ -117,6 +117,133 @@ class AllSiteModel {
     this.latitude,
   });
 
+  /// GI ticket GET payloads often use camelCase and `*SchdId` (e.g. `lastPmSiteAuditSchdId`).
+  static String? _jsonStr(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final v = json[key];
+      if (v != null) {
+        final s = v.toString();
+        if (s.isNotEmpty && s != 'null') return s;
+      }
+    }
+    return null;
+  }
+
+  static int? _jsonInt(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final v = json[key];
+      if (v == null) continue;
+      if (v is int) return v;
+      final p = int.tryParse(v.toString());
+      if (p != null) return p;
+    }
+    return null;
+  }
+
+  /// Builds [AllSiteModel] from general-inspection `data` object (camelCase/snake_case, Sch/Schd ids).
+  factory AllSiteModel.fromGeneralInspectionApi({
+    required Map<String, dynamic> d,
+    required int siteId,
+    String? siteCodeFallback,
+    String? siteNameFallback,
+    String? clusterFallback,
+    String? circleFallback,
+    String? clientFallback,
+    String? siteDomainName,
+    List<GenInsCheckListData>? checklistItems,
+  }) {
+    return AllSiteModel(
+      siteId: siteId,
+      entityId: _jsonInt(d, ['entity_id', 'entityId']) ?? 0,
+      siteCode: _jsonStr(d, ['site_code', 'siteCode']) ?? siteCodeFallback ?? '',
+      siteName: _jsonStr(d, ['site_name', 'siteName']) ?? siteNameFallback ?? '',
+      clusterDistrictId: _jsonInt(d, ['cluster_district_id', 'clusterDistrictId']) ?? 0,
+      clusterDistrictName:
+          _jsonStr(d, ['cluster_district_name', 'cluster']) ?? clusterFallback ?? '',
+      circleStateId: _jsonInt(d, ['circle_state_id', 'circleStateId']) ?? 0,
+      circleStateName:
+          _jsonStr(d, ['circle_state_name', 'circle']) ?? circleFallback ?? '',
+      clientId: _jsonInt(d, ['client_id', 'clientId']),
+      clientName: _jsonStr(d, ['client_name', 'client']) ?? clientFallback,
+      oem: _jsonStr(d, ['oem']),
+      oemId: _jsonInt(d, ['oem_id', 'oemId']),
+      self: '',
+      selfId: 0,
+      siteDomainName: siteDomainName ?? _jsonStr(d, ['site_domain_name', 'siteDomainName']),
+      distanceKM: _jsonStr(d, ['distance_km', 'distanceKM']),
+      infraEngineerName: _jsonStr(d, [
+        'infra_district_engineer_name',
+        'infraDistrictEngineerName',
+      ]),
+      infraEngineerPhone: _jsonStr(d, [
+        'infra_district_engineer_contact_no',
+        'infraDistrictEngineerContactNo',
+      ]),
+      ownerName: _jsonStr(d, ['owner_name', 'ownerName']),
+      ownerPhone: _jsonStr(d, ['owner_contact_no', 'ownerContactNo']),
+      visitorName: _jsonStr(d, ['visitor_name', 'visitorName']),
+      visitorContactNo: _jsonStr(d, ['visitor_contact_no', 'visitorContactNo']),
+      organisationName: _jsonStr(d, ['organisation_name', 'organisationName']),
+      orgId: _jsonInt(d, ['org_id', 'orgId']),
+      roleDesignation: _jsonStr(d, ['role_designation', 'roleDesignation']),
+      reportingManager: _jsonStr(d, ['reporting_manager', 'reportingManager']),
+      lastPMDate: _jsonStr(d, ['last_pm_date', 'lastPmDate']),
+      lastCMDate: _jsonStr(d, ['last_cm_date', 'lastCmDate']),
+      installedAssetDetails:
+          _jsonStr(d, ['installed_asset_details', 'installedAssetDetails']),
+      clusterInchargeName:
+          _jsonStr(d, ['cluster_incharge_name', 'clusterInchargeName']),
+      clusterInchargeContactNo: _jsonStr(d, [
+        'cluster_incharge_contact_no',
+        'clusterInchargeContactNo',
+      ]),
+      lastGIReportDate: _jsonStr(d, ['last_gi_report_date', 'lastGIReportDate']),
+      lastPMSiteAuditSchId: _jsonInt(d, [
+        'last_pm_site_audit_sch_id',
+        'lastPmSiteAuditSchId',
+        'lastPmSiteAuditSchdId',
+      ]),
+      lastPMAuditSchId: _jsonInt(d, [
+        'last_pm_audit_sch_id',
+        'lastPmAuditSchId',
+        'lastPmAuditSchdId',
+      ]),
+      lastCMSiteReqId: _jsonInt(d, [
+        'last_cm_site_req_id',
+        'lastCMSiteReqId',
+        'last_cm_req_id',
+        'lastCmReqId',
+      ]),
+      lastAADate: _jsonStr(d, ['last_aa_date', 'lastAaDate']),
+      lastAASiteAuditSchId: _jsonInt(d, [
+        'last_aa_site_audit_sch_id',
+        'lastAaSiteAuditSchId',
+        'lastAaSiteAuditSchdId',
+      ]),
+      lastAAAuditSchId: _jsonInt(d, [
+        'last_aa_audit_sch_id',
+        'lastAaAuditSchId',
+        'lastAaAuditSchdId',
+      ]),
+      siteVisitLogId: _jsonStr(d, ['site_visit_log_id', 'siteVisitLogId']),
+      siteVisitLogDate: _jsonStr(d, ['site_visit_log_date', 'siteVisitLogDate']),
+      purposeOfVisit: _jsonStr(d, ['purpose_of_visit', 'purposeOfVisit']),
+      visitingPersonImageId:
+          _jsonStr(d, ['visiting_person_image_id', 'visitingPersonImageId']),
+      officialIdImageId:
+          _jsonStr(d, ['official_id_image_id', 'officialIdImageId']),
+      aadharCardImageId:
+          _jsonStr(d, ['aadhar_card_image_id', 'aadharCardImageId']),
+      leavingStatusImageId:
+          _jsonStr(d, ['leaving_status_image_id', 'leavingStatusImageId']),
+      svlId: _jsonStr(d, ['svl_id', 'svlId']),
+      checklistItems: checklistItems,
+      giId: _jsonStr(d, ['gi_id', 'giId']),
+      longitude: _parseLatLngString(d, 'longitude'),
+      latitude: _parseLatLngString(d, 'latitude'),
+    );
+  }
+
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
     final siteId = json['site_id'] ?? 0;
     final siteName = json['site_name']?.toString() ?? '';
@@ -150,45 +277,45 @@ class AllSiteModel {
       orgId: json['org_id'] != null ? (json['org_id'] is int ? json['org_id'] as int : int.tryParse(json['org_id'].toString())) : null,
       roleDesignation: json['role_designation']?.toString() ?? '',
       reportingManager: json['reporting_manager']?.toString() ?? '',
-      lastPMDate: json['last_pm_date'] != null
-          ? json['last_pm_date'].toString()
-          : null,
-      lastCMDate: json['last_cm_date'] != null
-          ? json['last_cm_date'].toString()
-          : null,
-      installedAssetDetails: json['installed_asset_details'] != null
-          ? json['installed_asset_details'].toString()
-          : null,
-      clusterInchargeName: json['cluster_incharge_name'] != null
-          ? json['cluster_incharge_name'].toString()
-          : null,
-      clusterInchargeContactNo: json['cluster_incharge_contact_no'] != null
-          ? json['cluster_incharge_contact_no'].toString()
-          : null,
-      lastPMSiteAuditSchId: json['last_pm_site_audit_sch_id'] != null
-          ? (json['last_pm_site_audit_sch_id'] is int
-              ? json['last_pm_site_audit_sch_id'] as int
-              : int.tryParse(json['last_pm_site_audit_sch_id'].toString()))
-          : null,
-      lastPMAuditSchId: json['last_pm_audit_sch_id'] != null
-          ? (json['last_pm_audit_sch_id'] is int
-              ? json['last_pm_audit_sch_id'] as int
-              : int.tryParse(json['last_pm_audit_sch_id'].toString()))
-          : null,
-      lastCMSiteReqId: _parseIntFromJson(json, 'last_cm_site_req_id', 'lastCMSiteReqId'),
-      lastAADate: json['last_aa_date'] != null
-          ? json['last_aa_date'].toString()
-          : null,
-      lastAASiteAuditSchId: json['last_aa_site_audit_sch_id'] != null
-          ? (json['last_aa_site_audit_sch_id'] is int
-              ? json['last_aa_site_audit_sch_id'] as int
-              : int.tryParse(json['last_aa_site_audit_sch_id'].toString()))
-          : null,
-      lastAAAuditSchId: json['last_aa_audit_sch_id'] != null
-          ? (json['last_aa_audit_sch_id'] is int
-              ? json['last_aa_audit_sch_id'] as int
-              : int.tryParse(json['last_aa_audit_sch_id'].toString()))
-          : null,
+      lastPMDate: _jsonStr(json, ['last_pm_date', 'lastPmDate']),
+      lastCMDate: _jsonStr(json, ['last_cm_date', 'lastCmDate']),
+      installedAssetDetails: _jsonStr(json, [
+        'installed_asset_details',
+        'installedAssetDetails',
+      ]),
+      clusterInchargeName:
+          _jsonStr(json, ['cluster_incharge_name', 'clusterInchargeName']),
+      clusterInchargeContactNo: _jsonStr(json, [
+        'cluster_incharge_contact_no',
+        'clusterInchargeContactNo',
+      ]),
+      lastPMSiteAuditSchId: _jsonInt(json, [
+        'last_pm_site_audit_sch_id',
+        'lastPmSiteAuditSchId',
+        'lastPmSiteAuditSchdId',
+      ]),
+      lastPMAuditSchId: _jsonInt(json, [
+        'last_pm_audit_sch_id',
+        'lastPmAuditSchId',
+        'lastPmAuditSchdId',
+      ]),
+      lastCMSiteReqId: _jsonInt(json, [
+        'last_cm_site_req_id',
+        'lastCMSiteReqId',
+        'last_cm_req_id',
+        'lastCmReqId',
+      ]),
+      lastAADate: _jsonStr(json, ['last_aa_date', 'lastAaDate']),
+      lastAASiteAuditSchId: _jsonInt(json, [
+        'last_aa_site_audit_sch_id',
+        'lastAaSiteAuditSchId',
+        'lastAaSiteAuditSchdId',
+      ]),
+      lastAAAuditSchId: _jsonInt(json, [
+        'last_aa_audit_sch_id',
+        'lastAaAuditSchId',
+        'lastAaAuditSchdId',
+      ]),
 
       // site visit log data
       siteVisitLogId: json['site_visit_log_id'] != null
@@ -236,14 +363,6 @@ class AllSiteModel {
       longitude: _parseLatLngString(json, 'longitude'),
       latitude: _parseLatLngString(json, 'latitude'),
     );
-  }
-
-  /// Parse int from JSON with optional snake_case and camelCase keys (for API/DB compatibility).
-  static int? _parseIntFromJson(Map<String, dynamic> json, String snakeKey, String camelKey) {
-    final v = json[snakeKey] ?? json[camelKey];
-    if (v == null) return null;
-    if (v is int) return v;
-    return int.tryParse(v.toString());
   }
 
   /// Parse latitude or longitude from JSON, supporting multiple common API key names.

@@ -604,7 +604,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
           displayText: "Installed Asset Details",
           onDownload: () => _downloadInstalledAssetDetails(
             ActivityTypeEnum.assetAudit,
-            widget.siteData.siteId,
             widget.siteData.lastAASiteAuditSchId,
           ),
           isLightBlue: true,
@@ -617,7 +616,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
           displayText: _formatDate(widget.siteData.lastPMDate ?? "N/A"),
           onDownload: () => _downloadInstalledAssetDetails(
             ActivityTypeEnum.preventiveMaintenance,
-            widget.siteData.siteId,
             widget.siteData.lastPMSiteAuditSchId,
           ),
           isLightBlue: false,
@@ -629,8 +627,7 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
           title: "Last CM Details",
           displayText: _formatDate(widget.siteData.lastCMDate ?? "N/A"),
           onDownload: () => _downloadInstalledAssetDetails(
-            ActivityTypeEnum.preventiveMaintenance,
-            widget.siteData.siteId,
+            ActivityTypeEnum.correctiveMaintenance,
             widget.siteData.lastCMSiteReqId,
           ),
           isLightBlue: false,
@@ -983,7 +980,6 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
   Future<void> _downloadInstalledAssetDetails(
     ActivityTypeEnum activityType,
-    int? siteId,
     int? siteAuditSchId,
   ) async {
     try {
@@ -994,11 +990,11 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
 
       LoaderWidget.showLoader(context);
 
-      // Download asset audit report for this site
+      // `rp_sch_id` must be the activity schedule id from the payload (e.g. last PM site audit sch id).
       final service = ServiceLocator().centralApiService;
       final filePath = await service.downloadPdfReport(
         ticketId: widget.siteData.siteCode,
-        ticketSchId: widget.siteData.siteId.toString(),
+        ticketSchId: siteAuditSchId.toString(),
         activityType: activityType,
       );
       if (!mounted) return;
