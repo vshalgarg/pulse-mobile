@@ -353,8 +353,8 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
     }
 
     try {
-      // Navigate to checklist screen with pre-loaded data
-      Navigator.push(
+      // Checklist returns latest answers so revisiting "Next" does not lose in-progress data.
+      final returned = await Navigator.push<Map<int, Map<String, dynamic>>>(
         context,
         MaterialPageRoute(
           builder: (_) => GIChecklistScreen(
@@ -375,6 +375,15 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
           ),
         ),
       );
+      if (!mounted) return;
+      if (returned != null) {
+        setState(() {
+          _existingChecklistResponses = {
+            for (final e in returned.entries)
+              e.key: Map<String, dynamic>.from(e.value),
+          };
+        });
+      }
     } catch (e) {
       Logger.errorLog('❌ Error in submit process: $e');
       rethrow; // Re-throw so UnsavedChangesDialog can handle the error

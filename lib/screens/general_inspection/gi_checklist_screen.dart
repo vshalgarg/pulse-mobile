@@ -73,12 +73,72 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
       _widgetKeys[item.giclmId] = GlobalKey<GICustomChecklistItemState>();
     }
 
-    // Populate existing responses if in edit mode
+    // Deep copy so we do not mutate the parent's map in place.
     if (widget.existingResponses != null) {
-      _checklistResponses = Map.from(widget.existingResponses!);
+      _checklistResponses = {
+        for (final e in widget.existingResponses!.entries)
+          e.key: Map<String, dynamic>.from(e.value),
+      };
     }
 
     _getCurrentLocation();
+  }
+
+  /// Copies dependent IMG/REMARKS from child widget state into [_checklistResponses]
+  /// (those are not always written through the radio/image/text callbacks).
+  void _syncDependentFieldsFromWidgets() {
+    for (final item in _checklistItems) {
+      final st = _widgetKeys[item.giclmId]?.currentState;
+      final merged = Map<String, dynamic>.from(
+        _checklistResponses[item.giclmId] ?? {},
+      );
+      if (st != null &&
+          item.dependentElements != null &&
+          item.dependentElements!.isNotEmpty) {
+        String? firstDepImage;
+        final remarks = <String>[];
+        for (final dep in item.dependentElements!) {
+          if (dep.respType == 'IMG') {
+            final id = st.getDependentImageId(dep.respType);
+            if (id != null && id.isNotEmpty) firstDepImage ??= id;
+          } else if (dep.respType == 'REMARKS') {
+            final r = st.getDependentRemarks(dep.respType);
+            if (r != null && r.trim().isNotEmpty) remarks.add(r.trim());
+          }
+        }
+        if (firstDepImage != null) {
+          merged['dependent_image_id'] = firstDepImage;
+        } else {
+          merged.remove('dependent_image_id');
+        }
+        if (remarks.isNotEmpty) {
+          merged['dependent_remarks'] = remarks.join('; ');
+        } else {
+          merged.remove('dependent_remarks');
+        }
+      }
+      if (merged.isNotEmpty) {
+        _checklistResponses[item.giclmId] = merged;
+      } else {
+        _checklistResponses.remove(item.giclmId);
+      }
+    }
+  }
+
+  /// Returns a deep copy of current answers for the detail screen to keep across visits.
+  Map<int, Map<String, dynamic>> _snapshotResponsesForParent() {
+    _syncDependentFieldsFromWidgets();
+    return {
+      for (final e in _checklistResponses.entries)
+        e.key: Map<String, dynamic>.from(e.value),
+    };
+  }
+
+  void _popBackToDetail() {
+    if (!mounted) return;
+    Navigator.of(context).pop<Map<int, Map<String, dynamic>>>(
+      _snapshotResponsesForParent(),
+    );
   }
 
   Future<void> _getCurrentLocation() async {
@@ -132,7 +192,14 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (!didPop) {
+          _popBackToDetail();
+        }
+      },
+      child: Scaffold(
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: true,
       appBar: CustomFormAppbar(
@@ -226,7 +293,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
                       // Back Button
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: () => Navigator.of(context).pop(),
+                          onPressed: _popBackToDetail,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.buttonColorBg,
                             foregroundColor: Colors.white,
@@ -263,6 +330,7 @@ class _GIChecklistScreenState extends State<GIChecklistScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
