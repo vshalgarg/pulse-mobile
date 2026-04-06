@@ -1236,14 +1236,17 @@ class _TicketScreenState extends State<TicketScreen>
       itemCount: ticketResponse.tickets.length,
       itemBuilder: (itemContext, index) {
         final ticket = ticketResponse.tickets[index];
-        // Use dynamic status from ticket data, fallback to filter-based status only if no status available
-        // For asset upload tickets with null status, use empty string to avoid showing "Allocated"
-        final statusText = ticket.status?.isNotEmpty == true
-            ? ticket.status!
-            : (_currentActivityType == ActivityTypeEnum.assetUpload &&
-                  ticket.status == null ) || (_currentActivityType == ActivityTypeEnum.siteVisit &&
-                  ticket.status == null)
-            ? '' // Empty string for asset upload with null status
+        // Use API status when present. For types where list payload often omits status (SV, AU, GI),
+        // do not show filter-based labels like "Allocated" — matches cards when status is null/empty.
+        final resolvedStatus = ticket.status?.trim();
+        final statusText = (resolvedStatus != null && resolvedStatus.isNotEmpty)
+            ? resolvedStatus
+            : (_currentActivityType == ActivityTypeEnum.assetUpload ||
+                  _currentActivityType == ActivityTypeEnum.siteVisit ||
+                  _currentActivityType == ActivityTypeEnum.generalInspection ||
+                  _currentActivityType ==
+                      ActivityTypeEnum.generalInspectionSelf)
+            ? ''
             : _getStatusFromTicketType(_currentTicketType);
 
         return Padding(

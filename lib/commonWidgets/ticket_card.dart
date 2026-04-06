@@ -105,8 +105,8 @@ class TicketCard extends StatelessWidget {
                   ),
 
                   const SizedBox(width: 8),
-                  activityType != ActivityTypeEnum.generalInspection ||
-                         ( statusText.isNotEmpty || statusText != null )
+                  
+                      statusText != null && statusText.isNotEmpty
                       ? Container(
                           padding: const EdgeInsets.symmetric(
                             vertical: 4,
