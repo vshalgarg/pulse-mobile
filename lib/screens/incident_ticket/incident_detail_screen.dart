@@ -775,6 +775,12 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
           context,
         );
 
+        await ServiceLocator().centralAssetAuditService
+            .mergeIncidentPendingPayloadIntoStoredApiData(
+          incidentTicketId: request.incidentTicketId,
+          pendingRequestMap: Map<String, dynamic>.from(requestJson),
+        );
+
         // Navigate back
         navigateBackOrToHome(
           context,

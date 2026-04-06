@@ -936,8 +936,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
   /// My Tickets reads `raw_api_data.status`; asset audit only updated `api_data` until we
   /// synced `pageHeader.status` on save. Prefer column, then payload (older rows).
   ///
-  /// Incident tickets cache status under `api_data.data.status`; the DB column can stay
-  /// OPEN until sync — merge so CLOSED from payload wins over a stale column.
+  /// For incidents, prefer the DB column so the card stays OPEN until sync even when
+  /// offline edits merged `data.status` into `api_data` for the detail screen.
   String _displayStatusForTicket(RawApiDataModel rawData) {
     final col = rawData.status.trim();
     final fromIncident = CentralAssetAuditService.statusFromIncidentApiData(
@@ -946,12 +946,13 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
 
     if (rawData.activityType == ActivityTypeEnum.incident ||
         rawData.activityType == ActivityTypeEnum.incidentSelf) {
-      final merged = _mergeIncidentListStatus(
-        col.isEmpty || col.toUpperCase() == 'N/A' ? null : col,
-        fromIncident,
-      );
-      if (merged != null && merged.isNotEmpty) return merged;
-      return col.isEmpty ? 'N/A' : rawData.status;
+      if (col.isNotEmpty && col.toUpperCase() != 'N/A') {
+        return col;
+      }
+      if (fromIncident != null && fromIncident.isNotEmpty) {
+        return fromIncident;
+      }
+      return 'N/A';
     }
 
     if (col.isNotEmpty && col.toUpperCase() != 'N/A') {
@@ -963,24 +964,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       return fromPayload;
     }
     return col.isEmpty ? 'N/A' : rawData.status;
-  }
-
-  String? _mergeIncidentListStatus(String? columnStatus, String? payloadStatus) {
-    bool isClosedLike(String? s) {
-      if (s == null || s.isEmpty) return false;
-      final u = s.trim().toUpperCase();
-      return u == 'CLOSED' || u == 'CLOSE' || u == 'COMPLETED';
-    }
-
-    final c = columnStatus?.trim();
-    final p = payloadStatus?.trim();
-    if (isClosedLike(c) || isClosedLike(p)) {
-      if (isClosedLike(p)) return p;
-      if (isClosedLike(c)) return c;
-    }
-    if (p != null && p.isNotEmpty && p.toUpperCase() != 'N/A') return p;
-    if (c != null && c.isNotEmpty && c.toUpperCase() != 'N/A') return c;
-    return null;
   }
 
   // Convert RawApiDataModel to Ticket for display

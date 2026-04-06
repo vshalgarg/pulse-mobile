@@ -1046,6 +1046,50 @@ class CentralAssetAuditService {
     }
   }
 
+  /// Merges the offline pending POST body into stored GET-shaped `api_data` so reopening
+  /// from My Tickets shows remarks, checklist, image id, etc. before sync.
+  /// Does not update the `raw_api_data.status` column ([syncIncidentTicketLocalRow] does after sync).
+  Future<void> mergeIncidentPendingPayloadIntoStoredApiData({
+    required int incidentTicketId,
+    required Map<String, dynamic> pendingRequestMap,
+  }) async {
+    if (incidentTicketId <= 0) return;
+    final siteAuditSchId = incidentTicketId.toString();
+
+    try {
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      final raw = await dataService.getRawApiData(siteAuditSchId);
+      if (raw == null) {
+        Logger.debugLog(
+          'mergeIncidentPendingPayload: no raw row for $siteAuditSchId',
+        );
+        return;
+      }
+
+      final api = Map<String, dynamic>.from(raw.apiData);
+      final inner = api['data'];
+      final Map<String, dynamic> dataMap = inner is Map
+          ? Map<String, dynamic>.from(inner)
+          : <String, dynamic>{};
+
+      pendingRequestMap.forEach((key, value) {
+        if (value == null) return;
+        dataMap[key] = value;
+      });
+
+      api['data'] = dataMap;
+      await dataService.updateRawApiData(
+        siteAuditSchId: siteAuditSchId,
+        apiData: api,
+      );
+      Logger.debugLog(
+        '✅ Merged incident offline draft into api_data for $siteAuditSchId',
+      );
+    } catch (e) {
+      Logger.errorLog('❌ mergeIncidentPendingPayloadIntoStoredApiData: $e');
+    }
+  }
+
   /// Update asset audit data in SQLite
   Future<bool> updateDataInSqlite({
     required String siteAuditSchId,
