@@ -2282,6 +2282,33 @@ class CentralAssetAuditDataService {
     }
   }
 
+  /// General Inspection site rows live in [gi_sites_data], not [cm_sites_data].
+  Future<bool> isGISiteDownloaded(int siteId) async {
+    try {
+      final db = await database;
+      final tableInfo = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='gi_sites_data'",
+      );
+      if (tableInfo.isEmpty) return false;
+
+      final List<Map<String, dynamic>> maps = await db.query(
+        'gi_sites_data',
+        columns: ['is_downloaded'],
+        where: 'site_id = ?',
+        whereArgs: [siteId],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        return maps.first['is_downloaded'] == 1;
+      }
+      return false;
+    } catch (e) {
+      Logger.errorLog('❌ Error checking GI site download status: $e');
+      return false;
+    }
+  }
+
   /// Check if Site Visit (SV) site is downloaded.
   /// Site Visit downloads save to sv_sites_data, not cm_sites_data.
   Future<bool> isSVSiteDownloaded(int siteId) async {

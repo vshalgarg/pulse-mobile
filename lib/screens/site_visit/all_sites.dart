@@ -667,6 +667,22 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         return svDownloaded;
       }
 
+      // Incident: site row lives in incident_sites_data (not cm_sites_data). Match download flow:
+      // site data is required; checklist is best-effort but does not block "downloaded" UI.
+      if (widget.ActivityType == 'Incident') {
+        final incidentSiteDownloaded = await dataService
+            .isIncidentSiteDownloaded(site.siteId);
+        return incidentSiteDownloaded;
+      }
+
+      // GI: site row lives in gi_sites_data (not cm_sites_data). Checklist is best-effort.
+      if (widget.ActivityType == 'GI') {
+        final giSiteDownloaded = await dataService.isGISiteDownloaded(
+          site.siteId,
+        );
+        return giSiteDownloaded;
+      }
+
       // Default flow: check CM site data first
       final cmDownloaded = await dataService.isCMSiteDownloaded(site.siteId);
 
@@ -674,24 +690,8 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
         return false;
       }
 
-      // Check site data download status based on activity type
-      if (widget.ActivityType == 'Incident') {
-        // Also check if checklist data is downloaded
-        final incidentChecklistDownloaded = await dataService
-            .isIncidentChecklistDownloaded(site.siteId);
-        return incidentChecklistDownloaded;
-      }
-
-      // For GI sites, also check if checklist data is downloaded
-      if (widget.ActivityType == 'GI') {
-        final giDownloaded = await dataService.isGIChecklistDownloaded(
-          site.siteId,
-        );
-        return giDownloaded;
-      } else {
-        // For other activity types, CM site data is sufficient
-        return cmDownloaded;
-      }
+      // For other activity types, CM site data is sufficient
+      return cmDownloaded;
     } catch (e) {
       Logger.errorLog('Error checking site download status: $e');
       return false;
@@ -751,7 +751,10 @@ class _AllSitesScreenState extends State<AllSitesScreen> {
           _downloadedSiteIds.add(site.siteId);
         });
 
-        _initializeDownloadedSites(_allSites);
+        final toScanForDownloaded = _filteredSites.isNotEmpty
+            ? _filteredSites
+            : (_nearbySites.isNotEmpty ? _nearbySites : _allSites);
+        _initializeDownloadedSites(toScanForDownloaded);
 
         if (!mounted) return;
         Toastbar.showSuccessToastbar(

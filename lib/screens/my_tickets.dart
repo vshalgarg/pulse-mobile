@@ -640,11 +640,6 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             responseData['siteDetails'] ??
             responseData['site_details'] as Map<String, dynamic>?;
 
-            
-
-        print('📦 AssetUpload data: ${assetUploadData != null}');
-        print('📦 SiteDetails data: ${siteDetailsData != null}');
-
         if (assetUploadData == null || siteDetailsData == null) {
           LoaderWidget.hideLoader();
           final missingData = [];
