@@ -987,6 +987,65 @@ class CentralAssetAuditService {
     }
   }
 
+  /// Reads incident ticket status from cached GET payload (`data.status` or root `status`).
+  static String? statusFromIncidentApiData(Map<String, dynamic> data) {
+    try {
+      final inner = data['data'];
+      if (inner is Map) {
+        final s = inner['status']?.toString().trim();
+        if (s != null && s.isNotEmpty && s.toUpperCase() != 'N/A') {
+          return s;
+        }
+      }
+      final top = data['status']?.toString().trim();
+      if (top != null && top.isNotEmpty && top.toUpperCase() != 'N/A') {
+        return top;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// After incident POST (online or offline sync), updates [raw_api_data] `status` and
+  /// nested `api_data.data.status` so My Tickets matches the detail screen.
+  Future<void> syncIncidentTicketLocalRow({
+    required int incidentTicketId,
+    required String status,
+  }) async {
+    if (incidentTicketId <= 0) return;
+    final siteAuditSchId = incidentTicketId.toString();
+    final trimmed = status.trim();
+    if (trimmed.isEmpty) return;
+
+    try {
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      await dataService.updateRawApiDataStatus(
+        siteAuditSchId: siteAuditSchId,
+        status: trimmed,
+      );
+      final raw = await dataService.getRawApiData(siteAuditSchId);
+      if (raw == null) return;
+
+      final api = Map<String, dynamic>.from(raw.apiData);
+      final inner = api['data'];
+      if (inner is Map) {
+        final m = Map<String, dynamic>.from(inner);
+        m['status'] = trimmed;
+        api['data'] = m;
+      } else {
+        api['status'] = trimmed;
+      }
+      await dataService.updateRawApiData(
+        siteAuditSchId: siteAuditSchId,
+        apiData: api,
+      );
+      Logger.debugLog(
+        '✅ Incident local cache: status=$trimmed for site_audit_sch_id=$siteAuditSchId',
+      );
+    } catch (e) {
+      Logger.errorLog('❌ syncIncidentTicketLocalRow: $e');
+    }
+  }
+
   /// Update asset audit data in SQLite
   Future<bool> updateDataInSqlite({
     required String siteAuditSchId,

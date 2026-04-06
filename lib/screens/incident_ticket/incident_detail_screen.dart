@@ -667,6 +667,11 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
 
       Toastbar.showSuccessToastbar(toastMsg, context);
 
+      await ServiceLocator().centralAssetAuditService.syncIncidentTicketLocalRow(
+        incidentTicketId: request.incidentTicketId,
+        status: request.status,
+      );
+
       // Navigate back to tickets/home
       navigateBackOrToHome(
         context,

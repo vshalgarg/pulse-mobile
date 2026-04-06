@@ -391,6 +391,20 @@ class AssetAuditPostService {
           "Incident ticket synced successfully",
         );
 
+        final Map<String, dynamic>? reqMap = request is Map<String, dynamic>
+            ? request
+            : (request is Map ? Map<String, dynamic>.from(request) : null);
+        if (reqMap != null) {
+          final tid =
+              int.tryParse(reqMap['incidentTicketId']?.toString() ?? '') ?? 0;
+          final st = reqMap['status']?.toString().trim() ?? '';
+          await ServiceLocator().centralAssetAuditService
+              .syncIncidentTicketLocalRow(
+            incidentTicketId: tid,
+            status: st,
+          );
+        }
+
         // Delete from pending requests on success
         await ServiceLocator().pendingRequestService.deleteRequest(requestId);
       } else {
