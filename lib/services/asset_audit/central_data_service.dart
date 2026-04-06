@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 16;
+  static const int _databaseVersion = 17;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -79,6 +79,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        cluster_incharge_name TEXT,
+        cluster_incharge_contact_no TEXT,
         latitude TEXT,
         longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
@@ -112,6 +114,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        cluster_incharge_name TEXT,
+        cluster_incharge_contact_no TEXT,
         latitude TEXT,
         longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
@@ -145,6 +149,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        cluster_incharge_name TEXT,
+        cluster_incharge_contact_no TEXT,
         latitude TEXT,
         longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
@@ -178,6 +184,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        cluster_incharge_name TEXT,
+        cluster_incharge_contact_no TEXT,
         latitude TEXT,
         longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
@@ -211,6 +219,8 @@ class CentralAssetAuditDataService {
         infra_district_engineer_contact_no TEXT,
         owner_name TEXT,
         owner_contact_no TEXT,
+        cluster_incharge_name TEXT,
+        cluster_incharge_contact_no TEXT,
         latitude TEXT,
         longitude TEXT,
         is_downloaded INTEGER DEFAULT 1,
@@ -850,6 +860,44 @@ class CentralAssetAuditDataService {
       }
     }
 
+    if (oldVersion < 17) {
+      try {
+        const tables = [
+          'cm_sites_data',
+          'sv_sites_data',
+          'gi_sites_data',
+          'incident_sites_data',
+          'au_sites_data',
+        ];
+        for (final tableName in tables) {
+          final tableInfo = await db.rawQuery(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'",
+          );
+          if (tableInfo.isEmpty) continue;
+
+          final cols = (await db.rawQuery('PRAGMA table_info($tableName)'))
+              .map((c) => c['name'] as String)
+              .toList();
+
+          if (!cols.contains('cluster_incharge_name')) {
+            await db.execute(
+              'ALTER TABLE $tableName ADD COLUMN cluster_incharge_name TEXT',
+            );
+          }
+          if (!cols.contains('cluster_incharge_contact_no')) {
+            await db.execute(
+              'ALTER TABLE $tableName ADD COLUMN cluster_incharge_contact_no TEXT',
+            );
+          }
+        }
+        Logger.debugLog(
+          '✅ v17: Added cluster_incharge columns to downloaded site tables',
+        );
+      } catch (e) {
+        Logger.errorLog('❌ Error in database v17 migration: $e');
+      }
+    }
+
     if (oldVersion < 14) {
       // For version 14, add dependent_elements column to cm_checklist_data table
       try {
@@ -1308,6 +1356,8 @@ class CentralAssetAuditDataService {
     String? infraDistrictEngineerContactNo,
     String? ownerName,
     String? ownerContactNo,
+    String? clusterInchargeName,
+    String? clusterInchargeContactNo,
     String? latitude,
     String? longitude,
   }) async {
@@ -1379,6 +1429,12 @@ class CentralAssetAuditDataService {
       }
       if (existingColumns.contains('longitude')) {
         insertData['longitude'] = longitude;
+      }
+      if (existingColumns.contains('cluster_incharge_name')) {
+        insertData['cluster_incharge_name'] = clusterInchargeName;
+      }
+      if (existingColumns.contains('cluster_incharge_contact_no')) {
+        insertData['cluster_incharge_contact_no'] = clusterInchargeContactNo;
       }
 
       await db.insert(tableName, insertData, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -1632,6 +1688,32 @@ class CentralAssetAuditDataService {
       return null;
     } catch (e) {
       Logger.errorLog('❌ Error getting CM site data: $e');
+      return null;
+    }
+  }
+
+  /// Row from [incident_sites_data] (downloaded incident site) for offline UI.
+  Future<Map<String, dynamic>?> getDownloadedIncidentSiteRow(int siteId) async {
+    try {
+      final db = await database;
+      final tableInfo = await db.rawQuery(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='incident_sites_data'",
+      );
+      if (tableInfo.isEmpty) return null;
+
+      final List<Map<String, dynamic>> maps = await db.query(
+        'incident_sites_data',
+        where: 'site_id = ? AND is_downloaded = ?',
+        whereArgs: [siteId, 1],
+        limit: 1,
+      );
+
+      if (maps.isNotEmpty) {
+        return maps.first;
+      }
+      return null;
+    } catch (e) {
+      Logger.errorLog('❌ Error getDownloadedIncidentSiteRow: $e');
       return null;
     }
   }
@@ -2156,6 +2238,10 @@ class CentralAssetAuditDataService {
             infra_district_engineer_contact_no TEXT,
             owner_name TEXT,
             owner_contact_no TEXT,
+            cluster_incharge_name TEXT,
+            cluster_incharge_contact_no TEXT,
+            latitude TEXT,
+            longitude TEXT,
             is_downloaded INTEGER DEFAULT 1,
             downloaded_at TEXT,
             created_at TEXT,

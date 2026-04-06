@@ -14,6 +14,7 @@ import 'package:app/screens/site_visit/all_sites.dart';
 import 'package:app/screens/site_visit/site_visit.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/map_api_field_reader.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
@@ -611,6 +612,24 @@ class _TicketScreenState extends State<TicketScreen>
           return;
         }
 
+        final resolvedSiteId = int.tryParse(
+              '${incidentTicketData['siteId'] ?? incidentTicketData['site_id'] ?? ticket.ticketSchId}',
+            ) ??
+            ticket.ticketSchId;
+
+        final sqliteIncidentSite = await ServiceLocator()
+            .centralAssetAuditDataService
+            .getDownloadedIncidentSiteRow(resolvedSiteId);
+        final sqliteCmSite = await ServiceLocator()
+            .centralAssetAuditDataService
+            .getCMSiteData(resolvedSiteId);
+        if (!mounted) return;
+
+        final siteFieldSource = mergeIncidentTicketWithSqliteSiteRows(
+          incidentTicketData,
+          [sqliteIncidentSite, sqliteCmSite],
+        );
+
         // Get status from fresh API data to determine mode
         final apiStatus = incidentTicketData['status']?.toString();
         final currentStatus = (apiStatus != null && apiStatus.isNotEmpty)
@@ -619,9 +638,9 @@ class _TicketScreenState extends State<TicketScreen>
                   ? ticket.status!
                   : 'OPEN');
 
-        // Build site data for Incident Ticket
+        // Build site data for Incident Ticket (camelCase + snake_case + SQLite site row)
         final siteData = AllSiteModel(
-          siteId: incidentTicketData['siteId'] ?? ticket.ticketSchId,
+          siteId: resolvedSiteId,
           entityId: 0,
           siteCode: ticket.siteCode ?? '',
           siteName: ticket.cluster ?? '',
@@ -638,12 +657,30 @@ class _TicketScreenState extends State<TicketScreen>
           selfId: 0,
           siteDomainName: ticket.siteDomainName,
           distanceKM: null,
-          infraEngineerName: incidentTicketData['infraDistrictEngineerName']
-              ?.toString(),
-          infraEngineerPhone:
-              incidentTicketData['infraDistrictEngineerContactNo']?.toString(),
-          ownerName: incidentTicketData['ownerName']?.toString(),
-          ownerPhone: incidentTicketData['ownerContactNo']?.toString(),
+          infraEngineerName: readMapString(siteFieldSource, [
+            'infraDistrictEngineerName',
+            'infra_district_engineer_name',
+          ]),
+          infraEngineerPhone: readMapString(siteFieldSource, [
+            'infraDistrictEngineerContactNo',
+            'infra_district_engineer_contact_no',
+          ]),
+          ownerName: readMapString(siteFieldSource, [
+            'ownerName',
+            'owner_name',
+          ]),
+          ownerPhone: readMapString(siteFieldSource, [
+            'ownerContactNo',
+            'owner_contact_no',
+          ]),
+          clusterInchargeName: readMapString(siteFieldSource, [
+            'clusterInchargeName',
+            'cluster_incharge_name',
+          ]),
+          clusterInchargeContactNo: readMapString(siteFieldSource, [
+            'clusterInchargeContactNo',
+            'cluster_incharge_contact_no',
+          ]),
           siteVisitLogId: null,
           siteVisitLogDate: null,
           purposeOfVisit: null,

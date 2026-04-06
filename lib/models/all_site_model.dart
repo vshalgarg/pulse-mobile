@@ -259,18 +259,30 @@ class AllSiteModel {
       circleStateId: json['circle_state_id'] ?? 0,
       circleStateName: json['circle_state_name']?.toString() ?? '',
       clientId: json['client_id'],
-      clientName: json['client_name']?.toString(),
+      clientName: _jsonStr(json, [
+        'client_name',
+        'clientName',
+        'operator_name',
+        'operatorName',
+      ]),
       oem: json['oem']?.toString(),
       oemId: json['oem_id'],
       self: json['self']?.toString() ?? '',
       selfId: json['self_id'] ?? 0,
       siteDomainName: json['site_domain_name']?.toString() ?? '',
       distanceKM: json['distance_km']?.toString() ?? '',
-      infraEngineerName: json['infra_district_engineer_name']?.toString() ?? '',
-      infraEngineerPhone:
-          json['infra_district_engineer_contact_no']?.toString() ?? '',
-      ownerName: json['owner_name']?.toString() ?? '',
-      ownerPhone: json['owner_contact_no']?.toString() ?? '',
+      infraEngineerName: _jsonStr(json, [
+            'infra_district_engineer_name',
+            'infraDistrictEngineerName',
+          ]) ??
+          '',
+      infraEngineerPhone: _jsonStr(json, [
+            'infra_district_engineer_contact_no',
+            'infraDistrictEngineerContactNo',
+          ]) ??
+          '',
+      ownerName: _jsonStr(json, ['owner_name', 'ownerName']) ?? '',
+      ownerPhone: _jsonStr(json, ['owner_contact_no', 'ownerContactNo']) ?? '',
       visitorName: json['visitor_name']?.toString() ?? '',
       visitorContactNo: json['visitor_contact_no']?.toString() ?? '',
       organisationName: json['organisation_name']?.toString() ?? '',
@@ -283,11 +295,15 @@ class AllSiteModel {
         'installed_asset_details',
         'installedAssetDetails',
       ]),
-      clusterInchargeName:
-          _jsonStr(json, ['cluster_incharge_name', 'clusterInchargeName']),
+      clusterInchargeName: _jsonStr(json, [
+        'cluster_incharge_name',
+        'clusterInchargeName',
+        'clusterIncharge',
+      ]),
       clusterInchargeContactNo: _jsonStr(json, [
         'cluster_incharge_contact_no',
         'clusterInchargeContactNo',
+        'cluster_incharge_phone',
       ]),
       lastPMSiteAuditSchId: _jsonInt(json, [
         'last_pm_site_audit_sch_id',

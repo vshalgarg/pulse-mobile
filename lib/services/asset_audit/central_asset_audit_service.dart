@@ -109,6 +109,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            clusterInchargeName: site.clusterInchargeName,
+            clusterInchargeContactNo: site.clusterInchargeContactNo,
             latitude: site.latitude,
             longitude: site.longitude,
           );
@@ -155,6 +157,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            clusterInchargeName: site.clusterInchargeName,
+            clusterInchargeContactNo: site.clusterInchargeContactNo,
             latitude: site.latitude,
             longitude: site.longitude,
           );
@@ -265,6 +269,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            clusterInchargeName: site.clusterInchargeName,
+            clusterInchargeContactNo: site.clusterInchargeContactNo,
             latitude: site.latitude,
             longitude: site.longitude,
           );
@@ -386,6 +392,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            clusterInchargeName: site.clusterInchargeName,
+            clusterInchargeContactNo: site.clusterInchargeContactNo,
             latitude: site.latitude,
             longitude: site.longitude,
           );
@@ -467,6 +475,8 @@ class CentralAssetAuditService {
             infraDistrictEngineerContactNo: site.infraEngineerPhone,
             ownerName: site.ownerName,
             ownerContactNo: site.ownerPhone,
+            clusterInchargeName: site.clusterInchargeName,
+            clusterInchargeContactNo: site.clusterInchargeContactNo,
             latitude: site.latitude,
             longitude: site.longitude,
           );
