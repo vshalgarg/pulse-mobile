@@ -1303,7 +1303,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       itemBuilder: (context, index) {
         final siteMap = _filteredSites[index];
         try {
-          final site = AllSiteModel.fromJson(siteMap);
+          final site = AllSiteModel.fromDownloadedSiteSqliteRow(
+            Map<String, dynamic>.from(siteMap),
+          );
           final activityType = _parseActivityTypeFromString(
             siteMap['activity_type']?.toString() ?? '',
           );

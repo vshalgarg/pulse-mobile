@@ -1020,14 +1020,14 @@ class _GInspectionDetailScreenState extends State<GInspectionDetailScreen> {
         Toastbar.showSuccessToastbar(locationMessage, context);
       } else {
         Toastbar.showErrorToastbar(
-          'Failed to download Installed Asset Details',
+          'Failed to download file. Please try again.',
           context,
         );
       }
     } catch (e) {
-      Logger.errorLog('Error downloading Installed Asset Details: $e');
+      Logger.errorLog('Error downloading file: $e');
       Toastbar.showErrorToastbar(
-        'Error downloading Installed Asset Details',
+        'Error downloading file',
         context,
       );
     } finally {

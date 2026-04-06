@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
@@ -396,6 +397,16 @@ class CentralAssetAuditService {
             clusterInchargeContactNo: site.clusterInchargeContactNo,
             latitude: site.latitude,
             longitude: site.longitude,
+            installedAssetDetails: site.installedAssetDetails,
+            lastPMDate: site.lastPMDate,
+            lastCMDate: site.lastCMDate,
+            lastAADate: site.lastAADate,
+            lastPMSiteAuditSchId: site.lastPMSiteAuditSchId,
+            lastPMAuditSchId: site.lastPMAuditSchId,
+            lastCMSiteReqId: site.lastCMSiteReqId,
+            lastAASiteAuditSchId: site.lastAASiteAuditSchId,
+            lastAAAuditSchId: site.lastAAAuditSchId,
+            offlineSiteSnapshotJson: jsonEncode(site.toJson()),
           );
 
       Logger.debugLog('✅ General Inspection site data saved successfully to SQLite: $isSaved');

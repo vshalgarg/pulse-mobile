@@ -10,7 +10,7 @@ import '../../utils/logger.dart';
 class CentralAssetAuditDataService {
   static Database? _database;
   static const String _databaseName = 'central_asset_audit.db';
-  static const int _databaseVersion = 17;
+  static const int _databaseVersion = 19;
 
   Future<Database> get database async {
     if (_database != null && _database!.isOpen) return _database!;
@@ -153,6 +153,16 @@ class CentralAssetAuditDataService {
         cluster_incharge_contact_no TEXT,
         latitude TEXT,
         longitude TEXT,
+        installed_asset_details TEXT,
+        last_pm_date TEXT,
+        last_cm_date TEXT,
+        last_aa_date TEXT,
+        last_pm_site_audit_sch_id INTEGER,
+        last_pm_audit_sch_id INTEGER,
+        last_cm_site_req_id INTEGER,
+        last_aa_site_audit_sch_id INTEGER,
+        last_aa_audit_sch_id INTEGER,
+        site_snapshot_json TEXT,
         is_downloaded INTEGER DEFAULT 1,
         downloaded_at TEXT,
         created_at TEXT,
@@ -898,6 +908,67 @@ class CentralAssetAuditDataService {
       }
     }
 
+    if (oldVersion < 18) {
+      try {
+        const tableName = 'gi_sites_data';
+        final tableInfo = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'",
+        );
+        if (tableInfo.isNotEmpty) {
+          final cols = (await db.rawQuery('PRAGMA table_info($tableName)'))
+              .map((c) => c['name'] as String)
+              .toList();
+          const additions = <String, String>{
+            'installed_asset_details': 'TEXT',
+            'last_pm_date': 'TEXT',
+            'last_cm_date': 'TEXT',
+            'last_aa_date': 'TEXT',
+            'last_pm_site_audit_sch_id': 'INTEGER',
+            'last_pm_audit_sch_id': 'INTEGER',
+            'last_cm_site_req_id': 'INTEGER',
+            'last_aa_site_audit_sch_id': 'INTEGER',
+            'last_aa_audit_sch_id': 'INTEGER',
+          };
+          for (final e in additions.entries) {
+            if (!cols.contains(e.key)) {
+              await db.execute(
+                'ALTER TABLE $tableName ADD COLUMN ${e.key} ${e.value}',
+              );
+            }
+          }
+        }
+        Logger.debugLog(
+          '✅ v18: GI offline fields (last PM/CM/AA, installed assets) on gi_sites_data',
+        );
+      } catch (e) {
+        Logger.errorLog('❌ Error in database v18 migration: $e');
+      }
+    }
+
+    if (oldVersion < 19) {
+      try {
+        const tableName = 'gi_sites_data';
+        final tableInfo = await db.rawQuery(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name='$tableName'",
+        );
+        if (tableInfo.isNotEmpty) {
+          final cols = (await db.rawQuery('PRAGMA table_info($tableName)'))
+              .map((c) => c['name'] as String)
+              .toList();
+          if (!cols.contains('site_snapshot_json')) {
+            await db.execute(
+              'ALTER TABLE $tableName ADD COLUMN site_snapshot_json TEXT',
+            );
+          }
+        }
+        Logger.debugLog(
+          '✅ v19: site_snapshot_json on gi_sites_data for offline GI parity',
+        );
+      } catch (e) {
+        Logger.errorLog('❌ Error in database v19 migration: $e');
+      }
+    }
+
     if (oldVersion < 14) {
       // For version 14, add dependent_elements column to cm_checklist_data table
       try {
@@ -1360,6 +1431,16 @@ class CentralAssetAuditDataService {
     String? clusterInchargeContactNo,
     String? latitude,
     String? longitude,
+    String? installedAssetDetails,
+    String? lastPMDate,
+    String? lastCMDate,
+    String? lastAADate,
+    int? lastPMSiteAuditSchId,
+    int? lastPMAuditSchId,
+    int? lastCMSiteReqId,
+    int? lastAASiteAuditSchId,
+    int? lastAAAuditSchId,
+    String? offlineSiteSnapshotJson,
   }) async {
     try {
       final db = await database;
@@ -1435,6 +1516,36 @@ class CentralAssetAuditDataService {
       }
       if (existingColumns.contains('cluster_incharge_contact_no')) {
         insertData['cluster_incharge_contact_no'] = clusterInchargeContactNo;
+      }
+      if (existingColumns.contains('installed_asset_details')) {
+        insertData['installed_asset_details'] = installedAssetDetails;
+      }
+      if (existingColumns.contains('last_pm_date')) {
+        insertData['last_pm_date'] = lastPMDate;
+      }
+      if (existingColumns.contains('last_cm_date')) {
+        insertData['last_cm_date'] = lastCMDate;
+      }
+      if (existingColumns.contains('last_aa_date')) {
+        insertData['last_aa_date'] = lastAADate;
+      }
+      if (existingColumns.contains('last_pm_site_audit_sch_id')) {
+        insertData['last_pm_site_audit_sch_id'] = lastPMSiteAuditSchId;
+      }
+      if (existingColumns.contains('last_pm_audit_sch_id')) {
+        insertData['last_pm_audit_sch_id'] = lastPMAuditSchId;
+      }
+      if (existingColumns.contains('last_cm_site_req_id')) {
+        insertData['last_cm_site_req_id'] = lastCMSiteReqId;
+      }
+      if (existingColumns.contains('last_aa_site_audit_sch_id')) {
+        insertData['last_aa_site_audit_sch_id'] = lastAASiteAuditSchId;
+      }
+      if (existingColumns.contains('last_aa_audit_sch_id')) {
+        insertData['last_aa_audit_sch_id'] = lastAAAuditSchId;
+      }
+      if (existingColumns.contains('site_snapshot_json')) {
+        insertData['site_snapshot_json'] = offlineSiteSnapshotJson;
       }
 
       await db.insert(tableName, insertData, conflictAlgorithm: ConflictAlgorithm.replace);

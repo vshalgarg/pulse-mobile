@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'gen_ins_checklist_model.dart';
 
 class AllSiteModel {
@@ -242,6 +244,21 @@ class AllSiteModel {
       longitude: _parseLatLngString(d, 'longitude'),
       latitude: _parseLatLngString(d, 'latitude'),
     );
+  }
+
+  /// Merges [site_snapshot_json] (if set) over the SQLite row so offline GI matches
+  /// the full all-sites API model, including PM/CM/AA ids the row may omit.
+  factory AllSiteModel.fromDownloadedSiteSqliteRow(Map<String, dynamic> row) {
+    final snap = row['site_snapshot_json'];
+    if (snap is String && snap.trim().isNotEmpty) {
+      try {
+        final decoded = jsonDecode(snap) as Map<String, dynamic>;
+        final merged = Map<String, dynamic>.from(row);
+        merged.addAll(decoded);
+        return AllSiteModel.fromJson(merged);
+      } catch (_) {}
+    }
+    return AllSiteModel.fromJson(Map<String, dynamic>.from(row));
   }
 
   factory AllSiteModel.fromJson(Map<String, dynamic> json) {
