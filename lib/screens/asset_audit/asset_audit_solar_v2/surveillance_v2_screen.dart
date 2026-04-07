@@ -441,8 +441,8 @@ class _SurveillanceV2ScreenState extends State<SurveillanceV2Screen> {
           // CCTV Form Component
           AssetAuditFormComponent(
             componentId: 'cctv_component',
-            serialLabel: "CCTV - Serial Number *",
-            serialHintText: "CCTV Serial Number *",
+            serialLabel: "CCTV - Serial Number ",
+            serialHintText: "CCTV Serial Number",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Status",
             disabledFieldValue: "Ok",

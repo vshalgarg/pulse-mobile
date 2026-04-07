@@ -448,8 +448,8 @@ class _SCADAV2ScreenState extends State<SCADAV2Screen> {
         // SCADA Form Component
         AssetAuditFormComponent(
           componentId: 'scada_component',
-          serialLabel: "Data Logger / SCADA - Serial Number *",
-          serialHintText: "Data Logger / SCADA Serial Number *",
+          serialLabel: "Data Logger / SCADA - Serial Number ",
+          serialHintText: "Data Logger / SCADA Serial Number",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Status",
           disabledFieldValue: "Ok",

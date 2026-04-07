@@ -22,6 +22,8 @@ class TicketCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onPdfDownloadTap;
   final ActivityTypeEnum activityType;
+ 
+  
 
   final int? totalAssets;
 
@@ -44,6 +46,7 @@ class TicketCard extends StatelessWidget {
     this.onPdfDownloadTap,
     required this.activityType,
     this.totalAssets,
+   
   });
 
   // Method to get status color based on status text

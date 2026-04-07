@@ -433,8 +433,8 @@ class _ACDBV2ScreenState extends State<ACDBV2Screen> {
         // ACDB Form Component
         AssetAuditFormComponent(
           componentId: 'acdb_component',
-          serialLabel: "ACDB - Serial Number *",
-          serialHintText: "ACDB Serial Number *",
+          serialLabel: "ACDB - Serial Number",
+          serialHintText: "ACDB Serial Number ",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
           disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",

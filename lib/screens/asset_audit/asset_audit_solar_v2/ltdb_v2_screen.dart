@@ -449,8 +449,8 @@ class _LTDBV2ScreenState extends State<LTDBV2Screen> {
         // LTDB Form Component
         AssetAuditFormComponent(
           componentId: 'ltdb_component',
-          serialLabel: "LTDB - Serial Number *",
-          serialHintText: "LTDB Serial Number *",
+          serialLabel: "LTDB - Serial Number ",
+          serialHintText: "LTDB Serial Number",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Rating",
           disabledFieldValue: _displayFormData?['capacity']?.toString() ?? "",

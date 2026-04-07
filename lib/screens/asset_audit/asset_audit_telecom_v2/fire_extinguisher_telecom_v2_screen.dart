@@ -689,8 +689,8 @@ class _FireExtinguisherTelecomV2ScreenState
           // Sand Bucket Form Component
           AssetAuditFormComponent(
             componentId: 'sand_bucket_component',
-            serialLabel: "Sand Buckets - Serial Number *",
-            serialHintText: "Sand Buckets Serial Number *",
+            serialLabel: "Sand Buckets - Serial Number",
+            serialHintText: "Sand Buckets Serial Number",
             photoLabel: "Add a Photo",
             serialController: _sandBucketSerialController,
             initialSavedItems:

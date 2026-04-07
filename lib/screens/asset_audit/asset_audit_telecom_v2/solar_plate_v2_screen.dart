@@ -523,7 +523,7 @@ class _SolarPlateV2ScreenState extends State<SolarPlateV2Screen> {
         AssetAuditFormComponent(
           componentId: 'solar_panel_component',
           serialLabel: "Solar Panel - Serial Number",
-          serialHintText: "Solar Panel Serial Number *",
+          serialHintText: "Solar Panel Serial Number",
           photoLabel: "Add a Photo",
           disabledFieldLabel: "Solar Panel (Watt)",
           disabledFieldValue:

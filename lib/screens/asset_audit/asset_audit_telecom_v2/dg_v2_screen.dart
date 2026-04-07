@@ -462,8 +462,8 @@ class _DGV2ScreenState extends State<DGV2Screen> {
           // DG Details Section using AssetAuditFormComponent
           AssetAuditFormComponent(
             componentId: 'dg_component',
-            serialLabel: "DG - Serial Number *",
-            serialHintText: "DG Serial Number *",
+            serialLabel: "DG - Serial Number",
+            serialHintText: "DG Serial Number",
             photoLabel: "Add a Photo",
             disabledFieldLabel: "Capacity",
             disabledFieldValue: 'N/A',

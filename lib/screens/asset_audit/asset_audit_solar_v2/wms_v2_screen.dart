@@ -467,8 +467,8 @@ class _WMSV2ScreenState extends State<WMSV2Screen> {
         // WMS Form Component
         AssetAuditFormComponent(
           componentId: 'wms_component',
-          serialLabel: "WMS - Serial Number *",
-          serialHintText: "WMS Serial Number *",
+          serialLabel: "WMS - Serial Number ",
+          serialHintText: "WMS Serial Number",
           photoLabel: "Add a Photo",
           serialController: _wmsSerialController,
           initialSavedItems:

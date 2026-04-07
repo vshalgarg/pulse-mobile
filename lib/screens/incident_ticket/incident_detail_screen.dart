@@ -911,7 +911,7 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
         // Infra Engineer
         CustomFormField(
           label: "Infra Engineer Name",
-          initialValue: widget.siteData.infraEngineerName ?? "N/A",
+          initialValue: widget.siteData.infraEngineerName ?? widget.apiResponseData?['infraDistrictEngineerName'] ?? "N",
           isRequired: false,
           isEditable: false,
         ),

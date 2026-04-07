@@ -529,7 +529,7 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
           CctvFormComponent(
             componentId: 'cctv_component',
             serialLabel: "CCTV - Serial Number",
-            serialHintText: "CCTV Serial Number *",
+            serialHintText: "CCTV Serial Number",
             photoLabel: "Add a Photo",
             serialController: _cctvSerialController,
             initialSavedItems:
