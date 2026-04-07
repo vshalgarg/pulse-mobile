@@ -244,22 +244,27 @@ class _CCTVV2ScreenState extends State<CCTVV2Screen> {
         ),
       );
 
-      // Update remarks
+      // Update remarks in-memory too so SQLite/open-back shows latest value.
       final String remark = _remarksController.text;
-      if (remark.isNotEmpty && finalRemarks.isNotEmpty) {
+      if (finalRemarks.isNotEmpty) {
         try {
           finalRemarks.first['item_type_remark'] = remark;
-          Logger.debugLog('✅ Updated remarks: $remark');
+          if (remark.isNotEmpty) {
+            Logger.debugLog('✅ Updated remarks: $remark');
+          }
         } catch (e) {
           Logger.errorLog('❌ Error updating remarks: $e');
         }
       }
 
       // Update local data
-      _service.updateDataInSqlite(
+      final updated = await _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
         updatedData: _assetAuditData ?? {},
       );
+      if (!updated) {
+        throw Exception('Failed to update local SQLite data');
+      }
 
       // Prepare data for posting
       final postObject = [...modifiedAssetsWithAllProperties, ...finalRemarks];
