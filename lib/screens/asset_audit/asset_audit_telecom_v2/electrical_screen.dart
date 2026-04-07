@@ -4,7 +4,6 @@ import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/asset_audit_validation_helper.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/svg.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../commonWidgets/asset_audit_form_component.dart';
@@ -64,6 +63,33 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   bool _isLoadingData = false;
   String? _errorMessage;
   bool _hasFormDataChanges = false;
+
+  String _normalizeSerial(dynamic value) =>
+      value?.toString().trim().toUpperCase() ?? '';
+
+  void _applySavedItemsToAssets(
+    List<dynamic> finalAssets,
+    List<Map<String, dynamic>> savedItems,
+  ) {
+    for (final asset in finalAssets) {
+      final assetSerial = _normalizeSerial(asset['mfg_serial_no']);
+      if (assetSerial.isEmpty) continue;
+
+      Map<String, dynamic>? modifiedAsset;
+      for (final saved in savedItems) {
+        if (_normalizeSerial(saved['mfg_serial_no']) == assetSerial) {
+          modifiedAsset = saved;
+          break;
+        }
+      }
+      if (modifiedAsset == null) continue;
+
+      asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
+      asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
+      asset['photo_id'] = modifiedAsset['photo_id'];
+      asset['asset_status'] = modifiedAsset['asset_status'];
+    }
+  }
 
   @override
   void initState() {
@@ -186,6 +212,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   void _onACDBItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
       _savedACDBs = items;
+      _displayFormData?['acdbAssets'] = items;
       _hasFormDataChanges = true;
     });
   }
@@ -193,6 +220,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   void _onLSPUItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
       _savedLSPUs = items;
+      _displayFormData?['lspuAssets'] = items;
       _hasFormDataChanges = true;
     });
   }
@@ -200,6 +228,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
   void _onAviationLampItemSaved(List<Map<String, dynamic>> items) {
     setState(() {
       _savedAviationLamps = items;
+      _displayFormData?['aviationLampAssets'] = items;
       _hasFormDataChanges = true;
     });
   }
@@ -287,50 +316,9 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       }
 
       // ===== Update _assetAuditData with modified data before saving =====
-      // Update ACDB data in _assetAuditData
-      for (var asset in finalACDBAssets) {
-        final assetSerialNo = asset['mfg_serial_no']?.toString();
-        final modifiedAsset = _savedACDBs
-            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
-            .firstOrNull;
-
-        if (modifiedAsset != null) {
-          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-          asset['photo_id'] = modifiedAsset['photo_id'];
-          asset['asset_status'] = modifiedAsset['asset_status'];
-        }
-      }
-
-      // Update LSPU data in _assetAuditData
-      for (var asset in finalLSPUAssets) {
-        final assetSerialNo = asset['mfg_serial_no']?.toString();
-        final modifiedAsset = _savedLSPUs
-            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
-            .firstOrNull;
-
-        if (modifiedAsset != null) {
-          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-          asset['photo_id'] = modifiedAsset['photo_id'];
-          asset['asset_status'] = modifiedAsset['asset_status'];
-        }
-      }
-
-      // Update Aviation Lamp data in _assetAuditData
-      for (var asset in finalAviationLampAssets) {
-        final assetSerialNo = asset['mfg_serial_no']?.toString();
-        final modifiedAsset = _savedAviationLamps
-            .where((ass) => ass['mfg_serial_no']?.toString() == assetSerialNo)
-            .firstOrNull;
-
-        if (modifiedAsset != null) {
-          asset['qr_code_scanned'] = modifiedAsset['qr_code_scanned'];
-          asset['qr_code_scanned_ts'] = modifiedAsset['qr_code_scanned_ts'];
-          asset['photo_id'] = modifiedAsset['photo_id'];
-          asset['asset_status'] = modifiedAsset['asset_status'];
-        }
-      }
+      _applySavedItemsToAssets(finalACDBAssets, _savedACDBs);
+      _applySavedItemsToAssets(finalLSPUAssets, _savedLSPUs);
+      _applySavedItemsToAssets(finalAviationLampAssets, _savedAviationLamps);
 
       // Update Remarks in _assetAuditData
       if (finalRemarks.isNotEmpty) {
@@ -341,10 +329,13 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
       }
 
       // ===== Update local SQLite with modified data =====
-      _service.updateDataInSqlite(
+      final updated = await _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
         updatedData: _assetAuditData ?? {},
       );
+      if (!updated) {
+        throw Exception('Failed to update local SQLite data');
+      }
 
       // Prepare data for posting
       final postObject = [...modifiedAssetsWithAllProperties];
@@ -509,7 +500,7 @@ class _ElectricalScreenState extends State<ElectricalScreen> {
                                   AssetAuditFormComponent(
                                     componentId: 'aviation_lamp_component',
                                     serialLabel: "Aviation Lamp",
-                                    serialHintText: "Aviation Lamp *",
+                                    serialHintText: "Aviation Lamp",
                                     photoLabel: "Add Photo of Aviation Lamp",
                                     serialController: _aviationLampSerialController,
                                     initialSavedItems: _savedAviationLamps,
