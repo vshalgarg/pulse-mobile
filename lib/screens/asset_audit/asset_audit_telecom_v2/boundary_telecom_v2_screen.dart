@@ -276,20 +276,28 @@ class _BoundaryTelecomV2ScreenState extends State<BoundaryTelecomV2Screen> {
       }
 
       // ===== Remarks Update =====
-      if (remarksData.isNotEmpty && _remarksController.text.isNotEmpty) {
+      // Keep local JSON in sync so reopening screen shows latest remark.
+      if (remarksData.isNotEmpty) {
+        final remark = _remarksController.text.toString();
         final remarksMap = Map<String, dynamic>.from(remarksData.first);
-        remarksMap['item_type_remark'] = _remarksController.text.toString();
-        modifiedData.add(remarksMap);
+        remarksMap['item_type_remark'] = remark;
+        remarksData.first['item_type_remark'] = remark;
+        if (remark.isNotEmpty) {
+          modifiedData.add(remarksMap);
+        }
       }
 
       // ===== Collect All Data =====
       final postObject = [...modifiedData];
 
       // ===== Update Local SQLite =====
-      _service.updateDataInSqlite(
+      final updated = await _service.updateDataInSqlite(
         siteAuditSchId: widget.siteAuditSchId,
         updatedData: _assetAuditData ?? {},
       );
+      if (!updated) {
+        throw Exception('Failed to update local SQLite data');
+      }
 
       // Post data with photo ID replacement
       await ServiceLocator().assetAuditPostService.postAssetAuditDataWithPhotoReplacement(
