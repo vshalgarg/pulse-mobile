@@ -1061,7 +1061,10 @@ class _IncidentDetilScreenState extends State<IncidentDetilScreen> {
               (widget.mode == CMScreenModeEnum.create &&
                   _selectedStatus == 'OPEN') ||
               (_isViewMode && _selectedStatus == 'CLOSED'),
-          isRequired: !_isViewMode,
+          isRequired:
+              !_isViewMode &&
+              !(widget.mode == CMScreenModeEnum.create &&
+                  _selectedStatus == 'OPEN'),
         ),
         const SizedBox(height: 15),
 

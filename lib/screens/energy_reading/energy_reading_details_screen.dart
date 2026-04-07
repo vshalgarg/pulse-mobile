@@ -1187,7 +1187,7 @@ class _EnergyReadingDetailScreenState extends State<EnergyReadingDetailScreen> {
           isInputEditable: false,
           inputInitialValue: '',
 
-          photoLabel: "Add a Photo*",
+          photoLabel: "Add a Photo",
           isPhotoRequired: true,
           uploadedImageId: _ERImageID,
           onImageSelected: _onFencingImageSelected,
