@@ -15,6 +15,8 @@ class PmisProjectActivity extends Equatable {
   final String state;
   final String distanceKm;
   final int? distanceM;
+  final double? latitude;
+  final double? longitude;
 
   const PmisProjectActivity({
     required this.siteName,
@@ -31,12 +33,18 @@ class PmisProjectActivity extends Equatable {
     required this.state,
     required this.distanceKm,
     required this.distanceM,
+    this.latitude,
+    this.longitude,
   });
 
   factory PmisProjectActivity.fromJson(Map<String, dynamic> json) {
     int? parseIntNullable(dynamic value) {
       if (value == null) return null;
       return int.tryParse(value.toString());
+    }
+    double? parseDoubleNullable(dynamic value) {
+      if (value == null) return null;
+      return double.tryParse(value.toString());
     }
 
     return PmisProjectActivity(
@@ -56,6 +64,15 @@ class PmisProjectActivity extends Equatable {
       state: (json['state'] ?? '').toString(),
       distanceKm: (json['distance_km'] ?? '').toString(),
       distanceM: parseIntNullable(json['distance_m']),
+      latitude: parseDoubleNullable(
+        json['latitude'] ?? json['lat'] ?? json['site_latitude'],
+      ),
+      longitude: parseDoubleNullable(
+        json['longitude'] ??
+            json['lng'] ??
+            json['long'] ??
+            json['site_longitude'],
+      ),
     );
   }
 
@@ -75,6 +92,8 @@ class PmisProjectActivity extends Equatable {
         state,
         distanceKm,
         distanceM,
+        latitude,
+        longitude,
       ];
 }
 

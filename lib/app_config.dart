@@ -4,6 +4,7 @@ import 'package:app/repositories/demo_repository.dart';
 import 'package:app/repositories/dashboard_repository.dart';
 import 'package:app/repositories/pmis_repository.dart';
 import 'package:app/repositories/pmis_activities_repository.dart';
+import 'package:app/repositories/pmis_activity_ticket_repository.dart';
 import 'package:app/repositories/pmis_module_repository.dart';
 import 'package:app/repositories/pmis_submodule_repository.dart';
 import 'package:app/repositories/pmis_site_repository.dart';
@@ -20,6 +21,7 @@ import 'services/api_provider.dart';
 import 'services/api_service.dart';
 import 'services/pmis_service.dart';
 import 'services/pmis_activities_service.dart';
+import 'services/pmis_activity_ticket_service.dart';
 import 'services/pmis_module_service.dart';
 import 'services/pmis_submodule_service.dart';
 import 'services/pmis_site_service.dart';
@@ -49,6 +51,7 @@ class AppConfig {
   late final TicketRepository ticketRepository;
   late final PmisRepository pmisRepository;
   late final PmisActivitiesRepository pmisActivitiesRepository;
+  late final PmisActivityTicketRepository pmisActivityTicketRepository;
   late final PmisStateRepository pmisStateRepository;
   late final PmisSiteRepository pmisSiteRepository;
   late final PmisModuleRepository pmisModuleRepository;
@@ -91,6 +94,11 @@ class AppConfig {
         PmisActivitiesService(apiService: apiService);
     pmisActivitiesRepository =
         PmisActivitiesRepository(pmisService: pmisActivitiesService);
+    final pmisActivityTicketService =
+        PmisActivityTicketService(apiService: apiService);
+    pmisActivityTicketRepository = PmisActivityTicketRepository(
+      pmisService: pmisActivityTicketService,
+    );
     final pmisStateService = PmisStateService(apiService: apiService);
     pmisStateRepository =
         PmisStateRepository(pmisStateService: pmisStateService);

@@ -5,10 +5,12 @@ import 'package:flutter/material.dart';
 
 class ActivityCard extends StatelessWidget {
   final PmisProjectActivity activity;
+  final VoidCallback? onDirectionTap;
 
   const ActivityCard({
     super.key,
     required this.activity,
+    this.onDirectionTap,
   });
 
   @override
@@ -238,7 +240,7 @@ class ActivityCard extends StatelessWidget {
         color: Colors.amber,
         size: 24,
       ),
-      onPressed: () {},
+      onPressed: onDirectionTap,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(),
       alignment: Alignment.center,

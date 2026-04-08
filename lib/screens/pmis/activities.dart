@@ -123,82 +123,147 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
             child: SafeSvgPicture.asset(AppImages.home, fit: BoxFit.cover),
           ),
           SafeArea(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                PmisHeader(
+            child: FutureBuilder<ResponseResult<List<PmisProjectActivity>>>(
+              future: _future,
+              builder: (context, snapshot) {
+                final header = PmisHeader(
                   breadcrumbText: widget.breadcrumbText,
                   detailLines: _headerDetailLines,
-                ),
-                Expanded(
-                  child: FutureBuilder<
-                      ResponseResult<List<PmisProjectActivity>>>(
-                    future: _future,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(
-                          child: CircularProgressIndicator(
-                            color: AppColors.primaryGreen,
-                          ),
-                        );
-                      }
+                );
 
-                      if (snapshot.hasError) {
-                        return Center(
-                          child: Text(
-                            snapshot.error.toString(),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                            ),
+                late final Widget bodyContent;
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  bodyContent = const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 64),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                  );
+                } else if (snapshot.hasError) {
+                  bodyContent = Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 24,
+                    ),
+                    child: Text(
+                      snapshot.error.toString(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: AppColors.white,
+                        fontSize: 16,
+                      ),
+                    ),
+                  );
+                } else {
+                  final result = snapshot.data;
+                  if (result == null ||
+                      !result.isSuccess ||
+                      result.data == null) {
+                    bodyContent = Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 24,
+                      ),
+                      child: Text(
+                        result?.errorMessage ?? 'Failed to load activities',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    );
+                  } else {
+                    final activities = result.data!;
+                    if (activities.isEmpty) {
+                      bodyContent = const Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 24,
+                        ),
+                        child: Text(
+                          'No activities found',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
                           ),
-                        );
-                      }
-
-                      final result = snapshot.data;
-                      if (result == null ||
-                          !result.isSuccess ||
-                          result.data == null) {
-                        return Center(
-                          child: Text(
-                            result?.errorMessage ?? 'Failed to load activities',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: AppColors.white,
-                              fontSize: 16,
-                            ),
-                          ),
-                        );
-                      }
-
-                      final activities = result.data!;
-                      if (activities.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            'No activities found',
-                            style: TextStyle(
-                              color: AppColors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      }
-
-                      return ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        itemCount: activities.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          return ActivityCard(activity: activities[index]);
-                        },
+                        ),
                       );
-                    },
-                  ),
-                ),
-              ],
+                    } else {
+                      bodyContent = Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = 0; i < activities.length; i++) ...[
+                              if (i > 0) const SizedBox(height: 12),
+                              ActivityCard(activity: activities[i]),
+                            ],
+                          ],
+                        ),
+                      );
+                    }
+                  }
+                }
+
+                if (snapshot.connectionState == ConnectionState.waiting ||
+                    snapshot.hasError ||
+                    snapshot.data == null ||
+                    !(snapshot.data!.isSuccess) ||
+                    snapshot.data!.data == null ||
+                    snapshot.data!.data!.isEmpty) {
+                  return CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(child: header),
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: bodyContent,
+                      ),
+                    ],
+                  );
+                }
+
+                final activities = snapshot.data!.data!;
+                return CustomScrollView(
+                  slivers: [
+                    SliverToBoxAdapter(child: header),
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
+                      sliver: SliverList.separated(
+                        itemCount: activities.length,
+                        itemBuilder: (context, index) => ActivityCard(
+                          activity: activities[index],
+                          onDirectionTap: () {
+                            final a = activities[index];
+                            if (a.latitude != null && a.longitude != null) {
+                              LocationService.openDirectionsToSite(
+                                siteLat: a.latitude!,
+                                siteLng: a.longitude!,
+                                siteName: a.siteName,
+                                context: context,
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Directions are not available for this activity',
+                                  ),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
