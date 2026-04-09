@@ -18,6 +18,9 @@ class PmisProjectActivity extends Equatable {
   final double? latitude;
   final double? longitude;
 
+  /// Activity ticket id for `pmis/api/v1/project-plan/activity-ticket/{atId}`.
+  final int? atId;
+
   const PmisProjectActivity({
     required this.siteName,
     required this.moduleName,
@@ -35,6 +38,7 @@ class PmisProjectActivity extends Equatable {
     required this.distanceM,
     this.latitude,
     this.longitude,
+    this.atId,
   });
 
   factory PmisProjectActivity.fromJson(Map<String, dynamic> json) {
@@ -46,6 +50,13 @@ class PmisProjectActivity extends Equatable {
       if (value == null) return null;
       return double.tryParse(value.toString());
     }
+
+    final int? atId = parseIntNullable(
+      json['atId'] ??
+          json['at_id'] ??
+          json['activityTicketId'] ??
+          json['activity_ticket_id'],
+    );
 
     return PmisProjectActivity(
       siteName: (json['site_name'] ?? '').toString(),
@@ -73,6 +84,7 @@ class PmisProjectActivity extends Equatable {
             json['long'] ??
             json['site_longitude'],
       ),
+      atId: atId,
     );
   }
 
@@ -94,6 +106,7 @@ class PmisProjectActivity extends Equatable {
         distanceM,
         latitude,
         longitude,
+        atId,
       ];
 }
 

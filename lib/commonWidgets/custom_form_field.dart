@@ -27,6 +27,9 @@ class CustomFormField extends StatelessWidget {
   final InputType? inputType;
   final int? maxLength;
 
+  /// Border radius for the white input container (default `5`).
+  final double? inputBorderRadius;
+
   const CustomFormField({
     super.key,
     this.label,
@@ -42,6 +45,7 @@ class CustomFormField extends StatelessWidget {
     this.maxDecimalDigits,
     this.inputType,
     this.maxLength,
+    this.inputBorderRadius,
   });
 
   TextInputFormatter? _getDecimalInputFormatter() {
@@ -119,6 +123,11 @@ class CustomFormField extends StatelessWidget {
     }
 
     final List<TextInputFormatter> finalInputFormatters = _getInputFormatters();
+    final radius = inputBorderRadius ?? 5;
+    final fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(radius),
+      borderSide: BorderSide.none,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,9 +181,14 @@ class CustomFormField extends StatelessWidget {
               vertical: 8,
               horizontal: 16,
             ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(5),
-              borderSide: BorderSide.none,
+            border: fieldBorder,
+            enabledBorder: fieldBorder,
+            focusedBorder: fieldBorder,
+            errorBorder: fieldBorder.copyWith(
+              borderSide: const BorderSide(color: Colors.red, width: 1),
+            ),
+            focusedErrorBorder: fieldBorder.copyWith(
+              borderSide: const BorderSide(color: Colors.red, width: 1),
             ),
             hintText: hintText, // Show hint text if provided
             hintStyle: TextStyle(

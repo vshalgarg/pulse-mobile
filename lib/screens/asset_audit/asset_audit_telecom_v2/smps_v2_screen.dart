@@ -393,15 +393,22 @@ class _SMPSV2ScreenState extends State<SMPSV2Screen> {
 
       // Update remarks in-memory too so SQLite/open-back shows latest value.
       final String remark = _remarksController.text;
-      if (finalRemarks.isNotEmpty) {
-        try {
+      try {
+        if (finalRemarks.isNotEmpty) {
           finalRemarks.first['item_type_remark'] = remark;
-          if (remark.isNotEmpty) {
-            Logger.debugLog('✅ Updated remarks: $remark');
-          }
-        } catch (e) {
-          Logger.errorLog('❌ Error updating remarks: $e');
+        } else if (remark.isNotEmpty) {
+          // Some payloads do not include `remarks` list initially.
+          // Create a minimal local row so reopen can read from SQLite.
+          finalData?['remarks'] = <Map<String, dynamic>>[
+            <String, dynamic>{'item_type_remark': remark},
+          ];
         }
+        if (remark.isNotEmpty) {
+          _displayFormData?['remarks'] = remark;
+          Logger.debugLog('✅ Updated remarks: $remark');
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error updating remarks: $e');
       }
 
       // Always include "Overall Dtl" items if they exist to prevent empty array

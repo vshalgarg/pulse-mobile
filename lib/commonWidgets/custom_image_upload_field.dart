@@ -24,6 +24,12 @@ class ImageUploadField extends StatefulWidget {
   final Function(File?) onImageSelected;
   final String? externalImageUrl;
 
+  /// Height of the tap target / preview area (default `150`).
+  final double uploadBoxHeight;
+
+  /// Corner radius of the upload box.
+  final double uploadBorderRadius;
+
   const ImageUploadField({
     super.key,
     this.label,
@@ -32,6 +38,8 @@ class ImageUploadField extends StatefulWidget {
     this.isDisabled = false,
     required this.onImageSelected,
     this.externalImageUrl,
+    this.uploadBoxHeight = 150,
+    this.uploadBorderRadius = 6,
   });
 
   @override
@@ -356,12 +364,12 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
               : _pickImage,
           child: Container(
             width: double.infinity,
-            height: 150,
+            height: widget.uploadBoxHeight,
             decoration: BoxDecoration(
               color: widget.isDisabled
                   ? Colors.grey.shade200
                   : Colors.white,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(widget.uploadBorderRadius),
               border: Border.all(color: Colors.grey),
             ),
             child: child,

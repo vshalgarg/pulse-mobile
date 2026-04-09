@@ -21,9 +21,16 @@ class PmisActivityTicketService {
       if (response.statusCode == 200) {
         final data = response.data;
         if (data is Map) {
-          final ticket = PmisActivityTicketDetail.fromJson(
-            Map<String, dynamic>.from(data as Map),
-          );
+          var body = Map<String, dynamic>.from(data);
+          final inner = body['data'];
+          if (inner is Map) {
+            final innerMap = Map<String, dynamic>.from(inner);
+            if (body['ticketCheckers'] == null &&
+                innerMap['ticketCheckers'] != null) {
+              body = innerMap;
+            }
+          }
+          final ticket = PmisActivityTicketDetail.fromJson(body);
           return ResponseResult.success(ticket, response.statusCode);
         }
         return ResponseResult.error(

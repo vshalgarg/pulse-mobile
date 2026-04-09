@@ -21,6 +21,7 @@ Future<ActivityTicketClosePopupResult?> showActivityTicketClosePopup(
 }) {
   return showDialog<ActivityTicketClosePopupResult>(
     context: context,
+    useRootNavigator: true,
     barrierDismissible: false,
     builder: (_) => ActivityTicketClosePopup(
       initialStatus: initialStatus,
@@ -151,7 +152,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                   "To repeat this activity, choose 'Repeat'",
                 ),
                 const SizedBox(height: 12),
-                _label('Activity Repetition Date', required: true),
+                _label('Activity Repetition Date', required: _isRepeat),
                 const SizedBox(height: 8),
                 InkWell(
                   onTap: _pickDate,

@@ -6,6 +6,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/pmis_project_activity_model.dart';
+import 'package:app/screens/pmis/activity_ticket/activity_ticket_checker_list.dart';
 import 'package:app/services/api_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:flutter/material.dart';
@@ -18,6 +19,9 @@ class ProjectActivitiesScreen extends StatefulWidget {
 
   /// Breadcrumb line under the app bar (e.g. `Project > … > Activities`).
   final String breadcrumbText;
+
+  /// `pmis/api/v1/project-plan/activity-ticket/{id}` — used when opening Approvals.
+  static const int activityTicketApiId = 12372;
 
   /// Context rows in the dark band; if null, shows `Project ID : [projectId]`.
   final List<PmisHeaderDetailLine>? headerDetailLines;
@@ -49,9 +53,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
         longitude: location.longitude,
       );
     } catch (e) {
-      return ResponseResult.error(
-        errorMessage: e.toString(),
-      );
+      return ResponseResult.error(errorMessage: e.toString());
     }
   }
 
@@ -256,6 +258,23 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                                 ),
                               );
                             }
+                          },
+                          onTap: () {
+                            final a = activities[index];
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ActivityTicketCheckerListScreen(
+                                  activityTicketId: ProjectActivitiesScreen
+                                      .activityTicketApiId,
+                                  activityName: a.activityName,
+                                  summaryCardTitle:
+                                      a.subModuleName.trim().isNotEmpty
+                                      ? a.subModuleName
+                                      : null,
+                                  breadcrumbText: widget.breadcrumbText,
+                                ),
+                              ),
+                            );
                           },
                         ),
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
