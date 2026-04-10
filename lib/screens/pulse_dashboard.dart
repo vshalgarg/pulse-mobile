@@ -438,6 +438,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
               onTap: () => _navigateToTask('Project'),
               isComingSoon: false,
             ),
+
+            _buildTaskCard(
+              iconPath: AppImages.project,
+              label: 'Activity',
+              onTap: () => _navigateToTask('Activity'),
+              isComingSoon: false,
+            ),
             _buildTaskCard(
               iconPath: AppImages.warehouse,
               label: 'Warehouse',
@@ -538,10 +545,18 @@ class _PulseDashboardState extends State<PulseDashboard> {
       ),
     );
   }
+  
 
   void _navigateToTask(String taskName) {
 
     if (taskName == 'Project') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const ProjectListScreen( ),
+        ),
+      );
+    }else if (taskName == 'Activity') {
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -571,6 +586,8 @@ class _PulseDashboardState extends State<PulseDashboard> {
     }
   }
   }
+
+
 
   void _navigateToMyTickets() {
     Navigator.push(

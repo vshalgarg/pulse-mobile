@@ -50,4 +50,31 @@ class PmisActivityTicketService {
       );
     }
   }
+
+  Future<ResponseResult<Map<String, dynamic>?>> postActivityTicket({
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      final result = await _apiService.post<Map<String, dynamic>>(
+        path: _pathPrefix,
+        data: payload,
+        useFormDataFormat: false,
+      );
+
+      if (!result.isSuccess) {
+        return ResponseResult.error(
+          errorMessage: result.errorMessage ?? 'Failed to post activity ticket',
+          statusCode: result.statusCode,
+          dioErrorType: result.dioErrorType,
+        );
+      }
+
+      return ResponseResult.success(result.data, result.statusCode);
+    } catch (e) {
+      debugPrint('❌ PmisActivityTicketService.postActivityTicket: $e');
+      return ResponseResult.error(
+        errorMessage: 'Exception occurred: ${e.toString()}',
+      );
+    }
+  }
 }

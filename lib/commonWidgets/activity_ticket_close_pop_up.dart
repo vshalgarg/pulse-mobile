@@ -1,4 +1,5 @@
 import 'package:app/constants/app_colors.dart';
+import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:flutter/material.dart';
 
 class ActivityTicketClosePopupResult {
@@ -18,6 +19,7 @@ Future<ActivityTicketClosePopupResult?> showActivityTicketClosePopup(
   String? initialStatus,
   DateTime? initialRepetitionDate,
   String? initialRemarks,
+  List<String>? statusOptions,
 }) {
   return showDialog<ActivityTicketClosePopupResult>(
     context: context,
@@ -27,6 +29,7 @@ Future<ActivityTicketClosePopupResult?> showActivityTicketClosePopup(
       initialStatus: initialStatus,
       initialRepetitionDate: initialRepetitionDate,
       initialRemarks: initialRemarks,
+      statusOptions: statusOptions,
     ),
   );
 }
@@ -35,12 +38,14 @@ class ActivityTicketClosePopup extends StatefulWidget {
   final String? initialStatus;
   final DateTime? initialRepetitionDate;
   final String? initialRemarks;
+  final List<String>? statusOptions;
 
   const ActivityTicketClosePopup({
     super.key,
     this.initialStatus,
     this.initialRepetitionDate,
     this.initialRemarks,
+    this.statusOptions,
   });
 
   @override
@@ -49,15 +54,27 @@ class ActivityTicketClosePopup extends StatefulWidget {
 }
 
 class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
-  static const List<String> _statusOptions = <String>['Completed', 'Repeat'];
+  static const List<String> _defaultStatusOptions = <String>[
+    'Completed',
+    'Repeat',
+  ];
 
   final TextEditingController _remarksController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   String? _status;
   DateTime? _repetitionDate;
+  bool _showStatusError = false;
 
   bool get _isRepeat => _status == 'Repeat';
+  List<String> get _statusOptions {
+    final options = widget.statusOptions
+        ?.map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    if (options == null || options.isEmpty) return _defaultStatusOptions;
+    return options;
+  }
 
   @override
   void initState() {
@@ -98,6 +115,13 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   }
 
   void _onSave() {
+    final hasStatus = _status != null && _status!.trim().isNotEmpty;
+    if (!hasStatus) {
+      setState(() {
+        _showStatusError = true;
+      });
+      return;
+    }
     final isValid = _formKey.currentState?.validate() ?? false;
     if (!isValid) return;
     Navigator.of(context).pop(
@@ -111,14 +135,15 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
 
   @override
   Widget build(BuildContext context) {
+    final maxDialogHeight = MediaQuery.of(context).size.height * 0.8;
     return Dialog(
       backgroundColor: const Color(0xFF5B5B5B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
+        constraints: BoxConstraints(maxWidth: 560, maxHeight: maxDialogHeight),
         child: Form(
           key: _formKey,
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -126,31 +151,33 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
               children: [
                 _label('Activity Status', required: true),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
+                CustomDropdown(
+                  items: _statusOptions,
                   initialValue: _status,
-                  items: _statusOptions
-                      .map(
-                        (s) => DropdownMenuItem<String>(
-                          value: s,
-                          child: Text(s),
-                        ),
-                      )
-                      .toList(),
-                  decoration: _fieldDecoration(hint: 'Select'),
-                  icon: const Icon(Icons.keyboard_arrow_down),
-                  validator: (v) =>
-                      (v == null || v.isEmpty) ? 'Please select status' : null,
                   onChanged: (v) {
                     setState(() {
                       _status = v;
+                      _showStatusError = false;
                       if (!_isRepeat) _repetitionDate = null;
                     });
                   },
                 ),
+                if (_showStatusError)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Text(
+                      'Please select status',
+                      style: TextStyle(
+                        color: AppColors.errorColor,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 8),
-                _helper(
-                  "To repeat this activity, choose 'Repeat'",
-                ),
+                if (_statusOptions.any((e) => e.toLowerCase() == 'repeat'))
+                  _helper(
+                    "To repeat this activity, choose 'Repeat'",
+                  ),
                 const SizedBox(height: 12),
                 _label('Activity Repetition Date', required: _isRepeat),
                 const SizedBox(height: 8),
@@ -190,10 +217,6 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
-                _helper(
-                  "Enabled & Mandatory when 'Repeat' status selected",
-                ),
                 const SizedBox(height: 12),
                 _label('Remarks', required: true),
                 const SizedBox(height: 8),

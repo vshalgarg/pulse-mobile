@@ -1,16 +1,22 @@
 import 'dart:io';
+import 'dart:convert';
 
+import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/activity_ticket_close_pop_up.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
 import 'package:app/commonWidgets/custom_image_upload_field.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/pmis_activity_ticket_model.dart';
 import 'package:app/services/location_service.dart';
+import 'package:app/services/service_locator.dart';
+import 'package:app/services/upload_dcouments.dart';
+import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -41,7 +47,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   final Map<int, TextEditingController> _textByTfv = {};
   final Map<int, String?> _dropdownByTfv = {};
   final Map<int, List<File>> _filesByTfv = {};
+  final Map<int, List<Map<String, dynamic>>> _uploadedAttachmentsByTfv = {};
   late List<PmisTicketFieldValue> _sortedFields;
+
+  UploadDcoumentsService get _uploadService =>
+      UploadDcoumentsService(apiService: ServiceLocator().apiService);
 
   static String _normDataType(PmisTicketFieldValue f) =>
       (f.subActivityDataType ?? '').trim().toUpperCase();
@@ -79,6 +89,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       }
       if (_isUploadType(type)) {
         _filesByTfv[f.tfvId] = [];
+        _uploadedAttachmentsByTfv[f.tfvId] = [];
       }
     }
   }
@@ -243,6 +254,47 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   static const int _maxUploadBytes = 2 * 1024 * 1024;
 
+  Future<String?> _uploadTicketFile(File file) async {
+    final result = await _uploadService.uploadFile(
+      file: file,
+      id: '0',
+      activityType: 'AT',
+    );
+    if (!result.isSuccess || (result.data ?? '').trim().isEmpty) {
+      return null;
+    }
+    return (result.data ?? '').trim();
+  }
+
+  Future<Map<String, dynamic>> _buildAttachmentObject(
+    String uploadedId,
+    String fileType,
+  ) async {
+    double latitude = 0;
+    double longitude = 0;
+    try {
+      final location = await LocationService.getCurrentLocation();
+      latitude = location.latitude;
+      longitude = location.longitude;
+    } catch (_) {
+      // Keep 0,0 when location isn't available.
+    }
+
+    return <String, dynamic>{
+      'taId': 0,
+      'fileType': fileType,
+      'latitude': latitude,
+      'longitude': longitude,
+      'geoAccuracyM': 0,
+      'geoSource': 'MOBILE',
+      'capturedDt': _nowForBackend(),
+      'taggedMmId': 0,
+      'attachmentId': int.tryParse(uploadedId) ?? 0,
+      'isActive': true,
+      'remarks': '',
+    };
+  }
+
   Future<void> _addUploadFiles(PmisTicketFieldValue f) async {
     final type = _normDataType(f);
     final multi = _allowMultiple(f);
@@ -284,6 +336,55 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     }
     if (valid.isEmpty) return;
 
+    if (_isUploadType(type)) {
+      LoaderWidget.showLoader(context);
+      final uploadedFiles = <File>[];
+      final uploadedAttachments = <Map<String, dynamic>>[];
+      try {
+        for (final file in valid) {
+          final uploadedId = await _uploadTicketFile(file);
+          if (uploadedId == null) {
+            if (!mounted) return;
+            Toastbar.showErrorToastbar(
+              'Failed to upload ${p.basename(file.path)}',
+              context,
+            );
+            continue;
+          }
+          uploadedFiles.add(file);
+          uploadedAttachments.add(
+            await _buildAttachmentObject(uploadedId, type),
+          );
+        }
+      } finally {
+        LoaderWidget.hideLoader();
+      }
+
+      if (uploadedFiles.isEmpty) return;
+      setState(() {
+        final list = _filesByTfv[f.tfvId]!;
+        final attachments =
+            _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
+        if (!multi) {
+          list.clear();
+          attachments.clear();
+        }
+        if (multi) {
+          list.addAll(uploadedFiles);
+          attachments.addAll(uploadedAttachments);
+        } else {
+          list
+            ..clear()
+            ..add(uploadedFiles.first);
+          attachments
+            ..clear()
+            ..add(uploadedAttachments.first);
+        }
+        _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+      });
+      return;
+    }
+
     setState(() {
       final list = _filesByTfv[f.tfvId]!;
       if (!multi) list.clear();
@@ -303,11 +404,168 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       return (_dropdownByTfv[f.tfvId] ?? '').trim();
     }
     if (_isUploadType(type)) {
-      final files = _filesByTfv[f.tfvId] ?? [];
-      if (files.isEmpty) return '';
-      return files.map((e) => e.path).join(',');
+      final attachments =
+          _uploadedAttachmentsByTfv[f.tfvId] ?? const <Map<String, dynamic>>[];
+      if (attachments.isEmpty) return '';
+      return attachments
+          .map((e) => e['attachmentId']?.toString() ?? '')
+          .where((e) => e.isNotEmpty && e != '0')
+          .join(',');
     }
     return _textByTfv[f.tfvId]!.text.trim();
+  }
+
+  String _formatBackendDate(DateTime value) {
+    final dd = value.day.toString().padLeft(2, '0');
+    final mm = value.month.toString().padLeft(2, '0');
+    final yyyy = value.year.toString();
+    final hh = value.hour.toString().padLeft(2, '0');
+    final min = value.minute.toString().padLeft(2, '0');
+    final ss = value.second.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min:$ss';
+  }
+
+  String _nowForBackend() => _formatBackendDate(DateTime.now());
+
+  String? _formatDateForBackendOrNull(DateTime? value) =>
+      value == null ? null : _formatBackendDate(value);
+
+  String? _normalizeDateString(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return raw;
+    final parsed = DateTime.tryParse(raw.trim());
+    if (parsed == null) return raw;
+    return _formatBackendDate(parsed);
+  }
+
+  Map<String, dynamic> _mapChecker(PmisTicketChecker c) {
+    return <String, dynamic>{
+      'tcId': c.tcId,
+      'levelNo': c.levelNo,
+      'designationMstId': c.designationMstId ?? 0,
+      'checkerUserMstId': c.checkerUserMstId ?? 0,
+      'decisionStatus': c.decisionStatus ?? '',
+      'decisionBy': c.decisionBy ?? '',
+      'decisionDt': _normalizeDateString(c.decisionDt),
+      'decisionRemarks': c.decisionRemarks ?? '',
+      'latitude': c.latitude ?? '0',
+      'longitude': c.longitude ?? '0',
+      'geoAccuracyM': c.geoAccuracyM ?? '0',
+      'geoSource': c.geoSource ?? '',
+      'isActive': c.isActive,
+      'remarks': c.remarks ?? '',
+      'decisionByName': c.decisionByName ?? '',
+      'checkerUserName': c.checkerUserName ?? '',
+      'designationName': c.designationName ?? '',
+    };
+  }
+
+  Map<String, dynamic> _mapFieldValue(
+    PmisTicketFieldValue f, {
+    required String valText,
+    required List<Map<String, dynamic>> attachments,
+  }) {
+    return <String, dynamic>{
+      'tfvId': f.tfvId,
+      'valText': valText,
+      'valNumeric': f.valNumeric ?? 0,
+      'valInt': f.valInt ?? 0,
+      'valDate': _normalizeDateString(f.valDate?.toString()),
+      'valJson': f.valJson,
+      'latitude': f.latitude ?? '0',
+      'longitude': f.longitude ?? '0',
+      'geoAccuracyM': f.geoAccuracyM ?? '0',
+      'geoSource': f.geoSource ?? '',
+      'isActive': f.isActive,
+      'remarks': f.remarks ?? '',
+      'attachments': attachments.map(_normalizeAttachmentDate).toList(),
+      'subActivityName': f.subActivityName ?? '',
+      'subActivityDataType': f.subActivityDataType ?? '',
+      'subActivityControlType': f.subActivityControlType ?? '',
+      'isRequired': f.isRequired ?? false,
+      'seqNo': f.seqNo ?? 0,
+      'minVal': f.minVal ?? 0,
+      'maxVal': f.maxVal ?? 0,
+      'configJson': (f.configJson is Map)
+          ? Map<String, dynamic>.from(f.configJson as Map)
+          : {},
+      'linkMmId': f.linkMmId ?? 0,
+    };
+  }
+
+  Map<String, dynamic> _mapOldData(PmisOldDataItem item) {
+    return <String, dynamic>{
+      'actualStartDt': _normalizeDateString(item.actualStartDt),
+      'actualEndDt': _normalizeDateString(item.actualEndDt),
+      'ticketFieldValues': item.ticketFieldValues
+          .map(
+            (f) => _mapFieldValue(
+              f,
+              valText: f.valText?.toString() ?? '',
+              attachments: f.attachments,
+            ),
+          )
+          .toList(),
+      'makerUserName': item.makerUserName ?? '',
+      'isModified': item.isModified ?? false,
+    };
+  }
+
+  Map<String, dynamic> _buildPostPayload(ActivityTicketClosePopupResult close) {
+    final updatedValTextByTfv = <int, String>{
+      for (final f in _sortedFields) f.tfvId: _valTextForField(f),
+    };
+
+    return <String, dynamic>{
+      'atId': widget.detail.atId,
+      'ppaId': widget.detail.ppaId,
+      'currentStatus': close.status,
+      'currentStatusDt': _nowForBackend(),
+      'makerDesignationMstId': widget.detail.makerDesignationMstId ?? 0,
+      'makerUserMstId': widget.detail.makerUserMstId ?? 0,
+      'makerAssignedDt': _normalizeDateString(widget.detail.makerAssignedDt),
+      'plannedStartDt': _normalizeDateString(widget.detail.plannedStartDt),
+      'plannedEndDt': _normalizeDateString(widget.detail.plannedEndDt),
+      'actualStartDt': _normalizeDateString(widget.detail.actualStartDt),
+      'actualEndDt': _normalizeDateString(widget.detail.actualEndDt),
+      'isActive': widget.detail.isActive,
+      'remarks': close.remarks,
+      'ticketCheckers': widget.detail.ticketCheckers.map(_mapChecker).toList(),
+      'ticketFieldValues': widget.detail.ticketFieldValues.map((f) {
+        final updatedAttachments = _uploadedAttachmentsByTfv[f.tfvId];
+        return _mapFieldValue(
+          f,
+          valText: updatedValTextByTfv[f.tfvId] ?? '',
+          attachments: updatedAttachments ?? f.attachments,
+        );
+      }).toList(),
+      'ticketAttachments': widget.detail.ticketAttachments
+          .map((a) => _normalizeAttachmentDate(Map<String, dynamic>.from(a.raw)))
+          .toList(),
+      'makerUserName': widget.detail.makerUserName ?? '',
+      'makerDesignationName': widget.detail.makerDesignationName ?? '',
+      'oldData': widget.detail.oldData.map(_mapOldData).toList(),
+      'showReviewBtns': widget.detail.showReviewBtns,
+      'checkerLvl': widget.detail.checkerLvl ?? '',
+      'role': widget.detail.role ?? '',
+      'ticketStatusHistory': widget.detail.ticketStatusHistory.map((e) {
+        final mapped = Map<String, dynamic>.from(e);
+        mapped['changedDt'] = _normalizeDateString(
+          mapped['changedDt']?.toString(),
+        );
+        return mapped;
+      }).toList(),
+      'allowedStatuses': widget.detail.allowedStatuses.join(', '),
+      'isRepeatNature': close.status.trim().toLowerCase() == 'repeat',
+      'repeatDt': _formatDateForBackendOrNull(close.repetitionDate),
+    };
+  }
+
+  Map<String, dynamic> _normalizeAttachmentDate(Map<String, dynamic> attachment) {
+    final normalized = Map<String, dynamic>.from(attachment);
+    normalized['capturedDt'] = _normalizeDateString(
+      normalized['capturedDt']?.toString(),
+    );
+    return normalized;
   }
 
   bool _validateAll() {
@@ -362,30 +620,64 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return true;
   }
 
-  List<Map<String, dynamic>> _buildValTextPayload() {
-    return _sortedFields
-        .map(
-          (f) => <String, dynamic>{
-            'tfvId': f.tfvId,
-            'valText': _valTextForField(f),
-          },
-        )
-        .toList();
-  }
-
   Future<void> _onSubmit() async {
     FocusScope.of(context).unfocus();
     if (!_validateAll()) return;
-    final payload = _buildValTextPayload();
-    final close = await showActivityTicketClosePopup(context);
+    final close = await showActivityTicketClosePopup(
+      context,
+      statusOptions: widget.detail.allowedStatuses,
+    );
     if (!mounted) return;
     if (close == null) return;
-    Navigator.of(context).pop(<String, dynamic>{
-      'ticketFieldValues': payload,
-      'closeStatus': close.status,
-      'closeRepetitionDate': close.repetitionDate,
-      'closeRemarks': close.remarks,
-    });
+
+    final postPayload = _buildPostPayload(close);
+    final payloadJson = const JsonEncoder.withIndent('  ').convert(postPayload);
+    Logger.infoLog('[AT_POST_REQUEST_START]');
+    print('[AT_POST_REQUEST_START]');
+    const chunkSize = 900;
+    for (int i = 0; i < payloadJson.length; i += chunkSize) {
+      final end = (i + chunkSize < payloadJson.length)
+          ? i + chunkSize
+          : payloadJson.length;
+      final chunk = payloadJson.substring(i, end);
+      print(chunk);
+      Logger.infoLog(chunk);
+    }
+    Logger.infoLog('[AT_POST_REQUEST_END]');
+    print('[AT_POST_REQUEST_END]');
+
+    LoaderWidget.showLoader(context);
+    try {
+      final repository = AppConfig.of(context).pmisActivityTicketRepository;
+      final response = await repository.postActivityTicket(payload: postPayload);
+      final responseJson = const JsonEncoder.withIndent('  ')
+          .convert(response.data ?? <String, dynamic>{});
+      Logger.infoLog('[AT_POST_RESPONSE_START]');
+      print('[AT_POST_RESPONSE_START]');
+      for (int i = 0; i < responseJson.length; i += chunkSize) {
+        final end = (i + chunkSize < responseJson.length)
+            ? i + chunkSize
+            : responseJson.length;
+        final chunk = responseJson.substring(i, end);
+        print(chunk);
+        Logger.infoLog(chunk);
+      }
+      Logger.infoLog('[AT_POST_RESPONSE_END]');
+      print('[AT_POST_RESPONSE_END]');
+
+      if (!mounted) return;
+      if (response.isSuccess) {
+        Toastbar.showSuccessToastbar('Activity ticket saved', context);
+        Navigator.of(context).pop(response.data ?? postPayload);
+      } else {
+        Toastbar.showErrorToastbar(
+          response.errorMessage ?? 'Failed to save activity ticket',
+          context,
+        );
+      }
+    } finally {
+      LoaderWidget.hideLoader();
+    }
   }
 
   Widget _buildField(PmisTicketFieldValue f) {
@@ -507,12 +799,54 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           isRequired: req,
           uploadBoxHeight: 168,
           uploadBorderRadius: 8,
-          onImageSelected: (file) {
+          onImageSelected: (file) async {
+            final list = _filesByTfv[f.tfvId]!;
+            final attachments =
+                _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
+            if (file == null) {
+              setState(() {
+                list.clear();
+                attachments.clear();
+                _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+              });
+              return;
+            }
+
+            final len = await file.length();
+            if (len > _maxUploadBytes) {
+              if (!mounted) return;
+              Toastbar.showErrorToastbar(
+                '${p.basename(file.path)} exceeds 2 MB',
+                context,
+              );
+              return;
+            }
+
+            LoaderWidget.showLoader(context);
+            String? uploadedId;
+            try {
+              uploadedId = await _uploadTicketFile(file);
+            } finally {
+              LoaderWidget.hideLoader();
+            }
+            if (uploadedId == null) {
+              if (!mounted) return;
+              Toastbar.showErrorToastbar(
+                'Failed to upload ${p.basename(file.path)}',
+                context,
+              );
+              return;
+            }
+            final attachment = await _buildAttachmentObject(uploadedId, 'IMAGE');
+
             setState(() {
-              final list = _filesByTfv[f.tfvId]!;
               list
                 ..clear()
-                ..addAll(file != null ? [file] : []);
+                ..add(file);
+              attachments
+                ..clear()
+                ..add(attachment);
+              _uploadedAttachmentsByTfv[f.tfvId] = attachments;
             });
           },
           externalImageUrl: null,
@@ -541,15 +875,60 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           maxSizeText: '(Max Size: 2MB)',
           selectedFile: files.isNotEmpty ? files.first : null,
           uploadedFiles: const [],
-          onFileSelected: (file) {
+          onFileSelected: (file) async {
+            final attachments =
+                _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
+            if (file == null) {
+              setState(() {
+                files.clear();
+                attachments.clear();
+                _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+              });
+              return;
+            }
+
+            final len = await file.length();
+            if (len > _maxUploadBytes) {
+              if (!mounted) return;
+              Toastbar.showErrorToastbar(
+                '${p.basename(file.path)} exceeds 2 MB',
+                context,
+              );
+              return;
+            }
+
+            LoaderWidget.showLoader(context);
+            String? uploadedId;
+            try {
+              uploadedId = await _uploadTicketFile(file);
+            } finally {
+              LoaderWidget.hideLoader();
+            }
+            if (uploadedId == null) {
+              if (!mounted) return;
+              Toastbar.showErrorToastbar(
+                'Failed to upload ${p.basename(file.path)}',
+                context,
+              );
+              return;
+            }
+            final attachment = await _buildAttachmentObject(uploadedId, type);
+
             setState(() {
               files
                 ..clear()
-                ..addAll(file != null ? [file] : []);
+                ..add(file);
+              attachments
+                ..clear()
+                ..add(attachment);
+              _uploadedAttachmentsByTfv[f.tfvId] = attachments;
             });
           },
           onFileDeleted: (_) {
-            setState(() => files.clear());
+            setState(() {
+              files.clear();
+              _uploadedAttachmentsByTfv[f.tfvId] = <Map<String, dynamic>>[];
+            });
           },
         );
       case 'COORDINATES':
@@ -680,7 +1059,21 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => setState(() => files.remove(file)),
+                    onPressed: () => setState(() {
+                      final index = files.indexOf(file);
+                      if (index >= 0) {
+                        files.removeAt(index);
+                        if (_isUploadType(_normDataType(f))) {
+                          final attachments =
+                              _uploadedAttachmentsByTfv[f.tfvId] ??
+                              <Map<String, dynamic>>[];
+                          if (index < attachments.length) {
+                            attachments.removeAt(index);
+                          }
+                          _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+                        }
+                      }
+                    }),
                   ),
                 ],
               ),

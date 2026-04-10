@@ -22,4 +22,16 @@ class PmisActivityTicketRepository {
       );
     }
   }
+
+  Future<ResponseResult<Map<String, dynamic>?>> postActivityTicket({
+    required Map<String, dynamic> payload,
+  }) async {
+    try {
+      return await _pmisService.postActivityTicket(payload: payload);
+    } catch (e) {
+      return ResponseResult.error(
+        errorMessage: 'Exception occurred: ${e.toString()}',
+      );
+    }
+  }
 }

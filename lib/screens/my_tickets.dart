@@ -278,6 +278,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         return "Incident";
       case ActivityTypeEnum.assetUpload:
         return "Asset Upload";
+      case ActivityTypeEnum.projectTicket:
+        return "Project";
+      case ActivityTypeEnum.activityTicket:
+        return "Activity";
     }
   }
 
@@ -923,6 +927,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         await _navigateToWorkflow(ticket);
         break;
       case ActivityTypeEnum.assetUpload:
+        await _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.projectTicket:
+      case ActivityTypeEnum.activityTicket:
         await _navigateToWorkflow(ticket);
         break;
     }

@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/models/energy_reading_model.dart';
-import 'package:dio/dio.dart';
+import 'package:app/services/upload_dcouments.dart';
 
 import '../services/api_service.dart';
 
@@ -40,51 +40,14 @@ class EnergyReadingRepository {
   Future<ResponseResult<String?>> uploadFile({
     required File file,
     required String id,
+    String activityType = 'ER',
   }) async {
-    try {
-      if (!await file.exists()) {
-        return const ResponseResult.error(
-          errorMessage: 'Selected file not found',
-        );
-      }
-      
-      // Create multipart file
-      final multipartFile = await MultipartFile.fromFile(
-        file.path,
-        filename: file.path.split('/').last,
-      );
-
-      final dataMap = {
-        'activityType': 'ER',
-        'docId': '0',
-      };
-
-      final result = await apiService.post<Map<String, dynamic>>(
-        path: "api/v1/common/UploadDocuments",
-        data: dataMap,
-        files: [multipartFile],
-        useFormDataFormat: true,
-      );
-      
-      if (result.isSuccess) {
-        kDebugPrint("File uploaded successfully: ${result.data}");
-        
-        // Extract docId from response
-        final docId = result.data?['docId']?.toString();
-        
-        if (docId != null && docId.isNotEmpty) {
-          return ResponseResult.success(docId, result.statusCode);
-        } else {
-          return ResponseResult.success('0', result.statusCode);
-        }
-      } else {
-        return ResponseResult.error(errorMessage: result.errorMessage);
-      }
-    } catch (e) {
-      return const ResponseResult.error(
-        errorMessage: 'We could not upload the file',
-      );
-    }
+    final uploadService = UploadDcoumentsService(apiService: apiService);
+    return uploadService.uploadFile(
+      file: file,
+      id: id,
+      activityType: activityType,
+    );
   }
 
   // Save energy reading data API

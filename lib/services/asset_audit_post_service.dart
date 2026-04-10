@@ -130,6 +130,10 @@ class AssetAuditPostService {
       case ActivityTypeEnum.assetUpload:
         url += 'AssetAuditSiteResp';
         break;
+      case ActivityTypeEnum.projectTicket:
+      case ActivityTypeEnum.activityTicket:
+        url += 'AssetAuditSiteResp';
+        break;
     }
 
     if (activityType == ActivityTypeEnum.siteVisit ||

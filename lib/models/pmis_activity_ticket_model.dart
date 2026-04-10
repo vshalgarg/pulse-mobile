@@ -26,6 +26,7 @@ class PmisActivityTicketDetail extends Equatable {
   final List<Map<String, dynamic>> ticketStatusHistory;
   final bool isRepeating;
   final String? repeatDt;
+  final List<String> allowedStatuses;
 
   const PmisActivityTicketDetail({
     required this.atId,
@@ -53,6 +54,7 @@ class PmisActivityTicketDetail extends Equatable {
     required this.ticketStatusHistory,
     required this.isRepeating,
     required this.repeatDt,
+    required this.allowedStatuses,
   });
 
   factory PmisActivityTicketDetail.fromJson(Map<String, dynamic> json) {
@@ -81,6 +83,17 @@ class PmisActivityTicketDetail extends Equatable {
     final statusHistory = (json['ticketStatusHistory'] as List<dynamic>? ?? [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
+    final allowedStatusesRaw = json['allowedStatuses'];
+    final allowedStatuses = allowedStatusesRaw is List
+        ? allowedStatusesRaw
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList()
+        : (allowedStatusesRaw?.toString() ?? '')
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
 
     return PmisActivityTicketDetail(
       atId: parseInt(json['atId']),
@@ -108,6 +121,7 @@ class PmisActivityTicketDetail extends Equatable {
       ticketStatusHistory: statusHistory,
       isRepeating: parseBool(json['isRepeating']),
       repeatDt: parseStringNullable(json['repeatDt']),
+      allowedStatuses: allowedStatuses,
     );
   }
 
@@ -138,6 +152,7 @@ class PmisActivityTicketDetail extends Equatable {
         ticketStatusHistory,
         isRepeating,
         repeatDt,
+        allowedStatuses,
       ];
 }
 
