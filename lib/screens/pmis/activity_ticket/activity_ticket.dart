@@ -288,7 +288,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'geoAccuracyM': 0,
       'geoSource': 'MOBILE',
       'capturedDt': _nowForBackend(),
-      'taggedMmId': 0,
+      // Backend FK: 0 is not a valid pmis_module_mst id; Swagger often omits this.
+      'taggedMmId': null,
       'attachmentId': int.tryParse(uploadedId) ?? 0,
       'isActive': true,
       'remarks': '',
@@ -427,9 +428,6 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   String _nowForBackend() => _formatBackendDate(DateTime.now());
 
-  String? _formatDateForBackendOrNull(DateTime? value) =>
-      value == null ? null : _formatBackendDate(value);
-
   String? _normalizeDateString(String? raw) {
     if (raw == null || raw.trim().isEmpty) return raw;
     final parsed = DateTime.tryParse(raw.trim());
@@ -518,7 +516,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return <String, dynamic>{
       'atId': widget.detail.atId,
       'ppaId': widget.detail.ppaId,
-      'currentStatus': close.status,
+      'currentStatus': close.currentStatus,
       'currentStatusDt': _nowForBackend(),
       'makerDesignationMstId': widget.detail.makerDesignationMstId ?? 0,
       'makerUserMstId': widget.detail.makerUserMstId ?? 0,
@@ -555,8 +553,10 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         return mapped;
       }).toList(),
       'allowedStatuses': widget.detail.allowedStatuses.join(', '),
-      'isRepeatNature': close.status.trim().toLowerCase() == 'repeat',
-      'repeatDt': _formatDateForBackendOrNull(close.repetitionDate),
+      // Close dialog: currentStatus, repeatDt, remarks, isRepeatNature (see ActivityTicketClosePopupResult).
+      'isRepeatNature': close.isRepeatNature,
+      'isRepeating': close.isRepeatNature,
+      'repeatDt': close.repeatDt,
     };
   }
 
@@ -565,6 +565,12 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     normalized['capturedDt'] = _normalizeDateString(
       normalized['capturedDt']?.toString(),
     );
+    final taggedRaw = normalized['taggedMmId'];
+    final tagged =
+        taggedRaw == null ? null : int.tryParse(taggedRaw.toString());
+    if (tagged == null || tagged == 0) {
+      normalized['taggedMmId'] = null;
+    }
     return normalized;
   }
 
@@ -668,7 +674,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       if (!mounted) return;
       if (response.isSuccess) {
         Toastbar.showSuccessToastbar('Activity ticket saved', context);
-        Navigator.of(context).pop(response.data ?? postPayload);
+        // Stay on activity ticket screen; only the close dialog was dismissed on Save.
       } else {
         Toastbar.showErrorToastbar(
           response.errorMessage ?? 'Failed to save activity ticket',
@@ -1128,20 +1134,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _TicketSummaryCard(
-                          title: _summaryTitle(),
-                          planStart: _formatPlanDate(
-                            widget.detail.plannedStartDt,
-                          ),
-                          planEnd: _formatPlanDate(widget.detail.plannedEndDt),
-                          actualStart: _formatPlanDate(
-                            widget.detail.actualStartDt,
-                          ),
-                          actualEnd: _formatPlanDate(
-                            widget.detail.actualEndDt,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
+                        
                         if (fields.isEmpty)
                           Container(
                             padding: const EdgeInsets.all(20),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
 import '../services/local_storage_db.dart';
@@ -43,22 +45,58 @@ class DioExceptions implements Exception {
         _handleError(dioError.response?.statusCode, dioError);
         break;
       case DioExceptionType.unknown:
-        if (dioError.message.toString().contains("SocketException")) {
-          message = 'No Internet connection. Please check your network and try again.';
-          break;
-        }
-        // Check for other common network issues
-        if (dioError.message.toString().contains("timeout")) {
-          message = 'Request timed out. Please check your connection and try again.';
-          break;
-        }
-        if (dioError.message.toString().contains("connection")) {
-          message = 'Unable to connect to server. Please check your internet connection.';
-          break;
-        }
-        // Log the actual error for debugging
+        final err = dioError.error;
+        final msg = dioError.message ?? '';
+        final blob = '$msg ${err ?? ''}'.toLowerCase();
 
-        message = "Connection failed. Please try again.";
+        if (err is SocketException) {
+          message =
+              'No internet connection (${err.message}). Please check Wi-Fi or mobile data.';
+          break;
+        }
+        if (err is HandshakeException) {
+          message =
+              'Secure connection failed (TLS handshake). Check device date/time, VPN, or try another network.';
+          break;
+        }
+        if (blob.contains('socketexception')) {
+          message =
+              'No Internet connection. Please check your network and try again.';
+          break;
+        }
+        if (blob.contains('handshake') ||
+            blob.contains('certificate') ||
+            blob.contains('ssl')) {
+          message =
+              'Secure connection failed. Check device date/time and network settings.';
+          break;
+        }
+        if (blob.contains('timeout')) {
+          message =
+              'Request timed out. Please check your connection and try again.';
+          break;
+        }
+        if (blob.contains('connection')) {
+          message =
+              'Unable to connect to server. Please check your internet connection.';
+          break;
+        }
+        if (blob.contains('failed host lookup') ||
+            blob.contains('network is unreachable')) {
+          message =
+              'Could not reach the server. Check DNS, firewall, or try again later.';
+          break;
+        }
+        // Preserve root cause for support (truncated); statusCode is null — no HTTP response.
+        final detail = [msg, err?.toString()]
+            .map((e) => e?.trim() ?? '')
+            .where((e) => e.isNotEmpty)
+            .join(' — ');
+        message = detail.isEmpty
+            ? 'Connection failed before a response was received. Please try again.'
+            : (detail.length > 180
+                ? '${detail.substring(0, 180)}…'
+                : detail);
         break;
       default:
         message = "Something went wrong";

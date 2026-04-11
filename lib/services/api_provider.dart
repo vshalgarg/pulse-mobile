@@ -37,7 +37,9 @@ class ApiProvider {
       baseUrl: baseUrl,
       receiveDataWhenStatusError: true,
       connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 120),
+      // Large JSON bodies (e.g. PMIS activity ticket) can exceed default send limits on slow links.
+      sendTimeout: const Duration(seconds: 120),
     );
 
     _dio.options = options;

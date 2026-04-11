@@ -127,6 +127,23 @@ class ApiService {
     }
   }
 
+  /// Dio's default JSON transformer calls [jsonDecode] on the response bytes.
+  /// Some PMIS endpoints return **HTTP 2xx with an empty body** (still often
+  /// advertised as JSON), which throws [FormatException] at offset 0 and
+  /// surfaces as [DioExceptionType.unknown]. POST uses [ResponseType.plain]
+  /// and decodes here instead.
+  static dynamic _decodePostResponseBody(dynamic raw) {
+    if (raw == null) return null;
+    if (raw is! String) return raw;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    try {
+      return jsonDecode(trimmed);
+    } on FormatException {
+      return trimmed;
+    }
+  }
+
   Future<ResponseResult<T>> post<T>({
     required String path,
     dynamic data, // Changed from Map<String, dynamic>? to dynamic
@@ -162,16 +179,16 @@ class ApiService {
             path,
             data: dataPayload,
             queryParameters: queryParameters,
-            options: Options(headers: headers),
+            options: Options(
+              headers: headers,
+              responseType: ResponseType.plain,
+            ),
           );
 
       // Check if status code indicates success (200, 201, 202, etc.)
       if (result.statusCode! >= 200 && result.statusCode! < 300) {
-        // If Dio didn't automatically decode the JSON, manually decode it.
-        if (result.data is String) {
-          return ResponseResult.success(jsonDecode(result.data), result.statusCode);
-        }
-        return ResponseResult.success(result.data, result.statusCode);
+        final decoded = _decodePostResponseBody(result.data);
+        return ResponseResult.success(decoded as T?, result.statusCode);
       } else {
         await _sendMobileLogs(
           path: path,
