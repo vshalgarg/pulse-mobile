@@ -277,7 +277,9 @@ class CustomFileUploadNew extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: GestureDetector(
-              onTap: isDisabled || onServerAttachmentClicked == null
+              // Viewing server files is allowed in read-only mode (e.g. maker role);
+              // [isDisabled] only blocks picking / deleting, not opening an attachment.
+              onTap: onServerAttachmentClicked == null
                   ? null
                   : () => onServerAttachmentClicked!(serverAttachmentId),
               child: Text(
@@ -285,11 +287,11 @@ class CustomFileUploadNew extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w400,
-                  color: isDisabled || onServerAttachmentClicked == null
+                  color: onServerAttachmentClicked == null
                       ? AppColors.color555555
                       : AppColors.textBlueAccent,
                   fontFamily: fontFamilyMontserrat,
-                  decoration: isDisabled || onServerAttachmentClicked == null
+                  decoration: onServerAttachmentClicked == null
                       ? TextDecoration.none
                       : TextDecoration.underline,
                 ),

@@ -688,6 +688,16 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   bool get _isViewingEditableTicket => _historicPickerIndex < 0;
 
+  /// API `role` — makers fill the ticket; checkers review/edit.
+  bool get _isMakerRoleReadOnly {
+    final r = (widget.detail.role ?? '').trim().toUpperCase();
+    return r == 'MAKER';
+  }
+
+  /// [MAKER] is view-only (today or historic). [CHECKER] (and other roles) may
+  /// edit both the live ticket and [oldData] snapshots.
+  bool get _canEditTicketFields => !_isMakerRoleReadOnly;
+
   List<int> _orderedOldDataIndices() {
     final entries = List.generate(
       widget.detail.oldData.length,
@@ -899,6 +909,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   }
 
   Future<void> _pickDate(int tfvId) async {
+    if (!_canEditTicketFields) return;
     final now = DateTime.now();
     final initial = _tryParseDisplayDate(_textByTfv[tfvId]!.text) ?? now;
     final d = await showDatePicker(
@@ -935,6 +946,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   }
 
   Future<void> _captureGps(PmisTicketFieldValue f) async {
+    if (!_canEditTicketFields) return;
     if (_capturingGpsTfvId != null) return;
     if (!mounted) return;
     setState(() => _capturingGpsTfvId = f.tfvId);
@@ -1039,6 +1051,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     PmisTicketFieldValue f,
     File? file,
   ) async {
+    if (!_canEditTicketFields) return;
     final list = _filesByTfv[f.tfvId]!;
     final attachments =
         _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
@@ -1100,6 +1113,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       label: label,
       placeholder: placeholder ?? 'Upload a File',
       isRequired: req,
+      isDisabled: !_canEditTicketFields,
       acceptedFileTypes: acceptedFileTypes,
       maxSizeText: '(Max Size: 2MB)',
       pickAllowedExtensions: pickAllowedExtensions,
@@ -1112,6 +1126,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           ? (id) => _openServerAttachmentFromDocument(id, f)
           : null,
       onFileSelected: (file) async {
+        if (!_canEditTicketFields) return;
         final attachments =
             _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
         if (file == null) {
@@ -1476,6 +1491,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         ? f.subActivityName!.trim()
         : 'Field';
     final req = f.isRequired == true;
+    final editable = _canEditTicketFields;
 
     switch (type) {
       case 'TEXT':
@@ -1484,6 +1500,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           controller: _textByTfv[f.tfvId],
           hintText: label,
           isRequired: req,
+          isEditable: editable,
           inputType: InputType.text,
           inputBorderRadius: 8,
         );
@@ -1493,6 +1510,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           controller: _textByTfv[f.tfvId],
           hintText: label,
           isRequired: req,
+          isEditable: editable,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           maxDecimalDigits: 6,
           validator: (v) => _validateNumeric(f, v),
@@ -1508,7 +1526,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
             _FieldLabel(label: label, isRequired: req),
             const SizedBox(height: 5),
             InkWell(
-              onTap: () => _pickDate(f.tfvId),
+              onTap: editable ? () => _pickDate(f.tfvId) : null,
               borderRadius: BorderRadius.circular(8),
               child: InputDecorator(
                 decoration: InputDecoration(
@@ -1570,6 +1588,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           items: items,
           initialValue: _dropdownByTfv[f.tfvId],
           isRequired: req,
+          isDisabled: !editable,
           onChanged: (v) => setState(() => _dropdownByTfv[f.tfvId] = v),
         );
       case 'IMAGE':
@@ -1584,6 +1603,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           label: label,
           placeholder: 'Upload a File',
           isRequired: req,
+          isDisabled: !editable,
           uploadBoxHeight: 168,
           uploadBorderRadius: 8,
           onImageSelected: (file) => _handleSingleImageSelection(f, file),
@@ -1681,6 +1701,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               controller: _textByTfv[f.tfvId],
               hintText: _isLongitudeField(f) ? 'Longitude' : 'Latitude',
               isRequired: req,
+              isEditable: editable,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true, signed: true),
               inputFormatters: [
@@ -1693,7 +1714,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  onPressed: _capturingGpsTfvId != null
+                  onPressed: !editable || _capturingGpsTfvId != null
                       ? null
                       : () => _captureGps(f),
                   icon: const Icon(Icons.my_location, color: AppColors.white),
@@ -1716,6 +1737,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           controller: _textByTfv[f.tfvId],
           hintText: label,
           isRequired: req,
+          isEditable: editable,
           inputType: InputType.text,
           inputBorderRadius: 8,
         );
@@ -1796,20 +1818,17 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                             ),
                           )
                         else
-                          IgnorePointer(
-                            ignoring: !_isViewingEditableTicket,
-                            child: Opacity(
-                              opacity: _isViewingEditableTicket ? 1.0 : 0.88,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  for (final f in fields)
-                                    Padding(
-                                      padding: const EdgeInsets.only(bottom: 16),
-                                      child: _buildField(f),
-                                    ),
-                                ],
-                              ),
+                          Opacity(
+                            opacity: _isViewingEditableTicket ? 1.0 : 0.88,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final f in fields)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 16),
+                                    child: _buildField(f),
+                                  ),
+                              ],
                             ),
                           ),
                       ],
@@ -1858,8 +1877,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                             ),
                             elevation: 0,
                           ),
-                          onPressed:
-                              _isViewingEditableTicket ? _onSubmit : null,
+                          onPressed: _canEditTicketFields ? _onSubmit : null,
                           child: const Text(
                             'Submit',
                             style: TextStyle(
