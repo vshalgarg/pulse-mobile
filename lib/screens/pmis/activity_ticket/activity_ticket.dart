@@ -461,12 +461,6 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         type: FileType.video,
         allowMultiple: multi,
       );
-    } else if (type == 'PDF') {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: multi,
-      );
     }
     if (result == null || !mounted) return;
 
@@ -548,6 +542,102 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           ..add(valid.first);
       }
     });
+  }
+
+  /// One file per row; new pick replaces the previous (same for PDF and single VIDEO).
+  Widget _buildSingleTicketFileUpload({
+    required PmisTicketFieldValue f,
+    required String label,
+    required bool req,
+    required String fileTypeForAttachment,
+    required String acceptedFileTypes,
+    List<String>? pickAllowedExtensions,
+    String? placeholder,
+  }) {
+    final files = _filesByTfv[f.tfvId]!;
+    return CustomFileUploadNew(
+      key: ValueKey<Object>(
+        'at_file_${f.tfvId}_$fileTypeForAttachment'
+        '_${files.length}_${_uploadedAttachmentsByTfv[f.tfvId]?.length ?? 0}',
+      ),
+      label: label,
+      placeholder: placeholder ?? 'Upload a File',
+      isRequired: req,
+      acceptedFileTypes: acceptedFileTypes,
+      maxSizeText: '(Max Size: 2MB)',
+      pickAllowedExtensions: pickAllowedExtensions,
+      selectedFile: files.isNotEmpty ? files.first : null,
+      uploadedFiles: const [],
+      onFileSelected: (file) async {
+        final attachments =
+            _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
+        if (file == null) {
+          setState(() {
+            files.clear();
+            attachments.clear();
+            _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+          });
+          return;
+        }
+
+        final len = await file.length();
+        if (len > _maxUploadBytes) {
+          if (!mounted) return;
+          Toastbar.showErrorToastbar(
+            '${p.basename(file.path)} exceeds 2 MB',
+            context,
+          );
+          return;
+        }
+
+        // Show the picked file name immediately (do not wait for upload / GPS).
+        if (!mounted) return;
+        setState(() {
+          files
+            ..clear()
+            ..add(file);
+        });
+
+        LoaderWidget.showLoader(context);
+        try {
+          final uploadedId = await _uploadTicketFile(file);
+          if (uploadedId == null) {
+            if (!mounted) return;
+            Toastbar.showErrorToastbar(
+              'Failed to upload ${p.basename(file.path)}',
+              context,
+            );
+            setState(() {
+              files.clear();
+              attachments.clear();
+              _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+            });
+            return;
+          }
+          // Build attachment (includes location) before hiding loader so the UI
+          // does not sit in an intermediate state after the overlay dismisses.
+          final attachment = await _buildAttachmentObject(
+            uploadedId,
+            fileTypeForAttachment,
+          );
+          if (!mounted) return;
+          setState(() {
+            attachments
+              ..clear()
+              ..add(attachment);
+            _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+          });
+        } finally {
+          LoaderWidget.hideLoader();
+        }
+      },
+      onFileDeleted: (_) {
+        setState(() {
+          files.clear();
+          _uploadedAttachmentsByTfv[f.tfvId] = <Map<String, dynamic>>[];
+        });
+      },
+    );
   }
 
   String _valTextForField(PmisTicketFieldValue f) {
@@ -955,6 +1045,16 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           externalImageUrl: ext,
         );
       case 'PDF':
+        // Same UX for every PDF row: document picker (PDF only), one file, replace on re-pick.
+        return _buildSingleTicketFileUpload(
+          f: f,
+          label: label,
+          req: req,
+          fileTypeForAttachment: 'PDF',
+          acceptedFileTypes: '(PDF only)',
+          pickAllowedExtensions: const ['pdf'],
+          placeholder: 'Add PDF',
+        );
       case 'VIDEO':
         final multi = _allowMultiple(f);
         if (multi) {
@@ -962,77 +1062,17 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
             f: f,
             label: label,
             req: req,
-            addLabel: type == 'PDF' ? 'Add PDF' : 'Add video',
-            emptyHint: type == 'PDF'
-                ? 'Upload a File'
-                : 'Upload a File',
+            addLabel: 'Add video',
+            emptyHint: 'Upload a File',
           );
         }
-        final files = _filesByTfv[f.tfvId]!;
-        return CustomFileUploadNew(
+        return _buildSingleTicketFileUpload(
+          f: f,
           label: label,
-          placeholder: 'Upload a File',
-          isRequired: req,
-          acceptedFileTypes:
-              type == 'PDF' ? '(PDF only)' : '(Video only)',
-          maxSizeText: '(Max Size: 2MB)',
-          selectedFile: files.isNotEmpty ? files.first : null,
-          uploadedFiles: const [],
-          onFileSelected: (file) async {
-            final attachments =
-                _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
-            if (file == null) {
-              setState(() {
-                files.clear();
-                attachments.clear();
-                _uploadedAttachmentsByTfv[f.tfvId] = attachments;
-              });
-              return;
-            }
-
-            final len = await file.length();
-            if (len > _maxUploadBytes) {
-              if (!mounted) return;
-              Toastbar.showErrorToastbar(
-                '${p.basename(file.path)} exceeds 2 MB',
-                context,
-              );
-              return;
-            }
-
-            LoaderWidget.showLoader(context);
-            String? uploadedId;
-            try {
-              uploadedId = await _uploadTicketFile(file);
-            } finally {
-              LoaderWidget.hideLoader();
-            }
-            if (uploadedId == null) {
-              if (!mounted) return;
-              Toastbar.showErrorToastbar(
-                'Failed to upload ${p.basename(file.path)}',
-                context,
-              );
-              return;
-            }
-            final attachment = await _buildAttachmentObject(uploadedId, type);
-
-            setState(() {
-              files
-                ..clear()
-                ..add(file);
-              attachments
-                ..clear()
-                ..add(attachment);
-              _uploadedAttachmentsByTfv[f.tfvId] = attachments;
-            });
-          },
-          onFileDeleted: (_) {
-            setState(() {
-              files.clear();
-              _uploadedAttachmentsByTfv[f.tfvId] = <Map<String, dynamic>>[];
-            });
-          },
+          req: req,
+          fileTypeForAttachment: 'VIDEO',
+          acceptedFileTypes: '(Video only)',
+          pickAllowedExtensions: null,
         );
       case 'COORDINATES':
         final isGps =

@@ -21,6 +21,10 @@ class CustomFileUploadNew extends StatelessWidget {
   final Function(dynamic)? onServerAttachmentClicked; // Callback when server attachment is clicked
   final Function()? onServerAttachmentDeleted; // Callback when server attachment is deleted
 
+  /// When set (e.g. `['pdf']`), opens the document picker with [FileType.custom]
+  /// instead of [FileType.any] (which can default to gallery/images on some devices).
+  final List<String>? pickAllowedExtensions;
+
   const CustomFileUploadNew({
     super.key,
     this.label,
@@ -37,13 +41,21 @@ class CustomFileUploadNew extends StatelessWidget {
     this.serverAttachmentId,
     this.onServerAttachmentClicked,
     this.onServerAttachmentDeleted,
+    this.pickAllowedExtensions,
   });
 
   Future<void> _pickFile(BuildContext context) async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
-    );
+    final exts = pickAllowedExtensions;
+    final FilePickerResult? result = (exts != null && exts.isNotEmpty)
+        ? await FilePicker.platform.pickFiles(
+                type: FileType.custom,
+                allowedExtensions: exts,
+                allowMultiple: false,
+              )
+            : await FilePicker.platform.pickFiles(
+                type: FileType.any,
+                allowMultiple: false,
+              );
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
