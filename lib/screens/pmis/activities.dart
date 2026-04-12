@@ -1,5 +1,6 @@
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/activity_card.dart';
+import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/commonWidgets/pmis_header.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
@@ -68,6 +69,66 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
             value: widget.projectId.toString(),
           ),
         ];
+  }
+
+  /// Loads `activity-ticket` then warms `DocumentById` for attachments, then opens the checker flow.
+  Future<void> _openActivityTicket(PmisProjectActivity a) async {
+    final ticketId = a.atId;
+    if (ticketId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Activity ticket is not available for this activity'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      return;
+    }
+
+    LoaderWidget.showLoader(context);
+    try {
+      final config = AppConfig.of(context);
+      final res = await config.pmisActivityTicketRepository
+          .getActivityTicketWithDocumentWarmup(
+        activityTicketId: ticketId,
+      );
+      if (!mounted) return;
+
+      if (!res.isSuccess || res.data == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              res.errorMessage ?? 'Failed to load activity ticket',
+            ),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+        return;
+      }
+
+      // End prefetch UI before opening the next route (otherwise [hideLoader]
+      // only runs after [push] completes — looks like a stuck loader with no API).
+      LoaderWidget.hideLoader();
+
+      if (!mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ActivityTicketCheckerListScreen(
+            activityTicketId: ticketId,
+            activityName: a.activityName,
+            summaryCardTitle: a.subModuleName.trim().isNotEmpty
+                ? a.subModuleName
+                : null,
+            breadcrumbText: widget.breadcrumbText,
+            preloadedDetail: res.data,
+          ),
+        ),
+      );
+    } finally {
+      // Always clear: [mounted] can be false after navigation away, which
+      // previously skipped [hideLoader] and left the overlay stuck forever.
+      LoaderWidget.hideLoader();
+    }
   }
 
   @override
@@ -200,7 +261,10 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                           children: [
                             for (var i = 0; i < activities.length; i++) ...[
                               if (i > 0) const SizedBox(height: 12),
-                              ActivityCard(activity: activities[i]),
+                              ActivityCard(
+                                activity: activities[i],
+                                onTap: () => _openActivityTicket(activities[i]),
+                              ),
                             ],
                           ],
                         ),
@@ -256,34 +320,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                               );
                             }
                           },
-                          onTap: () {
-                            final a = activities[index];
-                            final ticketId = a.atId;
-                            if (ticketId == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Activity ticket is not available for this activity',
-                                  ),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-                            Navigator.of(context).push(
-                              MaterialPageRoute<void>(
-                                builder: (_) => ActivityTicketCheckerListScreen(
-                                  activityTicketId: ticketId,
-                                  activityName: a.activityName,
-                                  summaryCardTitle:
-                                      a.subModuleName.trim().isNotEmpty
-                                      ? a.subModuleName
-                                      : null,
-                                  breadcrumbText: widget.breadcrumbText,
-                                ),
-                              ),
-                            );
-                          },
+                          onTap: () => _openActivityTicket(activities[index]),
                         ),
                         separatorBuilder: (_, __) => const SizedBox(height: 12),
                       ),

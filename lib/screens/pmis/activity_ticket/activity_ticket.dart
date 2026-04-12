@@ -1,9 +1,8 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/activity_ticket_close_pop_up.dart';
-import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
@@ -19,9 +18,12 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/services/upload_dcouments.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 
 /// Main activity ticket flow screen (after approvals / checker list).
 /// Renders [PmisActivityTicketDetail.ticketFieldValues] by [subActivityDataType].
@@ -50,6 +52,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   final Map<int, List<Map<String, dynamic>>> _uploadedAttachmentsByTfv = {};
   /// Base64 data URL, local path, or `data:image/...` for [ImageUploadField.externalImageUrl].
   final Map<int, String?> _imageExternalDataByTfv = {};
+  /// True while resolving [attachmentId] via `DocumentById` for an IMAGE row.
+  final Set<int> _imageLoadingFromServerTfvIds = {};
   late List<PmisTicketFieldValue> _sortedFields;
   /// Prevents overlapping GPS taps and disables the button while resolving.
   int? _capturingGpsTfvId;
@@ -66,6 +70,23 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   static String _normDataType(PmisTicketFieldValue f) =>
       (f.subActivityDataType ?? '').trim().toUpperCase();
+
+  /// API may use camelCase, snake_case, or PascalCase for the image file id.
+  static String? _rawAttachmentIdFromMap(Map<String, dynamic> a) {
+    final v = a['attachmentId'] ??
+        a['attachment_id'] ??
+        a['AttachmentId'] ??
+        a['attachmentID'] ??
+        a['imgId'] ??
+        a['ImgId'] ??
+        a['imageId'] ??
+        a['ImageId'] ??
+        a['photoId'] ??
+        a['PhotoId'];
+    if (v == null) return null;
+    final s = v.toString().trim();
+    return s.isEmpty ? null : s;
+  }
 
   /// Longitude if name clearly indicates longitude; latitude if it says
   /// "latitude" (avoids matching "long" inside "latitude").
@@ -100,25 +121,29 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       }
       if (_isUploadType(type)) {
         _filesByTfv[f.tfvId] = [];
-        _uploadedAttachmentsByTfv[f.tfvId] = [];
+        _uploadedAttachmentsByTfv[f.tfvId] = f.attachments
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
       }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       for (final f in _sortedFields) {
-        if (_normDataType(f) == 'IMAGE') {
+        final type = _normDataType(f);
+        if (type == 'IMAGE') {
           _loadExistingActivityTicketImage(f);
+        } else if (type == 'VIDEO' || type == 'PDF') {
+          _prefetchUploadFieldFromServerIfNeeded(f);
         }
       }
     });
   }
 
-  /// One image per checklist row: first server [attachmentId], else first id in [valText].
-  static String? _primaryImageAttachmentServerId(PmisTicketFieldValue f) {
+  /// First attachment row with a usable server id, else first id from [valText].
+  static Map<String, dynamic>? _primaryAttachmentMap(PmisTicketFieldValue f) {
     for (final a in f.attachments) {
-      final id = a['attachmentId'] ?? a['attachment_id'];
-      final s = id?.toString().trim() ?? '';
-      if (s.isNotEmpty && s != '0' && s.toLowerCase() != 'null') {
-        return s;
+      final id = _rawAttachmentIdFromMap(a) ?? '';
+      if (id.isNotEmpty && id != '0' && id.toLowerCase() != 'null') {
+        return a;
       }
     }
     final vt = f.valText?.toString().trim() ?? '';
@@ -128,7 +153,35 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (first.isEmpty || first == '0' || first.toLowerCase() == 'null') {
       return null;
     }
-    return first;
+    return <String, dynamic>{
+      'attachmentId': int.tryParse(first) ?? first,
+    };
+  }
+
+  static String? _primaryAttachmentServerId(PmisTicketFieldValue f) {
+    final m = _primaryAttachmentMap(f);
+    if (m == null) return null;
+    final id = _rawAttachmentIdFromMap(m) ?? '';
+    if (id.isEmpty || id == '0' || id.toLowerCase() == 'null') return null;
+    return id;
+  }
+
+  static String _attachmentDisplayName(
+    Map<String, dynamic> a,
+    String fallback,
+  ) {
+    for (final k in <String>[
+      'fileName',
+      'file_name',
+      'attachmentName',
+      'attachment_name',
+      'origFileName',
+      'name',
+    ]) {
+      final v = a[k]?.toString().trim();
+      if (v != null && v.isNotEmpty) return v;
+    }
+    return fallback;
   }
 
   static String? _formatActivityTicketImageDisplayString(String? raw) {
@@ -149,51 +202,207 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return 'data:image/jpeg;base64,$cleaned';
   }
 
-  /// Loads existing attachment for display (same pattern as PM [ImageUploadField]).
-  Future<void> _loadExistingActivityTicketImage(PmisTicketFieldValue f) async {
-    final photoId = _primaryImageAttachmentServerId(f);
-    if (photoId == null || photoId.isEmpty) return;
+  /// `GET /api/v1/common/DocumentById/{id}` — binary body.
+  Future<Uint8List?> _downloadDocumentByIdBytes(int docId) async {
+    if (docId <= 0) return null;
+    try {
+      final response = await ServiceLocator().apiService.get<Uint8List>(
+        path: '/api/v1/common/DocumentById/$docId',
+        responseType: ResponseType.bytes,
+      );
+      if (!response.isSuccess || response.data == null) return null;
+      return response.data as Uint8List;
+    } catch (e) {
+      Logger.errorLog('[ActivityTicket] DocumentById failed ($docId): $e');
+      return null;
+    }
+  }
+
+  static String _bytesToImageDataUrl(Uint8List bytes) {
+    if (bytes.length >= 2 && bytes[0] == 0xFF && bytes[1] == 0xD8) {
+      return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+    }
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
+      return 'data:image/png;base64,${base64Encode(bytes)}';
+    }
+    if (bytes.length >= 6 &&
+        bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46) {
+      return 'data:image/gif;base64,${base64Encode(bytes)}';
+    }
+    return 'data:image/jpeg;base64,${base64Encode(bytes)}';
+  }
+
+  /// Offline local blobs, else numeric [attachmentId] via [DocumentById],
+  /// else treat [imageId] as a local unique id string.
+  Future<String?> _fetchActivityTicketMediaBase64(String imageId) async {
+    if (imageId.isEmpty) return null;
+    final imageUpload = ServiceLocator().imageUploadService;
+    final central = ServiceLocator().centralAssetAuditService;
+
+    if (imageId.contains('LOCAL_IMAGE_ID')) {
+      var imageData = await imageUpload.getImageUsingUniqueId(imageId);
+      if (imageData == null || imageData.isEmpty) {
+        imageData = await central.getImageAsDataUrl(imageId);
+      }
+      return imageData;
+    }
+
+    final docId = int.tryParse(imageId.trim());
+    if (docId != null && docId > 0) {
+      final bytes = await _downloadDocumentByIdBytes(docId);
+      if (bytes != null && bytes.isNotEmpty) {
+        return _bytesToImageDataUrl(bytes);
+      }
+      return null;
+    }
+
+    var imageData = await imageUpload.getImageUsingUniqueId(imageId);
+    if (imageData != null && imageData.isNotEmpty) {
+      return imageData;
+    }
+    return await central.getImageAsDataUrl(imageId);
+  }
+
+  static String _extensionForUploadType(String normType, Uint8List bytes) {
+    if (bytes.length >= 4 &&
+        bytes[0] == 0x25 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x44 &&
+        bytes[3] == 0x46) {
+      return '.pdf';
+    }
+    if (bytes.length >= 12 &&
+        bytes[4] == 0x66 &&
+        bytes[5] == 0x74 &&
+        bytes[6] == 0x79 &&
+        bytes[7] == 0x70) {
+      return '.mp4';
+    }
+    if (normType == 'VIDEO') return '.mp4';
+    if (normType == 'PDF') return '.pdf';
+    return '.bin';
+  }
+
+  /// Pull VIDEO/PDF bytes via [DocumentById] into a temp file for preview.
+  Future<void> _prefetchUploadFieldFromServerIfNeeded(PmisTicketFieldValue f) async {
+    final prim = _primaryAttachmentMap(f);
+    if (prim == null) return;
+    final id = _rawAttachmentIdFromMap(prim) ?? '';
+    if (id.isEmpty) return;
+
+    final files = _filesByTfv[f.tfvId];
+    if (files == null || files.isNotEmpty) return;
 
     try {
-      final loc = ServiceLocator();
-      String? imageDataLocal;
+      final docId = int.tryParse(id.trim());
+      if (docId == null || docId <= 0) return;
+      final bytes = await _downloadDocumentByIdBytes(docId);
+      if (bytes == null || bytes.isEmpty || !mounted) return;
 
-      if (int.tryParse(photoId) != null &&
-          !photoId.contains('LOCAL_IMAGE_ID')) {
-        final cachedImage =
-            await loc.imageUploadService.getImagesByServerId(photoId);
-        if (cachedImage != null && cachedImage.imageData != null &&
-            cachedImage.imageData!.trim().isNotEmpty) {
-          imageDataLocal = await loc.imageUploadService
-              .getImageUsingUniqueId(cachedImage.uniqueId);
-          imageDataLocal ??= cachedImage.imageData;
-        } else {
-          final uniqueId = await loc.imageUploadService.downloadImageUsingServerId(
-            photoId,
-            ActivityTypeEnum.activityTicket,
-            widget.detail.atId.toString(),
-          );
-          if (uniqueId != null) {
-            imageDataLocal =
-                await loc.centralAssetAuditService.getImageAsDataUrl(uniqueId);
-            imageDataLocal ??=
-                await loc.imageUploadService.getImageUsingUniqueId(uniqueId);
-          }
-        }
-      } else {
-        imageDataLocal =
-            await loc.centralAssetAuditService.getImageAsDataUrl(photoId);
-        imageDataLocal ??=
-            await loc.imageUploadService.getImageUsingUniqueId(photoId);
+      final type = _normDataType(f);
+      var ext = p.extension(_attachmentDisplayName(prim, ''));
+      if (ext.isEmpty || ext == '.') {
+        ext = _extensionForUploadType(type, bytes);
       }
-
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        p.join(dir.path, 'at_${widget.detail.atId}_${f.tfvId}_$id$ext'),
+      );
+      await file.writeAsBytes(bytes, flush: true);
       if (!mounted) return;
-      final formatted = _formatActivityTicketImageDisplayString(imageDataLocal);
-      if (formatted != null && formatted.isNotEmpty) {
-        setState(() => _imageExternalDataByTfv[f.tfvId] = formatted);
-      }
+      setState(() {
+        files
+          ..clear()
+          ..add(file);
+      });
     } catch (_) {
-      // Leave field empty if download/cache fails.
+      // Offline / error: server chip + tap-to-open remain available.
+    }
+  }
+
+  Future<void> _openServerAttachmentFromDocument(
+    dynamic attachmentId,
+    PmisTicketFieldValue f,
+  ) async {
+    final idStr = attachmentId?.toString().trim() ?? '';
+    if (idStr.isEmpty) return;
+    final docId = int.tryParse(idStr);
+    if (docId == null || docId <= 0) {
+      if (mounted) {
+        Toastbar.showErrorToastbar('Invalid attachment id', context);
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    LoaderWidget.showLoader(context);
+    try {
+      final bytes = await _downloadDocumentByIdBytes(docId);
+      if (!mounted) return;
+      if (bytes == null || bytes.isEmpty) {
+        Toastbar.showErrorToastbar(
+          'Could not load file (offline or unavailable)',
+          context,
+        );
+        return;
+      }
+      final prim = _primaryAttachmentMap(f);
+      final type = _normDataType(f);
+      var ext = prim != null
+          ? p.extension(_attachmentDisplayName(prim, ''))
+          : '';
+      if (ext.isEmpty || ext == '.') {
+        ext = _extensionForUploadType(type, bytes);
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        p.join(dir.path, 'at_open_${widget.detail.atId}_${f.tfvId}_$docId$ext'),
+      );
+      await file.writeAsBytes(bytes, flush: true);
+      await OpenFile.open(file.path);
+    } catch (e) {
+      if (mounted) {
+        Toastbar.showErrorToastbar('Failed to open file: $e', context);
+      }
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+  }
+
+  /// Loads existing attachment for display (same pattern as PM [ImageUploadField]).
+  Future<void> _loadExistingActivityTicketImage(PmisTicketFieldValue f) async {
+    final photoId = _primaryAttachmentServerId(f);
+    if (photoId == null || photoId.isEmpty) return;
+
+    var showProgress = photoId.contains('LOCAL_IMAGE_ID') ||
+        (int.tryParse(photoId.trim()) != null);
+
+    if (showProgress && mounted) {
+      setState(() => _imageLoadingFromServerTfvIds.add(f.tfvId));
+    }
+
+    try {
+      final imageDataLocal = await _fetchActivityTicketMediaBase64(photoId);
+      if (!mounted) return;
+      final formatted =
+          _formatActivityTicketImageDisplayString(imageDataLocal);
+      if (!mounted) return;
+      setState(() {
+        _imageLoadingFromServerTfvIds.remove(f.tfvId);
+        if (formatted != null && formatted.isNotEmpty) {
+          _imageExternalDataByTfv[f.tfvId] = formatted;
+        }
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() => _imageLoadingFromServerTfvIds.remove(f.tfvId));
+      }
     }
   }
 
@@ -399,6 +608,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     _filesByTfv.clear();
     _uploadedAttachmentsByTfv.clear();
     _imageExternalDataByTfv.clear();
+    _imageLoadingFromServerTfvIds.clear();
 
     _sortedFields = List<PmisTicketFieldValue>.from(source)
       ..sort((a, b) => (a.seqNo ?? 0).compareTo(b.seqNo ?? 0));
@@ -422,8 +632,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       for (final f in _sortedFields) {
-        if (_normDataType(f) == 'IMAGE') {
+        final type = _normDataType(f);
+        if (type == 'IMAGE') {
           _loadExistingActivityTicketImage(f);
+        } else if (type == 'VIDEO' || type == 'PDF') {
+          _prefetchUploadFieldFromServerIfNeeded(f);
         }
       }
     });
@@ -678,6 +891,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         attachments.clear();
         _uploadedAttachmentsByTfv[f.tfvId] = attachments;
         _imageExternalDataByTfv[f.tfvId] = null;
+        _imageLoadingFromServerTfvIds.remove(f.tfvId);
       });
       return;
     }
@@ -692,6 +906,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         ..add(attachment);
       _uploadedAttachmentsByTfv[f.tfvId] = attachments;
       _imageExternalDataByTfv[f.tfvId] = file.path;
+      _imageLoadingFromServerTfvIds.remove(f.tfvId);
     });
   }
 
@@ -707,10 +922,23 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     bool useVideoPicker = false,
   }) {
     final files = _filesByTfv[f.tfvId]!;
+    final prim = _primaryAttachmentMap(f);
+    final serverIdStr = _primaryAttachmentServerId(f);
+    final hasLocal = files.isNotEmpty;
+    dynamic serverIdForUi;
+    String? serverNameForUi;
+    if (!hasLocal && serverIdStr != null && serverIdStr.isNotEmpty) {
+      serverIdForUi = int.tryParse(serverIdStr) ?? serverIdStr;
+      serverNameForUi = prim != null
+          ? _attachmentDisplayName(prim, 'file_$serverIdStr')
+          : 'file_$serverIdStr';
+    }
+
     return CustomFileUploadNew(
       key: ValueKey<Object>(
         'at_file_${f.tfvId}_$fileTypeForAttachment'
-        '_${files.length}_${_uploadedAttachmentsByTfv[f.tfvId]?.length ?? 0}',
+        '_${files.length}_${_uploadedAttachmentsByTfv[f.tfvId]?.length ?? 0}'
+        '_srv_${serverIdStr ?? 'n'}',
       ),
       label: label,
       placeholder: placeholder ?? 'Upload a File',
@@ -721,6 +949,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       useVideoPicker: useVideoPicker,
       selectedFile: files.isNotEmpty ? files.first : null,
       uploadedFiles: const [],
+      serverAttachmentName: serverNameForUi,
+      serverAttachmentId: serverIdForUi,
+      onServerAttachmentClicked: serverIdForUi != null
+          ? (id) => _openServerAttachmentFromDocument(id, f)
+          : null,
       onFileSelected: (file) async {
         final attachments =
             _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
@@ -803,7 +1036,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           _uploadedAttachmentsByTfv[f.tfvId] ?? const <Map<String, dynamic>>[];
       if (attachments.isEmpty) return '';
       return attachments
-          .map((e) => e['attachmentId']?.toString() ?? '')
+          .map((e) => _rawAttachmentIdFromMap(e) ?? '')
           .where((e) => e.isNotEmpty && e != '0')
           .join(',');
     }
@@ -1185,6 +1418,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       case 'IMAGE':
         // One [ImageUploadField] per row (same as PM): ignore allowMultipleFiles.
         final ext = _imageExternalDataByTfv[f.tfvId];
+        final loadingServer =
+            _imageLoadingFromServerTfvIds.contains(f.tfvId);
         return ImageUploadField(
           key: ValueKey<String>(
             'at_img_${f.tfvId}_${ext?.length ?? 0}_${_filesByTfv[f.tfvId]?.length ?? 0}',
@@ -1196,6 +1431,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           uploadBorderRadius: 8,
           onImageSelected: (file) => _handleSingleImageSelection(f, file),
           externalImageUrl: ext,
+          externalImageLoading: loadingServer,
         );
       case 'PDF':
         // Same UX for every PDF row: document picker (PDF only), one file, replace on re-pick.

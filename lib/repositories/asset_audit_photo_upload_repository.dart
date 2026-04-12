@@ -39,17 +39,13 @@ class AssetAuditPhotoUploadRepository {
         data: dataMap,
         useFormDataFormat: true,
       );
-      
-      if (result.isSuccess) {
 
+      if (result.isSuccess) {
         final response = AssetAuditPhotoUploadResponse.fromJson(result.data!);
         return ResponseResult.success(response, result.statusCode);
-      } else {
-
-        return ResponseResult.error(errorMessage: result.errorMessage);
       }
+      return ResponseResult.error(errorMessage: result.errorMessage);
     } catch (e) {
-
       return const ResponseResult.error(
         errorMessage: 'We could not upload the photo',
       );

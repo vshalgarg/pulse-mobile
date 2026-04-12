@@ -256,6 +256,18 @@ class PmisTicketChecker extends Equatable {
       ];
 }
 
+/// PMIS may send mixed shapes; only include real maps so [fromJson] never throws.
+List<Map<String, dynamic>> _ticketFieldAttachmentsFromJson(dynamic raw) {
+  if (raw is! List) return const <Map<String, dynamic>>[];
+  final out = <Map<String, dynamic>>[];
+  for (final e in raw) {
+    if (e is Map) {
+      out.add(Map<String, dynamic>.from(e));
+    }
+  }
+  return out;
+}
+
 class PmisTicketFieldValue extends Equatable {
   final int tfvId;
   final dynamic valText;
@@ -327,9 +339,7 @@ class PmisTicketFieldValue extends Equatable {
       geoSource: s(json['geoSource']),
       isActive: parseBool(json['isActive']),
       remarks: s(json['remarks']),
-      attachments: (json['attachments'] as List<dynamic>? ?? [])
-          .map((e) => Map<String, dynamic>.from(e as Map))
-          .toList(),
+      attachments: _ticketFieldAttachmentsFromJson(json['attachments']),
       subActivityName: s(json['subActivityName']),
       subActivityDataType: s(json['subActivityDataType']),
       subActivityControlType: s(json['subActivityControlType']),
@@ -412,4 +422,49 @@ class PmisOldDataItem extends Equatable {
   @override
   List<Object?> get props =>
       [actualStartDt, actualEndDt, ticketFieldValues, makerUserName, isModified];
+}
+
+/// Attachment id from a PMIS `attachments` map (supports common API key variants).
+String? pmisAttachmentIdString(Map<String, dynamic> a) {
+  final v = a['attachmentId'] ??
+      a['attachment_id'] ??
+      a['AttachmentId'] ??
+      a['attachmentID'] ??
+      a['imgId'] ??
+      a['ImgId'] ??
+      a['imageId'] ??
+      a['ImageId'] ??
+      a['photoId'] ??
+      a['PhotoId'];
+  if (v == null) return null;
+  final s = v.toString().trim();
+  return s.isEmpty ? null : s;
+}
+
+/// Distinct positive ids for `GET /api/v1/common/DocumentById/{id}` from
+/// IMAGE / VIDEO / PDF field rows on the current ticket payload.
+List<int> collectPmisActivityTicketDocumentIds(PmisActivityTicketDetail detail) {
+  final ids = <int>{};
+
+  void collectFromField(PmisTicketFieldValue f) {
+    final t = (f.subActivityDataType ?? '').trim().toUpperCase();
+    if (t != 'IMAGE' && t != 'VIDEO' && t != 'PDF') return;
+    for (final a in f.attachments) {
+      final raw = pmisAttachmentIdString(a);
+      if (raw == null) continue;
+      final id = int.tryParse(raw);
+      if (id != null && id > 0) ids.add(id);
+    }
+    final vt = f.valText?.toString().trim() ?? '';
+    if (vt.isEmpty) return;
+    for (final part in vt.split(',')) {
+      final id = int.tryParse(part.trim());
+      if (id != null && id > 0) ids.add(id);
+    }
+  }
+
+  for (final f in detail.ticketFieldValues) {
+    collectFromField(f);
+  }
+  return ids.toList()..sort();
 }

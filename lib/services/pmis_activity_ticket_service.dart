@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/pmis_activity_ticket_model.dart';
@@ -16,7 +17,6 @@ class PmisActivityTicketService {
   }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
-      // final response = await dio.get('$_pathPrefix/$activityTicketId');
       final response = await dio.get('$_pathPrefix/20854');
 
       if (response.statusCode == 200) {
@@ -26,8 +26,18 @@ class PmisActivityTicketService {
           final inner = body['data'];
           if (inner is Map) {
             final innerMap = Map<String, dynamic>.from(inner);
+            final topTv = body['ticketFieldValues'];
+            final innerTv = innerMap['ticketFieldValues'];
+            final topTvEmpty =
+                topTv == null || (topTv is List && topTv.isEmpty);
+            final innerTvNonempty =
+                innerTv is List && innerTv.isNotEmpty;
+
             if (body['ticketCheckers'] == null &&
                 innerMap['ticketCheckers'] != null) {
+              body = innerMap;
+            } else if (topTvEmpty && innerTvNonempty) {
+              // Ticket payload only under `data` (no top-level field values).
               body = innerMap;
             }
           }
@@ -50,6 +60,38 @@ class PmisActivityTicketService {
         errorMessage: 'Exception occurred: ${e.toString()}',
       );
     }
+  }
+
+  /// Loads the ticket then warms `/api/v1/common/DocumentById/{id}` for every
+  /// IMAGE / VIDEO / PDF attachment id (before opening the checker list).
+  Future<ResponseResult<PmisActivityTicketDetail>>
+      getActivityTicketWithDocumentWarmup({
+    required int activityTicketId,
+  }) async {
+    final ticketRes = await getActivityTicket(
+      activityTicketId: activityTicketId,
+    );
+    if (!ticketRes.isSuccess || ticketRes.data == null) {
+      return ticketRes;
+    }
+    final ids = collectPmisActivityTicketDocumentIds(ticketRes.data!);
+    if (ids.isEmpty) return ticketRes;
+
+    await Future.wait(
+      ids.map((id) async {
+        try {
+          await _apiService.get<Uint8List>(
+            path: '/api/v1/common/DocumentById/$id',
+            responseType: ResponseType.bytes,
+          );
+        } catch (e) {
+          debugPrint(
+            '⚠️ PmisActivityTicketService DocumentById warm-up failed ($id): $e',
+          );
+        }
+      }),
+    );
+    return ticketRes;
   }
 
   Future<ResponseResult<Map<String, dynamic>?>> postActivityTicket({

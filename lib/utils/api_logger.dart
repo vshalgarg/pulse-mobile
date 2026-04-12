@@ -1,12 +1,38 @@
 import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+
 import 'file_logger.dart';
 
 class ApiLogger {
   static const String _requestPrefix = '🌐 REQUEST';
   static const String _responsePrefix = '📥 RESPONSE';
   static const String _errorPrefix = '❌ ERROR';
+
+  /// Dio [ResponseType.bytes] yields [Uint8List]; logging it via [JsonEncoder]
+  /// prints one line per byte and can freeze the app on large files.
+  static String? _binaryBodySummary(dynamic data) {
+    if (data is Uint8List) return '<binary: ${data.length} bytes>';
+    if (data is TypedData) return '<binary: ${data.lengthInBytes} bytes>';
+    if (data is List) {
+      final n = data.length;
+      if (n < 512) return null;
+      for (var i = 0; i < 64 && i < n; i++) {
+        final e = data[i];
+        if (e is! int || e < 0 || e > 255) return null;
+      }
+      return '<binary: $n bytes>';
+    }
+    return null;
+  }
+
+  static dynamic _bodyForFileLog(dynamic data) {
+    final s = _binaryBodySummary(data);
+    if (s != null) return s;
+    return data;
+  }
   
   static void logRequest(RequestOptions options) {
     debugPrint('\n${'=' * 80}');
@@ -96,6 +122,12 @@ class ApiLogger {
   
   static void _printJsonData(dynamic data) {
     try {
+      final binary = _binaryBodySummary(data);
+      if (binary != null) {
+        debugPrint('   $binary');
+        return;
+      }
+
       String jsonString;
       if (data is String) {
         jsonString = data;
@@ -207,7 +239,10 @@ class ApiLogger {
         });
       } else {
         String bodyData;
-        if (options.data is String) {
+        final bin = _binaryBodySummary(options.data);
+        if (bin != null) {
+          bodyData = bin;
+        } else if (options.data is String) {
           bodyData = options.data as String;
         } else {
           try {
@@ -250,51 +285,33 @@ class ApiLogger {
         'fields': formData.fields.map((e) => {'key': e.key, 'value': e.value}).toList(),
         'files': formData.files.map((e) => {'key': e.key, 'filename': e.value.filename}).toList(),
       };
+    } else {
+      bodyData = _bodyForFileLog(options.data);
     }
-    
-    final data = {
-      'method': options.method,
-      'url': options.uri.toString(),
-      'headers': options.headers,
-      'queryParameters': options.queryParameters,
-      'body': bodyData,
-    };
+
     FileLogger.logApiRequest(options.method, options.uri.toString(), 
         headers: options.headers, body: bodyData);
   }
   
   static void _logResponseToFile(Response response) {
-    final data = {
-      'method': response.requestOptions.method,
-      'url': response.requestOptions.uri.toString(),
-      'statusCode': response.statusCode,
-      'headers': response.headers.map,
-      'body': response.data,
-    };
+    final bodyForLog = _bodyForFileLog(response.data);
     FileLogger.logApiResponse(
       response.requestOptions.method, 
       response.requestOptions.uri.toString(), 
       response.statusCode ?? 0,
-      body: response.data,
+      body: bodyForLog,
       headers: response.headers.map,
     );
   }
   
   static void _logErrorToFile(DioException error) {
-    final data = {
-      'method': error.requestOptions.method,
-      'url': error.requestOptions.uri.toString(),
-      'errorType': error.type.toString(),
-      'errorMessage': error.message,
-      'statusCode': error.response?.statusCode,
-      'responseData': error.response?.data,
-    };
+    final errBody = _bodyForFileLog(error.response?.data);
     FileLogger.logApiError(
       error.requestOptions.method,
       error.requestOptions.uri.toString(),
       error.message ?? 'Unknown error',
       statusCode: error.response?.statusCode,
-      body: error.response?.data,
+      body: errBody,
     );
   }
 }

@@ -19,12 +19,16 @@ class ActivityTicketCheckerListScreen extends StatefulWidget {
   /// Bold title inside the top summary card; falls back to API / [activityName].
   final String? summaryCardTitle;
 
+  /// When set (e.g. after activities-list prefetch), skips a second ticket GET.
+  final PmisActivityTicketDetail? preloadedDetail;
+
   const ActivityTicketCheckerListScreen({
     super.key,
     required this.activityTicketId,
     required this.breadcrumbText,
     required this.activityName,
     this.summaryCardTitle,
+    this.preloadedDetail,
   });
 
   @override
@@ -40,7 +44,12 @@ class _ActivityTicketCheckerListScreenState
   @override
   void initState() {
     super.initState();
-    _future = _loadTicket();
+    final pre = widget.preloadedDetail;
+    _future = pre != null
+        ? Future.value(
+            ResponseResult<PmisActivityTicketDetail>.success(pre, 200),
+          )
+        : _loadTicket();
   }
 
   Future<ResponseResult<PmisActivityTicketDetail>> _loadTicket() async {

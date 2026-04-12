@@ -24,6 +24,10 @@ class ImageUploadField extends StatefulWidget {
   final Function(File?) onImageSelected;
   final String? externalImageUrl;
 
+  /// When true, shows a progress indicator instead of the "Take Photo" placeholder
+  /// while the parent loads [externalImageUrl] (e.g. from `allImageList`).
+  final bool externalImageLoading;
+
   /// Height of the tap target / preview area (default `150`).
   final double uploadBoxHeight;
 
@@ -38,6 +42,7 @@ class ImageUploadField extends StatefulWidget {
     this.isDisabled = false,
     required this.onImageSelected,
     this.externalImageUrl,
+    this.externalImageLoading = false,
     this.uploadBoxHeight = 150,
     this.uploadBorderRadius = 6,
   });
@@ -239,7 +244,13 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
   /// UI Helpers
 
   Future<void> _prepareExternalImageWidget(String? url) async {
-    if (url == null || url.isEmpty || url == _lastExternalUrl) return;
+    if (url == null || url.isEmpty) {
+      _lastExternalUrl = null;
+      if (!mounted) return;
+      setState(() => _externalImageWidget = null);
+      return;
+    }
+    if (url == _lastExternalUrl) return;
 
     _lastExternalUrl = url;
 
@@ -280,7 +291,11 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       }
 
       if (url.startsWith('data:image')) {
-        final bytes = base64Decode(url.split(',')[1]);
+        final comma = url.indexOf(',');
+        if (comma == -1 || comma >= url.length - 1) {
+          return _buildPlaceholder();
+        }
+        final bytes = base64Decode(url.substring(comma + 1));
 
         return Image.memory(
           bytes,
@@ -329,6 +344,14 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         errorBuilder: (context, error, stackTrace) =>
             _buildPlaceholder(),
       );
+    } else if (widget.externalImageLoading) {
+      child = const Center(
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: CircularProgressIndicator(strokeWidth: 2.5),
+        ),
+      );
     } else if (_externalImageWidget != null) {
       child = _externalImageWidget!;
     } else {
@@ -359,7 +382,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           ),
         const SizedBox(height: 6),
         GestureDetector(
-          onTap: (widget.isDisabled || _isLoading || _isPickingImage)
+          onTap: (widget.isDisabled ||
+                  _isLoading ||
+                  _isPickingImage ||
+                  widget.externalImageLoading)
               ? null
               : _pickImage,
           child: Container(
