@@ -51,6 +51,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   /// Base64 data URL, local path, or `data:image/...` for [ImageUploadField.externalImageUrl].
   final Map<int, String?> _imageExternalDataByTfv = {};
   late List<PmisTicketFieldValue> _sortedFields;
+  /// Prevents overlapping GPS taps and disables the button while resolving.
+  int? _capturingGpsTfvId;
 
   UploadDcoumentsService get _uploadService =>
       UploadDcoumentsService(apiService: ServiceLocator().apiService);
@@ -58,9 +60,14 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   static String _normDataType(PmisTicketFieldValue f) =>
       (f.subActivityDataType ?? '').trim().toUpperCase();
 
+  /// Longitude if name clearly indicates longitude; latitude if it says
+  /// "latitude" (avoids matching "long" inside "latitude").
   static bool _isLongitudeField(PmisTicketFieldValue f) {
     final n = (f.subActivityName ?? '').toLowerCase();
-    return n.contains('long') || n.contains('lng');
+    if (n.contains('longitude')) return true;
+    if (n.contains('lng')) return true;
+    if (n.contains('latitude')) return false;
+    return n.contains('long');
   }
 
   static Map<String, dynamic> _configMap(PmisTicketFieldValue f) {
@@ -326,17 +333,27 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   }
 
   Future<void> _captureGps(PmisTicketFieldValue f) async {
+    if (_capturingGpsTfvId != null) return;
+    if (!mounted) return;
+    setState(() => _capturingGpsTfvId = f.tfvId);
+    LoaderWidget.showLoader(context);
     try {
-      final loc = await LocationService.getCurrentLocation();
+      final loc = await LocationService.getCurrentLocationForForm();
       if (!mounted) return;
       final isLng = _isLongitudeField(f);
       final v = isLng ? loc.longitude : loc.latitude;
-      setState(() {
-        _textByTfv[f.tfvId]!.text = v.toStringAsFixed(6);
-      });
+      _textByTfv[f.tfvId]!.text = v.toStringAsFixed(6);
+      setState(() {});
     } catch (e) {
       if (mounted) {
         Toastbar.showErrorToastbar(e.toString(), context);
+      }
+    } finally {
+      LoaderWidget.hideLoader();
+      if (mounted) {
+        setState(() => _capturingGpsTfvId = null);
+      } else {
+        _capturingGpsTfvId = null;
       }
     }
   }
@@ -995,7 +1012,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
-                  onPressed: () => _captureGps(f),
+                  onPressed: _capturingGpsTfvId != null
+                      ? null
+                      : () => _captureGps(f),
                   icon: const Icon(Icons.my_location, color: AppColors.white),
                   label: const Text(
                     'Use current location',

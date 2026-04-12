@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:app/constants/exception_constants.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/utils/logger.dart';
@@ -7,26 +9,25 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 
 class LocationService {
-  
+  static Future<void> _ensureLocationPermission() async {
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
+    }
+  }
+
   /// Get user's current location
   /// Note: If location services are disabled, calling getCurrentPosition() will
   /// automatically trigger Android's system dialog to enable location services.
   static Future<LocationModel> getCurrentLocation() async {
     try {
-      LocationPermission permission;
-
-      // Check permission first
-      permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
-        }
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        throw Exception(ExceptionConstants.UNABLE_TO_GET_LOCATION);
-      }
+      await _ensureLocationPermission();
 
       // Get location - if location services are disabled, Android will automatically
       // show a system dialog asking to enable location services
@@ -37,6 +38,45 @@ class LocationService {
       Logger.infoLog("user's location fetched: $position");
       return LocationModel(latitude: position.latitude, longitude: position.longitude);
     } catch (e) {
+      throw Exception(e);
+    }
+  }
+
+  /// Faster, bounded wait for UI (e.g. activity ticket coordinate fields).
+  /// Uses medium accuracy + time limit, then falls back to last known position.
+  static Future<LocationModel> getCurrentLocationForForm() async {
+    try {
+      await _ensureLocationPermission();
+
+      try {
+        final position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 18),
+        );
+        Logger.infoLog("form location (medium): $position");
+        return LocationModel(
+          latitude: position.latitude,
+          longitude: position.longitude,
+        );
+      } on TimeoutException catch (_) {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) {
+          Logger.infoLog("form location fallback last known: $last");
+          return LocationModel(
+            latitude: last.latitude,
+            longitude: last.longitude,
+          );
+        }
+        rethrow;
+      }
+    } catch (e) {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) {
+        return LocationModel(
+          latitude: last.latitude,
+          longitude: last.longitude,
+        );
+      }
       throw Exception(e);
     }
   }
