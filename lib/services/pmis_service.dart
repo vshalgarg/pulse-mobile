@@ -13,10 +13,16 @@ class PmisService {
   static const String _projectListPath =
       'pmis/api/v1/dashboard/project-list';
 
-  Future<ResponseResult<List<PmisProject>>> getProjectList() async {
+  Future<ResponseResult<List<PmisProject>>> getProjectList({
+    String? activityType,
+  }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
-      final response = await dio.get(_projectListPath);
+      final trimmed = activityType?.trim() ?? '';
+      final response = await dio.get(
+        _projectListPath,
+        queryParameters: trimmed.isEmpty ? null : {'activityType': trimmed},
+      );
 
       if (response.statusCode == 200) {
         final data = response.data;

@@ -1,6 +1,7 @@
 import 'package:app/bloc/pmis_project_cubit.dart';
 import 'package:app/bloc/pmis_project_state.dart';
 import 'package:app/commonWidgets/pmis_card.dart';
+import 'package:app/screens/pmis/activities.dart';
 import 'package:app/screens/pmis/pmis_state.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
@@ -12,17 +13,31 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 class ProjectListScreen extends StatefulWidget {
   final String title;
 
-  const ProjectListScreen({super.key, this.title = 'Projects'});
+  /// From [PulseDashboard] `taskName` (e.g. `Project`, `Activity`): query
+  /// `project-list` and decides card navigation (`PmisStateScreen` vs
+  /// [ProjectActivitiesScreen]).
+  final String activityType;
+
+  const ProjectListScreen({
+    super.key,
+    required this.activityType,
+    this.title = 'Projects',
+  });
 
   @override
   State<ProjectListScreen> createState() => _ProjectListScreenState();
 }
 
 class _ProjectListScreenState extends State<ProjectListScreen> {
+  bool get _dashboardIsActivity =>
+      widget.activityType.trim().toUpperCase() == 'ACTIVITY';
+
   @override
   void initState() {
     super.initState();
-    context.read<PmisProjectCubit>().loadProjects();
+    context.read<PmisProjectCubit>().loadProjects(
+          activityType: widget.activityType,
+        );
   }
 
   @override
@@ -56,7 +71,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    widget.title,
+                    'Projects',
                     style: const TextStyle(
                       color: AppColors.white,
                       fontSize: 20,
@@ -120,14 +135,28 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                       return PmisCard(
                         project: project,
                         onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => PmisStateScreen(
-                                project: project,
-                                projectId: project.pmId,
+                          if (_dashboardIsActivity) {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) =>
+                                    ProjectActivitiesScreen(
+                                  projectId: project.pmId,
+                                  appBarTitle: project.projectName,
+                                  breadcrumbText:
+                                      'Activity > ${project.projectName} > Activities',
+                                ),
                               ),
-                            ),
-                          );
+                            );
+                          } else {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (context) => PmisStateScreen(
+                                  project: project,
+                                  projectId: project.pmId,
+                                ),
+                              ),
+                            );
+                          }
                         },
                       );
                     },

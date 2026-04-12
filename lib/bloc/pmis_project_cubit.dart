@@ -10,9 +10,11 @@ class PmisProjectCubit extends Cubit<PmisProjectState> {
       : _pmisRepository = pmisRepository,
         super(const PmisProjectInitial());
 
-  Future<void> loadProjects() async {
+  Future<void> loadProjects({String? activityType}) async {
     emit(const PmisProjectLoading());
-    final result = await _pmisRepository.getProjectList();
+    final result = await _pmisRepository.getProjectList(
+      activityType: activityType,
+    );
     if (result.isSuccess && result.data != null) {
       emit(PmisProjectSuccess(projects: result.data!));
     } else {

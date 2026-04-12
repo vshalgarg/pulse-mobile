@@ -8,9 +8,11 @@ class PmisRepository {
   PmisRepository({required PmisService pmisService})
       : _pmisService = pmisService;
 
-  Future<ResponseResult<List<PmisProject>>> getProjectList() async {
+  Future<ResponseResult<List<PmisProject>>> getProjectList({
+    String? activityType,
+  }) async {
     try {
-      return await _pmisService.getProjectList();
+      return await _pmisService.getProjectList(activityType: activityType);
     } catch (e) {
       return ResponseResult.error(
         errorMessage: 'Exception occurred: ${e.toString()}',

@@ -549,21 +549,17 @@ class _PulseDashboardState extends State<PulseDashboard> {
 
   void _navigateToTask(String taskName) {
 
-    if (taskName == 'Project') {
+    if (taskName == 'Project' || taskName == 'Activity') {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => const ProjectListScreen( ),
+          builder: (context) => ProjectListScreen(
+            title: taskName == 'Project' ? 'Projects' : 'Activity',
+            activityType: taskName,
+          ),
         ),
       );
-    }else if (taskName == 'Activity') {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const ProjectListScreen(),
-        ),
-      );
-    }else{
+    } else {
     if (taskName == 'SV' || 
         taskName == 'GI' || 
         taskName == 'Incident' || 
