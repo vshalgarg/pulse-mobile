@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/activity_ticket_close_pop_up.dart';
+import 'package:app/commonWidgets/activity_ticket_video_preview_dialog.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
@@ -461,6 +462,70 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     } catch (e) {
       if (mounted) {
         Toastbar.showErrorToastbar('Save failed: $e', context);
+      }
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+  }
+
+  bool _hasPmisVideoAttachmentForPlay(PmisTicketFieldValue f) {
+    if (_normDataType(f) != 'VIDEO') return false;
+    final id = _primaryAttachmentServerIdForUi(f);
+    if (id == null || id.isEmpty) return false;
+    if (id.contains('LOCAL_IMAGE_ID')) return false;
+    final n = int.tryParse(id.trim());
+    return n != null && n > 0;
+  }
+
+  Future<void> _showServerVideoPopup(PmisTicketFieldValue f) async {
+    final idStr = _primaryAttachmentServerIdForUi(f);
+    final docId = int.tryParse(idStr ?? '');
+    if (docId == null || docId <= 0) {
+      if (mounted) {
+        Toastbar.showErrorToastbar('No video to play', context);
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    LoaderWidget.showLoader(context);
+    try {
+      final bytes = await _downloadDocumentByIdBytes(docId);
+      if (!mounted) return;
+      if (bytes == null || bytes.isEmpty) {
+        Toastbar.showErrorToastbar(
+          'Could not load video (offline or unavailable)',
+          context,
+        );
+        return;
+      }
+
+      final prim = _primaryAttachmentMapForUi(f);
+      var ext = prim != null
+          ? p.extension(_attachmentDisplayName(prim, ''))
+          : '';
+      if (ext.isEmpty || ext == '.') {
+        ext = _extensionForUploadType('VIDEO', bytes);
+      }
+      final dir = await getTemporaryDirectory();
+      final file = File(
+        p.join(
+          dir.path,
+          'at_video_preview_${widget.detail.atId}_${f.tfvId}_$docId$ext',
+        ),
+      );
+      await file.writeAsBytes(bytes, flush: true);
+      if (!mounted) return;
+
+      LoaderWidget.hideLoader();
+      await showDialog<void>(
+        context: context,
+        barrierColor: Colors.black87,
+        builder: (ctx) => ActivityTicketVideoPreviewDialog(videoFile: file),
+      );
+    } catch (e) {
+      if (mounted) {
+        Toastbar.showErrorToastbar('Failed to open video: $e', context);
       }
     } finally {
       LoaderWidget.hideLoader();
@@ -1566,15 +1631,43 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         );
       case 'VIDEO':
         // Same UX for every video row: system video picker only, one file, replace on re-pick.
-        return _buildSingleTicketFileUpload(
-          f: f,
-          label: label,
-          req: req,
-          fileTypeForAttachment: 'VIDEO',
-          acceptedFileTypes: '(Video only)',
-          pickAllowedExtensions: null,
-          useVideoPicker: true,
-          placeholder: 'Add video',
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSingleTicketFileUpload(
+              f: f,
+              label: label,
+              req: req,
+              fileTypeForAttachment: 'VIDEO',
+              acceptedFileTypes: '(Video only)',
+              pickAllowedExtensions: null,
+              useVideoPicker: true,
+              placeholder: 'Add video',
+            ),
+            if (_hasPmisVideoAttachmentForPlay(f)) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _showServerVideoPopup(f),
+                  icon: const Icon(
+                    Icons.play_circle_outline,
+                    color: AppColors.white,
+                    size: 22,
+                  ),
+                  label: const Text(
+                    'Show Video',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontFamily: poppins,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         );
       case 'COORDINATES':
         final isGps =
