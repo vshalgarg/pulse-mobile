@@ -13,6 +13,7 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/pmis_activity_ticket_model.dart';
+import 'package:app/services/document_bytes_save_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/upload_dcouments.dart';
@@ -166,6 +167,28 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return id;
   }
 
+  /// Prefer in-memory uploads from this session, then API snapshot on [f].
+  Map<String, dynamic>? _primaryAttachmentMapForUi(PmisTicketFieldValue f) {
+    final live = _uploadedAttachmentsByTfv[f.tfvId];
+    if (live != null) {
+      for (final a in live) {
+        final id = _rawAttachmentIdFromMap(a) ?? '';
+        if (id.isNotEmpty && id != '0' && id.toLowerCase() != 'null') {
+          return a;
+        }
+      }
+    }
+    return _primaryAttachmentMap(f);
+  }
+
+  String? _primaryAttachmentServerIdForUi(PmisTicketFieldValue f) {
+    final m = _primaryAttachmentMapForUi(f);
+    if (m == null) return null;
+    final id = _rawAttachmentIdFromMap(m) ?? '';
+    if (id.isEmpty || id == '0' || id.toLowerCase() == 'null') return null;
+    return id;
+  }
+
   static String _attachmentDisplayName(
     Map<String, dynamic> a,
     String fallback,
@@ -291,7 +314,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   /// Pull VIDEO/PDF bytes via [DocumentById] into a temp file for preview.
   Future<void> _prefetchUploadFieldFromServerIfNeeded(PmisTicketFieldValue f) async {
-    final prim = _primaryAttachmentMap(f);
+    final prim = _primaryAttachmentMapForUi(f);
     if (prim == null) return;
     final id = _rawAttachmentIdFromMap(prim) ?? '';
     if (id.isEmpty) return;
@@ -352,7 +375,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         );
         return;
       }
-      final prim = _primaryAttachmentMap(f);
+      final prim = _primaryAttachmentMapForUi(f);
       final type = _normDataType(f);
       var ext = prim != null
           ? p.extension(_attachmentDisplayName(prim, ''))
@@ -369,6 +392,75 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     } catch (e) {
       if (mounted) {
         Toastbar.showErrorToastbar('Failed to open file: $e', context);
+      }
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+  }
+
+  /// Numeric server [attachmentId] suitable for `DocumentById` (PDF row).
+  bool _hasPmisPdfAttachmentForDownload(PmisTicketFieldValue f) {
+    if (_normDataType(f) != 'PDF') return false;
+    final id = _primaryAttachmentServerIdForUi(f);
+    if (id == null || id.isEmpty) return false;
+    if (id.contains('LOCAL_IMAGE_ID')) return false;
+    final n = int.tryParse(id.trim());
+    return n != null && n > 0;
+  }
+
+  String _suggestedDownloadPdfName(PmisTicketFieldValue f) {
+    final prim = _primaryAttachmentMapForUi(f);
+    final fallback = 'ticket_${widget.detail.atId}_tfv_${f.tfvId}.pdf';
+    var name = prim != null ? _attachmentDisplayName(prim, fallback) : fallback;
+    name = name.trim();
+    if (name.isEmpty) return fallback;
+    return name;
+  }
+
+  Future<void> _downloadPdfAttachmentToDevice(PmisTicketFieldValue f) async {
+    final idStr = _primaryAttachmentServerIdForUi(f);
+    final docId = int.tryParse(idStr ?? '');
+    if (docId == null || docId <= 0) {
+      if (mounted) {
+        Toastbar.showErrorToastbar('No file to download', context);
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    LoaderWidget.showLoader(context);
+    try {
+      final bytes = await _downloadDocumentByIdBytes(docId);
+      if (!mounted) return;
+      if (bytes == null || bytes.isEmpty) {
+        Toastbar.showErrorToastbar(
+          'Could not download file (offline or unavailable)',
+          context,
+        );
+        return;
+      }
+
+      final path = await DocumentBytesSaveService.savePdfBytes(
+        bytes,
+        _suggestedDownloadPdfName(f),
+      );
+      if (!mounted) return;
+
+      if (path != null) {
+        final inPublicDownloads = path.contains('/Download') &&
+            !path.contains('/Android/data/');
+        Toastbar.showSuccessToastbar(
+          inPublicDownloads
+              ? 'PDF saved to Downloads folder'
+              : 'PDF saved to app storage. Open Files to find it.',
+          context,
+        );
+      } else {
+        Toastbar.showErrorToastbar('Could not save file to device', context);
+      }
+    } catch (e) {
+      if (mounted) {
+        Toastbar.showErrorToastbar('Save failed: $e', context);
       }
     } finally {
       LoaderWidget.hideLoader();
@@ -922,8 +1014,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     bool useVideoPicker = false,
   }) {
     final files = _filesByTfv[f.tfvId]!;
-    final prim = _primaryAttachmentMap(f);
-    final serverIdStr = _primaryAttachmentServerId(f);
+    final prim = _primaryAttachmentMapForUi(f);
+    final serverIdStr = _primaryAttachmentServerIdForUi(f);
     final hasLocal = files.isNotEmpty;
     dynamic serverIdForUi;
     String? serverNameForUi;
@@ -1435,14 +1527,42 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         );
       case 'PDF':
         // Same UX for every PDF row: document picker (PDF only), one file, replace on re-pick.
-        return _buildSingleTicketFileUpload(
-          f: f,
-          label: label,
-          req: req,
-          fileTypeForAttachment: 'PDF',
-          acceptedFileTypes: '(PDF only)',
-          pickAllowedExtensions: const ['pdf'],
-          placeholder: 'Add PDF',
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildSingleTicketFileUpload(
+              f: f,
+              label: label,
+              req: req,
+              fileTypeForAttachment: 'PDF',
+              acceptedFileTypes: '(PDF only)',
+              pickAllowedExtensions: const ['pdf'],
+              placeholder: 'Add PDF',
+            ),
+            if (_hasPmisPdfAttachmentForDownload(f)) ...[
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _downloadPdfAttachmentToDevice(f),
+                  icon: const Icon(
+                    Icons.download_outlined,
+                    color: AppColors.white,
+                    size: 22,
+                  ),
+                  label: const Text(
+                    'Download file',
+                    style: TextStyle(
+                      color: AppColors.white,
+                      fontFamily: poppins,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         );
       case 'VIDEO':
         // Same UX for every video row: system video picker only, one file, replace on re-pick.
