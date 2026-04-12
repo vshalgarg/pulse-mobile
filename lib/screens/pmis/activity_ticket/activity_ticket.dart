@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/activity_ticket_close_pop_up.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:app/commonWidgets/custom_form_field.dart';
@@ -48,6 +49,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   final Map<int, String?> _dropdownByTfv = {};
   final Map<int, List<File>> _filesByTfv = {};
   final Map<int, List<Map<String, dynamic>>> _uploadedAttachmentsByTfv = {};
+  /// Base64 data URL, local path, or `data:image/...` for [ImageUploadField.externalImageUrl].
+  final Map<int, String?> _imageExternalDataByTfv = {};
   late List<PmisTicketFieldValue> _sortedFields;
 
   UploadDcoumentsService get _uploadService =>
@@ -91,6 +94,98 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         _filesByTfv[f.tfvId] = [];
         _uploadedAttachmentsByTfv[f.tfvId] = [];
       }
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final f in _sortedFields) {
+        if (_normDataType(f) == 'IMAGE') {
+          _loadExistingActivityTicketImage(f);
+        }
+      }
+    });
+  }
+
+  /// One image per checklist row: first server [attachmentId], else first id in [valText].
+  static String? _primaryImageAttachmentServerId(PmisTicketFieldValue f) {
+    for (final a in f.attachments) {
+      final id = a['attachmentId'] ?? a['attachment_id'];
+      final s = id?.toString().trim() ?? '';
+      if (s.isNotEmpty && s != '0' && s.toLowerCase() != 'null') {
+        return s;
+      }
+    }
+    final vt = f.valText?.toString().trim() ?? '';
+    if (vt.isEmpty) return null;
+    final parts = vt.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty);
+    final first = parts.isEmpty ? '' : parts.first;
+    if (first.isEmpty || first == '0' || first.toLowerCase() == 'null') {
+      return null;
+    }
+    return first;
+  }
+
+  static String? _formatActivityTicketImageDisplayString(String? raw) {
+    if (raw == null) return null;
+    final cleaned = raw.trim();
+    if (cleaned.isEmpty) return null;
+    if (cleaned.startsWith('data:image/')) {
+      if (cleaned.startsWith('data:image/jpg')) {
+        return cleaned.replaceFirst('data:image/jpg', 'data:image/jpeg');
+      }
+      return cleaned;
+    }
+    if (cleaned.startsWith('/') ||
+        cleaned.startsWith('file://') ||
+        cleaned.startsWith(r'file:\')) {
+      return cleaned;
+    }
+    return 'data:image/jpeg;base64,$cleaned';
+  }
+
+  /// Loads existing attachment for display (same pattern as PM [ImageUploadField]).
+  Future<void> _loadExistingActivityTicketImage(PmisTicketFieldValue f) async {
+    final photoId = _primaryImageAttachmentServerId(f);
+    if (photoId == null || photoId.isEmpty) return;
+
+    try {
+      final loc = ServiceLocator();
+      String? imageDataLocal;
+
+      if (int.tryParse(photoId) != null &&
+          !photoId.contains('LOCAL_IMAGE_ID')) {
+        final cachedImage =
+            await loc.imageUploadService.getImagesByServerId(photoId);
+        if (cachedImage != null && cachedImage.imageData != null &&
+            cachedImage.imageData!.trim().isNotEmpty) {
+          imageDataLocal = await loc.imageUploadService
+              .getImageUsingUniqueId(cachedImage.uniqueId);
+          imageDataLocal ??= cachedImage.imageData;
+        } else {
+          final uniqueId = await loc.imageUploadService.downloadImageUsingServerId(
+            photoId,
+            ActivityTypeEnum.activityTicket,
+            widget.detail.atId.toString(),
+          );
+          if (uniqueId != null) {
+            imageDataLocal =
+                await loc.centralAssetAuditService.getImageAsDataUrl(uniqueId);
+            imageDataLocal ??=
+                await loc.imageUploadService.getImageUsingUniqueId(uniqueId);
+          }
+        }
+      } else {
+        imageDataLocal =
+            await loc.centralAssetAuditService.getImageAsDataUrl(photoId);
+        imageDataLocal ??=
+            await loc.imageUploadService.getImageUsingUniqueId(photoId);
+      }
+
+      if (!mounted) return;
+      final formatted = _formatActivityTicketImageDisplayString(imageDataLocal);
+      if (formatted != null && formatted.isNotEmpty) {
+        setState(() => _imageExternalDataByTfv[f.tfvId] = formatted);
+      }
+    } catch (_) {
+      // Leave field empty if download/cache fails.
     }
   }
 
@@ -296,16 +391,72 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     };
   }
 
+  /// Upload + build attachment map for image fields; shows loader and toasts.
+  Future<Map<String, dynamic>?> _uploadImageFileWithChecks(File file) async {
+    final len = await file.length();
+    if (len > _maxUploadBytes) {
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          '${p.basename(file.path)} exceeds 2 MB',
+          context,
+        );
+      }
+      return null;
+    }
+    if (!mounted) return null;
+    LoaderWidget.showLoader(context);
+    try {
+      final uploadedId = await _uploadTicketFile(file);
+      if (uploadedId == null) {
+        if (mounted) {
+          Toastbar.showErrorToastbar(
+            'Failed to upload ${p.basename(file.path)}',
+            context,
+          );
+        }
+        return null;
+      }
+      return await _buildAttachmentObject(uploadedId, 'IMAGE');
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+  }
+
+  Future<void> _handleSingleImageSelection(
+    PmisTicketFieldValue f,
+    File? file,
+  ) async {
+    final list = _filesByTfv[f.tfvId]!;
+    final attachments =
+        _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
+    if (file == null) {
+      setState(() {
+        list.clear();
+        attachments.clear();
+        _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+        _imageExternalDataByTfv[f.tfvId] = null;
+      });
+      return;
+    }
+    final attachment = await _uploadImageFileWithChecks(file);
+    if (attachment == null || !mounted) return;
+    setState(() {
+      list
+        ..clear()
+        ..add(file);
+      attachments
+        ..clear()
+        ..add(attachment);
+      _uploadedAttachmentsByTfv[f.tfvId] = attachments;
+      _imageExternalDataByTfv[f.tfvId] = file.path;
+    });
+  }
+
   Future<void> _addUploadFiles(PmisTicketFieldValue f) async {
     final type = _normDataType(f);
     final multi = _allowMultiple(f);
     FilePickerResult? result;
-    if (type == 'IMAGE') {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: multi,
-      );
-    } else if (type == 'VIDEO') {
+    if (type == 'VIDEO') {
       result = await FilePicker.platform.pickFiles(
         type: FileType.video,
         allowMultiple: multi,
@@ -789,73 +940,19 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           onChanged: (v) => setState(() => _dropdownByTfv[f.tfvId] = v),
         );
       case 'IMAGE':
-        final multi = _allowMultiple(f);
-        if (multi) {
-          return _multiFileUploadBlock(
-            f: f,
-            label: label,
-            req: req,
-            addLabel: 'Add photo',
-            emptyHint: 'Upload a File',
-          );
-        }
+        // One [ImageUploadField] per row (same as PM): ignore allowMultipleFiles.
+        final ext = _imageExternalDataByTfv[f.tfvId];
         return ImageUploadField(
+          key: ValueKey<String>(
+            'at_img_${f.tfvId}_${ext?.length ?? 0}_${_filesByTfv[f.tfvId]?.length ?? 0}',
+          ),
           label: label,
           placeholder: 'Upload a File',
           isRequired: req,
           uploadBoxHeight: 168,
           uploadBorderRadius: 8,
-          onImageSelected: (file) async {
-            final list = _filesByTfv[f.tfvId]!;
-            final attachments =
-                _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
-            if (file == null) {
-              setState(() {
-                list.clear();
-                attachments.clear();
-                _uploadedAttachmentsByTfv[f.tfvId] = attachments;
-              });
-              return;
-            }
-
-            final len = await file.length();
-            if (len > _maxUploadBytes) {
-              if (!mounted) return;
-              Toastbar.showErrorToastbar(
-                '${p.basename(file.path)} exceeds 2 MB',
-                context,
-              );
-              return;
-            }
-
-            LoaderWidget.showLoader(context);
-            String? uploadedId;
-            try {
-              uploadedId = await _uploadTicketFile(file);
-            } finally {
-              LoaderWidget.hideLoader();
-            }
-            if (uploadedId == null) {
-              if (!mounted) return;
-              Toastbar.showErrorToastbar(
-                'Failed to upload ${p.basename(file.path)}',
-                context,
-              );
-              return;
-            }
-            final attachment = await _buildAttachmentObject(uploadedId, 'IMAGE');
-
-            setState(() {
-              list
-                ..clear()
-                ..add(file);
-              attachments
-                ..clear()
-                ..add(attachment);
-              _uploadedAttachmentsByTfv[f.tfvId] = attachments;
-            });
-          },
-          externalImageUrl: null,
+          onImageSelected: (file) => _handleSingleImageSelection(f, file),
+          externalImageUrl: ext,
         );
       case 'PDF':
       case 'VIDEO':
