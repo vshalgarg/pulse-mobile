@@ -16,7 +16,8 @@ class PmisActivityTicketService {
   }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
-      final response = await dio.get('$_pathPrefix/$activityTicketId');
+      // final response = await dio.get('$_pathPrefix/$activityTicketId');
+      final response = await dio.get('$_pathPrefix/20854');
 
       if (response.statusCode == 200) {
         final data = response.data;

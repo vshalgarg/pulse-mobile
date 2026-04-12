@@ -76,7 +76,18 @@ class PmisActivityTicketDetail extends Equatable {
         .map((e) => PmisTicketAttachment.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
 
-    final oldDataItems = (json['oldData'] as List<dynamic>? ?? [])
+    final oldDataRaw = json['oldData'];
+    final List<dynamic> oldDataList;
+    if (oldDataRaw == null) {
+      oldDataList = const [];
+    } else if (oldDataRaw is List) {
+      oldDataList = oldDataRaw;
+    } else if (oldDataRaw is Map) {
+      oldDataList = [oldDataRaw];
+    } else {
+      oldDataList = const [];
+    }
+    final oldDataItems = oldDataList
         .map((e) => PmisOldDataItem.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
 

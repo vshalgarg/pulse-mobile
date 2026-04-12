@@ -54,6 +54,13 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   /// Prevents overlapping GPS taps and disables the button while resolving.
   int? _capturingGpsTfvId;
 
+  /// `-1` = today / editable [PmisActivityTicketDetail.ticketFieldValues];
+  /// `>= 0` = index into [PmisActivityTicketDetail.oldData] (read-only).
+  int _historicPickerIndex = -1;
+
+  /// Stashes edits on the live ticket when opening a historic snapshot.
+  _AtFieldSnapshot? _draftWhenLeavingCurrent;
+
   UploadDcoumentsService get _uploadService =>
       UploadDcoumentsService(apiService: ServiceLocator().apiService);
 
@@ -288,6 +295,231 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     final monthIdx = _monthNames.indexOf(monNorm);
     if (monthIdx < 0) return null;
     return DateTime(year, monthIdx + 1, day);
+  }
+
+  /// Parses API date strings (ISO, `dd-MMM-yyyy`, `dd/MM/yyyy`, etc.).
+  static DateTime? _tryParseFlexibleTicketDate(String? raw) {
+    if (raw == null) return null;
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    final iso = DateTime.tryParse(t);
+    if (iso != null) return iso;
+    final ddMmm = _tryParseDisplayDate(t);
+    if (ddMmm != null) return ddMmm;
+    final m = RegExp(r'^(\d{1,2})/(\d{1,2})/(\d{4})').firstMatch(t);
+    if (m != null) {
+      final day = int.tryParse(m.group(1)!);
+      final month = int.tryParse(m.group(2)!);
+      final year = int.tryParse(m.group(3)!);
+      if (day != null && month != null && year != null) {
+        return DateTime(year, month, day);
+      }
+    }
+    return null;
+  }
+
+  bool get _hasHistoricDatePicker => widget.detail.oldData.isNotEmpty;
+
+  bool get _isViewingEditableTicket => _historicPickerIndex < 0;
+
+  List<int> _orderedOldDataIndices() {
+    final entries = List.generate(
+      widget.detail.oldData.length,
+      (i) => MapEntry(i, widget.detail.oldData[i]),
+    );
+    entries.sort((a, b) {
+      final da = _tryParseFlexibleTicketDate(a.value.actualStartDt);
+      final db = _tryParseFlexibleTicketDate(b.value.actualStartDt);
+      if (da == null && db == null) return 0;
+      if (da == null) return 1;
+      if (db == null) return -1;
+      return db.compareTo(da);
+    });
+    return entries.map((e) => e.key).toList();
+  }
+
+  String _historicRowLabel(PmisOldDataItem item, int ordinalInMenu) {
+    final raw = item.actualStartDt?.trim();
+    if (raw == null || raw.isEmpty) {
+      return 'Record ${ordinalInMenu + 1}';
+    }
+    final d = _tryParseFlexibleTicketDate(raw);
+    if (d != null) {
+      return _formatDisplayDate(d);
+    }
+    return raw;
+  }
+
+  _AtFieldSnapshot _captureFieldSnapshot() {
+    return _AtFieldSnapshot(
+      textByTfv: {for (final e in _textByTfv.entries) e.key: e.value.text},
+      dropdownByTfv: Map<int, String?>.from(_dropdownByTfv),
+      uploadedAttachmentsByTfv: {
+        for (final e in _uploadedAttachmentsByTfv.entries)
+          e.key: e.value.map((m) => Map<String, dynamic>.from(m)).toList(),
+      },
+      filesByTfv: {
+        for (final e in _filesByTfv.entries) e.key: List<File>.from(e.value),
+      },
+      imageExternalDataByTfv: Map<int, String?>.from(_imageExternalDataByTfv),
+    );
+  }
+
+  void _applyFieldSnapshot(_AtFieldSnapshot s) {
+    for (final e in s.textByTfv.entries) {
+      final c = _textByTfv[e.key];
+      if (c != null) c.text = e.value;
+    }
+    _dropdownByTfv
+      ..clear()
+      ..addAll(s.dropdownByTfv);
+    _uploadedAttachmentsByTfv
+      ..clear()
+      ..addAll({
+        for (final e in s.uploadedAttachmentsByTfv.entries)
+          e.key: e.value.map((m) => Map<String, dynamic>.from(m)).toList(),
+      });
+    _filesByTfv
+      ..clear()
+      ..addAll({
+        for (final e in s.filesByTfv.entries) e.key: List<File>.from(e.value),
+      });
+    _imageExternalDataByTfv
+      ..clear()
+      ..addAll(s.imageExternalDataByTfv);
+  }
+
+  void _rebindFields(List<PmisTicketFieldValue> source) {
+    _capturingGpsTfvId = null;
+    for (final c in _textByTfv.values) {
+      c.dispose();
+    }
+    _textByTfv.clear();
+    _dropdownByTfv.clear();
+    _filesByTfv.clear();
+    _uploadedAttachmentsByTfv.clear();
+    _imageExternalDataByTfv.clear();
+
+    _sortedFields = List<PmisTicketFieldValue>.from(source)
+      ..sort((a, b) => (a.seqNo ?? 0).compareTo(b.seqNo ?? 0));
+
+    for (final f in _sortedFields) {
+      _textByTfv[f.tfvId] = TextEditingController(text: _initialText(f));
+      final type = _normDataType(f);
+      if (type == 'DROPDOWN') {
+        final v = f.valText?.toString().trim();
+        _dropdownByTfv[f.tfvId] =
+            (v != null && v.isNotEmpty) ? v : null;
+      }
+      if (_isUploadType(type)) {
+        _filesByTfv[f.tfvId] = [];
+        _uploadedAttachmentsByTfv[f.tfvId] = f.attachments
+            .map((m) => Map<String, dynamic>.from(m))
+            .toList();
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final f in _sortedFields) {
+        if (_normDataType(f) == 'IMAGE') {
+          _loadExistingActivityTicketImage(f);
+        }
+      }
+    });
+  }
+
+  void _onHistoricPickerChanged(int? newIndex) {
+    if (newIndex == null) return;
+    final prev = _historicPickerIndex;
+    if (newIndex == prev) return;
+
+    if (prev < 0 && newIndex >= 0) {
+      _draftWhenLeavingCurrent = _captureFieldSnapshot();
+    }
+
+    setState(() {
+      _historicPickerIndex = newIndex;
+      if (newIndex < 0) {
+        _rebindFields(widget.detail.ticketFieldValues);
+        final draft = _draftWhenLeavingCurrent;
+        if (draft != null) {
+          _applyFieldSnapshot(draft);
+        }
+        _draftWhenLeavingCurrent = null;
+      } else {
+        _rebindFields(widget.detail.oldData[newIndex].ticketFieldValues);
+      }
+    });
+  }
+
+  Widget _buildHistoricDatePicker() {
+    final todayLabel = _formatDisplayDate(DateTime.now());
+    final ordered = _orderedOldDataIndices();
+    final labels = <String>[todayLabel];
+    for (var o = 0; o < ordered.length; o++) {
+      final idx = ordered[o];
+      labels.add(_historicRowLabel(widget.detail.oldData[idx], o));
+    }
+    final counts = <String, int>{};
+    for (var i = 0; i < labels.length; i++) {
+      final base = labels[i];
+      final c = (counts[base] ?? 0) + 1;
+      counts[base] = c;
+      if (c > 1) {
+        labels[i] = '$base ($c)';
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          "Choose a date to view that day's activities.",
+          style: TextStyle(
+            color: AppColors.white.withValues(alpha: 0.95),
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            fontFamily: poppins,
+            height: 1.35,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              isExpanded: true,
+              value: _historicPickerIndex,
+              icon: const Icon(Icons.keyboard_arrow_down, color: Color(0xFF555555)),
+              borderRadius: BorderRadius.circular(8),
+              style: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF555555),
+                fontFamily: poppins,
+              ),
+              items: [
+                DropdownMenuItem<int>(
+                  value: -1,
+                  child: Text(labels[0]),
+                ),
+                for (var o = 0; o < ordered.length; o++)
+                  DropdownMenuItem<int>(
+                    value: ordered[o],
+                    child: Text(labels[o + 1]),
+                  ),
+              ],
+              onChanged: _onHistoricPickerChanged,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   List<String> _dropdownItems(PmisTicketFieldValue f) {
@@ -1085,7 +1317,10 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        
+                        if (_hasHistoricDatePicker) ...[
+                          _buildHistoricDatePicker(),
+                          const SizedBox(height: 16),
+                        ],
                         if (fields.isEmpty)
                           Container(
                             padding: const EdgeInsets.all(20),
@@ -1112,10 +1347,20 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                             ),
                           )
                         else
-                          ...fields.map(
-                            (f) => Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: _buildField(f),
+                          IgnorePointer(
+                            ignoring: !_isViewingEditableTicket,
+                            child: Opacity(
+                              opacity: _isViewingEditableTicket ? 1.0 : 0.88,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  for (final f in fields)
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 16),
+                                      child: _buildField(f),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                       ],
@@ -1164,7 +1409,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                             ),
                             elevation: 0,
                           ),
-                          onPressed: _onSubmit,
+                          onPressed:
+                              _isViewingEditableTicket ? _onSubmit : null,
                           child: const Text(
                             'Submit',
                             style: TextStyle(
@@ -1185,6 +1431,22 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       ),
     );
   }
+}
+
+class _AtFieldSnapshot {
+  final Map<int, String> textByTfv;
+  final Map<int, String?> dropdownByTfv;
+  final Map<int, List<Map<String, dynamic>>> uploadedAttachmentsByTfv;
+  final Map<int, List<File>> filesByTfv;
+  final Map<int, String?> imageExternalDataByTfv;
+
+  _AtFieldSnapshot({
+    required this.textByTfv,
+    required this.dropdownByTfv,
+    required this.uploadedAttachmentsByTfv,
+    required this.filesByTfv,
+    required this.imageExternalDataByTfv,
+  });
 }
 
 class _FieldLabel extends StatelessWidget {

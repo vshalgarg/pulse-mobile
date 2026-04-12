@@ -20,9 +20,6 @@ class ProjectActivitiesScreen extends StatefulWidget {
   /// Breadcrumb line under the app bar (e.g. `Project > … > Activities`).
   final String breadcrumbText;
 
-  /// `pmis/api/v1/project-plan/activity-ticket/{id}` — used when opening Approvals.
-  static const int activityTicketApiId = 12372;
-
   /// Context rows in the dark band; if null, shows `Project ID : [projectId]`.
   final List<PmisHeaderDetailLine>? headerDetailLines;
 
@@ -261,11 +258,22 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                           },
                           onTap: () {
                             final a = activities[index];
+                            final ticketId = a.atId;
+                            if (ticketId == null) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Activity ticket is not available for this activity',
+                                  ),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                              return;
+                            }
                             Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (_) => ActivityTicketCheckerListScreen(
-                                  activityTicketId: ProjectActivitiesScreen
-                                      .activityTicketApiId,
+                                  activityTicketId: ticketId,
                                   activityName: a.activityName,
                                   summaryCardTitle:
                                       a.subModuleName.trim().isNotEmpty
