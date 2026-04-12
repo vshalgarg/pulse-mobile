@@ -25,6 +25,10 @@ class CustomFileUploadNew extends StatelessWidget {
   /// instead of [FileType.any] (which can default to gallery/images on some devices).
   final List<String>? pickAllowedExtensions;
 
+  /// When true, opens the system video picker ([FileType.video]). Takes precedence
+  /// over [pickAllowedExtensions].
+  final bool useVideoPicker;
+
   const CustomFileUploadNew({
     super.key,
     this.label,
@@ -42,20 +46,29 @@ class CustomFileUploadNew extends StatelessWidget {
     this.onServerAttachmentClicked,
     this.onServerAttachmentDeleted,
     this.pickAllowedExtensions,
+    this.useVideoPicker = false,
   });
 
   Future<void> _pickFile(BuildContext context) async {
-    final exts = pickAllowedExtensions;
-    final FilePickerResult? result = (exts != null && exts.isNotEmpty)
-        ? await FilePicker.platform.pickFiles(
-                type: FileType.custom,
-                allowedExtensions: exts,
-                allowMultiple: false,
-              )
-            : await FilePicker.platform.pickFiles(
-                type: FileType.any,
-                allowMultiple: false,
-              );
+    final FilePickerResult? result;
+    if (useVideoPicker) {
+      result = await FilePicker.platform.pickFiles(
+        type: FileType.video,
+        allowMultiple: false,
+      );
+    } else {
+      final exts = pickAllowedExtensions;
+      result = (exts != null && exts.isNotEmpty)
+          ? await FilePicker.platform.pickFiles(
+              type: FileType.custom,
+              allowedExtensions: exts,
+              allowMultiple: false,
+            )
+          : await FilePicker.platform.pickFiles(
+              type: FileType.any,
+              allowMultiple: false,
+            );
+    }
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);

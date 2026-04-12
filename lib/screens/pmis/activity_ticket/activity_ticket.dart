@@ -19,7 +19,6 @@ import 'package:app/services/service_locator.dart';
 import 'package:app/services/upload_dcouments.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
@@ -68,11 +67,6 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     final c = f.configJson;
     if (c is Map) return Map<String, dynamic>.from(c);
     return const <String, dynamic>{};
-  }
-
-  static bool _allowMultiple(PmisTicketFieldValue f) {
-    final m = _configMap(f)['allowMultipleFiles'];
-    return m == true || m == 1 || m?.toString().toLowerCase() == 'true';
   }
 
   @override
@@ -452,99 +446,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     });
   }
 
-  Future<void> _addUploadFiles(PmisTicketFieldValue f) async {
-    final type = _normDataType(f);
-    final multi = _allowMultiple(f);
-    FilePickerResult? result;
-    if (type == 'VIDEO') {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.video,
-        allowMultiple: multi,
-      );
-    }
-    if (result == null || !mounted) return;
-
-    final paths =
-        result.files.map((e) => e.path).whereType<String>().toList();
-    final valid = <File>[];
-    for (final path in paths) {
-      final file = File(path);
-      final len = await file.length();
-      if (len > _maxUploadBytes) {
-        if (!mounted) return;
-        Toastbar.showErrorToastbar(
-          '${p.basename(path)} exceeds 2 MB',
-          context,
-        );
-        continue;
-      }
-      valid.add(file);
-    }
-    if (valid.isEmpty) return;
-
-    if (_isUploadType(type)) {
-      LoaderWidget.showLoader(context);
-      final uploadedFiles = <File>[];
-      final uploadedAttachments = <Map<String, dynamic>>[];
-      try {
-        for (final file in valid) {
-          final uploadedId = await _uploadTicketFile(file);
-          if (uploadedId == null) {
-            if (!mounted) return;
-            Toastbar.showErrorToastbar(
-              'Failed to upload ${p.basename(file.path)}',
-              context,
-            );
-            continue;
-          }
-          uploadedFiles.add(file);
-          uploadedAttachments.add(
-            await _buildAttachmentObject(uploadedId, type),
-          );
-        }
-      } finally {
-        LoaderWidget.hideLoader();
-      }
-
-      if (uploadedFiles.isEmpty) return;
-      setState(() {
-        final list = _filesByTfv[f.tfvId]!;
-        final attachments =
-            _uploadedAttachmentsByTfv[f.tfvId] ?? <Map<String, dynamic>>[];
-        if (!multi) {
-          list.clear();
-          attachments.clear();
-        }
-        if (multi) {
-          list.addAll(uploadedFiles);
-          attachments.addAll(uploadedAttachments);
-        } else {
-          list
-            ..clear()
-            ..add(uploadedFiles.first);
-          attachments
-            ..clear()
-            ..add(uploadedAttachments.first);
-        }
-        _uploadedAttachmentsByTfv[f.tfvId] = attachments;
-      });
-      return;
-    }
-
-    setState(() {
-      final list = _filesByTfv[f.tfvId]!;
-      if (!multi) list.clear();
-      if (multi) {
-        list.addAll(valid);
-      } else {
-        list
-          ..clear()
-          ..add(valid.first);
-      }
-    });
-  }
-
-  /// One file per row; new pick replaces the previous (same for PDF and single VIDEO).
+  /// One file per row; new pick replaces the previous (PDF, video).
   Widget _buildSingleTicketFileUpload({
     required PmisTicketFieldValue f,
     required String label,
@@ -553,6 +455,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     required String acceptedFileTypes,
     List<String>? pickAllowedExtensions,
     String? placeholder,
+    bool useVideoPicker = false,
   }) {
     final files = _filesByTfv[f.tfvId]!;
     return CustomFileUploadNew(
@@ -566,6 +469,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       acceptedFileTypes: acceptedFileTypes,
       maxSizeText: '(Max Size: 2MB)',
       pickAllowedExtensions: pickAllowedExtensions,
+      useVideoPicker: useVideoPicker,
       selectedFile: files.isNotEmpty ? files.first : null,
       uploadedFiles: const [],
       onFileSelected: (file) async {
@@ -1056,16 +960,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           placeholder: 'Add PDF',
         );
       case 'VIDEO':
-        final multi = _allowMultiple(f);
-        if (multi) {
-          return _multiFileUploadBlock(
-            f: f,
-            label: label,
-            req: req,
-            addLabel: 'Add video',
-            emptyHint: 'Upload a File',
-          );
-        }
+        // Same UX for every video row: system video picker only, one file, replace on re-pick.
         return _buildSingleTicketFileUpload(
           f: f,
           label: label,
@@ -1073,6 +968,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           fileTypeForAttachment: 'VIDEO',
           acceptedFileTypes: '(Video only)',
           pickAllowedExtensions: null,
+          useVideoPicker: true,
+          placeholder: 'Add video',
         );
       case 'COORDINATES':
         final isGps =
@@ -1123,108 +1020,6 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           inputBorderRadius: 8,
         );
     }
-  }
-
-  Widget _multiFileUploadBlock({
-    required PmisTicketFieldValue f,
-    required String label,
-    required bool req,
-    required String addLabel,
-    required String emptyHint,
-  }) {
-    final files = _filesByTfv[f.tfvId]!;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _FieldLabel(label: label, isRequired: req),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () => _addUploadFiles(f),
-          child: Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 140),
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey.shade300),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.upload_file, color: AppColors.color555555),
-                const SizedBox(height: 8),
-                Text(
-                  files.isEmpty ? emptyHint : '$addLabel (tap to add more)',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontFamily: fontFamilyMontserrat,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.color555555,
-                  ),
-                ),
-                const Text(
-                  '(Max 2 MB per file)',
-                  style: TextStyle(
-                    fontFamily: fontFamilyMontserrat,
-                    fontSize: 11,
-                    color: AppColors.color555555,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        if (files.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          ...files.map(
-            (file) => Container(
-              margin: const EdgeInsets.only(bottom: 6),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      p.basename(file.path),
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: AppColors.color555555,
-                        fontFamily: fontFamilyMontserrat,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => setState(() {
-                      final index = files.indexOf(file);
-                      if (index >= 0) {
-                        files.removeAt(index);
-                        if (_isUploadType(_normDataType(f))) {
-                          final attachments =
-                              _uploadedAttachmentsByTfv[f.tfvId] ??
-                              <Map<String, dynamic>>[];
-                          if (index < attachments.length) {
-                            attachments.removeAt(index);
-                          }
-                          _uploadedAttachmentsByTfv[f.tfvId] = attachments;
-                        }
-                      }
-                    }),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
-    );
   }
 
   @override
