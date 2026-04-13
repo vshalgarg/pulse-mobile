@@ -25,7 +25,11 @@ class ActivityCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = activity.currentStatus.trim().toLowerCase() == 'completed';
+    final approvalChipText = activity.approvalStatus?.trim() ?? '';
+    final activityChipText = activity.activityStatus?.trim() ?? '';
+    final showApprovalChip = approvalChipText.isNotEmpty;
+    final showActivityChip = activityChipText.isNotEmpty;
+    final showStatusSection = showApprovalChip || showActivityChip;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -40,57 +44,63 @@ class ActivityCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFD7E6FF),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          'Approvals Pending',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: poppins,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFF2F6BFF),
+                if (showStatusSection) ...[
+                  Row(
+                    children: [
+                      if (showApprovalChip)
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFD7E6FF),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              approvalChipText,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: poppins,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: const Color(0xFF2F6BFF),
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFF9F43),
-                          borderRadius: BorderRadius.all(Radius.circular(999)),
-                        ),
-                        child: Text(
-                          isCompleted ? 'Approved' : 'Partially Approved',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: poppins,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.white,
+                      if (showApprovalChip && showActivityChip)
+                        const SizedBox(width: 12),
+                      if (showActivityChip)
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFF9F43),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(999),
+                              ),
+                            ),
+                            child: Text(
+                              activityChipText,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontFamily: poppins,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.white,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                ],
 
                 Text(
                   activity.activityName,

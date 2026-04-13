@@ -5,6 +5,8 @@ class PmisProjectActivity extends Equatable {
   final String moduleName;
   final String subModuleName;
   final String activityName;
+  final String? approvalStatus;
+  final String? activityStatus;
   final String currentStatus;
   final String status;
   final String plannedStartDt;
@@ -26,6 +28,8 @@ class PmisProjectActivity extends Equatable {
     required this.moduleName,
     required this.subModuleName,
     required this.activityName,
+    this.approvalStatus,
+    this.activityStatus,
     required this.currentStatus,
     required this.status,
     required this.plannedStartDt,
@@ -42,6 +46,17 @@ class PmisProjectActivity extends Equatable {
   });
 
   factory PmisProjectActivity.fromJson(Map<String, dynamic> json) {
+    String parseStringFromKeys(List<String> keys) {
+      for (final key in keys) {
+        if (!json.containsKey(key)) continue;
+        final value = json[key];
+        if (value == null) continue;
+        final text = value.toString().trim();
+        if (text.isNotEmpty && text.toLowerCase() != 'null') return text;
+      }
+      return '';
+    }
+
     int? parseIntNullable(dynamic value) {
       if (value == null) return null;
       return int.tryParse(value.toString());
@@ -63,6 +78,18 @@ class PmisProjectActivity extends Equatable {
       moduleName: (json['module_name'] ?? '').toString(),
       subModuleName: (json['sub_module_name'] ?? '').toString(),
       activityName: (json['activity_name'] ?? '').toString(),
+      approvalStatus: parseStringFromKeys([
+        'approval_status',
+        'approvalStatus',
+        'approvalstatus',
+      ]),
+      activityStatus: parseStringFromKeys([
+        'activity_status',
+        'activityStatus',
+        'activitystatus',
+        'current_status',
+        'status',
+      ]),
       currentStatus: (json['current_status'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
       plannedStartDt: (json['planned_start_dt'] ?? '').toString(),
@@ -94,6 +121,8 @@ class PmisProjectActivity extends Equatable {
         moduleName,
         subModuleName,
         activityName,
+        approvalStatus,
+        activityStatus,
         currentStatus,
         status,
         plannedStartDt,
