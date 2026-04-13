@@ -13,11 +13,13 @@ import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/pmis_activity_ticket_model.dart';
 import 'package:app/services/document_bytes_save_service.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/upload_dcouments.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:dio/dio.dart';
@@ -30,6 +32,7 @@ import 'package:path_provider/path_provider.dart';
 /// Main activity ticket flow screen (after approvals / checker list).
 /// Renders [PmisActivityTicketDetail.ticketFieldValues] by [subActivityDataType].
 class ActivityTicketScreen extends StatefulWidget {
+  final int activityTicketId;
   final String breadcrumbText;
   final String activityName;
   final String? summaryCardTitle;
@@ -37,6 +40,7 @@ class ActivityTicketScreen extends StatefulWidget {
 
   const ActivityTicketScreen({
     super.key,
+    required this.activityTicketId,
     required this.breadcrumbText,
     required this.activityName,
     this.summaryCardTitle,
@@ -1023,10 +1027,25 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       id: '0',
       activityType: 'AT',
     );
-    if (!result.isSuccess || (result.data ?? '').trim().isEmpty) {
-      return null;
+    if (result.isSuccess && (result.data ?? '').trim().isNotEmpty) {
+      return (result.data ?? '').trim();
     }
-    return (result.data ?? '').trim();
+    // Offline fallback (same idea as Site Visit): keep media locally and use
+    // LOCAL_IMAGE_ID_* in payload, then replace with server id on sync/submit.
+    try {
+      final localId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
+            file.path,
+            ActivityTypeEnum.activityTicket,
+            false,
+            widget.activityTicketId.toString(),
+          );
+      if (localId.contains('LOCAL_IMAGE_ID')) {
+        return localId;
+      }
+    } catch (e) {
+      Logger.errorLog('[ActivityTicket] local upload fallback failed: $e');
+    }
+    return null;
   }
 
   Future<Map<String, dynamic>> _buildAttachmentObject(
@@ -1053,10 +1072,154 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'capturedDt': _nowForBackend(),
       // Backend FK: 0 is not a valid pmis_module_mst id; Swagger often omits this.
       'taggedMmId': null,
-      'attachmentId': int.tryParse(uploadedId) ?? 0,
+      'attachmentId': int.tryParse(uploadedId) ?? uploadedId,
       'isActive': true,
       'remarks': '',
     };
+  }
+
+  Future<Map<String, dynamic>> _preparePayloadForPost(
+    Map<String, dynamic> payload,
+  ) async {
+    final copy = Map<String, dynamic>.from(
+      jsonDecode(jsonEncode(payload)) as Map,
+    );
+
+    Future<void> resolveAttachmentList(dynamic list) async {
+      if (list is! List) return;
+      for (var i = 0; i < list.length; i++) {
+        final e = list[i];
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        final rawId = _rawAttachmentIdFromMap(m)?.trim() ?? '';
+        if (rawId.contains('LOCAL_IMAGE_ID')) {
+          final sid = await ServiceLocator()
+              .imageUploadService
+              .getOrUploadPmisDocumentIdFromUniqueId(rawId);
+          if (sid != null && sid.isNotEmpty) {
+            m['attachmentId'] = int.tryParse(sid) ?? sid;
+          }
+        }
+        list[i] = m;
+      }
+    }
+
+    Future<void> resolveFieldList(dynamic list) async {
+      if (list is! List) return;
+      for (var i = 0; i < list.length; i++) {
+        final e = list[i];
+        if (e is! Map) continue;
+        final f = Map<String, dynamic>.from(e);
+        await resolveAttachmentList(f['attachments']);
+
+        final valText = f['valText']?.toString() ?? '';
+        if (valText.isNotEmpty) {
+          final out = <String>[];
+          for (final part in valText.split(',')) {
+            final p = part.trim();
+            if (p.isEmpty) continue;
+            if (p.contains('LOCAL_IMAGE_ID')) {
+              final sid = await ServiceLocator()
+                  .imageUploadService
+                  .getOrUploadPmisDocumentIdFromUniqueId(p);
+              out.add((sid != null && sid.isNotEmpty) ? sid : p);
+            } else {
+              out.add(p);
+            }
+          }
+          f['valText'] = out.join(',');
+        }
+        list[i] = f;
+      }
+    }
+
+    await resolveFieldList(copy['ticketFieldValues']);
+    final oldData = copy['oldData'];
+    if (oldData is List) {
+      for (final item in oldData) {
+        if (item is! Map) continue;
+        await resolveFieldList(item['ticketFieldValues']);
+      }
+    }
+    await resolveAttachmentList(copy['ticketAttachments']);
+    return copy;
+  }
+
+  Future<void> _savePendingActivityTicketSync(
+    Map<String, dynamic> payload,
+  ) async {
+    final requestId = 'pmis_activity_ticket_${widget.activityTicketId}';
+    final pendingPayload = Map<String, dynamic>.from(payload)
+      ..['_localActivityTicketId'] = widget.activityTicketId;
+    await ServiceLocator().pendingRequestService.savePendingRequest(
+      requestId: requestId,
+      url: 'pmis/api/v1/project-plan/activity-ticket',
+      headers: const {},
+      jsonEncodedRequestData: jsonEncode(<dynamic>[pendingPayload]),
+    );
+  }
+
+  Future<void> _persistPayloadOfflineToSqlite(
+    Map<String, dynamic> payload,
+  ) async {
+    final schId = widget.activityTicketId.toString();
+    final dataService = ServiceLocator().centralAssetAuditDataService;
+    final existing = await dataService.getRawApiData(schId);
+    if (existing != null) {
+      await dataService.updateRawApiData(
+        siteAuditSchId: schId,
+        apiData: payload,
+      );
+      return;
+    }
+
+    await dataService.saveRawApiData(
+      siteAuditSchId: schId,
+      siteType: 'Solar',
+      auditSchId: '',
+      pvTicketId: 'PMIS-${widget.activityTicketId}',
+      siteCode: widget.activityName,
+      cluster: widget.summaryCardTitle ?? widget.activityName,
+      operator: '',
+      raisedDt: '',
+      dueDt: '',
+      status: payload['currentStatus']?.toString() ?? widget.detail.currentStatus,
+      activityType: ActivityTypeEnum.activityTicket,
+      isDownloaded: true,
+      latitude: 0,
+      longitude: 0,
+      apiData: payload,
+    );
+  }
+
+  bool _fieldHasLocalOfflineAttachment(PmisTicketFieldValue f) {
+    final attachments =
+        _uploadedAttachmentsByTfv[f.tfvId] ?? const <Map<String, dynamic>>[];
+    for (final a in attachments) {
+      final id = _rawAttachmentIdFromMap(a) ?? '';
+      if (id.contains('LOCAL_IMAGE_ID')) return true;
+    }
+    final valText = _valTextForField(f);
+    for (final p in valText.split(',')) {
+      if (p.trim().contains('LOCAL_IMAGE_ID')) return true;
+    }
+    return false;
+  }
+
+  Widget _offlineSavedIndicator(PmisTicketFieldValue f) {
+    if (!_fieldHasLocalOfflineAttachment(f)) return const SizedBox.shrink();
+    return const Padding(
+      padding: EdgeInsets.only(top: 6),
+      child: Text(
+        'Saved locally (offline)',
+        style: TextStyle(
+          color: Color(0xFFFFD54F),
+          fontFamily: poppins,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
   }
 
   /// Upload + build attachment map for image fields; shows loader and toasts.
@@ -1496,8 +1659,22 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
     LoaderWidget.showLoader(context);
     try {
+      final isOnline = await ConnectivityHelper.isConnected();
+      if (!isOnline) {
+        await _persistPayloadOfflineToSqlite(postPayload);
+        await _savePendingActivityTicketSync(postPayload);
+        if (!mounted) return;
+        Toastbar.showSuccessToastbar(
+          'Activity ticket saved locally (offline mode)',
+          context,
+        );
+        return;
+      }
+
+      final payloadToPost = await _preparePayloadForPost(postPayload);
+      if (!mounted) return;
       final repository = AppConfig.of(context).pmisActivityTicketRepository;
-      final response = await repository.postActivityTicket(payload: postPayload);
+      final response = await repository.postActivityTicket(payload: payloadToPost);
       final responseJson = const JsonEncoder.withIndent('  ')
           .convert(response.data ?? <String, dynamic>{});
       Logger.infoLog('[AT_POST_RESPONSE_START]');
@@ -1515,11 +1692,29 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
       if (!mounted) return;
       if (response.isSuccess) {
+        await _persistPayloadOfflineToSqlite(payloadToPost);
+        await ServiceLocator().pendingRequestService.deleteRequest(
+          'pmis_activity_ticket_${widget.activityTicketId}',
+        );
+        if (!mounted) return;
         Toastbar.showSuccessToastbar('Activity ticket saved', context);
         // Stay on activity ticket screen; only the close dialog was dismissed on Save.
       } else {
+        await _persistPayloadOfflineToSqlite(postPayload);
+        await _savePendingActivityTicketSync(postPayload);
+        if (!mounted) return;
         Toastbar.showErrorToastbar(
-          response.errorMessage ?? 'Failed to save activity ticket',
+          response.errorMessage ??
+              'Failed to save on server. Saved locally (offline mode)',
+          context,
+        );
+      }
+    } catch (e) {
+      await _persistPayloadOfflineToSqlite(postPayload);
+      await _savePendingActivityTicketSync(postPayload);
+      if (mounted) {
+        Toastbar.showErrorToastbar(
+          'Save failed online. Saved locally (offline mode)',
           context,
         );
       }
@@ -1639,19 +1834,25 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         final ext = _imageExternalDataByTfv[f.tfvId];
         final loadingServer =
             _imageLoadingFromServerTfvIds.contains(f.tfvId);
-        return ImageUploadField(
-          key: ValueKey<String>(
-            'at_img_${f.tfvId}_${ext?.length ?? 0}_${_filesByTfv[f.tfvId]?.length ?? 0}',
-          ),
-          label: label,
-          placeholder: 'Upload a File',
-          isRequired: req,
-          isDisabled: !editable,
-          uploadBoxHeight: 168,
-          uploadBorderRadius: 8,
-          onImageSelected: (file) => _handleSingleImageSelection(f, file),
-          externalImageUrl: ext,
-          externalImageLoading: loadingServer,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ImageUploadField(
+              key: ValueKey<String>(
+                'at_img_${f.tfvId}_${ext?.length ?? 0}_${_filesByTfv[f.tfvId]?.length ?? 0}',
+              ),
+              label: label,
+              placeholder: 'Upload a File',
+              isRequired: req,
+              isDisabled: !editable,
+              uploadBoxHeight: 168,
+              uploadBorderRadius: 8,
+              onImageSelected: (file) => _handleSingleImageSelection(f, file),
+              externalImageUrl: ext,
+              externalImageLoading: loadingServer,
+            ),
+            _offlineSavedIndicator(f),
+          ],
         );
       case 'PDF':
         // Same UX for every PDF row: document picker (PDF only), one file, replace on re-pick.
@@ -1690,6 +1891,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                 ),
               ),
             ],
+            _offlineSavedIndicator(f),
           ],
         );
       case 'VIDEO':
@@ -1730,6 +1932,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
                 ),
               ),
             ],
+            _offlineSavedIndicator(f),
           ],
         );
       case 'COORDINATES':

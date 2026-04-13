@@ -469,6 +469,61 @@ class ImageUploadService {
     return null;
   }
 
+  /// PMIS helper: upload a locally stored `LOCAL_IMAGE_ID_*` file via
+  /// `api/v1/common/UploadDocuments` and return `docId`.
+  /// Avoids the mobile uploads endpoint for PMIS ticket attachments.
+  Future<String?> getOrUploadPmisDocumentIdFromUniqueId(String uniqueId) async {
+    try {
+      final imageModel = await _getByUniqueIdFromSQLite(uniqueId);
+      final existingServerId = imageModel?.serverId?.trim();
+      if (existingServerId != null && existingServerId.isNotEmpty) {
+        return existingServerId;
+      }
+
+      if (!await ConnectivityHelper.isConnected()) {
+        return null;
+      }
+
+      final filePath = await getStoredFilePathUsingUniqueId(uniqueId);
+      if (filePath == null || filePath.isEmpty) {
+        Logger.errorLog(
+          '❌ PMIS UploadDocuments: local file missing for $uniqueId',
+        );
+        return null;
+      }
+
+      final multipartFile = await MultipartFile.fromFile(
+        filePath,
+        filename: basename(filePath),
+      );
+
+      final result = await _apiService.post<Map<String, dynamic>>(
+        path: 'api/v1/common/UploadDocuments',
+        data: const <String, dynamic>{
+          'activityType': 'AT',
+          'docId': '0',
+        },
+        files: [multipartFile],
+        useFormDataFormat: true,
+      );
+
+      if (!result.isSuccess || result.data == null) {
+        Logger.errorLog(
+          '❌ PMIS UploadDocuments failed for $uniqueId: ${result.errorMessage}',
+        );
+        return null;
+      }
+
+      final docId = result.data?['docId']?.toString().trim() ?? '';
+      if (docId.isEmpty || docId == '0') return null;
+      await _updateServerId(uniqueId, docId);
+      return docId;
+    } catch (e) {
+      Logger.errorLog('❌ getOrUploadPmisDocumentIdFromUniqueId: $e');
+      return null;
+    }
+  }
+
   /// Save image to SQLite
   Future<void> _saveImageToSQLite({
     required String uniqueId,

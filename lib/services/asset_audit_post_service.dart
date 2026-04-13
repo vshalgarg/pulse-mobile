@@ -347,6 +347,10 @@ class AssetAuditPostService {
         // Special handling for incident tickets - expects single object, not array
         await _syncIncidentTicketRequestWhenOnline(copiedRequests, requestId);
         return;
+      } else if (url.contains('pmis/api/v1/project-plan/activity-ticket')) {
+        // PMIS activity ticket sync from offline pending requests.
+        await _syncPmisActivityTicketRequestWhenOnline(copiedRequests, requestId);
+        return;
       } else if (url.contains('api/v1/mobile/assetUpload') || url.contains('assetUpload')) {
         // Special handling for asset upload - expects single object, not array
         await _syncAssetUploadRequestWhenOnline(copiedRequests, requestId);
@@ -358,6 +362,105 @@ class AssetAuditPostService {
       }
     } catch (e) {
       Logger.errorLog(e.toString());
+      rethrow;
+    }
+  }
+
+  Future<void> _syncPmisActivityTicketRequestWhenOnline(
+    List<dynamic> requests,
+    String requestId,
+  ) async {
+    try {
+      if (requests.isEmpty) {
+        Logger.errorLog('PMIS activity ticket requests list is empty!');
+        return;
+      }
+      final first = requests.first;
+      final request = first is Map<String, dynamic>
+          ? first
+          : Map<String, dynamic>.from(first as Map);
+      final localAtId = int.tryParse(
+        request['_localActivityTicketId']?.toString() ?? '',
+      );
+      request.remove('_localActivityTicketId');
+
+      Future<void> replaceLocalIds(dynamic node) async {
+        if (node is Map<String, dynamic>) {
+          for (final entry in node.entries.toList()) {
+            final key = entry.key;
+            final value = entry.value;
+            if (key == 'attachmentId' &&
+                value != null &&
+                value.toString().contains('LOCAL_IMAGE_ID')) {
+              final sid = await ServiceLocator().imageUploadService
+                  .getOrUploadPmisDocumentIdFromUniqueId(value.toString());
+              if (sid != null && sid.toString().trim().isNotEmpty) {
+                node[key] = int.tryParse(sid.toString()) ?? sid.toString();
+              }
+            } else if (key == 'valText' &&
+                value is String &&
+                value.contains('LOCAL_IMAGE_ID')) {
+              final replaced = <String>[];
+              for (final part in value.split(',')) {
+                final p = part.trim();
+                if (!p.contains('LOCAL_IMAGE_ID')) {
+                  replaced.add(p);
+                  continue;
+                }
+                final sid = await ServiceLocator().imageUploadService
+                    .getOrUploadPmisDocumentIdFromUniqueId(p);
+                replaced.add((sid != null && sid.isNotEmpty) ? sid : p);
+              }
+              node[key] = replaced.join(',');
+            } else {
+              await replaceLocalIds(value);
+            }
+          }
+        } else if (node is List) {
+          for (final item in node) {
+            await replaceLocalIds(item);
+          }
+        }
+      }
+
+      await replaceLocalIds(request);
+
+      final response = await ServiceLocator().apiService.post<dynamic>(
+        path: 'pmis/api/v1/project-plan/activity-ticket',
+        data: request,
+        useFormDataFormat: false,
+      );
+
+      if (response.isSuccess) {
+        try {
+          final atId = localAtId ?? int.tryParse(request['atId']?.toString() ?? '');
+          if (atId != null && atId > 0) {
+            final schId = atId.toString();
+            await ServiceLocator().centralAssetAuditDataService.updateRawApiData(
+              siteAuditSchId: schId,
+              apiData: request,
+            );
+            final status = request['currentStatus']?.toString().trim() ?? '';
+            if (status.isNotEmpty) {
+              await ServiceLocator().centralAssetAuditDataService
+                  .updateRawApiDataStatus(
+                siteAuditSchId: schId,
+                status: status,
+              );
+            }
+          }
+        } catch (e) {
+          Logger.errorLog('⚠️ PMIS sync local row update failed: $e');
+        }
+        await ServiceLocator().pendingRequestService.deleteRequest(requestId);
+        Toastbar.showSuccessToastWithoutContext(
+          'PMIS activity ticket synced successfully',
+        );
+      } else {
+        throw Exception(response.errorMessage ?? 'Unknown error from server');
+      }
+    } catch (e) {
+      Logger.errorLog('Error syncing PMIS activity ticket request: $e');
       rethrow;
     }
   }

@@ -55,13 +55,6 @@ class _ActivityTicketCheckerListScreenState
 
   Future<ResponseResult<PmisActivityTicketDetail>> _loadTicket() async {
     try {
-      final offline = await PmisActivityTicketOfflineService.loadOfflineDetail(
-        widget.activityTicketId,
-      );
-      if (offline != null) {
-        return ResponseResult<PmisActivityTicketDetail>.success(offline, 200);
-      }
-
       final config = AppConfig.of(context);
       final res = await config.pmisActivityTicketRepository.getActivityTicket(
         activityTicketId: widget.activityTicketId,
@@ -78,6 +71,27 @@ class _ActivityTicketCheckerListScreenState
       }
       return ResponseResult.error(errorMessage: e.toString());
     }
+  }
+
+  Future<void> _openLatestActivityTicketScreen(
+    PmisActivityTicketDetail detail,
+  ) async {
+    final latestOffline = await PmisActivityTicketOfflineService.loadOfflineDetail(
+      widget.activityTicketId,
+    );
+    if (!mounted) return;
+    final openDetail = latestOffline ?? detail;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => ActivityTicketScreen(
+          activityTicketId: widget.activityTicketId,
+          breadcrumbText: widget.breadcrumbText,
+          activityName: widget.activityName,
+          summaryCardTitle: widget.summaryCardTitle,
+          detail: openDetail,
+        ),
+      ),
+    );
   }
 
   static String _formatPlanDate(String? value) {
@@ -197,20 +211,7 @@ class _ActivityTicketCheckerListScreenState
                                   const Spacer(),
                                   _NextButton(
                                     onPressed: () =>
-                                        Navigator.of(context).push<void>(
-                                          MaterialPageRoute<void>(
-                                            builder: (_) =>
-                                                ActivityTicketScreen(
-                                                  breadcrumbText:
-                                                      widget.breadcrumbText,
-                                                  activityName:
-                                                      widget.activityName,
-                                                  summaryCardTitle:
-                                                      widget.summaryCardTitle,
-                                                  detail: detail,
-                                                ),
-                                          ),
-                                        ),
+                                        _openLatestActivityTicketScreen(detail),
                                   ),
                                 ],
                               ),
@@ -266,17 +267,7 @@ class _ActivityTicketCheckerListScreenState
                               ),
                               _NextButton(
                                 onPressed: () =>
-                                    Navigator.of(context).push<void>(
-                                      MaterialPageRoute<void>(
-                                        builder: (_) => ActivityTicketScreen(
-                                          breadcrumbText: widget.breadcrumbText,
-                                          activityName: widget.activityName,
-                                          summaryCardTitle:
-                                              widget.summaryCardTitle,
-                                          detail: detail,
-                                        ),
-                                      ),
-                                    ),
+                                    _openLatestActivityTicketScreen(detail),
                               ),
                             ],
                           );
