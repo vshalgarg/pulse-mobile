@@ -11,6 +11,7 @@ class ActivityCard extends StatelessWidget {
 
   /// Green check when ticket is in `raw_api_data` like SV download (see TicketCard).
   final bool isOfflineDownloaded;
+  final bool showProjectHierarchy;
 
   const ActivityCard({
     super.key,
@@ -19,6 +20,7 @@ class ActivityCard extends StatelessWidget {
     this.onTap,
     this.onDownloadTap,
     this.isOfflineDownloaded = false,
+    this.showProjectHierarchy = false,
   });
 
   @override
@@ -101,6 +103,14 @@ class ActivityCard extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 14),
+
+                if (showProjectHierarchy) ...[
+                  _infoRow(
+                    label: 'Hierarchy :',
+                    value:
+                        'Project > ${_displayValue(activity.state)} > ${_displayValue(activity.siteName)} > ${_displayValue(activity.moduleName)} > ${_displayValue(activity.subModuleName)} > ${_displayValue(activity.activityName)}',
+                  ),
+                ],
 
                 _infoRow(
                   label: 'State :',

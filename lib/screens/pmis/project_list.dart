@@ -1,6 +1,7 @@
 import 'package:app/bloc/pmis_project_cubit.dart';
 import 'package:app/bloc/pmis_project_state.dart';
 import 'package:app/commonWidgets/pmis_card.dart';
+import 'package:app/commonWidgets/pmis_header.dart';
 import 'package:app/screens/pmis/activities.dart';
 import 'package:app/screens/pmis/pmis_state.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
@@ -143,6 +144,12 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                                   projectId: project.pmId,
                                   appBarTitle: project.projectName,
                                   breadcrumbText: 'Project > Activities',
+                                  headerDetailLines: [
+                                    PmisHeaderDetailLine(
+                                      label: 'Project',
+                                      value: project.projectName,
+                                    ),
+                                  ],
                                   enableDashboardActivitySearch: true,
                                 ),
                               ),

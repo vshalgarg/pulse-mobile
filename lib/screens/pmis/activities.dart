@@ -309,27 +309,6 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
       return;
     }
 
-    // Prefer offline ticket first (same behavior expectation as downloaded SV tickets).
-    final offline = await PmisActivityTicketOfflineService.loadOfflineDetail(
-      ticketId,
-    );
-    if (!mounted) return;
-    if (offline != null) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => ActivityTicketCheckerListScreen(
-            activityTicketId: ticketId,
-            activityName: a.activityName,
-            summaryCardTitle:
-                a.subModuleName.trim().isNotEmpty ? a.subModuleName : null,
-            breadcrumbText: widget.breadcrumbText,
-            preloadedDetail: offline,
-          ),
-        ),
-      );
-      return;
-    }
-
     LoaderWidget.showLoader(context);
     try {
       final config = AppConfig.of(context);
@@ -581,6 +560,10 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                                             _displayedActivities[index];
                                         return ActivityCard(
                                           activity: activity,
+                                          showProjectHierarchy: widget
+                                              .breadcrumbText
+                                              .toLowerCase()
+                                              .contains('project'),
                                           isOfflineDownloaded:
                                               activity.atId != null &&
                                               _offlineDownloadedAtIds.contains(
