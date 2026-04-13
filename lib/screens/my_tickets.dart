@@ -12,6 +12,7 @@ import 'package:app/utils/map_api_field_reader.dart';
 import 'package:app/utils/calculate_distance.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
+import 'package:app/models/pmis_activity_ticket_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:geolocator/geolocator.dart';
@@ -26,6 +27,7 @@ import 'corrective_maintainece/corrective_maintenance_screen.dart';
 import 'energy_reading/energy_reading_screen.dart';
 import 'general_inspection/ginspection_detail.dart';
 import 'incident_ticket/incident_detail_screen.dart';
+import 'pmis/activity_ticket/activity_ticket_checker_list.dart';
 import 'preventive_maintainance/pm_page_render.dart';
 import 'site_visit/site_visit.dart';
 import 'asset_upload/asset_upload_detail_page.dart';
@@ -281,7 +283,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       case ActivityTypeEnum.projectTicket:
         return "Project";
       case ActivityTypeEnum.activityTicket:
-        return "Activity";
+        return "Activities";
     }
   }
 
@@ -761,6 +763,29 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             ),
           ),
         );
+      } else if (ticket.activityType == ActivityTypeEnum.activityTicket) {
+        final detail = PmisActivityTicketDetail.fromJson(
+          Map<String, dynamic>.from(data.apiData),
+        );
+        final title = ticket.siteCode.trim().isNotEmpty
+            ? ticket.siteCode.trim()
+            : 'Activity';
+        final summary = ticket.cluster.trim().isNotEmpty
+            ? ticket.cluster.trim()
+            : null;
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ActivityTicketCheckerListScreen(
+              activityTicketId: int.tryParse(ticket.siteAuditSchId) ?? 0,
+              breadcrumbText: 'My Tickets > Activities',
+              activityName: title,
+              summaryCardTitle: summary,
+              preloadedDetail: detail,
+            ),
+          ),
+        );
       } else {
         AssetAuditNavigationHelper.navigateToFirstAssetAuditScreen(
           siteType: ticket.siteType,
@@ -1153,6 +1178,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       ActivityTypeEnum.generalInspection,
       ActivityTypeEnum.incident,
       ActivityTypeEnum.assetUpload,
+      ActivityTypeEnum.activityTicket,
     ];
 
     return Container(
