@@ -6,11 +6,11 @@ import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
-import 'package:app/models/location_model.dart';
 import 'package:app/models/pmis_project_activity_model.dart';
 import 'package:app/screens/pmis/activity_ticket/activity_ticket_checker_list.dart';
 import 'package:app/services/location_service.dart';
-import 'package:app/services/service_locator.dart';
+import 'package:app/services/pmis_activity_ticket_offline_service.dart';
+import 'package:app/utils/toastbar.dart';
 import 'package:flutter/material.dart';
 
 class ProjectActivitiesScreen extends StatefulWidget {
@@ -54,6 +54,9 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
   List<PmisProjectActivity> _allActivities = [];
   List<PmisProjectActivity> _displayedActivities = [];
 
+  /// PMIS `atId` values present in SQLite `raw_api_data` (activity_type AI).
+  Set<int> _offlineDownloadedAtIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +92,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
         id: widget.projectId,
         latitude: location.latitude,
         longitude: location.longitude,
+        searchText: _searchQuery.trim(),
       );
 
       if (!mounted) return;
@@ -100,15 +104,28 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
               result.errorMessage ?? 'Failed to load activities';
           _allActivities = [];
           _displayedActivities = [];
+          _offlineDownloadedAtIds = {};
         });
         return;
       }
 
       final list = result.data!;
+      final offlineIds = <int>{};
+      for (final a in list) {
+        final id = a.atId;
+        if (id == null) continue;
+        if (await PmisActivityTicketOfflineService.isTicketDownloadedForOffline(
+              id,
+            )) {
+          offlineIds.add(id);
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _loading = false;
         _allActivities = list;
         _displayedActivities = List<PmisProjectActivity>.from(list);
+        _offlineDownloadedAtIds = offlineIds;
       });
     } catch (e) {
       if (!mounted) return;
@@ -117,6 +134,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
         _errorMessage = e.toString();
         _allActivities = [];
         _displayedActivities = [];
+        _offlineDownloadedAtIds = {};
       });
     }
   }
@@ -132,50 +150,33 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
     setState(() => _searchQuery = trimmed);
 
     if (trimmed.isEmpty) {
-      setState(() {
-        _displayedActivities = List<PmisProjectActivity>.from(_allActivities);
-      });
+      await _loadActivities();
       return;
     }
 
     setState(() => _searchLoading = true);
     try {
-      late final LocationModel location;
+      final config = AppConfig.of(context);
+      double lat = 32.899;
+      double lng = 56.989;
       try {
-        location = await LocationService.getCurrentLocation();
+        final location = await LocationService.getCurrentLocation();
+        lat = location.latitude;
+        lng = location.longitude;
       } catch (_) {
-        location = LocationModel(latitude: 32.899, longitude: 56.989);
+        // fallback coordinates
       }
-
-      final sites = await ServiceLocator().sitesRepository.getAllSitesData(
-        location.latitude,
-        location.longitude,
-        trimmed,
-        'nearby',
+      final result = await config.pmisActivitiesRepository.getProjectActivityList(
+        id: widget.projectId,
+        latitude: lat,
+        longitude: lng,
+        searchText: trimmed,
       );
 
       if (!mounted) return;
-
-      final matchedNames = sites
-          .map((s) => s.siteName.trim().toLowerCase())
-          .where((n) => n.isNotEmpty)
-          .toSet();
-
-      var filtered = _allActivities
-          .where(
-            (a) => matchedNames.contains(a.siteName.trim().toLowerCase()),
-          )
-          .toList();
-
-      if (filtered.isEmpty) {
-        final q = trimmed.toLowerCase();
-        filtered = _allActivities.where((a) {
-          final blob =
-              '${a.siteName} ${a.activityName} ${a.subModuleName} ${a.moduleName}'
-                  .toLowerCase();
-          return blob.contains(q);
-        }).toList();
-      }
+      final filtered = (result.isSuccess && result.data != null)
+          ? result.data!
+          : <PmisProjectActivity>[];
 
       setState(() {
         _displayedActivities = filtered;
@@ -308,6 +309,27 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
       return;
     }
 
+    // Prefer offline ticket first (same behavior expectation as downloaded SV tickets).
+    final offline = await PmisActivityTicketOfflineService.loadOfflineDetail(
+      ticketId,
+    );
+    if (!mounted) return;
+    if (offline != null) {
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => ActivityTicketCheckerListScreen(
+            activityTicketId: ticketId,
+            activityName: a.activityName,
+            summaryCardTitle:
+                a.subModuleName.trim().isNotEmpty ? a.subModuleName : null,
+            breadcrumbText: widget.breadcrumbText,
+            preloadedDetail: offline,
+          ),
+        ),
+      );
+      return;
+    }
+
     LoaderWidget.showLoader(context);
     try {
       final config = AppConfig.of(context);
@@ -345,6 +367,53 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
           ),
         ),
       );
+    } finally {
+      LoaderWidget.hideLoader();
+    }
+  }
+
+  /// Same offline model as SV ticket download: `raw_api_data` + LOCAL_IMAGE_ID media.
+  Future<void> _downloadActivityTicketForOffline(PmisProjectActivity a) async {
+    final ticketId = a.atId;
+    if (ticketId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Activity ticket is not available for this activity'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+      return;
+    }
+
+    LoaderWidget.showLoader(context);
+    try {
+      final config = AppConfig.of(context);
+      final result = await PmisActivityTicketOfflineService.downloadCompleteTicket(
+        repository: config.pmisActivityTicketRepository,
+        activity: a,
+      );
+      if (!mounted) return;
+
+      if (!result.success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.errorMessage ?? 'Failed to download ticket'),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+        return;
+      }
+
+      setState(() {
+        _offlineDownloadedAtIds.add(ticketId);
+      });
+
+      Toastbar.showSuccessToastbar(
+        'Ticket saved for offline (same storage as My Tickets)',
+        context,
+      );
+
     } finally {
       LoaderWidget.hideLoader();
     }
@@ -512,6 +581,15 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                                             _displayedActivities[index];
                                         return ActivityCard(
                                           activity: activity,
+                                          isOfflineDownloaded:
+                                              activity.atId != null &&
+                                              _offlineDownloadedAtIds.contains(
+                                                activity.atId!,
+                                              ),
+                                          onDownloadTap: () =>
+                                              _downloadActivityTicketForOffline(
+                                                activity,
+                                              ),
                                           onDirectionTap: () {
                                             if (activity.latitude != null &&
                                                 activity.longitude != null) {

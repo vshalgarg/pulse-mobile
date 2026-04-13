@@ -7,12 +7,18 @@ class ActivityCard extends StatelessWidget {
   final PmisProjectActivity activity;
   final VoidCallback? onDirectionTap;
   final VoidCallback? onTap;
+  final VoidCallback? onDownloadTap;
+
+  /// Green check when ticket is in `raw_api_data` like SV download (see TicketCard).
+  final bool isOfflineDownloaded;
 
   const ActivityCard({
     super.key,
     required this.activity,
     this.onDirectionTap,
     this.onTap,
+    this.onDownloadTap,
+    this.isOfflineDownloaded = false,
   });
 
   @override
@@ -262,13 +268,30 @@ class ActivityCard extends StatelessWidget {
   }
 
   Widget _downloadIcon() {
-    // Same style reference as TicketCard download icon.
+    if (isOfflineDownloaded) {
+      return IconButton(
+        icon: const Icon(
+          Icons.check_circle,
+          color: AppColors.primaryGreen,
+          size: 24,
+        ),
+        onPressed: null,
+        tooltip: 'Saved for offline',
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(),
+        alignment: Alignment.center,
+      );
+    }
     return IconButton(
       icon: const Icon(
         Icons.file_download_outlined,
         color: AppColors.downloadIconColor,
       ),
-      onPressed: () {},
+      onPressed: onDownloadTap,
+      tooltip: 'Download for offline',
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      alignment: Alignment.center,
     );
   }
 }

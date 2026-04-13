@@ -8,6 +8,7 @@ import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/pmis_activity_ticket_model.dart';
 import 'package:app/services/api_service.dart';
+import 'package:app/services/pmis_activity_ticket_offline_service.dart';
 import 'package:flutter/material.dart';
 
 /// Approver list for `pmis/api/v1/project-plan/activity-ticket/{atId}`.
@@ -54,11 +55,27 @@ class _ActivityTicketCheckerListScreenState
 
   Future<ResponseResult<PmisActivityTicketDetail>> _loadTicket() async {
     try {
+      final offline = await PmisActivityTicketOfflineService.loadOfflineDetail(
+        widget.activityTicketId,
+      );
+      if (offline != null) {
+        return ResponseResult<PmisActivityTicketDetail>.success(offline, 200);
+      }
+
       final config = AppConfig.of(context);
-      return await config.pmisActivityTicketRepository.getActivityTicket(
+      final res = await config.pmisActivityTicketRepository.getActivityTicket(
         activityTicketId: widget.activityTicketId,
       );
+      if (res.isSuccess && res.data != null) return res;
+      return res;
     } catch (e) {
+      final offline =
+          await PmisActivityTicketOfflineService.loadOfflineDetail(
+        widget.activityTicketId,
+      );
+      if (offline != null) {
+        return ResponseResult<PmisActivityTicketDetail>.success(offline, 200);
+      }
       return ResponseResult.error(errorMessage: e.toString());
     }
   }

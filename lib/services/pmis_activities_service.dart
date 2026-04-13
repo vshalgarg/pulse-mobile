@@ -17,6 +17,7 @@ class PmisActivitiesService {
     required int id,
     required double latitude,
     required double longitude,
+    String? searchText,
   }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
@@ -27,6 +28,7 @@ class PmisActivitiesService {
           'projectId': id,
           'latitude': latitude,
           'longitude': longitude,
+          'searchText': searchText ?? '',
         },
       );
 

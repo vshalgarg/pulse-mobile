@@ -466,5 +466,16 @@ List<int> collectPmisActivityTicketDocumentIds(PmisActivityTicketDetail detail) 
   for (final f in detail.ticketFieldValues) {
     collectFromField(f);
   }
+  for (final old in detail.oldData) {
+    for (final f in old.ticketFieldValues) {
+      collectFromField(f);
+    }
+  }
+  for (final ta in detail.ticketAttachments) {
+    final raw = pmisAttachmentIdString(ta.raw);
+    if (raw == null) continue;
+    final id = int.tryParse(raw);
+    if (id != null && id > 0) ids.add(id);
+  }
   return ids.toList()..sort();
 }

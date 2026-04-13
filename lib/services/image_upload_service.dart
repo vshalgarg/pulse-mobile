@@ -385,6 +385,62 @@ class ImageUploadService {
     }
   }
 
+  /// PMIS / common document id: `GET /api/v1/common/DocumentById/{id}` (bytes).
+  /// Persists like other offline media so [getImageUsingUniqueId] works for activity tickets.
+  Future<String?> downloadPmisDocumentByServerId(
+    String serverId,
+    ActivityTypeEnum activityType,
+    String schId,
+  ) async {
+    try {
+      final response = await _apiService.get<Uint8List>(
+        path: '/api/v1/common/DocumentById/$serverId',
+        responseType: ResponseType.bytes,
+      );
+      if (!response.isSuccess || response.data == null) return null;
+      final bytes = response.data as Uint8List;
+      if (bytes.isEmpty) return null;
+
+      final b64 = base64Encode(bytes);
+
+      final existingRecord = await getImagesByServerId(serverId);
+      if (existingRecord != null) {
+        final storedPath = await _persistImageDataToFile(
+          uniqueId: existingRecord.uniqueId,
+          imageData: b64,
+        );
+        await _updateImageData(existingRecord.uniqueId, storedPath);
+        return existingRecord.uniqueId;
+      }
+
+      final uniqueId = _generateUniqueId();
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final storedPath = await _persistImageDataToFile(
+        uniqueId: uniqueId,
+        imageData: b64,
+      );
+
+      await _saveImageToSQLite(
+        uniqueId: uniqueId,
+        imageData: storedPath,
+        serverId: serverId,
+        isSelfie: false,
+        activityType: activityType,
+        schId: schId,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      Logger.debugLog(
+        '✅ PMIS document saved with unique ID: $uniqueId (server $serverId)',
+      );
+      return uniqueId;
+    } catch (e) {
+      Logger.errorLog('❌ downloadPmisDocumentByServerId: $e');
+      return null;
+    }
+  }
+
   /// 4. Get image data using unique ID
   Future<String?> getImageUsingUniqueId(String uniqueId) async {
     Logger.debugLog('🖼️ getImageUsingUniqueId called with uniqueId: $uniqueId');
@@ -397,6 +453,19 @@ class ImageUploadService {
       return imageData;
     }
     Logger.debugLog('🖼️ getImageUsingUniqueId: No image data found for uniqueId: $uniqueId');
+    return null;
+  }
+
+  /// Returns stored local file path for a unique id when available.
+  /// Useful for offline VIDEO/PDF playback where base64 is not needed.
+  Future<String?> getStoredFilePathUsingUniqueId(String uniqueId) async {
+    final result = await _getByUniqueIdFromSQLite(uniqueId);
+    final stored = result?.imageData;
+    if (stored == null || stored.isEmpty) return null;
+    if (!_looksLikeStoredPath(stored)) return null;
+    final normalized = _normalizeStoredPath(stored);
+    final file = File(normalized);
+    if (await file.exists()) return file.path;
     return null;
   }
 

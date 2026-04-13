@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
@@ -12,35 +14,47 @@ class PmisActivityTicketService {
 
   static const String _pathPrefix = 'pmis/api/v1/project-plan/activity-ticket';
 
+  /// Testing: `GET …/pmis/api/v1/project-plan/activity-ticket/20854` on e.g.
+  /// `https://pulse.premiumfreshers.com/api/`. Set to `null` for production.
+  static const int? kDebugPmisActivityTicketId = 20854;
+
+  static int _effectiveActivityTicketId(int activityTicketId) =>
+      kDebugPmisActivityTicketId ?? activityTicketId;
+
+  static Map<String, dynamic>? normalizeActivityTicketResponseBody(
+    dynamic data,
+  ) {
+    if (data is! Map) return null;
+    var body = Map<String, dynamic>.from(data);
+    final inner = body['data'];
+    if (inner is Map) {
+      final innerMap = Map<String, dynamic>.from(inner);
+      final topTv = body['ticketFieldValues'];
+      final innerTv = innerMap['ticketFieldValues'];
+      final topTvEmpty = topTv == null || (topTv is List && topTv.isEmpty);
+      final innerTvNonempty = innerTv is List && innerTv.isNotEmpty;
+
+      if (body['ticketCheckers'] == null &&
+          innerMap['ticketCheckers'] != null) {
+        body = innerMap;
+      } else if (topTvEmpty && innerTvNonempty) {
+        body = innerMap;
+      }
+    }
+    return body;
+  }
+
   Future<ResponseResult<PmisActivityTicketDetail>> getActivityTicket({
     required int activityTicketId,
   }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
-      final response = await dio.get('$_pathPrefix/20854');
+      final id = _effectiveActivityTicketId(activityTicketId);
+      final response = await dio.get('$_pathPrefix/$id');
 
       if (response.statusCode == 200) {
-        final data = response.data;
-        if (data is Map) {
-          var body = Map<String, dynamic>.from(data);
-          final inner = body['data'];
-          if (inner is Map) {
-            final innerMap = Map<String, dynamic>.from(inner);
-            final topTv = body['ticketFieldValues'];
-            final innerTv = innerMap['ticketFieldValues'];
-            final topTvEmpty =
-                topTv == null || (topTv is List && topTv.isEmpty);
-            final innerTvNonempty =
-                innerTv is List && innerTv.isNotEmpty;
-
-            if (body['ticketCheckers'] == null &&
-                innerMap['ticketCheckers'] != null) {
-              body = innerMap;
-            } else if (topTvEmpty && innerTvNonempty) {
-              // Ticket payload only under `data` (no top-level field values).
-              body = innerMap;
-            }
-          }
+        final body = normalizeActivityTicketResponseBody(response.data);
+        if (body != null) {
           final ticket = PmisActivityTicketDetail.fromJson(body);
           return ResponseResult.success(ticket, response.statusCode);
         }
@@ -56,6 +70,40 @@ class PmisActivityTicketService {
       );
     } catch (e) {
       debugPrint('❌ PmisActivityTicketService.getActivityTicket: $e');
+      return ResponseResult.error(
+        errorMessage: 'Exception occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<ResponseResult<Map<String, dynamic>>> getActivityTicketRawBody({
+    required int activityTicketId,
+  }) async {
+    try {
+      final dio = _apiService.apiProvider.getClient();
+      final id = _effectiveActivityTicketId(activityTicketId);
+      final response = await dio.get('$_pathPrefix/$id');
+
+      if (response.statusCode == 200) {
+        final body = normalizeActivityTicketResponseBody(response.data);
+        if (body != null) {
+          final copy = Map<String, dynamic>.from(
+            jsonDecode(jsonEncode(body)) as Map,
+          );
+          return ResponseResult.success(copy, response.statusCode);
+        }
+        return ResponseResult.error(
+          errorMessage: 'Unexpected response format',
+          statusCode: response.statusCode,
+        );
+      }
+
+      return ResponseResult.error(
+        errorMessage: 'Request failed with status code: ${response.statusCode}',
+        statusCode: response.statusCode,
+      );
+    } catch (e) {
+      debugPrint('❌ PmisActivityTicketService.getActivityTicketRawBody: $e');
       return ResponseResult.error(
         errorMessage: 'Exception occurred: ${e.toString()}',
       );

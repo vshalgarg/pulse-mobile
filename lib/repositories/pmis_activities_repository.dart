@@ -12,12 +12,14 @@ class PmisActivitiesRepository {
     required int id,
     required double latitude,
     required double longitude,
+    String? searchText,
   }) async {
     try {
       return await _pmisService.getProjectActivityList(
         id: id,
         latitude: latitude,
         longitude: longitude,
+        searchText: searchText,
       );
     } catch (e) {
       return ResponseResult.error(

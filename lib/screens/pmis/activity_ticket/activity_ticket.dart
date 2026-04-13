@@ -293,6 +293,17 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return await central.getImageAsDataUrl(imageId);
   }
 
+  Future<File?> _localFileFromUniqueId(String id) async {
+    if (!id.contains('LOCAL_IMAGE_ID')) return null;
+    final path = await ServiceLocator()
+        .imageUploadService
+        .getStoredFilePathUsingUniqueId(id);
+    if (path == null || path.isEmpty) return null;
+    final file = File(path);
+    if (!await file.exists()) return null;
+    return file;
+  }
+
   static String _extensionForUploadType(String normType, Uint8List bytes) {
     if (bytes.length >= 4 &&
         bytes[0] == 0x25 &&
@@ -324,6 +335,17 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (files == null || files.isNotEmpty) return;
 
     try {
+      final localFile = await _localFileFromUniqueId(id.trim());
+      if (localFile != null) {
+        if (!mounted) return;
+        setState(() {
+          files
+            ..clear()
+            ..add(localFile);
+        });
+        return;
+      }
+
       final docId = int.tryParse(id.trim());
       if (docId == null || docId <= 0) return;
       final bytes = await _downloadDocumentByIdBytes(docId);
@@ -404,7 +426,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (_normDataType(f) != 'PDF') return false;
     final id = _primaryAttachmentServerIdForUi(f);
     if (id == null || id.isEmpty) return false;
-    if (id.contains('LOCAL_IMAGE_ID')) return false;
+    if (id.contains('LOCAL_IMAGE_ID')) return true;
     final n = int.tryParse(id.trim());
     return n != null && n > 0;
   }
@@ -420,8 +442,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   Future<void> _downloadPdfAttachmentToDevice(PmisTicketFieldValue f) async {
     final idStr = _primaryAttachmentServerIdForUi(f);
-    final docId = int.tryParse(idStr ?? '');
-    if (docId == null || docId <= 0) {
+    if (idStr == null || idStr.trim().isEmpty) {
       if (mounted) {
         Toastbar.showErrorToastbar('No file to download', context);
       }
@@ -431,7 +452,20 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (!mounted) return;
     LoaderWidget.showLoader(context);
     try {
-      final bytes = await _downloadDocumentByIdBytes(docId);
+      Uint8List? bytes;
+      final localFile = await _localFileFromUniqueId(idStr.trim());
+      if (localFile != null) {
+        bytes = await localFile.readAsBytes();
+      } else {
+        final docId = int.tryParse(idStr.trim());
+        if (docId == null || docId <= 0) {
+          if (mounted) {
+            Toastbar.showErrorToastbar('No file to download', context);
+          }
+          return;
+        }
+        bytes = await _downloadDocumentByIdBytes(docId);
+      }
       if (!mounted) return;
       if (bytes == null || bytes.isEmpty) {
         Toastbar.showErrorToastbar(
@@ -472,15 +506,14 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (_normDataType(f) != 'VIDEO') return false;
     final id = _primaryAttachmentServerIdForUi(f);
     if (id == null || id.isEmpty) return false;
-    if (id.contains('LOCAL_IMAGE_ID')) return false;
+    if (id.contains('LOCAL_IMAGE_ID')) return true;
     final n = int.tryParse(id.trim());
     return n != null && n > 0;
   }
 
   Future<void> _showServerVideoPopup(PmisTicketFieldValue f) async {
     final idStr = _primaryAttachmentServerIdForUi(f);
-    final docId = int.tryParse(idStr ?? '');
-    if (docId == null || docId <= 0) {
+    if (idStr == null || idStr.trim().isEmpty) {
       if (mounted) {
         Toastbar.showErrorToastbar('No video to play', context);
       }
@@ -490,38 +523,48 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (!mounted) return;
     LoaderWidget.showLoader(context);
     try {
-      final bytes = await _downloadDocumentByIdBytes(docId);
-      if (!mounted) return;
-      if (bytes == null || bytes.isEmpty) {
-        Toastbar.showErrorToastbar(
-          'Could not load video (offline or unavailable)',
-          context,
-        );
-        return;
-      }
+      File? file = await _localFileFromUniqueId(idStr.trim());
+      if (file == null) {
+        final docId = int.tryParse(idStr.trim());
+        if (docId == null || docId <= 0) {
+          if (mounted) {
+            Toastbar.showErrorToastbar('No video to play', context);
+          }
+          return;
+        }
+        final bytes = await _downloadDocumentByIdBytes(docId);
+        if (!mounted) return;
+        if (bytes == null || bytes.isEmpty) {
+          Toastbar.showErrorToastbar(
+            'Could not load video (offline or unavailable)',
+            context,
+          );
+          return;
+        }
 
-      final prim = _primaryAttachmentMapForUi(f);
-      var ext = prim != null
-          ? p.extension(_attachmentDisplayName(prim, ''))
-          : '';
-      if (ext.isEmpty || ext == '.') {
-        ext = _extensionForUploadType('VIDEO', bytes);
+        final prim = _primaryAttachmentMapForUi(f);
+        var ext = prim != null
+            ? p.extension(_attachmentDisplayName(prim, ''))
+            : '';
+        if (ext.isEmpty || ext == '.') {
+          ext = _extensionForUploadType('VIDEO', bytes);
+        }
+        final dir = await getTemporaryDirectory();
+        file = File(
+          p.join(
+            dir.path,
+            'at_video_preview_${widget.detail.atId}_${f.tfvId}_$docId$ext',
+          ),
+        );
+        await file.writeAsBytes(bytes, flush: true);
       }
-      final dir = await getTemporaryDirectory();
-      final file = File(
-        p.join(
-          dir.path,
-          'at_video_preview_${widget.detail.atId}_${f.tfvId}_$docId$ext',
-        ),
-      );
-      await file.writeAsBytes(bytes, flush: true);
       if (!mounted) return;
 
       LoaderWidget.hideLoader();
       await showDialog<void>(
         context: context,
         barrierColor: Colors.black87,
-        builder: (ctx) => ActivityTicketVideoPreviewDialog(videoFile: file),
+        builder: (ctx) => ActivityTicketVideoPreviewDialog(videoFile: file!),
       );
     } catch (e) {
       if (mounted) {

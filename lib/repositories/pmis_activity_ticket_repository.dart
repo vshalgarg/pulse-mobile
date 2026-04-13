@@ -40,6 +40,20 @@ class PmisActivityTicketRepository {
     }
   }
 
+  Future<ResponseResult<Map<String, dynamic>>> getActivityTicketRawBody({
+    required int activityTicketId,
+  }) async {
+    try {
+      return await _pmisService.getActivityTicketRawBody(
+        activityTicketId: activityTicketId,
+      );
+    } catch (e) {
+      return ResponseResult.error(
+        errorMessage: 'Exception occurred: ${e.toString()}',
+      );
+    }
+  }
+
   Future<ResponseResult<Map<String, dynamic>?>> postActivityTicket({
     required Map<String, dynamic> payload,
   }) async {

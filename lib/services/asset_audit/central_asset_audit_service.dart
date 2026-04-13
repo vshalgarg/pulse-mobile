@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/models/pmis_activity_ticket_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
@@ -1189,6 +1190,183 @@ class CentralAssetAuditService {
     } catch (e) {
       Logger.errorLog('❌ Error uploading image: $e');
       return null;
+    }
+  }
+
+  /// Deep-copy PMIS activity ticket JSON, download each document via
+  /// [ImageUploadService.downloadPmisDocumentByServerId], replace server ids with
+  /// `LOCAL_IMAGE_ID_*` (same offline pattern as [processImagesInApiData] for SV).
+  Future<Map<String, dynamic>> processPmisActivityTicketDocuments(
+    Map<String, dynamic> apiData,
+    String siteAuditSchId,
+  ) async {
+    final processed = Map<String, dynamic>.from(
+      jsonDecode(jsonEncode(apiData)) as Map,
+    );
+    await _processPmisTicketJsonForDocuments(processed, siteAuditSchId);
+    return processed;
+  }
+
+  Future<void> _replacePmisAttachmentId(
+    Map<String, dynamic> att,
+    String schId,
+  ) async {
+    final sid = pmisAttachmentIdString(att);
+    if (sid == null) return;
+    if (sid.contains('LOCAL_IMAGE_ID')) return;
+    final id = int.tryParse(sid);
+    if (id == null || id <= 0) return;
+
+    final unique = await ServiceLocator().imageUploadService
+        .downloadPmisDocumentByServerId(
+      sid,
+      ActivityTypeEnum.activityTicket,
+      schId,
+    );
+    if (unique != null) {
+      att['pmisOfflineServerDocumentId'] = sid;
+      att['attachmentId'] = unique;
+    }
+  }
+
+  Future<void> _processPmisFieldValueMap(
+    Map<String, dynamic> fieldMap,
+    String schId,
+  ) async {
+    final type =
+        (fieldMap['subActivityDataType'] ?? '').toString().trim().toUpperCase();
+    if (type != 'IMAGE' && type != 'VIDEO' && type != 'PDF') return;
+
+    final atts = fieldMap['attachments'];
+    if (atts is List) {
+      for (var i = 0; i < atts.length; i++) {
+        final e = atts[i];
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        await _replacePmisAttachmentId(m, schId);
+        atts[i] = m;
+      }
+    }
+
+    final vt = fieldMap['valText']?.toString().trim() ?? '';
+    if (vt.isNotEmpty) {
+      final parts = vt.split(',');
+      final out = <String>[];
+      for (final p in parts) {
+        final trimmed = p.trim();
+        if (trimmed.isEmpty) continue;
+        if (trimmed.contains('LOCAL_IMAGE_ID')) {
+          out.add(trimmed);
+          continue;
+        }
+        final nid = int.tryParse(trimmed);
+        if (nid != null && nid > 0) {
+          final unique = await ServiceLocator().imageUploadService
+              .downloadPmisDocumentByServerId(
+            trimmed,
+            ActivityTypeEnum.activityTicket,
+            schId,
+          );
+          out.add(unique ?? trimmed);
+        } else {
+          out.add(trimmed);
+        }
+      }
+      fieldMap['valText'] = out.join(',');
+    }
+  }
+
+  Future<void> _processPmisTicketJsonForDocuments(
+    Map<String, dynamic> body,
+    String schId,
+  ) async {
+    final tvs = body['ticketFieldValues'];
+    if (tvs is List) {
+      for (var i = 0; i < tvs.length; i++) {
+        final e = tvs[i];
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        await _processPmisFieldValueMap(m, schId);
+        tvs[i] = m;
+      }
+    }
+
+    final oldData = body['oldData'];
+    if (oldData is List) {
+      for (final item in oldData) {
+        if (item is! Map) continue;
+        final inner = item['ticketFieldValues'];
+        if (inner is List) {
+          for (var j = 0; j < inner.length; j++) {
+            final e = inner[j];
+            if (e is! Map) continue;
+            final m = Map<String, dynamic>.from(e);
+            await _processPmisFieldValueMap(m, schId);
+            inner[j] = m;
+          }
+        }
+      }
+    } else if (oldData is Map) {
+      final inner = oldData['ticketFieldValues'];
+      if (inner is List) {
+        for (var j = 0; j < inner.length; j++) {
+          final e = inner[j];
+          if (e is! Map) continue;
+          final m = Map<String, dynamic>.from(e);
+          await _processPmisFieldValueMap(m, schId);
+          inner[j] = m;
+        }
+      }
+    }
+
+    final topAtt = body['ticketAttachments'];
+    if (topAtt is List) {
+      for (var i = 0; i < topAtt.length; i++) {
+        final e = topAtt[i];
+        if (e is! Map) continue;
+        final m = Map<String, dynamic>.from(e);
+        await _replacePmisAttachmentId(m, schId);
+        topAtt[i] = m;
+      }
+    }
+  }
+
+  /// Saves PMIS activity ticket to [raw_api_data] with [ActivityTypeEnum.activityTicket]
+  /// (`AI`), keyed by [activityTicketId] — same offline model as SV ticket download.
+  Future<bool> downloadAndSavePmisActivityTicketOffline({
+    required Map<String, dynamic> ticketJsonBody,
+    required int activityTicketId,
+    required String siteName,
+    required String moduleName,
+    required String activityStatus,
+    required double latitude,
+    required double longitude,
+    String siteType = 'Solar',
+  }) async {
+    try {
+      final schId = activityTicketId.toString();
+      final processed =
+          await processPmisActivityTicketDocuments(ticketJsonBody, schId);
+      return await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
+        siteAuditSchId: schId,
+        siteType: siteType,
+        auditSchId: '',
+        pvTicketId: 'PMIS-$activityTicketId',
+        siteCode: siteName,
+        cluster: siteName,
+        operator: moduleName,
+        raisedDt: '',
+        dueDt: '',
+        status: activityStatus,
+        activityType: ActivityTypeEnum.activityTicket,
+        isDownloaded: true,
+        latitude: latitude,
+        longitude: longitude,
+        apiData: processed,
+      );
+    } catch (e, st) {
+      Logger.errorLog('❌ downloadAndSavePmisActivityTicketOffline: $e\n$st');
+      return false;
     }
   }
 
