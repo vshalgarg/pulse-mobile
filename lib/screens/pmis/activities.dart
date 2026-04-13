@@ -6,10 +6,11 @@ import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/models/location_model.dart';
 import 'package:app/models/pmis_project_activity_model.dart';
 import 'package:app/screens/pmis/activity_ticket/activity_ticket_checker_list.dart';
-import 'package:app/services/api_service.dart';
 import 'package:app/services/location_service.dart';
+import 'package:app/services/service_locator.dart';
 import 'package:flutter/material.dart';
 
 class ProjectActivitiesScreen extends StatefulWidget {
@@ -18,11 +19,16 @@ class ProjectActivitiesScreen extends StatefulWidget {
 
   final String appBarTitle;
 
-  /// Breadcrumb line under the app bar (e.g. `Project > … > Activities`).
+  /// Breadcrumb under the header (e.g. `Project > Activities`).
   final String breadcrumbText;
 
   /// Context rows in the dark band; if null, shows `Project ID : [projectId]`.
   final List<PmisHeaderDetailLine>? headerDetailLines;
+
+  /// When true (Activity dashboard from [ProjectListScreen]), shows the same
+  /// search UI as [AllSitesScreen] and uses `/api/v1/common/allSiteData` with
+  /// `searchText` to narrow activities by matched site names.
+  final bool enableDashboardActivitySearch;
 
   const ProjectActivitiesScreen({
     super.key,
@@ -30,6 +36,7 @@ class ProjectActivitiesScreen extends StatefulWidget {
     this.appBarTitle = 'Project Activities',
     this.breadcrumbText = 'Project > Activities',
     this.headerDetailLines,
+    this.enableDashboardActivitySearch = false,
   });
 
   @override
@@ -38,27 +45,25 @@ class ProjectActivitiesScreen extends StatefulWidget {
 }
 
 class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
-  late Future<ResponseResult<List<PmisProjectActivity>>> _future;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
-  Future<ResponseResult<List<PmisProjectActivity>>> _loadActivities() async {
-    try {
-      final config = AppConfig.of(context);
-      final location = await LocationService.getCurrentLocation();
-
-      return await config.pmisActivitiesRepository.getProjectActivityList(
-        id: widget.projectId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-      );
-    } catch (e) {
-      return ResponseResult.error(errorMessage: e.toString());
-    }
-  }
+  bool _loading = true;
+  bool _searchLoading = false;
+  String? _errorMessage;
+  List<PmisProjectActivity> _allActivities = [];
+  List<PmisProjectActivity> _displayedActivities = [];
 
   @override
   void initState() {
     super.initState();
-    _future = _loadActivities();
+    _loadActivities();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   List<PmisHeaderDetailLine> get _headerDetailLines {
@@ -69,6 +74,224 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
             value: widget.projectId.toString(),
           ),
         ];
+  }
+
+  Future<void> _loadActivities() async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
+    try {
+      final config = AppConfig.of(context);
+      final location = await LocationService.getCurrentLocation();
+
+      final result = await config.pmisActivitiesRepository.getProjectActivityList(
+        id: widget.projectId,
+        latitude: location.latitude,
+        longitude: location.longitude,
+      );
+
+      if (!mounted) return;
+
+      if (!result.isSuccess || result.data == null) {
+        setState(() {
+          _loading = false;
+          _errorMessage =
+              result.errorMessage ?? 'Failed to load activities';
+          _allActivities = [];
+          _displayedActivities = [];
+        });
+        return;
+      }
+
+      final list = result.data!;
+      setState(() {
+        _loading = false;
+        _allActivities = list;
+        _displayedActivities = List<PmisProjectActivity>.from(list);
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _errorMessage = e.toString();
+        _allActivities = [];
+        _displayedActivities = [];
+      });
+    }
+  }
+
+  void _performSearch(String query) {
+    setState(() => _searchQuery = query);
+  }
+
+  Future<void> _performSearchAndLoad(String raw) async {
+    if (!widget.enableDashboardActivitySearch) return;
+
+    final trimmed = raw.trim();
+    setState(() => _searchQuery = trimmed);
+
+    if (trimmed.isEmpty) {
+      setState(() {
+        _displayedActivities = List<PmisProjectActivity>.from(_allActivities);
+      });
+      return;
+    }
+
+    setState(() => _searchLoading = true);
+    try {
+      late final LocationModel location;
+      try {
+        location = await LocationService.getCurrentLocation();
+      } catch (_) {
+        location = LocationModel(latitude: 32.899, longitude: 56.989);
+      }
+
+      final sites = await ServiceLocator().sitesRepository.getAllSitesData(
+        location.latitude,
+        location.longitude,
+        trimmed,
+        'nearby',
+      );
+
+      if (!mounted) return;
+
+      final matchedNames = sites
+          .map((s) => s.siteName.trim().toLowerCase())
+          .where((n) => n.isNotEmpty)
+          .toSet();
+
+      var filtered = _allActivities
+          .where(
+            (a) => matchedNames.contains(a.siteName.trim().toLowerCase()),
+          )
+          .toList();
+
+      if (filtered.isEmpty) {
+        final q = trimmed.toLowerCase();
+        filtered = _allActivities.where((a) {
+          final blob =
+              '${a.siteName} ${a.activityName} ${a.subModuleName} ${a.moduleName}'
+                  .toLowerCase();
+          return blob.contains(q);
+        }).toList();
+      }
+
+      setState(() {
+        _displayedActivities = filtered;
+        _searchLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _searchLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Search failed: $e'),
+          backgroundColor: AppColors.errorColor,
+        ),
+      );
+    }
+  }
+
+  Widget _buildSearchBar() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+          child: TextField(
+            controller: _searchController,
+            onChanged: _performSearch,
+            onSubmitted: _performSearchAndLoad,
+            style: const TextStyle(color: Colors.black, fontSize: 16),
+            textInputAction: TextInputAction.search,
+            keyboardType: TextInputType.text,
+            decoration: InputDecoration(
+              hintText: 'Search',
+              hintStyle: const TextStyle(color: Colors.grey, fontSize: 16),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.search,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
+                          onPressed: () =>
+                              _performSearchAndLoad(_searchController.text),
+                          tooltip: 'Search',
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.clear,
+                            color: Colors.grey,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              _searchQuery = '';
+                              _displayedActivities =
+                                  List<PmisProjectActivity>.from(
+                                _allActivities,
+                              );
+                            });
+                          },
+                          tooltip: 'Clear',
+                        ),
+                      ],
+                    )
+                  : IconButton(
+                      icon: const Icon(
+                        Icons.search,
+                        color: Colors.black,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          _performSearchAndLoad(_searchController.text),
+                      tooltip: 'Search',
+                    ),
+              filled: true,
+              fillColor: Colors.white,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.grey, width: 1),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.grey, width: 1),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.blue, width: 2),
+              ),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 8,
+              ),
+            ),
+          ),
+        ),
+        if (_searchQuery.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 16, right: 16, bottom: 6),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Press Enter to search',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   /// Loads `activity-ticket` then warms `DocumentById` for attachments, then opens the checker flow.
@@ -106,8 +329,6 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
         return;
       }
 
-      // End prefetch UI before opening the next route (otherwise [hideLoader]
-      // only runs after [push] completes — looks like a stuck loader with no API).
       LoaderWidget.hideLoader();
 
       if (!mounted) return;
@@ -125,10 +346,21 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
         ),
       );
     } finally {
-      // Always clear: [mounted] can be false after navigation away, which
-      // previously skipped [hideLoader] and left the overlay stuck forever.
       LoaderWidget.hideLoader();
     }
+  }
+
+  Widget _buildHeaderBlock() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        PmisHeader(
+          breadcrumbText: widget.breadcrumbText,
+          detailLines: _headerDetailLines,
+        ),
+        if (widget.enableDashboardActivitySearch) _buildSearchBar(),
+      ],
+    );
   }
 
   @override
@@ -183,152 +415,135 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
             child: SafeSvgPicture.asset(AppImages.home, fit: BoxFit.cover),
           ),
           SafeArea(
-            child: FutureBuilder<ResponseResult<List<PmisProjectActivity>>>(
-              future: _future,
-              builder: (context, snapshot) {
-                final header = PmisHeader(
-                  breadcrumbText: widget.breadcrumbText,
-                  detailLines: _headerDetailLines,
-                );
-
-                late final Widget bodyContent;
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  bodyContent = const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 64),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryGreen,
-                      ),
-                    ),
-                  );
-                } else if (snapshot.hasError) {
-                  bodyContent = Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 24,
-                    ),
-                    child: Text(
-                      snapshot.error.toString(),
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.white,
-                        fontSize: 16,
-                      ),
-                    ),
-                  );
-                } else {
-                  final result = snapshot.data;
-                  if (result == null ||
-                      !result.isSuccess ||
-                      result.data == null) {
-                    bodyContent = Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 24,
-                      ),
-                      child: Text(
-                        result?.errorMessage ?? 'Failed to load activities',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: AppColors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                    );
-                  } else {
-                    final activities = result.data!;
-                    if (activities.isEmpty) {
-                      bodyContent = const Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 24,
-                        ),
-                        child: Text(
-                          'No activities found',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w500,
+            child: _loading
+                ? CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(child: _buildHeaderBlock()),
+                      const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(vertical: 64),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: AppColors.primaryGreen,
+                            ),
                           ),
                         ),
-                      );
-                    } else {
-                      bodyContent = Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (var i = 0; i < activities.length; i++) ...[
-                              if (i > 0) const SizedBox(height: 12),
-                              ActivityCard(
-                                activity: activities[i],
-                                onTap: () => _openActivityTicket(activities[i]),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    }
-                  }
-                }
-
-                if (snapshot.connectionState == ConnectionState.waiting ||
-                    snapshot.hasError ||
-                    snapshot.data == null ||
-                    !(snapshot.data!.isSuccess) ||
-                    snapshot.data!.data == null ||
-                    snapshot.data!.data!.isEmpty) {
-                  return CustomScrollView(
-                    slivers: [
-                      SliverToBoxAdapter(child: header),
-                      SliverFillRemaining(
-                        hasScrollBody: false,
-                        child: bodyContent,
                       ),
                     ],
-                  );
-                }
-
-                final activities = snapshot.data!.data!;
-                return CustomScrollView(
-                  slivers: [
-                    SliverToBoxAdapter(child: header),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 24),
-                      sliver: SliverList.separated(
-                        itemCount: activities.length,
-                        itemBuilder: (context, index) => ActivityCard(
-                          activity: activities[index],
-                          onDirectionTap: () {
-                            final a = activities[index];
-                            if (a.latitude != null && a.longitude != null) {
-                              LocationService.openDirectionsToSite(
-                                siteLat: a.latitude!,
-                                siteLng: a.longitude!,
-                                siteName: a.siteName,
-                                context: context,
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Directions are not available for this activity',
-                                  ),
-                                  backgroundColor: AppColors.errorColor,
+                  )
+                : _errorMessage != null
+                    ? CustomScrollView(
+                        slivers: [
+                          SliverToBoxAdapter(child: _buildHeaderBlock()),
+                          SliverFillRemaining(
+                            hasScrollBody: false,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 24,
+                              ),
+                              child: Text(
+                                _errorMessage!,
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.white,
+                                  fontSize: 16,
                                 ),
-                              );
-                            }
-                          },
-                          onTap: () => _openActivityTicket(activities[index]),
-                        ),
-                        separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : _searchLoading
+                        ? CustomScrollView(
+                            slivers: [
+                              SliverToBoxAdapter(child: _buildHeaderBlock()),
+                              const SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 48),
+                                  child: Center(
+                                    child: CircularProgressIndicator(
+                                      color: AppColors.primaryGreen,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : _displayedActivities.isEmpty
+                            ? CustomScrollView(
+                                slivers: [
+                                  SliverToBoxAdapter(child: _buildHeaderBlock()),
+                                  SliverFillRemaining(
+                                    hasScrollBody: false,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 24,
+                                      ),
+                                      child: Text(
+                                        widget.enableDashboardActivitySearch &&
+                                                _searchQuery.isNotEmpty
+                                            ? 'No matching activities'
+                                            : 'No activities found',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          color: AppColors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : CustomScrollView(
+                                slivers: [
+                                  SliverToBoxAdapter(child: _buildHeaderBlock()),
+                                  SliverPadding(
+                                    padding:
+                                        const EdgeInsets.fromLTRB(8, 8, 8, 24),
+                                    sliver: SliverList.separated(
+                                      itemCount: _displayedActivities.length,
+                                      itemBuilder: (context, index) {
+                                        final activity =
+                                            _displayedActivities[index];
+                                        return ActivityCard(
+                                          activity: activity,
+                                          onDirectionTap: () {
+                                            if (activity.latitude != null &&
+                                                activity.longitude != null) {
+                                              LocationService.openDirectionsToSite(
+                                                siteLat: activity.latitude!,
+                                                siteLng: activity.longitude!,
+                                                siteName: activity.siteName,
+                                                context: context,
+                                              );
+                                            } else {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Directions are not available for this activity',
+                                                  ),
+                                                  backgroundColor:
+                                                      AppColors.errorColor,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          onTap: () =>
+                                              _openActivityTicket(activity),
+                                        );
+                                      },
+                                      separatorBuilder: (_, __) =>
+                                          const SizedBox(height: 12),
+                                    ),
+                                  ),
+                                ],
+                              ),
           ),
         ],
       ),

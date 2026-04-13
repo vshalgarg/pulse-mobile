@@ -246,8 +246,7 @@ class _PmisSubModuleScreenState extends State<PmisSubModuleScreen> {
                 builder: (context) => ProjectActivitiesScreen(
                   projectId: widget.projectId,
                   appBarTitle: item.subModuleName,
-                  breadcrumbText:
-                      'Project > State > Site > Module > Sub module > Activities',
+                  breadcrumbText: 'Project > Activities',
                   headerDetailLines: [
                     PmisHeaderDetailLine(
                       label: 'Project Name',

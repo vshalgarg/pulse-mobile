@@ -142,8 +142,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                                     ProjectActivitiesScreen(
                                   projectId: project.pmId,
                                   appBarTitle: project.projectName,
-                                  breadcrumbText:
-                                      'Activity > ${project.projectName} > Activities',
+                                  breadcrumbText: 'Project > Activities',
+                                  enableDashboardActivitySearch: true,
                                 ),
                               ),
                             );
