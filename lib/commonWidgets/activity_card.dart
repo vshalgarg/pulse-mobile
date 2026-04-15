@@ -32,7 +32,7 @@ class ActivityCard extends StatelessWidget {
     final showStatusSection = showApprovalChip || showActivityChip;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Material(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -49,52 +49,20 @@ class ActivityCard extends StatelessWidget {
                     children: [
                       if (showApprovalChip)
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFD7E6FF),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              approvalChipText,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: poppins,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: const Color(0xFF2F6BFF),
-                              ),
-                            ),
+                          child: _statusChip(
+                            text: approvalChipText,
+                            backgroundColor: const Color(0xFFD7E6FF),
+                            textColor: const Color(0xFF2F6BFF),
                           ),
                         ),
                       if (showApprovalChip && showActivityChip)
                         const SizedBox(width: 12),
                       if (showActivityChip)
                         Expanded(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFF9F43),
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(999),
-                              ),
-                            ),
-                            child: Text(
-                              activityChipText,
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontFamily: poppins,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: AppColors.white,
-                              ),
-                            ),
+                          child: _statusChip(
+                            text: activityChipText,
+                            backgroundColor: const Color(0xFFFF9F43),
+                            textColor: AppColors.white,
                           ),
                         ),
                     ],
@@ -268,6 +236,34 @@ class ActivityCard extends StatelessWidget {
             trailing,
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _statusChip({
+    required String text,
+    required Color backgroundColor,
+    required Color textColor,
+  }) {
+    return Container(
+      height: 28,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontFamily: poppins,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: textColor,
+        ),
       ),
     );
   }

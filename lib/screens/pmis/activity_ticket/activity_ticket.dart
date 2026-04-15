@@ -1657,6 +1657,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     Logger.infoLog('[AT_POST_REQUEST_END]');
     print('[AT_POST_REQUEST_END]');
 
+    var shouldRedirectToActivities = false;
     LoaderWidget.showLoader(context);
     try {
       final isOnline = await ConnectivityHelper.isConnected();
@@ -1668,6 +1669,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           'Activity ticket saved locally (offline mode)',
           context,
         );
+        shouldRedirectToActivities = true;
         return;
       }
 
@@ -1698,7 +1700,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         );
         if (!mounted) return;
         Toastbar.showSuccessToastbar('Activity ticket saved', context);
-        // Stay on activity ticket screen; only the close dialog was dismissed on Save.
+        shouldRedirectToActivities = true;
       } else {
         await _persistPayloadOfflineToSqlite(postPayload);
         await _savePendingActivityTicketSync(postPayload);
@@ -1720,6 +1722,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       }
     } finally {
       LoaderWidget.hideLoader();
+    }
+    if (shouldRedirectToActivities && mounted) {
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -2025,7 +2030,6 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               children: [
                 _TicketFlowHeader(
                   title: widget.activityName,
-                  breadcrumb: widget.breadcrumbText,
                   onBack: () => Navigator.of(context).pop(),
                 ),
                 Expanded(
@@ -2200,12 +2204,10 @@ class _FieldLabel extends StatelessWidget {
 
 class _TicketFlowHeader extends StatelessWidget {
   final String title;
-  final String breadcrumb;
   final VoidCallback onBack;
 
   const _TicketFlowHeader({
     required this.title,
-    required this.breadcrumb,
     required this.onBack,
   });
 
@@ -2243,19 +2245,6 @@ class _TicketFlowHeader extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(left: 8, top: 4, right: 8),
-            child: Text(
-              breadcrumb,
-              style: TextStyle(
-                color: AppColors.white.withValues(alpha: 0.92),
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-                fontFamily: poppins,
-                height: 1.35,
-              ),
-            ),
           ),
         ],
       ),

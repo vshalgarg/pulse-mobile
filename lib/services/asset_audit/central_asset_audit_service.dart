@@ -1338,15 +1338,43 @@ class CentralAssetAuditService {
     required int activityTicketId,
     required String siteName,
     required String moduleName,
+    required String subModuleName,
+    required String activityName,
+    required String state,
     required String activityStatus,
+    required String approvalStatus,
+    String? plannedStartDt,
+    String? plannedEndDt,
+    String? actualStartDt,
+    String? actualEndDt,
     required double latitude,
     required double longitude,
     String siteType = 'Solar',
   }) async {
     try {
       final schId = activityTicketId.toString();
+      final enrichedBody = Map<String, dynamic>.from(ticketJsonBody);
+      enrichedBody['at_id'] = enrichedBody['at_id'] ?? activityTicketId;
+      enrichedBody['site_name'] = enrichedBody['site_name'] ?? siteName;
+      enrichedBody['module_name'] = enrichedBody['module_name'] ?? moduleName;
+      enrichedBody['sub_module_name'] =
+          enrichedBody['sub_module_name'] ?? subModuleName;
+      enrichedBody['activity_name'] = enrichedBody['activity_name'] ?? activityName;
+      enrichedBody['state'] = enrichedBody['state'] ?? state;
+      enrichedBody['activity_status'] =
+          enrichedBody['activity_status'] ?? activityStatus;
+      enrichedBody['approval_status'] =
+          enrichedBody['approval_status'] ?? approvalStatus;
+      enrichedBody['planned_start_dt'] =
+          enrichedBody['planned_start_dt'] ?? plannedStartDt;
+      enrichedBody['planned_end_dt'] = enrichedBody['planned_end_dt'] ?? plannedEndDt;
+      enrichedBody['actual_start_dt'] = enrichedBody['actual_start_dt'] ?? actualStartDt;
+      enrichedBody['actual_end_dt'] = enrichedBody['actual_end_dt'] ?? actualEndDt;
+      enrichedBody['latitude'] = enrichedBody['latitude'] ?? latitude;
+      enrichedBody['longitude'] = enrichedBody['longitude'] ?? longitude;
+
       final processed =
-          await processPmisActivityTicketDocuments(ticketJsonBody, schId);
+          await processPmisActivityTicketDocuments(enrichedBody, schId);
       return await ServiceLocator().centralAssetAuditDataService.saveRawApiData(
         siteAuditSchId: schId,
         siteType: siteType,

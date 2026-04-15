@@ -105,21 +105,16 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   DateTime? _repetitionDate;
   bool _showStatusError = false;
 
-  /// Completed, Completed – To Be Repeated, Repeat, Repeated.
+  /// Repetition date should appear only for Completed - To Be Repeated.
   bool _repetitionDateEnabled(String? status) {
     final n = normalizeActivityTicketCloseStatusForCompare(status);
-    return n == 'completed' ||
-        n == 'completed - to be repeated' ||
-        n == 'repeat' ||
-        n == 'repeated';
+    return n == 'completed - to be repeated';
   }
 
-  /// Repeat / Repeated / Completed – To Be Repeated require a date before save.
+  /// Completed - To Be Repeated requires a repetition date before save.
   bool _repetitionDateRequired(String? status) {
     final n = normalizeActivityTicketCloseStatusForCompare(status);
-    return n == 'repeat' ||
-        n == 'repeated' ||
-        n == 'completed - to be repeated';
+    return n == 'completed - to be repeated';
   }
   List<String> get _statusOptions {
     final options = widget.statusOptions
@@ -193,10 +188,11 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   Widget build(BuildContext context) {
     final maxDialogHeight = MediaQuery.of(context).size.height * 0.8;
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 24),
       backgroundColor: const Color(0xFF5B5B5B),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 560, maxHeight: maxDialogHeight),
+        constraints: BoxConstraints(maxHeight: maxDialogHeight),
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
@@ -229,54 +225,56 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
-                _helper(
-                  'Activity Repetition Date is available when status is '
-                  'Completed, Completed – To Be Repeated, or Repeat.',
-                ),
-                const SizedBox(height: 12),
-                _label(
-                  'Activity Repetition Date',
-                  required: _repetitionDateRequired(_status),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: _pickDate,
-                  borderRadius: BorderRadius.circular(8),
-                  child: InputDecorator(
-                    decoration: _fieldDecoration(
-                      hint: 'DD-MM-YYYY',
-                    ).copyWith(
-                      suffixIcon: Icon(
-                        Icons.calendar_month_outlined,
-                        color: _repetitionDateEnabled(_status)
-                            ? AppColors.color555555
-                            : AppColors.colorA0A0A0,
+                if (_repetitionDateEnabled(_status)) ...[
+                  const SizedBox(height: 8),
+                  _helper(
+                    'Activity Repetition Date is required for '
+                    'Completed - To Be Repeated.',
+                  ),
+                  const SizedBox(height: 12),
+                  _label(
+                    'Activity Repetition Date',
+                    required: _repetitionDateRequired(_status),
+                  ),
+                  const SizedBox(height: 8),
+                  InkWell(
+                    onTap: _pickDate,
+                    borderRadius: BorderRadius.circular(8),
+                    child: InputDecorator(
+                      decoration: _fieldDecoration(
+                        hint: 'DD-MM-YYYY',
+                      ).copyWith(
+                        suffixIcon: Icon(
+                          Icons.calendar_month_outlined,
+                          color: _repetitionDateEnabled(_status)
+                              ? AppColors.color555555
+                              : AppColors.colorA0A0A0,
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      _repetitionDate == null ? '' : _fmtDate(_repetitionDate),
-                      style: TextStyle(
-                        color: _repetitionDateEnabled(_status)
-                            ? AppColors.color555555
-                            : AppColors.colorA0A0A0,
-                        fontSize: 15,
+                      child: Text(
+                        _repetitionDate == null ? '' : _fmtDate(_repetitionDate),
+                        style: TextStyle(
+                          color: _repetitionDateEnabled(_status)
+                              ? AppColors.color555555
+                              : AppColors.colorA0A0A0,
+                          fontSize: 15,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                if (_repetitionDateRequired(_status) && _repetitionDate == null)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 6),
-                    child: Text(
-                      'Please select repetition date',
-                      style: TextStyle(
-                        color: AppColors.errorColor,
-                        fontSize: 12,
+                  if (_repetitionDateRequired(_status) && _repetitionDate == null)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Please select repetition date',
+                        style: TextStyle(
+                          color: AppColors.errorColor,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
-                  ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 _label('Remarks', required: true),
                 const SizedBox(height: 8),
                 TextFormField(

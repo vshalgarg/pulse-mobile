@@ -333,8 +333,8 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
       LoaderWidget.hideLoader();
 
       if (!mounted) return;
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
+      final shouldRefreshActivities = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
           builder: (_) => ActivityTicketCheckerListScreen(
             activityTicketId: ticketId,
             activityName: a.activityName,
@@ -346,6 +346,10 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
           ),
         ),
       );
+      if (!mounted) return;
+      if (shouldRefreshActivities == true) {
+        await _loadActivities();
+      }
     } finally {
       LoaderWidget.hideLoader();
     }

@@ -14,13 +14,6 @@ class PmisActivityTicketService {
 
   static const String _pathPrefix = 'pmis/api/v1/project-plan/activity-ticket';
 
-  /// Testing: `GET …/pmis/api/v1/project-plan/activity-ticket/20854` on e.g.
-  /// `https://pulse.premiumfreshers.com/api/`. Set to `null` for production.
-  static const int? kDebugPmisActivityTicketId = 20854;
-
-  static int _effectiveActivityTicketId(int activityTicketId) =>
-      kDebugPmisActivityTicketId ?? activityTicketId;
-
   static Map<String, dynamic>? normalizeActivityTicketResponseBody(
     dynamic data,
   ) {
@@ -49,8 +42,7 @@ class PmisActivityTicketService {
   }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
-      final id = _effectiveActivityTicketId(activityTicketId);
-      final response = await dio.get('$_pathPrefix/$id');
+      final response = await dio.get('$_pathPrefix/$activityTicketId');
 
       if (response.statusCode == 200) {
         final body = normalizeActivityTicketResponseBody(response.data);
@@ -81,8 +73,7 @@ class PmisActivityTicketService {
   }) async {
     try {
       final dio = _apiService.apiProvider.getClient();
-      final id = _effectiveActivityTicketId(activityTicketId);
-      final response = await dio.get('$_pathPrefix/$id');
+      final response = await dio.get('$_pathPrefix/$activityTicketId');
 
       if (response.statusCode == 200) {
         final body = normalizeActivityTicketResponseBody(response.data);

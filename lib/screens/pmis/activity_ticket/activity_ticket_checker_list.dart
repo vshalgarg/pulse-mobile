@@ -81,8 +81,8 @@ class _ActivityTicketCheckerListScreenState
     );
     if (!mounted) return;
     final openDetail = latestOffline ?? detail;
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+    final shouldRefreshActivities = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => ActivityTicketScreen(
           activityTicketId: widget.activityTicketId,
           breadcrumbText: widget.breadcrumbText,
@@ -92,11 +92,66 @@ class _ActivityTicketCheckerListScreenState
         ),
       ),
     );
+    if (!mounted) return;
+    if (shouldRefreshActivities == true) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   static String _formatPlanDate(String? value) {
     if (value == null || value.trim().isEmpty) return '-';
     final trimmed = value.trim();
+
+    // Handle values like:
+    // - 31/Mar/2026 00:00:00
+    // - 31/03/2026 12:10:45
+    final slashDateWithOptionalTime = RegExp(
+      r'^(\d{1,2})/([A-Za-z]{3}|\d{1,2})/(\d{4})(?:\s+.*)?$',
+    ).firstMatch(trimmed);
+    if (slashDateWithOptionalTime != null) {
+      final day = int.tryParse(slashDateWithOptionalTime.group(1)!);
+      final monthToken = slashDateWithOptionalTime.group(2)!;
+      final year = int.tryParse(slashDateWithOptionalTime.group(3)!);
+      if (day != null && year != null) {
+        int? month;
+        final monthFromNumber = int.tryParse(monthToken);
+        if (monthFromNumber != null) {
+          month = monthFromNumber;
+        } else {
+          const monthNames = <String>[
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+          ];
+          final normalizedMonth =
+              '${monthToken[0].toUpperCase()}${monthToken.substring(1).toLowerCase()}';
+          final monthIndex = monthNames.indexOf(normalizedMonth);
+          if (monthIndex >= 0) month = monthIndex + 1;
+        }
+        if (month != null && month >= 1 && month <= 12) {
+          final d = day.toString().padLeft(2, '0');
+          final m = month.toString().padLeft(2, '0');
+          return '$d-$m-$year';
+        }
+      }
+    }
+
+    final dt = DateTime.tryParse(trimmed);
+    if (dt != null) {
+      final d = dt.day.toString().padLeft(2, '0');
+      final m = dt.month.toString().padLeft(2, '0');
+      final y = dt.year.toString();
+      return '$d-$m-$y';
+    }
     final match = RegExp(
       r'^(\d{2})/([A-Za-z]{3})/(\d{4})$',
     ).firstMatch(trimmed);

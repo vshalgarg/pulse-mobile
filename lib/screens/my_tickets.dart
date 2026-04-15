@@ -4,6 +4,7 @@ import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/models/pmis_project_activity_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/service_locator.dart';
@@ -18,6 +19,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../commonWidgets/activity_card.dart';
 import '../commonWidgets/ticket_card.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_images.dart';
@@ -803,11 +805,9 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
   }
 
   Future<void> _navigateToAuditScreen(RawApiDataModel ticket) async {
-    // Check if ticket status is completed, closed, or missed deadline
+    // Keep restricted statuses non-openable.
     final status = ticket.status.toLowerCase();
-    if (status == 'completed' ||
-        status == 'closed' ||
-        status == 'missed deadline') {
+    if (status == 'closed' || status == 'missed deadline') {
       Toastbar.showInfoToastbar(
         "Ticket can't be opened. Please download PDF.",
         context,
@@ -1014,6 +1014,176 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       siteDomainName: rawData.siteType,
       totalAssets: totalAssets,
     );
+  }
+
+  PmisProjectActivity _convertToPmisProjectActivity(RawApiDataModel rawData) {
+    final apiMap = Map<String, dynamic>.from(rawData.apiData);
+    final nestedData = apiMap['data'] is Map
+        ? Map<String, dynamic>.from(apiMap['data'] as Map)
+        : <String, dynamic>{};
+
+    dynamic readFirst(List<String> keys) {
+      for (final key in keys) {
+        if (apiMap.containsKey(key) && apiMap[key] != null) {
+          return apiMap[key];
+        }
+        if (nestedData.containsKey(key) && nestedData[key] != null) {
+          return nestedData[key];
+        }
+      }
+      return null;
+    }
+
+    dynamic deepFindByKeys(dynamic node, List<String> keys) {
+      if (node is Map) {
+        final map = Map<String, dynamic>.from(node);
+        for (final key in keys) {
+          if (map.containsKey(key) && map[key] != null) {
+            return map[key];
+          }
+        }
+        for (final entry in map.entries) {
+          final found = deepFindByKeys(entry.value, keys);
+          if (found != null) return found;
+        }
+      } else if (node is List) {
+        for (final item in node) {
+          final found = deepFindByKeys(item, keys);
+          if (found != null) return found;
+        }
+      }
+      return null;
+    }
+
+    String deriveApprovalStatus() {
+      final direct = readFirst([
+        'approval_status',
+        'approvalStatus',
+        'approvalstatus',
+      ]);
+      final deepDirect = deepFindByKeys(apiMap, [
+        'approval_status',
+        'approvalStatus',
+        'approvalstatus',
+      ]);
+      final resolved = direct ?? deepDirect;
+      if (resolved != null && resolved.toString().trim().isNotEmpty) {
+        return resolved.toString().trim();
+      }
+
+      if (rawData.status.trim().isNotEmpty &&
+          rawData.status.trim().toUpperCase() != 'N/A') {
+        return rawData.status.trim();
+      }
+
+      if (direct != null && direct.toString().trim().isNotEmpty) {
+        return direct.toString().trim();
+      }
+
+      final ticketCheckers = readFirst(['ticketCheckers']);
+      if (ticketCheckers is List) {
+        var pending = 0;
+        for (final checker in ticketCheckers) {
+          if (checker is! Map) continue;
+          final m = Map<String, dynamic>.from(checker);
+          final decision = (m['decisionStatus'] ?? m['decision_status'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
+          if (decision.isEmpty || decision == 'PENDING') {
+            pending++;
+          }
+        }
+        if (pending > 0) return '$pending Approvals Pending';
+      }
+      return '';
+    }
+
+    final derivedApprovalStatus = deriveApprovalStatus();
+    final explicitActivityStatus = (readFirst([
+          'activity_status',
+          'activityStatus',
+          'activitystatus',
+        ]) ??
+        deepFindByKeys(apiMap, [
+          'activity_status',
+          'activityStatus',
+          'activitystatus',
+        ]));
+
+    String? statusFromHistory() {
+      final history = readFirst(['ticketStatusHistory']) ??
+          deepFindByKeys(apiMap, ['ticketStatusHistory']);
+      if (history is! List || history.isEmpty) return null;
+      for (final item in history) {
+        if (item is! Map) continue;
+        final m = Map<String, dynamic>.from(item);
+        final candidate = (m['status'] ??
+                m['activity_status'] ??
+                m['activityStatus'] ??
+                m['currentStatus'])
+            ?.toString()
+            .trim();
+        if (candidate != null && candidate.isNotEmpty) return candidate;
+      }
+      return null;
+    }
+
+    final derivedActivityStatus = (explicitActivityStatus != null &&
+            explicitActivityStatus.toString().trim().isNotEmpty)
+        ? explicitActivityStatus.toString()
+        : (statusFromHistory() ??
+            (rawData.status.trim().isNotEmpty ? rawData.status.trim() : ''));
+    final derivedState = (readFirst([
+              'state',
+              'state_name',
+              'stateName',
+              'circle_state_name',
+              'circleStateName',
+              'circle',
+            ]) ??
+            deepFindByKeys(apiMap, [
+              'state',
+              'state_name',
+              'stateName',
+              'circle_state_name',
+              'circleStateName',
+              'circle',
+            ]))
+        ?.toString();
+
+    return PmisProjectActivity.fromJson({
+      ...apiMap,
+      ...nestedData,
+      'at_id': readFirst(['at_id', 'atId', 'activityTicketId']) ??
+          int.tryParse(rawData.siteAuditSchId),
+      'site_name': readFirst(['site_name', 'siteName']) ?? rawData.siteCode,
+      'module_name':
+          readFirst(['module_name', 'moduleName']) ?? rawData.operator,
+      'sub_module_name': readFirst(['sub_module_name', 'subModuleName']) ??
+          rawData.cluster,
+      'activity_name':
+          readFirst(['activity_name', 'activityName']) ?? rawData.siteCode,
+      'approval_status': readFirst([
+            'approval_status',
+            'approvalStatus',
+            'approvalstatus',
+          ]) ??
+          derivedApprovalStatus,
+      'activity_status': derivedActivityStatus,
+      'planned_start_dt':
+          readFirst(['planned_start_dt', 'plannedStartDt']) ?? rawData.raisedDt,
+      'planned_end_dt':
+          readFirst(['planned_end_dt', 'plannedEndDt']) ?? rawData.dueDt,
+      'actual_start_dt': readFirst(['actual_start_dt', 'actualStartDt']),
+      'actual_end_dt': readFirst(['actual_end_dt', 'actualEndDt']),
+      'is_geo_fenced': readFirst(['is_geo_fenced', 'isGeoFenced']) ?? false,
+      'state': derivedState ?? '',
+      'distance_km': readFirst(['distance_km', 'distanceKm']) ?? '',
+      'distance_m': readFirst(['distance_m', 'distanceM']),
+      'latitude': readFirst(['latitude', 'lat']) ?? rawData.latitude,
+      'longitude': readFirst(['longitude', 'lng', 'long']) ?? rawData.longitude,
+    });
   }
 
   // download pdf report
@@ -1272,6 +1442,46 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       itemCount: _filteredTickets.length,
       itemBuilder: (context, index) {
         final rawTicket = _filteredTickets[index];
+
+        if (rawTicket.activityType == ActivityTypeEnum.activityTicket) {
+          final activity = _convertToPmisProjectActivity(rawTicket);
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index == _filteredTickets.length - 1 ? 0 : 10,
+            ),
+            child: ActivityCard(
+              activity: activity,
+              showProjectHierarchy: false,
+              isOfflineDownloaded: true,
+              onTap: () async {
+                await _navigateToAuditScreen(rawTicket);
+              },
+              onDirectionTap: () {
+                if (activity.longitude != null && activity.latitude != null) {
+                  LocationService.openDirectionsToSite(
+                    siteLat: activity.latitude!,
+                    siteLng: activity.longitude!,
+                    siteName: activity.siteName,
+                    context: context,
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Directions are not available for this activity',
+                      ),
+                      backgroundColor: AppColors.errorColor,
+                    ),
+                  );
+                }
+              },
+              onDownloadTap: () async {
+                Toastbar.showInfoToastbar("Activity already downloaded", context);
+              },
+            ),
+          );
+        }
+
         final ticket = _convertToTicket(rawTicket);
 
         return Padding(
