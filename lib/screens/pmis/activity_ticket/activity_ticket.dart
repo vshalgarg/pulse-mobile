@@ -979,14 +979,15 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (v.isEmpty) return null;
     final n = num.tryParse(v);
     if (n == null) return 'Invalid number';
-    final min = f.minVal;
-    final max = f.maxVal;
-    if (min != null) {
-      final mn = num.tryParse(min.toString());
+    final minRaw = f.minVal;
+    final maxRaw = f.maxVal;
+    final mn = minRaw == null ? null : num.tryParse(minRaw.toString());
+    final mx = maxRaw == null ? null : num.tryParse(maxRaw.toString());
+
+    // Backward-compat: older locally persisted payloads used 0 for null bounds.
+    final treatBoundsAsUnset = (mn == 0) && (mx == 0);
+    if (!treatBoundsAsUnset) {
       if (mn != null && n < mn) return 'Min $mn';
-    }
-    if (max != null) {
-      final mx = num.tryParse(max.toString());
       if (mx != null && n > mx) return 'Max $mx';
     }
     return null;
@@ -1489,13 +1490,66 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'subActivityControlType': f.subActivityControlType ?? '',
       'isRequired': f.isRequired ?? false,
       'seqNo': f.seqNo ?? 0,
-      'minVal': f.minVal ?? 0,
-      'maxVal': f.maxVal ?? 0,
+      // Preserve nullable bounds. Null means "no min/max validation".
+      'minVal': f.minVal,
+      'maxVal': f.maxVal,
       'configJson': (f.configJson is Map)
           ? Map<String, dynamic>.from(f.configJson as Map)
           : {},
       'linkMmId': f.linkMmId ?? 0,
     };
+  }
+
+  List<Map<String, dynamic>> _attachmentsForUploadFieldPost(
+    PmisTicketFieldValue f,
+    String valText,
+  ) {
+    final type = _normDataType(f);
+    if (!_isUploadType(type)) {
+      return f.attachments.map((m) => Map<String, dynamic>.from(m)).toList();
+    }
+
+    final ids = valText
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty && e != '0')
+        .toList();
+    if (ids.isEmpty) return <Map<String, dynamic>>[];
+
+    final live = _uploadedAttachmentsByTfv[f.tfvId] ?? const <Map<String, dynamic>>[];
+    // Strict replace behavior: only use current/live attachment rows.
+    // Do not merge historical `f.attachments` when posting updates.
+    final source = <Map<String, dynamic>>[
+      ...live.map((m) => Map<String, dynamic>.from(m)),
+    ];
+
+    final out = <Map<String, dynamic>>[];
+    for (final id in ids) {
+      Map<String, dynamic>? matched;
+      for (final a in source) {
+        if ((_rawAttachmentIdFromMap(a) ?? '').trim() == id) {
+          matched = Map<String, dynamic>.from(a);
+          break;
+        }
+      }
+      out.add(
+        matched ??
+            <String, dynamic>{
+              'taId': 0,
+              'fileType': type,
+              'latitude': 0,
+              'longitude': 0,
+              'geoAccuracyM': 0,
+              'geoSource': 'MOBILE',
+              'capturedDt': _nowForBackend(),
+              'taggedMmId': null,
+              'attachmentId': int.tryParse(id) ?? id,
+              'isActive': true,
+              'remarks': '',
+            },
+      );
+    }
+    return out;
   }
 
   Map<String, dynamic> _mapOldData(PmisOldDataItem item) {
@@ -1537,11 +1591,12 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'remarks': close.remarks,
       'ticketCheckers': widget.detail.ticketCheckers.map(_mapChecker).toList(),
       'ticketFieldValues': widget.detail.ticketFieldValues.map((f) {
-        final updatedAttachments = _uploadedAttachmentsByTfv[f.tfvId];
+        final valText = updatedValTextByTfv[f.tfvId] ?? '';
+        final updatedAttachments = _attachmentsForUploadFieldPost(f, valText);
         return _mapFieldValue(
           f,
-          valText: updatedValTextByTfv[f.tfvId] ?? '',
-          attachments: updatedAttachments ?? f.attachments,
+          valText: valText,
+          attachments: updatedAttachments,
         );
       }).toList(),
       'ticketAttachments': widget.detail.ticketAttachments
