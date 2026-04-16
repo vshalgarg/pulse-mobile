@@ -6,6 +6,8 @@ import 'package:app/commonWidgets/selfie_camera_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:geolocator/geolocator.dart';
 
 import 'package:app/constants/constants_strings.dart';
 import 'package:app/constants/app_colors.dart';
@@ -78,6 +80,110 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     }
   }
 
+  static String _formatNowForWatermark(DateTime now) {
+    final dd = now.day.toString().padLeft(2, '0');
+    final mm = now.month.toString().padLeft(2, '0');
+    final yyyy = now.year.toString();
+    final hh = now.hour.toString().padLeft(2, '0');
+    final min = now.minute.toString().padLeft(2, '0');
+    final ss = now.second.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min:$ss';
+  }
+
+  Future<Position?> _getCurrentPositionForWatermark() async {
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        return null;
+      }
+      return await Geolocator.getLastKnownPosition() ??
+          await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 5),
+          );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<File?> _applyWatermark(File file, Position? position) async {
+    try {
+      final bytes = await file.readAsBytes();
+      var image = img.decodeImage(bytes);
+      if (image == null) return null;
+
+      final font = img.arial14;
+      final timestamp = _formatNowForWatermark(DateTime.now());
+      final latText = position != null
+          ? position.latitude.toStringAsFixed(6)
+          : 'N/A';
+      final lngText = position != null
+          ? position.longitude.toStringAsFixed(6)
+          : 'N/A';
+
+      const padX = 12;
+      const lineGap = 18;
+      const textTopPadding = 8;
+      const boxBottomPadding = 6;
+      final desiredBoxHeight = textTopPadding + (lineGap * 3) + boxBottomPadding;
+      // Keep watermark compact so selfies remain visible.
+      final maxAllowedBoxHeight = (image.height * 0.24).round();
+      final boxHeight = desiredBoxHeight < maxAllowedBoxHeight
+          ? desiredBoxHeight
+          : maxAllowedBoxHeight;
+      final safeBoxHeight = boxHeight < 44 ? 44 : boxHeight;
+      final yStart = (image.height - safeBoxHeight).clamp(0, image.height - 1);
+
+      img.fillRect(
+        image,
+        x1: 0,
+        y1: yStart,
+        x2: image.width - 1,
+        y2: image.height - 1,
+        color: img.ColorRgba8(0, 0, 0, 150),
+      );
+
+      img.drawString(
+        image,
+        'Date: $timestamp',
+        font: font,
+        x: padX,
+        y: yStart + textTopPadding,
+        color: img.ColorRgb8(255, 255, 255),
+      );
+      img.drawString(
+        image,
+        'Lat: $latText',
+        font: font,
+        x: padX,
+        y: yStart + textTopPadding + lineGap,
+        color: img.ColorRgb8(255, 255, 255),
+      );
+      img.drawString(
+        image,
+        'Lng: $lngText',
+        font: font,
+        x: padX,
+        y: yStart + textTopPadding + (lineGap * 2),
+        color: img.ColorRgb8(255, 255, 255),
+      );
+
+      final outputPath = file.path.replaceFirst(
+        RegExp(r'(\.[A-Za-z0-9]+)$'),
+        '_wm.jpg',
+      );
+      final outputFile = File(outputPath);
+      await outputFile.writeAsBytes(img.encodeJpg(image, quality: 92), flush: true);
+      return outputFile;
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -110,12 +216,15 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
 
       if (!mounted) return null;
 
+      final position = await _getCurrentPositionForWatermark();
+      final watermarked = await _applyWatermark(file, position);
+      final uploadFile = watermarked ?? file;
       setState(() {
-        _selectedImage = file;
+        _selectedImage = uploadFile;
         _isLoading = false;
       });
 
-      widget.onImageSelected(file);
+      widget.onImageSelected(uploadFile);
       return file;
     } catch (e, s) {
       await CrashLogger().logCrash(e, s);
@@ -190,21 +299,26 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       return;
     }
 
-    /// ✅ STEP 1: INSTANT PREVIEW
+    final capturedFile = pickedFile;
+    final position = await _getCurrentPositionForWatermark();
+    final watermarked = await _applyWatermark(capturedFile, position);
+    final fileForUpload = watermarked ?? capturedFile;
+
+    /// ✅ STEP 1: SHOW WATERMARKED PREVIEW
     setState(() {
-      _selectedImage = pickedFile;
+      _selectedImage = fileForUpload;
       _isLoading = false;
     });
 
-    /// ✅ STEP 2: INSTANT CALLBACK
-    widget.onImageSelected(pickedFile);
+    /// ✅ STEP 2: CALLBACK WITH WATERMARKED IMAGE
+    widget.onImageSelected(fileForUpload);
 
-    /// ✅ STEP 3: BACKGROUND COMPRESSION
-    final size = await pickedFile.length();
+    /// ✅ STEP 3: OPTIONAL COMPRESSION (STILL WATERMARKED)
+    final size = await fileForUpload.length();
     const twoMb = 2 * 1024 * 1024;
 
     if (size > twoMb) {
-      final originalPath = pickedFile.path;
+      final originalPath = fileForUpload.path;
 
       Future.delayed(const Duration(milliseconds: 300), () {
         compute(_compressInBackground, originalPath)
@@ -214,7 +328,10 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
           if (compressedPath != null) {
             final compressedFile = File(compressedPath);
 
-            /// 🔥 Update with compressed file
+            /// 🔥 Update with compressed+watermarked file
+            setState(() {
+              _selectedImage = compressedFile;
+            });
             widget.onImageSelected(compressedFile);
           }
         });
@@ -300,6 +417,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         return Image.memory(
           bytes,
           fit: BoxFit.cover,
+          alignment: Alignment.bottomCenter,
           cacheWidth: 600,
           filterQuality: FilterQuality.low,
         );
@@ -311,6 +429,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         return SafeImageFile(
           file: file,
           fit: BoxFit.cover,
+          alignment: Alignment.bottomCenter,
           width: double.infinity,
           cacheWidth: 600,
           errorBuilder: (context, error, stackTrace) => _buildPlaceholder(),
@@ -322,6 +441,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
       return Image.memory(
         bytes,
         fit: BoxFit.cover,
+        alignment: Alignment.bottomCenter,
         cacheWidth: 600,
       );
     } catch (_) {
@@ -334,11 +454,28 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
     Widget child;
 
     if (_isLoading) {
-      child = const Center(child: CircularProgressIndicator());
+      child = const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 10),
+            Text(
+              'Adding watermark...',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF555555),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
     } else if (_selectedImage != null) {
       child = SafeImageFile(
         file: _selectedImage!,
         fit: BoxFit.cover,
+        alignment: Alignment.bottomCenter,
         width: double.infinity,
         cacheWidth: 600,
         errorBuilder: (context, error, stackTrace) =>

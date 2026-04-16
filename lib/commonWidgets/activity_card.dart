@@ -82,13 +82,6 @@ class ActivityCard extends StatelessWidget {
 
                 const SizedBox(height: 14),
 
-                if (showProjectHierarchy) ...[
-                  _infoRow(
-                    label: 'Hierarchy :',
-                    value:
-                        'Project > ${_displayValue(activity.state)} > ${_displayValue(activity.siteName)} > ${_displayValue(activity.moduleName)} > ${_displayValue(activity.subModuleName)} > ${_displayValue(activity.activityName)}',
-                  ),
-                ],
 
                 _infoRow(
                   label: 'State :',

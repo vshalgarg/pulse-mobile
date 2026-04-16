@@ -2030,6 +2030,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               children: [
                 _TicketFlowHeader(
                   title: widget.activityName,
+                  breadcrumb: widget.breadcrumbText,
                   onBack: () => Navigator.of(context).pop(),
                 ),
                 Expanded(
@@ -2204,10 +2205,12 @@ class _FieldLabel extends StatelessWidget {
 
 class _TicketFlowHeader extends StatelessWidget {
   final String title;
+  final String breadcrumb;
   final VoidCallback onBack;
 
   const _TicketFlowHeader({
     required this.title,
+    required this.breadcrumb,
     required this.onBack,
   });
 
@@ -2245,6 +2248,19 @@ class _TicketFlowHeader extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+          Padding(
+            padding: const EdgeInsets.only(left: 8, top: 4, right: 8),
+            child: Text(
+              breadcrumb,
+              style: TextStyle(
+                color: AppColors.white.withValues(alpha: 0.92),
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                fontFamily: poppins,
+                height: 1.35,
+              ),
+            ),
           ),
         ],
       ),
