@@ -21,6 +21,7 @@ class PmisActivityTicketOfflineDownloadResult {
 
 class PmisActivityTicketOfflineService {
   PmisActivityTicketOfflineService._();
+  static const String _manualDownloadFlagKey = '_manualOfflineDownloaded';
 
   static Future<PmisActivityTicketOfflineDownloadResult> downloadCompleteTicket({
     required PmisActivityTicketRepository repository,
@@ -65,6 +66,20 @@ class PmisActivityTicketOfflineService {
       longitude: activity.longitude ?? 0,
     );
 
+    if (ok) {
+      // Mark this row as user-triggered manual offline download.
+      final dataService = ServiceLocator().centralAssetAuditDataService;
+      final existing = await dataService.getRawApiData(atId.toString());
+      if (existing != null) {
+        final updatedApi = Map<String, dynamic>.from(existing.apiData)
+          ..[_manualDownloadFlagKey] = true;
+        await dataService.updateRawApiData(
+          siteAuditSchId: atId.toString(),
+          apiData: updatedApi,
+        );
+      }
+    }
+
     return PmisActivityTicketOfflineDownloadResult(
       success: ok,
       errorMessage: ok ? null : 'Failed to save offline bundle',
@@ -88,8 +103,10 @@ class PmisActivityTicketOfflineService {
   static Future<bool> isTicketDownloadedForOffline(int atId) async {
     final data = await ServiceLocator().centralAssetAuditService
         .getDataFromSqlite(siteAuditSchId: atId.toString());
+    final isManualDownload =
+        data?.apiData[_manualDownloadFlagKey] == true;
     return data != null &&
-        data.isDownloaded &&
+        isManualDownload &&
         data.activityType == ActivityTypeEnum.activityTicket;
   }
 }

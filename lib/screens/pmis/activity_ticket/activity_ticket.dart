@@ -1164,11 +1164,13 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   ) async {
     final schId = widget.activityTicketId.toString();
     final dataService = ServiceLocator().centralAssetAuditDataService;
+    final payloadForLocal = Map<String, dynamic>.from(payload)
+      ..['_manualOfflineDownloaded'] = false;
     final existing = await dataService.getRawApiData(schId);
     if (existing != null) {
       await dataService.updateRawApiData(
         siteAuditSchId: schId,
-        apiData: payload,
+        apiData: payloadForLocal,
       );
       return;
     }
@@ -1185,10 +1187,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       dueDt: '',
       status: payload['currentStatus']?.toString() ?? widget.detail.currentStatus,
       activityType: ActivityTypeEnum.activityTicket,
+      // Keep local snapshot available; icon now uses `_manualOfflineDownloaded`.
       isDownloaded: true,
       latitude: 0,
       longitude: 0,
-      apiData: payload,
+      apiData: payloadForLocal,
     );
   }
 
