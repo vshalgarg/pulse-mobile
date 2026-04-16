@@ -1677,7 +1677,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
       if (_isUploadType(type) && req) {
         final files = _filesByTfv[f.tfvId];
-        if (files == null || files.isEmpty) {
+        final hasPickedLocal = files != null && files.isNotEmpty;
+        final hasExistingAttachmentIds = _valTextForField(f).trim().isNotEmpty;
+        if (!hasPickedLocal && !hasExistingAttachmentIds) {
           Toastbar.showErrorToastbar(
             '${f.subActivityName} is required',
             context,
