@@ -1574,18 +1574,26 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     final updatedValTextByTfv = <int, String>{
       for (final f in _sortedFields) f.tfvId: _valTextForField(f),
     };
+    final isAllocatedToWipTransition =
+        widget.detail.currentStatus.trim().toUpperCase() == 'ALLOCATED' &&
+            close.currentStatus.trim().toUpperCase() == 'WIP';
+    final actualStartDt = isAllocatedToWipTransition &&
+            (widget.detail.actualStartDt?.trim().isEmpty ?? true)
+        ? _nowForBackend()
+        : _normalizeDateString(widget.detail.actualStartDt);
 
     return <String, dynamic>{
       'atId': widget.detail.atId,
       'ppaId': widget.detail.ppaId,
       'currentStatus': close.currentStatus,
+      'currentStatusCode': close.currentStatusCode,
       'currentStatusDt': _nowForBackend(),
       'makerDesignationMstId': widget.detail.makerDesignationMstId ?? 0,
       'makerUserMstId': widget.detail.makerUserMstId ?? 0,
       'makerAssignedDt': _normalizeDateString(widget.detail.makerAssignedDt),
       'plannedStartDt': _normalizeDateString(widget.detail.plannedStartDt),
       'plannedEndDt': _normalizeDateString(widget.detail.plannedEndDt),
-      'actualStartDt': _normalizeDateString(widget.detail.actualStartDt),
+      'actualStartDt': actualStartDt,
       'actualEndDt': _normalizeDateString(widget.detail.actualEndDt),
       'isActive': widget.detail.isActive,
       'remarks': close.remarks,
@@ -1615,7 +1623,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         );
         return mapped;
       }).toList(),
-      'allowedStatuses': widget.detail.allowedStatuses.join(', '),
+      'allowedStatuses': widget.detail.allowedStatuses
+          .map((e) => e.toJson())
+          .toList(),
       // Close dialog: currentStatus, repeatDt, remarks, isRepeatNature (see ActivityTicketClosePopupResult).
       'isRepeatNature': close.isRepeatNature,
       'isRepeating': close.isRepeatNature,
@@ -1696,7 +1706,18 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (!_validateAll()) return;
     final close = await showActivityTicketClosePopup(
       context,
-      statusOptions: widget.detail.allowedStatuses,
+      statusOptions: widget.detail.allowedStatuses
+          .where(
+            (e) => e.statusName.trim().isNotEmpty && e.statusCode.trim().isNotEmpty,
+          )
+          .map(
+            (e) => ActivityTicketCloseStatusOption(
+              statusName: e.statusName.trim(),
+              statusCode: e.statusCode.trim(),
+              psmId: e.psmId,
+            ),
+          )
+          .toList(),
     );
     if (!mounted) return;
     if (close == null) return;

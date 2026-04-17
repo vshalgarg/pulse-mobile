@@ -2,6 +2,18 @@ import 'package:app/constants/app_colors.dart';
 import 'package:app/commonWidgets/custom_form_dropdown.dart';
 import 'package:flutter/material.dart';
 
+class ActivityTicketCloseStatusOption {
+  final String statusName;
+  final String statusCode;
+  final int? psmId;
+
+  const ActivityTicketCloseStatusOption({
+    required this.statusName,
+    required this.statusCode,
+    required this.psmId,
+  });
+}
+
 /// Lowercases and maps Unicode dash/minus to ASCII `-` for status comparisons.
 String normalizeActivityTicketCloseStatusForCompare(String? raw) {
   if (raw == null) return '';
@@ -28,18 +40,22 @@ String _formatActivityRepetitionDateForRepeatDt(DateTime value) {
 }
 
 class ActivityTicketClosePopupResult {
-  final String status;
+  final String statusName;
+  final String statusCode;
+  final int? currentStatusCode;
   final DateTime? repetitionDate;
   final String remarks;
 
   const ActivityTicketClosePopupResult({
-    required this.status,
+    required this.statusName,
+    required this.statusCode,
+    required this.currentStatusCode,
     required this.repetitionDate,
     required this.remarks,
   });
 
-  /// POST `currentStatus` — same as [status] from the close dialog.
-  String get currentStatus => status;
+  /// POST `currentStatus` uses selected option `statusCode`.
+  String get currentStatus => statusCode;
 
   /// POST `repeatDt` from Activity Repetition Date; null if not set.
   String? get repeatDt => repetitionDate == null
@@ -48,8 +64,8 @@ class ActivityTicketClosePopupResult {
 
   /// POST `isRepeatNature`: true for Completed or Completed – To Be Repeated only.
   bool get isRepeatNature {
-    final n = normalizeActivityTicketCloseStatusForCompare(status);
-    return n == 'completed' || n == 'completed - to be repeated';
+    final n = normalizeActivityTicketCloseStatusForCompare(statusCode);
+    return n == 'completed' || n == 'completed to be repeated';
   }
 }
 
@@ -58,7 +74,7 @@ Future<ActivityTicketClosePopupResult?> showActivityTicketClosePopup(
   String? initialStatus,
   DateTime? initialRepetitionDate,
   String? initialRemarks,
-  List<String>? statusOptions,
+  List<ActivityTicketCloseStatusOption>? statusOptions,
 }) {
   return showDialog<ActivityTicketClosePopupResult>(
     context: context,
@@ -77,7 +93,7 @@ class ActivityTicketClosePopup extends StatefulWidget {
   final String? initialStatus;
   final DateTime? initialRepetitionDate;
   final String? initialRemarks;
-  final List<String>? statusOptions;
+  final List<ActivityTicketCloseStatusOption>? statusOptions;
 
   const ActivityTicketClosePopup({
     super.key,
@@ -93,33 +109,44 @@ class ActivityTicketClosePopup extends StatefulWidget {
 }
 
 class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
-  static const List<String> _defaultStatusOptions = <String>[
-    'Completed',
-    'Repeat',
+  static const List<ActivityTicketCloseStatusOption> _defaultStatusOptions =
+      <ActivityTicketCloseStatusOption>[
+    ActivityTicketCloseStatusOption(
+      statusName: 'Completed',
+      statusCode: 'COMPLETED',
+      psmId: null,
+    ),
+    ActivityTicketCloseStatusOption(
+      statusName: 'Completed – To Be Repeated',
+      statusCode: 'COMPLETED_TO_BE_REPEATED',
+      psmId: null,
+    ),
   ];
 
   final TextEditingController _remarksController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
-  String? _status;
+  ActivityTicketCloseStatusOption? _selectedStatus;
   DateTime? _repetitionDate;
   bool _showStatusError = false;
 
   /// Repetition date should appear only for Completed - To Be Repeated.
   bool _repetitionDateEnabled(String? status) {
     final n = normalizeActivityTicketCloseStatusForCompare(status);
-    return n == 'completed - to be repeated';
+    return n == 'completed to be repeated';
   }
 
   /// Completed - To Be Repeated requires a repetition date before save.
   bool _repetitionDateRequired(String? status) {
     final n = normalizeActivityTicketCloseStatusForCompare(status);
-    return n == 'completed - to be repeated';
+    return n == 'completed to be repeated';
   }
-  List<String> get _statusOptions {
+  List<ActivityTicketCloseStatusOption> get _statusOptions {
     final options = widget.statusOptions
-        ?.map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
+        ?.where(
+          (e) =>
+              e.statusName.trim().isNotEmpty && e.statusCode.trim().isNotEmpty,
+        )
         .toList();
     if (options == null || options.isEmpty) return _defaultStatusOptions;
     return options;
@@ -128,7 +155,17 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   @override
   void initState() {
     super.initState();
-    _status = widget.initialStatus;
+    final initial = normalizeActivityTicketCloseStatusForCompare(
+      widget.initialStatus,
+    );
+    for (final s in _statusOptions) {
+      final byName = normalizeActivityTicketCloseStatusForCompare(s.statusName);
+      final byCode = normalizeActivityTicketCloseStatusForCompare(s.statusCode);
+      if (initial.isNotEmpty && (byName == initial || byCode == initial)) {
+        _selectedStatus = s;
+        break;
+      }
+    }
     _repetitionDate = widget.initialRepetitionDate;
     _remarksController.text = widget.initialRemarks ?? '';
   }
@@ -140,7 +177,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   }
 
   Future<void> _pickDate() async {
-    if (!_repetitionDateEnabled(_status)) return;
+    if (!_repetitionDateEnabled(_selectedStatus?.statusCode)) return;
     final now = DateTime.now();
     final initial = _repetitionDate ?? now;
     final picked = await showDatePicker(
@@ -164,7 +201,9 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   }
 
   void _onSave() {
-    final hasStatus = _status != null && _status!.trim().isNotEmpty;
+    final hasStatus =
+        _selectedStatus != null &&
+        _selectedStatus!.statusName.trim().isNotEmpty;
     if (!hasStatus) {
       setState(() {
         _showStatusError = true;
@@ -176,9 +215,13 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
     // Match showDialog(useRootNavigator: true) so we only dismiss this dialog.
     Navigator.of(context, rootNavigator: true).pop(
       ActivityTicketClosePopupResult(
-        status: _status!,
+        statusName: _selectedStatus!.statusName,
+        statusCode: _selectedStatus!.statusCode,
+        currentStatusCode: _selectedStatus!.psmId,
         repetitionDate:
-            _repetitionDateEnabled(_status) ? _repetitionDate : null,
+            _repetitionDateEnabled(_selectedStatus!.statusCode)
+            ? _repetitionDate
+            : null,
         remarks: _remarksController.text.trim(),
       ),
     );
@@ -204,13 +247,22 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                 _label('Activity Status', required: true),
                 const SizedBox(height: 8),
                 CustomDropdown(
-                  items: _statusOptions,
-                  initialValue: _status,
+                  items: _statusOptions.map((e) => e.statusName).toList(),
+                  initialValue: _selectedStatus?.statusName,
                   onChanged: (v) {
+                    ActivityTicketCloseStatusOption? selected;
+                    for (final s in _statusOptions) {
+                      if (s.statusName == v) {
+                        selected = s;
+                        break;
+                      }
+                    }
                     setState(() {
-                      _status = v;
+                      _selectedStatus = selected;
                       _showStatusError = false;
-                      if (!_repetitionDateEnabled(v)) _repetitionDate = null;
+                      if (!_repetitionDateEnabled(selected?.statusCode)) {
+                        _repetitionDate = null;
+                      }
                     });
                   },
                 ),
@@ -225,7 +277,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                       ),
                     ),
                   ),
-                if (_repetitionDateEnabled(_status)) ...[
+                if (_repetitionDateEnabled(_selectedStatus?.statusCode)) ...[
                   const SizedBox(height: 8),
                   _helper(
                     'Activity Repetition Date is required for '
@@ -234,7 +286,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                   const SizedBox(height: 12),
                   _label(
                     'Activity Repetition Date',
-                    required: _repetitionDateRequired(_status),
+                    required: _repetitionDateRequired(_selectedStatus?.statusCode),
                   ),
                   const SizedBox(height: 8),
                   InkWell(
@@ -246,7 +298,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                       ).copyWith(
                         suffixIcon: Icon(
                           Icons.calendar_month_outlined,
-                          color: _repetitionDateEnabled(_status)
+                          color: _repetitionDateEnabled(_selectedStatus?.statusCode)
                               ? AppColors.color555555
                               : AppColors.colorA0A0A0,
                         ),
@@ -254,7 +306,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                       child: Text(
                         _repetitionDate == null ? '' : _fmtDate(_repetitionDate),
                         style: TextStyle(
-                          color: _repetitionDateEnabled(_status)
+                          color: _repetitionDateEnabled(_selectedStatus?.statusCode)
                               ? AppColors.color555555
                               : AppColors.colorA0A0A0,
                           fontSize: 15,
@@ -262,7 +314,8 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                       ),
                     ),
                   ),
-                  if (_repetitionDateRequired(_status) && _repetitionDate == null)
+                  if (_repetitionDateRequired(_selectedStatus?.statusCode) &&
+                      _repetitionDate == null)
                     const Padding(
                       padding: EdgeInsets.only(top: 6),
                       child: Text(
@@ -313,7 +366,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
-                          if (_repetitionDateRequired(_status) &&
+                          if (_repetitionDateRequired(_selectedStatus?.statusCode) &&
                               _repetitionDate == null) {
                             setState(() {});
                             return;

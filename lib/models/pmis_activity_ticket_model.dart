@@ -4,6 +4,7 @@ class PmisActivityTicketDetail extends Equatable {
   final int atId;
   final int ppaId;
   final String currentStatus;
+  final int? currentStatusCode;
   final String? currentStatusDt;
   final int? makerDesignationMstId;
   final int? makerUserMstId;
@@ -26,12 +27,13 @@ class PmisActivityTicketDetail extends Equatable {
   final List<Map<String, dynamic>> ticketStatusHistory;
   final bool isRepeating;
   final String? repeatDt;
-  final List<String> allowedStatuses;
+  final List<PmisAllowedStatus> allowedStatuses;
 
   const PmisActivityTicketDetail({
     required this.atId,
     required this.ppaId,
     required this.currentStatus,
+    required this.currentStatusCode,
     required this.currentStatusDt,
     required this.makerDesignationMstId,
     required this.makerUserMstId,
@@ -59,24 +61,43 @@ class PmisActivityTicketDetail extends Equatable {
 
   factory PmisActivityTicketDetail.fromJson(Map<String, dynamic> json) {
     int parseInt(dynamic v) => int.tryParse(v?.toString() ?? '') ?? 0;
-    int? parseIntNullable(dynamic v) => v == null ? null : int.tryParse(v.toString());
+    int? parseIntNullable(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      final raw = v.toString().trim();
+      if (raw.isEmpty) return null;
+      return int.tryParse(raw) ?? double.tryParse(raw)?.toInt();
+    }
     bool parseBool(dynamic v) =>
         v == true || v?.toString().toLowerCase() == 'true' || v == 1;
     String? parseStringNullable(dynamic v) => v == null ? null : v.toString();
+    dynamic pick(Map<String, dynamic> m, List<String> keys) {
+      for (final k in keys) {
+        if (m.containsKey(k)) return m[k];
+      }
+      return null;
+    }
 
-    final checkers = (json['ticketCheckers'] as List<dynamic>? ?? [])
+    final checkers = (pick(json, ['ticketCheckers', 'ticket_checkers'])
+                as List<dynamic>? ??
+            [])
         .map((e) => PmisTicketChecker.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
 
-    final fieldValues = (json['ticketFieldValues'] as List<dynamic>? ?? [])
+    final fieldValues = (pick(json, ['ticketFieldValues', 'ticket_field_values'])
+                as List<dynamic>? ??
+            [])
         .map((e) => PmisTicketFieldValue.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
 
-    final attachments = (json['ticketAttachments'] as List<dynamic>? ?? [])
+    final attachments = (pick(json, ['ticketAttachments', 'ticket_attachments'])
+                as List<dynamic>? ??
+            [])
         .map((e) => PmisTicketAttachment.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
 
-    final oldDataRaw = json['oldData'];
+    final oldDataRaw = pick(json, ['oldData', 'old_data']);
     final List<dynamic> oldDataList;
     if (oldDataRaw == null) {
       oldDataList = const [];
@@ -91,25 +112,58 @@ class PmisActivityTicketDetail extends Equatable {
         .map((e) => PmisOldDataItem.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
 
-    final statusHistory = (json['ticketStatusHistory'] as List<dynamic>? ?? [])
+    final statusHistory =
+        (pick(json, ['ticketStatusHistory', 'ticket_status_history'])
+                    as List<dynamic>? ??
+                [])
         .map((e) => Map<String, dynamic>.from(e as Map))
         .toList();
-    final allowedStatusesRaw = json['allowedStatuses'];
-    final allowedStatuses = allowedStatusesRaw is List
-        ? allowedStatusesRaw
-            .map((e) => e.toString().trim())
-            .where((e) => e.isNotEmpty)
-            .toList()
-        : (allowedStatusesRaw?.toString() ?? '')
-            .split(',')
-            .map((e) => e.trim())
-            .where((e) => e.isNotEmpty)
-            .toList();
+    final allowedStatusesRaw = pick(json, ['allowedStatuses', 'allowed_statuses']);
+    final allowedStatuses = <PmisAllowedStatus>[];
+    if (allowedStatusesRaw is List) {
+      for (final item in allowedStatusesRaw) {
+        if (item is Map) {
+          final parsed = PmisAllowedStatus.fromJson(
+            Map<String, dynamic>.from(item),
+          );
+          if (parsed.statusCode.isNotEmpty || parsed.statusName.isNotEmpty) {
+            allowedStatuses.add(parsed);
+          }
+        } else {
+          final raw = item.toString().trim();
+          if (raw.isEmpty) continue;
+          allowedStatuses.add(
+            PmisAllowedStatus(
+              psmId: null,
+              statusCode: raw,
+              statusName: raw,
+            ),
+          );
+        }
+      }
+    } else {
+      for (final raw in (allowedStatusesRaw?.toString() ?? '').split(',')) {
+        final value = raw.trim();
+        if (value.isEmpty) continue;
+        allowedStatuses.add(
+          PmisAllowedStatus(
+            psmId: null,
+            statusCode: value,
+            statusName: value,
+          ),
+        );
+      }
+    }
 
     return PmisActivityTicketDetail(
       atId: parseInt(json['atId']),
       ppaId: parseInt(json['ppaId']),
       currentStatus: (json['currentStatus'] ?? '').toString(),
+      currentStatusCode: parseIntNullable(
+        json['currentStatusCode'] ??
+            json['current_status_code'] ??
+            json['statusCodeId'],
+      ),
       currentStatusDt: parseStringNullable(json['currentStatusDt']),
       makerDesignationMstId: parseIntNullable(json['makerDesignationMstId']),
       makerUserMstId: parseIntNullable(json['makerUserMstId']),
@@ -141,6 +195,7 @@ class PmisActivityTicketDetail extends Equatable {
         atId,
         ppaId,
         currentStatus,
+        currentStatusCode,
         currentStatusDt,
         makerDesignationMstId,
         makerUserMstId,
@@ -165,6 +220,60 @@ class PmisActivityTicketDetail extends Equatable {
         repeatDt,
         allowedStatuses,
       ];
+}
+
+class PmisAllowedStatus extends Equatable {
+  final int? psmId;
+  final String statusCode;
+  final String statusName;
+
+  const PmisAllowedStatus({
+    required this.psmId,
+    required this.statusCode,
+    required this.statusName,
+  });
+
+  factory PmisAllowedStatus.fromJson(Map<String, dynamic> json) {
+    int? parseIntNullable(dynamic v) {
+      if (v == null) return null;
+      if (v is int) return v;
+      if (v is num) return v.toInt();
+      final raw = v.toString().trim();
+      if (raw.isEmpty) return null;
+      return int.tryParse(raw) ?? double.tryParse(raw)?.toInt();
+    }
+
+    final code = (json['statusCode'] ?? json['status_code'] ?? '')
+        .toString()
+        .trim();
+    final name = (json['statusName'] ?? json['status_name'] ?? code)
+        .toString()
+        .trim();
+
+    return PmisAllowedStatus(
+      psmId: parseIntNullable(
+        json['psmId'] ??
+            json['psm_id'] ??
+            json['psmID'] ??
+            json['statusMstId'] ??
+            json['status_mst_id'] ??
+            json['statusId'] ??
+            json['status_id'] ??
+            json['id'],
+      ),
+      statusCode: code,
+      statusName: name.isEmpty ? code : name,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'psmId': psmId,
+        'statusCode': statusCode,
+        'statusName': statusName,
+      };
+
+  @override
+  List<Object?> get props => [psmId, statusCode, statusName];
 }
 
 class PmisTicketChecker extends Equatable {
@@ -323,32 +432,44 @@ class PmisTicketFieldValue extends Equatable {
     bool parseBool(dynamic v) =>
         v == true || v?.toString().toLowerCase() == 'true' || v == 1;
     String? s(dynamic v) => v == null ? null : v.toString();
+    dynamic pick(List<String> keys) {
+      for (final k in keys) {
+        if (json.containsKey(k)) return json[k];
+      }
+      return null;
+    }
 
     return PmisTicketFieldValue(
-      tfvId: parseInt(json['tfvId']),
-      valText: json['valText'],
-      valNumeric: json['valNumeric'],
-      valInt: json['valInt'],
-      valDate: json['valDate'],
-      valJson: (json['valJson'] is Map)
-          ? Map<String, dynamic>.from(json['valJson'] as Map)
+      tfvId: parseInt(pick(['tfvId', 'tfv_id'])),
+      valText: pick(['valText', 'val_text']),
+      valNumeric: pick(['valNumeric', 'val_numeric']),
+      valInt: pick(['valInt', 'val_int']),
+      valDate: pick(['valDate', 'val_date']),
+      valJson: (pick(['valJson', 'val_json']) is Map)
+          ? Map<String, dynamic>.from(pick(['valJson', 'val_json']) as Map)
           : const <String, dynamic>{},
-      latitude: s(json['latitude']),
-      longitude: s(json['longitude']),
-      geoAccuracyM: s(json['geoAccuracyM']),
-      geoSource: s(json['geoSource']),
-      isActive: parseBool(json['isActive']),
-      remarks: s(json['remarks']),
-      attachments: _ticketFieldAttachmentsFromJson(json['attachments']),
-      subActivityName: s(json['subActivityName']),
-      subActivityDataType: s(json['subActivityDataType']),
-      subActivityControlType: s(json['subActivityControlType']),
-      isRequired: json['isRequired'] as bool?,
-      seqNo: parseIntNullable(json['seqNo']),
-      minVal: json['minVal'],
-      maxVal: json['maxVal'],
-      configJson: json['configJson'],
-      linkMmId: parseIntNullable(json['linkMmId']),
+      latitude: s(pick(['latitude'])),
+      longitude: s(pick(['longitude'])),
+      geoAccuracyM: s(pick(['geoAccuracyM', 'geo_accuracy_m'])),
+      geoSource: s(pick(['geoSource', 'geo_source'])),
+      isActive: parseBool(pick(['isActive', 'is_active'])),
+      remarks: s(pick(['remarks'])),
+      attachments: _ticketFieldAttachmentsFromJson(
+        pick(['attachments', 'attachment_list']),
+      ),
+      subActivityName: s(pick(['subActivityName', 'sub_activity_name'])),
+      subActivityDataType: s(
+        pick(['subActivityDataType', 'sub_activity_data_type']),
+      ),
+      subActivityControlType: s(
+        pick(['subActivityControlType', 'sub_activity_control_type']),
+      ),
+      isRequired: pick(['isRequired', 'is_required']) as bool?,
+      seqNo: parseIntNullable(pick(['seqNo', 'seq_no'])),
+      minVal: pick(['minVal', 'min_val']),
+      maxVal: pick(['maxVal', 'max_val']),
+      configJson: pick(['configJson', 'config_json']),
+      linkMmId: parseIntNullable(pick(['linkMmId', 'link_mm_id'])),
     );
   }
 
@@ -409,13 +530,15 @@ class PmisOldDataItem extends Equatable {
   factory PmisOldDataItem.fromJson(Map<String, dynamic> json) {
     String? s(dynamic v) => v == null ? null : v.toString();
     return PmisOldDataItem(
-      actualStartDt: s(json['actualStartDt']),
-      actualEndDt: s(json['actualEndDt']),
-      ticketFieldValues: (json['ticketFieldValues'] as List<dynamic>? ?? [])
+      actualStartDt: s(json['actualStartDt'] ?? json['actual_start_dt']),
+      actualEndDt: s(json['actualEndDt'] ?? json['actual_end_dt']),
+      ticketFieldValues: ((json['ticketFieldValues'] ??
+                      json['ticket_field_values']) as List<dynamic>? ??
+              [])
           .map((e) => PmisTicketFieldValue.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
-      makerUserName: s(json['makerUserName']),
-      isModified: json['isModified'] as bool?,
+      makerUserName: s(json['makerUserName'] ?? json['maker_user_name']),
+      isModified: (json['isModified'] ?? json['is_modified']) as bool?,
     );
   }
 
