@@ -30,6 +30,15 @@ class ProjectActivitiesScreen extends StatefulWidget {
   /// `searchText` to narrow activities by matched site names.
   final bool enableDashboardActivitySearch;
 
+  /// `activity` => `project-activity-list`, `project` => `project-submodule-activiy-list`.
+  final String activityType;
+
+  /// Required for `activityType == project`.
+  final int? siteId;
+
+  /// Required for `activityType == project`.
+  final int? subModuleId;
+
   const ProjectActivitiesScreen({
     super.key,
     required this.projectId,
@@ -37,6 +46,9 @@ class ProjectActivitiesScreen extends StatefulWidget {
     this.breadcrumbText = 'Project > Activities',
     this.headerDetailLines,
     this.enableDashboardActivitySearch = false,
+    this.activityType = 'activity',
+    this.siteId,
+    this.subModuleId,
   });
 
   @override
@@ -56,6 +68,9 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
 
   /// PMIS `atId` values present in SQLite `raw_api_data` (activity_type AI).
   Set<int> _offlineDownloadedAtIds = {};
+
+  bool get _useProjectActivityListApi =>
+      widget.activityType.trim().toLowerCase() == 'activity';
 
   @override
   void initState() {
@@ -87,13 +102,19 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
     try {
       final config = AppConfig.of(context);
       final location = await LocationService.getCurrentLocation();
-
-      final result = await config.pmisActivitiesRepository.getProjectActivityList(
-        id: widget.projectId,
-        latitude: location.latitude,
-        longitude: location.longitude,
-        searchText: _searchQuery.trim(),
-      );
+      final result = _useProjectActivityListApi
+          ? await config.pmisActivitiesRepository.getProjectActivityList(
+              id: widget.projectId,
+              latitude: location.latitude,
+              longitude: location.longitude,
+              searchText: _searchQuery.trim(),
+            )
+          : await config.pmisActivitiesRepository.getSubModuleActivties(
+              siteId: widget.siteId ?? 0,
+              subModuleId: widget.subModuleId ?? 0,
+              latitude: location.latitude,
+              longitude: location.longitude,
+            );
 
       if (!mounted) return;
 
@@ -166,12 +187,19 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
       } catch (_) {
         // fallback coordinates
       }
-      final result = await config.pmisActivitiesRepository.getProjectActivityList(
-        id: widget.projectId,
-        latitude: lat,
-        longitude: lng,
-        searchText: trimmed,
-      );
+      final result = _useProjectActivityListApi
+          ? await config.pmisActivitiesRepository.getProjectActivityList(
+              id: widget.projectId,
+              latitude: lat,
+              longitude: lng,
+              searchText: trimmed,
+            )
+          : await config.pmisActivitiesRepository.getSubModuleActivties(
+              siteId: widget.siteId ?? 0,
+              subModuleId: widget.subModuleId ?? 0,
+              latitude: lat,
+              longitude: lng,
+            );
 
       if (!mounted) return;
       final filtered = (result.isSuccess && result.data != null)

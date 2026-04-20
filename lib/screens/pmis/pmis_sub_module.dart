@@ -240,11 +240,14 @@ class _PmisSubModuleScreenState extends State<PmisSubModuleScreen> {
         final item = _subModules[index];
         return PmisCard(
           project: _mapSubModuleToCardModel(item),
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            await Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => ProjectActivitiesScreen(
                   projectId: widget.projectId,
+                  activityType: 'project',
+                  siteId: widget.site.siteId,
+                  subModuleId: item.ppsmId,
                   appBarTitle: item.subModuleName,
                   breadcrumbText:
                       'Project > State > Site > Module > Sub module > Activity',
@@ -273,6 +276,8 @@ class _PmisSubModuleScreenState extends State<PmisSubModuleScreen> {
                 ),
               ),
             );
+            if (!mounted) return;
+            await _loadSubModules();
           },
         );
       },

@@ -28,6 +28,12 @@ class PmisStateScreen extends StatefulWidget {
 class _PmisStateScreenState extends State<PmisStateScreen> {
   late Future<ResponseResult<List<PmisProjectState>>> _future;
 
+  void _reloadStates() {
+    setState(() {
+      _future = _loadStates();
+    });
+  }
+
   Future<ResponseResult<List<PmisProjectState>>> _loadStates() async {
     try {
       final config = AppConfig.of(context);
@@ -187,8 +193,8 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
                           final stateCardModel = _mapStateToCardModel(state);
                           return PmisCard(
                             project: stateCardModel,
-                            onTap: () {
-                              Navigator.of(context).push(
+                            onTap: () async {
+                              await Navigator.of(context).push(
                                 MaterialPageRoute<void>(
                                   builder: (context) => PmisSiteScreen(
                                     project: widget.project,
@@ -198,6 +204,8 @@ class _PmisStateScreenState extends State<PmisStateScreen> {
                                   ),
                                 ),
                               );
+                              if (!mounted) return;
+                              _reloadStates();
                             },
                           );
                         },

@@ -33,12 +33,16 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
   bool get _dashboardIsActivity =>
       widget.activityType.trim().toUpperCase() == 'ACTIVITY';
 
-  @override
-  void initState() {
-    super.initState();
+  void _reloadProjects() {
     context.read<PmisProjectCubit>().loadProjects(
           activityType: widget.activityType,
         );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _reloadProjects();
   }
 
   @override
@@ -135,13 +139,14 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                       final project = state.projects[index];
                       return PmisCard(
                         project: project,
-                        onTap: () {
+                        onTap: () async {
                           if (_dashboardIsActivity) {
-                            Navigator.of(context).push(
+                            await Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (context) =>
                                     ProjectActivitiesScreen(
                                   projectId: project.pmId,
+                                  activityType: 'activity',
                                   appBarTitle: project.projectName,
                                   breadcrumbText: 'Project > Activities',
                                   headerDetailLines: [
@@ -155,7 +160,7 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                               ),
                             );
                           } else {
-                            Navigator.of(context).push(
+                            await Navigator.of(context).push(
                               MaterialPageRoute<void>(
                                 builder: (context) => PmisStateScreen(
                                   project: project,
@@ -164,6 +169,8 @@ class _ProjectListScreenState extends State<ProjectListScreen> {
                               ),
                             );
                           }
+                          if (!mounted) return;
+                          _reloadProjects();
                         },
                       );
                     },

@@ -228,8 +228,8 @@ class _PmisModuleScreenState extends State<PmisModuleScreen> {
         final cardModel = _mapModuleToCardModel(module);
         return PmisCard(
           project: cardModel,
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            await Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => PmisSubModuleScreen(
                   project: widget.project,
@@ -240,6 +240,8 @@ class _PmisModuleScreenState extends State<PmisModuleScreen> {
                 ),
               ),
             );
+            if (!mounted) return;
+            await _loadModules();
           },
         );
       },

@@ -27,5 +27,25 @@ class PmisActivitiesRepository {
       );
     }
   }
+
+  Future<ResponseResult<List<PmisProjectActivity>>> getSubModuleActivties({
+    required int siteId,
+    required int subModuleId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      return await _pmisService.getSubModuleActivties(
+        siteId: siteId,
+        subModuleId: subModuleId,
+        latitude: latitude,
+        longitude: longitude,
+      );
+    } catch (e) {
+      return ResponseResult.error(
+        errorMessage: 'Exception occurred: ${e.toString()}',
+      );
+    }
+  }
 }
 

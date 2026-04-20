@@ -213,8 +213,8 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
         final site = _sites[index];
         return PmisSiteCard(
           site: site,
-          onTap: () {
-            Navigator.of(context).push(
+          onTap: () async {
+            await Navigator.of(context).push(
               MaterialPageRoute<void>(
                 builder: (context) => PmisModuleScreen(
                   project: widget.project,
@@ -224,6 +224,8 @@ class _PmisSiteScreenState extends State<PmisSiteScreen> {
                 ),
               ),
             );
+            if (!mounted) return;
+            await _loadSites();
           },
           onDirectionTap: () {
             if (site.latitude != null && site.longitude != null) {
