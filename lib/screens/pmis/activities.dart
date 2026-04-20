@@ -338,6 +338,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
           builder: (_) => ActivityTicketCheckerListScreen(
             activityTicketId: ticketId,
             activityName: a.activityName,
+            initialActivityStatus: a.activityStatus,
             summaryCardTitle: a.subModuleName.trim().isNotEmpty
                 ? a.subModuleName
                 : null,

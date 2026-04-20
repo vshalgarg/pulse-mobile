@@ -16,6 +16,7 @@ class ActivityTicketCheckerListScreen extends StatefulWidget {
   final int activityTicketId;
   final String breadcrumbText;
   final String activityName;
+  final String? initialActivityStatus;
 
   /// Bold title inside the top summary card; falls back to API / [activityName].
   final String? summaryCardTitle;
@@ -28,6 +29,7 @@ class ActivityTicketCheckerListScreen extends StatefulWidget {
     required this.activityTicketId,
     required this.breadcrumbText,
     required this.activityName,
+    this.initialActivityStatus,
     this.summaryCardTitle,
     this.preloadedDetail,
   });
@@ -53,8 +55,11 @@ class _ActivityTicketCheckerListScreenState
     return '$dd/$mm/$yyyy $hh:$min:$ss';
   }
 
-  bool _isAllocated(PmisActivityTicketDetail detail) =>
-      detail.currentStatus.trim().toUpperCase() == 'ALLOCATED';
+  bool _isAllocated(PmisActivityTicketDetail detail) {
+    final ticketStatus = detail.currentStatus.trim().toUpperCase();
+    final listStatus = (widget.initialActivityStatus ?? '').trim().toUpperCase();
+    return ticketStatus == 'ALLOCATED' || listStatus == 'ALLOCATED';
+  }
 
   PmisActivityTicketDetail _detailForStartActivity(
     PmisActivityTicketDetail detail,
