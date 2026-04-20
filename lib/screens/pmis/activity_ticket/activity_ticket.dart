@@ -1587,6 +1587,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'ppaId': widget.detail.ppaId,
       'currentStatus': close.currentStatus,
       'currentStatusCode': close.currentStatusCode,
+      'currentStatusId': close.currentStatusId,
       'currentStatusDt': _nowForBackend(),
       'makerDesignationMstId': widget.detail.makerDesignationMstId ?? 0,
       'makerUserMstId': widget.detail.makerUserMstId ?? 0,

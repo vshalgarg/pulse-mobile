@@ -46,20 +46,26 @@ String _formatActivityRepetitionDateForRepeatDt(DateTime value) {
 class ActivityTicketClosePopupResult {
   final String statusName;
   final String statusCode;
-  final int? currentStatusCode;
+  final int? statusPsmId;
   final DateTime? repetitionDate;
   final String remarks;
 
   const ActivityTicketClosePopupResult({
     required this.statusName,
     required this.statusCode,
-    required this.currentStatusCode,
+    required this.statusPsmId,
     required this.repetitionDate,
     required this.remarks,
   });
 
-  /// POST `currentStatus` uses selected option `statusCode`.
-  String get currentStatus => statusCode;
+  /// POST `currentStatus` uses selected option `statusName`.
+  String get currentStatus => statusName;
+
+  /// POST `currentStatusCode` uses selected option `statusCode`.
+  String get currentStatusCode => statusCode;
+
+  /// POST `currentStatusId` uses selected option `psmId`.
+  int? get currentStatusId => statusPsmId;
 
   /// POST `repeatDt` from Activity Repetition Date; null if not set.
   String? get repeatDt => repetitionDate == null
@@ -221,7 +227,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
       ActivityTicketClosePopupResult(
         statusName: _selectedStatus!.statusName,
         statusCode: _selectedStatus!.statusCode,
-        currentStatusCode: _selectedStatus!.psmId,
+        statusPsmId: _selectedStatus!.psmId,
         repetitionDate:
             _repetitionDateEnabled(_selectedStatus!.statusCode)
             ? _repetitionDate

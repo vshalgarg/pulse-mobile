@@ -58,13 +58,24 @@ class ActivityCard extends StatelessWidget {
                       if (showApprovalChip && showActivityChip)
                         const SizedBox(width: 12),
                       if (showActivityChip)
-                        Expanded(
-                          child: _statusChip(
-                            text: activityChipText,
-                            backgroundColor: const Color(0xFFFF9F43),
-                            textColor: AppColors.white,
+                        if (showApprovalChip)
+                          Expanded(
+                            child: _statusChip(
+                              text: activityChipText,
+                              backgroundColor: const Color(0xFFFF9F43),
+                              textColor: AppColors.white,
+                            ),
+                          )
+                        else ...[
+                          const Spacer(),
+                          Flexible(
+                            child: _statusChip(
+                              text: activityChipText,
+                              backgroundColor: const Color(0xFFFF9F43),
+                              textColor: AppColors.white,
+                            ),
                           ),
-                        ),
+                        ],
                     ],
                   ),
                   const SizedBox(height: 12),
