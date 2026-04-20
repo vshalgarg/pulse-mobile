@@ -42,6 +42,59 @@ class _ActivityTicketCheckerListScreenState
   late Future<ResponseResult<PmisActivityTicketDetail>> _future;
   int _selectedCheckerIndex = 0;
 
+  static String _nowForBackend() {
+    final now = DateTime.now();
+    final dd = now.day.toString().padLeft(2, '0');
+    final mm = now.month.toString().padLeft(2, '0');
+    final yyyy = now.year.toString();
+    final hh = now.hour.toString().padLeft(2, '0');
+    final min = now.minute.toString().padLeft(2, '0');
+    final ss = now.second.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min:$ss';
+  }
+
+  bool _isAllocated(PmisActivityTicketDetail detail) =>
+      detail.currentStatus.trim().toUpperCase() == 'ALLOCATED';
+
+  PmisActivityTicketDetail _detailForStartActivity(
+    PmisActivityTicketDetail detail,
+  ) {
+    if (!_isAllocated(detail)) return detail;
+    final actualStart =
+        (detail.actualStartDt?.trim().isNotEmpty ?? false)
+        ? detail.actualStartDt
+        : _nowForBackend();
+    return PmisActivityTicketDetail(
+      atId: detail.atId,
+      ppaId: detail.ppaId,
+      currentStatus: 'WIP',
+      currentStatusCode: 2,
+      currentStatusDt: _nowForBackend(),
+      makerDesignationMstId: detail.makerDesignationMstId,
+      makerUserMstId: detail.makerUserMstId,
+      makerAssignedDt: detail.makerAssignedDt,
+      plannedStartDt: detail.plannedStartDt,
+      plannedEndDt: detail.plannedEndDt,
+      actualStartDt: actualStart,
+      actualEndDt: detail.actualEndDt,
+      isActive: detail.isActive,
+      remarks: detail.remarks,
+      ticketCheckers: detail.ticketCheckers,
+      ticketFieldValues: detail.ticketFieldValues,
+      ticketAttachments: detail.ticketAttachments,
+      makerUserName: detail.makerUserName,
+      makerDesignationName: detail.makerDesignationName,
+      oldData: detail.oldData,
+      showReviewBtns: detail.showReviewBtns,
+      checkerLvl: detail.checkerLvl,
+      role: detail.role,
+      ticketStatusHistory: detail.ticketStatusHistory,
+      isRepeating: detail.isRepeating,
+      repeatDt: detail.repeatDt,
+      allowedStatuses: detail.allowedStatuses,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -80,7 +133,9 @@ class _ActivityTicketCheckerListScreenState
       widget.activityTicketId,
     );
     if (!mounted) return;
-    final openDetail = latestOffline ?? detail;
+    final openDetail = latestOffline == null
+        ? detail
+        : (latestOffline.atId == widget.activityTicketId ? latestOffline : detail);
     final shouldRefreshActivities = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => ActivityTicketScreen(
@@ -229,6 +284,10 @@ class _ActivityTicketCheckerListScreenState
 
                           final detail = result.data!;
                           final checkers = detail.ticketCheckers;
+                          final isAllocated = _isAllocated(detail);
+                          final bottomButtonLabel = isAllocated
+                              ? 'Start Activity'
+                              : 'Next';
 
                           if (checkers.isEmpty) {
                             return Padding(
@@ -265,8 +324,11 @@ class _ActivityTicketCheckerListScreenState
                                   ),
                                   const Spacer(),
                                   _NextButton(
+                                    label: bottomButtonLabel,
                                     onPressed: () =>
-                                        _openLatestActivityTicketScreen(detail),
+                                        _openLatestActivityTicketScreen(
+                                          _detailForStartActivity(detail),
+                                        ),
                                   ),
                                 ],
                               ),
@@ -321,8 +383,11 @@ class _ActivityTicketCheckerListScreenState
                                 ),
                               ),
                               _NextButton(
+                                label: bottomButtonLabel,
                                 onPressed: () =>
-                                    _openLatestActivityTicketScreen(detail),
+                                    _openLatestActivityTicketScreen(
+                                      _detailForStartActivity(detail),
+                                    ),
                               ),
                             ],
                           );
@@ -694,9 +759,10 @@ class _CheckerTile extends StatelessWidget {
 }
 
 class _NextButton extends StatelessWidget {
+  final String label;
   final VoidCallback onPressed;
 
-  const _NextButton({required this.onPressed});
+  const _NextButton({required this.label, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
@@ -717,8 +783,8 @@ class _NextButton extends StatelessWidget {
             elevation: 0,
           ),
           onPressed: onPressed,
-          child: const Text(
-            'Next',
+          child: Text(
+            label,
             style: TextStyle(
               fontFamily: poppins,
               fontSize: 14,

@@ -1583,7 +1583,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         : _normalizeDateString(widget.detail.actualStartDt);
 
     return <String, dynamic>{
-      'atId': widget.detail.atId,
+      'atId': widget.activityTicketId,
       'ppaId': widget.detail.ppaId,
       'currentStatus': close.currentStatus,
       'currentStatusCode': close.currentStatusCode,

@@ -28,6 +28,10 @@ String normalizeActivityTicketCloseStatusForCompare(String? raw) {
   ]) {
     s = s.replaceAll(ch, '-');
   }
+  // Normalize machine codes and labels to one comparable form.
+  s = s.replaceAll('_', ' ');
+  s = s.replaceAll('-', ' ');
+  s = s.replaceAll(RegExp(r'\s+'), ' ').trim();
   return s;
 }
 
