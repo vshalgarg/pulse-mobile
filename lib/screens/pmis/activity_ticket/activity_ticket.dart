@@ -735,15 +735,16 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   bool get _isViewingEditableTicket => _historicPickerIndex < 0;
 
-  /// API `role` — makers fill the ticket; checkers review/edit.
-  bool get _isMakerRoleReadOnly {
-    final r = (widget.detail.role ?? '').trim().toUpperCase();
-    return r == 'MAKER';
+  /// API role/status gate:
+  /// maker cannot edit when activity status is completed (case-insensitive).
+  bool get _isMakerCompletedReadOnly {
+    final role = (widget.detail.role ?? '').trim().toUpperCase();
+    final activityStatus = widget.detail.currentStatus.trim().toUpperCase();
+    return role == 'MAKER' && activityStatus == 'COMPLETED';
   }
 
-  /// [MAKER] is view-only (today or historic). [CHECKER] (and other roles) may
-  /// edit both the live ticket and [oldData] snapshots.
-  bool get _canEditTicketFields => !_isMakerRoleReadOnly;
+  /// Fields are editable except when maker opens a completed activity ticket.
+  bool get _canEditTicketFields => !_isMakerCompletedReadOnly;
 
   List<int> _orderedOldDataIndices() {
     final entries = List.generate(
