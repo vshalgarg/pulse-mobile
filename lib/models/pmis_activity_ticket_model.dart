@@ -78,6 +78,13 @@ class PmisActivityTicketDetail extends Equatable {
       }
       return null;
     }
+    int? parseFirstIntByKeys(Map<String, dynamic> m, List<String> keys) {
+      for (final k in keys) {
+        final parsed = parseIntNullable(m[k]);
+        if (parsed != null) return parsed;
+      }
+      return null;
+    }
 
     final checkers = (pick(json, ['ticketCheckers', 'ticket_checkers'])
                 as List<dynamic>? ??
@@ -159,10 +166,19 @@ class PmisActivityTicketDetail extends Equatable {
       atId: parseInt(json['atId']),
       ppaId: parseInt(json['ppaId']),
       currentStatus: (json['currentStatus'] ?? '').toString(),
-      currentStatusCode: parseIntNullable(
-        json['currentStatusCode'] ??
-            json['current_status_code'] ??
-            json['statusCodeId'],
+      currentStatusCode: parseFirstIntByKeys(
+        json,
+        const <String>[
+          'currentStatusCode',
+          'current_status_code',
+          'statusCodeId',
+          'currentStatusId',
+          'current_status_id',
+          'statusId',
+          'status_id',
+          'psmId',
+          'psm_id',
+        ],
       ),
       currentStatusDt: parseStringNullable(json['currentStatusDt']),
       makerDesignationMstId: parseIntNullable(json['makerDesignationMstId']),

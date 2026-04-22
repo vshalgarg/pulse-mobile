@@ -138,9 +138,15 @@ class _ActivityTicketCheckerListScreenState
       widget.activityTicketId,
     );
     if (!mounted) return;
-    final openDetail = latestOffline == null
-        ? detail
-        : (latestOffline.atId == widget.activityTicketId ? latestOffline : detail);
+    // Prefer fresh detail from API path. Use offline only when it is the same
+    // ticket and has matching role/status; this avoids stale role overrides.
+    final canUseOffline = latestOffline != null &&
+        latestOffline.atId == widget.activityTicketId &&
+        (latestOffline.role ?? '').trim().toUpperCase() ==
+            (detail.role ?? '').trim().toUpperCase() &&
+        latestOffline.currentStatus.trim().toUpperCase() ==
+            detail.currentStatus.trim().toUpperCase();
+    final openDetail = canUseOffline ? latestOffline : detail;
     final shouldRefreshActivities = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => ActivityTicketScreen(

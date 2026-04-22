@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:app/app_config.dart';
+import 'package:app/commonWidgets/activity_ticket_checker_close_pop_up.dart';
 import 'package:app/commonWidgets/activity_ticket_close_pop_up.dart';
 import 'package:app/commonWidgets/activity_ticket_video_preview_dialog.dart';
 import 'package:app/commonWidgets/custom_file_upload_new.dart';
@@ -743,8 +744,55 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return role == 'MAKER' && activityStatus == 'COMPLETED';
   }
 
-  /// Fields are editable except when maker opens a completed activity ticket.
-  bool get _canEditTicketFields => !_isMakerCompletedReadOnly;
+  /// Checker should always be editable; only maker+completed is read-only.
+  bool get _canEditTicketFields {
+    final role = (widget.detail.role ?? '').trim().toUpperCase();
+    if (role.contains('CHECKER')) return true;
+    return !_isMakerCompletedReadOnly;
+  }
+
+  bool get _isCheckerRole {
+    final role = (widget.detail.role ?? '').trim().toUpperCase();
+    return role.contains('CHECKER');
+  }
+
+  PmisAllowedStatus? _findAllowedStatusForCheckerAction(
+    ActivityTicketCheckerAction action,
+  ) {
+    if (action == ActivityTicketCheckerAction.save) return null;
+    final keys = action == ActivityTicketCheckerAction.reject
+        ? const <String>['reject', 'rejected']
+        : const <String>['approve', 'approved', 'accept', 'accepted'];
+    for (final status in widget.detail.allowedStatuses) {
+      final name = normalizeActivityTicketCloseStatusForCompare(status.statusName);
+      final code = normalizeActivityTicketCloseStatusForCompare(status.statusCode);
+      for (final key in keys) {
+        if (name.contains(key) || code.contains(key)) {
+          return status;
+        }
+      }
+    }
+    return null;
+  }
+
+  ActivityTicketClosePopupResult _mapCheckerCloseToTicketClose(
+    ActivityTicketCheckerClosePopupResult checkerClose,
+  ) {
+    final statusForAction = _findAllowedStatusForCheckerAction(checkerClose.action);
+    final statusName = statusForAction?.statusName.trim().isNotEmpty == true
+        ? statusForAction!.statusName.trim()
+        : widget.detail.currentStatus.trim();
+    final statusCode = statusForAction?.statusCode.trim().isNotEmpty == true
+        ? statusForAction!.statusCode.trim()
+        : widget.detail.currentStatus.trim();
+    return ActivityTicketClosePopupResult(
+      statusName: statusName,
+      statusCode: statusCode,
+      statusPsmId: statusForAction?.psmId ?? widget.detail.currentStatusCode,
+      repetitionDate: null,
+      remarks: checkerClose.remarks,
+    );
+  }
 
   List<int> _orderedOldDataIndices() {
     final entries = List.generate(
@@ -1467,6 +1515,43 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     };
   }
 
+  List<Map<String, dynamic>> _mapTicketCheckersForPost({
+    ActivityTicketCheckerClosePopupResult? checkerClose,
+  }) {
+    if (checkerClose == null || widget.detail.ticketCheckers.isEmpty) {
+      return widget.detail.ticketCheckers.map(_mapChecker).toList();
+    }
+
+    var targetIdx = -1;
+    for (var i = 0; i < widget.detail.ticketCheckers.length; i++) {
+      final status =
+          (widget.detail.ticketCheckers[i].decisionStatus ?? '').trim().toUpperCase();
+      if (status.isEmpty || status == 'PENDING') {
+        targetIdx = i;
+        break;
+      }
+    }
+    if (targetIdx < 0) targetIdx = 0;
+
+    final out = <Map<String, dynamic>>[];
+    for (var i = 0; i < widget.detail.ticketCheckers.length; i++) {
+      final c = widget.detail.ticketCheckers[i];
+      final mapped = _mapChecker(c);
+      if (i == targetIdx) {
+        mapped['remarks'] = checkerClose.remarks;
+        if (checkerClose.action == ActivityTicketCheckerAction.saveAndApprove) {
+          mapped['decisionStatus'] = 'Approved';
+          mapped['decisionRemarks'] = 'Approved';
+        } else if (checkerClose.action == ActivityTicketCheckerAction.reject) {
+          mapped['decisionStatus'] = 'Rejected';
+          mapped['decisionRemarks'] = 'Rejected';
+        }
+      }
+      out.add(mapped);
+    }
+    return out;
+  }
+
   Map<String, dynamic> _mapFieldValue(
     PmisTicketFieldValue f, {
     required String valText,
@@ -1571,7 +1656,10 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     };
   }
 
-  Map<String, dynamic> _buildPostPayload(ActivityTicketClosePopupResult close) {
+  Map<String, dynamic> _buildPostPayload(
+    ActivityTicketClosePopupResult close, {
+    ActivityTicketCheckerClosePopupResult? checkerClose,
+  }) {
     final updatedValTextByTfv = <int, String>{
       for (final f in _sortedFields) f.tfvId: _valTextForField(f),
     };
@@ -1582,13 +1670,42 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
             (widget.detail.actualStartDt?.trim().isEmpty ?? true)
         ? _nowForBackend()
         : _normalizeDateString(widget.detail.actualStartDt);
+    final isCheckerSubmission = checkerClose != null && _isCheckerRole;
+    final payloadCurrentStatus = isCheckerSubmission
+        ? widget.detail.currentStatus
+        : close.currentStatus;
+    final payloadCurrentStatusId = isCheckerSubmission
+        ? widget.detail.currentStatusCode
+        : close.currentStatusId;
+    int? resolvedStatusNumeric = payloadCurrentStatusId;
+    if (resolvedStatusNumeric == null) {
+      final targetStatusText = isCheckerSubmission
+          ? widget.detail.currentStatus
+          : close.currentStatus;
+      final normalizedTarget =
+          normalizeActivityTicketCloseStatusForCompare(targetStatusText);
+      for (final status in widget.detail.allowedStatuses) {
+        final nameNorm =
+            normalizeActivityTicketCloseStatusForCompare(status.statusName);
+        final codeNorm =
+            normalizeActivityTicketCloseStatusForCompare(status.statusCode);
+        if (normalizedTarget == nameNorm || normalizedTarget == codeNorm) {
+          resolvedStatusNumeric = status.psmId;
+          break;
+        }
+      }
+    }
+    final payloadCurrentStatusNumeric = resolvedStatusNumeric ?? 0;
+    final payloadParentRemarks = isCheckerSubmission
+        ? (widget.detail.remarks ?? '')
+        : close.remarks;
 
     return <String, dynamic>{
       'atId': widget.activityTicketId,
       'ppaId': widget.detail.ppaId,
-      'currentStatus': close.currentStatus,
-      'currentStatusCode': close.currentStatusCode,
-      'currentStatusId': close.currentStatusId,
+      'currentStatus': payloadCurrentStatus,
+      'currentStatusCode': payloadCurrentStatusNumeric,
+      'currentStatusId': payloadCurrentStatusNumeric,
       'currentStatusDt': _nowForBackend(),
       'makerDesignationMstId': widget.detail.makerDesignationMstId ?? 0,
       'makerUserMstId': widget.detail.makerUserMstId ?? 0,
@@ -1598,8 +1715,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'actualStartDt': actualStartDt,
       'actualEndDt': _normalizeDateString(widget.detail.actualEndDt),
       'isActive': widget.detail.isActive,
-      'remarks': close.remarks,
-      'ticketCheckers': widget.detail.ticketCheckers.map(_mapChecker).toList(),
+      'remarks': payloadParentRemarks,
+      'ticketCheckers': _mapTicketCheckersForPost(checkerClose: checkerClose),
       'ticketFieldValues': widget.detail.ticketFieldValues.map((f) {
         final valText = updatedValTextByTfv[f.tfvId] ?? '';
         final updatedAttachments = _attachmentsForUploadFieldPost(f, valText);
@@ -1706,25 +1823,40 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   Future<void> _onSubmit() async {
     FocusScope.of(context).unfocus();
     if (!_validateAll()) return;
-    final close = await showActivityTicketClosePopup(
-      context,
-      statusOptions: widget.detail.allowedStatuses
-          .where(
-            (e) => e.statusName.trim().isNotEmpty && e.statusCode.trim().isNotEmpty,
-          )
-          .map(
-            (e) => ActivityTicketCloseStatusOption(
-              statusName: e.statusName.trim(),
-              statusCode: e.statusCode.trim(),
-              psmId: e.psmId,
-            ),
-          )
-          .toList(),
-    );
+    ActivityTicketClosePopupResult? close;
+    ActivityTicketCheckerClosePopupResult? checkerCloseResult;
+    if (_isCheckerRole) {
+      final checkerClose = await showActivityTicketCheckerClosePopup(
+        context,
+        showReviewBtns: widget.detail.showReviewBtns,
+      );
+      if (checkerClose == null) return;
+      checkerCloseResult = checkerClose;
+      close = _mapCheckerCloseToTicketClose(checkerClose);
+    } else {
+      close = await showActivityTicketClosePopup(
+        context,
+        statusOptions: widget.detail.allowedStatuses
+            .where(
+              (e) => e.statusName.trim().isNotEmpty && e.statusCode.trim().isNotEmpty,
+            )
+            .map(
+              (e) => ActivityTicketCloseStatusOption(
+                statusName: e.statusName.trim(),
+                statusCode: e.statusCode.trim(),
+                psmId: e.psmId,
+              ),
+            )
+            .toList(),
+      );
+    }
     if (!mounted) return;
     if (close == null) return;
 
-    final postPayload = _buildPostPayload(close);
+    final postPayload = _buildPostPayload(
+      close,
+      checkerClose: checkerCloseResult,
+    );
     final payloadJson = const JsonEncoder.withIndent('  ').convert(postPayload);
     Logger.infoLog('[AT_POST_REQUEST_START]');
     print('[AT_POST_REQUEST_START]');
