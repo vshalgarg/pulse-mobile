@@ -616,24 +616,6 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     if (t != null && t.toString().trim().isNotEmpty) {
       return t.toString().trim();
     }
-    if (f.valNumeric != null && f.valNumeric.toString().trim().isNotEmpty) {
-      return f.valNumeric.toString().trim();
-    }
-    if (f.valInt != null) return f.valInt.toString();
-    final vd = f.valDate;
-    if (vd != null && vd.toString().trim().isNotEmpty) {
-      final parsed = DateTime.tryParse(vd.toString());
-      if (parsed != null) {
-        return _formatDisplayDate(parsed);
-      }
-      return vd.toString();
-    }
-    final type = _normDataType(f);
-    if (type == 'COORDINATES') {
-      final coord =
-          _isLongitudeField(f) ? f.longitude : f.latitude;
-      if (coord != null && coord.trim().isNotEmpty) return coord.trim();
-    }
     return '';
   }
 
@@ -1612,8 +1594,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return <String, dynamic>{
       'tfvId': f.tfvId,
       'valText': valText,
-      'valNumeric': f.valNumeric ?? 0,
-      'valInt': f.valInt ?? 0,
+      'valNumeric': f.valNumeric,
+      'valInt': f.valInt,
       'valDate': _normalizeDateString(f.valDate?.toString()),
       'valJson': f.valJson,
       'latitude': f.latitude ?? '0',
@@ -1912,10 +1894,10 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   Future<void> _onSubmit() async {
     FocusScope.of(context).unfocus();
-    if (!_validateAll()) return;
     ActivityTicketClosePopupResult? close;
     ActivityTicketCheckerClosePopupResult? checkerCloseResult;
     if (_isCheckerRole) {
+      if (!_validateAll()) return;
       final checkerClose = await showActivityTicketCheckerClosePopup(
         context,
         showReviewBtns: widget.detail.showReviewBtns,
@@ -1947,6 +1929,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     }
     if (!mounted) return;
     if (close == null) return;
+    final selectedStatusNormalized = normalizeActivityTicketCloseStatusForCompare(
+      close.currentStatus,
+    );
+    final shouldValidateAllFields = !_isCheckerRole && selectedStatusNormalized == 'completed';
+    if (shouldValidateAllFields && !_validateAll()) return;
 
     final postPayload = _buildPostPayload(
       close,
