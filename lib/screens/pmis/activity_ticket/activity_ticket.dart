@@ -1493,6 +1493,55 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return _formatBackendDate(parsed);
   }
 
+  List<String> _attachmentIdsForCompare(
+    PmisTicketFieldValue f, {
+    String? fallbackValText,
+    List<Map<String, dynamic>>? attachmentsOverride,
+  }) {
+    final ids = <String>{};
+    final attachments = attachmentsOverride ?? f.attachments;
+    for (final a in attachments) {
+      final id = (_rawAttachmentIdFromMap(a) ?? '').trim();
+      if (id.isNotEmpty && id != '0' && id.toLowerCase() != 'null') {
+        ids.add(id);
+      }
+    }
+    final rawValText = (fallbackValText ?? f.valText?.toString() ?? '').trim();
+    if (rawValText.isNotEmpty) {
+      for (final part in rawValText.split(',')) {
+        final id = part.trim();
+        if (id.isNotEmpty && id != '0' && id.toLowerCase() != 'null') {
+          ids.add(id);
+        }
+      }
+    }
+    final out = ids.toList()..sort();
+    return out;
+  }
+
+  bool _isTicketFieldModified(
+    PmisTicketFieldValue original, {
+    required String updatedValText,
+    required List<Map<String, dynamic>> updatedAttachments,
+  }) {
+    final type = _normDataType(original);
+    if (_isUploadType(type)) {
+      final oldIds = _attachmentIdsForCompare(original);
+      final newIds = _attachmentIdsForCompare(
+        original,
+        fallbackValText: updatedValText,
+        attachmentsOverride: updatedAttachments,
+      );
+      if (oldIds.length != newIds.length) return true;
+      for (var i = 0; i < oldIds.length; i++) {
+        if (oldIds[i] != newIds[i]) return true;
+      }
+      return false;
+    }
+    final oldVal = (original.valText?.toString() ?? '').trim();
+    return oldVal != updatedValText.trim();
+  }
+
   Map<String, dynamic> _mapChecker(PmisTicketChecker c) {
     return <String, dynamic>{
       'tcId': c.tcId,
@@ -1522,13 +1571,14 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       return widget.detail.ticketCheckers.map(_mapChecker).toList();
     }
 
+    final checkerLevel = int.tryParse((widget.detail.checkerLvl ?? '').trim());
     var targetIdx = -1;
-    for (var i = 0; i < widget.detail.ticketCheckers.length; i++) {
-      final status =
-          (widget.detail.ticketCheckers[i].decisionStatus ?? '').trim().toUpperCase();
-      if (status.isEmpty || status == 'PENDING') {
-        targetIdx = i;
-        break;
+    if (checkerLevel != null) {
+      for (var i = 0; i < widget.detail.ticketCheckers.length; i++) {
+        if (widget.detail.ticketCheckers[i].levelNo == checkerLevel) {
+          targetIdx = i;
+          break;
+        }
       }
     }
     if (targetIdx < 0) targetIdx = 0;
@@ -1539,6 +1589,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       final mapped = _mapChecker(c);
       if (i == targetIdx) {
         mapped['remarks'] = checkerClose.remarks;
+        mapped['isModified'] = true;
         if (checkerClose.action == ActivityTicketCheckerAction.saveAndApprove) {
           mapped['decisionStatus'] = 'Approved';
           mapped['decisionRemarks'] = 'Approved';
@@ -1556,6 +1607,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     PmisTicketFieldValue f, {
     required String valText,
     required List<Map<String, dynamic>> attachments,
+    required bool isModified,
   }) {
     return <String, dynamic>{
       'tfvId': f.tfvId,
@@ -1583,6 +1635,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           ? Map<String, dynamic>.from(f.configJson as Map)
           : {},
       'linkMmId': f.linkMmId ?? 0,
+      'isModified': isModified,
     };
   }
 
@@ -1638,7 +1691,13 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return out;
   }
 
-  Map<String, dynamic> _mapOldData(PmisOldDataItem item) {
+  Map<String, dynamic> _mapOldData(
+    PmisOldDataItem item, {
+    required Set<int> modifiedFieldIds,
+  }) {
+    final hasModifiedField = item.ticketFieldValues.any(
+      (f) => modifiedFieldIds.contains(f.tfvId),
+    );
     return <String, dynamic>{
       'actualStartDt': _normalizeDateString(item.actualStartDt),
       'actualEndDt': _normalizeDateString(item.actualEndDt),
@@ -1648,11 +1707,12 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               f,
               valText: f.valText?.toString() ?? '',
               attachments: f.attachments,
+              isModified: modifiedFieldIds.contains(f.tfvId),
             ),
           )
           .toList(),
       'makerUserName': item.makerUserName ?? '',
-      'isModified': item.isModified ?? false,
+      'isModified': hasModifiedField || (item.isModified ?? false),
     };
   }
 
@@ -1663,6 +1723,26 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     final updatedValTextByTfv = <int, String>{
       for (final f in _sortedFields) f.tfvId: _valTextForField(f),
     };
+    final updatedAttachmentsByTfv = <int, List<Map<String, dynamic>>>{
+      for (final f in widget.detail.ticketFieldValues)
+        f.tfvId: _attachmentsForUploadFieldPost(
+          f,
+          updatedValTextByTfv[f.tfvId] ?? '',
+        ),
+    };
+    final modifiedFieldIds = <int>{};
+    for (final f in widget.detail.ticketFieldValues) {
+      final valText = updatedValTextByTfv[f.tfvId] ?? '';
+      final updatedAttachments =
+          updatedAttachmentsByTfv[f.tfvId] ?? const <Map<String, dynamic>>[];
+      if (_isTicketFieldModified(
+        f,
+        updatedValText: valText,
+        updatedAttachments: updatedAttachments,
+      )) {
+        modifiedFieldIds.add(f.tfvId);
+      }
+    }
     final isAllocatedToWipTransition =
         widget.detail.currentStatus.trim().toUpperCase() == 'ALLOCATED' &&
             close.currentStatus.trim().toUpperCase() == 'WIP';
@@ -1719,11 +1799,13 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'ticketCheckers': _mapTicketCheckersForPost(checkerClose: checkerClose),
       'ticketFieldValues': widget.detail.ticketFieldValues.map((f) {
         final valText = updatedValTextByTfv[f.tfvId] ?? '';
-        final updatedAttachments = _attachmentsForUploadFieldPost(f, valText);
+        final updatedAttachments =
+            updatedAttachmentsByTfv[f.tfvId] ?? const <Map<String, dynamic>>[];
         return _mapFieldValue(
           f,
           valText: valText,
           attachments: updatedAttachments,
+          isModified: modifiedFieldIds.contains(f.tfvId),
         );
       }).toList(),
       'ticketAttachments': widget.detail.ticketAttachments
@@ -1731,7 +1813,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           .toList(),
       'makerUserName': widget.detail.makerUserName ?? '',
       'makerDesignationName': widget.detail.makerDesignationName ?? '',
-      'oldData': widget.detail.oldData.map(_mapOldData).toList(),
+      'oldData': widget.detail.oldData
+          .map((item) => _mapOldData(item, modifiedFieldIds: modifiedFieldIds))
+          .toList(),
       'showReviewBtns': widget.detail.showReviewBtns,
       'checkerLvl': widget.detail.checkerLvl ?? '',
       'role': widget.detail.role ?? '',
