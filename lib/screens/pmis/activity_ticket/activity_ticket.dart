@@ -1779,6 +1779,12 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     final payloadParentRemarks = isCheckerSubmission
         ? (widget.detail.remarks ?? '')
         : close.remarks;
+    final selectedStatusNormalized = normalizeActivityTicketCloseStatusForCompare(
+      isCheckerSubmission ? widget.detail.currentStatus : close.currentStatus,
+    );
+    final actualEndDt = !isCheckerSubmission && selectedStatusNormalized == 'completed'
+        ? _nowForBackend()
+        : _normalizeDateString(widget.detail.actualEndDt);
 
     return <String, dynamic>{
       'atId': widget.activityTicketId,
@@ -1793,7 +1799,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'plannedStartDt': _normalizeDateString(widget.detail.plannedStartDt),
       'plannedEndDt': _normalizeDateString(widget.detail.plannedEndDt),
       'actualStartDt': actualStartDt,
-      'actualEndDt': _normalizeDateString(widget.detail.actualEndDt),
+      'actualEndDt': actualEndDt,
       'isActive': widget.detail.isActive,
       'remarks': payloadParentRemarks,
       'ticketCheckers': _mapTicketCheckersForPost(checkerClose: checkerClose),
