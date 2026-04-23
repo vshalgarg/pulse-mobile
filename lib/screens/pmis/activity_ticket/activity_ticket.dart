@@ -1920,6 +1920,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     } else {
       close = await showActivityTicketClosePopup(
         context,
+        initialStatus: widget.detail.currentStatus,
+        initialRemarks: widget.detail.remarks,
         statusOptions: widget.detail.allowedStatuses
             .where(
               (e) => e.statusName.trim().isNotEmpty && e.statusCode.trim().isNotEmpty,
@@ -1932,6 +1934,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               ),
             )
             .toList(),
+        role: widget.detail.role,
+        currentStatusId: widget.detail.currentStatusCode,
+        currentStatusCode: widget.detail.currentStatusCode,
       );
     }
     if (!mounted) return;

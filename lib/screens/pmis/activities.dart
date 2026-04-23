@@ -61,7 +61,6 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
   String _searchQuery = '';
 
   bool _loading = true;
-  bool _searchLoading = false;
   String? _errorMessage;
   List<PmisProjectActivity> _allActivities = [];
   List<PmisProjectActivity> _displayedActivities = [];
@@ -107,7 +106,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
               id: widget.projectId,
               latitude: location.latitude,
               longitude: location.longitude,
-              searchText: _searchQuery.trim(),
+              searchText: '',
             )
           : await config.pmisActivitiesRepository.getSubModuleActivties(
               siteId: widget.siteId ?? 0,
@@ -145,7 +144,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
       setState(() {
         _loading = false;
         _allActivities = list;
-        _displayedActivities = List<PmisProjectActivity>.from(list);
+        _displayedActivities = _filterActivities(list, _searchQuery);
         _offlineDownloadedAtIds = offlineIds;
       });
     } catch (e) {
@@ -160,66 +159,32 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
     }
   }
 
-  void _performSearch(String query) {
-    setState(() => _searchQuery = query);
+  List<PmisProjectActivity> _filterActivities(
+    List<PmisProjectActivity> source,
+    String query,
+  ) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return List<PmisProjectActivity>.from(source);
+    return source.where((a) {
+      return a.siteName.toLowerCase().contains(q) ||
+          a.moduleName.toLowerCase().contains(q) ||
+          a.subModuleName.toLowerCase().contains(q) ||
+          a.activityName.toLowerCase().contains(q) ||
+          (a.activityStatus ?? '').toLowerCase().contains(q) ||
+          a.currentStatus.toLowerCase().contains(q) ||
+          a.status.toLowerCase().contains(q);
+    }).toList();
   }
 
-  Future<void> _performSearchAndLoad(String raw) async {
-    if (!widget.enableDashboardActivitySearch) return;
+  void _performSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+      _displayedActivities = _filterActivities(_allActivities, query);
+    });
+  }
 
-    final trimmed = raw.trim();
-    setState(() => _searchQuery = trimmed);
-
-    if (trimmed.isEmpty) {
-      await _loadActivities();
-      return;
-    }
-
-    setState(() => _searchLoading = true);
-    try {
-      final config = AppConfig.of(context);
-      double lat = 32.899;
-      double lng = 56.989;
-      try {
-        final location = await LocationService.getCurrentLocation();
-        lat = location.latitude;
-        lng = location.longitude;
-      } catch (_) {
-        // fallback coordinates
-      }
-      final result = _useProjectActivityListApi
-          ? await config.pmisActivitiesRepository.getProjectActivityList(
-              id: widget.projectId,
-              latitude: lat,
-              longitude: lng,
-              searchText: trimmed,
-            )
-          : await config.pmisActivitiesRepository.getSubModuleActivties(
-              siteId: widget.siteId ?? 0,
-              subModuleId: widget.subModuleId ?? 0,
-              latitude: lat,
-              longitude: lng,
-            );
-
-      if (!mounted) return;
-      final filtered = (result.isSuccess && result.data != null)
-          ? result.data!
-          : <PmisProjectActivity>[];
-
-      setState(() {
-        _displayedActivities = filtered;
-        _searchLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _searchLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Search failed: $e'),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
-    }
+  void _performSearchAndLoad(String raw) {
+    _performSearch(raw);
   }
 
   Widget _buildSearchBar() {
@@ -309,7 +274,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Press Enter to search',
+                'Searching locally',
                 style: TextStyle(
                   color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 13,
@@ -536,24 +501,7 @@ class _ProjectActivitiesScreenState extends State<ProjectActivitiesScreen> {
                           ),
                         ],
                       )
-                    : _searchLoading
-                        ? CustomScrollView(
-                            slivers: [
-                              SliverToBoxAdapter(child: _buildHeaderBlock()),
-                              const SliverFillRemaining(
-                                hasScrollBody: false,
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 48),
-                                  child: Center(
-                                    child: CircularProgressIndicator(
-                                      color: AppColors.primaryGreen,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : _displayedActivities.isEmpty
+                    : _displayedActivities.isEmpty
                             ? CustomScrollView(
                                 slivers: [
                                   SliverToBoxAdapter(child: _buildHeaderBlock()),

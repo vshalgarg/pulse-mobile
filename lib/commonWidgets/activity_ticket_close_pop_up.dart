@@ -85,6 +85,9 @@ Future<ActivityTicketClosePopupResult?> showActivityTicketClosePopup(
   DateTime? initialRepetitionDate,
   String? initialRemarks,
   List<ActivityTicketCloseStatusOption>? statusOptions,
+  String? role,
+  int? currentStatusId,
+  int? currentStatusCode,
 }) {
   return showDialog<ActivityTicketClosePopupResult>(
     context: context,
@@ -95,6 +98,9 @@ Future<ActivityTicketClosePopupResult?> showActivityTicketClosePopup(
       initialRepetitionDate: initialRepetitionDate,
       initialRemarks: initialRemarks,
       statusOptions: statusOptions,
+      role: role,
+      currentStatusId: currentStatusId,
+      currentStatusCode: currentStatusCode,
     ),
   );
 }
@@ -104,6 +110,9 @@ class ActivityTicketClosePopup extends StatefulWidget {
   final DateTime? initialRepetitionDate;
   final String? initialRemarks;
   final List<ActivityTicketCloseStatusOption>? statusOptions;
+  final String? role;
+  final int? currentStatusId;
+  final int? currentStatusCode;
 
   const ActivityTicketClosePopup({
     super.key,
@@ -111,6 +120,9 @@ class ActivityTicketClosePopup extends StatefulWidget {
     this.initialRepetitionDate,
     this.initialRemarks,
     this.statusOptions,
+    this.role,
+    this.currentStatusId,
+    this.currentStatusCode,
   });
 
   @override
@@ -139,6 +151,16 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
   ActivityTicketCloseStatusOption? _selectedStatus;
   DateTime? _repetitionDate;
   bool _showStatusError = false;
+
+  bool get _isMakerWithExistingStatus {
+    final role = (widget.role ?? '').trim().toUpperCase();
+    return role == 'MAKER' &&
+        widget.currentStatusId != null &&
+        widget.currentStatusCode != null;
+  }
+
+  bool get _statusRequired => !_isMakerWithExistingStatus;
+  bool get _remarksRequired => !_isMakerWithExistingStatus;
 
   /// Repetition date should appear only for Completed - To Be Repeated.
   bool _repetitionDateEnabled(String? status) {
@@ -214,7 +236,16 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
     final hasStatus =
         _selectedStatus != null &&
         _selectedStatus!.statusName.trim().isNotEmpty;
-    if (!hasStatus) {
+    if (_statusRequired && !hasStatus) {
+      setState(() {
+        _showStatusError = true;
+      });
+      return;
+    }
+    final statusForSave =
+        _selectedStatus ??
+        (_statusOptions.isNotEmpty ? _statusOptions.first : null);
+    if (statusForSave == null) {
       setState(() {
         _showStatusError = true;
       });
@@ -225,11 +256,11 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
     // Match showDialog(useRootNavigator: true) so we only dismiss this dialog.
     Navigator.of(context, rootNavigator: true).pop(
       ActivityTicketClosePopupResult(
-        statusName: _selectedStatus!.statusName,
-        statusCode: _selectedStatus!.statusCode,
-        statusPsmId: _selectedStatus!.psmId,
+        statusName: statusForSave.statusName,
+        statusCode: statusForSave.statusCode,
+        statusPsmId: statusForSave.psmId,
         repetitionDate:
-            _repetitionDateEnabled(_selectedStatus!.statusCode)
+            _repetitionDateEnabled(statusForSave.statusCode)
             ? _repetitionDate
             : null,
         remarks: _remarksController.text.trim(),
@@ -254,7 +285,7 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _label('Activity Status', required: true),
+                _label('Activity Status', required: _statusRequired),
                 const SizedBox(height: 8),
                 CustomDropdown(
                   items: _statusOptions.map((e) => e.statusName).toList(),
@@ -338,14 +369,16 @@ class _ActivityTicketClosePopupState extends State<ActivityTicketClosePopup> {
                     ),
                   const SizedBox(height: 12),
                 ],
-                _label('Remarks', required: true),
+                _label('Remarks', required: _remarksRequired),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _remarksController,
                   maxLines: 4,
                   decoration: _fieldDecoration(hint: 'Remarks'),
                   validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Remarks are required' : null,
+                      (_remarksRequired && (v == null || v.trim().isEmpty))
+                      ? 'Remarks are required'
+                      : null,
                 ),
                 const SizedBox(height: 16),
                 Row(
