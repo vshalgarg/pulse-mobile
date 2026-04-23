@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:app/app_config.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/screens/pmis/activity_ticket/activity_ticket.dart';
@@ -42,7 +40,6 @@ class ActivityTicketCheckerListScreen extends StatefulWidget {
 class _ActivityTicketCheckerListScreenState
     extends State<ActivityTicketCheckerListScreen> {
   late Future<ResponseResult<PmisActivityTicketDetail>> _future;
-  int _selectedCheckerIndex = 0;
 
   static String _nowForBackend() {
     final now = DateTime.now();
@@ -346,11 +343,6 @@ class _ActivityTicketCheckerListScreenState
                             );
                           }
 
-                          final safeSelected = math.min(
-                            _selectedCheckerIndex,
-                            checkers.length - 1,
-                          );
-
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -384,10 +376,6 @@ class _ActivityTicketCheckerListScreenState
                                       const SizedBox(height: 16),
                                       _CheckerPanel(
                                         checkers: checkers,
-                                        selectedIndex: safeSelected,
-                                        onSelect: (i) => setState(
-                                          () => _selectedCheckerIndex = i,
-                                        ),
                                       ),
                                     ],
                                   ),
@@ -589,13 +577,9 @@ class _ActivitySummaryCard extends StatelessWidget {
 
 class _CheckerPanel extends StatelessWidget {
   final List<PmisTicketChecker> checkers;
-  final int selectedIndex;
-  final ValueChanged<int> onSelect;
 
   const _CheckerPanel({
     required this.checkers,
-    required this.selectedIndex,
-    required this.onSelect,
   });
 
   @override
@@ -619,8 +603,6 @@ class _CheckerPanel extends StatelessWidget {
             if (i > 0) const SizedBox(height: 10),
             _CheckerTile(
               checker: checkers[i],
-              isSelected: i == selectedIndex,
-              onTap: () => onSelect(i),
             ),
           ],
         ],
@@ -631,13 +613,9 @@ class _CheckerPanel extends StatelessWidget {
 
 class _CheckerTile extends StatelessWidget {
   final PmisTicketChecker checker;
-  final bool isSelected;
-  final VoidCallback onTap;
 
   const _CheckerTile({
     required this.checker,
-    required this.isSelected,
-    required this.onTap,
   });
 
   static (Color bg, String label) _badgeStyle(String? raw) {
@@ -652,8 +630,6 @@ class _CheckerTile extends StatelessWidget {
   }
 
   String? _remarksText(PmisTicketChecker c) {
-    final d = c.decisionRemarks?.trim();
-    if (d != null && d.isNotEmpty) return d;
     final r = c.remarks?.trim();
     if (r != null && r.isNotEmpty) return r;
     return null;
@@ -671,98 +647,93 @@ class _CheckerTile extends StatelessWidget {
       color: const Color(0xFFF4F6F8),
       borderRadius: BorderRadius.circular(16),
       clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected ? const Color(0xFF2F6BFF) : Colors.transparent,
-              width: isSelected ? 2 : 0,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Checker (Level ${checker.levelNo})',
+                        style: TextStyle(
+                          fontFamily: poppins,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.color555555.withValues(
+                            alpha: 0.85,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontFamily: fontFamilyMontserrat,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.locationColor,
+                        ),
+                      ),
+                      if (remarks != null) ...[
+                        const SizedBox(height: 10),
                         Text(
-                          'Checker (Level ${checker.levelNo})',
+                          'Remarks',
                           style: TextStyle(
                             fontFamily: poppins,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
                             color: AppColors.color555555.withValues(
-                              alpha: 0.85,
+                              alpha: 0.75,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 4),
                         Text(
-                          name,
+                          remarks,
                           style: const TextStyle(
-                            fontFamily: fontFamilyMontserrat,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.locationColor,
+                            fontFamily: poppins,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            color: AppColors.color555555,
+                            height: 1.35,
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: badge.$1,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      badge.$2,
-                      style: const TextStyle(
-                        fontFamily: poppins,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (remarks != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Remarks',
-                  style: TextStyle(
-                    fontFamily: poppins,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.color555555.withValues(alpha: 0.75),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  remarks,
-                  style: const TextStyle(
-                    fontFamily: poppins,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.color555555,
-                    height: 1.35,
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badge.$1,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    badge.$2,
+                    style: const TextStyle(
+                      fontFamily: poppins,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ],
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
