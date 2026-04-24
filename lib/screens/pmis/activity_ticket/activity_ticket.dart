@@ -1548,6 +1548,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   List<Map<String, dynamic>> _mapTicketCheckersForPost({
     ActivityTicketCheckerClosePopupResult? checkerClose,
+    double? checkerLatitude,
+    double? checkerLongitude,
   }) {
     if (checkerClose == null || widget.detail.ticketCheckers.isEmpty) {
       return widget.detail.ticketCheckers.map(_mapChecker).toList();
@@ -1572,6 +1574,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       if (i == targetIdx) {
         mapped['remarks'] = checkerClose.remarks;
         mapped['isModified'] = true;
+        if (checkerLatitude != null && checkerLongitude != null) {
+          mapped['latitude'] = checkerLatitude;
+          mapped['longitude'] = checkerLongitude;
+          mapped['geoSource'] = 'MOBILE';
+        }
         if (checkerClose.action == ActivityTicketCheckerAction.saveAndApprove) {
           mapped['decisionStatus'] = 'Approved';
           mapped['decisionRemarks'] = 'Approved';
@@ -1701,6 +1708,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   Map<String, dynamic> _buildPostPayload(
     ActivityTicketClosePopupResult close, {
     ActivityTicketCheckerClosePopupResult? checkerClose,
+    double? checkerLatitude,
+    double? checkerLongitude,
   }) {
     final updatedValTextByTfv = <int, String>{
       for (final f in _sortedFields) f.tfvId: _valTextForField(f),
@@ -1784,7 +1793,11 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       'actualEndDt': actualEndDt,
       'isActive': widget.detail.isActive,
       'remarks': payloadParentRemarks,
-      'ticketCheckers': _mapTicketCheckersForPost(checkerClose: checkerClose),
+      'ticketCheckers': _mapTicketCheckersForPost(
+        checkerClose: checkerClose,
+        checkerLatitude: checkerLatitude,
+        checkerLongitude: checkerLongitude,
+      ),
       'ticketFieldValues': widget.detail.ticketFieldValues.map((f) {
         final valText = updatedValTextByTfv[f.tfvId] ?? '';
         final updatedAttachments =
@@ -1896,6 +1909,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     FocusScope.of(context).unfocus();
     ActivityTicketClosePopupResult? close;
     ActivityTicketCheckerClosePopupResult? checkerCloseResult;
+    double? checkerLatitude;
+    double? checkerLongitude;
     if (_isCheckerRole) {
       if (!_validateAll()) return;
       final checkerClose = await showActivityTicketCheckerClosePopup(
@@ -1905,6 +1920,13 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       if (checkerClose == null) return;
       checkerCloseResult = checkerClose;
       close = _mapCheckerCloseToTicketClose(checkerClose);
+      try {
+        final checkerLocation = await LocationService.getCurrentLocation();
+        checkerLatitude = checkerLocation.latitude;
+        checkerLongitude = checkerLocation.longitude;
+      } catch (_) {
+        // Keep existing checker latitude/longitude if live location is unavailable.
+      }
     } else {
       close = await showActivityTicketClosePopup(
         context,
@@ -1938,6 +1960,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     final postPayload = _buildPostPayload(
       close,
       checkerClose: checkerCloseResult,
+      checkerLatitude: checkerLatitude,
+      checkerLongitude: checkerLongitude,
     );
     final payloadJson = const JsonEncoder.withIndent('  ').convert(postPayload);
     Logger.infoLog('[AT_POST_REQUEST_START]');

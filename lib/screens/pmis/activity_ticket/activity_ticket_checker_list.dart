@@ -41,6 +41,10 @@ class _ActivityTicketCheckerListScreenState
     extends State<ActivityTicketCheckerListScreen> {
   late Future<ResponseResult<PmisActivityTicketDetail>> _future;
 
+  void _goBackWithRefresh() {
+    Navigator.of(context).pop(true);
+  }
+
   static String _nowForBackend() {
     final now = DateTime.now();
     final dd = now.day.toString().padLeft(2, '0');
@@ -54,8 +58,12 @@ class _ActivityTicketCheckerListScreenState
 
   bool _isAllocated(PmisActivityTicketDetail detail) {
     final ticketStatus = detail.currentStatus.trim().toUpperCase();
-    final listStatus = (widget.initialActivityStatus ?? '').trim().toUpperCase();
-    return ticketStatus == 'ALLOCATED' || listStatus == 'ALLOCATED';
+    return ticketStatus == 'ALLOCATED';
+  }
+
+  bool _isMakerRole(PmisActivityTicketDetail detail) {
+    final role = (detail.role ?? '').trim().toUpperCase();
+    return role == 'MAKER';
   }
 
   PmisActivityTicketDetail _detailForStartActivity(
@@ -97,6 +105,153 @@ class _ActivityTicketCheckerListScreenState
     );
   }
 
+  Map<String, dynamic> _buildStartActivityPayload(
+    PmisActivityTicketDetail detail,
+    PmisActivityTicketDetail startedDetail,
+  ) {
+    final fieldValues = detail.ticketFieldValues
+        .map(
+          (f) => <String, dynamic>{
+            'tfvId': f.tfvId,
+            'valText': f.valText?.toString() ?? '',
+            'valNumeric': f.valNumeric,
+            'valInt': f.valInt,
+            'valDate': f.valDate,
+            'valJson': f.valJson,
+            'latitude': f.latitude ?? '0',
+            'longitude': f.longitude ?? '0',
+            'geoAccuracyM': f.geoAccuracyM ?? '0',
+            'geoSource': f.geoSource ?? '',
+            'isActive': f.isActive,
+            'remarks': f.remarks ?? '',
+            'attachments': f.attachments,
+            'subActivityName': f.subActivityName ?? '',
+            'subActivityDataType': f.subActivityDataType ?? '',
+            'subActivityControlType': f.subActivityControlType ?? '',
+            'isRequired': f.isRequired ?? false,
+            'seqNo': f.seqNo ?? 0,
+            'minVal': f.minVal,
+            'maxVal': f.maxVal,
+            'configJson': f.configJson is Map
+                ? Map<String, dynamic>.from(f.configJson as Map)
+                : <String, dynamic>{},
+            'linkMmId': f.linkMmId ?? 0,
+            'isModified': false,
+          },
+        )
+        .toList();
+    final checkers = detail.ticketCheckers
+        .map(
+          (c) => <String, dynamic>{
+            'tcId': c.tcId,
+            'levelNo': c.levelNo,
+            'designationMstId': c.designationMstId ?? 0,
+            'checkerUserMstId': c.checkerUserMstId ?? 0,
+            'decisionStatus': c.decisionStatus ?? '',
+            'decisionBy': c.decisionBy ?? '',
+            'decisionDt': c.decisionDt,
+            'decisionRemarks': c.decisionRemarks ?? '',
+            'latitude': c.latitude ?? '0',
+            'longitude': c.longitude ?? '0',
+            'geoAccuracyM': c.geoAccuracyM ?? '0',
+            'geoSource': c.geoSource ?? '',
+            'isActive': c.isActive,
+            'remarks': c.remarks ?? '',
+            'decisionByName': c.decisionByName ?? '',
+            'checkerUserName': c.checkerUserName ?? '',
+            'designationName': c.designationName ?? '',
+          },
+        )
+        .toList();
+
+    return <String, dynamic>{
+      'atId': detail.atId,
+      'ppaId': detail.ppaId,
+      'currentStatus': 'WIP',
+      'currentStatusCode': 2,
+      'currentStatusId': 2,
+      'currentStatusDt': _nowForBackend(),
+      'makerDesignationMstId': detail.makerDesignationMstId ?? 0,
+      'makerUserMstId': detail.makerUserMstId ?? 0,
+      'makerAssignedDt': detail.makerAssignedDt,
+      'plannedStartDt': detail.plannedStartDt,
+      'plannedEndDt': detail.plannedEndDt,
+      'actualStartDt': startedDetail.actualStartDt,
+      'actualEndDt': detail.actualEndDt,
+      'isActive': detail.isActive,
+      'remarks': detail.remarks ?? '',
+      'ticketCheckers': checkers,
+      'ticketFieldValues': fieldValues,
+      'ticketAttachments': detail.ticketAttachments.map((e) => e.raw).toList(),
+      'makerUserName': detail.makerUserName ?? '',
+      'makerDesignationName': detail.makerDesignationName ?? '',
+      'oldData': detail.oldData
+          .map(
+            (item) => <String, dynamic>{
+              'actualStartDt': item.actualStartDt,
+              'actualEndDt': item.actualEndDt,
+              'ticketFieldValues': item.ticketFieldValues
+                  .map(
+                    (f) => <String, dynamic>{
+                      'tfvId': f.tfvId,
+                      'valText': f.valText?.toString() ?? '',
+                      'valNumeric': f.valNumeric,
+                      'valInt': f.valInt,
+                      'valDate': f.valDate,
+                      'valJson': f.valJson,
+                      'latitude': f.latitude ?? '0',
+                      'longitude': f.longitude ?? '0',
+                      'geoAccuracyM': f.geoAccuracyM ?? '0',
+                      'geoSource': f.geoSource ?? '',
+                      'isActive': f.isActive,
+                      'remarks': f.remarks ?? '',
+                      'attachments': f.attachments,
+                      'subActivityName': f.subActivityName ?? '',
+                      'subActivityDataType': f.subActivityDataType ?? '',
+                      'subActivityControlType': f.subActivityControlType ?? '',
+                      'isRequired': f.isRequired ?? false,
+                      'seqNo': f.seqNo ?? 0,
+                      'minVal': f.minVal,
+                      'maxVal': f.maxVal,
+                      'configJson': f.configJson is Map
+                          ? Map<String, dynamic>.from(f.configJson as Map)
+                          : <String, dynamic>{},
+                      'linkMmId': f.linkMmId ?? 0,
+                      'isModified': item.isModified ?? false,
+                    },
+                  )
+                  .toList(),
+              'makerUserName': item.makerUserName ?? '',
+              'isModified': item.isModified ?? false,
+            },
+          )
+          .toList(),
+      'showReviewBtns': detail.showReviewBtns,
+      'checkerLvl': detail.checkerLvl ?? '',
+      'role': detail.role ?? '',
+      'ticketStatusHistory': detail.ticketStatusHistory,
+      'allowedStatuses': detail.allowedStatuses.map((e) => e.toJson()).toList(),
+      'isRepeatNature': detail.isRepeating,
+      'isRepeating': detail.isRepeating,
+      'repeatDt': detail.repeatDt,
+    };
+  }
+
+  Future<PmisActivityTicketDetail> _transitionAllocatedMakerToWipIfNeeded(
+    PmisActivityTicketDetail detail,
+  ) async {
+    if (!_isMakerRole(detail) || !_isAllocated(detail)) return detail;
+    final startedDetail = _detailForStartActivity(detail);
+    final payload = _buildStartActivityPayload(detail, startedDetail);
+    final repository = AppConfig.of(context).pmisActivityTicketRepository;
+    try {
+      await repository.postActivityTicket(payload: payload);
+    } catch (_) {
+      // Ignore transition API errors here; proceed with local WIP flow.
+    }
+    return startedDetail;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +286,21 @@ class _ActivityTicketCheckerListScreenState
   Future<void> _openLatestActivityTicketScreen(
     PmisActivityTicketDetail detail,
   ) async {
+    final transitionedDetail = await _transitionAllocatedMakerToWipIfNeeded(
+      detail,
+    );
+    if (!mounted) return;
+    if (transitionedDetail.currentStatus.trim().toUpperCase() !=
+        detail.currentStatus.trim().toUpperCase()) {
+      setState(() {
+        _future = Future.value(
+          ResponseResult<PmisActivityTicketDetail>.success(
+            transitionedDetail,
+            200,
+          ),
+        );
+      });
+    }
     final latestOffline = await PmisActivityTicketOfflineService.loadOfflineDetail(
       widget.activityTicketId,
     );
@@ -140,10 +310,10 @@ class _ActivityTicketCheckerListScreenState
     final canUseOffline = latestOffline != null &&
         latestOffline.atId == widget.activityTicketId &&
         (latestOffline.role ?? '').trim().toUpperCase() ==
-            (detail.role ?? '').trim().toUpperCase() &&
+            (transitionedDetail.role ?? '').trim().toUpperCase() &&
         latestOffline.currentStatus.trim().toUpperCase() ==
-            detail.currentStatus.trim().toUpperCase();
-    final openDetail = canUseOffline ? latestOffline : detail;
+            transitionedDetail.currentStatus.trim().toUpperCase();
+    final openDetail = canUseOffline ? latestOffline : transitionedDetail;
     final shouldRefreshActivities = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => ActivityTicketScreen(
@@ -238,10 +408,15 @@ class _ActivityTicketCheckerListScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
-      body: Stack(
+    return WillPopScope(
+      onWillPop: () async {
+        _goBackWithRefresh();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        extendBodyBehindAppBar: true,
+        body: Stack(
         children: [
           Positioned.fill(
             child: SafeSvgPicture.asset(AppImages.home, fit: BoxFit.cover),
@@ -253,7 +428,7 @@ class _ActivityTicketCheckerListScreenState
                 _ScreenAppHeader(
                   title: widget.activityName,
                   breadcrumb: widget.breadcrumbText,
-                  onBack: () => Navigator.of(context).pop(),
+                  onBack: _goBackWithRefresh,
                 ),
                 Expanded(
                   child:
@@ -334,9 +509,7 @@ class _ActivityTicketCheckerListScreenState
                                   _NextButton(
                                     label: bottomButtonLabel,
                                     onPressed: () =>
-                                        _openLatestActivityTicketScreen(
-                                          _detailForStartActivity(detail),
-                                        ),
+                                        _openLatestActivityTicketScreen(detail),
                                   ),
                                 ],
                               ),
@@ -384,9 +557,7 @@ class _ActivityTicketCheckerListScreenState
                               _NextButton(
                                 label: bottomButtonLabel,
                                 onPressed: () =>
-                                    _openLatestActivityTicketScreen(
-                                      _detailForStartActivity(detail),
-                                    ),
+                                    _openLatestActivityTicketScreen(detail),
                               ),
                             ],
                           );
@@ -398,6 +569,7 @@ class _ActivityTicketCheckerListScreenState
           ),
         ],
       ),
+    ),
     );
   }
 }
