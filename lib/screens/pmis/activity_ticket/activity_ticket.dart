@@ -718,24 +718,26 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   bool get _isViewingEditableTicket => _historicPickerIndex < 0;
 
+  String get _normalizedRole {
+    final role = (widget.detail.role ?? '').trim().toUpperCase();
+    return role.isEmpty ? 'MAKER' : role;
+  }
+
   /// API role/status gate:
   /// maker cannot edit when activity status is completed (case-insensitive).
   bool get _isMakerCompletedReadOnly {
-    final role = (widget.detail.role ?? '').trim().toUpperCase();
     final activityStatus = widget.detail.currentStatus.trim().toUpperCase();
-    return role == 'MAKER' && activityStatus == 'COMPLETED';
+    return _normalizedRole == 'MAKER' && activityStatus == 'COMPLETED';
   }
 
   /// Checker should always be editable; only maker+completed is read-only.
   bool get _canEditTicketFields {
-    final role = (widget.detail.role ?? '').trim().toUpperCase();
-    if (role.contains('CHECKER')) return true;
+    if (_normalizedRole.contains('CHECKER')) return true;
     return !_isMakerCompletedReadOnly;
   }
 
   bool get _isCheckerRole {
-    final role = (widget.detail.role ?? '').trim().toUpperCase();
-    return role.contains('CHECKER');
+    return _normalizedRole.contains('CHECKER');
   }
 
   PmisAllowedStatus? _findAllowedStatusForCheckerAction(
@@ -1819,7 +1821,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           .toList(),
       'showReviewBtns': widget.detail.showReviewBtns,
       'checkerLvl': widget.detail.checkerLvl ?? '',
-      'role': widget.detail.role ?? '',
+      'role': _normalizedRole,
       'ticketStatusHistory': widget.detail.ticketStatusHistory.map((e) {
         final mapped = Map<String, dynamic>.from(e);
         mapped['changedDt'] = _normalizeDateString(
@@ -1944,7 +1946,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               ),
             )
             .toList(),
-        role: widget.detail.role,
+        role: _normalizedRole,
         currentStatusId: widget.detail.currentStatusCode,
         currentStatusCode: widget.detail.currentStatusCode,
       );
