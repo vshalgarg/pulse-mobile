@@ -1923,7 +1923,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       checkerCloseResult = checkerClose;
       close = _mapCheckerCloseToTicketClose(checkerClose);
       try {
-        final checkerLocation = await LocationService.getCurrentLocation();
+        final checkerLocation = await LocationService.getCurrentLocationForForm();
         checkerLatitude = checkerLocation.latitude;
         checkerLongitude = checkerLocation.longitude;
       } catch (_) {

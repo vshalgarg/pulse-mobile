@@ -43,15 +43,25 @@ class LocationService {
   }
 
   /// Faster, bounded wait for UI (e.g. activity ticket coordinate fields).
-  /// Uses medium accuracy + time limit, then falls back to last known position.
+  /// Uses last-known-first for near-instant UX, then bounded fresh fetch.
   static Future<LocationModel> getCurrentLocationForForm() async {
     try {
       await _ensureLocationPermission();
 
+      // Fast path: return cached location immediately when available.
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null) {
+        Logger.infoLog("form location fast last known: $lastKnown");
+        return LocationModel(
+          latitude: lastKnown.latitude,
+          longitude: lastKnown.longitude,
+        );
+      }
+
       try {
         final position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 18),
+          timeLimit: const Duration(seconds: 6),
         );
         Logger.infoLog("form location (medium): $position");
         return LocationModel(
