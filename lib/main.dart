@@ -235,7 +235,6 @@ void _checkTokenStatus() async {
   final token = LocalStorageDB.getToken;
   if (token != null) {
     if (Utils.isTokenExpired(token)) {
-
       await LocalStorageDB.logout();
     }
   } 

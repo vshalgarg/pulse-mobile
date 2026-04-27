@@ -57,13 +57,32 @@ class _ActivityTicketCheckerListScreenState
   }
 
   bool _isAllocated(PmisActivityTicketDetail detail) {
-    final ticketStatus = detail.currentStatus.trim().toUpperCase();
-    return ticketStatus == 'ALLOCATED';
-  }
+    String normalizeStatus(String? value) {
+      final raw = (value ?? '').trim().toUpperCase();
+      if (raw.isEmpty) return '';
+      return raw.replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    }
 
-  bool _isMakerRole(PmisActivityTicketDetail detail) {
-    final role = (detail.role ?? '').trim().toUpperCase();
-    return role == 'MAKER';
+    final normalizedTicketStatus = normalizeStatus(detail.currentStatus);
+    final normalizedInitialStatus = normalizeStatus(widget.initialActivityStatus);
+    final statusCode = detail.currentStatusCode;
+
+    if (normalizedTicketStatus == 'ALLOCATED' ||
+        normalizedTicketStatus == 'ALLOCATE') {
+      return true;
+    }
+    // If backend status text is present and not allocated, trust it.
+    if (normalizedTicketStatus.isNotEmpty) return false;
+
+    // Fallback to list status only when ticket status text is missing.
+    if (normalizedInitialStatus == 'ALLOCATED' ||
+        normalizedInitialStatus == 'ALLOCATE') {
+      return true;
+    }
+    // Secondary fallback when backend sends only numeric status.
+    if (statusCode == 1) return true;
+
+    return false;
   }
 
   PmisActivityTicketDetail _detailForStartActivity(
@@ -240,7 +259,7 @@ class _ActivityTicketCheckerListScreenState
   Future<PmisActivityTicketDetail> _transitionAllocatedMakerToWipIfNeeded(
     PmisActivityTicketDetail detail,
   ) async {
-    if (!_isMakerRole(detail) || !_isAllocated(detail)) return detail;
+    if (!_isAllocated(detail)) return detail;
     final startedDetail = _detailForStartActivity(detail);
     final payload = _buildStartActivityPayload(detail, startedDetail);
     final repository = AppConfig.of(context).pmisActivityTicketRepository;
