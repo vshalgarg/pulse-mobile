@@ -717,7 +717,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     return null;
   }
 
-  bool get _hasHistoricDatePicker => widget.detail.oldData.isNotEmpty;
+  bool get _hasHistoricDatePicker => _orderedOldDataIndices().isNotEmpty;
 
   bool get _isViewingEditableTicket => _historicPickerIndex < 0;
 
@@ -782,10 +782,27 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   }
 
   List<int> _orderedOldDataIndices() {
+    final currentTfvIds = widget.detail.ticketFieldValues
+        .map((f) => f.tfvId)
+        .toSet();
     final entries = List.generate(
       widget.detail.oldData.length,
       (i) => MapEntry(i, widget.detail.oldData[i]),
-    );
+    ).where((entry) {
+      final item = entry.value;
+      if (item.ticketFieldValues.isEmpty) return false;
+
+      final hasKnownField = item.ticketFieldValues.any(
+        (f) => currentTfvIds.contains(f.tfvId),
+      );
+      if (!hasKnownField) return false;
+
+      final hasMeaningfulData = item.ticketFieldValues.any((f) {
+        final valText = f.valText?.toString().trim() ?? '';
+        return valText.isNotEmpty || f.attachments.isNotEmpty;
+      });
+      return hasMeaningfulData;
+    }).toList();
     entries.sort((a, b) {
       final da = _tryParseFlexibleTicketDate(a.value.actualStartDt);
       final db = _tryParseFlexibleTicketDate(b.value.actualStartDt);
