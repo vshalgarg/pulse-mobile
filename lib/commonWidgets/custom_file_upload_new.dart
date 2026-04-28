@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:app/commonWidgets/custom_video_recorder_screen.dart';
 import '../constants/app_colors.dart';
 import '../constants/constants_strings.dart';
 import '../utils/toastbar.dart';
@@ -29,6 +31,9 @@ class CustomFileUploadNew extends StatelessWidget {
   /// over [pickAllowedExtensions].
   final bool useVideoPicker;
 
+  /// When true, records video from device camera.
+  final bool useVideoRecorder;
+
   const CustomFileUploadNew({
     super.key,
     this.label,
@@ -47,45 +52,66 @@ class CustomFileUploadNew extends StatelessWidget {
     this.onServerAttachmentDeleted,
     this.pickAllowedExtensions,
     this.useVideoPicker = false,
+    this.useVideoRecorder = false,
   });
 
   Future<void> _pickFile(BuildContext context) async {
-    final FilePickerResult? result;
-    if (useVideoPicker) {
-      result = await FilePicker.platform.pickFiles(
-        type: FileType.video,
-        allowMultiple: false,
+    if (useVideoRecorder) {
+      final recordedFile = await Navigator.push<File>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CustomVideoRecorderScreen(),
+        ),
       );
-    } else {
-      final exts = pickAllowedExtensions;
-      result = (exts != null && exts.isNotEmpty)
-          ? await FilePicker.platform.pickFiles(
-              type: FileType.custom,
-              allowedExtensions: exts,
-              allowMultiple: false,
-            )
-          : await FilePicker.platform.pickFiles(
-              type: FileType.any,
-              allowMultiple: false,
-            );
+      if (recordedFile == null) return;
+      final file = File(recordedFile.path);
+      await _validateAndSelectFile(context, file);
+      return;
     }
+
+    if (useVideoPicker) {
+      final picker = ImagePicker();
+      final picked = await picker.pickVideo(
+        source: ImageSource.gallery,
+      );
+      if (picked == null) return;
+      final file = File(picked.path);
+      await _validateAndSelectFile(context, file);
+      return;
+    }
+
+    final FilePickerResult? result;
+    final exts = pickAllowedExtensions;
+    result = (exts != null && exts.isNotEmpty)
+        ? await FilePicker.platform.pickFiles(
+            type: FileType.custom,
+            allowedExtensions: exts,
+            allowMultiple: false,
+          )
+        : await FilePicker.platform.pickFiles(
+            type: FileType.any,
+            allowMultiple: false,
+          );
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
-      
-      // Check file size (2 MB = 2 * 1024 * 1024 bytes)
-      const int maxSizeInBytes = 2 * 1024 * 1024; // 2 MB
-      final int fileSizeInBytes = await file.length();
-      if (!context.mounted) return;
-      
-      if (fileSizeInBytes > maxSizeInBytes) {
-        Toastbar.showErrorToastbar(
-          'File size exceeds 2 MB limit. Please select a smaller file.',
-          context,
-        );
-        return;
-      }
-      
+      await _validateAndSelectFile(context, file);
+    }
+  }
+
+  Future<void> _validateAndSelectFile(BuildContext context, File file) async {
+    // Check file size (2 MB = 2 * 1024 * 1024 bytes)
+    const int maxSizeInBytes = 2 * 1024 * 1024; // 2 MB
+    final int fileSizeInBytes = await file.length();
+    if (!context.mounted) return;
+
+    if (fileSizeInBytes > maxSizeInBytes) {
+      Toastbar.showErrorToastbar(
+        'File size exceeds 2 MB limit. Please select a smaller file.',
+        context,
+      );
+      return;
+    } else {
       onFileSelected(file);
     }
   }

@@ -1336,6 +1336,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
     List<String>? pickAllowedExtensions,
     String? placeholder,
     bool useVideoPicker = false,
+    bool useVideoRecorder = false,
   }) {
     final files = _filesByTfv[f.tfvId]!;
     final prim = _primaryAttachmentMapForUi(f);
@@ -1364,6 +1365,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       maxSizeText: '(Max Size: 2MB)',
       pickAllowedExtensions: pickAllowedExtensions,
       useVideoPicker: useVideoPicker,
+      useVideoRecorder: useVideoRecorder,
       selectedFile: files.isNotEmpty ? files.first : null,
       uploadedFiles: const [],
       serverAttachmentName: serverNameForUi,
@@ -2228,6 +2230,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           ],
         );
       case 'VIDEO':
+        final useVideoRecorder = _normControlType(f) == 'VIDEORECORDER';
         // Same UX for every video row: system video picker only, one file, replace on re-pick.
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2239,7 +2242,8 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               fileTypeForAttachment: 'VIDEO',
               acceptedFileTypes: '(Video only)',
               pickAllowedExtensions: null,
-              useVideoPicker: true,
+              useVideoPicker: !useVideoRecorder,
+              useVideoRecorder: useVideoRecorder,
               placeholder: 'Add video',
             ),
             if (_hasPmisVideoAttachmentForPlay(f)) ...[
