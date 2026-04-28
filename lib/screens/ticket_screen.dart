@@ -6,6 +6,7 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/enum/corrective_maintenance_screen_mode_enum.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
+import 'package:app/models/screen_permission.dart';
 import 'package:app/screens/corrective_maintainece/corrective_maintenance_screen.dart';
 import 'package:app/models/all_site_model.dart';
 import 'package:app/screens/general_inspection/ginspection_detail.dart';
@@ -39,11 +40,13 @@ import 'package:app/commonWidgets/safe_svg_picture.dart';
 class TicketScreen extends StatefulWidget {
   final String auditName;
   final String status;
+  final ScreenPermission? permission;
 
   const TicketScreen({
     super.key,
     required this.auditName,
     required this.status,
+    this.permission,
   });
 
   @override
@@ -1559,13 +1562,15 @@ class _TicketScreenState extends State<TicketScreen>
       return Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            onPressed: _onFloatingButtonPressed,
-            backgroundColor: AppColors.primaryGreen,
-            heroTag: "add_fab",
-            child: const Icon(Icons.add, color: Colors.white, size: 28),
-          ),
-          const SizedBox(height: 16),
+          if (_canShowAddButton()) ...[
+            FloatingActionButton(
+              onPressed: _onFloatingButtonPressed,
+              backgroundColor: AppColors.primaryGreen,
+              heroTag: "add_fab",
+              child: const Icon(Icons.add, color: Colors.white, size: 28),
+            ),
+            const SizedBox(height: 16),
+          ],
           FloatingActionButton(
             onPressed: _syncOfflineData,
             backgroundColor: Colors.blue,
@@ -1579,6 +1584,10 @@ class _TicketScreenState extends State<TicketScreen>
       // Show only sync button for other activity types
       return const SizedBox.shrink();
     }
+  }
+
+  bool _canShowAddButton() {
+    return widget.permission?.canAdd ?? true;
   }
 
   void _onFloatingButtonPressed() {

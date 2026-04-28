@@ -3,6 +3,7 @@ import 'package:app/bloc/dashboard_cubit.dart';
 import 'package:app/commonWidgets/loader_widget.dart';
 import 'package:app/constants/constants_methods.dart';
 import 'package:app/constants/constants_strings.dart';
+import 'package:app/models/screen_permission.dart';
 import 'package:app/screens/corrective_maintainece/cm_all_sites.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
@@ -17,8 +18,9 @@ import 'package:app/commonWidgets/safe_svg_picture.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? selectedActivity;
+  final ScreenPermission? permission;
 
-  const HomeScreen({super.key, this.selectedActivity});
+  const HomeScreen({super.key, this.selectedActivity, this.permission});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -153,18 +155,20 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // this will appear only if the user is a CM
+          // Controlled by API-driven screen permission.
           if (widget.selectedActivity == "Corrective Maintenance") ...[
-            FloatingActionButton(
-              onPressed: () {
-                _loadSitesAndNavigateToCM();
-              },
-              backgroundColor: AppColors.bellColor,
-              heroTag: "add_cm_fab",
-              child: const Icon(Icons.add, color: Colors.white),
-              tooltip: 'Add CM',
-            ),
-            const SizedBox(height: 16),
+            if (widget.permission?.canAdd ?? true) ...[
+              FloatingActionButton(
+                onPressed: () {
+                  _loadSitesAndNavigateToCM();
+                },
+                backgroundColor: AppColors.bellColor,
+                heroTag: "add_cm_fab",
+                child: const Icon(Icons.add, color: Colors.white),
+                tooltip: 'Add CM',
+              ),
+              const SizedBox(height: 16),
+            ],
           ],
 
           FloatingActionButton(

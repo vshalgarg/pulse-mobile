@@ -5,6 +5,7 @@ import 'package:app/services/asset_audit/central_data_service.dart';
 import 'package:app/services/asset_audit_post_service.dart';
 import 'package:app/services/image_upload_service.dart';
 import 'package:app/services/pending_requests_service.dart';
+import 'package:app/services/roles_service.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/repositories/cm_repository.dart';
 import 'package:app/repositories/sites.repository.dart';
@@ -28,6 +29,7 @@ class ServiceLocator {
   SitesRepository? _sitesRepository;
   late GeneralInspectionRepository _generalInspectionRepository;
   IncidentRepository? _incidentRepository;
+  RolesService? _rolesService;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
@@ -60,6 +62,7 @@ class ServiceLocator {
       _sitesRepository = SitesRepository(apiService);
       _generalInspectionRepository = GeneralInspectionRepository(apiService);
       _incidentRepository = IncidentRepository(apiService);
+      _rolesService = RolesService(apiService: apiService);
 
       _isInitialized = true;
 
@@ -141,6 +144,15 @@ class ServiceLocator {
       _incidentRepository = IncidentRepository(_apiService);
     }
     return _incidentRepository!;
+  }
+
+  RolesService get rolesService {
+    _ensureInitialized();
+    if (_rolesService == null) {
+      Logger.debugLog('⚠️ RolesService not initialized, initializing now...');
+      _rolesService = RolesService(apiService: _apiService);
+    }
+    return _rolesService!;
   }
 
   /// Check if services are initialized

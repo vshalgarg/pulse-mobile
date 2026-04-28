@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:app/models/screen_permission.dart';
+import 'package:app/models/user_role_screen.dart';
 import 'package:app/screens/pmis/project_list.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
@@ -34,12 +36,16 @@ class _PulseDashboardState extends State<PulseDashboard> {
 
   String _notificationCount = "0";
   String version = "";
+  bool _isRolesLoading = true;
+  String? _rolesErrorMessage;
+  List<UserRoleScreen> _roleScreens = [];
 
   @override
   void initState() {
     super.initState();
     _loadNotifications();
     loadVersion();
+    _loadUserRoles();
   }
 
   @override
@@ -77,6 +83,46 @@ class _PulseDashboardState extends State<PulseDashboard> {
     }
   }
 
+  Future<void> _loadUserRoles() async {
+    try {
+      setState(() {
+        _isRolesLoading = true;
+        _rolesErrorMessage = null;
+      });
+
+      final response = await ServiceLocator().rolesService.getUserRoles();
+      if (!mounted) return;
+
+      if (response.errorMessage != null) {
+        setState(() {
+          _isRolesLoading = false;
+          _rolesErrorMessage = response.errorMessage;
+        });
+        return;
+      }
+
+      final screens = response.data ?? [];
+      screens.sort((a, b) {
+        final aIsComingSoon = _isComingSoonScreen(a.screenId);
+        final bIsComingSoon = _isComingSoonScreen(b.screenId);
+        if (aIsComingSoon != bIsComingSoon) {
+          return aIsComingSoon ? 1 : -1;
+        }
+        return a.sequence.compareTo(b.sequence);
+      });
+      setState(() {
+        _roleScreens = screens;
+        _isRolesLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isRolesLoading = false;
+        _rolesErrorMessage = e.toString();
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -85,20 +131,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const CrashLogsDebugScreen(),
-                ),
-              );
-            },
-            backgroundColor: Colors.orange,
-            heroTag: "crash_logs_fab",
-            child: const Icon(Icons.bug_report, color: Colors.white),
-            tooltip: 'Crash Logs',
-          ),
+         
           const SizedBox(height: 12),
           FloatingActionButton(
             onPressed: () {
@@ -379,86 +412,73 @@ class _PulseDashboardState extends State<PulseDashboard> {
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
-        child: GridView.count(
+        child: _buildDynamicGrid(),
+      ),
+    );
+  }
+
+  Widget _buildDynamicGrid() {
+    if (_isRolesLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primaryGreen),
+      );
+    }
+
+    if (_rolesErrorMessage != null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Failed to load user screens',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _rolesErrorMessage!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: _loadUserRoles,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_roleScreens.isEmpty) {
+      return const Center(
+        child: Text(
+          'No screens available',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadUserRoles,
+      child: GridView.builder(
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: _roleScreens.length,
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 3,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
           childAspectRatio: 0.85,
-          children: [
-            _buildTaskCard(
-              iconPath: AppImages.assetAudit,
-              label: 'Asset Audit',
-              onTap: () => _navigateToTask('Asset Audit'),
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.preventiveMaintenance,
-              label: 'Preventive Maintenance',
-              onTap: () => _navigateToTask('Preventive Maintenance'),
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.correctiveMaintenance,
-              label: 'Corrective Maintenance',
-              onTap: () => _navigateToTask('Corrective Maintenance'),
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.energyReading,
-              label: 'Energy Reading',
-              onTap: () => _navigateToTask('Energy Reading'),
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.siteaccess,
-              label: 'Site Visit',
-              onTap: () => _navigateToTask('SV'),
-              isComingSoon: false,
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.inspection,
-              label: 'General Inspection',
-              onTap: () => _navigateToTask('GI'),
-              isComingSoon: false,
-            ),
-
-            _buildTaskCard(
-              iconPath: AppImages.incident,
-              label: 'Incident Ticket',
-              onTap: () => _navigateToTask('Incident'),
-              isComingSoon: false,
-            ),
-
-             _buildTaskCard(
-              iconPath: AppImages.assetUpload,
-              label: 'Asset Upload',
-              onTap: () => _navigateToTask('Asset Upload'),
-              isComingSoon: false,
-            ),
-
-            _buildTaskCard(
-              iconPath: AppImages.project,
-              label: 'Project',
-              onTap: () => _navigateToTask('Project'),
-              isComingSoon: false,
-            ),
-
-            _buildTaskCard(
-              iconPath: AppImages.project,
-              label: 'Activity',
-              onTap: () => _navigateToTask('Activity'),
-              isComingSoon: false,
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.warehouse,
-              label: 'Warehouse',
-              onTap: () => _navigateToTask('Warehouse'),
-              isComingSoon: true,
-            ),
-            _buildTaskCard(
-              iconPath: AppImages.theft,
-              label: 'Theft',
-              onTap: () => _navigateToTask('Theft'),
-              isComingSoon: true,
-            ),
-          ],
         ),
+        itemBuilder: (context, index) {
+          final screen = _roleScreens[index];
+          final isComingSoon = _isComingSoonScreen(screen.screenId);
+          return _buildTaskCard(
+            iconPath: _iconPathFromScreenId(screen.screenId),
+            label: screen.displayName,
+            onTap: () => _navigateToScreen(screen),
+            isComingSoon: isComingSoon,
+          );
+        },
       ),
     );
   }
@@ -476,7 +496,6 @@ class _PulseDashboardState extends State<PulseDashboard> {
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const SizedBox(height: 4),
-          // Shaded icon box with Coming Soon badge
           Stack(
             clipBehavior: Clip.none,
             children: [
@@ -502,11 +521,10 @@ class _PulseDashboardState extends State<PulseDashboard> {
                   allowDrawingOutsideViewBox: true,
                 ),
               ),
-              // Coming Soon badge in top right corner
               if (isComingSoon)
                 Positioned(
-                  top: -7, // move it slightly above the box
-                  right: -20, // move it slightly outside the box
+                  top: -7,
+                  right: -20,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 2,
@@ -545,10 +563,88 @@ class _PulseDashboardState extends State<PulseDashboard> {
       ),
     );
   }
-  
 
-  void _navigateToTask(String taskName) {
+  String _iconPathFromScreenId(int screenId) {
+    switch (screenId) {
+      case 76:
+        return AppImages.assetAudit;
+      case 77:
+        return AppImages.correctiveMaintenance;
+      case 78:
+        return AppImages.energyReading;
+      case 79:
+        return AppImages.inspection;
+      case 80:
+        return AppImages.incident;
+      case 81:
+        return AppImages.preventiveMaintenance;
+      case 82:
+        return AppImages.project;
+      case 83:
+        return AppImages.theft;
+      case 84:
+        return AppImages.warehouse;
+      case 85:
+        return AppImages.assetUpload;
+      case 86:
+        return AppImages.project;
+      case 87:
+        return AppImages.siteaccess;
+      default:
+        return AppImages.project;
+    }
+  }
 
+  bool _isComingSoonScreen(int screenId) {
+    return screenId == 83 || screenId == 84;
+  }
+
+
+  void _navigateToScreen(UserRoleScreen screen) {
+    final permission = screen.permission;
+    final taskName = _taskNameFromScreenId(screen.screenId);
+    if (taskName == null) {
+      Toastbar.showInfoToastbar(
+        'No route configured for ${screen.displayName}',
+        context,
+      );
+      return;
+    }
+    _navigateToTask(taskName, permission);
+  }
+
+  String? _taskNameFromScreenId(int screenId) {
+    switch (screenId) {
+      case 76:
+        return 'Asset Audit';
+      case 77:
+        return 'Corrective Maintenance';
+      case 78:
+        return 'Energy Reading';
+      case 79:
+        return 'GI';
+      case 80:
+        return 'Incident';
+      case 81:
+        return 'Preventive Maintenance';
+      case 82:
+        return 'Project';
+      case 83:
+        return 'Theft';
+      case 84:
+        return 'Warehouse';
+      case 85:
+        return 'Asset Upload';
+      case 86:
+        return 'Activity';
+      case 87:
+        return 'SV';
+      default:
+        return null;
+    }
+  }
+
+  void _navigateToTask(String taskName, ScreenPermission permission) {
     if (taskName == 'Project' || taskName == 'Activity') {
       Navigator.push(
         context,
@@ -560,23 +656,30 @@ class _PulseDashboardState extends State<PulseDashboard> {
         ),
       );
     } else {
-    if (taskName == 'SV' || 
-        taskName == 'GI' || 
-        taskName == 'Incident' || 
+    if (taskName == 'SV' ||
+        taskName == 'GI' ||
+        taskName == 'Incident' ||
         taskName == 'AU' ||
         taskName == 'Asset Upload') {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) =>
-              TicketScreen(auditName: taskName, status: taskName),
+              TicketScreen(
+                auditName: taskName,
+                status: taskName,
+                permission: permission,
+              ),
         ),
       );
     } else {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => HomeScreen(selectedActivity: taskName),
+          builder: (context) => HomeScreen(
+            selectedActivity: taskName,
+            permission: permission,
+          ),
         ),
       );
     }
