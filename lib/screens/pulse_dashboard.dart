@@ -19,7 +19,6 @@ import 'package:app/screens/my_tickets.dart';
 import 'package:app/screens/notifications.dart';
 import 'package:app/services/notification_service.dart';
 import 'package:app/utils/logger.dart';
-import 'package:app/utils/crash_logs_debug_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 
@@ -102,16 +101,17 @@ class _PulseDashboardState extends State<PulseDashboard> {
       }
 
       final screens = response.data ?? [];
-      screens.sort((a, b) {
-        final aIsComingSoon = _isComingSoonScreen(a.screenId);
-        final bIsComingSoon = _isComingSoonScreen(b.screenId);
-        if (aIsComingSoon != bIsComingSoon) {
-          return aIsComingSoon ? 1 : -1;
-        }
-        return a.sequence.compareTo(b.sequence);
-      });
+      final regularScreens = screens
+          .where((screen) => !_isComingSoonScreen(screen.screenId))
+          .toList()
+        ..sort((a, b) => a.sequence.compareTo(b.sequence));
+      final comingSoonScreens = screens
+          .where((screen) => _isComingSoonScreen(screen.screenId))
+          .toList()
+        ..sort((a, b) => a.sequence.compareTo(b.sequence));
+      final orderedScreens = [...regularScreens, ...comingSoonScreens];
       setState(() {
-        _roleScreens = screens;
+        _roleScreens = orderedScreens;
         _isRolesLoading = false;
       });
     } catch (e) {

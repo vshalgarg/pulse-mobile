@@ -78,6 +78,9 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
   static String _normDataType(PmisTicketFieldValue f) =>
       (f.subActivityDataType ?? '').trim().toUpperCase();
 
+  static String _normControlType(PmisTicketFieldValue f) =>
+      (f.subActivityControlType ?? '').trim().toUpperCase();
+
   /// API may use camelCase, snake_case, or PascalCase for the image file id.
   static String? _rawAttachmentIdFromMap(Map<String, dynamic> a) {
     final v = a['attachmentId'] ??
@@ -2162,6 +2165,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         final ext = _imageExternalDataByTfv[f.tfvId];
         final loadingServer =
             _imageLoadingFromServerTfvIds.contains(f.tfvId);
+        final pickFromGallery = _normControlType(f) == 'UPLOAD';
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2178,6 +2182,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               onImageSelected: (file) => _handleSingleImageSelection(f, file),
               externalImageUrl: ext,
               externalImageLoading: loadingServer,
+              pickFromGallery: pickFromGallery,
             ),
             _offlineSavedIndicator(f),
           ],

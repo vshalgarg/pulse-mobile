@@ -36,6 +36,9 @@ class ImageUploadField extends StatefulWidget {
   /// Corner radius of the upload box.
   final double uploadBorderRadius;
 
+  /// When true, open system gallery instead of camera.
+  final bool pickFromGallery;
+
   const ImageUploadField({
     super.key,
     this.label,
@@ -47,6 +50,7 @@ class ImageUploadField extends StatefulWidget {
     this.externalImageLoading = false,
     this.uploadBoxHeight = 150,
     this.uploadBorderRadius = 6,
+    this.pickFromGallery = false,
   });
 
   @override
@@ -246,6 +250,38 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
         Toastbar.showErrorWithoutContext(
           'Low Resources. Please try again.',
         );
+      }
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    if (_isPickingImage || widget.isDisabled) return;
+    _isPickingImage = true;
+    try {
+      setState(() => _isLoading = true);
+      final picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 95,
+      );
+      if (picked == null) return;
+      final file = File(picked.path);
+      if (!file.existsSync()) {
+        Toastbar.showErrorWithoutContext('Unable to pick image from gallery.');
+        return;
+      }
+      setState(() {
+        _selectedImage = file;
+        _isLoading = false;
+      });
+      widget.onImageSelected(file);
+    } catch (e, s) {
+      await CrashLogger().logCrash(e, s);
+      Toastbar.showErrorWithoutContext('Unable to open gallery');
+      if (mounted) setState(() => _isLoading = false);
+    } finally {
+      _isPickingImage = false;
+      if (mounted && _isLoading) {
+        setState(() => _isLoading = false);
       }
     }
   }
@@ -524,7 +560,7 @@ class _ImageUploadFieldState extends State<ImageUploadField> {
                   _isPickingImage ||
                   widget.externalImageLoading)
               ? null
-              : _pickImage,
+              : (widget.pickFromGallery ? _pickImageFromGallery : _pickImage),
           child: Container(
             width: double.infinity,
             height: widget.uploadBoxHeight,
