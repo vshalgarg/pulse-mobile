@@ -707,29 +707,16 @@ class _ActivitySummaryCard extends StatelessWidget {
             color: Colors.black.withValues(alpha: 0.12),
           ),
           const SizedBox(height: 14),
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _planLine('Plan Start', planStart),
-                    const SizedBox(height: 10),
-                    _planLine('Actual Start', actualStart),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _planLine('Plan End', planEnd),
-                    const SizedBox(height: 10),
-                    _planLine('Actual End', actualEnd),
-                  ],
-                ),
-              ),
+              _planLine('Plan Start', planStart),
+              const SizedBox(height: 8),
+              _planLine('Plan End', planEnd),
+              const SizedBox(height: 8),
+              _planLine('Actual Start', actualStart),
+              const SizedBox(height: 8),
+              _planLine('Actual End', actualEnd),
             ],
           ),
         ],

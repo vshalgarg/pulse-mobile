@@ -1376,7 +1376,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
       ),
       label: label,
       placeholder: placeholder ?? 'Upload a File',
-      isRequired: req,
+      isRequired: req && _canEditTicketFields,
       isDisabled: !_canEditTicketFields,
       acceptedFileTypes: acceptedFileTypes,
       maxSizeText: '(Max Size: 2MB)',
@@ -2087,7 +2087,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           label: label,
           controller: _textByTfv[f.tfvId],
           hintText: label,
-          isRequired: req,
+          isRequired: req && editable,
           isEditable: editable,
           inputType: InputType.text,
           inputBorderRadius: 8,
@@ -2097,7 +2097,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           label: label,
           controller: _textByTfv[f.tfvId],
           hintText: label,
-          isRequired: req,
+          isRequired: req && editable,
           isEditable: editable,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           maxDecimalDigits: 6,
@@ -2111,7 +2111,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _FieldLabel(label: label, isRequired: req),
+            _FieldLabel(label: label, isRequired: req && editable),
             const SizedBox(height: 5),
             InkWell(
               onTap: editable ? () => _pickDate(f.tfvId) : null,
@@ -2157,7 +2157,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _FieldLabel(label: label, isRequired: req),
+              _FieldLabel(label: label, isRequired: req && editable),
               const SizedBox(height: 8),
               const Text(
                 'No options configured',
@@ -2175,7 +2175,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           label: label,
           items: items,
           initialValue: _dropdownByTfv[f.tfvId],
-          isRequired: req,
+          isRequired: req && editable,
           isDisabled: !editable,
           onChanged: (v) => setState(() => _dropdownByTfv[f.tfvId] = v),
         );
@@ -2194,7 +2194,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               ),
               label: label,
               placeholder: 'Upload a File',
-              isRequired: req,
+              isRequired: req && editable,
               isDisabled: !editable,
               uploadBoxHeight: 168,
               uploadBorderRadius: 8,
@@ -2300,7 +2300,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
               label: label,
               controller: _textByTfv[f.tfvId],
               hintText: _isLongitudeField(f) ? 'Longitude' : 'Latitude',
-              isRequired: req,
+              isRequired: req && editable,
               isEditable: editable,
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true, signed: true),
@@ -2336,7 +2336,7 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
           label: label,
           controller: _textByTfv[f.tfvId],
           hintText: label,
-          isRequired: req,
+          isRequired: req && editable,
           isEditable: editable,
           inputType: InputType.text,
           inputBorderRadius: 8,

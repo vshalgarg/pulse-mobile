@@ -12,10 +12,7 @@ import '../services/local_storage_service.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Uncomment if using Firebase services in background
-  // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
-  // You can process message.data here if needed
+ 
 }
 
 class PushNotificationApi {
