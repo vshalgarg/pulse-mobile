@@ -108,6 +108,7 @@ dependencies:
   # Image compression
   flutter_image_compress: ^2.3.0
   dotted_line: ^3.2.3
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -121,17 +122,19 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
-  flutter_launcher_icons: ^0.13.1
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
 flutter_launcher_icons:
   android: true
-  ios: false
+  ios: true
   image_path: assets/images/app_icon.png
   adaptive_icon_foreground: assets/icons/pulse_fg.png
   adaptive_icon_background: assets/icons/pulse_bg.png
+  remove_alpha_ios: true
+
+
 
 
 flutter:
