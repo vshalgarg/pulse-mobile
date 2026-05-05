@@ -463,11 +463,11 @@ class _PulseDashboardState extends State<PulseDashboard> {
       child: GridView.builder(
         physics: const AlwaysScrollableScrollPhysics(),
         itemCount: _roleScreens.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 3,
-          crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
-          childAspectRatio: 0.85,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: _isIPad(context) ? 4 : 3,
+          crossAxisSpacing: _isIPad(context) ? 8 : 10,
+          mainAxisSpacing: _isIPad(context) ? 8 : 10,
+          childAspectRatio: _isIPad(context) ? 1.0 : 0.85,
         ),
         itemBuilder: (context, index) {
           final screen = _roleScreens[index];
@@ -597,6 +597,13 @@ class _PulseDashboardState extends State<PulseDashboard> {
 
   bool _isComingSoonScreen(int screenId) {
     return screenId == 83 || screenId == 84;
+  }
+
+  bool _isIPad(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final shortestSide = mediaQuery.size.shortestSide;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    return isIOS && shortestSide >= 600;
   }
 
 
