@@ -721,20 +721,25 @@ class _ActivityTicketScreenState extends State<ActivityTicketScreen> {
 
   bool get _isViewingEditableTicket => _historicPickerIndex < 0;
 
+  bool get _hasAssignedRole {
+    return widget.detail.role?.trim().isNotEmpty == true;
+  }
+
   String get _normalizedRole {
-    final role = (widget.detail.role ?? '').trim().toUpperCase();
-    return role.isEmpty ? 'MAKER' : role;
+    return (widget.detail.role ?? '').trim().toUpperCase();
   }
 
   /// API role/status gate:
   /// maker cannot edit when activity status is completed (case-insensitive).
   bool get _isMakerCompletedReadOnly {
+    if (!_hasAssignedRole) return true;
     final activityStatus = widget.detail.currentStatus.trim().toUpperCase();
     return _normalizedRole == 'MAKER' && activityStatus == 'COMPLETED';
   }
 
   /// Checker should always be editable; only maker+completed is read-only.
   bool get _canEditTicketFields {
+    if (!_hasAssignedRole) return false;
     if (_normalizedRole.contains('CHECKER')) return true;
     return !_isMakerCompletedReadOnly;
   }

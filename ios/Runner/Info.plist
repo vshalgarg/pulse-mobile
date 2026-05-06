@@ -29,7 +29,10 @@
 	<key>NSCameraUsageDescription</key>
 	<string>This app requires camera access to scan QR codes.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app uses your location to fetch your current position when performing actions.</string>
+<string>We use your location to verify assets and perform site-based audits.</string>
+
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>We use your location to support asset verification and ensure accurate data during field operations.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app allows you to select images from your gallery.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

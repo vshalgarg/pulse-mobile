@@ -56,39 +56,10 @@ class _ActivityTicketCheckerListScreenState
     return '$dd/$mm/$yyyy $hh:$min:$ss';
   }
 
-  bool _isAllocated(PmisActivityTicketDetail detail) {
-    String normalizeStatus(String? value) {
-      final raw = (value ?? '').trim().toUpperCase();
-      if (raw.isEmpty) return '';
-      return raw.replaceAll(RegExp(r'[^A-Z0-9]'), '');
-    }
-
-    final normalizedTicketStatus = normalizeStatus(detail.currentStatus);
-    final normalizedInitialStatus = normalizeStatus(widget.initialActivityStatus);
-    final statusCode = detail.currentStatusCode;
-
-    if (normalizedTicketStatus == 'ALLOCATED' ||
-        normalizedTicketStatus == 'ALLOCATE') {
-      return true;
-    }
-    // If backend status text is present and not allocated, trust it.
-    if (normalizedTicketStatus.isNotEmpty) return false;
-
-    // Fallback to list status only when ticket status text is missing.
-    if (normalizedInitialStatus == 'ALLOCATED' ||
-        normalizedInitialStatus == 'ALLOCATE') {
-      return true;
-    }
-    // Secondary fallback when backend sends only numeric status.
-    if (statusCode == 1) return true;
-
-    return false;
-  }
-
   PmisActivityTicketDetail _detailForStartActivity(
     PmisActivityTicketDetail detail,
   ) {
-    if (!_isAllocated(detail)) return detail;
+    if (!detail.startActivity) return detail;
     final actualStart =
         (detail.actualStartDt?.trim().isNotEmpty ?? false)
         ? detail.actualStartDt
@@ -121,6 +92,7 @@ class _ActivityTicketCheckerListScreenState
       isRepeating: detail.isRepeating,
       repeatDt: detail.repeatDt,
       allowedStatuses: detail.allowedStatuses,
+      startActivity: false,
     );
   }
 
@@ -259,7 +231,7 @@ class _ActivityTicketCheckerListScreenState
   Future<PmisActivityTicketDetail> _transitionAllocatedMakerToWipIfNeeded(
     PmisActivityTicketDetail detail,
   ) async {
-    if (!_isAllocated(detail)) return detail;
+    if (!detail.startActivity) return detail;
     final startedDetail = _detailForStartActivity(detail);
     final payload = _buildStartActivityPayload(detail, startedDetail);
     final repository = AppConfig.of(context).pmisActivityTicketRepository;
@@ -486,8 +458,7 @@ class _ActivityTicketCheckerListScreenState
 
                           final detail = result.data!;
                           final checkers = detail.ticketCheckers;
-                          final isAllocated = _isAllocated(detail);
-                          final bottomButtonLabel = isAllocated
+                          final bottomButtonLabel = detail.startActivity
                               ? 'Start Activity'
                               : 'Next';
 

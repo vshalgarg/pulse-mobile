@@ -28,6 +28,7 @@ class PmisActivityTicketDetail extends Equatable {
   final bool isRepeating;
   final String? repeatDt;
   final List<PmisAllowedStatus> allowedStatuses;
+  final bool startActivity;
 
   const PmisActivityTicketDetail({
     required this.atId,
@@ -57,6 +58,7 @@ class PmisActivityTicketDetail extends Equatable {
     required this.isRepeating,
     required this.repeatDt,
     required this.allowedStatuses,
+    required this.startActivity,
   });
 
   factory PmisActivityTicketDetail.fromJson(Map<String, dynamic> json) {
@@ -203,6 +205,9 @@ class PmisActivityTicketDetail extends Equatable {
       isRepeating: parseBool(json['isRepeating']),
       repeatDt: parseStringNullable(json['repeatDt']),
       allowedStatuses: allowedStatuses,
+      startActivity: parseBool(
+        pick(json, const <String>['startActivity', 'start_activity']),
+      ),
     );
   }
 
@@ -235,6 +240,7 @@ class PmisActivityTicketDetail extends Equatable {
         isRepeating,
         repeatDt,
         allowedStatuses,
+        startActivity,
       ];
 }
 
