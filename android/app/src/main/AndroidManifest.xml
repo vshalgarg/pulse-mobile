@@ -9,15 +9,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     
     
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
    
-   
-    
-    <!-- Android 13+ permissions -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
     <!-- Features -->
     <uses-feature android:name="android.hardware.camera" />
@@ -62,7 +54,7 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:label="Pulse Mobile"
-        android:requestLegacyExternalStorage="true"
+       
         tools:replace="android:label"
         android:enableOnBackInvokedCallback="false"
         android:largeHeap="true"
