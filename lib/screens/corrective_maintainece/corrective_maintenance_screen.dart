@@ -2012,7 +2012,7 @@ class _CorrectiveMaintenanceScreenState
                 ? _fsrAttachmentId
                 : null,
             onServerAttachmentClicked: _openServerAttachment,
-            onFileSelected: (File? file) {
+            onFileSelected: (File? file) async {
               if (file != null) {
                 setState(() {
                   _fsrAttachmentId = null;
@@ -2021,6 +2021,15 @@ class _CorrectiveMaintenanceScreenState
                   _fsrAttachments.add(file);
                   _hasFormDataChanges = true;
                 });
+                // Same as Identification: online → UploadDocuments immediately; offline → local queue (LOCAL_IMAGE_ID).
+                await _uploadPhotoImmediately(
+                  file,
+                  'FSR',
+                  (docId) {
+                    _fsrAttachmentId = docId;
+                    _fsrAttachmentName = file.path.split('/').last;
+                  },
+                );
               }
             },
             onFileDeleted: (File file) {
@@ -2359,22 +2368,24 @@ class _CorrectiveMaintenanceScreenState
     Logger.infoLog('[CM] Finished uploading checklist images');
   }
 
-  /// Upload a photo immediately when selected (if online)
+  /// Whether Identification / Time Stamp / FSR still need [_uploadDocumentWithFallback]:
+  /// missing id, or offline placeholder [LOCAL_IMAGE_ID] (pick was offline — replace with real doc id before POST when online).
+  bool _needsCmAttachmentUpload(dynamic id) {
+    if (id == null) return true;
+    final s = id.toString().trim();
+    if (s.isEmpty || s == '0') return true;
+    if (s.startsWith('LOCAL_IMAGE_ID')) return true;
+    return false;
+  }
+
+  /// Upload a photo immediately when selected (online: UploadDocuments; offline: queue locally).
   Future<void> _uploadPhotoImmediately(
     File file,
     String photoName,
     Function(String) onPhotoIdReceived,
   ) async {
     try {
-      // Check if online
-      final isOnline = await ConnectivityHelper.isConnected();
-      
-      if (!isOnline) {
-        Logger.infoLog('[CM] Device is offline - $photoName photo will be uploaded later');
-        return;
-      }
-      
-      Logger.infoLog('[CM] Uploading $photoName using UploadDocuments service...');
+      Logger.infoLog('[CM] Persisting $photoName (immediate: UploadDocuments if online else local queue)...');
       final serverPhotoId = await _uploadDocumentWithFallback(file);
       
       if (serverPhotoId?.isNotEmpty == true) {
@@ -2393,15 +2404,14 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  /// Upload the two new photo fields (Identification, Time Stamp) before main API call
-  /// This method only uploads photos that haven't been uploaded yet (no photo ID set)
-  /// Note: FSR is now handled as a file attachment, not a photo
+  /// Retry Identification / Time Stamp / FSR when id missing, pick-time upload failed, or id is still LOCAL_IMAGE_ID (offline pick, online submit).
+  /// Primary upload for all three runs on user selection (see [ImageUploadField] / [CustomFileUploadNew.onFileSelected]).
   Future<void> _uploadAdditionalPhotos() async {
-    Logger.infoLog('[CM] Starting to upload additional photos (Identification, Time Stamp)...');
-    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId)');
+    Logger.infoLog('[CM] Retry uploads before CM POST if needed — Identification, Time Stamp, FSR...');
+    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId), FSR files: ${_fsrAttachments.length}, FSR id: $_fsrAttachmentId');
     
-    // Upload Identification Photo (only if not already uploaded)
-    if (identificationPhoto != null && (_originalIdentificationPhotoId == null || _originalIdentificationPhotoId.toString().trim().isEmpty)) {
+    // Identification — retry when no server doc id yet or still offline placeholder
+    if (identificationPhoto != null && _needsCmAttachmentUpload(_originalIdentificationPhotoId)) {
       try {
         Logger.infoLog('[CM] Uploading Identification using UploadDocuments service...');
         final serverPhotoId =
@@ -2425,8 +2435,8 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] ⚠️ Identification photo is null - skipping upload');
     }
     
-    // Upload Time Stamp Photo (only if not already uploaded)
-    if (timestampPhoto != null && (_originalTimestampPhotoId == null || _originalTimestampPhotoId.toString().trim().isEmpty)) {
+    // Time Stamp — same as Identification
+    if (timestampPhoto != null && _needsCmAttachmentUpload(_originalTimestampPhotoId)) {
       try {
         Logger.infoLog('[CM] Uploading Time Stamp using UploadDocuments service...');
         final serverPhotoId = await _uploadDocumentWithFallback(timestampPhoto!);
@@ -2448,34 +2458,41 @@ class _CorrectiveMaintenanceScreenState
     } else {
       Logger.infoLog('[CM] ⚠️ Time Stamp photo is null - skipping upload');
     }
-    
-    Logger.infoLog('[CM] Additional photos upload completed. Final IDs - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
-  }
 
-  Future<void> _uploadFsrAttachment() async {
-    if (_fsrAttachments.isEmpty ||
-        (_fsrAttachmentId != null &&
-            _fsrAttachmentId.toString().trim().isNotEmpty &&
-            _fsrAttachmentId != 0)) {
-      return;
-    }
-    try {
-      final uploadedId =
-          await _uploadDocumentWithFallback(_fsrAttachments.first);
-      if (uploadedId != null && uploadedId.isNotEmpty) {
-        _fsrAttachmentId = int.tryParse(uploadedId) ?? uploadedId;
-        _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
-        Logger.infoLog('[CM] ✅ FSR uploaded successfully. Doc ID: $uploadedId');
-      } else {
-        Logger.errorLog('[CM] ❌ FSR upload returned empty doc ID');
+    // FSR — uploaded on file pick (online + offline); retry if no id, failed pick upload, or LOCAL_IMAGE_ID while submitting online
+    if (_fsrAttachments.isNotEmpty && _needsCmAttachmentUpload(_fsrAttachmentId)) {
+      try {
+        Logger.infoLog('[CM] Retrying FSR upload / replacing LOCAL placeholder before CM POST...');
+        final uploadedId =
+            await _uploadDocumentWithFallback(_fsrAttachments.first);
+        final fsrIdStr = uploadedId?.toString().trim() ?? '';
+        if (fsrIdStr.isNotEmpty) {
+          _fsrAttachmentId = fsrIdStr;
+          _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
+          Logger.infoLog('[CM] ✅ FSR retry OK. Id: $uploadedId');
+        } else {
+          Logger.errorLog('[CM] ❌ FSR retry returned empty doc ID');
+        }
+      } catch (e, stackTrace) {
+        Logger.errorLog('[CM] ❌ Error retrying FSR upload: $e');
+        Logger.errorLog('[CM] Stack trace: $stackTrace');
       }
-    } catch (e, stackTrace) {
-      Logger.errorLog('[CM] ❌ Error uploading FSR: $e');
-      Logger.errorLog('[CM] Stack trace: $stackTrace');
+    } else if (_fsrAttachments.isNotEmpty) {
+      Logger.infoLog('[CM] ⏭️ FSR already has doc id ($_fsrAttachmentId) — skip retry before CM POST');
     }
+
+    Logger.infoLog('[CM] Pre-CM POST upload pass done. Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId, FSR: $_fsrAttachmentId');
   }
 
   Future<String?> _uploadDocumentWithFallback(File file) async {
+    final isOnline = await ConnectivityHelper.isConnected();
+    if (!isOnline) {
+      Logger.infoLog(
+        '[CM] Offline: persist file locally (no api/v1/mobile/uploads — CM docs use UploadDocuments only when online): ${file.path.split('/').last}',
+      );
+      return await _persistCmDocumentLocalOnly(file);
+    }
+
     final result = await _uploadDocumentsService.uploadFile(
       file: file,
       id: '0',
@@ -2487,12 +2504,20 @@ class _CorrectiveMaintenanceScreenState
     }
 
     Logger.infoLog(
-      '[CM] UploadDocuments failed, trying local/offline fallback for ${file.path.split('/').last}',
+      '[CM] UploadDocuments failed; persisting locally without calling api/v1/mobile/uploads: ${file.path.split('/').last}',
     );
-    return await _uploadImageWithOfflineSupport(
-      file,
-      ActivityTypeEnum.correctiveMaintenance,
-    );
+    return await _persistCmDocumentLocalOnly(file);
+  }
+
+  /// Offline / UploadDocuments-failure: store file + LOCAL id only — never [uploadImageFromFilePath] / mobile/uploads.
+  Future<String?> _persistCmDocumentLocalOnly(File file) async {
+    try {
+      return await ServiceLocator().imageUploadService
+          .persistCmDocumentLocalWithoutMobileUploads(file.path);
+    } catch (e) {
+      Logger.errorLog('[CM] persistCmDocumentLocalOnly failed: $e');
+      return null;
+    }
   }
 
   Future<void> _uploadImpactedItemImagesAndUpdateIds(
@@ -3548,11 +3573,11 @@ class _CorrectiveMaintenanceScreenState
       }
       requestData['start_dt'] = _formatDateForApi(DateTime.now());
       
-      // Upload additional photos (Identification and Time Stamp) first
+      // Upload Identification, Time Stamp, FSR (UploadDocuments / local queue) before CM POST
       await _uploadAdditionalPhotos();
       
-      // Add the two new photo IDs to requestData (after upload)
-      Logger.infoLog('[CM] Adding additional photo IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      // Add attachment IDs to requestData (after upload)
+      Logger.infoLog('[CM] Adding IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId, FSR: $_fsrAttachmentId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -3576,7 +3601,6 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - not adding to requestData');
       }
 
-      await _uploadFsrAttachment();
       if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
         requestData['fsrAttachmentId'] = _fsrAttachmentId;
         if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
@@ -3674,11 +3698,22 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
+  /// Avoid [DataTransformationHelper.convertKeysToCamelCase] merging snake + camel into one key twice with wrong winner.
+  void _stripDuplicateFsrKeysBeforeCamelCase(Map<String, dynamic> requestData) {
+    if (requestData.containsKey('fsrAttachmentId')) {
+      requestData.remove('fsr_attachment_id');
+    }
+    if (requestData.containsKey('fsrAttachmentName')) {
+      requestData.remove('fsr_attachment_name');
+    }
+  }
+
   Future<void> _handleOnlineEditSubmission(
     Map<String, dynamic> requestData, {
     bool shouldNavigate = true,
   }) async {
     try {
+      _stripDuplicateFsrKeysBeforeCamelCase(requestData);
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
       
@@ -3727,31 +3762,28 @@ class _CorrectiveMaintenanceScreenState
         requestData['timestampImgId'] = _originalTimestampPhotoId;
       }
 
-      String? fsrAttachmentId;
-      if (_fsrAttachments.isNotEmpty) {
-        fsrAttachmentId = await _uploadImageWithOfflineSupport(
-          _fsrAttachments.first,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-        if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
-          _fsrAttachmentId = int.tryParse(fsrAttachmentId) ?? fsrAttachmentId;
+      // FSR: uploaded on pick; retry UploadDocuments only if no id yet (same as _uploadAdditionalPhotos).
+      if ((_fsrAttachmentId == null ||
+              _fsrAttachmentId.toString().trim().isEmpty ||
+              _fsrAttachmentId == 0) &&
+          _fsrAttachments.isNotEmpty) {
+        final id = await _uploadDocumentWithFallback(_fsrAttachments.first);
+        final s = id?.toString().trim() ?? '';
+        if (s.isNotEmpty) {
+          _fsrAttachmentId = s;
           _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
         }
       }
-
-      if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
-        requestData['fsrAttachmentId'] = fsrAttachmentId;
+      if (_fsrAttachmentId != null &&
+          _fsrAttachmentId.toString().trim().isNotEmpty &&
+          _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
         requestData['fsrAttachmentName'] =
             _fsrAttachmentName ?? _fsrAttachments.first.path.split('/').last;
         if (_fsrAttachments.isNotEmpty) {
           final originalFile = _fsrAttachments.first;
           requestData['fsr_original_file_path'] = originalFile.path;
           requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
-        }
-      } else if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
-        requestData['fsrAttachmentId'] = _fsrAttachmentId;
-        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
-          requestData['fsrAttachmentName'] = _fsrAttachmentName;
         }
       }
 
@@ -3883,11 +3915,10 @@ class _CorrectiveMaintenanceScreenState
       }
       requestData['start_dt'] = _formatDateForApi(DateTime.now());
       
-      // Upload additional photos (Identification and Time Stamp) first
+      // Upload Identification, Time Stamp, FSR before CM POST
       await _uploadAdditionalPhotos();
       
-      // Add the two new photo IDs to requestData (after upload, before online/offline decision)
-      Logger.infoLog('[CM] Adding additional photo IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      Logger.infoLog('[CM] Adding IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId, FSR: $_fsrAttachmentId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -3911,7 +3942,6 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - not adding to requestData');
       }
 
-      await _uploadFsrAttachment();
       if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
         requestData['fsrAttachmentId'] = _fsrAttachmentId;
         if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
@@ -3990,6 +4020,7 @@ class _CorrectiveMaintenanceScreenState
     bool shouldNavigate = true,
   }) async {
     try {
+      _stripDuplicateFsrKeysBeforeCamelCase(requestData);
       // Convert keys to camelCase for API
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
@@ -4056,31 +4087,28 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - photo may not have been uploaded');
       }
 
-      String? fsrAttachmentId;
-      if (_fsrAttachments.isNotEmpty) {
-        fsrAttachmentId = await _uploadImageWithOfflineSupport(
-          _fsrAttachments.first,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-        if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
-          _fsrAttachmentId = int.tryParse(fsrAttachmentId) ?? fsrAttachmentId;
+      // FSR: uploaded on pick; retry only if no id yet.
+      if ((_fsrAttachmentId == null ||
+              _fsrAttachmentId.toString().trim().isEmpty ||
+              _fsrAttachmentId == 0) &&
+          _fsrAttachments.isNotEmpty) {
+        final id = await _uploadDocumentWithFallback(_fsrAttachments.first);
+        final s = id?.toString().trim() ?? '';
+        if (s.isNotEmpty) {
+          _fsrAttachmentId = s;
           _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
         }
       }
-
-      if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
-        requestData['fsrAttachmentId'] = fsrAttachmentId;
+      if (_fsrAttachmentId != null &&
+          _fsrAttachmentId.toString().trim().isNotEmpty &&
+          _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
         requestData['fsrAttachmentName'] =
             _fsrAttachmentName ?? _fsrAttachments.first.path.split('/').last;
         if (_fsrAttachments.isNotEmpty) {
           final originalFile = _fsrAttachments.first;
           requestData['fsr_original_file_path'] = originalFile.path;
           requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
-        }
-      } else if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
-        requestData['fsrAttachmentId'] = _fsrAttachmentId;
-        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
-          requestData['fsrAttachmentName'] = _fsrAttachmentName;
         }
       }
       if (!requestData.containsKey('is_active')) {
@@ -4120,24 +4148,6 @@ class _CorrectiveMaintenanceScreenState
         "Failed to save form offline: $e",
         context,
       );
-    }
-  }
-
-  Future<String?> _uploadImageWithOfflineSupport(
-    File imageFile,
-    ActivityTypeEnum activityType,
-  ) async {
-    try {
-      final uniqueId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
-        imageFile.path,
-        activityType,
-        false,
-        null,
-      );
-      return uniqueId;
-    } catch (e) {
-      Logger.errorLog("Error uploading image: $e");
-      return null;
     }
   }
 
