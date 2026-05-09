@@ -1779,7 +1779,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Category",
           items: _responsiblePartyOptions,
           initialValue: controllers['responsible_party']!.text,
-          isRequired: true,
+          isRequired: false,
           onChanged: (value) {
             setState(() {
               controllers['responsible_party']!.text = value ?? "";
@@ -1794,7 +1794,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Assigned To",
           controller: controllers['assigned_to'],
           isEditable: false,
-          isRequired: true,
+          isRequired: false,
         ),
         getHeight(15),
 
@@ -1804,9 +1804,7 @@ class _CorrectiveMaintenanceScreenState
           controller: controllers['oem_ticket_id'],
           isEditable: widget.mode == CMScreenModeEnum.create &&
               (controllers['responsible_party']?.text.trim() != 'Self'),
-          isRequired:
-              controllers['responsible_party'] != null &&
-              controllers['responsible_party']?.text == 'OEM',
+          isRequired: false,
         ),
         getHeight(15),
 
@@ -1815,7 +1813,7 @@ class _CorrectiveMaintenanceScreenState
             label: "Priority",
             items: _priorityOptions,
             initialValue: controllers['priority']!.text,
-            isRequired: true,
+            isRequired: false,
             onChanged: (value) {
               setState(() {
                 controllers['priority']!.text = value ?? "";
@@ -1828,7 +1826,7 @@ class _CorrectiveMaintenanceScreenState
           CustomFormField(
             label: "Priority",
             controller: controllers['priority'],
-            isRequired: true,
+            isRequired: false,
             isEditable: false,
           ),
         getHeight(15),
@@ -1838,7 +1836,7 @@ class _CorrectiveMaintenanceScreenState
 
         CustomRemarksField(
           label: "Fault Description",
-          isRequired: true,
+          isRequired: false,
           hintText: "Enter fault description",
           controller: controllers['fault_description']!,
           isDisabled: widget.mode == CMScreenModeEnum.view,
@@ -1881,7 +1879,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Action Taken",
           controller: controllers['action_taken'],
           isEditable: widget.mode != CMScreenModeEnum.view,
-          isRequired: true,
+          isRequired: false,
           inputType: InputType.multiline,
         ),
         getHeight(15),
@@ -1893,7 +1891,7 @@ class _CorrectiveMaintenanceScreenState
           label: "RCA",
           controller: controllers['rca'],
           isEditable: widget.mode != CMScreenModeEnum.view,
-          isRequired: true,
+          isRequired: false,
         ),
         getHeight(15),
         ],
@@ -1921,7 +1919,7 @@ class _CorrectiveMaintenanceScreenState
             label: "OEM Representative",
             controller: controllers['oem_representative'],
             isEditable: widget.mode != CMScreenModeEnum.view,
-            isRequired: true,
+            isRequired: false,
           ),
           getHeight(15),
 
@@ -1929,7 +1927,7 @@ class _CorrectiveMaintenanceScreenState
             label: "OEM Representative Contact",
             controller: controllers['oem_representative_contact'],
             isEditable: widget.mode != CMScreenModeEnum.view,
-            isRequired: true,
+            isRequired: false,
             inputType: InputType.number,
             maxLength: 10,
           ),
@@ -1939,7 +1937,7 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "OEM Representative Name",
           controller: controllers['customer_name'],
-          isRequired: true,
+          isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
         ),
         getHeight(15),
@@ -1947,7 +1945,7 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "OEM Representative Contact No.",
           controller: controllers['contact_no'],
-          isRequired: true,
+          isRequired: false,
           isEditable: widget.mode != CMScreenModeEnum.view,
           inputType: InputType.number,
           maxLength: 10,
@@ -1973,7 +1971,7 @@ class _CorrectiveMaintenanceScreenState
           ImageUploadField(
             label: "Identification",
             placeholder: "Add a Photo",
-            isRequired: widget.mode == CMScreenModeEnum.edit,
+            isRequired: false,
             onImageSelected: (File? file) async {
               if (file != null) {
                 final bytes = await file.readAsBytes();
@@ -2001,7 +1999,7 @@ class _CorrectiveMaintenanceScreenState
           CustomFileUploadNew(
             label: "FSR",
             placeholder: "Upload File",
-            isRequired: widget.mode == CMScreenModeEnum.edit,
+            isRequired: false,
             uploadedFiles: _fsrAttachments,
             serverAttachmentName: _fsrAttachmentName != null &&
                     _fsrAttachmentName!.trim().isNotEmpty
@@ -2048,7 +2046,7 @@ class _CorrectiveMaintenanceScreenState
           ImageUploadField(
             label: "Time Stamp Photo",
             placeholder: "Add a Photo",
-            isRequired: widget.mode == CMScreenModeEnum.edit,
+            isRequired: false,
             onImageSelected: (File? file) async {
               if (file != null) {
                 final bytes = await file.readAsBytes();
