@@ -168,10 +168,20 @@ class FileDownloadService {
           ? '$nameWithoutExt$extension'
           : nameWithoutExt;
 
-      // Save file to Downloads
-      final filePath = '${downloadsPath.path}/$sanitizedFileName';
-      final file = File(filePath);
-      await file.writeAsBytes(data);
+      // Save file to Downloads; if denied, fallback to app documents directory.
+      String filePath = '${downloadsPath.path}/$sanitizedFileName';
+      File file = File(filePath);
+      try {
+        await file.writeAsBytes(data);
+      } on FileSystemException catch (e) {
+        Logger.errorLog(
+          '[FileDownloadService] Write failed at $filePath, falling back to app storage: $e',
+        );
+        final fallbackDir = await getApplicationDocumentsDirectory();
+        filePath = '${fallbackDir.path}/$sanitizedFileName';
+        file = File(filePath);
+        await file.writeAsBytes(data);
+      }
 
       Logger.infoLog('[FileDownloadService] ✅ File saved to: $filePath');
       return filePath;
