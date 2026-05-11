@@ -87,7 +87,6 @@ class _CorrectiveMaintenanceScreenState
   final TextEditingController _cmTicketNoController = TextEditingController();
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _currentStatusController = TextEditingController();
-  final TextEditingController _siteIdController = TextEditingController();
   final TextEditingController _infraEngineerNameController = TextEditingController();
   final TextEditingController _infraEngineerContactNoController = TextEditingController();
   final TextEditingController _clusterInchargeNameController = TextEditingController();
@@ -390,11 +389,6 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog("✅ [CM] CM Ticket No initialized: ${_cmTicketNoController.text}");
     } else {
       Logger.errorLog("❌ [CM] CM Ticket No not found in preloadedSite. Available keys: ${preloadedSite.keys}");
-    }
-
-    final siteId = preloadedSite['siteId'] ?? preloadedSite['site_id'];
-    if (siteId != null && siteId.toString().trim().isNotEmpty) {
-      _siteIdController.text = siteId.toString();
     }
 
     final currentStatus = preloadedSite['status'] ?? preloadedSite['Status'];
@@ -1309,7 +1303,6 @@ class _CorrectiveMaintenanceScreenState
     _cmTicketNoController.dispose();
     _startDateController.dispose();
     _currentStatusController.dispose();
-    _siteIdController.dispose();
     _infraEngineerNameController.dispose();
     _infraEngineerContactNoController.dispose();
     _clusterInchargeNameController.dispose();
@@ -1715,8 +1708,8 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
         CustomFormField(
-          label: "Site Id",
-          controller: _siteIdController,
+          label: "Site ID",
+          controller: _siteCodeController,
           isEditable: false,
         ),
         getHeight(15),
@@ -1802,8 +1795,7 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "OEM Ticket ID",
           controller: controllers['oem_ticket_id'],
-          isEditable: widget.mode == CMScreenModeEnum.create &&
-              (controllers['responsible_party']?.text.trim() != 'Self'),
+          
           isRequired: false,
         ),
         getHeight(15),
@@ -1839,7 +1831,7 @@ class _CorrectiveMaintenanceScreenState
           isRequired: false,
           hintText: "Enter fault description",
           controller: controllers['fault_description']!,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
+          isDisabled: true,
         ),
         getHeight(15),
 
