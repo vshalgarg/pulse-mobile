@@ -123,6 +123,16 @@ class _CorrectiveMaintenanceScreenState
 
   bool _hasFormDataChanges = false;
   bool _isSubmitting = false; // Flag to prevent duplicate submissions
+  bool _forceViewMode = false;
+
+  CMScreenModeEnum get _resolvedMode =>
+      _forceViewMode ? CMScreenModeEnum.view : widget.mode;
+
+  bool _isClosedStatus(dynamic status) {
+    if (status == null) return false;
+    final normalized = status.toString().trim().toUpperCase();
+    return normalized == 'CLOSE' || normalized == 'CLOSED';
+  }
 
   @override
   void initState() {
@@ -394,6 +404,9 @@ class _CorrectiveMaintenanceScreenState
     final currentStatus = preloadedSite['status'] ?? preloadedSite['Status'];
     if (currentStatus != null && currentStatus.toString().trim().isNotEmpty) {
       _currentStatusController.text = currentStatus.toString().trim();
+      if (_isClosedStatus(currentStatus)) {
+        _forceViewMode = true;
+      }
     }
 
     final startDate = preloadedSite['startDt'] ?? preloadedSite['start_dt'];
@@ -795,7 +808,7 @@ class _CorrectiveMaintenanceScreenState
             _checklistData = checklistData;
           });
         }
-      } else if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+      } else if (_resolvedMode == CMScreenModeEnum.edit || _resolvedMode == CMScreenModeEnum.view) {
         // In edit/view mode, load checklist template and merge with existing responses
         Logger.infoLog(
           "🔄 [CM] Edit/View mode - Loading checklist template and merging with existing responses",
@@ -1362,7 +1375,7 @@ class _CorrectiveMaintenanceScreenState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.mode == CMScreenModeEnum.create) ...[
+        if (_resolvedMode == CMScreenModeEnum.create) ...[
           CustomRadioButton(
             options: [
               OptionItem(label: "DG", value: "DG"),
@@ -1387,7 +1400,7 @@ class _CorrectiveMaintenanceScreenState
         ],
 
         if (_selectedEquipmentType.isNotEmpty &&
-            widget.mode == CMScreenModeEnum.create)
+            _resolvedMode == CMScreenModeEnum.create)
           ChecklistCreateWidget(
             key: ValueKey(
               'checklist_${_selectedEquipmentType}_${_selectedSite?.entityId}',
@@ -1473,7 +1486,7 @@ class _CorrectiveMaintenanceScreenState
                 },
           ),
         // In edit mode, use ChecklistCreateWidget (read-only) with merged data
-        if (widget.mode == CMScreenModeEnum.edit &&
+        if (_resolvedMode == CMScreenModeEnum.edit &&
             _selectedEquipmentType.isNotEmpty &&
             _checklistData[_selectedEquipmentType] != null)
           ChecklistCreateWidget(
@@ -1557,7 +1570,7 @@ class _CorrectiveMaintenanceScreenState
                 },
           ),
         // In view mode, use ChecklistCreateWidget with isReadOnly: true (read-only with images)
-        if (widget.mode == CMScreenModeEnum.view &&
+        if (_resolvedMode == CMScreenModeEnum.view &&
             _selectedEquipmentType.isNotEmpty &&
             _checklistData[_selectedEquipmentType] != null)
           ChecklistCreateWidget(
@@ -1637,7 +1650,7 @@ class _CorrectiveMaintenanceScreenState
                           backgroundColor: AppColors.cmSubmitButtonColor,
                           textColor: AppColors.buttonColorSite,
                           onPressed:
-                              (widget.mode == CMScreenModeEnum.view || _isSubmitting)
+                              (_resolvedMode == CMScreenModeEnum.view || _isSubmitting)
                               ? null
                               : _save,
                         ),
@@ -1650,7 +1663,7 @@ class _CorrectiveMaintenanceScreenState
                           backgroundColor: AppColors.cmSubmitButtonColor,
                           textColor: AppColors.buttonColorSite,
                           onPressed:
-                              (widget.mode == CMScreenModeEnum.view || _isSubmitting)
+                              (_resolvedMode == CMScreenModeEnum.view || _isSubmitting)
                               ? null
                               : _saveAndClose,
                         ),
@@ -1795,12 +1808,12 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "OEM Ticket ID",
           controller: controllers['oem_ticket_id'],
-          
+          isEditable: _resolvedMode != CMScreenModeEnum.view,
           isRequired: false,
         ),
         getHeight(15),
 
-        if (widget.mode == CMScreenModeEnum.create)
+        if (_resolvedMode == CMScreenModeEnum.create)
           CustomDropdown(
             label: "Priority",
             items: _priorityOptions,
@@ -1870,7 +1883,7 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "Action Taken",
           controller: controllers['action_taken'],
-          isEditable: widget.mode != CMScreenModeEnum.view,
+          isEditable: _resolvedMode != CMScreenModeEnum.view,
           isRequired: false,
           inputType: InputType.multiline,
         ),
@@ -1882,7 +1895,7 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "RCA",
           controller: controllers['rca'],
-          isEditable: widget.mode != CMScreenModeEnum.view,
+          isEditable: _resolvedMode != CMScreenModeEnum.view,
           isRequired: false,
         ),
         getHeight(15),
@@ -1896,7 +1909,7 @@ class _CorrectiveMaintenanceScreenState
               child: CustomFormField(
                 label: "Closure Date",
                 controller: controllers['closure_date'],
-                isEditable: widget.mode == CMScreenModeEnum.edit,
+                isEditable: _resolvedMode == CMScreenModeEnum.edit,
                 isRequired: false,
               ),
             ),
@@ -1910,7 +1923,7 @@ class _CorrectiveMaintenanceScreenState
           CustomFormField(
             label: "OEM Representative",
             controller: controllers['oem_representative'],
-            isEditable: widget.mode != CMScreenModeEnum.view,
+            isEditable: _resolvedMode != CMScreenModeEnum.view,
             isRequired: false,
           ),
           getHeight(15),
@@ -1918,7 +1931,7 @@ class _CorrectiveMaintenanceScreenState
           CustomFormField(
             label: "OEM Representative Contact",
             controller: controllers['oem_representative_contact'],
-            isEditable: widget.mode != CMScreenModeEnum.view,
+            isEditable: _resolvedMode != CMScreenModeEnum.view,
             isRequired: false,
             inputType: InputType.number,
             maxLength: 10,
@@ -1926,23 +1939,9 @@ class _CorrectiveMaintenanceScreenState
           getHeight(15),
         ],
 
-        CustomFormField(
-          label: "OEM Representative Name",
-          controller: controllers['customer_name'],
-          isRequired: false,
-          isEditable: widget.mode != CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+       
 
-        CustomFormField(
-          label: "OEM Representative Contact No.",
-          controller: controllers['contact_no'],
-          isRequired: false,
-          isEditable: widget.mode != CMScreenModeEnum.view,
-          inputType: InputType.number,
-          maxLength: 10,
-        ),
-        getHeight(15),
+       
 
         // Problem Summary - only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
@@ -1950,7 +1949,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Problem Summary",
           hintText: "Enter problem summary",
           controller: controllers['problem_summary']!,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
+          isDisabled: _resolvedMode == CMScreenModeEnum.view,
         ),
         getHeight(15),
         ],
@@ -1984,7 +1983,7 @@ class _CorrectiveMaintenanceScreenState
               }
             },
             externalImageUrl: identificationPhotoByteData,
-            isDisabled: widget.mode == CMScreenModeEnum.view,
+            isDisabled: _resolvedMode == CMScreenModeEnum.view,
           ),
           getHeight(15),
 
@@ -2032,7 +2031,7 @@ class _CorrectiveMaintenanceScreenState
                 _hasFormDataChanges = true;
               });
             },
-            isDisabled: widget.mode == CMScreenModeEnum.view,
+            isDisabled: _resolvedMode == CMScreenModeEnum.view,
           ),
           getHeight(15),
 
@@ -2063,7 +2062,7 @@ class _CorrectiveMaintenanceScreenState
               }
             },
             externalImageUrl: timestampPhotoByteData,
-            isDisabled: widget.mode == CMScreenModeEnum.view,
+            isDisabled: _resolvedMode == CMScreenModeEnum.view,
           ),
           getHeight(15),
         ],
@@ -2146,7 +2145,7 @@ class _CorrectiveMaintenanceScreenState
   }
 
   Future<void> _pickClosureDate() async {
-    if (widget.mode == CMScreenModeEnum.create) return;
+    if (_resolvedMode == CMScreenModeEnum.create) return;
     final initialDate = _parseFlexibleDate(controllers['closure_date']!.text) ?? DateTime.now();
     final pickedDate = await showDatePicker(
       context: context,
@@ -3293,18 +3292,10 @@ class _CorrectiveMaintenanceScreenState
       }
     }
     
-    // Customer Name - always required
-    if (controllers['customer_name']!.text.trim().isEmpty) {
-      errors.add('Customer Name is required');
-    }
-    
-    // Contact No - always required
-    if (controllers['contact_no']!.text.trim().isEmpty) {
-      errors.add('Contact No. is required');
-    }
+   
     
     // Edit/View mode specific validations
-    if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+    if (_resolvedMode == CMScreenModeEnum.edit || _resolvedMode == CMScreenModeEnum.view) {
       // OEM Representative - required only when Category is OEM
       if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
         if (controllers['oem_representative']!.text.trim().isEmpty) {
@@ -3318,7 +3309,7 @@ class _CorrectiveMaintenanceScreenState
       }
       
       // Photo validations for edit mode
-      if (widget.mode == CMScreenModeEnum.edit) {
+      if (_resolvedMode == CMScreenModeEnum.edit) {
         final responsibleParty = controllers['responsible_party']!.text.trim().toUpperCase();
         
         // If responsibleParty is "OEM", Identification, FSR and Time Stamp Photo are required
@@ -3430,19 +3421,19 @@ class _CorrectiveMaintenanceScreenState
     }
 
     if (forceCloseStatus) {
-      _currentStatusController.text = 'CLOSE';
+      _currentStatusController.text = 'CLOSED';
     }
 
     // Set submitting flag
     _isSubmitting = true;
     
     try {
-    if (widget.mode == CMScreenModeEnum.create) {
+    if (_resolvedMode == CMScreenModeEnum.create) {
       await _submitFormData(
         shouldNavigate: shouldNavigate,
         forceCloseStatus: forceCloseStatus,
       );
-    } else if (widget.mode == CMScreenModeEnum.edit) {
+    } else if (_resolvedMode == CMScreenModeEnum.edit) {
       await _editFormData(
         shouldNavigate: shouldNavigate,
         forceCloseStatus: forceCloseStatus,
@@ -3502,7 +3493,7 @@ class _CorrectiveMaintenanceScreenState
       requestData['fault_description'] = controllers['fault_description']!.text;
       requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
       requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
-      requestData['status'] = forceCloseStatus ? 'CLOSE' : 'OPEN';
+      requestData['status'] = forceCloseStatus ? 'CLOSED' : 'OPEN';
       
       // Set OEM Representative Contact with correct key for edit mode
       if (controllers['oem_representative_contact']!.text.trim().isNotEmpty) {
@@ -3846,7 +3837,7 @@ class _CorrectiveMaintenanceScreenState
       requestData['fault_description'] = controllers['fault_description']!.text;
       requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
       requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
-      requestData['status'] = forceCloseStatus ? 'CLOSE' : 'OPEN';
+      requestData['status'] = forceCloseStatus ? 'CLOSED' : 'OPEN';
       
       // Set assigned_to based on responsible_party
       if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
