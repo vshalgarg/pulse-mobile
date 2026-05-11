@@ -1993,12 +1993,14 @@ class _CorrectiveMaintenanceScreenState
             placeholder: "Upload File",
             isRequired: false,
             uploadedFiles: _fsrAttachments,
-            serverAttachmentName: _fsrAttachmentName != null &&
+            serverAttachmentName: _fsrAttachments.isEmpty &&
+                    _fsrAttachmentName != null &&
                     _fsrAttachmentName!.trim().isNotEmpty
                 ? _fsrAttachmentName!.trim()
                 : null,
-            serverAttachmentId:
-                _fsrAttachmentId != null && _fsrAttachmentId != 0
+            serverAttachmentId: _fsrAttachments.isEmpty &&
+                    _fsrAttachmentId != null &&
+                    _fsrAttachmentId != 0
                 ? _fsrAttachmentId
                 : null,
             onServerAttachmentClicked: _openServerAttachment,
@@ -2025,6 +2027,8 @@ class _CorrectiveMaintenanceScreenState
             onFileDeleted: (File file) {
               setState(() {
                 _fsrAttachments.remove(file);
+                _fsrAttachmentId = null;
+                _fsrAttachmentName = null;
                 _hasFormDataChanges = true;
               });
             },
