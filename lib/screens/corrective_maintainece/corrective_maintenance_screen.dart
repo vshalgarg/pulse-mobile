@@ -134,6 +134,11 @@ class _CorrectiveMaintenanceScreenState
     return normalized == 'CLOSE' || normalized == 'CLOSED';
   }
 
+  bool _isOpenStatus(dynamic status) {
+    if (status == null) return false;
+    return status.toString().trim().toUpperCase() == 'OPEN';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1647,6 +1652,7 @@ class _CorrectiveMaintenanceScreenState
                         child: ArrowButton(
                           text: "Save",
                           isLeftArrow: false,
+                          showArrow: false,
                           backgroundColor: AppColors.cmSubmitButtonColor,
                           textColor: AppColors.buttonColorSite,
                           onPressed:
@@ -1660,6 +1666,7 @@ class _CorrectiveMaintenanceScreenState
                         child: ArrowButton(
                           text: "Save & Close",
                           isLeftArrow: false,
+                          showArrow: false,
                           backgroundColor: AppColors.cmSubmitButtonColor,
                           textColor: AppColors.buttonColorSite,
                           onPressed:
@@ -1718,6 +1725,9 @@ class _CorrectiveMaintenanceScreenState
           label: "Current Status",
           controller: _currentStatusController,
           isEditable: false,
+          textColor: _isOpenStatus(_currentStatusController.text)
+              ? AppColors.blue
+              : AppColors.color555555,
         ),
         getHeight(15),
         CustomFormField(

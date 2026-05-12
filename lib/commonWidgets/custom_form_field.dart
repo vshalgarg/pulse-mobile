@@ -26,6 +26,7 @@ class CustomFormField extends StatelessWidget {
   final int? maxDecimalDigits;
   final InputType? inputType;
   final int? maxLength;
+  final Color? textColor;
 
   /// Border radius for the white input container (default `5`).
   final double? inputBorderRadius;
@@ -45,6 +46,7 @@ class CustomFormField extends StatelessWidget {
     this.maxDecimalDigits,
     this.inputType,
     this.maxLength,
+    this.textColor,
     this.inputBorderRadius,
   });
 
@@ -204,7 +206,7 @@ class CustomFormField extends StatelessWidget {
             fontWeight: FontWeight.w400,
             fontFamily: fontFamilyMontserrat,
             fontSize: 16,
-            color: AppColors.color555555,
+            color: textColor ?? AppColors.color555555,
           ),
           validator:
               validator ??

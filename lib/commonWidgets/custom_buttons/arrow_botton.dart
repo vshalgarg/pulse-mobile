@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 class ArrowButton extends StatelessWidget {
   final String text;
   final bool isLeftArrow;
+  final bool showArrow;
   final Color backgroundColor;
   final Color textColor;
   final VoidCallback? onPressed;
@@ -13,6 +14,7 @@ class ArrowButton extends StatelessWidget {
     super.key,
     required this.text,
     required this.isLeftArrow,
+    this.showArrow = true,
     required this.backgroundColor,
     required this.textColor,
      this.onPressed,
@@ -35,7 +37,7 @@ class ArrowButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min, // Take minimum space needed
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (isLeftArrow) ...[
+          if (showArrow && isLeftArrow) ...[
             Icon(Icons.arrow_back, color: textColor, size: 20),
             getWidth(8),
           ],
@@ -54,7 +56,7 @@ class ArrowButton extends StatelessWidget {
               ),
             ),
           ),
-          if (!isLeftArrow) ...[
+          if (showArrow && !isLeftArrow) ...[
             getWidth(8),
             Icon(Icons.arrow_forward, color: textColor, size: 20),
           ],
