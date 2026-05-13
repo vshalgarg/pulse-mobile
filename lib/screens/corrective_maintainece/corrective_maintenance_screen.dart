@@ -1708,6 +1708,7 @@ class _CorrectiveMaintenanceScreenState
       appBar: CustomFormAppbar(
         title: 'Corrective Maintenance',
         onClose: () => _showUnsavedChangesDialog(),
+        showCloseButton: _resolvedMode != CMScreenModeEnum.view,
       ),
       body: Stack(
         children: [
