@@ -251,14 +251,14 @@ class _CMEditViewChecklistWidgetState
     try {
       Logger.infoLog('[CM EditView] Starting to load image - photoId: $photoId, checklistId: $checklistId');
       
-      // First check cache/SQLite by server_id
-      final cachedImage = await ServiceLocator().imageUploadService
-          .getImagesByServerId(photoId);
+      final imageService = ServiceLocator().imageUploadService;
+      final cachedBase64 =
+          await imageService.resolveImageBase64ForPhotoRef(photoId);
 
-      if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
-        Logger.infoLog('[CM EditView] Image loaded from cache/SQLite - photoId: $photoId, checklistId: $checklistId, imageData length: ${cachedImage.imageData!.length}');
+      if (cachedBase64 != null && cachedBase64.isNotEmpty && mounted) {
+        Logger.infoLog('[CM EditView] Image loaded from local cache - photoId: $photoId, checklistId: $checklistId, imageData length: ${cachedBase64.length}');
         setState(() {
-          _loadedImages[checklistId] = cachedImage.imageData;
+          _loadedImages[checklistId] = cachedBase64;
         });
         return;
       }
@@ -308,19 +308,18 @@ class _CMEditViewChecklistWidgetState
     try {
       Logger.infoLog('[CM EditView] Starting to load impacted item image - photoId: $photoId, imageKey: $imageKey');
       
-      // First check cache/SQLite by server_id
-      final cachedImage = await ServiceLocator().imageUploadService
-          .getImagesByServerId(photoId);
+      final imageService = ServiceLocator().imageUploadService;
+      final cachedBase64 =
+          await imageService.resolveImageBase64ForPhotoRef(photoId);
 
-      if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
-        Logger.infoLog('[CM EditView] Impacted item image loaded from cache/SQLite - photoId: $photoId, imageKey: $imageKey, imageData length: ${cachedImage.imageData!.length}');
-        final imageData = cachedImage.imageData;
+      if (cachedBase64 != null && cachedBase64.isNotEmpty) {
+        Logger.infoLog('[CM EditView] Impacted item image loaded from local cache - photoId: $photoId, imageKey: $imageKey, imageData length: ${cachedBase64.length}');
         if (mounted) {
           setState(() {
-            _storeImpactedImageFromCompositeKey(imageKey, imageData!);
+            _storeImpactedImageFromCompositeKey(imageKey, cachedBase64);
           });
         }
-        return imageData;
+        return cachedBase64;
       }
 
       // Try to download if online

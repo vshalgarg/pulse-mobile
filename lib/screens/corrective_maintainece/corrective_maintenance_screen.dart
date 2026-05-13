@@ -852,82 +852,41 @@ class _CorrectiveMaintenanceScreenState
         );
         
         try {
-          // Load checklist template from local database or API
-          Map<String, dynamic> checklistTemplate = {};
-          
-          // Try to get from local database first
-          final siteDataWithChecklist = await ServiceLocator()
-              .centralAssetAuditDataService
-              .getCMSiteDataWithChecklist(_selectedSite!.siteId);
-          
-          if (siteDataWithChecklist != null && siteDataWithChecklist['checklist_items'] != null) {
-            checklistTemplate = Map<String, dynamic>.from(siteDataWithChecklist['checklist_items']);
-          } else {
-            // Try separate checklist table
-            final localChecklistData = await ServiceLocator()
-                .centralAssetAuditDataService
-                .getCMChecklistData(_selectedSite!.siteId);
-            
-            if (localChecklistData.isNotEmpty) {
-              checklistTemplate = localChecklistData;
+          int effectiveEntityId = _selectedSite!.entityId;
+          if (effectiveEntityId == 0) {
+            if (cmSiteReqId is int) {
+              effectiveEntityId = cmSiteReqId!;
             } else {
-              // Fallback for offline ticket open: lookup by entityId or cmSiteReqId
-              final effectiveEntityId = _selectedSite!.entityId != 0
-                  ? _selectedSite!.entityId
-                  : (cmSiteReqId is int
-                      ? cmSiteReqId
-                      : int.tryParse(cmSiteReqId?.toString() ?? ''));
-              if (effectiveEntityId != null && effectiveEntityId != 0) {
-                final siteDataByEntityId = await ServiceLocator()
-                    .centralAssetAuditDataService
-                    .getCMSiteDataWithChecklistByEntityId(effectiveEntityId);
-                if (siteDataByEntityId != null &&
-                    siteDataByEntityId['checklist_items'] != null) {
-                  checklistTemplate = Map<String, dynamic>.from(
-                      siteDataByEntityId['checklist_items'] as Map);
-                } else {
-                  final checklistByEntityId = await ServiceLocator()
-                      .centralAssetAuditDataService
-                      .getCMChecklistDataByEntityId(effectiveEntityId);
-                  if (checklistByEntityId.isNotEmpty) {
-                    checklistTemplate = checklistByEntityId;
-                  }
-                }
-              }
+              effectiveEntityId =
+                  int.tryParse(cmSiteReqId?.toString() ?? '') ?? 0;
             }
-            if (checklistTemplate.isEmpty) {
-              // Fetch from API if online
-              final isOnline = await ConnectivityHelper.isConnected();
-              if (isOnline) {
-                final apiResponse = await ServiceLocator().cmRepository
-                    .getChecklistData(_selectedSite!.entityId);
-                
-                if (apiResponse.containsKey('checkListDetails')) {
-                  checklistTemplate = Map<String, dynamic>.from(apiResponse['checkListDetails']);
-                  if (apiResponse.containsKey('siteDeployedItems')) {
-                    checklistTemplate['siteDeployedItems'] = apiResponse['siteDeployedItems'];
-                  }
-                } else {
-                  checklistTemplate = apiResponse;
+          }
+
+          Map<String, dynamic> checklistTemplate =
+              await _loadLocalChecklistTemplate(
+            siteId: _selectedSite!.siteId,
+            entityId: effectiveEntityId,
+          );
+
+          if (checklistTemplate.isEmpty) {
+            final isOnline = await ConnectivityHelper.isConnected();
+            if (isOnline && effectiveEntityId != 0) {
+              final apiResponse = await ServiceLocator().cmRepository
+                  .getChecklistData(effectiveEntityId);
+              if (apiResponse.containsKey('checkListDetails')) {
+                checklistTemplate =
+                    Map<String, dynamic>.from(apiResponse['checkListDetails']);
+                if (apiResponse.containsKey('siteDeployedItems')) {
+                  checklistTemplate['siteDeployedItems'] =
+                      apiResponse['siteDeployedItems'];
                 }
+              } else {
+                checklistTemplate = apiResponse;
               }
             }
           }
-          
-          // Get existing responses from API endpoint /mobile/correctiveMaintenanceForMobile/
-          List<dynamic> existingResponses = [];
-          
-          // First, try to get from preloadedSiteData (handle nested structure)
-          Map<String, dynamic>? preloadedData = widget.preloadedSiteData;
-          if (preloadedData != null) {
-            // Handle nested data structure if present
-            if (preloadedData.containsKey('data') && preloadedData['data'] is Map<String, dynamic>) {
-              preloadedData = Map<String, dynamic>.from(preloadedData['data']);
-            }
-            
-            existingResponses = preloadedData['cmCheckListSiteRespList'] ?? 
-                               preloadedData['cm_check_list_site_resp_list'] ?? [];
-          }
+
+          List<dynamic> existingResponses = _resolveExistingChecklistResponses();
           
           // If not found in preloadedSiteData and we have cmSiteReqId, fetch from API
           if (existingResponses.isEmpty && cmSiteReqId != null && cmSiteReqId! > 0) {
@@ -1010,11 +969,114 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
+  List<dynamic> _resolveExistingChecklistResponses() {
+    Map<String, dynamic>? source = _mergedPreloadedSite;
+    if (source == null && widget.preloadedSiteData != null) {
+      source = Map<String, dynamic>.from(widget.preloadedSiteData!);
+      if (source.containsKey('data') && source['data'] is Map<String, dynamic>) {
+        source = Map<String, dynamic>.from(source['data'] as Map<String, dynamic>);
+      }
+    }
+    final list = source?['cmCheckListSiteRespList'] ??
+        source?['cm_check_list_site_resp_list'];
+    return list is List ? list : const [];
+  }
+
+  /// When only ticket responses exist (offline downloaded ticket), build a minimal
+  /// template so [_mergeChecklistWithResponses] can render checklist rows.
+  Map<String, dynamic> _buildPseudoTemplateFromResponses(
+    List<dynamic> existingResponses,
+  ) {
+    final template = <String, dynamic>{};
+    for (final response in existingResponses) {
+      if (response is! Map<String, dynamic>) continue;
+      final itemType =
+          (response['cmItemType'] ?? response['cm_item_type'] ?? 'DG')
+              .toString()
+              .trim();
+      if (itemType.isEmpty) continue;
+      template.putIfAbsent(itemType, () => <Map<String, dynamic>>[]);
+      (template[itemType] as List<Map<String, dynamic>>).add({
+        'cm_check_list_mst_id':
+            response['cmCheckListMstId'] ?? response['cm_check_list_mst_id'],
+        'cmCheckListMstId':
+            response['cmCheckListMstId'] ?? response['cm_check_list_mst_id'],
+        'checklist_desc':
+            response['checklistDesc'] ?? response['checklist_desc'] ?? '',
+        'checklistDesc':
+            response['checklistDesc'] ?? response['checklist_desc'] ?? '',
+        'resp_type': response['respType'] ?? response['resp_type'] ?? '',
+        'respType': response['respType'] ?? response['resp_type'] ?? '',
+        'cl_order': response['clOrder'] ?? response['cl_order'] ?? 0,
+        'clOrder': response['clOrder'] ?? response['cl_order'] ?? 0,
+      });
+    }
+    return template;
+  }
+
+  Future<Map<String, dynamic>> _loadLocalChecklistTemplate({
+    required int siteId,
+    required int entityId,
+  }) async {
+    Map<String, dynamic> checklistTemplate = {};
+
+    final siteDataWithChecklist = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getCMSiteDataWithChecklist(siteId);
+    if (siteDataWithChecklist != null &&
+        siteDataWithChecklist['checklist_items'] != null) {
+      return Map<String, dynamic>.from(
+        siteDataWithChecklist['checklist_items'] as Map,
+      );
+    }
+
+    final localChecklistData = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getCMChecklistData(siteId);
+    if (localChecklistData.isNotEmpty) {
+      return localChecklistData;
+    }
+
+    final entityIdFromDb = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getEntityIdFromCMChecklistForSite(siteId);
+    final effectiveEntityId = entityId != 0
+        ? entityId
+        : (entityIdFromDb ?? 0);
+    if (effectiveEntityId != 0) {
+      final siteDataByEntityId = await ServiceLocator()
+          .centralAssetAuditDataService
+          .getCMSiteDataWithChecklistByEntityId(effectiveEntityId);
+      if (siteDataByEntityId != null &&
+          siteDataByEntityId['checklist_items'] != null) {
+        return Map<String, dynamic>.from(
+          siteDataByEntityId['checklist_items'] as Map,
+        );
+      }
+      final checklistByEntityId = await ServiceLocator()
+          .centralAssetAuditDataService
+          .getCMChecklistDataByEntityId(effectiveEntityId);
+      if (checklistByEntityId.isNotEmpty) {
+        return checklistByEntityId;
+      }
+    }
+
+    return checklistTemplate;
+  }
+
   /// Merge existing checklist responses with template checklist data
   Future<Map<String, dynamic>> _mergeChecklistWithResponses(
     Map<String, dynamic> checklistTemplate,
     List<dynamic> existingResponses,
   ) async {
+    if (checklistTemplate.isEmpty && existingResponses.isNotEmpty) {
+      Logger.infoLog(
+        '[CM] No checklist template in local DB; building pseudo-template from '
+        '${existingResponses.length} saved ticket response(s) for offline display',
+      );
+      checklistTemplate = _buildPseudoTemplateFromResponses(existingResponses);
+    }
+
     final mergedData = <String, dynamic>{};
     // When ticket GET returns rows, show only those (cmCheckListSiteRespList), not the full master checklist.
     final restrictToTicketResponses = existingResponses.isNotEmpty;
@@ -1143,18 +1205,12 @@ class _CorrectiveMaintenanceScreenState
                   if (img is Map<String, dynamic>) {
                     final photoId = img['photoId'] ?? img['photo_id'];
                     if (photoId != null) {
-                      // Load image data from server/cache
                       String? imageData;
                       try {
-                        // First check cache
-                        final cachedImage = await ServiceLocator()
+                        imageData = await ServiceLocator()
                             .imageUploadService
-                            .getImagesByServerId(photoId.toString());
-                        
-                        if (cachedImage != null && cachedImage.imageData != null) {
-                          imageData = cachedImage.imageData;
-                        } else {
-                          // Try to download if online
+                            .resolveImageBase64ForPhotoRef(photoId.toString());
+                        if (imageData == null || imageData.isEmpty) {
                           final isOnline = await ConnectivityHelper.isConnected();
                           if (isOnline) {
                             final uniqueId = await ServiceLocator()
@@ -1164,7 +1220,6 @@ class _CorrectiveMaintenanceScreenState
                                   ActivityTypeEnum.correctiveMaintenance,
                                   _selectedSite?.siteId.toString() ?? '',
                                 );
-                            
                             if (uniqueId != null) {
                               imageData = await ServiceLocator()
                                   .imageUploadService
@@ -1226,17 +1281,16 @@ class _CorrectiveMaintenanceScreenState
                               if (childImg is Map<String, dynamic>) {
                                 final photoId = childImg['photoId'] ?? childImg['photo_id'];
                                 if (photoId != null) {
-                                  // Load image data from server/cache
                                   String? imageData;
                                   try {
-                                    final cachedImage = await ServiceLocator()
+                                    imageData = await ServiceLocator()
                                         .imageUploadService
-                                        .getImagesByServerId(photoId.toString());
-                                    
-                                    if (cachedImage != null && cachedImage.imageData != null) {
-                                      imageData = cachedImage.imageData;
-                                    } else {
-                                      final isOnline = await ConnectivityHelper.isConnected();
+                                        .resolveImageBase64ForPhotoRef(
+                                          photoId.toString(),
+                                        );
+                                    if (imageData == null || imageData.isEmpty) {
+                                      final isOnline =
+                                          await ConnectivityHelper.isConnected();
                                       if (isOnline) {
                                         final uniqueId = await ServiceLocator()
                                             .imageUploadService
@@ -1245,7 +1299,6 @@ class _CorrectiveMaintenanceScreenState
                                               ActivityTypeEnum.correctiveMaintenance,
                                               _selectedSite?.siteId.toString() ?? '',
                                             );
-                                        
                                         if (uniqueId != null) {
                                           imageData = await ServiceLocator()
                                               .imageUploadService

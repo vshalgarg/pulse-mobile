@@ -544,6 +544,28 @@ class ImageUploadService {
     return null;
   }
 
+  /// Resolves server photo id or `LOCAL_IMAGE_ID_*` to base64 for offline/online display.
+  Future<String?> resolveImageBase64ForPhotoRef(String photoRef) async {
+    final ref = photoRef.trim();
+    if (ref.isEmpty) return null;
+
+    if (ref.startsWith('LOCAL_IMAGE_ID')) {
+      return getImageUsingUniqueId(ref);
+    }
+
+    final cached = await getImagesByServerId(ref);
+    if (cached != null) {
+      final uniqueId = cached.uniqueId.trim();
+      if (uniqueId.isNotEmpty) {
+        final base64 = await getImageUsingUniqueId(uniqueId);
+        if (base64 != null && base64.isNotEmpty) return base64;
+      }
+      return _readStoredImageDataAsBase64(cached.imageData);
+    }
+
+    return getImageUsingUniqueId(ref);
+  }
+
   /// Returns stored local file path for a unique id when available.
   /// Useful for offline VIDEO/PDF playback where base64 is not needed.
   Future<String?> getStoredFilePathUsingUniqueId(String uniqueId) async {
