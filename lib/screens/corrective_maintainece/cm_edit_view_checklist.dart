@@ -58,6 +58,18 @@ class _CMEditViewChecklistWidgetState
     color: AppColors.color555555,
     fontFamily: fontFamilyMontserrat,
   );
+  static const TextStyle _impactedTableHeaderStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    color: Colors.white,
+    fontFamily: fontFamilyMontserrat,
+  );
+  static const TextStyle _impactedTableCellStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: AppColors.color555555,
+    fontFamily: fontFamilyMontserrat,
+  );
 
   late List<Map<String, dynamic>> _checklistItems;
   Map<String, String?> _loadedImages =
@@ -1003,13 +1015,13 @@ class _CMEditViewChecklistWidgetState
             ? constraints.maxWidth
             : mq;
 
-        const double minDataColW = 88;
+        const double minDataColW = 118;
         final int nData = finalChildItems.length;
-        final double intrinsicMin = nData * minDataColW + 24;
-        final double contentMinW = math.max(intrinsicMin, viewportW);
+        final double intrinsicMin = nData * minDataColW + 32;
+        final double contentMinW = math.max(intrinsicMin, viewportW * 1.08);
 
-        const headerStyle = _sectionLabelStyle;
-        const cellTextStyle = _fieldValueStyle;
+        const headerStyle = _impactedTableHeaderStyle;
+        const cellTextStyle = _impactedTableCellStyle;
 
         Widget headerRow() {
           return Padding(
