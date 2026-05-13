@@ -1549,7 +1549,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             location: ticket.cluster ?? 'N/A',
             company: ticket.operator ?? 'N/A',
             raisedOn: ticket.raisedDt,
-            dueDate: ticket.dueDt,
+            dueDate: rawTicket.activityType ==
+                    ActivityTypeEnum.correctiveMaintenance
+                ? ''
+                : ticket.dueDt,
             statusText: ticket.status ?? 'N/A',
             statusColor: _getCmStatusColor(
               rawTicket.activityType,

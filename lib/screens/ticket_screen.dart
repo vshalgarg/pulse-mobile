@@ -1284,7 +1284,10 @@ class _TicketScreenState extends State<TicketScreen>
                     ticket.lastModifiedDt!.trim().isNotEmpty)
                 ? ticket.lastModifiedDt!.trim()
                 : ticket.raisedDt,
-            dueDate: ticket.dueDt,
+            dueDate: _currentActivityType ==
+                    ActivityTypeEnum.correctiveMaintenance
+                ? ''
+                : ticket.dueDt,
             totalAssets: ticket.totalAssets,
             statusText: statusText,
             statusColor: _getCmStatusColor(statusText),
