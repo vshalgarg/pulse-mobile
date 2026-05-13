@@ -9,6 +9,7 @@ import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/asset_audit/central_asset_audit_service.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/asset_audit_navigation_helper.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:app/utils/map_api_field_reader.dart';
 import 'package:app/utils/calculate_distance.dart';
 import 'package:app/utils/logger.dart';
@@ -479,13 +480,60 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         );
       } else if (ticket.activityType ==
           ActivityTypeEnum.correctiveMaintenance) {
+        final apiData = data.apiData;
+        final physicalSiteId = resolveCmPhysicalSiteId(apiData);
+        final sqliteCmSite = physicalSiteId > 0
+            ? await ServiceLocator()
+                .centralAssetAuditDataService
+                .getCMSiteData(physicalSiteId)
+            : null;
+        if (!mounted) return;
+
+        var mergedInner = mergeIncidentTicketWithSqliteSiteRows(
+          unwrapTicketDataMap(apiData),
+          [sqliteCmSite],
+        );
+
+        if (cmTicketPayloadMissingSiteContacts(mergedInner) &&
+            physicalSiteId > 0 &&
+            await ConnectivityHelper.isConnected()) {
+          try {
+            final sites =
+                await ServiceLocator().cmRepository.getCMSitesDropdown();
+            for (final site in sites) {
+              if (site.siteId == physicalSiteId) {
+                mergedInner = overlayCmSiteContactFields(
+                  base: mergedInner,
+                  infraName: site.infraEngineerName,
+                  infraPhone: site.infraEngineerContactNo,
+                  clusterInchargeName: site.clusterInchargeName,
+                  clusterInchargeContact: site.clusterInchargeContactNo,
+                );
+                break;
+              }
+            }
+          } catch (e) {
+            Logger.errorLog(
+              '⚠️ Could not load CM site contacts from dropdown: $e',
+            );
+          }
+        }
+
+        final Map<String, dynamic> cmPreloaded;
+        if (apiData.containsKey('data') && apiData['data'] is Map) {
+          cmPreloaded = Map<String, dynamic>.from(apiData);
+          cmPreloaded['data'] = mergedInner;
+        } else {
+          cmPreloaded = mergedInner;
+        }
+
         final parentContext = context;
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (_) => CorrectiveMaintenanceScreen(
               mode: _resolveCmScreenMode(ticket, data.apiData),
-              preloadedSiteData: data.apiData,
+              preloadedSiteData: cmPreloaded,
               parentContext: parentContext,
             ),
           ),

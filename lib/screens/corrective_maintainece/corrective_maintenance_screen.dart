@@ -18,6 +18,7 @@ import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/map_api_field_reader.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:open_file/open_file.dart';
@@ -126,7 +127,6 @@ class _CorrectiveMaintenanceScreenState
   bool _forceViewMode = false;
   Map<String, dynamic>? _mergedPreloadedSite;
   String _oemTicketIdDisplay = '';
-
   CMScreenModeEnum get _resolvedMode =>
       _forceViewMode ? CMScreenModeEnum.view : widget.mode;
 
@@ -169,6 +169,7 @@ class _CorrectiveMaintenanceScreenState
       if (preloadedSite.containsKey('data') && preloadedSite['data'] is Map<String, dynamic>) {
         preloadedSite = Map<String, dynamic>.from(preloadedSite['data']);
       }
+      preloadedSite = mergeNestedSiteMapsIntoIncidentTicket(preloadedSite);
       _mergedPreloadedSite = preloadedSite;
 
       // Try both camelCase and snake_case for cmSiteReqId
@@ -187,8 +188,7 @@ class _CorrectiveMaintenanceScreenState
         final parsed = cmSiteReqId is int ? cmSiteReqId : int.tryParse(cmSiteReqId.toString());
         if (parsed != null && parsed != 0) entityIdVal = parsed;
       }
-      if (siteIdVal == 0 && entityIdVal != 0) siteIdVal = entityIdVal;
-      
+
       CMSite site = CMSite(
         siteId: siteIdVal,
         entityId: entityIdVal,
@@ -210,16 +210,34 @@ class _CorrectiveMaintenanceScreenState
             ? (preloadedSite['self']?.toString() ?? '')
             : _getSiteValue(preloadedSite, 'assignedToName', 'assigned_to_name', '').toString(),
         selfId: (preloadedSite['assignedTo'] ?? preloadedSite['assigned_to'] ?? preloadedSite['selfId'] ?? preloadedSite['self_id']) as int? ?? 0,
-        infraEngineerName: (preloadedSite['infraEngineerName'] ?? preloadedSite['infra_engineer_name'])?.toString(),
-        infraEngineerContactNo: (preloadedSite['infraEngineerContactNo'] ?? preloadedSite['infra_engineer_contact_no'])?.toString(),
-        clusterInchargeName: (preloadedSite['clusterInchargeName'] ?? preloadedSite['cluster_incharge_name'])?.toString(),
-        clusterInchargeContactNo: (preloadedSite['clusterInchargeContactNo'] ?? preloadedSite['cluster_incharge_contact_no'])?.toString(),
+        infraEngineerName: readMapString(preloadedSite, [
+          'infraEngineerName',
+          'infra_engineer_name',
+          'infraDistrictEngineerName',
+          'infra_district_engineer_name',
+        ]),
+        infraEngineerContactNo: readMapString(preloadedSite, [
+          'infraEngineerContactNo',
+          'infra_engineer_contact_no',
+          'infraDistrictEngineerContactNo',
+          'infra_district_engineer_contact_no',
+        ]),
+        clusterInchargeName: readMapString(preloadedSite, [
+          'clusterInchargeName',
+          'cluster_incharge_name',
+        ]),
+        clusterInchargeContactNo: readMapString(preloadedSite, [
+          'clusterInchargeContactNo',
+          'cluster_incharge_contact_no',
+        ]),
         category: preloadedSite['category']?.toString(),
       );
       _siteOptions = [site];
+      _syncSiteContactControllers(preloadedSite);
       _initializeTicketControllers(preloadedSite);
       _onSiteSelected(site);
       _loadFreshTicketDetailsIfNeeded();
+      _enrichSiteContactsFromLocalDb();
     }
   }
 
@@ -382,6 +400,113 @@ class _CorrectiveMaintenanceScreenState
     return strValue;
   }
 
+  void _syncSiteContactControllers([Map<String, dynamic>? source]) {
+    final map = source ?? _mergedPreloadedSite;
+    if (map == null) return;
+
+    final infraName = readMapString(map, [
+      'infraEngineerName',
+      'infra_engineer_name',
+      'infraDistrictEngineerName',
+      'infra_district_engineer_name',
+    ]);
+    if (infraName != null) {
+      _infraEngineerNameController.text = infraName;
+    }
+
+    final infraContact = readMapString(map, [
+      'infraEngineerContactNo',
+      'infra_engineer_contact_no',
+      'infraDistrictEngineerContactNo',
+      'infra_district_engineer_contact_no',
+    ]);
+    if (infraContact != null) {
+      _infraEngineerContactNoController.text = infraContact;
+    }
+
+    final inchargeName = readMapString(map, [
+      'clusterInchargeName',
+      'cluster_incharge_name',
+    ]);
+    if (inchargeName != null) {
+      _clusterInchargeNameController.text = inchargeName;
+    }
+
+    final inchargeContact = readMapString(map, [
+      'clusterInchargeContactNo',
+      'cluster_incharge_contact_no',
+    ]);
+    if (inchargeContact != null) {
+      _clusterInchargeContactNoController.text = inchargeContact;
+    }
+  }
+
+  int _resolvePhysicalSiteId() {
+    final fromMerged = resolveCmPhysicalSiteId(
+      _mergedPreloadedSite ?? const {},
+    );
+    if (fromMerged > 0) return fromMerged;
+
+    for (final response in _resolveExistingChecklistResponses()) {
+      if (response is! Map) continue;
+      final siteId = response['siteId'] ?? response['site_id'];
+      final parsed = siteId is int ? siteId : int.tryParse('$siteId');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+
+    final selectedSiteId = _selectedSite?.siteId ?? 0;
+    if (selectedSiteId <= 0) return 0;
+
+    final cmReqId = cmSiteReqId is int
+        ? cmSiteReqId
+        : int.tryParse(cmSiteReqId?.toString() ?? '');
+    if (cmReqId != null && cmReqId > 0 && selectedSiteId == cmReqId) {
+      return 0;
+    }
+    return selectedSiteId;
+  }
+
+  Future<void> _enrichSiteContactsFromLocalDb() async {
+    final physicalSiteId = _resolvePhysicalSiteId();
+    if (physicalSiteId <= 0) return;
+
+    Map<String, dynamic>? sqliteRow = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getCMSiteData(physicalSiteId);
+
+    var merged = mergeIncidentTicketWithSqliteSiteRows(
+      _mergedPreloadedSite ?? const {},
+      [sqliteRow],
+    );
+
+    if (cmTicketPayloadMissingSiteContacts(merged) &&
+        await ConnectivityHelper.isConnected()) {
+      try {
+        final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+        for (final site in sites) {
+          if (site.siteId == physicalSiteId) {
+            merged = overlayCmSiteContactFields(
+              base: merged,
+              infraName: site.infraEngineerName,
+              infraPhone: site.infraEngineerContactNo,
+              clusterInchargeName: site.clusterInchargeName,
+              clusterInchargeContact: site.clusterInchargeContactNo,
+            );
+            break;
+          }
+        }
+      } catch (e) {
+        Logger.errorLog('[CM] Could not load site contacts from dropdown: $e');
+      }
+    }
+
+    if (!mounted) return;
+    _mergedPreloadedSite = merged;
+    setState(() {
+      _syncSiteContactControllers(merged);
+    });
+  }
+
   void _applyOemTicketIdFromMap(Map<String, dynamic> map) {
     final oemTicketId = _getValue(map, 'oemTicketId', 'oem_ticket_id');
     if (oemTicketId != null) {
@@ -409,7 +534,10 @@ class _CorrectiveMaintenanceScreenState
         ...ticketData,
       };
       _applyOemTicketIdFromMap(ticketData);
-      setState(() {});
+      setState(() {
+        _syncSiteContactControllers();
+      });
+      await _enrichSiteContactsFromLocalDb();
     } catch (e) {
       Logger.errorLog('[CM] Failed to refresh ticket details from API: $e');
     }
@@ -622,9 +750,12 @@ class _CorrectiveMaintenanceScreenState
       _clusterDistrictController.text = selectedSite.clusterDistrictName;
       _customerController.text = selectedSite.clientName ?? '';
       _infraEngineerNameController.text = selectedSite.infraEngineerName ?? '';
-      _infraEngineerContactNoController.text = selectedSite.infraEngineerContactNo ?? '';
+      _infraEngineerContactNoController.text =
+          selectedSite.infraEngineerContactNo ?? '';
       _clusterInchargeNameController.text = selectedSite.clusterInchargeName ?? '';
-      _clusterInchargeContactNoController.text = selectedSite.clusterInchargeContactNo ?? '';
+      _clusterInchargeContactNoController.text =
+          selectedSite.clusterInchargeContactNo ?? '';
+      _syncSiteContactControllers(_mergedPreloadedSite);
       _categoryController.text = selectedSite.category ?? '';
       controllers['site_id']!.text = selectedSite.siteId.toString();
     });
@@ -966,6 +1097,9 @@ class _CorrectiveMaintenanceScreenState
       }
     } finally {
       if (mounted) LoaderWidget.hideLoader();
+      if (widget.mode != CMScreenModeEnum.create) {
+        await _enrichSiteContactsFromLocalDb();
+      }
     }
   }
 
