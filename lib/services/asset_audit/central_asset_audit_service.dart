@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/all_site_model.dart';
+import 'package:app/models/cm_site_model.dart';
 import 'package:app/models/pmis_activity_ticket_model.dart';
 import 'package:app/models/sqlite/raw_api_data_model.dart';
 import 'package:app/services/service_locator.dart';
@@ -9,6 +10,7 @@ import 'package:app/services/local_storage_db.dart';
 import 'package:app/repositories/asset_upload_respository.dart';
 import '../../utils/logger.dart';
 import '../../utils/image_compression_helper.dart';
+import '../../utils/map_api_field_reader.dart';
 
 class CentralAssetAuditService {
   Future<bool> getDataFromApiAndSaveToSqlite({
@@ -674,6 +676,15 @@ class CentralAssetAuditService {
     if (apiData == null) {
       return false;
     }
+
+    var dataToSave = apiData;
+    if (activityType == ActivityTypeEnum.correctiveMaintenance) {
+      dataToSave = await _enrichCmTicketApiDataWithSiteContacts(
+        apiData,
+        siteAuditSchId: siteAuditSchId,
+      );
+    }
+
     // Save to SQLite
     final isSaved = await _saveDataToSQLite(
       siteAuditSchId: siteAuditSchId,
@@ -690,7 +701,7 @@ class CentralAssetAuditService {
       isDownloaded: true,
       latitude: latitude,
       longitude: longitude,
-      apiData: apiData,
+      apiData: dataToSave,
     );
 
     // For General Inspection, also download checklist data
@@ -737,11 +748,18 @@ class CentralAssetAuditService {
     // For CM tickets, also download checklist master so offline edit/view can merge responses.
     if (isSaved && activityType == ActivityTypeEnum.correctiveMaintenance) {
       try {
-        final siteId = _readIntFromApiData(apiData, ['siteId', 'site_id']) ??
+        final flat = mergeNestedSiteMapsIntoIncidentTicket(
+          unwrapTicketDataMap(dataToSave),
+        );
+        final siteId = resolveCmPhysicalSiteId(flat);
+        final entityId = _readIntFromApiData(flat, [
+              'entityId',
+              'entity_id',
+              'cmSiteReqId',
+              'cm_site_req_id',
+            ]) ??
             int.tryParse(siteAuditSchId) ??
             0;
-        final entityId = _readIntFromApiData(apiData, ['entityId', 'entity_id']) ??
-            siteId;
         if (siteId > 0 && entityId > 0) {
           final cmChecklistDownloaded = await downloadCMChecklist(
             siteId: siteId,
@@ -1504,5 +1522,134 @@ class CentralAssetAuditService {
       }
     }
     return null;
+  }
+
+  /// Embeds infra/cluster contacts into CM ticket JSON and saves [cm_sites_data]
+  /// so downloaded tickets show contacts offline.
+  Future<Map<String, dynamic>> _enrichCmTicketApiDataWithSiteContacts(
+    Map<String, dynamic> apiData, {
+    required String siteAuditSchId,
+  }) async {
+    try {
+      final flat = mergeNestedSiteMapsIntoIncidentTicket(
+        unwrapTicketDataMap(apiData),
+      );
+      final physicalSiteId = resolveCmPhysicalSiteId(flat);
+      if (physicalSiteId <= 0) return apiData;
+
+      Map<String, dynamic> enriched = flat;
+      if (cmTicketPayloadMissingSiteContacts(flat)) {
+        final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+        for (final site in sites) {
+          if (site.siteId != physicalSiteId) continue;
+          enriched = overlayCmSiteContactFields(
+            base: flat,
+            infraName: site.infraEngineerName,
+            infraPhone: site.infraEngineerContactNo,
+            clusterInchargeName: site.clusterInchargeName,
+            clusterInchargeContact: site.clusterInchargeContactNo,
+          );
+          await _persistCmSiteContactsRow(
+            ticketFlat: flat,
+            site: site,
+            siteAuditSchId: siteAuditSchId,
+            enriched: enriched,
+          );
+          break;
+        }
+      } else {
+        await _persistCmSiteContactsRow(
+          ticketFlat: flat,
+          site: null,
+          siteAuditSchId: siteAuditSchId,
+          enriched: enriched,
+        );
+      }
+
+      if (apiData.containsKey('data') && apiData['data'] is Map) {
+        return {...apiData, 'data': enriched};
+      }
+      return enriched;
+    } catch (e) {
+      Logger.errorLog('❌ Error enriching CM ticket with site contacts: $e');
+      return apiData;
+    }
+  }
+
+  Future<void> _persistCmSiteContactsRow({
+    required Map<String, dynamic> ticketFlat,
+    required CMSite? site,
+    required String siteAuditSchId,
+    required Map<String, dynamic> enriched,
+  }) async {
+    final physicalSiteId = resolveCmPhysicalSiteId(ticketFlat);
+    if (physicalSiteId <= 0) return;
+
+    final entityId = _readIntFromApiData(ticketFlat, [
+          'entityId',
+          'entity_id',
+          'cmSiteReqId',
+          'cm_site_req_id',
+        ]) ??
+        int.tryParse(siteAuditSchId) ??
+        0;
+
+    await ServiceLocator().centralAssetAuditDataService.saveCMSiteData(
+      siteId: physicalSiteId,
+      entityId: entityId,
+      siteCode: readMapString(ticketFlat, ['siteCode', 'site_code']) ??
+          (site?.siteCode?.toString() ?? ''),
+      siteName: readMapString(ticketFlat, ['siteName', 'site_name']) ??
+          (site?.siteName?.toString() ?? ''),
+      clusterDistrictId: _readIntFromApiData(ticketFlat, [
+        'clusterDistrictId',
+        'cluster_district_id',
+      ]),
+      clusterDistrictName: readMapString(ticketFlat, [
+            'clusterDistrictName',
+            'cluster_district_name',
+            'cluster',
+          ]) ??
+          site?.clusterDistrictName?.toString(),
+      circleStateId: _readIntFromApiData(ticketFlat, [
+        'circleStateId',
+        'circle_state_id',
+      ]),
+      circleStateName: readMapString(ticketFlat, [
+            'circleStateName',
+            'circle_state_name',
+            'circle',
+          ]) ??
+          site?.circleStateName?.toString(),
+      clientId: _readIntFromApiData(ticketFlat, ['clientId', 'client_id']),
+      clientName: readMapString(ticketFlat, ['clientName', 'client_name', 'client']),
+      oem: readMapString(ticketFlat, ['oem']) ?? site?.oem?.toString(),
+      oemId: _readIntFromApiData(ticketFlat, ['oemId', 'oem_id']) ?? site?.oemId,
+      self: readMapString(ticketFlat, ['self', 'assignedToName', 'assigned_to_name']) ??
+          site?.self?.toString(),
+      selfId: _readIntFromApiData(ticketFlat, ['selfId', 'self_id', 'assignedTo', 'assigned_to']) ??
+          site?.selfId,
+      activityType: ActivityTypeEnum.correctiveMaintenance.value,
+      infraDistrictEngineerName: readMapString(enriched, [
+        'infraDistrictEngineerName',
+        'infra_district_engineer_name',
+        'infraEngineerName',
+        'infra_engineer_name',
+      ]),
+      infraDistrictEngineerContactNo: readMapString(enriched, [
+        'infraDistrictEngineerContactNo',
+        'infra_district_engineer_contact_no',
+        'infraEngineerContactNo',
+        'infra_engineer_contact_no',
+      ]),
+      clusterInchargeName: readMapString(enriched, [
+        'clusterInchargeName',
+        'cluster_incharge_name',
+      ]),
+      clusterInchargeContactNo: readMapString(enriched, [
+        'clusterInchargeContactNo',
+        'cluster_incharge_contact_no',
+      ]),
+    );
   }
 }
