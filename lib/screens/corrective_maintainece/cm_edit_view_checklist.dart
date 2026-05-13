@@ -2,6 +2,7 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../commonWidgets/custom_form_field.dart'
     show CustomFormField, InputType;
@@ -48,6 +49,23 @@ class _CMEditViewChecklistWidgetState
       {}; // Store loaded image data by checklist ID or impacted item ID
   Map<String, Map<String, String?>> _impactedItemImages =
       {}; // Store images for impacted items: serialNo -> {checklistId -> imageData}
+
+  /// Serial numbers often contain `-` (e.g. NG-BATT-770644); composite keys must not use `-`.
+  static const String _impactedImageKeySep = '@@';
+
+  String _makeImpactedImageKey(String serialNo, String checklistId) =>
+      '$serialNo$_impactedImageKeySep$checklistId';
+
+  void _storeImpactedImageFromCompositeKey(String compositeKey, String imageData) {
+    final i = compositeKey.indexOf(_impactedImageKeySep);
+    if (i <= 0 || i + _impactedImageKeySep.length >= compositeKey.length) {
+      return;
+    }
+    final serialNo = compositeKey.substring(0, i);
+    final checklistId = compositeKey.substring(i + _impactedImageKeySep.length);
+    _impactedItemImages[serialNo] ??= {};
+    _impactedItemImages[serialNo]![checklistId] = imageData;
+  }
 
   @override
   void initState() {
@@ -97,10 +115,14 @@ class _CMEditViewChecklistWidgetState
                                 checklistItem['cm_impacted_item_list'] != null;
         Logger.infoLog('[CM EditView] Item: $checklistDesc, respType: $respType, resp: $resp, hasImpactedItems: $hasImpactedItems');
         
-        if (respType == 'DYNAMIC_DROPDOWN') {
-          final impactedList = checklistItem['cmImpactedItemList'] ?? 
-                              checklistItem['cm_impacted_item_list'] ?? [];
-          Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN in init - $checklistDesc, impactedList type: ${impactedList.runtimeType}, isList: ${impactedList is List}, length: ${impactedList is List ? impactedList.length : "N/A"}');
+        if (respType == 'DYNAMIC_DROPDOWN' ||
+            respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+            hasImpactedItems) {
+          final impactedList = checklistItem['cmImpactedItemList'] ??
+              checklistItem['cm_impacted_item_list'] ??
+              [];
+          Logger.infoLog(
+              '[CM EditView] Impacted-item checklist in init - $checklistDesc, respType: $respType, impactedList type: ${impactedList.runtimeType}, isList: ${impactedList is List}, length: ${impactedList is List ? impactedList.length : "N/A"}');
         }
 
         return checklistItem;
@@ -118,7 +140,7 @@ class _CMEditViewChecklistWidgetState
       // Load images for items that have cmCheckListSiteRespImagesList
       await _loadImagesForChecklistItems();
       
-      // Load images for impacted items in DYNAMIC_DROPDOWN
+      // Load images for impacted items (any row with cmImpactedItemList)
       await _loadImagesForImpactedItems();
     } catch (e) {
       Logger.errorLog('[CM EditView] Error initializing checklist data: $e');
@@ -171,39 +193,35 @@ class _CMEditViewChecklistWidgetState
 
   Future<void> _loadImagesForImpactedItems() async {
     for (var item in _checklistItems) {
-      final respType =
-          item['respType']?.toString() ?? item['resp_type']?.toString() ?? '';
-      
-      if (respType == 'DYNAMIC_DROPDOWN') {
-        final impactedItems = item['cmImpactedItemList'] ??
-            item['cm_impacted_item_list'] ??
-            [];
-        
-        if (impactedItems is List && impactedItems.isNotEmpty) {
-          for (var impactedItem in impactedItems) {
-            if (impactedItem is Map<String, dynamic>) {
-              final mfgSerialNo = impactedItem['mfgSerialNo']?.toString() ??
-                  impactedItem['mfg_serial_no']?.toString() ??
-                  '';
-              final imagesList = impactedItem['cmCheckListSiteRespImagesList'] ??
-                  impactedItem['cm_check_list_site_resp_images_list'] ??
-                  [];
-              
-              if (mfgSerialNo.isNotEmpty && imagesList is List && imagesList.isNotEmpty) {
-                for (var imageData in imagesList) {
-                  if (imageData is Map<String, dynamic>) {
-                    final photoId = imageData['photoId'] ?? imageData['photo_id'];
-                    final cmCheckListMstId = impactedItem['cmCheckListMstId']?.toString() ??
-                        impactedItem['cm_check_list_mst_id']?.toString() ??
-                        '';
-                    
-                    if (photoId != null && cmCheckListMstId.isNotEmpty) {
-                      final imageKey = '$mfgSerialNo-$cmCheckListMstId';
-                      await _loadImageForImpactedItem(
-                        photoId.toString(),
-                        imageKey,
-                      );
-                    }
+      final impactedItems = item['cmImpactedItemList'] ??
+          item['cm_impacted_item_list'] ??
+          [];
+
+      if (impactedItems is List && impactedItems.isNotEmpty) {
+        for (var impactedItem in impactedItems) {
+          if (impactedItem is Map<String, dynamic>) {
+            final mfgSerialNo = impactedItem['mfgSerialNo']?.toString() ??
+                impactedItem['mfg_serial_no']?.toString() ??
+                '';
+            final imagesList = impactedItem['cmCheckListSiteRespImagesList'] ??
+                impactedItem['cm_check_list_site_resp_images_list'] ??
+                [];
+
+            if (mfgSerialNo.isNotEmpty && imagesList is List && imagesList.isNotEmpty) {
+              for (var imageData in imagesList) {
+                if (imageData is Map<String, dynamic>) {
+                  final photoId = imageData['photoId'] ?? imageData['photo_id'];
+                  final cmCheckListMstId = impactedItem['cmCheckListMstId']?.toString() ??
+                      impactedItem['cm_check_list_mst_id']?.toString() ??
+                      '';
+
+                  if (photoId != null && cmCheckListMstId.isNotEmpty) {
+                    final imageKey =
+                        _makeImpactedImageKey(mfgSerialNo, cmCheckListMstId);
+                    await _loadImageForImpactedItem(
+                      photoId.toString(),
+                      imageKey,
+                    );
                   }
                 }
               }
@@ -281,21 +299,13 @@ class _CMEditViewChecklistWidgetState
 
       if (cachedImage != null && cachedImage.imageData != null && cachedImage.imageData!.isNotEmpty) {
         Logger.infoLog('[CM EditView] Impacted item image loaded from cache/SQLite - photoId: $photoId, imageKey: $imageKey, imageData length: ${cachedImage.imageData!.length}');
-        final parts = imageKey.split('-');
-        if (parts.length >= 2) {
-          final serialNo = parts[0];
-          final checklistId = parts[1];
-          final imageData = cachedImage.imageData;
-          // Update state and return the image data
-          if (mounted) {
-            setState(() {
-              _impactedItemImages[serialNo] ??= {};
-              _impactedItemImages[serialNo]![checklistId] = imageData;
-            });
-          }
-          return imageData;
+        final imageData = cachedImage.imageData;
+        if (mounted) {
+          setState(() {
+            _storeImpactedImageFromCompositeKey(imageKey, imageData!);
+          });
         }
-        return null;
+        return imageData;
       }
 
       // Try to download if online
@@ -320,16 +330,9 @@ class _CMEditViewChecklistWidgetState
 
           if (imageData != null && imageData.isNotEmpty && mounted) {
             Logger.infoLog('[CM EditView] ✅ Impacted item image loaded successfully - photoId: $photoId, imageKey: $imageKey, imageData length: ${imageData.length}');
-            final parts = imageKey.split('-');
-            if (parts.length >= 2) {
-              final serialNo = parts[0];
-              final checklistId = parts[1];
-              // Update state and return the image data
-              setState(() {
-                _impactedItemImages[serialNo] ??= {};
-                _impactedItemImages[serialNo]![checklistId] = imageData;
-              });
-            }
+            setState(() {
+              _storeImpactedImageFromCompositeKey(imageKey, imageData);
+            });
             return imageData;
           } else {
             Logger.errorLog('[CM EditView] ❌ Impacted item image data is null or empty after download - photoId: $photoId, imageKey: $imageKey, uniqueId: $uniqueId, imageData: ${imageData != null ? "EXISTS but empty" : "NULL"}, mounted: $mounted');
@@ -356,8 +359,8 @@ class _CMEditViewChecklistWidgetState
     String serialNo,
     String checklistId,
   ) async {
-    final imageKey = '$serialNo-$checklistId';
-    
+    final imageKey = _makeImpactedImageKey(serialNo, checklistId);
+
     // Check if already loaded
     String? existingImageData = _impactedItemImages[serialNo]?[checklistId];
     if (existingImageData != null && existingImageData.isNotEmpty) {
@@ -416,7 +419,23 @@ class _CMEditViewChecklistWidgetState
     }
   }
 
-  /// Build image widget from base64 data
+  bool _isLocalImageFilePath(String s) {
+    final t = s.trim();
+    if (t.startsWith('file://')) return true;
+    if (t.startsWith('/data/') || t.startsWith('/storage/')) return true;
+    if (t.contains('LOCAL_IMAGE_ID')) return true;
+    return false;
+  }
+
+  String _normalizeLocalImagePath(String s) {
+    final t = s.trim();
+    if (t.startsWith('file://')) {
+      return Uri.parse(t).toFilePath();
+    }
+    return t;
+  }
+
+  /// Build image widget from base64 data or local file path (cached images).
   Widget _buildImageWidget(String? imageData, {double? height, double? width}) {
     if (imageData == null || imageData.isEmpty) {
       return Container(
@@ -430,6 +449,35 @@ class _CMEditViewChecklistWidgetState
           child: Icon(Icons.image, color: Colors.grey),
         ),
       );
+    }
+
+    if (_isLocalImageFilePath(imageData)) {
+      final path = _normalizeLocalImagePath(imageData);
+      final file = File(path);
+      if (file.existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(
+            file,
+            height: height ?? 150,
+            width: width,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                height: height ?? 150,
+                width: width,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Center(
+                  child: Icon(Icons.broken_image, color: Colors.grey),
+                ),
+              );
+            },
+          ),
+        );
+      }
     }
 
     try {
@@ -481,7 +529,7 @@ class _CMEditViewChecklistWidgetState
     }
   }
 
-  /// Shows photo viewer dialog
+  /// Shows photo viewer dialog (base64 / data URL, or on-disk path from image cache).
   Future<void> _showPhotoViewer(BuildContext context, String? imageData) async {
     if (imageData == null || imageData.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -493,57 +541,106 @@ class _CMEditViewChecklistWidgetState
       return;
     }
 
-    // Ensure proper data URL format
-    final finalImageData = imageData.startsWith('data:image/')
-        ? imageData
-        : 'data:image/jpeg;base64,$imageData';
+    final trimmed = imageData.trim();
 
-    // Show photo viewer dialog
-    if (context.mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: true,
-        builder: (context) => Dialog(
-          backgroundColor: Colors.black,
-          child: Stack(
-            children: [
-              Center(
-                child: Container(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.8,
-                    maxWidth: MediaQuery.of(context).size.width * 0.9,
-                  ),
-                  child: Image.memory(
-                    base64Decode(finalImageData.split(',').last),
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Text(
-                          'Failed to load image',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 30,
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ),
-            ],
-          ),
-        ),
+    late final Widget imageWidget;
+
+    if (_isLocalImageFilePath(trimmed)) {
+      final path = _normalizeLocalImagePath(trimmed);
+      final file = File(path);
+      if (!await file.exists()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Image file not found on device.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+      imageWidget = Image.file(
+        file,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) {
+          return const Center(
+            child: Text(
+              'Failed to load image',
+              style: TextStyle(color: Colors.white),
+            ),
+          );
+        },
       );
+    } else {
+      String base64Payload = trimmed;
+      if (trimmed.startsWith('data:image')) {
+        final parts = trimmed.split(',');
+        if (parts.length >= 2) {
+          base64Payload = parts.sublist(1).join(',');
+        }
+      }
+
+      try {
+        imageWidget = Image.memory(
+          base64Decode(base64Payload),
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) {
+            return const Center(
+              child: Text(
+                'Failed to load image',
+                style: TextStyle(color: Colors.white),
+              ),
+            );
+          },
+        );
+      } catch (e) {
+        Logger.errorLog('[CM EditView] _showPhotoViewer decode error: $e');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open image data.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
     }
+
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(dialogContext).size.height * 0.8,
+                  maxWidth: MediaQuery.of(dialogContext).size.width * 0.9,
+                ),
+                child: imageWidget,
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 30,
+                ),
+                onPressed: () => Navigator.of(dialogContext).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Get all unique child items from impacted_item_check_list (for column headers)
@@ -629,11 +726,130 @@ class _CMEditViewChecklistWidgetState
     });
     
     Logger.infoLog('[CM EditView] _getAllChildItems returning ${result.length} child items');
-    return result;
+    return _enrichChildItemsFromTemplate(item, result);
   }
 
-  /// Build DYNAMIC_DROPDOWN table
-  Widget _buildDynamicDropdownTable(Map<String, dynamic> item) {
+  /// Merge checklist template fields (e.g. impacted_item_value_map) into column defs.
+  List<Map<String, dynamic>> _enrichChildItemsFromTemplate(
+    Map<String, dynamic> parentItem,
+    List<Map<String, dynamic>> childItems,
+  ) {
+    if (childItems.isEmpty) return childItems;
+
+    final parentId =
+        parentItem['cmCheckListMstId'] ?? parentItem['cm_check_list_mst_id'];
+    final templateData = widget.originalCmImpactedItemMap[parentId?.toString()] ??
+        widget.originalCmImpactedItemMap[parentId];
+
+    List<dynamic> templateList = [];
+    if (templateData is Map<String, dynamic>) {
+      templateList = templateData['impacted_item_check_list'] ??
+          templateData['impactedItemCheckList'] ??
+          [];
+    }
+    if (templateList.isEmpty) {
+      templateList = parentItem['impacted_item_check_list'] ??
+          parentItem['impactedItemCheckList'] ??
+          [];
+    }
+
+    final templateById = <int, Map<String, dynamic>>{};
+    for (final t in templateList) {
+      if (t is Map<String, dynamic>) {
+        final id = t['cm_check_list_mst_id'] as int? ??
+            t['cmCheckListMstId'] as int? ??
+            0;
+        if (id > 0) templateById[id] = t;
+      }
+    }
+
+    if (templateById.isEmpty) return childItems;
+
+    return childItems.map((child) {
+      final id = child['cm_check_list_mst_id'] as int? ??
+          child['cmCheckListMstId'] as int? ??
+          0;
+      final template = templateById[id];
+      if (template == null) return child;
+      final merged = Map<String, dynamic>.from(template);
+      merged.addAll(child);
+      return merged;
+    }).toList();
+  }
+
+  bool _isSerialImpactedValueMap(String key) {
+    final k = key.trim().toLowerCase().replaceAll('_', '');
+    return k == 'mfgserialno' ||
+        k == 'nexgenserialno' ||
+        k.contains('serialno') ||
+        k == 'mfgserial' ||
+        k == 'nexgenserial';
+  }
+
+  bool _isSerialNumberColumn(Map<String, dynamic> childItem) {
+    final valueMap = childItem['impacted_item_value_map']?.toString() ??
+        childItem['impactedItemValueMap']?.toString() ??
+        '';
+    if (valueMap.isNotEmpty && _isSerialImpactedValueMap(valueMap)) {
+      return true;
+    }
+    final desc = childItem['checklist_desc']?.toString() ??
+        childItem['checklistDesc']?.toString() ??
+        '';
+    return desc.toLowerCase().contains('s.no');
+  }
+
+  String _readImpactedItemField(Map<String, dynamic> data, String fieldKey) {
+    if (fieldKey.isEmpty) return '';
+    final direct = data[fieldKey];
+    if (direct != null && direct.toString().isNotEmpty) {
+      return direct.toString();
+    }
+    if (fieldKey == 'mfg_serial_no' || fieldKey == 'mfgSerialNo') {
+      return data['mfgSerialNo']?.toString() ??
+          data['mfg_serial_no']?.toString() ??
+          '';
+    }
+    if (fieldKey == 'nexgen_serial_no' || fieldKey == 'nexgenSerialNo') {
+      return data['nexgenSerialNo']?.toString() ??
+          data['nexgen_serial_no']?.toString() ??
+          '';
+    }
+    return data[fieldKey]?.toString() ?? '';
+  }
+
+  /// Value for a child column; null => use respType-based logic.
+  String? _resolveImpactedCellValue({
+    required Map<String, dynamic> childItem,
+    required String serialNo,
+    required Map<int, Map<String, dynamic>> childResponses,
+    required int childId,
+  }) {
+    final valueMap = childItem['impacted_item_value_map']?.toString() ??
+        childItem['impactedItemValueMap']?.toString() ??
+        '';
+    final isSerialColumn = _isSerialNumberColumn(childItem);
+
+    if (valueMap.isNotEmpty || isSerialColumn) {
+      final response = childResponses[childId];
+      if (valueMap.isNotEmpty && response != null) {
+        final fromField = _readImpactedItemField(response, valueMap);
+        if (fromField.isNotEmpty) return fromField;
+      }
+      if (isSerialColumn || _isSerialImpactedValueMap(valueMap)) {
+        return serialNo;
+      }
+      return response?['resp']?.toString() ?? '';
+    }
+    return null;
+  }
+
+  /// Build impacted-items table (same layout as DYNAMIC_DROPDOWN).
+  /// When nested under a CHECKBOX_NUMERIC parent row, pass [showChecklistTitle]: false to avoid duplicating the parent question title.
+  Widget _buildDynamicDropdownTable(
+    Map<String, dynamic> item, {
+    bool showChecklistTitle = true,
+  }) {
     final checklistDesc = item['checklistDesc']?.toString() ??
         item['checklist_desc']?.toString() ??
         '';
@@ -697,6 +913,8 @@ class _CMEditViewChecklistWidgetState
       });
       Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - Extracted ${finalChildItems.length} child items from impactedItems');
     }
+
+    finalChildItems = _enrichChildItemsFromTemplate(item, finalChildItems);
     
     if (finalChildItems.isEmpty) {
       Logger.errorLog('[CM EditView] DYNAMIC_DROPDOWN - No child items found for table columns');
@@ -764,177 +982,343 @@ class _CMEditViewChecklistWidgetState
       }
     }
     
-    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - Building table with ${finalChildItems.length} columns and ${groupedBySerial.length} rows');
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Table title
-        Text(
-          checklistDesc,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 16),
-        
-        // Data table
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey.shade300),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              columnSpacing: 20,
-              horizontalMargin: 12,
-              columns: [
-                const DataColumn(
-                  label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
-                // Dynamic columns based on child items
+    Logger.infoLog('[CM EditView] DYNAMIC_DROPDOWN - Building card list with ${finalChildItems.length} columns and ${groupedBySerial.length} rows');
+
+    final serialKeys = groupedBySerial.keys.toList()..sort();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mq = MediaQuery.sizeOf(context).width;
+        final viewportW = (constraints.maxWidth.isFinite && constraints.maxWidth > 0)
+            ? constraints.maxWidth
+            : mq;
+
+        const double minDataColW = 88;
+        final int nData = finalChildItems.length;
+        final double intrinsicMin = nData * minDataColW + 24;
+        final double contentMinW = math.max(intrinsicMin, viewportW);
+
+        const headerStyle = TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+          fontSize: 13,
+          height: 1.25,
+        );
+        const cellTextStyle = TextStyle(
+          fontSize: 14,
+          color: Color(0xFF212121),
+        );
+
+        Widget headerRow() {
+          return Padding(
+            padding: const EdgeInsets.only(left: 4, right: 4, bottom: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 ...finalChildItems.map((childItem) {
-                  final childChecklistDesc = childItem['checklist_desc']?.toString() ??
-                      childItem['checklistDesc']?.toString() ?? '';
-                  return DataColumn(
-                    label: Text(childChecklistDesc, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  );
-                }).toList(),
-              ],
-              rows: groupedBySerial.entries.map((entry) {
-                final serialNo = entry.key;
-                final childResponses = serialToChildResponses[serialNo] ?? {};
-                
-                return DataRow(
-                  cells: [
-                    // Serial Number cell (non-editable in both edit and view mode)
-                    DataCell(
-                      Text(
-                        serialNo,
-                        style: const TextStyle(fontSize: 14, color: Colors.black),
+                  final title = childItem['checklist_desc']?.toString() ??
+                      childItem['checklistDesc']?.toString() ??
+                      '';
+                  return Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Text(
+                        title,
+                        style: headerStyle,
+                        textAlign: TextAlign.center,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Dynamic cells for each child item
-                    ...finalChildItems.map((childItem) {
-                      final childId = childItem['cm_check_list_mst_id'] as int? ??
-                          childItem['cmCheckListMstId'] as int? ??
-                          0;
-                      final childRespType = childItem['resp_type']?.toString() ??
-                          childItem['respType']?.toString() ?? '';
-                      
-                      final childResponse = childResponses[childId];
-                      String? cellValue;
-                      String? imageData;
-                      
-                      if (childResponse != null) {
-                        final resp = childResponse['resp'];
-                        
-                        // Get cell value based on respType
-                        if (childRespType == 'CHECKBOX') {
-                          cellValue = (resp == 'true' || resp == true || resp == 'True' || resp == 'TRUE')
-                              ? 'Yes'
-                              : 'No';
-                        } else if (childRespType == 'CHECKBOX_NUMERIC' || childRespType == 'CHECKBOX_TEXT') {
-                          final numericValue = childResponse['numeric_value']?.toString() ??
-                              childResponse['resp_numeric']?.toString() ?? '';
-                          if (resp == '0' || resp == null || resp == 'false') {
-                            cellValue = 'No';
-                          } else {
-                            cellValue = numericValue.isNotEmpty ? numericValue : 'Yes';
-                          }
-                        } else {
-                          cellValue = resp?.toString() ?? '';
-                        }
-                        
-                        // Check if images exist (show camera icon if cmCheckListSiteRespImagesList is not null and has items)
-                        final imagesList = childResponse['cmCheckListSiteRespImagesList'] ??
-                            childResponse['cm_check_list_site_resp_images_list'];
-                        final hasImagesForCell = imagesList != null && 
-                                                 imagesList is List && 
-                                                 imagesList.isNotEmpty;
-                        
-                        // Try to get loaded image data
-                        if (hasImagesForCell) {
-                          imageData = _impactedItemImages[serialNo]?[childId.toString()];
-                        }
-                      }
-                      
-                      // Get images list for this cell (for camera icon check)
-                      final imagesListForCell = childResponse != null
-                          ? (childResponse['cmCheckListSiteRespImagesList'] ??
-                             childResponse['cm_check_list_site_resp_images_list'])
-                          : null;
-                      final hasImagesForCell = imagesListForCell != null && 
-                                               imagesListForCell is List && 
-                                               imagesListForCell.isNotEmpty;
-                      
-                      return DataCell(
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                cellValue ?? '',
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            // Show image thumbnail if cmCheckListSiteRespImagesList exists
-                            if (hasImagesForCell && childResponse != null) ...[
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: () {
-                                  if (imageData != null) {
-                                    _showPhotoViewer(context, imageData);
-                                  } else if (childResponse != null) {
-                                    // Try to load and show image
-                                    _loadAndShowImageForImpactedItem(
-                                      context,
-                                      serialNo,
-                                      childId.toString(),
-                                      childResponse,
-                                    );
-                                  }
-                                },
-                                child: Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(4),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: imageData != null
-                                      ? ClipRRect(
-                                          borderRadius: BorderRadius.circular(4),
-                                          child: _buildImageWidget(imageData, height: 40, width: 40),
-                                        )
-                                      : const Center(
-                                          child: Icon(
-                                            Icons.image,
-                                            size: 20,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ],
-                );
-              }).toList(),
+                  );
+                }),
+              ],
             ),
-          ),
-        ),
-      ],
+          );
+        }
+
+        Widget rowCard(String serialNo) {
+          final childResponses = serialToChildResponses[serialNo] ?? {};
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: Colors.white,
+              elevation: 1,
+              shadowColor: Colors.black26,
+              borderRadius: BorderRadius.circular(10),
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      ...finalChildItems.map((childItem) {
+                        final childId =
+                            childItem['cm_check_list_mst_id'] as int? ??
+                                childItem['cmCheckListMstId'] as int? ??
+                                0;
+                        final childRespType =
+                            childItem['resp_type']?.toString() ??
+                                childItem['respType']?.toString() ??
+                                '';
+
+                        final childResponse = childResponses[childId];
+                        String? cellValue;
+                        String? imageData;
+
+                        final mappedValue = _resolveImpactedCellValue(
+                          childItem: childItem,
+                          serialNo: serialNo,
+                          childResponses: childResponses,
+                          childId: childId,
+                        );
+
+                        if (mappedValue != null) {
+                          cellValue = mappedValue;
+                        } else if (childResponse != null) {
+                          final resp = childResponse['resp'];
+
+                          if (childRespType == 'CHECKBOX') {
+                            cellValue = (resp == 'true' ||
+                                    resp == true ||
+                                    resp == 'True' ||
+                                    resp == 'TRUE')
+                                ? 'Yes'
+                                : 'No';
+                          } else if (childRespType == 'CHECKBOX_NUMERIC' ||
+                              childRespType == 'CHECKBOX_TEXT') {
+                            final numericValue = childResponse['numeric_value']
+                                    ?.toString() ??
+                                childResponse['numericValue']?.toString() ??
+                                childResponse['resp_numeric']?.toString() ??
+                                childResponse['respNumeric']?.toString() ??
+                                '';
+                            final respStr = resp?.toString() ?? '';
+                            if (respStr == '0' ||
+                                respStr.isEmpty ||
+                                resp == false ||
+                                respStr.toLowerCase() == 'false') {
+                              cellValue = 'No';
+                            } else {
+                              cellValue = numericValue.isNotEmpty
+                                  ? numericValue
+                                  : respStr;
+                            }
+                          } else {
+                            cellValue = resp?.toString() ?? '';
+                          }
+
+                          final imagesList = childResponse[
+                                  'cmCheckListSiteRespImagesList'] ??
+                              childResponse[
+                                  'cm_check_list_site_resp_images_list'];
+                          if (imagesList != null &&
+                              imagesList is List &&
+                              imagesList.isNotEmpty) {
+                            imageData = _impactedItemImages[serialNo]
+                                ?[childId.toString()];
+                          }
+                        }
+
+                        final imagesListForCell = childResponse != null
+                            ? (childResponse[
+                                    'cmCheckListSiteRespImagesList'] ??
+                                childResponse[
+                                    'cm_check_list_site_resp_images_list'])
+                            : null;
+                        final hasImagesForCell = imagesListForCell != null &&
+                            imagesListForCell is List &&
+                            imagesListForCell.isNotEmpty;
+
+                        final cellChild = _buildImpactedCardCell(
+                          context: context,
+                          childRespType: childRespType,
+                          cellValue: cellValue,
+                          childResponse: childResponse,
+                          serialNo: serialNo,
+                          childId: childId,
+                          imageData: imageData,
+                          hasImagesForCell: hasImagesForCell,
+                          cellTextStyle: cellTextStyle,
+                        );
+
+                        return Expanded(
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 4),
+                            child: Center(child: cellChild),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+              ),
+            ),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (showChecklistTitle) ...[
+              Text(
+                checklistDesc,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.45),
+                  width: 1,
+                ),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: const ClampingScrollPhysics(),
+                child: SizedBox(
+                  width: contentMinW,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      headerRow(),
+                      ...serialKeys.map(rowCard),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
+
+  /// Single cell inside impacted-item card row (checkbox icon vs text vs photo).
+  Widget _buildImpactedCardCell({
+    required BuildContext context,
+    required String childRespType,
+    required String? cellValue,
+    required Map<String, dynamic>? childResponse,
+    required String serialNo,
+    required int childId,
+    required String? imageData,
+    required bool hasImagesForCell,
+    required TextStyle cellTextStyle,
+  }) {
+    final accentGreen = const Color(0xFF2E7D32);
+
+    Widget photoThumbnail() {
+      return GestureDetector(
+        onTap: () {
+          if (imageData != null) {
+            _showPhotoViewer(context, imageData);
+          } else if (childResponse != null) {
+            _loadAndShowImageForImpactedItem(
+              context,
+              serialNo,
+              childId.toString(),
+              childResponse,
+            );
+          }
+        },
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: imageData != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: _buildImageWidget(
+                    imageData,
+                    height: 36,
+                    width: 36,
+                  ),
+                )
+              : Icon(Icons.photo_outlined, size: 18, color: Colors.grey.shade500),
+        ),
+      );
+    }
+
+    if (childRespType == 'CHECKBOX') {
+      final isYes = cellValue == 'Yes';
+      final checkIcon = isYes
+          ? Icon(Icons.check_circle, color: accentGreen, size: 26)
+          : Icon(Icons.remove_circle_outline, color: Colors.grey.shade400, size: 22);
+
+      if (hasImagesForCell && childResponse != null) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            checkIcon,
+            const SizedBox(width: 8),
+            photoThumbnail(),
+          ],
+        );
+      }
+      return checkIcon;
+    }
+
+    Widget textPart = Text(
+      cellValue ?? '—',
+      style: cellTextStyle,
+      textAlign: TextAlign.center,
+      maxLines: 4,
+      overflow: TextOverflow.ellipsis,
+    );
+
+    if (hasImagesForCell && childResponse != null) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 92),
+            child: textPart,
+          ),
+          const SizedBox(width: 6),
+          photoThumbnail(),
+        ],
+      );
+    }
+
+    return textPart;
+  }
   
+  /// Parent CHECKBOX_NUMERIC / CHECKBOX_TEXT: checked when resp is a non-empty, non-zero value (API often sends count in resp).
+  bool _isCheckboxNumericParentChecked(dynamic resp) {
+    if (resp == null) return false;
+    final s = resp.toString();
+    if (s.isEmpty || s == '0') return false;
+    if (s.toLowerCase() == 'false') return false;
+    return true;
+  }
+
+  String _checkboxNumericParentDisplayValue(Map<String, dynamic> item, dynamic resp) {
+    final nv = item['numeric_value'] ??
+        item['numericValue'] ??
+        item['resp_numeric'] ??
+        item['respNumeric'];
+    if (nv != null && nv.toString().isNotEmpty) {
+      return nv.toString();
+    }
+    return resp?.toString() ?? '';
+  }
+
   // Debug method to log item structure
   void _logItemStructure(Map<String, dynamic> item, String context) {
     Logger.infoLog('[CM EditView] $context - Item keys: ${item.keys.toList()}');
@@ -977,12 +1361,15 @@ class _CMEditViewChecklistWidgetState
     // Debug logging
     Logger.infoLog('[CM EditView] Building item: $checklistDesc, respType: $respType, resp: $resp, hasImages: $hasImages, hasImpactedItems: $hasImpactedItems, impactedItemsCount: ${impactedItems is List ? impactedItems.length : 0}, checklistId: $checklistId');
     
-    // Special logging for DYNAMIC_DROPDOWN
-    if (respType == 'DYNAMIC_DROPDOWN') {
-      Logger.infoLog('[CM EditView] ⚠️ DYNAMIC_DROPDOWN detected - checklistDesc: $checklistDesc, hasImpactedItems: $hasImpactedItems, impactedItems: ${impactedItems is List ? impactedItems.length : "not a list"}');
-      _logItemStructure(item, 'DYNAMIC_DROPDOWN');
+    if (respType == 'DYNAMIC_DROPDOWN' ||
+        respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+        hasImpactedItems) {
+      Logger.infoLog(
+          '[CM EditView] Impacted-item table candidate - checklistDesc: $checklistDesc, respType: $respType, hasImpactedItems: $hasImpactedItems, impactedItems: ${impactedItems is List ? impactedItems.length : "not a list"}');
+      _logItemStructure(item, 'impacted-items');
       if (impactedItems is List) {
-        Logger.infoLog('[CM EditView] Impacted items details: ${impactedItems.map((i) => i is Map ? '${i['mfgSerialNo'] ?? i['mfg_serial_no']} (${i['checklistDesc'] ?? i['checklist_desc']})' : 'not a map').join(", ")}');
+        Logger.infoLog(
+            '[CM EditView] Impacted items details: ${impactedItems.map((i) => i is Map ? '${i['mfgSerialNo'] ?? i['mfg_serial_no']} (${i['checklistDesc'] ?? i['checklist_desc']})' : 'not a map').join(", ")}');
       }
     }
 
@@ -1111,12 +1498,95 @@ class _CMEditViewChecklistWidgetState
                 );
               }).toList(),
             ],
-          ] else if (respType == 'DYNAMIC_DROPDOWN') ...[
-            // Handle DYNAMIC_DROPDOWN type - Build dynamic table
+          ] else if (respType == 'CHECKBOX_NUMERIC' ||
+              respType == 'CHECKBOX_TEXT') ...[
+            // Checkbox + value field (same idea as CMCustomWidget); optional impacted-items table below
+            Row(
+              children: [
+                Checkbox(
+                  value: _isCheckboxNumericParentChecked(resp),
+                  onChanged: null,
+                ),
+                Expanded(
+                  child: Text(
+                    checklistDesc,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            if (_isCheckboxNumericParentChecked(resp)) ...[
+              const SizedBox(height: 8),
+              CustomFormField(
+                label: 'Enter value',
+                initialValue: _checkboxNumericParentDisplayValue(item, resp),
+                isEditable: false,
+                inputType: respType == 'CHECKBOX_NUMERIC'
+                    ? InputType.number
+                    : InputType.text,
+              ),
+            ],
+            if (hasImages && imagesList is List) ...[
+              const SizedBox(height: 16),
+              ...imagesList.asMap().entries.map((entry) {
+                final imgIndex = entry.key;
+                final imageData = entry.value;
+                final photoId = imageData is Map<String, dynamic>
+                    ? (imageData['photoId'] ?? imageData['photo_id'])?.toString()
+                    : null;
+
+                final imageKey =
+                    photoId != null ? '$checklistId-$photoId' : '$checklistId-$imgIndex';
+                final loadedImageUrl =
+                    _loadedImages[imageKey] ?? _loadedImages[checklistId];
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: ImageUploadField(
+                    label: null,
+                    placeholder: '',
+                    isRequired: false,
+                    isDisabled: true,
+                    externalImageUrl: loadedImageUrl,
+                    onImageSelected: (File? file) {},
+                  ),
+                );
+              }).toList(),
+            ],
+            if (hasImpactedItems) ...[
+              const SizedBox(height: 16),
+              Builder(
+                builder: (context) {
+                  try {
+                    Logger.infoLog(
+                        '[CM EditView] ✅ Rendering impacted-items table under CHECKBOX_NUMERIC/CHECKBOX_TEXT parent: $checklistDesc');
+                    return _buildDynamicDropdownTable(
+                      item,
+                      showChecklistTitle: false,
+                    );
+                  } catch (e, stackTrace) {
+                    Logger.errorLog(
+                        '[CM EditView] ❌ Error building impacted-items table for $checklistDesc: $e');
+                    Logger.errorLog('[CM EditView] Stack trace: $stackTrace');
+                    return Text(
+                      'Error building table: $e',
+                      style: const TextStyle(color: Colors.red),
+                    );
+                  }
+                },
+              ),
+            ],
+          ] else if (respType == 'DYNAMIC_DROPDOWN' ||
+              respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+              (hasImpactedItems &&
+                  respType != 'CHECKBOX_NUMERIC' &&
+                  respType != 'CHECKBOX_TEXT')) ...[
+            // Dynamic impacted-items table only (or types other than CHECKBOX_* that carry cmImpactedItemList)
             Builder(
               builder: (context) {
                 try {
-                  Logger.infoLog('[CM EditView] ✅ Rendering DYNAMIC_DROPDOWN table for: $checklistDesc');
+                  Logger.infoLog(
+                      '[CM EditView] ✅ Rendering impacted-items table for: $checklistDesc (respType: $respType)');
                   Logger.infoLog('[CM EditView] Item keys: ${item.keys.toList()}');
                   Logger.infoLog('[CM EditView] cmImpactedItemList: ${item['cmImpactedItemList'] != null ? "EXISTS" : "NULL"}');
                   Logger.infoLog('[CM EditView] cm_impacted_item_list: ${item['cm_impacted_item_list'] != null ? "EXISTS" : "NULL"}');
@@ -1125,7 +1595,7 @@ class _CMEditViewChecklistWidgetState
                   Logger.infoLog('[CM EditView] ✅ Table widget built successfully for: $checklistDesc');
                   return tableWidget;
                 } catch (e, stackTrace) {
-                  Logger.errorLog('[CM EditView] ❌ Error building DYNAMIC_DROPDOWN table for $checklistDesc: $e');
+                  Logger.errorLog('[CM EditView] ❌ Error building impacted-items table for $checklistDesc: $e');
                   Logger.errorLog('[CM EditView] Stack trace: $stackTrace');
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

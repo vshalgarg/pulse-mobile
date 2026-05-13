@@ -134,11 +134,6 @@ class _CorrectiveMaintenanceScreenState
     return normalized == 'CLOSE' || normalized == 'CLOSED';
   }
 
-  bool _isOpenStatus(dynamic status) {
-    if (status == null) return false;
-    return status.toString().trim().toUpperCase() == 'OPEN';
-  }
-
   @override
   void initState() {
     super.initState();
@@ -487,12 +482,17 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] RCA initialized: $rca');
     }
     
-    // Closure Date
-    final closureDate = _getValue(preloadedSite, 'endDt', 'end_dt') ??
-        _getValue(preloadedSite, 'closureDate', 'closure_date');
-    if (closureDate != null) {
-      controllers['closure_date']!.text = _formatDateStringForApi(closureDate);
-      Logger.infoLog('[CM] Closure Date initialized: $closureDate');
+    // Closure Date — use calendar date from API string only (part before `T`), no timezone
+    final rawEndDt = preloadedSite['endDt'] ??
+        preloadedSite['end_dt'] ??
+        preloadedSite['closureDate'] ??
+        preloadedSite['closure_date'];
+    if (rawEndDt != null) {
+      final display = _apiDateStringToDdMmYyyy(rawEndDt.toString());
+      if (display.isNotEmpty) {
+        controllers['closure_date']!.text = display;
+        Logger.infoLog('[CM] Closure Date initialized from endDt: $rawEndDt -> $display');
+      }
     }
     
     // OEM Representative
@@ -1080,7 +1080,7 @@ class _CorrectiveMaintenanceScreenState
                 mergedItem['resp_type'] = existingResponse['resp_type'];
               }
               
-              // Merge cmImpactedItemList directly (for DYNAMIC_DROPDOWN)
+              // Merge cmImpactedItemList when API returns it (dynamic dropdown, CHECKBOX_NUMERIC with impacted rows, etc.)
               final existingImpactedItems = existingResponse['cmImpactedItemList'] ?? 
                                            existingResponse['CmImpactedItemList'] ?? 
                                            existingResponse['cm_impacted_item_list'] ?? [];
@@ -1628,7 +1628,8 @@ class _CorrectiveMaintenanceScreenState
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 100,
+                      bottom: MediaQuery.of(context).viewInsets.bottom +
+                          (_resolvedMode == CMScreenModeEnum.view ? 24 : 100),
                     ),
                     child: Container(
                       padding: const EdgeInsets.all(16),
@@ -1643,41 +1644,35 @@ class _CorrectiveMaintenanceScreenState
                   ),
                 ),
 
-                // Bottom Buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ArrowButton(
-                          text: "Save",
-                          isLeftArrow: false,
-                          showArrow: false,
-                          backgroundColor: AppColors.cmSubmitButtonColor,
-                          textColor: AppColors.buttonColorSite,
-                          onPressed:
-                              (_resolvedMode == CMScreenModeEnum.view || _isSubmitting)
-                              ? null
-                              : _save,
+                if (_resolvedMode != CMScreenModeEnum.view)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ArrowButton(
+                            text: "Save",
+                            isLeftArrow: false,
+                            showArrow: false,
+                            backgroundColor: AppColors.cmSubmitButtonColor,
+                            textColor: AppColors.buttonColorSite,
+                            onPressed: _isSubmitting ? null : _save,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ArrowButton(
-                          text: "Save & Close",
-                          isLeftArrow: false,
-                          showArrow: false,
-                          backgroundColor: AppColors.cmSubmitButtonColor,
-                          textColor: AppColors.buttonColorSite,
-                          onPressed:
-                              (_resolvedMode == CMScreenModeEnum.view || _isSubmitting)
-                              ? null
-                              : _saveAndClose,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ArrowButton(
+                            text: "Save & Close",
+                            isLeftArrow: false,
+                            showArrow: false,
+                            backgroundColor: AppColors.cmSubmitButtonColor,
+                            textColor: AppColors.buttonColorSite,
+                            onPressed: _isSubmitting ? null : _saveAndClose,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -1725,9 +1720,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Current Status",
           controller: _currentStatusController,
           isEditable: false,
-          textColor: _isOpenStatus(_currentStatusController.text)
-              ? AppColors.blue
-              : AppColors.color555555,
+          textColor: AppColors.color555555,
         ),
         getHeight(15),
         CustomFormField(
@@ -1911,10 +1904,12 @@ class _CorrectiveMaintenanceScreenState
         getHeight(15),
         ],
 
-        // Closure Date - tap to open calendar, typing disabled
+        // Closure Date - tap to open calendar in edit only; view mode disabled
         if (widget.mode != CMScreenModeEnum.create) ...[
           GestureDetector(
-            onTap: _pickClosureDate,
+            onTap: _resolvedMode == CMScreenModeEnum.edit
+                ? _pickClosureDate
+                : null,
             child: AbsorbPointer(
               child: CustomFormField(
                 label: "Closure Date",
@@ -2111,25 +2106,42 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  /// Format date string to dd/MM/yyyy format
+  /// API date → `dd/MM/yyyy` using only the `YYYY-MM-DD` segment (before `T` if present). No timezone.
+  String _apiDateStringToDdMmYyyy(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.contains('/')) return trimmed;
+
+    String ymd;
+    final tIndex = trimmed.indexOf('T');
+    if (tIndex > 0) {
+      ymd = trimmed.substring(0, tIndex);
+    } else if (trimmed.length >= 10 &&
+        trimmed[4] == '-' &&
+        trimmed[7] == '-') {
+      ymd = trimmed.substring(0, 10);
+    } else {
+      return trimmed;
+    }
+
+    final parts = ymd.split('-');
+    if (parts.length == 3 && parts[0].length == 4) {
+      return '${parts[2]}/${parts[1]}/${parts[0]}';
+    }
+    return trimmed;
+  }
+
+  /// Format date string to dd/MM/yyyy for display (e.g. Start Date).
   String _formatDateStringForApi(String? dateString) {
     if (dateString == null || dateString.isEmpty) {
       return _formatDateForApi(DateTime.now());
     }
+    final display = _apiDateStringToDdMmYyyy(dateString);
+    if (display.contains('/')) {
+      return display;
+    }
     try {
-      // Try to parse the date string
-      DateTime date;
-      if (dateString.contains('T')) {
-        // ISO format
-        date = DateTime.parse(dateString);
-      } else if (dateString.contains('/')) {
-        // Already in dd/MM/yyyy format
-        return dateString;
-      } else {
-        // Try parsing as is
-        date = DateTime.parse(dateString);
-      }
-      return _formatDateForApi(date);
+      return _formatDateForApi(DateTime.parse(dateString.trim()));
     } catch (e) {
       Logger.errorLog('[CM] Error formatting date: $dateString, error: $e');
       return _formatDateForApi(DateTime.now());
@@ -2138,12 +2150,33 @@ class _CorrectiveMaintenanceScreenState
 
   DateTime? _parseFlexibleDate(String? dateString) {
     if (dateString == null || dateString.trim().isEmpty) return null;
-    final raw = dateString.trim();
-    try {
-      return DateTime.parse(raw);
-    } catch (_) {}
+    var raw = dateString.trim();
+
+    // dd/MM/yyyy from field / picker
     try {
       return DateFormat('dd/MM/yyyy').parseStrict(raw);
+    } catch (_) {}
+
+    // API ISO: date before T only
+    final tIndex = raw.indexOf('T');
+    if (tIndex > 0) {
+      raw = raw.substring(0, tIndex);
+    }
+    if (raw.length >= 10 && raw[4] == '-' && raw[7] == '-') {
+      final parts = raw.substring(0, 10).split('-');
+      if (parts.length == 3) {
+        try {
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+        } catch (_) {}
+      }
+    }
+
+    try {
+      return DateTime.parse(raw);
     } catch (_) {}
     return null;
   }
@@ -2155,7 +2188,10 @@ class _CorrectiveMaintenanceScreenState
   }
 
   Future<void> _pickClosureDate() async {
-    if (_resolvedMode == CMScreenModeEnum.create) return;
+    if (_resolvedMode == CMScreenModeEnum.create ||
+        _resolvedMode == CMScreenModeEnum.view) {
+      return;
+    }
     final initialDate = _parseFlexibleDate(controllers['closure_date']!.text) ?? DateTime.now();
     final pickedDate = await showDatePicker(
       context: context,
@@ -2746,16 +2782,22 @@ class _CorrectiveMaintenanceScreenState
       
       // Get response value based on resp_type
       dynamic respValue;
-      final respType = checklistItem['resp_type']?.toString() ?? '';
+      final respType = checklistItem['resp_type']?.toString() ??
+          checklistItem['respType']?.toString() ??
+          '';
       
       // Check if this checklist item has impacted items (primary check)
       final hasImpactedItems = checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId);
       
-      // Additional fallback check: For DYNAMIC_DROPDOWN, also check if any impacted items have this parent ID
-      // (in case grouping didn't work correctly)
+      // Additional fallback: walk impacted items when grouping may miss the parent row
+      // (DYNAMIC_DROPDOWN, MULTI_DYNAMIC_DROPDOWN, or parent rows that carry impacted data under CHECKBOX_NUMERIC / CHECKBOX_TEXT)
       bool hasAnyImpactedItems = false;
-      if ((respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') && checklistMstId != null) {
-        Logger.infoLog('[CM] Transform - Checking fallback for DYNAMIC_DROPDOWN with mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items: ${_impactedItemList.length}');
+      if (checklistMstId != null &&
+          (respType == 'DYNAMIC_DROPDOWN' ||
+              respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+              respType == 'CHECKBOX_NUMERIC' ||
+              respType == 'CHECKBOX_TEXT')) {
+        Logger.infoLog('[CM] Transform - Checking impacted-item fallback for respType $respType, mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items: ${_impactedItemList.length}');
         // Check all impacted items to see if any have this parent ID
         for (var impactedItem in _impactedItemList) {
           final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
@@ -2785,7 +2827,7 @@ class _CorrectiveMaintenanceScreenState
           if (hasAnyImpactedItems) break;
         }
         if (!hasAnyImpactedItems) {
-          Logger.errorLog('[CM] Transform - ❌ No matching parent ID found in fallback check for mstId: $checklistMstId, checklistDesc: $checklistDesc');
+          Logger.errorLog('[CM] Transform - ❌ No matching parent ID found in fallback check for mstId: $checklistMstId, checklistDesc: $checklistDesc, respType: $respType');
           Logger.errorLog('[CM] Transform - Available parent IDs in impacted items: ${impactedItemsByParentMstId.keys.toList()}');
         }
       }
@@ -2928,13 +2970,17 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Add impacted items for DYNAMIC_DROPDOWN and MULTI_DYNAMIC_DROPDOWN
-      // Always include cmImpactedItemList (even if empty) to ensure complete checklist is sent
-      if (respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') {
+      // Add impacted items for DYNAMIC_DROPDOWN / MULTI_DYNAMIC_DROPDOWN, and for CHECKBOX_NUMERIC / CHECKBOX_TEXT
+      // when this parent row has impacted data (same payload shape as dynamic dropdown).
+      final bool attachImpactedListToRow = respType == 'DYNAMIC_DROPDOWN' ||
+          respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+          (finalHasImpactedItems &&
+              (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT'));
+      if (attachImpactedListToRow) {
         final transformedImpactedItems = <Map<String, dynamic>>[];
         List<Map<String, dynamic>> impactedItemsForThisParent = [];
         
-        Logger.infoLog('[CM] Processing DYNAMIC_DROPDOWN - mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items in list: ${_impactedItemList.length}');
+        Logger.infoLog('[CM] Processing impacted list for checklist row - respType: $respType, mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items in list: ${_impactedItemList.length}');
         
         // Primary check: Use grouped impacted items
         if (checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId)) {
