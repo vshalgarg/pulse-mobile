@@ -3447,14 +3447,31 @@ class _CorrectiveMaintenanceScreenState
       if (controllers['action_taken']!.text.trim().isEmpty) {
         errors.add('Action Taken is required');
       }
+
+      // Closure Date - required only in edit/view mode
+      final closureDateText = controllers['closure_date']!.text.trim();
+      if (closureDateText.isEmpty) {
+        errors.add('Closure Date is required');
+      } else {
+        final closureDate = _parseFlexibleDate(closureDateText);
+        if (closureDate == null) {
+          errors.add('Closure Date is invalid');
+        } else if (_isFutureDate(closureDate)) {
+          errors.add('Closure date cannot be a future date');
+        }
+      }
+
+      if (controllers['problem_summary']!.text.trim().isEmpty) {
+        errors.add('Problem Summary is required');
+      }
     }
     
     // RCA - required only in edit/view mode
-    if (widget.mode != CMScreenModeEnum.create) {
+   
       if (controllers['rca']!.text.trim().isEmpty) {
         errors.add('RCA is required');
       }
-    }
+  
     
    
     
