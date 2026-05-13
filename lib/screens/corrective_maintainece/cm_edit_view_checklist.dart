@@ -3,6 +3,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
+import 'package:app/constants/app_colors.dart';
+import 'package:app/constants/constants_strings.dart';
 import 'package:flutter/material.dart';
 import '../../commonWidgets/custom_form_field.dart'
     show CustomFormField, InputType;
@@ -44,6 +46,19 @@ class CMEditViewChecklistWidget extends StatefulWidget {
 
 class _CMEditViewChecklistWidgetState
     extends State<CMEditViewChecklistWidget> {
+  static const TextStyle _sectionLabelStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w500,
+    color: Colors.white,
+    fontFamily: fontFamilyMontserrat,
+  );
+  static const TextStyle _fieldValueStyle = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: AppColors.color555555,
+    fontFamily: fontFamilyMontserrat,
+  );
+
   late List<Map<String, dynamic>> _checklistItems;
   Map<String, String?> _loadedImages =
       {}; // Store loaded image data by checklist ID or impacted item ID
@@ -950,11 +965,7 @@ class _CMEditViewChecklistWidgetState
         children: [
           Text(
             checklistDesc,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
+            style: _sectionLabelStyle,
           ),
           const SizedBox(height: 8),
           Text(
@@ -998,16 +1009,8 @@ class _CMEditViewChecklistWidgetState
         final double intrinsicMin = nData * minDataColW + 24;
         final double contentMinW = math.max(intrinsicMin, viewportW);
 
-        const headerStyle = TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontSize: 13,
-          height: 1.25,
-        );
-        const cellTextStyle = TextStyle(
-          fontSize: 14,
-          color: Color(0xFF212121),
-        );
+        const headerStyle = _sectionLabelStyle;
+        const cellTextStyle = _fieldValueStyle;
 
         Widget headerRow() {
           return Padding(
@@ -1164,11 +1167,7 @@ class _CMEditViewChecklistWidgetState
             if (showChecklistTitle) ...[
               Text(
                 checklistDesc,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: _sectionLabelStyle,
               ),
               const SizedBox(height: 16),
             ],
@@ -1462,7 +1461,7 @@ class _CMEditViewChecklistWidgetState
                 Expanded(
                   child: Text(
                     checklistDesc,
-                    style: const TextStyle(color: Colors.white),
+                    style: _sectionLabelStyle,
                   ),
                 ),
               ],
@@ -1510,7 +1509,7 @@ class _CMEditViewChecklistWidgetState
                 Expanded(
                   child: Text(
                     checklistDesc,
-                    style: const TextStyle(color: Colors.white),
+                    style: _sectionLabelStyle,
                   ),
                 ),
               ],
@@ -1602,11 +1601,7 @@ class _CMEditViewChecklistWidgetState
                     children: [
                       Text(
                         checklistDesc,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: _sectionLabelStyle,
                       ),
                       const SizedBox(height: 8),
                       Text(

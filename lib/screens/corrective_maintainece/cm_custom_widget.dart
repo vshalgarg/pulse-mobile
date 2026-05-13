@@ -2690,7 +2690,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 _currentItem['checklist_desc']?.toString() ?? '',
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.normal,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontFamily: fontFamilyMontserrat,
                 ),
               ),
             ),
@@ -2814,7 +2816,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 _currentItem['checklist_desc']?.toString() ?? '',
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.normal,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontFamily: fontFamilyMontserrat,
                 ),
               ),
             ),
@@ -3199,7 +3203,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             parentDesc,
             style: const TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: Colors.white,
               fontFamily: fontFamilyMontserrat,
             ),
