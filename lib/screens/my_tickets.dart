@@ -289,6 +289,22 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
     }
   }
 
+  /// CM ticket status badge: OPEN = orange, CLOSED = grey (matches ticket_screen).
+  Color? _getCmStatusColor(ActivityTypeEnum activityType, String status) {
+    if (activityType != ActivityTypeEnum.correctiveMaintenance) {
+      return null;
+    }
+    switch (status.trim().toLowerCase()) {
+      case 'open':
+        return Colors.orange;
+      case 'closed':
+      case 'close':
+        return Colors.grey;
+      default:
+        return null;
+    }
+  }
+
   Future<void> _navigateToWorkflow(RawApiDataModel ticket) async {
     try {
       LoaderWidget.showLoader(context);
@@ -468,9 +484,7 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
           context,
           MaterialPageRoute(
             builder: (_) => CorrectiveMaintenanceScreen(
-              mode: ticket.status == 'COMPLETED' || ticket.status == 'Closed'
-                  ? CMScreenModeEnum.view
-                  : CMScreenModeEnum.edit,
+              mode: _resolveCmScreenMode(ticket, data.apiData),
               preloadedSiteData: data.apiData,
               parentContext: parentContext,
             ),
@@ -805,9 +819,12 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
   }
 
   Future<void> _navigateToAuditScreen(RawApiDataModel ticket) async {
-    // Keep restricted statuses non-openable.
+    // Keep restricted statuses non-openable (CM closed tickets open in view mode).
     final status = ticket.status.toLowerCase();
-    if (status == 'closed' || status == 'missed deadline') {
+    if (ticket.activityType != ActivityTypeEnum.correctiveMaintenance &&
+        (status == 'closed' ||
+            status == 'close' ||
+            status == 'missed deadline')) {
       Toastbar.showInfoToastbar(
         "Ticket can't be opened. Please download PDF.",
         context,
@@ -992,6 +1009,42 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       return fromPayload;
     }
     return col.isEmpty ? 'N/A' : rawData.status;
+  }
+
+  String? _cmStatusFromApiData(Map<String, dynamic> apiData) {
+    var map = mergeNestedSiteMapsIntoIncidentTicket(
+      Map<String, dynamic>.from(apiData),
+    );
+    if (map['data'] is Map<String, dynamic>) {
+      map = mergeNestedSiteMapsIntoIncidentTicket(
+        Map<String, dynamic>.from(map['data'] as Map),
+      );
+    }
+    final status = map['status'] ?? map['Status'];
+    if (status == null) return null;
+    final text = status.toString().trim();
+    return text.isEmpty ? null : text;
+  }
+
+  bool _isCmClosedOrCompletedStatus(String? status) {
+    if (status == null) return false;
+    final normalized = status.trim().toUpperCase();
+    return normalized == 'CLOSED' ||
+        normalized == 'CLOSE' ||
+        normalized == 'COMPLETED';
+  }
+
+  CMScreenModeEnum _resolveCmScreenMode(
+    RawApiDataModel ticket,
+    Map<String, dynamic> apiData,
+  ) {
+    final apiStatus = _cmStatusFromApiData(apiData);
+    if (_isCmClosedOrCompletedStatus(apiStatus) ||
+        _isCmClosedOrCompletedStatus(_displayStatusForTicket(ticket)) ||
+        _isCmClosedOrCompletedStatus(ticket.status)) {
+      return CMScreenModeEnum.view;
+    }
+    return CMScreenModeEnum.edit;
   }
 
   // Convert RawApiDataModel to Ticket for display
@@ -1498,6 +1551,10 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
             raisedOn: ticket.raisedDt,
             dueDate: ticket.dueDt,
             statusText: ticket.status ?? 'N/A',
+            statusColor: _getCmStatusColor(
+              rawTicket.activityType,
+              ticket.status ?? 'N/A',
+            ),
             totalAssets: ticket.totalAssets,
             activityType: rawTicket.activityType,
             isDownloadedFunc: (ticket) async =>

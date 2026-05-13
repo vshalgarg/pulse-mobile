@@ -267,6 +267,22 @@ class _TicketScreenState extends State<TicketScreen>
     }
   }
 
+  /// CM ticket status badge: OPEN = orange, CLOSED = grey.
+  Color? _getCmStatusColor(String status) {
+    if (_currentActivityType != ActivityTypeEnum.correctiveMaintenance) {
+      return null;
+    }
+    switch (status.trim().toLowerCase()) {
+      case 'open':
+        return Colors.orange;
+      case 'closed':
+      case 'close':
+        return Colors.grey;
+      default:
+        return null;
+    }
+  }
+
   Future<void> _navigateToWorkflow(Ticket? ticket) async {
     if (ticket == null) return;
 
@@ -1271,6 +1287,7 @@ class _TicketScreenState extends State<TicketScreen>
             dueDate: ticket.dueDt,
             totalAssets: ticket.totalAssets,
             statusText: statusText,
+            statusColor: _getCmStatusColor(statusText),
             activityType: _currentActivityType,
             isDownloadedFunc: _isTicketDownloaded,
             onPdfDownloadTap: () => _downloadReport(ticket),

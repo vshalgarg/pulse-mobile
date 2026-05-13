@@ -124,6 +124,8 @@ class _CorrectiveMaintenanceScreenState
   bool _hasFormDataChanges = false;
   bool _isSubmitting = false; // Flag to prevent duplicate submissions
   bool _forceViewMode = false;
+  Map<String, dynamic>? _mergedPreloadedSite;
+  String _oemTicketIdDisplay = '';
 
   CMScreenModeEnum get _resolvedMode =>
       _forceViewMode ? CMScreenModeEnum.view : widget.mode;
@@ -167,6 +169,7 @@ class _CorrectiveMaintenanceScreenState
       if (preloadedSite.containsKey('data') && preloadedSite['data'] is Map<String, dynamic>) {
         preloadedSite = Map<String, dynamic>.from(preloadedSite['data']);
       }
+      _mergedPreloadedSite = preloadedSite;
 
       // Try both camelCase and snake_case for cmSiteReqId
       cmSiteReqId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
@@ -216,6 +219,7 @@ class _CorrectiveMaintenanceScreenState
       _siteOptions = [site];
       _initializeTicketControllers(preloadedSite);
       _onSiteSelected(site);
+      _loadFreshTicketDetailsIfNeeded();
     }
   }
 
@@ -378,6 +382,39 @@ class _CorrectiveMaintenanceScreenState
     return strValue;
   }
 
+  void _applyOemTicketIdFromMap(Map<String, dynamic> map) {
+    final oemTicketId = _getValue(map, 'oemTicketId', 'oem_ticket_id');
+    if (oemTicketId != null) {
+      controllers['oem_ticket_id']!.text = oemTicketId;
+      _oemTicketIdDisplay = oemTicketId;
+      Logger.infoLog('[CM] OEM Ticket ID initialized: $oemTicketId');
+    }
+  }
+
+  Future<void> _loadFreshTicketDetailsIfNeeded() async {
+    if (widget.mode == CMScreenModeEnum.create) return;
+    final parsedId = cmSiteReqId is int
+        ? cmSiteReqId
+        : int.tryParse(cmSiteReqId?.toString() ?? '');
+    if (parsedId == null || parsedId <= 0) return;
+    if (!await ConnectivityHelper.isConnected()) return;
+
+    try {
+      final ticketData =
+          await ServiceLocator().cmRepository.getCmTicketData(parsedId);
+      if (!mounted) return;
+
+      _mergedPreloadedSite = {
+        ...?_mergedPreloadedSite,
+        ...ticketData,
+      };
+      _applyOemTicketIdFromMap(ticketData);
+      setState(() {});
+    } catch (e) {
+      Logger.errorLog('[CM] Failed to refresh ticket details from API: $e');
+    }
+  }
+
   /// Match API value to a static option ignoring case; returns the option string so UI shows exact option (e.g. "Self" not "SELF").
   String? _matchOptionIgnoreCase(String? apiValue, List<String> options) {
     if (apiValue == null || apiValue.trim().isEmpty) return null;
@@ -439,12 +476,7 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] Priority initialized: $priority');
     }
     
-    // OEM Ticket ID
-    final oemTicketId = _getValue(preloadedSite, 'oemTicketId', 'oem_ticket_id');
-    if (oemTicketId != null) {
-      controllers['oem_ticket_id']!.text = oemTicketId;
-      Logger.infoLog('[CM] OEM Ticket ID initialized: $oemTicketId');
-    }
+    _applyOemTicketIdFromMap(preloadedSite);
     
     // Fault Description
     final faultDescription = _getValue(preloadedSite, 'faultDescription', 'fault_description');
@@ -911,6 +943,15 @@ class _CorrectiveMaintenanceScreenState
                                    ticketData['cm_check_list_site_resp_list'] ?? [];
                 
                 Logger.infoLog('[CM] Fetched ${existingResponses.length} checklist responses from API');
+
+                if (mounted) {
+                  _mergedPreloadedSite = {
+                    ...?_mergedPreloadedSite,
+                    ...ticketData,
+                  };
+                  _applyOemTicketIdFromMap(ticketData);
+                  setState(() {});
+                }
                 
                 // Also update preloadedSiteData with the fetched data for consistency
                 if (mounted && existingResponses.isNotEmpty) {
@@ -1807,12 +1848,18 @@ class _CorrectiveMaintenanceScreenState
         ),
         getHeight(15),
 
-        // 👇 OEM Ticket ID - Required only when OEM is selected; disabled when Category is Self
+        // OEM Ticket ID — editable in create/edit for both OEM and Self category
         CustomFormField(
+          key: ValueKey('oem-ticket-$_oemTicketIdDisplay'),
           label: "OEM Ticket ID",
-          controller: controllers['oem_ticket_id'],
+          initialValue: _oemTicketIdDisplay,
           isEditable: _resolvedMode != CMScreenModeEnum.view,
           isRequired: false,
+          onChanged: (value) {
+            _oemTicketIdDisplay = value;
+            controllers['oem_ticket_id']!.text = value;
+            _onFormChanged();
+          },
         ),
         getHeight(15),
 
@@ -2098,12 +2145,19 @@ class _CorrectiveMaintenanceScreenState
       requestData['problem_summary'] = null;
       requestData['problemSummary'] = null;
     }
-    // When Category is Self, send oemTicketId as null
-    final responsibleParty = requestData['responsible_party']?.toString().trim().toUpperCase();
-    if (responsibleParty == 'SELF') {
-      requestData['oem_ticket_id'] = null;
-      requestData['oemTicketId'] = null;
-    }
+  }
+
+  void _applyOemTicketIdToRequest(Map<String, dynamic> requestData) {
+    final value = controllers['oem_ticket_id']!.text.trim();
+    requestData.remove('oem_ticket_id');
+    requestData['oemTicketId'] = value.isEmpty ? null : value;
+  }
+
+  /// API expects camelCase [oemTicketId] on the final POST body.
+  void _ensureOemTicketIdOnApiPayload(Map<String, dynamic> payload) {
+    payload.remove('oem_ticket_id');
+    final value = controllers['oem_ticket_id']!.text.trim();
+    payload['oemTicketId'] = value.isEmpty ? null : value;
   }
 
   /// API date → `dd/MM/yyyy` using only the `YYYY-MM-DD` segment (before `T` if present). No timezone.
@@ -3550,6 +3604,7 @@ class _CorrectiveMaintenanceScreenState
       requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
       requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
       requestData['status'] = forceCloseStatus ? 'CLOSED' : 'OPEN';
+      _applyOemTicketIdToRequest(requestData);
       
       // Set OEM Representative Contact with correct key for edit mode
       if (controllers['oem_representative_contact']!.text.trim().isNotEmpty) {
@@ -3757,8 +3812,10 @@ class _CorrectiveMaintenanceScreenState
       _stripDuplicateFsrKeysBeforeCamelCase(requestData);
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
+      _ensureOemTicketIdOnApiPayload(processedData);
       
       Logger.infoLog('[CM] Final processedData keys: ${processedData.keys.toList()}');
+      Logger.infoLog('[CM] oemTicketId in payload: ${processedData['oemTicketId']}');
       
       // Impacted items are now nested inside cmCheckListSiteRespList, so no need for separate top-level field
       // Remove any top-level impacted item list if it exists
@@ -3894,6 +3951,7 @@ class _CorrectiveMaintenanceScreenState
       requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
       requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
       requestData['status'] = forceCloseStatus ? 'CLOSED' : 'OPEN';
+      _applyOemTicketIdToRequest(requestData);
       
       // Set assigned_to based on responsible_party
       if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
@@ -4065,8 +4123,10 @@ class _CorrectiveMaintenanceScreenState
       // Convert keys to camelCase for API
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
+      _ensureOemTicketIdOnApiPayload(processedData);
       
       Logger.infoLog('[CM] Final processedData keys (create): ${processedData.keys.toList()}');
+      Logger.infoLog('[CM] oemTicketId in payload: ${processedData['oemTicketId']}');
       // Impacted items are now nested inside cmCheckListSiteRespList, so no need for separate top-level field
       // Remove any top-level impacted item list if it exists
       processedData.remove('cmImpactedItemList');
