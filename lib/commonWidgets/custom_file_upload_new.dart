@@ -8,6 +8,7 @@ import '../constants/constants_strings.dart';
 import '../utils/toastbar.dart';
 
 class CustomFileUploadNew extends StatelessWidget {
+  static const List<String> _defaultAllowedExtensions = ['pdf', 'doc', 'docx'];
   final String? label;
   final String? placeholder;
   final File? selectedFile;
@@ -81,17 +82,15 @@ class CustomFileUploadNew extends StatelessWidget {
     }
 
     final FilePickerResult? result;
-    final exts = pickAllowedExtensions;
-    result = (exts != null && exts.isNotEmpty)
-        ? await FilePicker.platform.pickFiles(
-            type: FileType.custom,
-            allowedExtensions: exts,
-            allowMultiple: false,
-          )
-        : await FilePicker.platform.pickFiles(
-            type: FileType.any,
-            allowMultiple: false,
-          );
+    final exts =
+        (pickAllowedExtensions != null && pickAllowedExtensions!.isNotEmpty)
+            ? pickAllowedExtensions!.map((e) => e.toLowerCase()).toList()
+            : _defaultAllowedExtensions;
+    result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: exts,
+      allowMultiple: false,
+    );
 
     if (result != null && result.files.single.path != null) {
       final file = File(result.files.single.path!);
@@ -100,6 +99,16 @@ class CustomFileUploadNew extends StatelessWidget {
   }
 
   Future<void> _validateAndSelectFile(BuildContext context, File file) async {
+    final extension = file.path.split('.').last.toLowerCase();
+    if (!_defaultAllowedExtensions.contains(extension)) {
+      if (!context.mounted) return;
+      Toastbar.showErrorToastbar(
+        'Only PDF, DOC and DOCX files are allowed.',
+        context,
+      );
+      return;
+    }
+
     // Check file size (2 MB = 2 * 1024 * 1024 bytes)
     const int maxSizeInBytes = 2 * 1024 * 1024; // 2 MB
     final int fileSizeInBytes = await file.length();

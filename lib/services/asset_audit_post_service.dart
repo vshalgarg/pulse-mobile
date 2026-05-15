@@ -5,6 +5,7 @@ import 'package:app/models/location_model.dart';
 import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/services/location_service.dart';
 import 'package:app/services/service_locator.dart';
+import 'package:app/services/upload_dcouments.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/data_transformation_helper.dart';
@@ -660,6 +661,8 @@ class AssetAuditPostService {
 
       // Upload all LOCAL_IMAGE_ID photos and replace with server IDs in processedData (the payload we send).
       await _processCMRequestForImages(processedData);
+      // FSR document: same as app screen — UploadDocuments before POST, ids stay on JSON body (no post-create FSR multipart).
+      await _processCMFsrUploadDocumentsBeforePost(processedData);
 
       // Extract image IDs before removing them from the request
       final customerPhotoId =
@@ -668,9 +671,6 @@ class AssetAuditPostService {
       final customerAttachmentId =
           processedData['customer_attachment_id'] ??
           processedData['customerAttachmentId'];
-      final fsrAttachmentId =
-          processedData['fsr_attachment_id'] ??
-          processedData['fsrAttachmentId'];
 
       // Extract original file info for customer attachment (to preserve filename)
       // Support both snake_case (raw stored) and camelCase (after convertKeysToCamelCase)
@@ -681,16 +681,6 @@ class AssetAuditPostService {
           processedData['customer_original_file_name'] ??
           processedData['customerOriginalFileName'];
 
-      // Extract FSR attachment file info
-      final fsrOriginalFilePath =
-          processedData['fsr_original_file_path'] ??
-          processedData['fsrOriginalFilePath'];
-      final fsrOriginalFileName =
-          processedData['fsr_original_file_name'] ??
-          processedData['fsrOriginalFileName'] ??
-          processedData['fsrAttachmentName'] ??
-          processedData['fsr_attachment_name'];
-
       // Extract attachment name if present, or use original filename
       final customerAttachmentName =
           processedData['customer_attachmen_name'] ??
@@ -698,10 +688,10 @@ class AssetAuditPostService {
           customerOriginalFileName;
 
       Logger.infoLog(
-        "Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId, fsrAttachmentId: $fsrAttachmentId",
+        "Extracted image IDs - customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
       );
       Logger.infoLog(
-        "Extracted attachment names - customerAttachmentName: $customerAttachmentName, fsrAttachmentName: $fsrOriginalFileName",
+        "Extracted attachment names - customerAttachmentName: $customerAttachmentName",
       );
 
       // Remove image IDs and file info from the request data before creating CM ticket
@@ -713,12 +703,10 @@ class AssetAuditPostService {
       processedData.remove('customer_original_file_name');
       processedData.remove('customer_attachmen_name');
       processedData.remove('customer_attachment_name');
-      processedData.remove('fsr_attachment_id');
-      processedData.remove('fsrAttachmentId');
       processedData.remove('fsr_original_file_path');
+      processedData.remove('fsrOriginalFilePath');
       processedData.remove('fsr_original_file_name');
-      processedData.remove('fsr_attachment_name');
-      processedData.remove('fsrAttachmentName');
+      processedData.remove('fsrOriginalFileName');
 
       // Preserve attachment name in request data if we have it (for API to store the correct name)
       if (customerAttachmentName != null &&
@@ -745,7 +733,7 @@ class AssetAuditPostService {
         // Upload customer photo and attachments using the extracted IDs
         Logger.infoLog("About to call _uploadCMImagesAndAttachments...");
         Logger.infoLog(
-          "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId, fsrAttachmentId: $fsrAttachmentId",
+          "customerPhotoId: $customerPhotoId, customerAttachmentId: $customerAttachmentId",
         );
         await _uploadCMImagesAndAttachments(
           customerPhotoId,
@@ -753,9 +741,6 @@ class AssetAuditPostService {
           cmSiteReqId,
           customerOriginalFilePath: customerOriginalFilePath,
           customerOriginalFileName: customerOriginalFileName,
-          fsrAttachmentId: fsrAttachmentId,
-          fsrOriginalFilePath: fsrOriginalFilePath,
-          fsrOriginalFileName: fsrOriginalFileName,
         );
 
         // Check for and sync remarks if present
@@ -1021,71 +1006,92 @@ class AssetAuditPostService {
         }
       }
 
-      // Check for FSR attachment ID
-      if (fsrAttachmentId != null && fsrAttachmentId is String) {
-        Logger.infoLog("Retrieving FSR attachment with ID: $fsrAttachmentId");
+      // FSR: accept String (LOCAL_*) or int (document id from UploadDocuments / API). Plain `is String` skipped int ids and dropped sync upload.
+      if (fsrAttachmentId != null) {
+        final idStr = fsrAttachmentId.toString().trim();
+        if (idStr.isNotEmpty) {
+          Logger.infoLog("Retrieving FSR attachment with ID: $idStr");
 
-        // Try to use original file first if available
-        if (fsrOriginalFilePath != null &&
-            fsrOriginalFilePath.toString().trim().isNotEmpty) {
-          final originalFile = File(fsrOriginalFilePath.toString());
-          if (await originalFile.exists()) {
-            Logger.infoLog(
-              "Using original FSR attachment file: $fsrOriginalFilePath",
-            );
-            fsrAttachment = originalFile;
-          } else {
-            Logger.infoLog(
-              "Original FSR attachment file not found, will reconstruct from ImageUploadService",
-            );
-          }
-        }
-
-        // If original file not available, reconstruct from ImageUploadService
-        if (fsrAttachment == null) {
-          final attachmentData = await ServiceLocator().imageUploadService
-              .getImageUsingUniqueId(fsrAttachmentId);
-          if (attachmentData != null) {
-            Logger.infoLog(
-              "FSR attachment data retrieved, converting to File...",
-            );
-
-            // Use original filename if available, otherwise generate one
-            String fileName;
-            if (fsrOriginalFileName != null &&
-                fsrOriginalFileName.toString().trim().isNotEmpty) {
-              // Sanitize filename to remove invalid characters but preserve name and extension
-              final originalName = fsrOriginalFileName.toString().trim();
-              fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+          // Try to use original file first if available
+          if (fsrOriginalFilePath != null &&
+              fsrOriginalFilePath.toString().trim().isNotEmpty) {
+            final originalFile = File(fsrOriginalFilePath.toString());
+            if (await originalFile.exists()) {
               Logger.infoLog(
-                "Using original FSR attachment filename: $fileName",
+                "Using original FSR attachment file: $fsrOriginalFilePath",
               );
+              fsrAttachment = originalFile;
             } else {
-              // Fallback: generate filename with proper extension
-              String fileExtension = '.pdf'; // Default for documents
-              fileName =
-                  'fsr_attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
               Logger.infoLog(
-                "Original FSR attachment filename not available, using generated name: $fileName",
+                "Original FSR attachment file not found, will reconstruct from local store or DocumentById",
               );
             }
+          }
 
-            // Create temporary file with original filename
-            final tempDir = Directory.systemTemp;
-            final tempFile = File('${tempDir.path}/$fileName');
+          if (fsrAttachment == null) {
+            if (idStr.contains('LOCAL_IMAGE_ID')) {
+              final attachmentData = await ServiceLocator().imageUploadService
+                  .getImageUsingUniqueId(idStr);
+              if (attachmentData != null) {
+                Logger.infoLog(
+                  "FSR attachment data retrieved, converting to File...",
+                );
 
-            // Decode base64 and write to file
-            final bytes = base64Decode(attachmentData);
-            await tempFile.writeAsBytes(bytes);
+                String fileName;
+                if (fsrOriginalFileName != null &&
+                    fsrOriginalFileName.toString().trim().isNotEmpty) {
+                  final originalName = fsrOriginalFileName.toString().trim();
+                  fileName = originalName.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
+                  Logger.infoLog(
+                    "Using original FSR attachment filename: $fileName",
+                  );
+                } else {
+                  const fileExtension = '.pdf';
+                  fileName =
+                      'fsr_attachment_${DateTime.now().millisecondsSinceEpoch}$fileExtension';
+                  Logger.infoLog(
+                    "Original FSR attachment filename not available, using generated name: $fileName",
+                  );
+                }
 
-            fsrAttachment = tempFile;
-            Logger.infoLog(
-              "FSR attachment File created with filename: $fileName",
-            );
-          } else {
-            Logger.errorLog(
-              "Failed to retrieve image data for FSR attachment ID: $fsrAttachmentId",
-            );
+                final tempDir = Directory.systemTemp;
+                final tempFile = File('${tempDir.path}/$fileName');
+                final bytes = base64Decode(attachmentData);
+                await tempFile.writeAsBytes(bytes);
+                fsrAttachment = tempFile;
+                Logger.infoLog(
+                  "FSR attachment File created with filename: $fileName",
+                );
+              } else {
+                Logger.errorLog(
+                  "Failed to retrieve data for FSR local id: $idStr",
+                );
+              }
+            } else {
+              final docId = int.tryParse(idStr);
+              if (docId != null && docId > 0) {
+                try {
+                  final nameForSave = (fsrOriginalFileName != null &&
+                          fsrOriginalFileName.toString().trim().isNotEmpty)
+                      ? fsrOriginalFileName.toString().trim()
+                      : 'fsr_$docId';
+                  final path = await ServiceLocator().cmRepository
+                      .downloadDocument(docId, nameForSave);
+                  fsrAttachment = File(path);
+                  Logger.infoLog(
+                    "FSR document id $docId saved to temp path for upload: $path",
+                  );
+                } catch (e) {
+                  Logger.errorLog(
+                    "Failed to download FSR for document id $idStr: $e",
+                  );
+                }
+              } else {
+                Logger.errorLog(
+                  "Unrecognized FSR attachment id (not LOCAL_ and not numeric): $idStr",
+                );
+              }
+            }
           }
         }
       }
@@ -1644,17 +1650,112 @@ class AssetAuditPostService {
     }
   }
 
+  /// Uploads FSR when still a local id: `api/v1/common/UploadDocuments`, then sets
+  /// [fsrAttachmentId] / [fsr_attachment_id] on the request (same as Identification/TimeStamp on the screen).
+  /// Non-local values (server doc id) are left unchanged.
+  Future<void> _processCMFsrUploadDocumentsBeforePost(
+    Map<String, dynamic> request,
+  ) async {
+    final fsrRaw =
+        request['fsrAttachmentId'] ?? request['fsr_attachment_id'];
+    if (fsrRaw == null) return;
+    final idStr = fsrRaw.toString().trim();
+    if (idStr.isEmpty || idStr == '0') return;
+    if (!idStr.contains('LOCAL_IMAGE_ID')) return;
+
+    File? tempToDelete;
+    try {
+      File? fileToUpload;
+      final pathRaw = request['fsr_original_file_path'] ??
+          request['fsrOriginalFilePath'];
+      if (pathRaw != null && pathRaw.toString().trim().isNotEmpty) {
+        final f = File(pathRaw.toString());
+        if (await f.exists()) {
+          fileToUpload = f;
+        }
+      }
+
+      if (fileToUpload == null) {
+        final attachmentData = await ServiceLocator()
+            .imageUploadService
+            .getImageUsingUniqueId(idStr);
+        if (attachmentData == null) {
+          Logger.errorLog('❌ CM sync FSR: no local data for $idStr');
+          request['fsrAttachmentId'] = null;
+          request['fsr_attachment_id'] = null;
+          return;
+        }
+        final nameCandidate = request['fsr_original_file_name'] ??
+            request['fsrOriginalFileName'] ??
+            request['fsr_attachment_name'] ??
+            request['fsrAttachmentName'];
+        final fileName = (nameCandidate != null &&
+                nameCandidate.toString().trim().isNotEmpty)
+            ? nameCandidate
+                .toString()
+                .trim()
+                .replaceAll(RegExp(r'[<>:"/\\|?*]'), '_')
+            : 'fsr_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        final tempFile =
+            File('${Directory.systemTemp.path}/$fileName');
+        await tempFile.writeAsBytes(base64Decode(attachmentData));
+        fileToUpload = tempFile;
+        tempToDelete = tempFile;
+      }
+
+      final uploadService = UploadDcoumentsService(
+        apiService: ServiceLocator().apiService,
+      );
+      final result = await uploadService.uploadFile(
+        file: fileToUpload,
+        id: '0',
+        activityType: ActivityTypeEnum.correctiveMaintenance.value,
+      );
+
+      final docId = (result.isSuccess ? (result.data ?? '') : '')
+          .toString()
+          .trim();
+      if (docId.isNotEmpty && docId != '0') {
+        request['fsrAttachmentId'] = docId;
+        request['fsr_attachment_id'] = docId;
+        final attachName = fileToUpload.path.split('/').last;
+        final hasName = (request['fsrAttachmentName'] ?? '')
+                .toString()
+                .trim()
+                .isNotEmpty ||
+            (request['fsr_attachment_name'] ?? '')
+                .toString()
+                .trim()
+                .isNotEmpty;
+        if (!hasName) {
+          request['fsrAttachmentName'] = attachName;
+          request['fsr_attachment_name'] = attachName;
+        }
+        Logger.debugLog('✅ CM sync: FSR uploaded via UploadDocuments (pre-POST)');
+      } else {
+        Logger.errorLog('❌ CM sync: FSR UploadDocuments failed or empty docId');
+        request['fsrAttachmentId'] = null;
+        request['fsr_attachment_id'] = null;
+      }
+    } finally {
+      if (tempToDelete != null) {
+        try {
+          await tempToDelete.delete();
+        } catch (_) {}
+      }
+    }
+  }
+
   /// Process CM request: upload all LOCAL_IMAGE_ID and replace with server IDs
   /// (top-level photo fields + nested checklist/impacted item response_images).
-  /// Customer photo, customer attachment, and FSR attachment are NOT processed here:
-  /// they are left as string IDs (e.g. LOCAL_IMAGE_ID_xxx) so that after creating the
-  /// CM ticket, _uploadCMImagesAndAttachments can look them up and upload via /upload API.
+  /// FSR is handled by [_processCMFsrUploadDocumentsBeforePost]. Customer photo and
+  /// customer attachment stay as local ids here and are uploaded after create via
+  /// [_uploadCMImagesAndAttachments] / correctiveMaintenance upload.
   Future<void> _processCMRequestForImages(Map<String, dynamic> request) async {
     final imageUploadService = ServiceLocator().imageUploadService;
 
     // 1) Top-level image fields that are sent in the JSON body (replace with server ID).
-    // Exclude customer_photo_id, customer_attachment_id, fsr_attachment_id - those are
-    // uploaded separately via correctiveMaintenance/upload using the string ID to look up file data.
+    // Exclude customer_photo_id, customer_attachment_id, fsr (FSR is processed pre-POST).
     final topLevelFields = [
       'identification_img_id',
       'identificationImgId',
@@ -1669,15 +1770,15 @@ class AssetAuditPostService {
           !value.toString().startsWith('LOCAL_IMAGE_ID_')) {
         continue;
       }
-      final imageModel = await imageUploadService
-          .getServerIdFromUniqueIdTryUploading(value.toString());
-      if (imageModel != null && imageModel.serverId != null) {
-        request[key] = imageModel.serverId is int
-            ? imageModel.serverId
-            : int.tryParse(imageModel.serverId.toString());
-        Logger.debugLog('✅ CM sync: $key replaced with server ID');
+      // Same as online CM screen: document ids come from UploadDocuments only (not mobile/uploads).
+      final docIdStr = await imageUploadService
+          .uploadCmStoredUniqueIdViaUploadDocuments(value.toString());
+      if (docIdStr != null && docIdStr.isNotEmpty) {
+        final parsed = int.tryParse(docIdStr);
+        request[key] = parsed ?? docIdStr;
+        Logger.debugLog('✅ CM sync: $key -> UploadDocuments doc id');
       } else {
-        Logger.errorLog('❌ CM sync: failed to upload $key: $value');
+        Logger.errorLog('❌ CM sync: UploadDocuments failed for $key: $value');
         request[key] = null;
       }
     }

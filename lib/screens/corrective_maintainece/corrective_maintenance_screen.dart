@@ -12,17 +12,18 @@ import 'package:app/enum/activity_type_enum.dart';
 import 'package:app/models/location_model.dart';
 import 'package:app/screens/corrective_maintainece/cm_checklist_create_widget.dart';
 import 'package:app/services/location_service.dart';
+import 'package:app/services/upload_dcouments.dart';
 import 'package:app/utils.dart';
 import 'package:app/utils/data_transformation_helper.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
 import 'package:app/utils/connectivity_helper.dart';
+import 'package:app/utils/map_api_field_reader.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../../../services/file_download_service.dart';
+import 'package:open_file/open_file.dart';
 import '../../../commonWidgets/custom_form_appbar.dart';
 import '../../../commonWidgets/custom_form_field.dart';
-import '../../../commonWidgets/custom_submit_button_v2.dart';
 import '../../../commonWidgets/custom_buttons/arrow_botton.dart';
 import '../../../commonWidgets/custom_dialogs/unsaved_changes_dialog.dart';
 import '../../../constants/app_colors.dart';
@@ -54,6 +55,9 @@ class CorrectiveMaintenanceScreen extends StatefulWidget {
 
 class _CorrectiveMaintenanceScreenState
     extends State<CorrectiveMaintenanceScreen> {
+  UploadDcoumentsService get _uploadDocumentsService =>
+      UploadDcoumentsService(apiService: ServiceLocator().apiService);
+
   // 👇 Controllers
   Map<String, TextEditingController> controllers = {
     'site_id': TextEditingController(),
@@ -71,7 +75,6 @@ class _CorrectiveMaintenanceScreenState
     'oem_representative_contact': TextEditingController(),
     'customer_name': TextEditingController(),
     'contact_no': TextEditingController(),
-    'customer_remarks': TextEditingController(),
     'problem_summary': TextEditingController(),
   };
 
@@ -83,14 +86,13 @@ class _CorrectiveMaintenanceScreenState
       TextEditingController();
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _cmTicketNoController = TextEditingController();
+  final TextEditingController _startDateController = TextEditingController();
+  final TextEditingController _currentStatusController = TextEditingController();
   final TextEditingController _infraEngineerNameController = TextEditingController();
   final TextEditingController _infraEngineerContactNoController = TextEditingController();
   final TextEditingController _clusterInchargeNameController = TextEditingController();
   final TextEditingController _clusterInchargeContactNoController = TextEditingController();
   final TextEditingController _categoryController = TextEditingController();
-
-  final TextEditingController _statusController = TextEditingController();
-  final TextEditingController _remarksController = TextEditingController();
 
   // 👇 Dropdown selections
   CMSite? _selectedSite;
@@ -98,11 +100,6 @@ class _CorrectiveMaintenanceScreenState
 
   int? cmSiteReqId;
 
-  File? customerPhoto;
-  String customerPhotoByteData = "";
-  // Store original photo ID to reload if needed after submission
-  dynamic _originalCustomerPhotoId;
-  
   // New photo fields: Identification, Time Stamp Photo (only in edit/view mode)
   File? identificationPhoto;
   String identificationPhotoByteData = "";
@@ -111,35 +108,33 @@ class _CorrectiveMaintenanceScreenState
   File? timestampPhoto;
   String timestampPhotoByteData = "";
   dynamic _originalTimestampPhotoId;
-  
-  final List<File> _uploadedAttachments = [];
-  final List<File> _remarksAttachments = [];
-  final List<File> _fsrAttachments = []; // FSR as file attachment
-  
-  // Store server attachment info (ID and filename)
-  String? _customerAttachmentName;
-  dynamic _customerAttachmentId;
-  
-  // Store FSR attachment info (ID and filename)
+
+  final List<File> _fsrAttachments = [];
   String? _fsrAttachmentName;
   dynamic _fsrAttachmentId;
   
-  // Store remarks attachment info (for edit mode)
-  String? _remarksAttachmentName;
-  dynamic _remarksAttachmentId;
-
   // 👇 Dropdown options
   List<CMSite> _siteOptions = [];
   final List<String> _priorityOptions = ['Critical', 'Non Critical'];
   final List<String> _responsiblePartyOptions = ['OEM', 'Self'];
   final List<String> _natureOfFailureOptions = ['AMC', 'Paid', 'FOC'];
   final List<String> _scopeOfTicketOptions = ['In Warranty', 'Warranty Out'];
-  final List<String> _statusOptions = ['Open', 'In-Progress', 'Closed'];
   Map<String, dynamic> _checklistData = {};
   List<Map<String, dynamic>> _impactedItemList = [];
 
   bool _hasFormDataChanges = false;
   bool _isSubmitting = false; // Flag to prevent duplicate submissions
+  bool _forceViewMode = false;
+  Map<String, dynamic>? _mergedPreloadedSite;
+  String _oemTicketIdDisplay = '';
+  CMScreenModeEnum get _resolvedMode =>
+      _forceViewMode ? CMScreenModeEnum.view : widget.mode;
+
+  bool _isClosedStatus(dynamic status) {
+    if (status == null) return false;
+    final normalized = status.toString().trim().toUpperCase();
+    return normalized == 'CLOSE' || normalized == 'CLOSED';
+  }
 
   @override
   void initState() {
@@ -174,6 +169,8 @@ class _CorrectiveMaintenanceScreenState
       if (preloadedSite.containsKey('data') && preloadedSite['data'] is Map<String, dynamic>) {
         preloadedSite = Map<String, dynamic>.from(preloadedSite['data']);
       }
+      preloadedSite = mergeNestedSiteMapsIntoIncidentTicket(preloadedSite);
+      _mergedPreloadedSite = preloadedSite;
 
       // Try both camelCase and snake_case for cmSiteReqId
       cmSiteReqId = preloadedSite['cmSiteReqId'] ?? preloadedSite['cm_site_req_id'];
@@ -191,8 +188,7 @@ class _CorrectiveMaintenanceScreenState
         final parsed = cmSiteReqId is int ? cmSiteReqId : int.tryParse(cmSiteReqId.toString());
         if (parsed != null && parsed != 0) entityIdVal = parsed;
       }
-      if (siteIdVal == 0 && entityIdVal != 0) siteIdVal = entityIdVal;
-      
+
       CMSite site = CMSite(
         siteId: siteIdVal,
         entityId: entityIdVal,
@@ -214,37 +210,38 @@ class _CorrectiveMaintenanceScreenState
             ? (preloadedSite['self']?.toString() ?? '')
             : _getSiteValue(preloadedSite, 'assignedToName', 'assigned_to_name', '').toString(),
         selfId: (preloadedSite['assignedTo'] ?? preloadedSite['assigned_to'] ?? preloadedSite['selfId'] ?? preloadedSite['self_id']) as int? ?? 0,
-        infraEngineerName: (preloadedSite['infraEngineerName'] ?? preloadedSite['infra_engineer_name'])?.toString(),
-        infraEngineerContactNo: (preloadedSite['infraEngineerContactNo'] ?? preloadedSite['infra_engineer_contact_no'])?.toString(),
-        clusterInchargeName: (preloadedSite['clusterInchargeName'] ?? preloadedSite['cluster_incharge_name'])?.toString(),
-        clusterInchargeContactNo: (preloadedSite['clusterInchargeContactNo'] ?? preloadedSite['cluster_incharge_contact_no'])?.toString(),
+        infraEngineerName: readMapString(preloadedSite, [
+          'infraEngineerName',
+          'infra_engineer_name',
+          'infraDistrictEngineerName',
+          'infra_district_engineer_name',
+        ]),
+        infraEngineerContactNo: readMapString(preloadedSite, [
+          'infraEngineerContactNo',
+          'infra_engineer_contact_no',
+          'infraDistrictEngineerContactNo',
+          'infra_district_engineer_contact_no',
+        ]),
+        clusterInchargeName: readMapString(preloadedSite, [
+          'clusterInchargeName',
+          'cluster_incharge_name',
+        ]),
+        clusterInchargeContactNo: readMapString(preloadedSite, [
+          'clusterInchargeContactNo',
+          'cluster_incharge_contact_no',
+        ]),
         category: preloadedSite['category']?.toString(),
       );
       _siteOptions = [site];
+      _syncSiteContactControllers(preloadedSite);
       _initializeTicketControllers(preloadedSite);
       _onSiteSelected(site);
-      // Ensure remarks from API ("remarks" key in data) shows in edit mode - set again after first frame so UI picks it up
-      if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
-        final remarksFromApi = preloadedSite['remarks'] ?? preloadedSite['Remarks'];
-        if (remarksFromApi != null && remarksFromApi.toString().trim().isNotEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && _remarksController.text != remarksFromApi.toString().trim()) {
-              _remarksController.text = remarksFromApi.toString().trim();
-              setState(() {});
-            }
-          });
-        }
-      }
+      _loadFreshTicketDetailsIfNeeded();
+      _enrichSiteContactsFromLocalDb();
     }
   }
 
   void _loadImages(Map<String, dynamic> preloadedSite) async {
-    
-    // Try both camelCase and snake_case for customer photo ID
-    dynamic customerPhotoId = preloadedSite['customerPhotoId'] ?? preloadedSite['customer_photo_id'];
-    // Store original photo ID to preserve it after form submission
-    _originalCustomerPhotoId = customerPhotoId;
-    
     // Load Identification Photo
     dynamic identificationPhotoId = preloadedSite['identificationImgId'] ?? preloadedSite['identification_img_id'];
     _originalIdentificationPhotoId = identificationPhotoId;
@@ -264,217 +261,23 @@ class _CorrectiveMaintenanceScreenState
         timestampPhotoByteData = byteData;
       }, 'Time Stamp');
     }
-    
-    if (customerPhotoId != null && customerPhotoId.toString().trim().isNotEmpty) {
-      await _loadPhotoFromServer(customerPhotoId, (file, byteData) {
-        customerPhoto = file;
-        customerPhotoByteData = byteData;
-      }, 'Customer');
-    }
-    
-    // Extract customer attachment info (only for edit/view mode, not create)
+
     if (widget.mode != CMScreenModeEnum.create) {
-      // Try all possible field name variations for customer attachment ID (check camelCase first)
-      dynamic customerAttachmentId = preloadedSite['customerAttachmentId'] ?? 
-                                      preloadedSite['customer_attachment_id'] ??
-                                      preloadedSite['customerAttachmenId']; // Handle typo variant
-      
-      // Convert to int if it's a string
-      if (customerAttachmentId != null && customerAttachmentId is String && customerAttachmentId.trim().isNotEmpty) {
-        try {
-          customerAttachmentId = int.parse(customerAttachmentId.trim());
-        } catch (e) {
-          Logger.errorLog('[CM] Failed to parse attachment ID as int: $customerAttachmentId');
-          customerAttachmentId = null;
-        }
+      dynamic fsrAttachmentId =
+          preloadedSite['fsrAttachmentId'] ?? preloadedSite['fsr_attachment_id'];
+      if (fsrAttachmentId is String && fsrAttachmentId.trim().isNotEmpty) {
+        fsrAttachmentId = int.tryParse(fsrAttachmentId.trim()) ?? fsrAttachmentId;
       }
 
-      // Try all possible field name variations for attachment name (check typo variant first - it's in the JSON!)
-      // Check all possible field variations with better null/empty handling
-      dynamic customerAttachmentName;
-      
-      // First check the typo variant (customerAttachmenName - missing 't')
-      if (preloadedSite.containsKey('customerAttachmenName')) {
-        final value = preloadedSite['customerAttachmenName'];
-        if (value != null && value.toString().trim().isNotEmpty) {
-          customerAttachmentName = value;
-        }
-      }
-      
-      // Then check correct spelling if not found
-      if (customerAttachmentName == null && preloadedSite.containsKey('customerAttachmentName')) {
-        final value = preloadedSite['customerAttachmentName'];
-        if (value != null && value.toString().trim().isNotEmpty) {
-          customerAttachmentName = value;
-        }
-      }
-      
-      // Then check snake_case variant if still not found
-      if (customerAttachmentName == null && preloadedSite.containsKey('customer_attachment_name')) {
-        final value = preloadedSite['customer_attachment_name'];
-        if (value != null && value.toString().trim().isNotEmpty) {
-          customerAttachmentName = value;
-        }
-      }
-      
-      // Set customer attachment if ID is valid
-      if (customerAttachmentId != null && customerAttachmentId != 0) {
-        // If name is null or empty, use attachment ID as the name
-        final nameToSet = (customerAttachmentName != null && customerAttachmentName.toString().trim().isNotEmpty) 
-            ? customerAttachmentName.toString().trim() 
-            : customerAttachmentId.toString(); // Use ID as name if name is not available
-        
-        Logger.infoLog('[CM] Setting customer attachment - ID: $customerAttachmentId, Name: $nameToSet');
-        
-        // Set state directly (same pattern as remarks attachment)
-        setState(() {
-          _customerAttachmentId = customerAttachmentId;
-          _customerAttachmentName = nameToSet;
-        });
-      }
-      
-      // Load FSR attachment info (only for edit/view mode, not create)
-      // Try all possible field name variations for FSR attachment ID
-      dynamic fsrAttachmentId = preloadedSite['fsrAttachmentId'] ?? 
-                                preloadedSite['fsr_attachment_id'];
-      
-      // Convert to int if it's a string
-      if (fsrAttachmentId != null && fsrAttachmentId is String && fsrAttachmentId.trim().isNotEmpty) {
-        try {
-          fsrAttachmentId = int.parse(fsrAttachmentId.trim());
-        } catch (e) {
-          Logger.errorLog('[CM] Failed to parse FSR attachment ID as int: $fsrAttachmentId');
-          fsrAttachmentId = null;
-        }
-      }
-      
-      // Try all possible field name variations for FSR attachment name
-      dynamic fsrAttachmentName = preloadedSite['fsrAttachmentName'] ?? 
-                                   preloadedSite['fsr_attachment_name'];
-      
-      // Set FSR attachment if ID is valid
+      final fsrAttachmentName =
+          preloadedSite['fsrAttachmentName'] ?? preloadedSite['fsr_attachment_name'];
       if (fsrAttachmentId != null && fsrAttachmentId != 0) {
-        // If name is null or empty, use attachment ID as the name
-        final nameToSet = (fsrAttachmentName != null && fsrAttachmentName.toString().trim().isNotEmpty) 
-            ? fsrAttachmentName.toString().trim() 
-            : fsrAttachmentId.toString(); // Use ID as name if name is not available
-        
-        Logger.infoLog('[CM] Setting FSR attachment - ID: $fsrAttachmentId, Name: $nameToSet');
-        
-        // Set state directly
-        setState(() {
-          _fsrAttachmentId = fsrAttachmentId;
-          _fsrAttachmentName = nameToSet;
-        });
+        _fsrAttachmentId = fsrAttachmentId;
+        _fsrAttachmentName = (fsrAttachmentName != null &&
+                fsrAttachmentName.toString().trim().isNotEmpty)
+            ? fsrAttachmentName.toString().trim()
+            : fsrAttachmentId.toString();
       }
-      
-      // Load remarks data from cmRemarksList (for edit and view modes)
-      final cmRemarksList = preloadedSite['cmRemarksList'] ?? preloadedSite['cm_remarks_list'];
-      
-      if (cmRemarksList != null && cmRemarksList is List && cmRemarksList.isNotEmpty) {
-        // Get the latest/active remark (usually the last one)
-        final latestRemark = cmRemarksList.last;
-        
-        final cmRemark = latestRemark['cmRemark'] ?? latestRemark['cm_remark'];
-        dynamic cmAttachmentId = latestRemark['cmAttachmentId'] ?? latestRemark['cm_attachment_id'];
-        final cmAttachmentName = latestRemark['cmAttachmentName'] ?? latestRemark['cm_attachment_name'];
-        
-        // Convert attachment ID to int if it's a string
-        if (cmAttachmentId != null && cmAttachmentId is String && cmAttachmentId.toString().trim().isNotEmpty) {
-          try {
-            cmAttachmentId = int.parse(cmAttachmentId.toString().trim());
-          } catch (e) {
-            Logger.errorLog('[CM] Failed to parse remarks attachment ID as int: $cmAttachmentId');
-            cmAttachmentId = null;
-          }
-        }
-        
-        setState(() {
-          // Set remarks text (for both edit and view modes, since we now show the field in both)
-          if ((widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) && 
-              cmRemark != null && cmRemark.toString().trim().isNotEmpty) {
-            _remarksController.text = cmRemark.toString().trim();
-            Logger.infoLog('[CM] Loaded remarks text: ${_remarksController.text}');
-          }
-          
-          // Set remarks attachment info (for both edit and view modes)
-          if (cmAttachmentId != null && cmAttachmentId != 0) {
-            _remarksAttachmentId = cmAttachmentId;
-            if (cmAttachmentName != null && cmAttachmentName.toString().trim().isNotEmpty) {
-              _remarksAttachmentName = cmAttachmentName.toString().trim();
-            } else {
-              _remarksAttachmentName = null;
-            }
-            Logger.infoLog('[CM] Loaded remarks attachment - ID: $_remarksAttachmentId, Name: $_remarksAttachmentName');
-          }
-        });
-      } else {
-        // Fallback: API may send simple "remarks" key (when cmRemarksList is absent or empty)
-        final remarksText = preloadedSite['remarks'] ?? preloadedSite['Remarks'];
-        if (remarksText != null && remarksText.toString().trim().isNotEmpty) {
-          setState(() {
-            _remarksController.text = remarksText.toString().trim();
-            Logger.infoLog('[CM] Loaded remarks text from "remarks" key');
-          });
-        }
-      }
-    }
-  }
-
-  /// Reload customer photo from server/cache to preserve it after form submission
-  Future<void> _reloadCustomerPhoto(dynamic customerPhotoId) async {
-    try {
-      if (customerPhotoId == null || customerPhotoId.toString().trim().isEmpty) {
-        return;
-      }
-      
-      // First, check if image is already cached locally
-      final cachedImage = await ServiceLocator()
-          .imageUploadService
-          .getImagesByServerId(customerPhotoId.toString());
-      
-      String? customerPhotoByteDataLocal;
-      
-      if (cachedImage != null && cachedImage.imageData != null) {
-        // Image found in local cache - use it
-        customerPhotoByteDataLocal = cachedImage.imageData;
-      } else {
-        // Not in cache, check if we're online and try to download
-        final isOnline = await ConnectivityHelper.isConnected();
-        
-        if (isOnline) {
-          // Use downloadImageUsingServerId which handles caching
-          final uniqueId = await ServiceLocator()
-              .imageUploadService
-              .downloadImageUsingServerId(
-                customerPhotoId.toString(),
-                ActivityTypeEnum.correctiveMaintenance,
-                _selectedSite?.siteId.toString() ?? '',
-              );
-          
-          if (uniqueId != null) {
-            // Get the image data using the unique ID
-            customerPhotoByteDataLocal = await ServiceLocator()
-                .imageUploadService
-                .getImageUsingUniqueId(uniqueId);
-          }
-        }
-      }
-      
-      // If we got image data, restore it
-      if (customerPhotoByteDataLocal != null && customerPhotoByteDataLocal.isNotEmpty) {
-        File? imageFile = await Utils.buildImageFromBytesData(
-          customerPhotoByteDataLocal,
-        );
-        if (mounted) {
-          setState(() {
-            customerPhoto = imageFile;
-            customerPhotoByteData = customerPhotoByteDataLocal!;
-          });
-        }
-      }
-    } catch (e) {
-      Logger.errorLog('[CM] Error reloading customer photo after submission: $e');
     }
   }
 
@@ -505,13 +308,12 @@ class _CorrectiveMaintenanceScreenState
         final isOnline = await ConnectivityHelper.isConnected();
         
         if (isOnline) {
-          // Online: try to download from server and cache it
-          Logger.infoLog('[CM] $photoName photo not in cache, downloading from server (online mode)');
-          
-          // Use downloadImageUsingServerId which handles caching
+          // Online: try to download from /common/DocumentById/{id} and cache it
+          Logger.infoLog('[CM] $photoName photo not in cache, downloading from DocumentById (online mode)');
+
           final uniqueId = await ServiceLocator()
               .imageUploadService
-              .downloadImageUsingServerId(
+              .downloadPmisDocumentByServerId(
                 photoId.toString(),
                 ActivityTypeEnum.correctiveMaintenance,
                 _selectedSite?.siteId.toString() ?? '',
@@ -547,139 +349,43 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  Future<bool> _requestStoragePermission() async {
-    // Use common file download service for permission handling
-    return await FileDownloadService.requestStoragePermissionWithDialog(
-      context: context,
-    );
-  }
-
-  Future<void> _loadAttachmentFromDocumentId(dynamic attachmentId) async {
+  Future<void> _openServerAttachment(dynamic attachmentId) async {
     try {
-      Logger.infoLog('[CM] Downloading attachment with ID: $attachmentId');
-      
-      // Request storage permission before downloading
-      bool hasPermission = await _requestStoragePermission();
-      if (!hasPermission) {
-        if (mounted) {
-          Toastbar.showErrorToastbar(
-            'Storage permission is required to download files',
-            context,
-          );
-        }
-        return;
-      }
-      
-      // Parse attachment ID safely
-      int docId;
-      try {
-        docId = attachmentId is int 
-            ? attachmentId 
-            : int.parse(attachmentId.toString());
-        Logger.infoLog('[CM] Parsed document ID: $docId');
-      } catch (e) {
-        Logger.errorLog('[CM] Format exception: Invalid attachment ID format: $attachmentId');
-        if (mounted) {
-          Toastbar.showErrorToastbar(
-            'Invalid attachment ID format',
-            context,
-          );
-        }
-        return;
-      }
-      
-      // Generate filename from attachment name or use default
-      String fileName;
-      if (_customerAttachmentName != null && _customerAttachmentName!.isNotEmpty) {
-        // Use the exact filename from server (includes extension)
-        fileName = _customerAttachmentName!;
-        Logger.infoLog('[CM] Using filename from server: $fileName');
-      } else {
-        // Fallback to default filename if not available
-        fileName = 'attachment_${DateTime.now().millisecondsSinceEpoch}';
-        Logger.infoLog('[CM] Using default filename: $fileName');
-      }
-      
-      // Sanitize filename - remove invalid characters but preserve extension
-      // Split filename and extension to preserve extension separately
-      final lastDotIndex = fileName.lastIndexOf('.');
-      String nameWithoutExt = lastDotIndex > 0 
-          ? fileName.substring(0, lastDotIndex) 
-          : fileName;
-      String extension = lastDotIndex > 0 && lastDotIndex < fileName.length - 1
-          ? fileName.substring(lastDotIndex)
-          : '';
-      
-      // Sanitize the name part (without extension)
-      nameWithoutExt = nameWithoutExt.replaceAll(RegExp(r'[<>:"/\\|?*]'), '_');
-      
-      // Reconstruct filename
-      fileName = extension.isNotEmpty ? '$nameWithoutExt$extension' : nameWithoutExt;
-      
-      // Only add default extension if filename has no extension at all
-      // We'll detect the actual file type from the binary data after download
-      // For now, don't add a default - let the download method handle it
-      if (!fileName.contains('.')) {
-        Logger.infoLog('[CM] No extension found in filename, will detect from file content');
-        // Don't add extension here - will be detected from file content
-      }
-      
-      Logger.infoLog('[CM] Final filename: $fileName');
-      
-      // Download document directly to Downloads folder
-      String filePath;
-      try {
-        filePath = await ServiceLocator()
-            .cmRepository
-            .downloadDocument(docId, fileName);
-        
-        Logger.infoLog('[CM] ✅ Document downloaded successfully to: $filePath');
-      } catch (e) {
-        Logger.errorLog('[CM] Error downloading document: $e');
-        Logger.errorLog('[CM] Stack trace: ${StackTrace.current}');
-        if (mounted) {
-          Toastbar.showErrorToastbar(
-            'Failed to download document: ${e.toString()}',
-            context,
-          );
-        }
+      final id = int.tryParse(attachmentId.toString().trim());
+      if (id == null || id <= 0) {
+        if (!mounted) return;
+        Toastbar.showErrorToastbar('Invalid attachment id', context);
         return;
       }
 
-      // Show success message
-      if (mounted) {
-        String locationMessage;
-        if (filePath.contains('/Download/')) {
-          locationMessage = 'File downloaded successfully to Downloads folder';
-        } else {
-          locationMessage = 'File downloaded to app storage';
-        }
-        
-        Toastbar.showSuccessToastbar(locationMessage, context);
-        
-        // Show file path in snackbar after a delay
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('File saved to: $filePath'),
-                duration: const Duration(seconds: 3),
-                action: SnackBarAction(label: 'OK', onPressed: () {}),
-              ),
-            );
-          }
-        });
-      }
-      return; // Exit early since we're downloading directly now
-    } catch (e) {
-      Logger.errorLog('[CM] Error loading attachment: $e');
-      Logger.errorLog('[CM] Stack trace: ${StackTrace.current}');
-      if (mounted) {
+      if (mounted) LoaderWidget.showLoader(context);
+      final fileName = (_fsrAttachmentName != null &&
+              _fsrAttachmentName!.trim().isNotEmpty)
+          ? _fsrAttachmentName!.trim()
+          : 'fsr_$id';
+      final filePath = await ServiceLocator().cmRepository.downloadDocument(
+        id,
+        fileName,
+      );
+      final openResult = await OpenFile.open(filePath);
+      if (openResult.type != ResultType.done) {
+        Logger.errorLog(
+          '[CM] OpenFile failed for FSR: ${openResult.type} - ${openResult.message}',
+        );
+        if (!mounted) return;
         Toastbar.showErrorToastbar(
-          'Failed to load attachment: ${e.toString()}',
+          openResult.message.isNotEmpty
+              ? openResult.message
+              : 'Unable to open attachment',
           context,
         );
       }
+    } catch (e) {
+      Logger.errorLog('[CM] Error opening FSR attachment: $e');
+      if (!mounted) return;
+      Toastbar.showErrorToastbar('Unable to open attachment: $e', context);
+    } finally {
+      LoaderWidget.hideLoader();
     }
   }
 
@@ -694,17 +400,147 @@ class _CorrectiveMaintenanceScreenState
     return strValue;
   }
 
-  /// Normalize API status to match _statusOptions so dropdown displays correctly (e.g. "IN-PROGRESS" -> "In-Progress").
-  String _normalizeStatusFromApi(String apiStatus) {
-    final normalized = apiStatus.trim().toUpperCase().replaceAll(' ', '-');
-    if (normalized == 'IN-PROGRESS' || normalized == 'INPROGRESS') return 'In-Progress';
-    if (normalized == 'OPEN') return 'Open';
-    if (normalized == 'CLOSED') return 'Closed';
-    // If already matches an option, use it; otherwise return as-is
-    for (final option in _statusOptions) {
-      if (option.trim().toUpperCase().replaceAll(' ', '-') == normalized) return option;
+  void _syncSiteContactControllers([Map<String, dynamic>? source]) {
+    final map = source ?? _mergedPreloadedSite;
+    if (map == null) return;
+
+    final infraName = readMapString(map, [
+      'infraEngineerName',
+      'infra_engineer_name',
+      'infraDistrictEngineerName',
+      'infra_district_engineer_name',
+    ]);
+    if (infraName != null) {
+      _infraEngineerNameController.text = infraName;
     }
-    return apiStatus.trim();
+
+    final infraContact = readMapString(map, [
+      'infraEngineerContactNo',
+      'infra_engineer_contact_no',
+      'infraDistrictEngineerContactNo',
+      'infra_district_engineer_contact_no',
+    ]);
+    if (infraContact != null) {
+      _infraEngineerContactNoController.text = infraContact;
+    }
+
+    final inchargeName = readMapString(map, [
+      'clusterInchargeName',
+      'cluster_incharge_name',
+    ]);
+    if (inchargeName != null) {
+      _clusterInchargeNameController.text = inchargeName;
+    }
+
+    final inchargeContact = readMapString(map, [
+      'clusterInchargeContactNo',
+      'cluster_incharge_contact_no',
+    ]);
+    if (inchargeContact != null) {
+      _clusterInchargeContactNoController.text = inchargeContact;
+    }
+  }
+
+  int _resolvePhysicalSiteId() {
+    final fromMerged = resolveCmPhysicalSiteId(
+      _mergedPreloadedSite ?? const {},
+    );
+    if (fromMerged > 0) return fromMerged;
+
+    for (final response in _resolveExistingChecklistResponses()) {
+      if (response is! Map) continue;
+      final siteId = response['siteId'] ?? response['site_id'];
+      final parsed = siteId is int ? siteId : int.tryParse('$siteId');
+      if (parsed != null && parsed > 0) return parsed;
+    }
+
+    final selectedSiteId = _selectedSite?.siteId ?? 0;
+    if (selectedSiteId <= 0) return 0;
+
+    final cmReqId = cmSiteReqId is int
+        ? cmSiteReqId
+        : int.tryParse(cmSiteReqId?.toString() ?? '');
+    if (cmReqId != null && cmReqId > 0 && selectedSiteId == cmReqId) {
+      return 0;
+    }
+    return selectedSiteId;
+  }
+
+  Future<void> _enrichSiteContactsFromLocalDb() async {
+    final physicalSiteId = _resolvePhysicalSiteId();
+    if (physicalSiteId <= 0) return;
+
+    Map<String, dynamic>? sqliteRow = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getCMSiteData(physicalSiteId);
+
+    var merged = mergeIncidentTicketWithSqliteSiteRows(
+      _mergedPreloadedSite ?? const {},
+      [sqliteRow],
+    );
+
+    if (cmTicketPayloadMissingSiteContacts(merged) &&
+        await ConnectivityHelper.isConnected()) {
+      try {
+        final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+        for (final site in sites) {
+          if (site.siteId == physicalSiteId) {
+            merged = overlayCmSiteContactFields(
+              base: merged,
+              infraName: site.infraEngineerName,
+              infraPhone: site.infraEngineerContactNo,
+              clusterInchargeName: site.clusterInchargeName,
+              clusterInchargeContact: site.clusterInchargeContactNo,
+            );
+            break;
+          }
+        }
+      } catch (e) {
+        Logger.errorLog('[CM] Could not load site contacts from dropdown: $e');
+      }
+    }
+
+    if (!mounted) return;
+    _mergedPreloadedSite = merged;
+    setState(() {
+      _syncSiteContactControllers(merged);
+    });
+  }
+
+  void _applyOemTicketIdFromMap(Map<String, dynamic> map) {
+    final oemTicketId = _getValue(map, 'oemTicketId', 'oem_ticket_id');
+    if (oemTicketId != null) {
+      controllers['oem_ticket_id']!.text = oemTicketId;
+      _oemTicketIdDisplay = oemTicketId;
+      Logger.infoLog('[CM] OEM Ticket ID initialized: $oemTicketId');
+    }
+  }
+
+  Future<void> _loadFreshTicketDetailsIfNeeded() async {
+    if (widget.mode == CMScreenModeEnum.create) return;
+    final parsedId = cmSiteReqId is int
+        ? cmSiteReqId
+        : int.tryParse(cmSiteReqId?.toString() ?? '');
+    if (parsedId == null || parsedId <= 0) return;
+    if (!await ConnectivityHelper.isConnected()) return;
+
+    try {
+      final ticketData =
+          await ServiceLocator().cmRepository.getCmTicketData(parsedId);
+      if (!mounted) return;
+
+      _mergedPreloadedSite = {
+        ...?_mergedPreloadedSite,
+        ...ticketData,
+      };
+      _applyOemTicketIdFromMap(ticketData);
+      setState(() {
+        _syncSiteContactControllers();
+      });
+      await _enrichSiteContactsFromLocalDb();
+    } catch (e) {
+      Logger.errorLog('[CM] Failed to refresh ticket details from API: $e');
+    }
   }
 
   /// Match API value to a static option ignoring case; returns the option string so UI shows exact option (e.g. "Self" not "SELF").
@@ -728,6 +564,19 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog("✅ [CM] CM Ticket No initialized: ${_cmTicketNoController.text}");
     } else {
       Logger.errorLog("❌ [CM] CM Ticket No not found in preloadedSite. Available keys: ${preloadedSite.keys}");
+    }
+
+    final currentStatus = preloadedSite['status'] ?? preloadedSite['Status'];
+    if (currentStatus != null && currentStatus.toString().trim().isNotEmpty) {
+      _currentStatusController.text = currentStatus.toString().trim();
+      if (_isClosedStatus(currentStatus)) {
+        _forceViewMode = true;
+      }
+    }
+
+    final startDate = preloadedSite['startDt'] ?? preloadedSite['start_dt'];
+    if (startDate != null && startDate.toString().trim().isNotEmpty) {
+      _startDateController.text = _formatDateStringForApi(startDate.toString());
     }
     
     // Map all fields with support for both camelCase and snake_case
@@ -755,12 +604,7 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] Priority initialized: $priority');
     }
     
-    // OEM Ticket ID
-    final oemTicketId = _getValue(preloadedSite, 'oemTicketId', 'oem_ticket_id');
-    if (oemTicketId != null) {
-      controllers['oem_ticket_id']!.text = oemTicketId;
-      Logger.infoLog('[CM] OEM Ticket ID initialized: $oemTicketId');
-    }
+    _applyOemTicketIdFromMap(preloadedSite);
     
     // Fault Description
     final faultDescription = _getValue(preloadedSite, 'faultDescription', 'fault_description');
@@ -798,11 +642,17 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] RCA initialized: $rca');
     }
     
-    // Closure Date
-    final closureDate = _getValue(preloadedSite, 'closureDate', 'closure_date');
-    if (closureDate != null) {
-      controllers['closure_date']!.text = closureDate;
-      Logger.infoLog('[CM] Closure Date initialized: $closureDate');
+    // Closure Date — use calendar date from API string only (part before `T`), no timezone
+    final rawEndDt = preloadedSite['endDt'] ??
+        preloadedSite['end_dt'] ??
+        preloadedSite['closureDate'] ??
+        preloadedSite['closure_date'];
+    if (rawEndDt != null) {
+      final display = _apiDateStringToDdMmYyyy(rawEndDt.toString());
+      if (display.isNotEmpty) {
+        controllers['closure_date']!.text = display;
+        Logger.infoLog('[CM] Closure Date initialized from endDt: $rawEndDt -> $display');
+      }
     }
     
     // OEM Representative
@@ -834,34 +684,11 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] Contact No initialized: $contactNo');
     }
     
-    // Customer Remarks
-    final customerRemarks = _getValue(preloadedSite, 'customerRemarks', 'customer_remarks');
-    if (customerRemarks != null) {
-      controllers['customer_remarks']!.text = customerRemarks;
-      Logger.infoLog('[CM] Customer Remarks initialized: $customerRemarks');
-    }
-    
     // Problem Summary
     final problemSummary = _getValue(preloadedSite, 'problemSummary', 'problem_summary');
     if (problemSummary != null) {
       controllers['problem_summary']!.text = problemSummary;
       Logger.infoLog('[CM] Problem Summary initialized: $problemSummary');
-    }
-    
-    // Set status from preloaded data (handle both camelCase and snake_case)
-    // Normalize API status to match _statusOptions (e.g. "IN-PROGRESS" -> "In-Progress") so dropdown shows correctly
-    final statusRaw = _getValue(preloadedSite, 'status', 'status') ?? preloadedSite['Status']?.toString().trim();
-    if (statusRaw != null && statusRaw.isNotEmpty) {
-      final statusNormalized = _normalizeStatusFromApi(statusRaw);
-      _statusController.text = statusNormalized;
-      Logger.infoLog('[CM] Status initialized: $statusRaw -> $statusNormalized');
-    }
-    
-    // Set remarks from preloaded data (API may send simple "remarks" key)
-    final remarks = _getValue(preloadedSite, 'remarks', 'remarks');
-    if (remarks != null && remarks.toString().trim().isNotEmpty) {
-      _remarksController.text = remarks.toString().trim();
-      Logger.infoLog('[CM] Remarks initialized from API (remarks key)');
     }
     
     // Set equipment type (handle both camelCase and snake_case)
@@ -894,10 +721,6 @@ class _CorrectiveMaintenanceScreenState
     // This will update state after the widget has built
     _loadImages(preloadedSite);
     
-    // Only set default status if not already set from preloaded data
-    if (_statusController.text.isEmpty) {
-      _statusController.text = 'Open';
-    }
     for (var value in controllers.values) {
       value.addListener(_onFormChanged);
     }
@@ -927,9 +750,12 @@ class _CorrectiveMaintenanceScreenState
       _clusterDistrictController.text = selectedSite.clusterDistrictName;
       _customerController.text = selectedSite.clientName ?? '';
       _infraEngineerNameController.text = selectedSite.infraEngineerName ?? '';
-      _infraEngineerContactNoController.text = selectedSite.infraEngineerContactNo ?? '';
+      _infraEngineerContactNoController.text =
+          selectedSite.infraEngineerContactNo ?? '';
       _clusterInchargeNameController.text = selectedSite.clusterInchargeName ?? '';
-      _clusterInchargeContactNoController.text = selectedSite.clusterInchargeContactNo ?? '';
+      _clusterInchargeContactNoController.text =
+          selectedSite.clusterInchargeContactNo ?? '';
+      _syncSiteContactControllers(_mergedPreloadedSite);
       _categoryController.text = selectedSite.category ?? '';
       controllers['site_id']!.text = selectedSite.siteId.toString();
     });
@@ -1150,89 +976,48 @@ class _CorrectiveMaintenanceScreenState
             _checklistData = checklistData;
           });
         }
-      } else if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+      } else if (_resolvedMode == CMScreenModeEnum.edit || _resolvedMode == CMScreenModeEnum.view) {
         // In edit/view mode, load checklist template and merge with existing responses
         Logger.infoLog(
           "🔄 [CM] Edit/View mode - Loading checklist template and merging with existing responses",
         );
         
         try {
-          // Load checklist template from local database or API
-          Map<String, dynamic> checklistTemplate = {};
-          
-          // Try to get from local database first
-          final siteDataWithChecklist = await ServiceLocator()
-              .centralAssetAuditDataService
-              .getCMSiteDataWithChecklist(_selectedSite!.siteId);
-          
-          if (siteDataWithChecklist != null && siteDataWithChecklist['checklist_items'] != null) {
-            checklistTemplate = Map<String, dynamic>.from(siteDataWithChecklist['checklist_items']);
-          } else {
-            // Try separate checklist table
-            final localChecklistData = await ServiceLocator()
-                .centralAssetAuditDataService
-                .getCMChecklistData(_selectedSite!.siteId);
-            
-            if (localChecklistData.isNotEmpty) {
-              checklistTemplate = localChecklistData;
+          int effectiveEntityId = _selectedSite!.entityId;
+          if (effectiveEntityId == 0) {
+            if (cmSiteReqId is int) {
+              effectiveEntityId = cmSiteReqId!;
             } else {
-              // Fallback for offline ticket open: lookup by entityId or cmSiteReqId
-              final effectiveEntityId = _selectedSite!.entityId != 0
-                  ? _selectedSite!.entityId
-                  : (cmSiteReqId is int
-                      ? cmSiteReqId
-                      : int.tryParse(cmSiteReqId?.toString() ?? ''));
-              if (effectiveEntityId != null && effectiveEntityId != 0) {
-                final siteDataByEntityId = await ServiceLocator()
-                    .centralAssetAuditDataService
-                    .getCMSiteDataWithChecklistByEntityId(effectiveEntityId);
-                if (siteDataByEntityId != null &&
-                    siteDataByEntityId['checklist_items'] != null) {
-                  checklistTemplate = Map<String, dynamic>.from(
-                      siteDataByEntityId['checklist_items'] as Map);
-                } else {
-                  final checklistByEntityId = await ServiceLocator()
-                      .centralAssetAuditDataService
-                      .getCMChecklistDataByEntityId(effectiveEntityId);
-                  if (checklistByEntityId.isNotEmpty) {
-                    checklistTemplate = checklistByEntityId;
-                  }
-                }
-              }
+              effectiveEntityId =
+                  int.tryParse(cmSiteReqId?.toString() ?? '') ?? 0;
             }
-            if (checklistTemplate.isEmpty) {
-              // Fetch from API if online
-              final isOnline = await ConnectivityHelper.isConnected();
-              if (isOnline) {
-                final apiResponse = await ServiceLocator().cmRepository
-                    .getChecklistData(_selectedSite!.entityId);
-                
-                if (apiResponse.containsKey('checkListDetails')) {
-                  checklistTemplate = Map<String, dynamic>.from(apiResponse['checkListDetails']);
-                  if (apiResponse.containsKey('siteDeployedItems')) {
-                    checklistTemplate['siteDeployedItems'] = apiResponse['siteDeployedItems'];
-                  }
-                } else {
-                  checklistTemplate = apiResponse;
+          }
+
+          Map<String, dynamic> checklistTemplate =
+              await _loadLocalChecklistTemplate(
+            siteId: _selectedSite!.siteId,
+            entityId: effectiveEntityId,
+          );
+
+          if (checklistTemplate.isEmpty) {
+            final isOnline = await ConnectivityHelper.isConnected();
+            if (isOnline && effectiveEntityId != 0) {
+              final apiResponse = await ServiceLocator().cmRepository
+                  .getChecklistData(effectiveEntityId);
+              if (apiResponse.containsKey('checkListDetails')) {
+                checklistTemplate =
+                    Map<String, dynamic>.from(apiResponse['checkListDetails']);
+                if (apiResponse.containsKey('siteDeployedItems')) {
+                  checklistTemplate['siteDeployedItems'] =
+                      apiResponse['siteDeployedItems'];
                 }
+              } else {
+                checklistTemplate = apiResponse;
               }
             }
           }
-          
-          // Get existing responses from API endpoint /mobile/correctiveMaintenanceForMobile/
-          List<dynamic> existingResponses = [];
-          
-          // First, try to get from preloadedSiteData (handle nested structure)
-          Map<String, dynamic>? preloadedData = widget.preloadedSiteData;
-          if (preloadedData != null) {
-            // Handle nested data structure if present
-            if (preloadedData.containsKey('data') && preloadedData['data'] is Map<String, dynamic>) {
-              preloadedData = Map<String, dynamic>.from(preloadedData['data']);
-            }
-            
-            existingResponses = preloadedData['cmCheckListSiteRespList'] ?? 
-                               preloadedData['cm_check_list_site_resp_list'] ?? [];
-          }
+
+          List<dynamic> existingResponses = _resolveExistingChecklistResponses();
           
           // If not found in preloadedSiteData and we have cmSiteReqId, fetch from API
           if (existingResponses.isEmpty && cmSiteReqId != null && cmSiteReqId! > 0) {
@@ -1248,6 +1033,15 @@ class _CorrectiveMaintenanceScreenState
                                    ticketData['cm_check_list_site_resp_list'] ?? [];
                 
                 Logger.infoLog('[CM] Fetched ${existingResponses.length} checklist responses from API');
+
+                if (mounted) {
+                  _mergedPreloadedSite = {
+                    ...?_mergedPreloadedSite,
+                    ...ticketData,
+                  };
+                  _applyOemTicketIdFromMap(ticketData);
+                  setState(() {});
+                }
                 
                 // Also update preloadedSiteData with the fetched data for consistency
                 if (mounted && existingResponses.isNotEmpty) {
@@ -1303,7 +1097,105 @@ class _CorrectiveMaintenanceScreenState
       }
     } finally {
       if (mounted) LoaderWidget.hideLoader();
+      if (widget.mode != CMScreenModeEnum.create) {
+        await _enrichSiteContactsFromLocalDb();
+      }
     }
+  }
+
+  List<dynamic> _resolveExistingChecklistResponses() {
+    Map<String, dynamic>? source = _mergedPreloadedSite;
+    if (source == null && widget.preloadedSiteData != null) {
+      source = Map<String, dynamic>.from(widget.preloadedSiteData!);
+      if (source.containsKey('data') && source['data'] is Map<String, dynamic>) {
+        source = Map<String, dynamic>.from(source['data'] as Map<String, dynamic>);
+      }
+    }
+    final list = source?['cmCheckListSiteRespList'] ??
+        source?['cm_check_list_site_resp_list'];
+    return list is List ? list : const [];
+  }
+
+  /// When only ticket responses exist (offline downloaded ticket), build a minimal
+  /// template so [_mergeChecklistWithResponses] can render checklist rows.
+  Map<String, dynamic> _buildPseudoTemplateFromResponses(
+    List<dynamic> existingResponses,
+  ) {
+    final template = <String, dynamic>{};
+    for (final response in existingResponses) {
+      if (response is! Map<String, dynamic>) continue;
+      final itemType =
+          (response['cmItemType'] ?? response['cm_item_type'] ?? 'DG')
+              .toString()
+              .trim();
+      if (itemType.isEmpty) continue;
+      template.putIfAbsent(itemType, () => <Map<String, dynamic>>[]);
+      (template[itemType] as List<Map<String, dynamic>>).add({
+        'cm_check_list_mst_id':
+            response['cmCheckListMstId'] ?? response['cm_check_list_mst_id'],
+        'cmCheckListMstId':
+            response['cmCheckListMstId'] ?? response['cm_check_list_mst_id'],
+        'checklist_desc':
+            response['checklistDesc'] ?? response['checklist_desc'] ?? '',
+        'checklistDesc':
+            response['checklistDesc'] ?? response['checklist_desc'] ?? '',
+        'resp_type': response['respType'] ?? response['resp_type'] ?? '',
+        'respType': response['respType'] ?? response['resp_type'] ?? '',
+        'cl_order': response['clOrder'] ?? response['cl_order'] ?? 0,
+        'clOrder': response['clOrder'] ?? response['cl_order'] ?? 0,
+      });
+    }
+    return template;
+  }
+
+  Future<Map<String, dynamic>> _loadLocalChecklistTemplate({
+    required int siteId,
+    required int entityId,
+  }) async {
+    Map<String, dynamic> checklistTemplate = {};
+
+    final siteDataWithChecklist = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getCMSiteDataWithChecklist(siteId);
+    if (siteDataWithChecklist != null &&
+        siteDataWithChecklist['checklist_items'] != null) {
+      return Map<String, dynamic>.from(
+        siteDataWithChecklist['checklist_items'] as Map,
+      );
+    }
+
+    final localChecklistData = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getCMChecklistData(siteId);
+    if (localChecklistData.isNotEmpty) {
+      return localChecklistData;
+    }
+
+    final entityIdFromDb = await ServiceLocator()
+        .centralAssetAuditDataService
+        .getEntityIdFromCMChecklistForSite(siteId);
+    final effectiveEntityId = entityId != 0
+        ? entityId
+        : (entityIdFromDb ?? 0);
+    if (effectiveEntityId != 0) {
+      final siteDataByEntityId = await ServiceLocator()
+          .centralAssetAuditDataService
+          .getCMSiteDataWithChecklistByEntityId(effectiveEntityId);
+      if (siteDataByEntityId != null &&
+          siteDataByEntityId['checklist_items'] != null) {
+        return Map<String, dynamic>.from(
+          siteDataByEntityId['checklist_items'] as Map,
+        );
+      }
+      final checklistByEntityId = await ServiceLocator()
+          .centralAssetAuditDataService
+          .getCMChecklistDataByEntityId(effectiveEntityId);
+      if (checklistByEntityId.isNotEmpty) {
+        return checklistByEntityId;
+      }
+    }
+
+    return checklistTemplate;
   }
 
   /// Merge existing checklist responses with template checklist data
@@ -1311,7 +1203,22 @@ class _CorrectiveMaintenanceScreenState
     Map<String, dynamic> checklistTemplate,
     List<dynamic> existingResponses,
   ) async {
+    if (checklistTemplate.isEmpty && existingResponses.isNotEmpty) {
+      Logger.infoLog(
+        '[CM] No checklist template in local DB; building pseudo-template from '
+        '${existingResponses.length} saved ticket response(s) for offline display',
+      );
+      checklistTemplate = _buildPseudoTemplateFromResponses(existingResponses);
+    }
+
     final mergedData = <String, dynamic>{};
+    // When ticket GET returns rows, show only those (cmCheckListSiteRespList), not the full master checklist.
+    final restrictToTicketResponses = existingResponses.isNotEmpty;
+    if (restrictToTicketResponses) {
+      Logger.infoLog(
+        '[CM] Checklist UI limited to cmCheckListSiteRespList (${existingResponses.length} row(s)); template used only to enrich matching mstIds',
+      );
+    }
     
     // Copy siteDeployedItems if present
     if (checklistTemplate.containsKey('siteDeployedItems')) {
@@ -1372,8 +1279,8 @@ class _CorrectiveMaintenanceScreenState
         // Create a map of existing responses by cmCheckListMstId for quick lookup
         final existingResponsesMap = <int, Map<String, dynamic>>{};
         for (var existingItem in existingItemsForType) {
-          final mstId = existingItem['cmCheckListMstId'] as int? ?? 
-                       existingItem['cm_check_list_mst_id'] as int?;
+          final mstId = existingItem['cmCheckListMstId'] as int? ??
+              existingItem['cm_check_list_mst_id'] as int?;
           if (mstId != null) {
             existingResponsesMap[mstId] = existingItem;
           }
@@ -1383,8 +1290,13 @@ class _CorrectiveMaintenanceScreenState
         for (var templateItem in templateItems) {
           if (templateItem is Map<String, dynamic>) {
             final mergedItem = Map<String, dynamic>.from(templateItem);
-            final mstId = mergedItem['cm_check_list_mst_id'] as int? ?? 
-                         mergedItem['cmCheckListMstId'] as int?;
+            final mstId = mergedItem['cm_check_list_mst_id'] as int? ??
+                mergedItem['cmCheckListMstId'] as int?;
+
+            if (restrictToTicketResponses &&
+                (mstId == null || !existingResponsesMap.containsKey(mstId))) {
+              continue;
+            }
             
             // Find matching existing response
             if (mstId != null && existingResponsesMap.containsKey(mstId)) {
@@ -1405,7 +1317,7 @@ class _CorrectiveMaintenanceScreenState
                 mergedItem['resp_type'] = existingResponse['resp_type'];
               }
               
-              // Merge cmImpactedItemList directly (for DYNAMIC_DROPDOWN)
+              // Merge cmImpactedItemList when API returns it (dynamic dropdown, CHECKBOX_NUMERIC with impacted rows, etc.)
               final existingImpactedItems = existingResponse['cmImpactedItemList'] ?? 
                                            existingResponse['CmImpactedItemList'] ?? 
                                            existingResponse['cm_impacted_item_list'] ?? [];
@@ -1427,18 +1339,12 @@ class _CorrectiveMaintenanceScreenState
                   if (img is Map<String, dynamic>) {
                     final photoId = img['photoId'] ?? img['photo_id'];
                     if (photoId != null) {
-                      // Load image data from server/cache
                       String? imageData;
                       try {
-                        // First check cache
-                        final cachedImage = await ServiceLocator()
+                        imageData = await ServiceLocator()
                             .imageUploadService
-                            .getImagesByServerId(photoId.toString());
-                        
-                        if (cachedImage != null && cachedImage.imageData != null) {
-                          imageData = cachedImage.imageData;
-                        } else {
-                          // Try to download if online
+                            .resolveImageBase64ForPhotoRef(photoId.toString());
+                        if (imageData == null || imageData.isEmpty) {
                           final isOnline = await ConnectivityHelper.isConnected();
                           if (isOnline) {
                             final uniqueId = await ServiceLocator()
@@ -1448,7 +1354,6 @@ class _CorrectiveMaintenanceScreenState
                                   ActivityTypeEnum.correctiveMaintenance,
                                   _selectedSite?.siteId.toString() ?? '',
                                 );
-                            
                             if (uniqueId != null) {
                               imageData = await ServiceLocator()
                                   .imageUploadService
@@ -1510,17 +1415,16 @@ class _CorrectiveMaintenanceScreenState
                               if (childImg is Map<String, dynamic>) {
                                 final photoId = childImg['photoId'] ?? childImg['photo_id'];
                                 if (photoId != null) {
-                                  // Load image data from server/cache
                                   String? imageData;
                                   try {
-                                    final cachedImage = await ServiceLocator()
+                                    imageData = await ServiceLocator()
                                         .imageUploadService
-                                        .getImagesByServerId(photoId.toString());
-                                    
-                                    if (cachedImage != null && cachedImage.imageData != null) {
-                                      imageData = cachedImage.imageData;
-                                    } else {
-                                      final isOnline = await ConnectivityHelper.isConnected();
+                                        .resolveImageBase64ForPhotoRef(
+                                          photoId.toString(),
+                                        );
+                                    if (imageData == null || imageData.isEmpty) {
+                                      final isOnline =
+                                          await ConnectivityHelper.isConnected();
                                       if (isOnline) {
                                         final uniqueId = await ServiceLocator()
                                             .imageUploadService
@@ -1529,7 +1433,6 @@ class _CorrectiveMaintenanceScreenState
                                               ActivityTypeEnum.correctiveMaintenance,
                                               _selectedSite?.siteId.toString() ?? '',
                                             );
-                                        
                                         if (uniqueId != null) {
                                           imageData = await ServiceLocator()
                                               .imageUploadService
@@ -1574,16 +1477,35 @@ class _CorrectiveMaintenanceScreenState
               if (existingResponse.containsKey('resp_numeric')) {
                 mergedItem['resp_numeric'] = existingResponse['resp_numeric'];
               }
-            } else {
-              // No matching response found - log for debugging
+            } else if (!restrictToTicketResponses) {
+              // No matching response found - log for debugging (full master checklist preview)
               Logger.infoLog('[CM] No matching response found for mstId: $mstId, equipmentType: $equipmentType, checklistDesc: ${mergedItem['checklistDesc'] ?? mergedItem['checklist_desc']}');
-              // Still add the item even without a match (template item without response)
-              // resp will remain null/empty from template
             }
             
             // Log the final merged item to verify resp is set
             Logger.infoLog('[CM] Final merged item - mstId: $mstId, checklistDesc: ${mergedItem['checklistDesc'] ?? mergedItem['checklist_desc']}, resp: ${mergedItem['resp']}, respType: ${mergedItem['respType'] ?? mergedItem['resp_type']}');
             mergedItems.add(mergedItem);
+          }
+        }
+
+        // Ticket-only mode: append any cmCheckListSiteRespList rows not matched above (missing mstId on template branch / API-only shapes).
+        if (restrictToTicketResponses && existingItemsForType.isNotEmpty) {
+          final included = <int>{};
+          for (final mi in mergedItems) {
+            final id =
+                mi['cm_check_list_mst_id'] as int? ?? mi['cmCheckListMstId'] as int?;
+            if (id != null) included.add(id);
+          }
+          for (final resp in existingItemsForType) {
+            final mid = resp['cmCheckListMstId'] as int? ??
+                resp['cm_check_list_mst_id'] as int?;
+            if (mid != null && !included.contains(mid)) {
+              mergedItems.add(Map<String, dynamic>.from(resp));
+              included.add(mid);
+              Logger.infoLog(
+                '[CM] Added ticket-only checklist row not in template (mstId: $mid) for equipmentType: $equipmentType',
+              );
+            }
           }
         }
         
@@ -1605,7 +1527,7 @@ class _CorrectiveMaintenanceScreenState
       controllers['assigned_to']!.text = _selectedSite!.oem ?? '';
     } else if (controllers['responsible_party']!.text == 'Self') {
       controllers['assigned_to']!.text = _selectedSite!.self;
-      // Clear Identification and FSR when responsibleParty is not OEM
+      // Clear identification photo when responsibleParty is not OEM
       setState(() {
         identificationPhoto = null;
         identificationPhotoByteData = "";
@@ -1625,6 +1547,8 @@ class _CorrectiveMaintenanceScreenState
     _clusterDistrictController.dispose();
     _customerController.dispose();
     _cmTicketNoController.dispose();
+    _startDateController.dispose();
+    _currentStatusController.dispose();
     _infraEngineerNameController.dispose();
     _infraEngineerContactNoController.dispose();
     _clusterInchargeNameController.dispose();
@@ -1684,7 +1608,7 @@ class _CorrectiveMaintenanceScreenState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (widget.mode == CMScreenModeEnum.create) ...[
+        if (_resolvedMode == CMScreenModeEnum.create) ...[
           CustomRadioButton(
             options: [
               OptionItem(label: "DG", value: "DG"),
@@ -1709,7 +1633,7 @@ class _CorrectiveMaintenanceScreenState
         ],
 
         if (_selectedEquipmentType.isNotEmpty &&
-            widget.mode == CMScreenModeEnum.create)
+            _resolvedMode == CMScreenModeEnum.create)
           ChecklistCreateWidget(
             key: ValueKey(
               'checklist_${_selectedEquipmentType}_${_selectedSite?.entityId}',
@@ -1795,7 +1719,7 @@ class _CorrectiveMaintenanceScreenState
                 },
           ),
         // In edit mode, use ChecklistCreateWidget (read-only) with merged data
-        if (widget.mode == CMScreenModeEnum.edit &&
+        if (_resolvedMode == CMScreenModeEnum.edit &&
             _selectedEquipmentType.isNotEmpty &&
             _checklistData[_selectedEquipmentType] != null)
           ChecklistCreateWidget(
@@ -1879,7 +1803,7 @@ class _CorrectiveMaintenanceScreenState
                 },
           ),
         // In view mode, use ChecklistCreateWidget with isReadOnly: true (read-only with images)
-        if (widget.mode == CMScreenModeEnum.view &&
+        if (_resolvedMode == CMScreenModeEnum.view &&
             _selectedEquipmentType.isNotEmpty &&
             _checklistData[_selectedEquipmentType] != null)
           ChecklistCreateWidget(
@@ -1918,6 +1842,7 @@ class _CorrectiveMaintenanceScreenState
       appBar: CustomFormAppbar(
         title: 'Corrective Maintenance',
         onClose: () => _showUnsavedChangesDialog(),
+        showCloseButton: _resolvedMode != CMScreenModeEnum.view,
       ),
       body: Stack(
         children: [
@@ -1932,7 +1857,8 @@ class _CorrectiveMaintenanceScreenState
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.only(
-                      bottom: MediaQuery.of(context).viewInsets.bottom + 100,
+                      bottom: MediaQuery.of(context).viewInsets.bottom +
+                          (_resolvedMode == CMScreenModeEnum.view ? 24 : 100),
                     ),
                     child: Container(
                       padding: const EdgeInsets.all(16),
@@ -1947,16 +1873,35 @@ class _CorrectiveMaintenanceScreenState
                   ),
                 ),
 
-                // Bottom Button
-                ArrowButton(
-                  text: "Submit",
-                  isLeftArrow: false,
-                  backgroundColor: AppColors.cmSubmitButtonColor,
-                  textColor: AppColors.buttonColorSite,
-                  onPressed: (widget.mode == CMScreenModeEnum.view || _isSubmitting) 
-                      ? null 
-                      : _validateAndSubmit,
-                ),
+                if (_resolvedMode != CMScreenModeEnum.view)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ArrowButton(
+                            text: "Save",
+                            isLeftArrow: false,
+                            showArrow: false,
+                            backgroundColor: AppColors.cmSubmitButtonColor,
+                            textColor: AppColors.buttonColorSite,
+                            onPressed: _isSubmitting ? null : _save,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ArrowButton(
+                            text: "Save & Close",
+                            isLeftArrow: false,
+                            showArrow: false,
+                            backgroundColor: AppColors.cmSubmitButtonColor,
+                            textColor: AppColors.buttonColorSite,
+                            onPressed: _isSubmitting ? null : _saveAndClose,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1991,6 +1936,25 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "CM Ticket No",
           controller: _cmTicketNoController,
+          isEditable: false,
+        ),
+        getHeight(15),
+        CustomFormField(
+          label: "Start Date",
+          controller: _startDateController,
+          isEditable: false,
+        ),
+        getHeight(15),
+        CustomFormField(
+          label: "Current Status",
+          controller: _currentStatusController,
+          isEditable: false,
+          textColor: AppColors.color555555,
+        ),
+        getHeight(15),
+        CustomFormField(
+          label: "Site ID",
+          controller: _siteCodeController,
           isEditable: false,
         ),
         getHeight(15),
@@ -2053,7 +2017,7 @@ class _CorrectiveMaintenanceScreenState
           label: "Category",
           items: _responsiblePartyOptions,
           initialValue: controllers['responsible_party']!.text,
-          isRequired: true,
+          isRequired: false,
           onChanged: (value) {
             setState(() {
               controllers['responsible_party']!.text = value ?? "";
@@ -2068,35 +2032,46 @@ class _CorrectiveMaintenanceScreenState
           label: "Assigned To",
           controller: controllers['assigned_to'],
           isEditable: false,
-          isRequired: true,
+          isRequired: false,
         ),
         getHeight(15),
 
-        // 👇 OEM Ticket ID - Required only when OEM is selected; disabled when Category is Self
+        // OEM Ticket ID — editable in create/edit for both OEM and Self category
         CustomFormField(
+          key: ValueKey('oem-ticket-$_oemTicketIdDisplay'),
           label: "OEM Ticket ID",
-          controller: controllers['oem_ticket_id'],
-          isEditable: widget.mode == CMScreenModeEnum.create &&
-              (controllers['responsible_party']?.text.trim() != 'Self'),
-          isRequired:
-              controllers['responsible_party'] != null &&
-              controllers['responsible_party']?.text == 'OEM',
+          initialValue: _oemTicketIdDisplay,
+          isEditable: _resolvedMode != CMScreenModeEnum.view,
+          isRequired: false,
+          onChanged: (value) {
+            _oemTicketIdDisplay = value;
+            controllers['oem_ticket_id']!.text = value;
+            _onFormChanged();
+          },
         ),
         getHeight(15),
 
-        CustomDropdown(
-          label: "Priority",
-          items: _priorityOptions,
-          initialValue: controllers['priority']!.text,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              controllers['priority']!.text = value ?? "";
-              _onFormChanged();
-            });
-          },
-          isDisabled: widget.mode != CMScreenModeEnum.create,
-        ),
+        if (_resolvedMode == CMScreenModeEnum.create)
+          CustomDropdown(
+            label: "Priority",
+            items: _priorityOptions,
+            initialValue: controllers['priority']!.text,
+            isRequired: false,
+            onChanged: (value) {
+              setState(() {
+                controllers['priority']!.text = value ?? "";
+                _onFormChanged();
+              });
+            },
+            isDisabled: false,
+          )
+        else
+          CustomFormField(
+            label: "Priority",
+            controller: controllers['priority'],
+            isRequired: false,
+            isEditable: false,
+          ),
         getHeight(15),
 
         _buildEquipmentTypeRadioButtons(),
@@ -2104,50 +2079,51 @@ class _CorrectiveMaintenanceScreenState
 
         CustomRemarksField(
           label: "Fault Description",
-          isRequired: true,
+          isRequired: false,
           hintText: "Enter fault description",
           controller: controllers['fault_description']!,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
+          isDisabled: true,
         ),
         getHeight(15),
 
-        CustomDropdown(
-          label: "Nature of Failure",
-          items: _natureOfFailureOptions,
-          initialValue: controllers['nature_of_failure']!.text,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              controllers['nature_of_failure']!.text = value ?? "";
-              _onFormChanged();
-            });
-          },
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+        // CustomDropdown(
+        //   label: "Nature of Failure",
+        //   items: _natureOfFailureOptions,
+        //   initialValue: controllers['nature_of_failure']!.text,
+        //   isRequired: true,
+        //   onChanged: (value) {
+        //     setState(() {
+        //       controllers['nature_of_failure']!.text = value ?? "";
+        //       _onFormChanged();
+        //     });
+        //   },
+        //   isDisabled: widget.mode == CMScreenModeEnum.view,
+        // ),
+        // getHeight(15),
 
-        CustomDropdown(
-          label: "Scope of Ticket",
-          items: _scopeOfTicketOptions,
-          initialValue: controllers['scope_of_ticket']!.text,
-          isRequired: true,
-          onChanged: (value) {
-            setState(() {
-              controllers['scope_of_ticket']!.text = value ?? "";
-              _onFormChanged();
-            });
-          },
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+        // CustomDropdown(
+        //   label: "Scope of Ticket",
+        //   items: _scopeOfTicketOptions,
+        //   initialValue: controllers['scope_of_ticket']!.text,
+        //   isRequired: true,
+        //   onChanged: (value) {
+        //     setState(() {
+        //       controllers['scope_of_ticket']!.text = value ?? "";
+        //       _onFormChanged();
+        //     });
+        //   },
+        //   isDisabled: widget.mode == CMScreenModeEnum.view,
+        // ),
+       
 
         // Action Taken - only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
         CustomFormField(
           label: "Action Taken",
           controller: controllers['action_taken'],
-          isEditable: widget.mode != CMScreenModeEnum.view,
-          isRequired: true,
+          isEditable: _resolvedMode != CMScreenModeEnum.view,
+          isRequired: false,
+          inputType: InputType.multiline,
         ),
         getHeight(15),
         ],
@@ -2157,19 +2133,26 @@ class _CorrectiveMaintenanceScreenState
         CustomFormField(
           label: "RCA",
           controller: controllers['rca'],
-          isEditable: widget.mode != CMScreenModeEnum.view,
-          isRequired: true,
+          isEditable: _resolvedMode != CMScreenModeEnum.view,
+          isRequired: false,
         ),
         getHeight(15),
         ],
 
-        // Closure Date - only visible in view mode
-        if (widget.mode == CMScreenModeEnum.view) ...[
-          CustomFormField(
-            label: "Closure Date",
-            controller: controllers['closure_date'],
-            isEditable: false,
-            isRequired: true,
+        // Closure Date - tap to open calendar in edit only; view mode disabled
+        if (widget.mode != CMScreenModeEnum.create) ...[
+          GestureDetector(
+            onTap: _resolvedMode == CMScreenModeEnum.edit
+                ? _pickClosureDate
+                : null,
+            child: AbsorbPointer(
+              child: CustomFormField(
+                label: "Closure Date",
+                controller: controllers['closure_date'],
+                isEditable: _resolvedMode == CMScreenModeEnum.edit,
+                isRequired: false,
+              ),
+            ),
           ),
           getHeight(15),
         ],
@@ -2180,47 +2163,25 @@ class _CorrectiveMaintenanceScreenState
           CustomFormField(
             label: "OEM Representative",
             controller: controllers['oem_representative'],
-            isEditable: widget.mode != CMScreenModeEnum.view,
-            isRequired: true,
+            isEditable: _resolvedMode != CMScreenModeEnum.view,
+            isRequired: false,
           ),
           getHeight(15),
 
           CustomFormField(
             label: "OEM Representative Contact",
             controller: controllers['oem_representative_contact'],
-            isEditable: widget.mode != CMScreenModeEnum.view,
-            isRequired: true,
+            isEditable: _resolvedMode != CMScreenModeEnum.view,
+            isRequired: false,
             inputType: InputType.number,
             maxLength: 10,
           ),
           getHeight(15),
         ],
 
-        CustomFormField(
-          label: "Customer Name",
-          controller: controllers['customer_name'],
-          isRequired: true,
-          isEditable: widget.mode != CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+       
 
-        CustomFormField(
-          label: "Contact No.",
-          controller: controllers['contact_no'],
-          isRequired: true,
-          isEditable: widget.mode != CMScreenModeEnum.view,
-          inputType: InputType.number,
-          maxLength: 10,
-        ),
-        getHeight(15),
-
-        CustomFormField(
-          label: "Customer Remarks",
-          controller: controllers['customer_remarks'],
-          isRequired: false,
-          isEditable: widget.mode != CMScreenModeEnum.view,
-        ),
-        getHeight(15),
+       
 
         // Problem Summary - only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
@@ -2228,41 +2189,20 @@ class _CorrectiveMaintenanceScreenState
           label: "Problem Summary",
           hintText: "Enter problem summary",
           controller: controllers['problem_summary']!,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
+          isDisabled: _resolvedMode == CMScreenModeEnum.view,
         ),
         getHeight(15),
         ],
 
-        ImageUploadField(
-          label: "Customer Photo",
-          placeholder: "Add a Photo",
-          isRequired: false,
-          onImageSelected: (File? file) async {
-            if (file != null) {
-              // Perform async operation first
-              final bytes = await file.readAsBytes();
-              final encodedData = base64Encode(bytes);
-
-              // Then update state synchronously
-              setState(() {
-                customerPhoto = file;
-                customerPhotoByteData = encodedData;
-              });
-            }
-          },
-          externalImageUrl: customerPhotoByteData,
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
+       
         getHeight(15),
 
-        // Show Identification and FSR only in edit/view mode and when responsibleParty is "OEM"
-        if (widget.mode != CMScreenModeEnum.create && 
-            controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') ...[
+     
           // Identification Photo
           ImageUploadField(
             label: "Identification",
             placeholder: "Add a Photo",
-            isRequired: widget.mode == CMScreenModeEnum.edit,
+            isRequired: false,
             onImageSelected: (File? file) async {
               if (file != null) {
                 final bytes = await file.readAsBytes();
@@ -2283,57 +2223,57 @@ class _CorrectiveMaintenanceScreenState
               }
             },
             externalImageUrl: identificationPhotoByteData,
-            isDisabled: widget.mode == CMScreenModeEnum.view,
+            isDisabled: _resolvedMode == CMScreenModeEnum.view,
           ),
           getHeight(15),
 
-          // FSR Attachment (file attachment, not photo)
           CustomFileUploadNew(
             label: "FSR",
             placeholder: "Upload File",
-            isRequired: widget.mode == CMScreenModeEnum.edit,
+            isRequired: false,
             uploadedFiles: _fsrAttachments,
-            serverAttachmentName: _fsrAttachmentName != null && 
-                _fsrAttachmentName!.trim().isNotEmpty
+            serverAttachmentName: _fsrAttachments.isEmpty &&
+                    _fsrAttachmentName != null &&
+                    _fsrAttachmentName!.trim().isNotEmpty
                 ? _fsrAttachmentName!.trim()
                 : null,
-            serverAttachmentId: _fsrAttachmentId != null && 
-                _fsrAttachmentId != 0
+            serverAttachmentId: _fsrAttachments.isEmpty &&
+                    _fsrAttachmentId != null &&
+                    _fsrAttachmentId != 0
                 ? _fsrAttachmentId
                 : null,
-            onServerAttachmentClicked: widget.mode != CMScreenModeEnum.create
-                ? (attachmentId) async {
-                    LoaderWidget.showLoader(context);
-                    try {
-                      await _loadAttachmentFromDocumentId(attachmentId);
-                    } finally {
-                      LoaderWidget.hideLoader();
-                    }
-                  }
-                : null,
-            onFileSelected: (File? file) {
+            onServerAttachmentClicked: _openServerAttachment,
+            onFileSelected: (File? file) async {
               if (file != null) {
                 setState(() {
-                  // Clear existing FSR attachment info when new file is selected
                   _fsrAttachmentId = null;
                   _fsrAttachmentName = null;
-                  // Clear existing attachments and add new one
                   _fsrAttachments.clear();
                   _fsrAttachments.add(file);
                   _hasFormDataChanges = true;
                 });
+                // Same as Identification: online → UploadDocuments immediately; offline → local queue (LOCAL_IMAGE_ID).
+                await _uploadPhotoImmediately(
+                  file,
+                  'FSR',
+                  (docId) {
+                    _fsrAttachmentId = docId;
+                    _fsrAttachmentName = file.path.split('/').last;
+                  },
+                );
               }
             },
             onFileDeleted: (File file) {
               setState(() {
                 _fsrAttachments.remove(file);
+                _fsrAttachmentId = null;
+                _fsrAttachmentName = null;
                 _hasFormDataChanges = true;
               });
             },
-            isDisabled: widget.mode == CMScreenModeEnum.view,
+            isDisabled: _resolvedMode == CMScreenModeEnum.view,
           ),
           getHeight(15),
-        ],
 
         // Show Time Stamp Photo only in edit and view mode
         if (widget.mode != CMScreenModeEnum.create) ...[
@@ -2341,7 +2281,7 @@ class _CorrectiveMaintenanceScreenState
           ImageUploadField(
             label: "Time Stamp Photo",
             placeholder: "Add a Photo",
-            isRequired: widget.mode == CMScreenModeEnum.edit,
+            isRequired: false,
             onImageSelected: (File? file) async {
               if (file != null) {
                 final bytes = await file.readAsBytes();
@@ -2362,173 +2302,12 @@ class _CorrectiveMaintenanceScreenState
               }
             },
             externalImageUrl: timestampPhotoByteData,
-            isDisabled: widget.mode == CMScreenModeEnum.view,
+            isDisabled: _resolvedMode == CMScreenModeEnum.view,
           ),
           getHeight(15),
         ],
 
-        CustomFileUploadNew(
-          label: "Attachments",
-          placeholder: "Upload File",
-          uploadedFiles: _uploadedAttachments,
-          serverAttachmentName: widget.mode != CMScreenModeEnum.create && 
-              _customerAttachmentName != null && 
-              _customerAttachmentName!.trim().isNotEmpty
-              ? _customerAttachmentName!.trim()
-              : null,
-          serverAttachmentId: widget.mode != CMScreenModeEnum.create && 
-              _customerAttachmentId != null && 
-              _customerAttachmentId != 0
-              ? _customerAttachmentId
-              : null,
-          onServerAttachmentClicked: widget.mode != CMScreenModeEnum.create
-              ? (attachmentId) async {
-                  LoaderWidget.showLoader(context);
-                  try {
-                    await _loadAttachmentFromDocumentId(attachmentId);
-                  } finally {
-                    LoaderWidget.hideLoader();
-                  }
-                }
-              : null,
-          onServerAttachmentDeleted: widget.mode != CMScreenModeEnum.create
-              ? () {
-                  setState(() {
-                    _customerAttachmentId = null;
-                    _customerAttachmentName = null;
-                    _hasFormDataChanges = true;
-                  });
-                }
-              : null,
-          onFileSelected: (File? file) {
-            if (file != null) {
-              setState(() {
-                // Clear server attachment when new file is uploaded
-                _customerAttachmentId = null;
-                _customerAttachmentName = null;
-                // Clear existing attachments and add new one
-                _uploadedAttachments.clear();
-                _uploadedAttachments.add(file);
-                _hasFormDataChanges = true;
-              });
-            }
-          },
-          onFileDeleted: (File file) {
-            // Handle file deletion
-            setState(() {
-              _uploadedAttachments.remove(file);
-              _hasFormDataChanges = true;
-            });
-          },
-          isRequired: false,
-          maxSizeText: "(Max Size: 2MB)",
-          acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
-          isDisabled: widget.mode == CMScreenModeEnum.view,
-        ),
-        getHeight(30),
-        // Show Status, Remarks, and Remark Attachment in both edit and view modes
-        // In view mode when status is Closed, fields are disabled/read-only
-        // In edit mode, user can change status even if it's Closed
-        if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) ...[
-          CustomDropdown(
-            label: "Status",
-            items: _statusOptions,
-            initialValue: _statusController.text,
-            isRequired: true,
-            isDisabled: widget.mode == CMScreenModeEnum.view && 
-                       _statusController.text.trim().toUpperCase() == 'CLOSED',
-            onChanged: (value) {
-              setState(() {
-                _statusController.text = value ?? "";
-                _onFormChanged();
-              });
-            },
-          ),
-          getHeight(15),
-          CustomRemarksField(
-            label: "Remarks",
-            hintText: "Enter remarks",
-            controller: _remarksController,
-            isRequired: widget.mode == CMScreenModeEnum.edit &&
-                       _statusController.text.trim().toUpperCase() == 'CLOSED',
-            isDisabled: widget.mode == CMScreenModeEnum.view,
-          ),
-          getHeight(15),
-          CustomFileUploadNew(
-            label: "Remark Attachment",
-            placeholder: "Upload File",
-                uploadedFiles: _remarksAttachments,
-                serverAttachmentName: (_remarksAttachmentName != null && _remarksAttachmentName!.trim().isNotEmpty)
-                    ? _remarksAttachmentName!.trim()
-                    : null,
-                serverAttachmentId: _remarksAttachmentId != null && 
-                    _remarksAttachmentId != 0 && 
-                    _remarksAttachmentId.toString().trim().isNotEmpty
-                    ? _remarksAttachmentId 
-                    : null,
-                onServerAttachmentClicked: _remarksAttachmentId != null && 
-                    _remarksAttachmentId != 0
-                    ? (attachmentId) async {
-                        LoaderWidget.showLoader(context);
-                        try {
-                          await _loadAttachmentFromDocumentId(attachmentId);
-                        } finally {
-                          LoaderWidget.hideLoader();
-                        }
-                      }
-                    : null,
-                onServerAttachmentDeleted: widget.mode == CMScreenModeEnum.edit
-                    ? () {
-                        setState(() {
-                          _remarksAttachmentId = null;
-                          _remarksAttachmentName = null;
-                          _hasFormDataChanges = true;
-                        });
-                      }
-                    : null,
-            onFileSelected: widget.mode == CMScreenModeEnum.edit
-                ? (File? file) {
-                    if (file != null) {
-                      setState(() {
-                            // Clear server attachment when new file is uploaded
-                            _remarksAttachmentId = null;
-                            _remarksAttachmentName = null;
-                            // Clear existing attachments and add new one
-                        _remarksAttachments.clear();
-                        _remarksAttachments.add(file);
-                            _hasFormDataChanges = true;
-                      });
-                    }
-                  }
-                : (File? file) {
-                    // No-op when disabled
-                  },
-            onFileDeleted: widget.mode == CMScreenModeEnum.edit
-                ? (File file) {
-                    // Handle file deletion
-                    setState(() {
-                      _remarksAttachments.remove(file);
-                          _hasFormDataChanges = true;
-                    });
-                  }
-                : (File file) {
-                    // No-op when disabled
-                  },
-            isRequired: widget.mode == CMScreenModeEnum.edit && 
-                       _statusController.text.trim().toUpperCase() == 'CLOSED',
-            maxSizeText: "(Max Size: 2MB)",
-                acceptedFileTypes: "(Accept Only - .pdf, .docx & .doc)",
-            isDisabled: widget.mode == CMScreenModeEnum.view,
-          ),
-          getHeight(30),
-        ],
-        CustomSubmitButtonV2(
-          text: "Submit", 
-          onPressed: (widget.mode == CMScreenModeEnum.view || _isSubmitting) 
-              ? null 
-              : _validateAndSubmit,
-          isLoading: _isSubmitting,
-        ),
+        
       ],
     );
   }
@@ -2554,36 +2333,119 @@ class _CorrectiveMaintenanceScreenState
       requestData['problem_summary'] = null;
       requestData['problemSummary'] = null;
     }
-    // When Category is Self, send oemTicketId as null
-    final responsibleParty = requestData['responsible_party']?.toString().trim().toUpperCase();
-    if (responsibleParty == 'SELF') {
-      requestData['oem_ticket_id'] = null;
-      requestData['oemTicketId'] = null;
-    }
   }
 
-  /// Format date string to dd/MM/yyyy format
+  void _applyOemTicketIdToRequest(Map<String, dynamic> requestData) {
+    final value = controllers['oem_ticket_id']!.text.trim();
+    requestData.remove('oem_ticket_id');
+    requestData['oemTicketId'] = value.isEmpty ? null : value;
+  }
+
+  /// API expects camelCase [oemTicketId] on the final POST body.
+  void _ensureOemTicketIdOnApiPayload(Map<String, dynamic> payload) {
+    payload.remove('oem_ticket_id');
+    final value = controllers['oem_ticket_id']!.text.trim();
+    payload['oemTicketId'] = value.isEmpty ? null : value;
+  }
+
+  /// API date → `dd/MM/yyyy` using only the `YYYY-MM-DD` segment (before `T` if present). No timezone.
+  String _apiDateStringToDdMmYyyy(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.contains('/')) return trimmed;
+
+    String ymd;
+    final tIndex = trimmed.indexOf('T');
+    if (tIndex > 0) {
+      ymd = trimmed.substring(0, tIndex);
+    } else if (trimmed.length >= 10 &&
+        trimmed[4] == '-' &&
+        trimmed[7] == '-') {
+      ymd = trimmed.substring(0, 10);
+    } else {
+      return trimmed;
+    }
+
+    final parts = ymd.split('-');
+    if (parts.length == 3 && parts[0].length == 4) {
+      return '${parts[2]}/${parts[1]}/${parts[0]}';
+    }
+    return trimmed;
+  }
+
+  /// Format date string to dd/MM/yyyy for display (e.g. Start Date).
   String _formatDateStringForApi(String? dateString) {
     if (dateString == null || dateString.isEmpty) {
       return _formatDateForApi(DateTime.now());
     }
+    final display = _apiDateStringToDdMmYyyy(dateString);
+    if (display.contains('/')) {
+      return display;
+    }
     try {
-      // Try to parse the date string
-      DateTime date;
-      if (dateString.contains('T')) {
-        // ISO format
-        date = DateTime.parse(dateString);
-      } else if (dateString.contains('/')) {
-        // Already in dd/MM/yyyy format
-        return dateString;
-      } else {
-        // Try parsing as is
-        date = DateTime.parse(dateString);
-      }
-      return _formatDateForApi(date);
+      return _formatDateForApi(DateTime.parse(dateString.trim()));
     } catch (e) {
       Logger.errorLog('[CM] Error formatting date: $dateString, error: $e');
       return _formatDateForApi(DateTime.now());
+    }
+  }
+
+  DateTime? _parseFlexibleDate(String? dateString) {
+    if (dateString == null || dateString.trim().isEmpty) return null;
+    var raw = dateString.trim();
+
+    // dd/MM/yyyy from field / picker
+    try {
+      return DateFormat('dd/MM/yyyy').parseStrict(raw);
+    } catch (_) {}
+
+    // API ISO: date before T only
+    final tIndex = raw.indexOf('T');
+    if (tIndex > 0) {
+      raw = raw.substring(0, tIndex);
+    }
+    if (raw.length >= 10 && raw[4] == '-' && raw[7] == '-') {
+      final parts = raw.substring(0, 10).split('-');
+      if (parts.length == 3) {
+        try {
+          return DateTime(
+            int.parse(parts[0]),
+            int.parse(parts[1]),
+            int.parse(parts[2]),
+          );
+        } catch (_) {}
+      }
+    }
+
+    try {
+      return DateTime.parse(raw);
+    } catch (_) {}
+    return null;
+  }
+
+  bool _isFutureDate(DateTime date) {
+    final normalizedDate = DateUtils.dateOnly(date);
+    final today = DateUtils.dateOnly(DateTime.now());
+    return normalizedDate.isAfter(today);
+  }
+
+  Future<void> _pickClosureDate() async {
+    if (_resolvedMode == CMScreenModeEnum.create ||
+        _resolvedMode == CMScreenModeEnum.view) {
+      return;
+    }
+    final initialDate = _parseFlexibleDate(controllers['closure_date']!.text) ?? DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (pickedDate != null) {
+      setState(() {
+        controllers['closure_date']!.text = DateFormat('dd/MM/yyyy').format(pickedDate);
+        _hasFormDataChanges = true;
+      });
     }
   }
 
@@ -2787,32 +2649,28 @@ class _CorrectiveMaintenanceScreenState
     Logger.infoLog('[CM] Finished uploading checklist images');
   }
 
-  /// Upload a photo immediately when selected (if online)
+  /// Whether Identification / Time Stamp / FSR still need [_uploadDocumentWithFallback]:
+  /// missing id, or offline placeholder [LOCAL_IMAGE_ID] (pick was offline — replace with real doc id before POST when online).
+  bool _needsCmAttachmentUpload(dynamic id) {
+    if (id == null) return true;
+    final s = id.toString().trim();
+    if (s.isEmpty || s == '0') return true;
+    if (s.startsWith('LOCAL_IMAGE_ID')) return true;
+    return false;
+  }
+
+  /// Upload a photo immediately when selected (online: UploadDocuments; offline: queue locally).
   Future<void> _uploadPhotoImmediately(
     File file,
     String photoName,
     Function(String) onPhotoIdReceived,
   ) async {
     try {
-      // Check if online
-      final isOnline = await ConnectivityHelper.isConnected();
+      Logger.infoLog('[CM] Persisting $photoName (immediate: UploadDocuments if online else local queue)...');
+      final serverPhotoId = await _uploadDocumentWithFallback(file);
       
-      if (!isOnline) {
-        Logger.infoLog('[CM] Device is offline - $photoName photo will be uploaded later');
-        return;
-      }
-      
-      Logger.infoLog('[CM] Uploading $photoName photo immediately (online mode)...');
-      
-      final serverPhotoId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
-        file.path,
-        ActivityTypeEnum.correctiveMaintenance,
-        false, // not a selfie
-        _selectedSite?.siteId.toString(),
-      );
-      
-      if (serverPhotoId.isNotEmpty) {
-        onPhotoIdReceived(serverPhotoId);
+      if (serverPhotoId?.isNotEmpty == true) {
+        onPhotoIdReceived(serverPhotoId!);
         Logger.infoLog('[CM] ✅ $photoName photo uploaded immediately. Photo ID: $serverPhotoId');
         
         if (mounted) {
@@ -2827,25 +2685,20 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  /// Upload the two new photo fields (Identification, Time Stamp) before main API call
-  /// This method only uploads photos that haven't been uploaded yet (no photo ID set)
-  /// Note: FSR is now handled as a file attachment, not a photo
+  /// Retry Identification / Time Stamp / FSR when id missing, pick-time upload failed, or id is still LOCAL_IMAGE_ID (offline pick, online submit).
+  /// Primary upload for all three runs on user selection (see [ImageUploadField] / [CustomFileUploadNew.onFileSelected]).
   Future<void> _uploadAdditionalPhotos() async {
-    Logger.infoLog('[CM] Starting to upload additional photos (Identification, Time Stamp)...');
-    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId)');
+    Logger.infoLog('[CM] Retry uploads before CM POST if needed — Identification, Time Stamp, FSR...');
+    Logger.infoLog('[CM] Photo status - Identification: ${identificationPhoto != null ? "present" : "null"} (ID: $_originalIdentificationPhotoId), TimeStamp: ${timestampPhoto != null ? "present" : "null"} (ID: $_originalTimestampPhotoId), FSR files: ${_fsrAttachments.length}, FSR id: $_fsrAttachmentId');
     
-    // Upload Identification Photo (only if not already uploaded)
-    if (identificationPhoto != null && (_originalIdentificationPhotoId == null || _originalIdentificationPhotoId.toString().trim().isEmpty)) {
+    // Identification — retry when no server doc id yet or still offline placeholder
+    if (identificationPhoto != null && _needsCmAttachmentUpload(_originalIdentificationPhotoId)) {
       try {
-        Logger.infoLog('[CM] Uploading Identification photo to server...');
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
-          identificationPhoto!.path,
-          ActivityTypeEnum.correctiveMaintenance,
-          false, // not a selfie
-          _selectedSite?.siteId.toString(),
-        );
+        Logger.infoLog('[CM] Uploading Identification using UploadDocuments service...');
+        final serverPhotoId =
+            await _uploadDocumentWithFallback(identificationPhoto!);
         
-        if (serverPhotoId.isNotEmpty) {
+        if (serverPhotoId?.isNotEmpty == true) {
           _originalIdentificationPhotoId = serverPhotoId;
           Logger.infoLog('[CM] ✅ Identification photo uploaded successfully. Photo ID: $serverPhotoId');
         } else {
@@ -2863,20 +2716,13 @@ class _CorrectiveMaintenanceScreenState
       Logger.infoLog('[CM] ⚠️ Identification photo is null - skipping upload');
     }
     
-    // Note: FSR is now handled as a file attachment (uploaded with customer attachments via saveCustomerPhotoAndAttachments)
-    
-    // Upload Time Stamp Photo (only if not already uploaded)
-    if (timestampPhoto != null && (_originalTimestampPhotoId == null || _originalTimestampPhotoId.toString().trim().isEmpty)) {
+    // Time Stamp — same as Identification
+    if (timestampPhoto != null && _needsCmAttachmentUpload(_originalTimestampPhotoId)) {
       try {
-        Logger.infoLog('[CM] Uploading Time Stamp photo to server...');
-        final serverPhotoId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
-          timestampPhoto!.path,
-          ActivityTypeEnum.correctiveMaintenance,
-          false, // not a selfie
-          _selectedSite?.siteId.toString(),
-        );
+        Logger.infoLog('[CM] Uploading Time Stamp using UploadDocuments service...');
+        final serverPhotoId = await _uploadDocumentWithFallback(timestampPhoto!);
         
-        if (serverPhotoId.isNotEmpty) {
+        if (serverPhotoId?.isNotEmpty == true) {
           _originalTimestampPhotoId = serverPhotoId;
           Logger.infoLog('[CM] ✅ Time Stamp photo uploaded successfully. Photo ID: $serverPhotoId');
         } else {
@@ -2893,8 +2739,66 @@ class _CorrectiveMaintenanceScreenState
     } else {
       Logger.infoLog('[CM] ⚠️ Time Stamp photo is null - skipping upload');
     }
-    
-    Logger.infoLog('[CM] Additional photos upload completed. Final IDs - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
+
+    // FSR — uploaded on file pick (online + offline); retry if no id, failed pick upload, or LOCAL_IMAGE_ID while submitting online
+    if (_fsrAttachments.isNotEmpty && _needsCmAttachmentUpload(_fsrAttachmentId)) {
+      try {
+        Logger.infoLog('[CM] Retrying FSR upload / replacing LOCAL placeholder before CM POST...');
+        final uploadedId =
+            await _uploadDocumentWithFallback(_fsrAttachments.first);
+        final fsrIdStr = uploadedId?.toString().trim() ?? '';
+        if (fsrIdStr.isNotEmpty) {
+          _fsrAttachmentId = fsrIdStr;
+          _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
+          Logger.infoLog('[CM] ✅ FSR retry OK. Id: $uploadedId');
+        } else {
+          Logger.errorLog('[CM] ❌ FSR retry returned empty doc ID');
+        }
+      } catch (e, stackTrace) {
+        Logger.errorLog('[CM] ❌ Error retrying FSR upload: $e');
+        Logger.errorLog('[CM] Stack trace: $stackTrace');
+      }
+    } else if (_fsrAttachments.isNotEmpty) {
+      Logger.infoLog('[CM] ⏭️ FSR already has doc id ($_fsrAttachmentId) — skip retry before CM POST');
+    }
+
+    Logger.infoLog('[CM] Pre-CM POST upload pass done. Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId, FSR: $_fsrAttachmentId');
+  }
+
+  Future<String?> _uploadDocumentWithFallback(File file) async {
+    final isOnline = await ConnectivityHelper.isConnected();
+    if (!isOnline) {
+      Logger.infoLog(
+        '[CM] Offline: persist file locally (no api/v1/mobile/uploads — CM docs use UploadDocuments only when online): ${file.path.split('/').last}',
+      );
+      return await _persistCmDocumentLocalOnly(file);
+    }
+
+    final result = await _uploadDocumentsService.uploadFile(
+      file: file,
+      id: '0',
+      activityType: ActivityTypeEnum.correctiveMaintenance.value,
+    );
+
+    if (result.isSuccess && (result.data ?? '').trim().isNotEmpty) {
+      return (result.data ?? '').trim();
+    }
+
+    Logger.infoLog(
+      '[CM] UploadDocuments failed; persisting locally without calling api/v1/mobile/uploads: ${file.path.split('/').last}',
+    );
+    return await _persistCmDocumentLocalOnly(file);
+  }
+
+  /// Offline / UploadDocuments-failure: store file + LOCAL id only — never [uploadImageFromFilePath] / mobile/uploads.
+  Future<String?> _persistCmDocumentLocalOnly(File file) async {
+    try {
+      return await ServiceLocator().imageUploadService
+          .persistCmDocumentLocalWithoutMobileUploads(file.path);
+    } catch (e) {
+      Logger.errorLog('[CM] persistCmDocumentLocalOnly failed: $e');
+      return null;
+    }
   }
 
   Future<void> _uploadImpactedItemImagesAndUpdateIds(
@@ -3120,16 +3024,22 @@ class _CorrectiveMaintenanceScreenState
       
       // Get response value based on resp_type
       dynamic respValue;
-      final respType = checklistItem['resp_type']?.toString() ?? '';
+      final respType = checklistItem['resp_type']?.toString() ??
+          checklistItem['respType']?.toString() ??
+          '';
       
       // Check if this checklist item has impacted items (primary check)
       final hasImpactedItems = checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId);
       
-      // Additional fallback check: For DYNAMIC_DROPDOWN, also check if any impacted items have this parent ID
-      // (in case grouping didn't work correctly)
+      // Additional fallback: walk impacted items when grouping may miss the parent row
+      // (DYNAMIC_DROPDOWN, MULTI_DYNAMIC_DROPDOWN, or parent rows that carry impacted data under CHECKBOX_NUMERIC / CHECKBOX_TEXT)
       bool hasAnyImpactedItems = false;
-      if ((respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') && checklistMstId != null) {
-        Logger.infoLog('[CM] Transform - Checking fallback for DYNAMIC_DROPDOWN with mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items: ${_impactedItemList.length}');
+      if (checklistMstId != null &&
+          (respType == 'DYNAMIC_DROPDOWN' ||
+              respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+              respType == 'CHECKBOX_NUMERIC' ||
+              respType == 'CHECKBOX_TEXT')) {
+        Logger.infoLog('[CM] Transform - Checking impacted-item fallback for respType $respType, mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items: ${_impactedItemList.length}');
         // Check all impacted items to see if any have this parent ID
         for (var impactedItem in _impactedItemList) {
           final childItemResponses = impactedItem['childItemResponses'] as List<dynamic>? ?? 
@@ -3159,7 +3069,7 @@ class _CorrectiveMaintenanceScreenState
           if (hasAnyImpactedItems) break;
         }
         if (!hasAnyImpactedItems) {
-          Logger.errorLog('[CM] Transform - ❌ No matching parent ID found in fallback check for mstId: $checklistMstId, checklistDesc: $checklistDesc');
+          Logger.errorLog('[CM] Transform - ❌ No matching parent ID found in fallback check for mstId: $checklistMstId, checklistDesc: $checklistDesc, respType: $respType');
           Logger.errorLog('[CM] Transform - Available parent IDs in impacted items: ${impactedItemsByParentMstId.keys.toList()}');
         }
       }
@@ -3302,13 +3212,17 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Add impacted items for DYNAMIC_DROPDOWN and MULTI_DYNAMIC_DROPDOWN
-      // Always include cmImpactedItemList (even if empty) to ensure complete checklist is sent
-      if (respType == 'DYNAMIC_DROPDOWN' || respType == 'MULTI_DYNAMIC_DROPDOWN') {
+      // Add impacted items for DYNAMIC_DROPDOWN / MULTI_DYNAMIC_DROPDOWN, and for CHECKBOX_NUMERIC / CHECKBOX_TEXT
+      // when this parent row has impacted data (same payload shape as dynamic dropdown).
+      final bool attachImpactedListToRow = respType == 'DYNAMIC_DROPDOWN' ||
+          respType == 'MULTI_DYNAMIC_DROPDOWN' ||
+          (finalHasImpactedItems &&
+              (respType == 'CHECKBOX_NUMERIC' || respType == 'CHECKBOX_TEXT'));
+      if (attachImpactedListToRow) {
         final transformedImpactedItems = <Map<String, dynamic>>[];
         List<Map<String, dynamic>> impactedItemsForThisParent = [];
         
-        Logger.infoLog('[CM] Processing DYNAMIC_DROPDOWN - mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items in list: ${_impactedItemList.length}');
+        Logger.infoLog('[CM] Processing impacted list for checklist row - respType: $respType, mstId: $checklistMstId, checklistDesc: $checklistDesc, total impacted items in list: ${_impactedItemList.length}');
         
         // Primary check: Use grouped impacted items
         if (checklistMstId != null && impactedItemsByParentMstId.containsKey(checklistMstId)) {
@@ -3657,11 +3571,6 @@ class _CorrectiveMaintenanceScreenState
       }
     }
     
-    // Nature of Failure - always required
-    if (controllers['nature_of_failure']!.text.trim().isEmpty) {
-      errors.add('Nature of Failure is required');
-    }
-    
     // Scope of Ticket - always required
     if (controllers['scope_of_ticket']!.text.trim().isEmpty) {
       errors.add('Scope of Ticket is required');
@@ -3672,27 +3581,36 @@ class _CorrectiveMaintenanceScreenState
       if (controllers['action_taken']!.text.trim().isEmpty) {
         errors.add('Action Taken is required');
       }
-    }
-    
-    // RCA - required only in edit/view mode
-    if (widget.mode != CMScreenModeEnum.create) {
-      if (controllers['rca']!.text.trim().isEmpty) {
-        errors.add('RCA is required');
+
+      // Closure Date - required only in edit/view mode
+      final closureDateText = controllers['closure_date']!.text.trim();
+      if (closureDateText.isEmpty) {
+        errors.add('Closure Date is required');
+      } else {
+        final closureDate = _parseFlexibleDate(closureDateText);
+        if (closureDate == null) {
+          errors.add('Closure Date is invalid');
+        } else if (_isFutureDate(closureDate)) {
+          errors.add('Closure date cannot be a future date');
+        }
+      }
+
+      if (controllers['problem_summary']!.text.trim().isEmpty) {
+        errors.add('Problem Summary is required');
       }
     }
     
-    // Customer Name - always required
-    if (controllers['customer_name']!.text.trim().isEmpty) {
-      errors.add('Customer Name is required');
-    }
+    // RCA - required only in edit/view mode
+   
+      if (controllers['rca']!.text.trim().isEmpty) {
+        errors.add('RCA is required');
+      }
+  
     
-    // Contact No - always required
-    if (controllers['contact_no']!.text.trim().isEmpty) {
-      errors.add('Contact No. is required');
-    }
+   
     
     // Edit/View mode specific validations
-    if (widget.mode == CMScreenModeEnum.edit || widget.mode == CMScreenModeEnum.view) {
+    if (_resolvedMode == CMScreenModeEnum.edit || _resolvedMode == CMScreenModeEnum.view) {
       // OEM Representative - required only when Category is OEM
       if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
         if (controllers['oem_representative']!.text.trim().isEmpty) {
@@ -3705,23 +3623,11 @@ class _CorrectiveMaintenanceScreenState
         }
       }
       
-      // Status - required in edit mode
-      if (widget.mode == CMScreenModeEnum.edit && _statusController.text.trim().isEmpty) {
-        errors.add('Status is required');
-      }
-      
-      // Remarks - required in edit mode when status is "Closed"
-      if (widget.mode == CMScreenModeEnum.edit && 
-          _statusController.text.trim().toUpperCase() == 'CLOSED' &&
-          _remarksController.text.trim().isEmpty) {
-        errors.add('Remarks is required when Status is Closed');
-      }
-      
-      // Photo and attachment validations for edit mode
-      if (widget.mode == CMScreenModeEnum.edit) {
+      // Photo validations for edit mode
+      if (_resolvedMode == CMScreenModeEnum.edit) {
         final responsibleParty = controllers['responsible_party']!.text.trim().toUpperCase();
         
-        // If responsibleParty is "OEM", Identification, FSR, and Time Stamp Photo are required
+        // If responsibleParty is "OEM", Identification, FSR and Time Stamp Photo are required
         if (responsibleParty == 'OEM') {
           // Check Identification Photo
           if (identificationPhoto == null && 
@@ -3730,9 +3636,8 @@ class _CorrectiveMaintenanceScreenState
                _originalIdentificationPhotoId.toString().trim().isEmpty)) {
             errors.add('Identification is required when Category is OEM');
           }
-          
-          // Check FSR Attachment
-          if (_fsrAttachments.isEmpty && 
+
+          if (_fsrAttachments.isEmpty &&
               (_fsrAttachmentId == null || _fsrAttachmentId == 0)) {
             errors.add('FSR is required when Category is OEM');
           }
@@ -3756,14 +3661,6 @@ class _CorrectiveMaintenanceScreenState
             errors.add('Time Stamp Photo is required when Category is Self');
           }
         }
-      }
-      
-      // Remarks attachment - required in edit mode only when status is "Closed"
-      if (widget.mode == CMScreenModeEnum.edit &&
-          _statusController.text.trim().toUpperCase() == 'CLOSED' &&
-          _remarksAttachments.isEmpty &&
-          (_remarksAttachmentId == null || _remarksAttachmentId == 0)) {
-        errors.add('Remarks attachment is required when Status is Closed');
       }
     }
     
@@ -3813,34 +3710,49 @@ class _CorrectiveMaintenanceScreenState
     return true;
   }
 
-  Future<void> _validateAndSubmit({bool shouldNavigate = true}) async {
+  Future<void> _submitAction({
+    required bool validateMandatory,
+    required bool forceCloseStatus,
+    bool shouldNavigate = true,
+  }) async {
     // Prevent duplicate submissions
     if (_isSubmitting) {
       Logger.infoLog('[CM] Submission already in progress - ignoring duplicate call');
       return;
     }
     
-    Logger.infoLog('[CM] _validateAndSubmit called - mode: ${widget.mode}');
-    
-    // Validate all required fields before submission
-    final isValid = _validateRequiredFields();
-    Logger.infoLog('[CM] Validation result: $isValid');
-    
-    if (!isValid) {
-      Logger.errorLog('[CM] Validation failed - stopping submission');
-      return; // Stop submission if validation fails
+    Logger.infoLog(
+      '[CM] _submitAction called - mode: ${widget.mode}, validateMandatory: $validateMandatory, forceCloseStatus: $forceCloseStatus',
+    );
+
+    if (validateMandatory) {
+      final isValid = _validateRequiredFields();
+      Logger.infoLog('[CM] Validation result: $isValid');
+
+      if (!isValid) {
+        Logger.errorLog('[CM] Validation failed - stopping submission');
+        return;
+      }
     }
-    
-    Logger.infoLog('[CM] Validation passed - proceeding with submission');
-    
+
+    if (forceCloseStatus) {
+      _currentStatusController.text = 'CLOSED';
+    }
+
     // Set submitting flag
     _isSubmitting = true;
     
     try {
-    if (widget.mode == CMScreenModeEnum.create) {
-      await _submitFormData(shouldNavigate: shouldNavigate);
-    } else if (widget.mode == CMScreenModeEnum.edit) {
-      await _editFormData(shouldNavigate: shouldNavigate);
+    if (_resolvedMode == CMScreenModeEnum.create) {
+      await _submitFormData(
+        shouldNavigate: shouldNavigate,
+        forceCloseStatus: forceCloseStatus,
+      );
+    } else if (_resolvedMode == CMScreenModeEnum.edit) {
+      await _editFormData(
+        shouldNavigate: shouldNavigate,
+        forceCloseStatus: forceCloseStatus,
+      );
       }
     } finally {
       // Reset submitting flag
@@ -3848,7 +3760,26 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  Future<void> _editFormData({bool shouldNavigate = true}) async {
+  Future<void> _save({bool shouldNavigate = true}) async {
+    await _submitAction(
+      validateMandatory: false,
+      forceCloseStatus: false,
+      shouldNavigate: shouldNavigate,
+    );
+  }
+
+  Future<void> _saveAndClose({bool shouldNavigate = true}) async {
+    await _submitAction(
+      validateMandatory: true,
+      forceCloseStatus: true,
+      shouldNavigate: shouldNavigate,
+    );
+  }
+
+  Future<void> _editFormData({
+    bool shouldNavigate = true,
+    bool forceCloseStatus = false,
+  }) async {
     try {
       LoaderWidget.showLoader(context);
       if (cmSiteReqId == null) {
@@ -3877,7 +3808,8 @@ class _CorrectiveMaintenanceScreenState
       requestData['fault_description'] = controllers['fault_description']!.text;
       requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
       requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
-      requestData['status'] = (_statusController.text.trim().isNotEmpty ? _statusController.text.trim() : 'Open').toUpperCase();
+      requestData['status'] = forceCloseStatus ? 'CLOSED' : 'OPEN';
+      _applyOemTicketIdToRequest(requestData);
       
       // Set OEM Representative Contact with correct key for edit mode
       if (controllers['oem_representative_contact']!.text.trim().isNotEmpty) {
@@ -3912,17 +3844,29 @@ class _CorrectiveMaintenanceScreenState
             : _selectedSite!.self;
       }
       
-      // Set status and remarks (status already set in uppercase above)
-      requestData['remarks'] = _remarksController.text;
       requestData['is_active'] = true;
+      requestData['application_type'] = 'Mobile';
+      requestData['applicationType'] = 'Mobile';
       
       // Set dates (if closure_date is provided, calculate noOfDays)
       if (controllers['closure_date']!.text.isNotEmpty) {
         try {
-          final closureDate = DateTime.parse(controllers['closure_date']!.text);
+          final closureDate = _parseFlexibleDate(controllers['closure_date']!.text);
+          if (closureDate == null) {
+            throw FormatException('Invalid closure date');
+          }
+          if (_isFutureDate(closureDate)) {
+            if (!mounted) return;
+            Toastbar.showErrorToastbar(
+              "Closure date cannot be a future date.",
+              context,
+            );
+            return;
+          }
           final now = DateTime.now();
           final daysDifference = closureDate.difference(now).inDays;
           requestData['end_dt'] = _formatDateForApi(closureDate);
+          requestData['endDt'] = _formatDateForApi(closureDate);
           requestData['no_of_days'] = daysDifference > 0 ? daysDifference : 0;
         } catch (e) {
           Logger.errorLog("Error parsing closure date: $e");
@@ -3930,22 +3874,11 @@ class _CorrectiveMaintenanceScreenState
       }
       requestData['start_dt'] = _formatDateForApi(DateTime.now());
       
-      // Set customer photo and attachment names (will be updated after upload)
-      if (customerPhoto != null) {
-        final photoName = customerPhoto!.path.split('/').last;
-        requestData['customer_photo_name'] = photoName;
-      }
-      if (_uploadedAttachments.isNotEmpty) {
-        final attachmentName = _uploadedAttachments.first.path.split('/').last;
-        requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
-        requestData['customer_attachment_name'] = attachmentName; // Correct spelling
-      }
-      
-      // Upload additional photos (Identification, FSR, Time Stamp) first
+      // Upload Identification, Time Stamp, FSR (UploadDocuments / local queue) before CM POST
       await _uploadAdditionalPhotos();
       
-      // Add the two new photo IDs to requestData (after upload)
-      Logger.infoLog('[CM] Adding additional photo IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      // Add attachment IDs to requestData (after upload)
+      Logger.infoLog('[CM] Adding IDs to requestData (edit mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId, FSR: $_fsrAttachmentId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -3958,27 +3891,6 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - not adding to requestData');
       }
       
-      // Add FSR attachment info (file attachment, not photo)
-      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
-        requestData['fsrAttachmentId'] = _fsrAttachmentId;
-        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_fsrAttachmentId');
-        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
-          requestData['fsrAttachmentName'] = _fsrAttachmentName;
-          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $_fsrAttachmentName');
-        } else if (_fsrAttachments.isNotEmpty) {
-          final attachmentName = _fsrAttachments.first.path.split('/').last;
-          requestData['fsrAttachmentName'] = attachmentName;
-          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $attachmentName');
-        }
-      } else if (_fsrAttachments.isNotEmpty) {
-        // FSR attachment was selected but not yet uploaded - will be uploaded with customer attachments
-        final attachmentName = _fsrAttachments.first.path.split('/').last;
-        requestData['fsrAttachmentName'] = attachmentName;
-        Logger.infoLog('[CM] ⚠️ FSR attachment selected but not uploaded yet, adding name: $attachmentName');
-      } else {
-        Logger.infoLog('[CM] ⚠️ FSR attachment is null or empty - not adding to requestData');
-      }
-      
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
         requestData['timestampImgId'] = _originalTimestampPhotoId;
         Logger.infoLog('[CM] ✅ Added timestampImgId to requestData: $_originalTimestampPhotoId');
@@ -3988,6 +3900,15 @@ class _CorrectiveMaintenanceScreenState
         }
       } else {
         Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - not adding to requestData');
+      }
+
+      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
+          requestData['fsrAttachmentName'] = _fsrAttachmentName;
+        }
+      } else if (_fsrAttachments.isNotEmpty) {
+        requestData['fsrAttachmentName'] = _fsrAttachments.first.path.split('/').last;
       }
       
       // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
@@ -4023,30 +3944,6 @@ class _CorrectiveMaintenanceScreenState
             context,
           );
           return;
-        }
-      }
-      
-      // Add remarks to request data
-      if (_remarksController.text.trim().isNotEmpty) {
-        requestData['cm_remark'] = _remarksController.text.trim();
-      }
-      
-      // In edit mode, preserve customer attachment ID and name if they exist and weren't changed
-      if (widget.mode == CMScreenModeEnum.edit) {
-        // If attachment wasn't changed (no new file uploaded) but we have existing attachment info
-        if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
-          requestData['customer_attachment_id'] = _customerAttachmentId;
-          
-          // Use attachment name if available, otherwise use attachment ID as name
-          final attachmentName = (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty)
-              ? _customerAttachmentName!.trim()
-              : _customerAttachmentId.toString();
-          
-          // Include both possible field names (typo variant and correct spelling)
-          requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
-          requestData['customer_attachment_name'] = attachmentName; // Correct spelling (fallback)
-          
-          Logger.infoLog('[CM] Preserving customer attachment in edit mode - ID: $_customerAttachmentId, Name: $attachmentName');
         }
       }
       
@@ -4102,15 +3999,28 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
+  /// Avoid [DataTransformationHelper.convertKeysToCamelCase] merging snake + camel into one key twice with wrong winner.
+  void _stripDuplicateFsrKeysBeforeCamelCase(Map<String, dynamic> requestData) {
+    if (requestData.containsKey('fsrAttachmentId')) {
+      requestData.remove('fsr_attachment_id');
+    }
+    if (requestData.containsKey('fsrAttachmentName')) {
+      requestData.remove('fsr_attachment_name');
+    }
+  }
+
   Future<void> _handleOnlineEditSubmission(
     Map<String, dynamic> requestData, {
     bool shouldNavigate = true,
   }) async {
     try {
+      _stripDuplicateFsrKeysBeforeCamelCase(requestData);
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
+      _ensureOemTicketIdOnApiPayload(processedData);
       
       Logger.infoLog('[CM] Final processedData keys: ${processedData.keys.toList()}');
+      Logger.infoLog('[CM] oemTicketId in payload: ${processedData['oemTicketId']}');
       
       // Impacted items are now nested inside cmCheckListSiteRespList, so no need for separate top-level field
       // Remove any top-level impacted item list if it exists
@@ -4124,63 +4034,6 @@ class _CorrectiveMaintenanceScreenState
 
       Logger.debugLog(" processedData: $processedData");
 
-      // Only upload photo/attachment if they were actually changed (new files selected)
-      // In edit mode, if customerPhoto is null and _uploadedAttachments is empty,
-      // it means they weren't changed, so we should preserve them by not calling this method
-      final hasNewPhoto = customerPhoto != null;
-      final hasNewAttachment = _uploadedAttachments.isNotEmpty;
-      final hasNewFsrAttachment = _fsrAttachments.isNotEmpty;
-      
-      if (hasNewPhoto || hasNewAttachment || hasNewFsrAttachment) {
-        Logger.infoLog('[CM] Uploading changed photo/attachment - Photo: $hasNewPhoto, Attachment: $hasNewAttachment, FSR: $hasNewFsrAttachment');
-        await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-          cmSiteReqId!,
-          customerPhoto, // Will be null if not changed, which is fine - API won't update it
-          _uploadedAttachments.firstOrNull, // Will be null if not changed, which is fine - API won't update it
-          _fsrAttachments.firstOrNull, // FSR attachment
-        );
-      } else {
-        Logger.infoLog('[CM] No changes to photo or attachment, skipping upload to preserve existing ones');
-      }
-      
-      // Upload remarks with attachment if remarks or attachment were changed
-      if (_remarksController.text.trim().isNotEmpty || _remarksAttachments.isNotEmpty) {
-        // If remarks attachment is provided, upload it
-        if (_remarksAttachments.isNotEmpty) {
-          final remarksFile = _remarksAttachments.first;
-          final originalFileName = remarksFile.path.split('/').last;
-          await ServiceLocator().cmRepository.saveRemarks(
-            cmSiteReqId!,
-            _remarksController.text.trim(),
-            _statusController.text,
-            remarksFile,
-            originalFileName: originalFileName,
-          );
-        } else if (_remarksController.text.trim().isNotEmpty) {
-          // If only remarks text is provided without attachment, still save remarks
-          // Note: saveRemarks requires a file, so we might need to handle text-only remarks differently
-          // For now, only save if attachment is provided
-          Logger.infoLog('[CM] Remarks text provided but no attachment - skipping remarks save (API requires file)');
-        }
-      }
-      
-      // Reload customer photo if it wasn't changed (preserve existing photo in edit mode)
-      if (customerPhoto == null && _originalCustomerPhotoId != null && 
-          _originalCustomerPhotoId.toString().trim().isNotEmpty) {
-        Logger.infoLog('[CM] Reloading customer photo after submission to preserve display');
-        await _reloadCustomerPhoto(_originalCustomerPhotoId);
-      }
-      
-      // Reload customer attachment info if it wasn't changed (preserve existing attachment in edit mode)
-      if (_uploadedAttachments.isEmpty && _customerAttachmentId != null && _customerAttachmentId != 0) {
-        Logger.infoLog('[CM] Reloading customer attachment after submission to preserve display');
-        // The attachment info is already in state, but ensure it's still displayed
-        // No need to reload from server since we already have the ID and name
-        setState(() {
-          // Force rebuild to ensure attachment is displayed
-        });
-      }
-      
       if (!mounted) return;
       Toastbar.showSuccessToastbar("Form Submitted Successfully", context);
       if (shouldNavigate) {
@@ -4202,42 +4055,6 @@ class _CorrectiveMaintenanceScreenState
   }) async {
     try {
       Logger.infoLog("Saving CM edit form data offline");
-
-      // Upload images first and get unique IDs (same as create mode)
-      String? customerPhotoId;
-      String? attachmentId;
-      String? remarksAttachmentId;
-
-      // Only upload if new files were selected (not preserving existing ones)
-      if (customerPhoto != null) {
-        customerPhotoId = await _uploadImageWithOfflineSupport(
-          customerPhoto!,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-      }
-
-      if (_uploadedAttachments.isNotEmpty) {
-        attachmentId = await _uploadImageWithOfflineSupport(
-          _uploadedAttachments.first,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-      }
-
-      // Upload remarks attachment if provided
-      if (_remarksAttachments.isNotEmpty) {
-        remarksAttachmentId = await _uploadImageWithOfflineSupport(
-          _remarksAttachments.first,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-      }
-
-      // Add image IDs to request data (only if new files were uploaded)
-      if (customerPhotoId != null) {
-        requestData['customer_photo_id'] = customerPhotoId;
-      } else if (_originalCustomerPhotoId != null && _originalCustomerPhotoId.toString().trim().isNotEmpty) {
-        // Preserve existing photo ID if not changed
-        requestData['customer_photo_id'] = _originalCustomerPhotoId;
-      }
       
       // Add the two new photo IDs (Identification and Time Stamp)
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
@@ -4247,78 +4064,30 @@ class _CorrectiveMaintenanceScreenState
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
         requestData['timestampImgId'] = _originalTimestampPhotoId;
       }
-      
-      // Upload FSR attachment if provided (file attachment, not photo)
-      String? fsrAttachmentId;
-      if (_fsrAttachments.isNotEmpty) {
-        fsrAttachmentId = await _uploadImageWithOfflineSupport(
-          _fsrAttachments.first,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-        if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
-          _fsrAttachmentId = int.tryParse(fsrAttachmentId) ?? fsrAttachmentId;
+
+      // FSR: uploaded on pick; retry UploadDocuments only if no id yet (same as _uploadAdditionalPhotos).
+      if ((_fsrAttachmentId == null ||
+              _fsrAttachmentId.toString().trim().isEmpty ||
+              _fsrAttachmentId == 0) &&
+          _fsrAttachments.isNotEmpty) {
+        final id = await _uploadDocumentWithFallback(_fsrAttachments.first);
+        final s = id?.toString().trim() ?? '';
+        if (s.isNotEmpty) {
+          _fsrAttachmentId = s;
           _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
-          Logger.infoLog('[CM] ✅ FSR attachment uploaded. ID: $_fsrAttachmentId, Name: $_fsrAttachmentName');
         }
       }
-      
-      // Add FSR attachment info to request data
-      if (fsrAttachmentId != null && fsrAttachmentId.isNotEmpty) {
-        requestData['fsrAttachmentId'] = fsrAttachmentId;
-        requestData['fsrAttachmentName'] = _fsrAttachmentName ?? _fsrAttachments.first.path.split('/').last;
-        // Store original file path and name for offline sync
+      if (_fsrAttachmentId != null &&
+          _fsrAttachmentId.toString().trim().isNotEmpty &&
+          _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        requestData['fsrAttachmentName'] =
+            _fsrAttachmentName ?? _fsrAttachments.first.path.split('/').last;
         if (_fsrAttachments.isNotEmpty) {
           final originalFile = _fsrAttachments.first;
           requestData['fsr_original_file_path'] = originalFile.path;
           requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
         }
-        Logger.infoLog('[CM] ✅ Added FSR attachment to requestData - ID: $fsrAttachmentId, Name: ${requestData['fsrAttachmentName']}');
-      } else if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
-        // Preserve existing FSR attachment ID if not changed
-        requestData['fsrAttachmentId'] = _fsrAttachmentId;
-        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
-          requestData['fsrAttachmentName'] = _fsrAttachmentName;
-        }
-        Logger.infoLog('[CM] ✅ Preserved existing FSR attachment in requestData - ID: $_fsrAttachmentId, Name: $_fsrAttachmentName');
-      } else if (_fsrAttachments.isNotEmpty) {
-        // FSR attachment was selected but upload failed - still add name
-        requestData['fsrAttachmentName'] = _fsrAttachments.first.path.split('/').last;
-        // Store original file path and name for offline sync
-        final originalFile = _fsrAttachments.first;
-        requestData['fsr_original_file_path'] = originalFile.path;
-        requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
-        Logger.infoLog('[CM] ⚠️ FSR attachment selected but upload failed, adding name only: ${requestData['fsrAttachmentName']}');
-      }
-      
-      if (attachmentId != null) {
-        requestData['customer_attachment_id'] = attachmentId;
-        // Store original file path and name to preserve extension and filename
-        if (_uploadedAttachments.isNotEmpty) {
-          final originalFile = _uploadedAttachments.first;
-          final originalFileName = originalFile.path.split('/').last;
-          requestData['customer_original_file_path'] = originalFile.path;
-          requestData['customer_original_file_name'] = originalFileName;
-          // Set attachment name for API (preserve original filename)
-          requestData['customer_attachmen_name'] = originalFileName; // Typo variant (matches API)
-          requestData['customer_attachment_name'] = originalFileName; // Correct spelling (fallback)
-        }
-      } else if (_customerAttachmentId != null && _customerAttachmentId != 0) {
-        // Preserve existing attachment ID if not changed
-        requestData['customer_attachment_id'] = _customerAttachmentId;
-        // Also preserve attachment name
-        final attachmentName = (_customerAttachmentName != null && _customerAttachmentName!.trim().isNotEmpty)
-            ? _customerAttachmentName!.trim()
-            : _customerAttachmentId.toString();
-        requestData['customer_attachmen_name'] = attachmentName;
-        requestData['customer_attachment_name'] = attachmentName;
-      }
-      
-      // Add remarks attachment ID if uploaded
-      if (remarksAttachmentId != null) {
-        requestData['cm_attachment_id'] = remarksAttachmentId;
-      } else if (_remarksAttachmentId != null && _remarksAttachmentId != 0) {
-        // Preserve existing remarks attachment ID if not changed
-        requestData['cm_attachment_id'] = _remarksAttachmentId;
       }
 
       // Save to pending requests for sync when online
@@ -4333,43 +4102,6 @@ class _CorrectiveMaintenanceScreenState
 
       if (isSaved) {
         Logger.infoLog("CM edit data saved to pending requests successfully");
-        
-        // If remarks were provided, also save remarks as a separate pending request
-        // (since remarks might be saved via separate API call)
-        if (_remarksController.text.trim().isNotEmpty || _remarksAttachments.isNotEmpty) {
-          // Create a remarks request data
-          final remarksRequestData = <String, dynamic>{
-            'cmId': cmSiteReqId,
-            'cmRemark': _remarksController.text.trim(),
-            'cmStatus': _statusController.text,
-          };
-          
-          if (remarksAttachmentId != null) {
-            remarksRequestData['cmRemarksFile'] = remarksAttachmentId;
-            // Store original file path to preserve extension and filename
-            if (_remarksAttachments.isNotEmpty) {
-              final originalFile = _remarksAttachments.first;
-              remarksRequestData['originalFilePath'] = originalFile.path;
-              remarksRequestData['originalFileName'] = originalFile.path.split('/').last;
-            }
-          } else if (_remarksAttachmentId != null && _remarksAttachmentId != 0) {
-            remarksRequestData['cmAttachmentId'] = _remarksAttachmentId;
-          }
-          
-          final remarksRequestId = 'cm_remarks_${cmSiteReqId}_${DateTime.now().millisecondsSinceEpoch}';
-          final remarksUrl = '/api/v1/mobile/cmRemarks/upload';
-          
-          // For offline, we'll save the remarks file path and upload it when online
-          // The actual file upload will happen when syncing pending requests
-          await ServiceLocator().pendingRequestService.savePendingRequest(
-            requestId: remarksRequestId,
-            url: remarksUrl,
-            headers: {},
-            jsonEncodedRequestData: jsonEncode(remarksRequestData),
-          );
-          
-          Logger.infoLog("CM remarks saved to pending requests successfully");
-        }
         
         if (!mounted) return;
         Toastbar.showSuccessToastbar(
@@ -4395,7 +4127,10 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  Future<void> _submitFormData({bool shouldNavigate = true}) async {
+  Future<void> _submitFormData({
+    bool shouldNavigate = true,
+    bool forceCloseStatus = false,
+  }) async {
     try {
       LoaderWidget.showLoader(context);
 
@@ -4420,7 +4155,8 @@ class _CorrectiveMaintenanceScreenState
       requestData['fault_description'] = controllers['fault_description']!.text;
       requestData['responsible_party'] = controllers['responsible_party']!.text.trim().toUpperCase(); // Category
       requestData['priority'] = controllers['priority']!.text.trim().toUpperCase();
-      requestData['status'] = (_statusController.text.trim().isNotEmpty ? _statusController.text.trim() : 'Open').toUpperCase();
+      requestData['status'] = forceCloseStatus ? 'CLOSED' : 'OPEN';
+      _applyOemTicketIdToRequest(requestData);
       
       // Set assigned_to based on responsible_party
       if (controllers['responsible_party']!.text.trim().toUpperCase() == 'OEM') {
@@ -4453,17 +4189,29 @@ class _CorrectiveMaintenanceScreenState
             : _selectedSite!.self;
       }
       
-      // Set status and remarks (status already set in uppercase above)
-      requestData['remarks'] = _remarksController.text;
       requestData['is_active'] = true;
+      requestData['application_type'] = 'Mobile';
+      requestData['applicationType'] = 'Mobile';
       
       // Set dates (if closure_date is provided, calculate noOfDays)
       if (controllers['closure_date']!.text.isNotEmpty) {
         try {
-          final closureDate = DateTime.parse(controllers['closure_date']!.text);
+          final closureDate = _parseFlexibleDate(controllers['closure_date']!.text);
+          if (closureDate == null) {
+            throw FormatException('Invalid closure date');
+          }
+          if (_isFutureDate(closureDate)) {
+            if (!mounted) return;
+            Toastbar.showErrorToastbar(
+              "Closure date cannot be a future date.",
+              context,
+            );
+            return;
+          }
           final now = DateTime.now();
           final daysDifference = closureDate.difference(now).inDays;
           requestData['end_dt'] = _formatDateForApi(closureDate);
+          requestData['endDt'] = _formatDateForApi(closureDate);
           requestData['no_of_days'] = daysDifference > 0 ? daysDifference : 0;
         } catch (e) {
           Logger.errorLog("Error parsing closure date: $e");
@@ -4471,22 +4219,10 @@ class _CorrectiveMaintenanceScreenState
       }
       requestData['start_dt'] = _formatDateForApi(DateTime.now());
       
-      // Set customer photo and attachment names (will be updated after upload)
-      if (customerPhoto != null) {
-        final photoName = customerPhoto!.path.split('/').last;
-        requestData['customer_photo_name'] = photoName;
-      }
-      if (_uploadedAttachments.isNotEmpty) {
-        final attachmentName = _uploadedAttachments.first.path.split('/').last;
-        requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
-        requestData['customer_attachment_name'] = attachmentName; // Correct spelling
-      }
-      
-      // Upload additional photos (Identification, FSR, Time Stamp) first
+      // Upload Identification, Time Stamp, FSR before CM POST
       await _uploadAdditionalPhotos();
       
-      // Add the two new photo IDs to requestData (after upload, before online/offline decision)
-      Logger.infoLog('[CM] Adding additional photo IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
+      Logger.infoLog('[CM] Adding IDs to requestData (create mode) - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId, FSR: $_fsrAttachmentId');
       
       if (_originalIdentificationPhotoId != null && _originalIdentificationPhotoId.toString().trim().isNotEmpty) {
         requestData['identificationImgId'] = _originalIdentificationPhotoId;
@@ -4499,27 +4235,6 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - not adding to requestData');
       }
       
-      // Add FSR attachment info (file attachment, not photo)
-      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
-        requestData['fsrAttachmentId'] = _fsrAttachmentId;
-        Logger.infoLog('[CM] ✅ Added fsrAttachmentId to requestData: $_fsrAttachmentId');
-        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
-          requestData['fsrAttachmentName'] = _fsrAttachmentName;
-          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $_fsrAttachmentName');
-        } else if (_fsrAttachments.isNotEmpty) {
-          final attachmentName = _fsrAttachments.first.path.split('/').last;
-          requestData['fsrAttachmentName'] = attachmentName;
-          Logger.infoLog('[CM] ✅ Added fsrAttachmentName to requestData: $attachmentName');
-        }
-      } else if (_fsrAttachments.isNotEmpty) {
-        // FSR attachment was selected but not yet uploaded - will be uploaded with customer attachments
-        final attachmentName = _fsrAttachments.first.path.split('/').last;
-        requestData['fsrAttachmentName'] = attachmentName;
-        Logger.infoLog('[CM] ⚠️ FSR attachment selected but not uploaded yet, adding name: $attachmentName');
-      } else {
-        Logger.infoLog('[CM] ⚠️ FSR attachment is null or empty - not adding to requestData');
-      }
-      
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
         requestData['timestampImgId'] = _originalTimestampPhotoId;
         Logger.infoLog('[CM] ✅ Added timestampImgId to requestData: $_originalTimestampPhotoId');
@@ -4529,6 +4244,15 @@ class _CorrectiveMaintenanceScreenState
         }
       } else {
         Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - not adding to requestData');
+      }
+
+      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
+          requestData['fsrAttachmentName'] = _fsrAttachmentName;
+        }
+      } else if (_fsrAttachments.isNotEmpty) {
+        requestData['fsrAttachmentName'] = _fsrAttachments.first.path.split('/').last;
       }
       
       // Upload all impacted item images first and replace LOCAL_IMAGE_ID with actual photo IDs
@@ -4600,11 +4324,14 @@ class _CorrectiveMaintenanceScreenState
     bool shouldNavigate = true,
   }) async {
     try {
+      _stripDuplicateFsrKeysBeforeCamelCase(requestData);
       // Convert keys to camelCase for API
       Map<String, dynamic> processedData =
           DataTransformationHelper.convertKeysToCamelCase(requestData);
+      _ensureOemTicketIdOnApiPayload(processedData);
       
       Logger.infoLog('[CM] Final processedData keys (create): ${processedData.keys.toList()}');
+      Logger.infoLog('[CM] oemTicketId in payload: ${processedData['oemTicketId']}');
       // Impacted items are now nested inside cmCheckListSiteRespList, so no need for separate top-level field
       // Remove any top-level impacted item list if it exists
       processedData.remove('cmImpactedItemList');
@@ -4617,18 +4344,6 @@ class _CorrectiveMaintenanceScreenState
       if (response.containsKey('cmSiteReqId')) {
         final cmSiteReqId = response['cmSiteReqId'] as int;
         Logger.infoLog("CM ticket created with ID: $cmSiteReqId");
-        
-        // Upload customer photo and attachments after creating the ticket
-        // Upload customer photo, customer attachment, and FSR attachment
-        if (customerPhoto != null || _uploadedAttachments.isNotEmpty || _fsrAttachments.isNotEmpty) {
-          await ServiceLocator().cmRepository.saveCustomerPhotoAndAttachments(
-            cmSiteReqId,
-            customerPhoto,
-            _uploadedAttachments.isNotEmpty ? _uploadedAttachments.first : null,
-            _fsrAttachments.isNotEmpty ? _fsrAttachments.first : null,
-          );
-          Logger.infoLog("CM customer photo, attachment, and FSR attachment uploaded successfully");
-        }
       }
 
       if (!mounted) return;
@@ -4653,34 +4368,6 @@ class _CorrectiveMaintenanceScreenState
     try {
       Logger.infoLog("Saving CM form data offline");
 
-      // Upload images first and get unique IDs
-      String? customerPhotoId;
-      String? attachmentId;
-
-      if (customerPhoto != null) {
-        customerPhotoId = await _uploadImageWithOfflineSupport(
-          customerPhoto!,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-      }
-
-      if (_uploadedAttachments.isNotEmpty) {
-        attachmentId = await _uploadImageWithOfflineSupport(
-          _uploadedAttachments.first,
-          ActivityTypeEnum.correctiveMaintenance,
-        );
-      }
-
-      // Add image IDs to request data
-      if (customerPhotoId != null) {
-        requestData['customer_photo_id'] = customerPhotoId;
-        // Add customer photo name if available
-        if (customerPhoto != null) {
-          final photoName = customerPhoto!.path.split('/').last;
-          requestData['customer_photo_name'] = photoName;
-        }
-      }
-      
       // Add the two new photo IDs (Identification and Time Stamp)
       Logger.infoLog('[CM] Checking additional photo IDs - Identification: $_originalIdentificationPhotoId, TimeStamp: $_originalTimestampPhotoId');
       
@@ -4695,31 +4382,6 @@ class _CorrectiveMaintenanceScreenState
         Logger.infoLog('[CM] ⚠️ identificationImgId is null or empty - photo may not have been uploaded');
       }
       
-      // Add FSR attachment info (file attachment, not photo)
-      if (_fsrAttachmentId != null && _fsrAttachmentId != 0) {
-        requestData['fsrAttachmentId'] = _fsrAttachmentId;
-        Logger.infoLog('[CM] ✅ Added fsrAttachmentId: $_fsrAttachmentId');
-        if (_fsrAttachmentName != null && _fsrAttachmentName!.trim().isNotEmpty) {
-          requestData['fsrAttachmentName'] = _fsrAttachmentName;
-          Logger.infoLog('[CM] ✅ Added fsrAttachmentName: $_fsrAttachmentName');
-        } else if (_fsrAttachments.isNotEmpty) {
-          final attachmentName = _fsrAttachments.first.path.split('/').last;
-          requestData['fsrAttachmentName'] = attachmentName;
-          Logger.infoLog('[CM] ✅ Added fsrAttachmentName: $attachmentName');
-        }
-      } else if (_fsrAttachments.isNotEmpty) {
-        // FSR attachment was selected but not yet uploaded
-        final attachmentName = _fsrAttachments.first.path.split('/').last;
-        requestData['fsrAttachmentName'] = attachmentName;
-        // Store original file path and name for offline sync
-        final originalFile = _fsrAttachments.first;
-        requestData['fsr_original_file_path'] = originalFile.path;
-        requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
-        Logger.infoLog('[CM] ⚠️ FSR attachment selected but not uploaded yet, adding name: $attachmentName');
-      } else {
-        Logger.infoLog('[CM] ⚠️ FSR attachment is null or empty - not adding to requestData');
-      }
-      
       if (_originalTimestampPhotoId != null && _originalTimestampPhotoId.toString().trim().isNotEmpty) {
         requestData['timestampImgId'] = _originalTimestampPhotoId;
         Logger.infoLog('[CM] ✅ Added timestampImgId: $_originalTimestampPhotoId');
@@ -4730,22 +4392,30 @@ class _CorrectiveMaintenanceScreenState
       } else {
         Logger.infoLog('[CM] ⚠️ timestampImgId is null or empty - photo may not have been uploaded');
       }
-      if (attachmentId != null) {
-        requestData['customer_attachment_id'] = attachmentId;
-        // Add customer attachment name if available
-        if (_uploadedAttachments.isNotEmpty) {
-          final attachmentName = _uploadedAttachments.first.path.split('/').last;
-          requestData['customer_attachmen_name'] = attachmentName; // Typo variant (matches API)
-          requestData['customer_attachment_name'] = attachmentName; // Correct spelling
+
+      // FSR: uploaded on pick; retry only if no id yet.
+      if ((_fsrAttachmentId == null ||
+              _fsrAttachmentId.toString().trim().isEmpty ||
+              _fsrAttachmentId == 0) &&
+          _fsrAttachments.isNotEmpty) {
+        final id = await _uploadDocumentWithFallback(_fsrAttachments.first);
+        final s = id?.toString().trim() ?? '';
+        if (s.isNotEmpty) {
+          _fsrAttachmentId = s;
+          _fsrAttachmentName = _fsrAttachments.first.path.split('/').last;
         }
       }
-      
-      // Add status and remarks if not already in requestData (status sent in uppercase)
-      if (!requestData.containsKey('status') || requestData['status'] == null || requestData['status'].toString().isEmpty) {
-        requestData['status'] = (_statusController.text.trim().isNotEmpty ? _statusController.text.trim() : 'Open').toUpperCase();
-      }
-      if (!requestData.containsKey('remarks') || requestData['remarks'] == null) {
-        requestData['remarks'] = _remarksController.text;
+      if (_fsrAttachmentId != null &&
+          _fsrAttachmentId.toString().trim().isNotEmpty &&
+          _fsrAttachmentId != 0) {
+        requestData['fsrAttachmentId'] = _fsrAttachmentId;
+        requestData['fsrAttachmentName'] =
+            _fsrAttachmentName ?? _fsrAttachments.first.path.split('/').last;
+        if (_fsrAttachments.isNotEmpty) {
+          final originalFile = _fsrAttachments.first;
+          requestData['fsr_original_file_path'] = originalFile.path;
+          requestData['fsr_original_file_name'] = originalFile.path.split('/').last;
+        }
       }
       if (!requestData.containsKey('is_active')) {
         requestData['is_active'] = true;
@@ -4787,27 +4457,6 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  Future<String?> _uploadImageWithOfflineSupport(
-    File imageFile,
-    ActivityTypeEnum activityType,
-  ) async {
-    try {
-      // Upload using ImageUploadService which handles offline automatically
-      final uniqueId = await ServiceLocator().imageUploadService.uploadImageFromFilePath(
-        imageFile.path,
-        activityType,
-        false, // not a selfie
-        null, // no sch id for CM
-      );
-
-      Logger.infoLog("Image uploaded with ID: $uniqueId");
-      return uniqueId;
-    } catch (e) {
-      Logger.errorLog("Error uploading image: $e");
-      return null;
-    }
-  }
-
   void _showUnsavedChangesDialog() {
     if (_hasFormDataChanges) {
       showDialog(
@@ -4817,7 +4466,7 @@ class _CorrectiveMaintenanceScreenState
           section: "Corrective Maintenance",
           parentContext: widget.parentContext ?? context,
           onSaveAndExit: () async {
-            await _validateAndSubmit(shouldNavigate: false);
+            await _save(shouldNavigate: false);
           },
           onDiscard: () {},
         ),

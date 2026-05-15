@@ -62,8 +62,14 @@ class CMSite {
       oemId: json['oem_id'],
       self: json['self']?.toString() ?? '',
       selfId: json['self_id'] ?? 0,
-      infraEngineerName: json['infra_engineer_name']?.toString() ?? json['infraEngineerName']?.toString(),
-      infraEngineerContactNo: json['infra_engineer_contact_no']?.toString() ?? json['infraEngineerContactNo']?.toString(),
+      infraEngineerName: json['infra_engineer_name']?.toString() ??
+          json['infraEngineerName']?.toString() ??
+          json['infra_district_engineer_name']?.toString() ??
+          json['infraDistrictEngineerName']?.toString(),
+      infraEngineerContactNo: json['infra_engineer_contact_no']?.toString() ??
+          json['infraEngineerContactNo']?.toString() ??
+          json['infra_district_engineer_contact_no']?.toString() ??
+          json['infraDistrictEngineerContactNo']?.toString(),
       clusterInchargeName: json['cluster_incharge_name']?.toString() ?? json['clusterInchargeName']?.toString(),
       clusterInchargeContactNo: json['cluster_incharge_contact_no']?.toString() ?? json['clusterInchargeContactNo']?.toString(),
       category: json['category']?.toString(),

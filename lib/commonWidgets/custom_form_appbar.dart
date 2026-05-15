@@ -5,12 +5,14 @@ class CustomFormAppbar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   // final String status;
   final VoidCallback onClose;
+  final bool showCloseButton;
 
   const CustomFormAppbar({
     super.key,
     required this.title,
     // required this.status,
     required this.onClose,
+    this.showCloseButton = true,
   });
 
   @override
@@ -42,24 +44,24 @@ class CustomFormAppbar extends StatelessWidget implements PreferredSizeWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // Close button - just the cross icon
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: onClose,
-                    borderRadius: BorderRadius.circular(25),
-                    child: Container(
-                      width: 50,
-                      height: 50,
-                      padding: const EdgeInsets.all(10),
-                      child: const Icon(
-                        Icons.close,
-                        color: Colors.red,
-                        size: 30,
+                if (showCloseButton)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onClose,
+                      borderRadius: BorderRadius.circular(25),
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        padding: const EdgeInsets.all(10),
+                        child: const Icon(
+                          Icons.close,
+                          color: Colors.red,
+                          size: 30,
+                        ),
                       ),
                     ),
                   ),
-                ),
               ],
             ),
           ),

@@ -18,6 +18,7 @@ import 'package:app/utils/asset_audit_navigation_helper.dart';
 import 'package:app/utils/map_api_field_reader.dart';
 import 'package:app/utils/logger.dart';
 import 'package:app/utils/toastbar.dart';
+import 'package:app/utils/connectivity_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -264,6 +265,22 @@ class _TicketScreenState extends State<TicketScreen>
       case TicketType.all:
       default:
         return 'Allocated';
+    }
+  }
+
+  /// CM ticket status badge: OPEN = orange, CLOSED = grey.
+  Color? _getCmStatusColor(String status) {
+    if (_currentActivityType != ActivityTypeEnum.correctiveMaintenance) {
+      return null;
+    }
+    switch (status.trim().toLowerCase()) {
+      case 'open':
+        return Colors.orange;
+      case 'closed':
+      case 'close':
+        return Colors.grey;
+      default:
+        return null;
     }
   }
 
@@ -769,6 +786,53 @@ class _TicketScreenState extends State<TicketScreen>
       } else if (_currentActivityType ==
           ActivityTypeEnum.correctiveMaintenance) {
         if (!mounted || !context.mounted) return;
+
+        final physicalSiteId = resolveCmPhysicalSiteId(apiData);
+        final sqliteCmSite = physicalSiteId > 0
+            ? await ServiceLocator()
+                .centralAssetAuditDataService
+                .getCMSiteData(physicalSiteId)
+            : null;
+        if (!mounted || !context.mounted) return;
+
+        var mergedInner = mergeIncidentTicketWithSqliteSiteRows(
+          unwrapTicketDataMap(apiData),
+          [sqliteCmSite],
+        );
+
+        if (cmTicketPayloadMissingSiteContacts(mergedInner) &&
+            physicalSiteId > 0 &&
+            await ConnectivityHelper.isConnected()) {
+          try {
+            final sites =
+                await ServiceLocator().cmRepository.getCMSitesDropdown();
+            for (final site in sites) {
+              if (site.siteId == physicalSiteId) {
+                mergedInner = overlayCmSiteContactFields(
+                  base: mergedInner,
+                  infraName: site.infraEngineerName,
+                  infraPhone: site.infraEngineerContactNo,
+                  clusterInchargeName: site.clusterInchargeName,
+                  clusterInchargeContact: site.clusterInchargeContactNo,
+                );
+                break;
+              }
+            }
+          } catch (e) {
+            Logger.errorLog(
+              '⚠️ Could not load CM site contacts from dropdown: $e',
+            );
+          }
+        }
+
+        final Map<String, dynamic> cmPreloaded;
+        if (apiData.containsKey('data') && apiData['data'] is Map) {
+          cmPreloaded = Map<String, dynamic>.from(apiData);
+          cmPreloaded['data'] = mergedInner;
+        } else {
+          cmPreloaded = mergedInner;
+        }
+
         final parentContext = context;
         pushPage(
           context,
@@ -776,7 +840,7 @@ class _TicketScreenState extends State<TicketScreen>
             mode: ticket.status == 'COMPLETED' || ticket.status == 'Closed'
                 ? CMScreenModeEnum.view
                 : CMScreenModeEnum.edit,
-            preloadedSiteData: apiData,
+            preloadedSiteData: cmPreloaded,
             parentContext: parentContext,
           ),
         );
@@ -1268,9 +1332,13 @@ class _TicketScreenState extends State<TicketScreen>
                     ticket.lastModifiedDt!.trim().isNotEmpty)
                 ? ticket.lastModifiedDt!.trim()
                 : ticket.raisedDt,
-            dueDate: ticket.dueDt,
+            dueDate: _currentActivityType ==
+                    ActivityTypeEnum.correctiveMaintenance
+                ? ''
+                : ticket.dueDt,
             totalAssets: ticket.totalAssets,
             statusText: statusText,
+            statusColor: _getCmStatusColor(statusText),
             activityType: _currentActivityType,
             isDownloadedFunc: _isTicketDownloaded,
             onPdfDownloadTap: () => _downloadReport(ticket),

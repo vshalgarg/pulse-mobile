@@ -100,16 +100,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
         return;
       }
 
-      final screens = response.data ?? [];
-      final regularScreens = screens
-          .where((screen) => !_isComingSoonScreen(screen.screenId))
-          .toList()
-        ..sort((a, b) => a.sequence.compareTo(b.sequence));
-      final comingSoonScreens = screens
-          .where((screen) => _isComingSoonScreen(screen.screenId))
-          .toList()
-        ..sort((a, b) => a.sequence.compareTo(b.sequence));
-      final orderedScreens = [...regularScreens, ...comingSoonScreens];
+      final orderedScreens = response.data ?? [];
       setState(() {
         _roleScreens = orderedScreens;
         _isRolesLoading = false;

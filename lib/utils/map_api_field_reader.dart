@@ -69,3 +69,75 @@ Map<String, dynamic> mergeIncidentTicketWithSqliteSiteRows(
   }
   return m;
 }
+
+Map<String, dynamic> unwrapTicketDataMap(Map<String, dynamic> raw) {
+  if (raw.containsKey('data') && raw['data'] is Map<String, dynamic>) {
+    return Map<String, dynamic>.from(raw['data'] as Map);
+  }
+  return Map<String, dynamic>.from(raw);
+}
+
+/// CM tickets use [ticketSchId] as cmSiteReqId; site contacts live under physical [siteId].
+int resolveCmPhysicalSiteId(
+  Map<String, dynamic> raw, {
+  int? ticketSchIdFallback,
+}) {
+  final flat = mergeNestedSiteMapsIntoIncidentTicket(unwrapTicketDataMap(raw));
+  for (final key in ['siteId', 'site_id']) {
+    final v = flat[key];
+    if (v is int && v > 0) return v;
+    if (v != null) {
+      final parsed = int.tryParse(v.toString());
+      if (parsed != null && parsed > 0) return parsed;
+    }
+  }
+  return ticketSchIdFallback ?? 0;
+}
+
+bool cmTicketPayloadMissingSiteContacts(Map<String, dynamic> map) {
+  final flat = mergeNestedSiteMapsIntoIncidentTicket(unwrapTicketDataMap(map));
+  final hasInfra = readMapString(flat, [
+        'infraDistrictEngineerName',
+        'infra_district_engineer_name',
+        'infraEngineerName',
+        'infra_engineer_name',
+      ]) !=
+      null;
+  final hasIncharge = readMapString(flat, [
+        'clusterInchargeName',
+        'cluster_incharge_name',
+      ]) !=
+      null;
+  return !hasInfra && !hasIncharge;
+}
+
+Map<String, dynamic> overlayCmSiteContactFields({
+  required Map<String, dynamic> base,
+  String? infraName,
+  String? infraPhone,
+  String? clusterInchargeName,
+  String? clusterInchargeContact,
+}) {
+  final overlay = <String, dynamic>{};
+  if (infraName != null && infraName.trim().isNotEmpty) {
+    overlay['infraDistrictEngineerName'] = infraName;
+    overlay['infraEngineerName'] = infraName;
+    overlay['infra_district_engineer_name'] = infraName;
+    overlay['infra_engineer_name'] = infraName;
+  }
+  if (infraPhone != null && infraPhone.trim().isNotEmpty) {
+    overlay['infraDistrictEngineerContactNo'] = infraPhone;
+    overlay['infraEngineerContactNo'] = infraPhone;
+    overlay['infra_district_engineer_contact_no'] = infraPhone;
+    overlay['infra_engineer_contact_no'] = infraPhone;
+  }
+  if (clusterInchargeName != null && clusterInchargeName.trim().isNotEmpty) {
+    overlay['clusterInchargeName'] = clusterInchargeName;
+    overlay['cluster_incharge_name'] = clusterInchargeName;
+  }
+  if (clusterInchargeContact != null && clusterInchargeContact.trim().isNotEmpty) {
+    overlay['clusterInchargeContactNo'] = clusterInchargeContact;
+    overlay['cluster_incharge_contact_no'] = clusterInchargeContact;
+  }
+  return _overlayNonEmptyValues(base, overlay);
+}

@@ -1,6 +1,5 @@
 class ApiCodes {
   ApiCodes._();
-
   static const String somethingWentWrong = "000";
   static const String httpResponseNull = "009";
   static const String validLogin = "001";
@@ -14,7 +13,5 @@ class ApiCodes {
   static const String recordDeleted = "016";
   static const String alreadyExist = "025";
   static const String distanceFromLocationProd = "0.1";
-  static const String distanceFromLocation = "0.1";
- 
-
-}
+  static const String distanceFromLocation = "100000";
+ }

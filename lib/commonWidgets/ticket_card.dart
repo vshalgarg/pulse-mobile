@@ -259,7 +259,9 @@ class TicketCard extends StatelessWidget {
                       activityType == ActivityTypeEnum.assetUpload
                           ? "Total Assets : ${totalAssets ?? 0}"
                           : activityType != ActivityTypeEnum.assetUpload &&
-                                activityType != ActivityTypeEnum.siteVisit
+                                activityType != ActivityTypeEnum.siteVisit &&
+                                activityType !=
+                                    ActivityTypeEnum.correctiveMaintenance
                           ? "Due : ${Utils.formatDataForTicketCard(dueDate)}"
                           : "",
 

@@ -89,7 +89,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
             hint: Text(
               widget.isDisabled ? 'Field disabled' : 'Select',
               style: TextStyle(
-                fontSize: 14,
+                fontSize: 16,
                 fontWeight: FontWeight.w400,
                 color: widget.isDisabled
                     ? AppColors.borderColorE0E0E0
@@ -100,7 +100,15 @@ class _CustomDropdownState extends State<CustomDropdown> {
             items: widget.items.map((item) {
               return DropdownMenuItem<String>(
                 value: item,
-                child: Text(item, style: const TextStyle(fontSize: 14)),
+                child: Text(
+                  item,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                    fontFamily: fontFamilyMontserrat,
+                    color: AppColors.color555555,
+                  ),
+                ),
               );
             }).toList(),
             value:

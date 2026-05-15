@@ -9,6 +9,7 @@ import 'package:app/services/local_storage_db.dart';
 import 'package:app/repositories/asset_upload_respository.dart';
 import '../../utils/logger.dart';
 import '../../utils/image_compression_helper.dart';
+import '../../utils/map_api_field_reader.dart';
 
 class CentralAssetAuditService {
   Future<bool> getDataFromApiAndSaveToSqlite({
@@ -674,6 +675,12 @@ class CentralAssetAuditService {
     if (apiData == null) {
       return false;
     }
+
+    var dataToSave = apiData;
+    if (activityType == ActivityTypeEnum.correctiveMaintenance) {
+      dataToSave = await _enrichCmTicketApiDataWithSiteContacts(apiData);
+    }
+
     // Save to SQLite
     final isSaved = await _saveDataToSQLite(
       siteAuditSchId: siteAuditSchId,
@@ -690,7 +697,7 @@ class CentralAssetAuditService {
       isDownloaded: true,
       latitude: latitude,
       longitude: longitude,
-      apiData: apiData,
+      apiData: dataToSave,
     );
 
     // For General Inspection, also download checklist data
@@ -731,6 +738,39 @@ class CentralAssetAuditService {
         }
       } catch (e) {
         Logger.errorLog('❌ Error downloading Incident checklist: $e');
+      }
+    }
+
+    // For CM tickets, also download checklist master so offline edit/view can merge responses.
+    if (isSaved && activityType == ActivityTypeEnum.correctiveMaintenance) {
+      try {
+        final flat = mergeNestedSiteMapsIntoIncidentTicket(
+          unwrapTicketDataMap(dataToSave),
+        );
+        final siteId = resolveCmPhysicalSiteId(flat);
+        final entityId = _readIntFromApiData(flat, [
+              'entityId',
+              'entity_id',
+              'cmSiteReqId',
+              'cm_site_req_id',
+            ]) ??
+            int.tryParse(siteAuditSchId) ??
+            0;
+        if (siteId > 0 && entityId > 0) {
+          final cmChecklistDownloaded = await downloadCMChecklist(
+            siteId: siteId,
+            entityId: entityId,
+            siteCode: siteCode,
+            siteName: cluster,
+          );
+          if (cmChecklistDownloaded) {
+            Logger.debugLog('✅ CM checklist data downloaded successfully');
+          } else {
+            Logger.errorLog('❌ Failed to download CM checklist data');
+          }
+        }
+      } catch (e) {
+        Logger.errorLog('❌ Error downloading CM checklist: $e');
       }
     }
 
@@ -837,33 +877,38 @@ class CentralAssetAuditService {
         final value = entry.value;
 
         // Special handling for response_images array (PM data structure)
-        if ((key == 'response_images' || key == 'responseImages') && value is List) {
-          Logger.debugLog('🖼️ Found response_images array, processing ${value.length} images');
+        if ((key == 'response_images' ||
+                key == 'responseImages' ||
+                key == 'cmCheckListSiteRespImagesList' ||
+                key == 'cm_check_list_site_resp_images_list' ||
+                key == 'CmCheckListSiteRespImagesList') &&
+            value is List) {
+          Logger.debugLog('🖼️ Found $key array, processing ${value.length} images');
           for (var i = 0; i < value.length; i++) {
             final imageItem = value[i];
             if (imageItem is Map<String, dynamic>) {
               final photoId = imageItem['photo_id'] ?? imageItem['photoId'];
               if (photoId != null) {
                 final serverId = photoId.toString();
-                // Skip if serverId is empty, "0", or "null"
-                if (serverId.isNotEmpty && serverId != "0" && serverId != "null") {
-                  Logger.debugLog('🖼️ Found photo_id in response_images[$i]: $serverId');
+                if (serverId.isNotEmpty &&
+                    serverId != "0" &&
+                    serverId != "null" &&
+                    !serverId.startsWith('LOCAL_IMAGE_ID')) {
+                  Logger.debugLog('🖼️ Found photo id in $key[$i]: $serverId');
 
-                  // Download image and get unique ID
                   final uniqueId = await _downloadImageAndGetUniqueId(
                     serverId,
                     activityType,
                     siteAuditSchId,
                   );
                   if (uniqueId != null) {
-                    // Replace server ID with unique ID in the response_images array
                     imageItem['photo_id'] = uniqueId;
                     imageItem['photoId'] = uniqueId;
                     Logger.debugLog(
-                      '✅ Replaced response_images[$i] photo_id $serverId with unique ID: $uniqueId',
+                      '✅ Replaced $key[$i] photo id $serverId with unique ID: $uniqueId',
                     );
                   } else {
-                    Logger.errorLog('❌ Failed to download image for response_images[$i]: $serverId');
+                    Logger.errorLog('❌ Failed to download image for $key[$i]: $serverId');
                   }
                 }
               }
@@ -909,6 +954,7 @@ class CentralAssetAuditService {
         }
         // Check if this is a photo_id or maker_selfie_image_id field
         else if ((key == 'photo_id' ||
+                key == 'photoId' ||
                 key == 'maker_selfie_image_id' ||
                 key == 'makerSelfieImageId' ||
                 key == 'ebAttachmentFileId' ||
@@ -921,11 +967,21 @@ class CentralAssetAuditService {
                 key == 'leavingStatusImageId' ||
                 key == 'leaving_status_image_id' ||
                 key == 'respPhotoId' ||
-                key == 'incidentImgId') &&
+                key == 'incidentImgId' ||
+                key == 'identificationImgId' ||
+                key == 'identification_img_id' ||
+                key == 'timestampImgId' ||
+                key == 'timestamp_img_id' ||
+                key == 'fsrAttachmentId' ||
+                key == 'fsr_attachment_id' ||
+                key == 'customerPhotoId' ||
+                key == 'customer_photo_id') &&
             value != null) {
           final serverId = value.toString();
-          // Skip if serverId is empty, "0", or "null"
-          if (serverId.isNotEmpty && serverId != "0" && serverId != "null") {
+          if (serverId.isNotEmpty &&
+              serverId != "0" &&
+              serverId != "null" &&
+              !serverId.startsWith('LOCAL_IMAGE_ID')) {
             Logger.debugLog('🖼️ Found $key: $serverId');
 
             // Download image and get unique ID
@@ -1446,6 +1502,63 @@ class CentralAssetAuditService {
     } catch (e) {
       Logger.errorLog('❌ Error dropping and recreating databases: $e');
       rethrow;
+    }
+  }
+
+  int? _readIntFromApiData(
+    Map<String, dynamic> apiData,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = apiData[key];
+      if (value is int) return value;
+      if (value != null) {
+        final parsed = int.tryParse(value.toString());
+        if (parsed != null) return parsed;
+      }
+    }
+    return null;
+  }
+
+  /// Embeds infra/cluster contacts into CM ticket JSON for offline open.
+  Future<Map<String, dynamic>> _enrichCmTicketApiDataWithSiteContacts(
+    Map<String, dynamic> apiData,
+  ) async {
+    try {
+      final flat = mergeNestedSiteMapsIntoIncidentTicket(
+        unwrapTicketDataMap(apiData),
+      );
+      final physicalSiteId = resolveCmPhysicalSiteId(flat);
+      if (physicalSiteId <= 0) return apiData;
+
+      if (!cmTicketPayloadMissingSiteContacts(flat)) {
+        if (apiData.containsKey('data') && apiData['data'] is Map) {
+          return apiData;
+        }
+        return flat;
+      }
+
+      final sites = await ServiceLocator().cmRepository.getCMSitesDropdown();
+      Map<String, dynamic> enriched = flat;
+      for (final site in sites) {
+        if (site.siteId != physicalSiteId) continue;
+        enriched = overlayCmSiteContactFields(
+          base: flat,
+          infraName: site.infraEngineerName,
+          infraPhone: site.infraEngineerContactNo,
+          clusterInchargeName: site.clusterInchargeName,
+          clusterInchargeContact: site.clusterInchargeContactNo,
+        );
+        break;
+      }
+
+      if (apiData.containsKey('data') && apiData['data'] is Map) {
+        return {...apiData, 'data': enriched};
+      }
+      return enriched;
+    } catch (e) {
+      Logger.errorLog('❌ Error enriching CM ticket with site contacts: $e');
+      return apiData;
     }
   }
 }

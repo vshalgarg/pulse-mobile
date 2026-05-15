@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'api_service.dart';
+import 'upload_dcouments.dart';
 import '../utils/logger.dart';
 
 class ImageUploadService {
@@ -278,6 +279,93 @@ class ImageUploadService {
     }
   }
 
+  /// **Corrective Maintenance only.** Persists Identification / Time Stamp / FSR file locally
+  /// **without** calling `api/v1/mobile/uploads`. Server ids must come from `UploadDocuments`
+  /// (`uploadCmStoredUniqueIdViaUploadDocuments` or the CM screen).
+  Future<String> persistCmDocumentLocalWithoutMobileUploads(String filePath) async {
+    final uniqueId = _generateUniqueId();
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final storedPath = await _persistImageFileToAppData(
+      uniqueId: uniqueId,
+      sourcePath: filePath,
+    );
+
+    await _saveImageToSQLite(
+      uniqueId: uniqueId,
+      imageData: storedPath,
+      isSelfie: false,
+      activityType: ActivityTypeEnum.correctiveMaintenance,
+      schId: null,
+      serverId: null,
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    Logger.debugLog(
+      'persistCmDocumentLocalWithoutMobileUploads: local id=$uniqueId (CM, no mobile/uploads)',
+    );
+    return uniqueId;
+  }
+
+  /// **Corrective Maintenance only.** Resolves a locally persisted id to a **docId** from
+  /// `api/v1/common/UploadDocuments` — never `api/v1/mobile/uploads`.
+  Future<String?> uploadCmStoredUniqueIdViaUploadDocuments(String uniqueId) async {
+    try {
+      final imageModel = await _getByUniqueIdFromSQLite(uniqueId);
+      if (imageModel == null || imageModel.imageData == null) {
+        Logger.errorLog(
+          'uploadCmStoredUniqueIdViaUploadDocuments: no SQLite row for $uniqueId',
+        );
+        return null;
+      }
+      final existing = imageModel.serverId?.toString().trim();
+      if (existing != null &&
+          existing.isNotEmpty &&
+          !existing.startsWith('LOCAL_IMAGE_ID')) {
+        return existing;
+      }
+      if (!await ConnectivityHelper.isConnected()) {
+        Logger.debugLog(
+          'uploadCmStoredUniqueIdViaUploadDocuments: offline, skip $uniqueId',
+        );
+        return null;
+      }
+
+      final path = _normalizeStoredPath(imageModel.imageData!);
+      final file = File(path);
+      if (!await file.exists()) {
+        Logger.errorLog(
+          'uploadCmStoredUniqueIdViaUploadDocuments: missing file $path',
+        );
+        return null;
+      }
+
+      final uploadService = UploadDcoumentsService(apiService: _apiService);
+      final result = await uploadService.uploadFile(
+        file: file,
+        id: '0',
+        activityType: ActivityTypeEnum.correctiveMaintenance.value,
+      );
+
+      final docId =
+          (result.isSuccess ? (result.data ?? '') : '').toString().trim();
+      if (docId.isEmpty || docId == '0') {
+        Logger.errorLog(
+          'UploadDocuments failed for CM local id $uniqueId: ${result.errorMessage}',
+        );
+        return null;
+      }
+      await _updateServerId(uniqueId, docId);
+      Logger.debugLog(
+        'uploadCmStoredUniqueIdViaUploadDocuments: $uniqueId -> docId $docId',
+      );
+      return docId;
+    } catch (e, st) {
+      Logger.errorLog('uploadCmStoredUniqueIdViaUploadDocuments: $e\n$st');
+      return null;
+    }
+  }
+
   /// 2. Get server ID - Check SQLite first, upload if needed
   Future<ImageModel?> getServerIdFromUniqueIdTryUploading(
     String uniqueId,
@@ -454,6 +542,28 @@ class ImageUploadService {
     }
     Logger.debugLog('🖼️ getImageUsingUniqueId: No image data found for uniqueId: $uniqueId');
     return null;
+  }
+
+  /// Resolves server photo id or `LOCAL_IMAGE_ID_*` to base64 for offline/online display.
+  Future<String?> resolveImageBase64ForPhotoRef(String photoRef) async {
+    final ref = photoRef.trim();
+    if (ref.isEmpty) return null;
+
+    if (ref.startsWith('LOCAL_IMAGE_ID')) {
+      return getImageUsingUniqueId(ref);
+    }
+
+    final cached = await getImagesByServerId(ref);
+    if (cached != null) {
+      final uniqueId = cached.uniqueId.trim();
+      if (uniqueId.isNotEmpty) {
+        final base64 = await getImageUsingUniqueId(uniqueId);
+        if (base64 != null && base64.isNotEmpty) return base64;
+      }
+      return _readStoredImageDataAsBase64(cached.imageData);
+    }
+
+    return getImageUsingUniqueId(ref);
   }
 
   /// Returns stored local file path for a unique id when available.

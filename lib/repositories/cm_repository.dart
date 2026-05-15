@@ -14,6 +14,12 @@ class CMRepository {
 
   CMRepository(this._apiService);
 
+  Uint8List _normalizeBytes(dynamic data) {
+    if (data is Uint8List) return data;
+    if (data is List<int>) return Uint8List.fromList(data);
+    throw Exception('Unexpected binary response type: ${data.runtimeType}');
+  }
+
   Future<List<CMSite>> getCMSitesDropdown() async {
     try {
       Logger.debugLog('[CMRepository] Starting to fetch CM sites dropdown');
@@ -165,12 +171,13 @@ class CMRepository {
         throw Exception('Failed to load document: ${response.errorMessage}');
       }
       
-      Logger.infoLog('[CMRepository] ✅ Document binary data received, size: ${(response.data as Uint8List).length} bytes');
+      final binaryData = _normalizeBytes(response.data);
+      Logger.infoLog('[CMRepository] ✅ Document binary data received, size: ${binaryData.length} bytes');
       
       // Detect file type from binary data (magic bytes) if extension is missing
       String finalFileName = fileName;
       if (!fileName.contains('.')) {
-        final detectedExtension = _detectFileExtensionFromBytes(response.data as Uint8List);
+          final detectedExtension = _detectFileExtensionFromBytes(binaryData);
         if (detectedExtension != null) {
           finalFileName = '$fileName$detectedExtension';
           Logger.infoLog('[CMRepository] Detected file type: $detectedExtension, updated filename: $finalFileName');
@@ -183,7 +190,7 @@ class CMRepository {
       
       // Use common file download service
       final filePath = await FileDownloadService.downloadFileFromBytes(
-        data: response.data as Uint8List,
+        data: binaryData,
         fileName: finalFileName,
         requirePermission: false, // Permission is already checked in screen
       );
@@ -213,9 +220,10 @@ class CMRepository {
       
       if (binaryResponse.isSuccess && binaryResponse.data != null) {
         Logger.infoLog('[CMRepository] ✅ Received binary data, converting to base64');
+        final binaryData = _normalizeBytes(binaryResponse.data);
         
         // Convert binary to base64
-        final base64Data = base64Encode(binaryResponse.data as Uint8List);
+        final base64Data = base64Encode(binaryData);
         
         // Try to extract filename from response headers if available
         String fileName = 'attachment_${DateTime.now().millisecondsSinceEpoch}';

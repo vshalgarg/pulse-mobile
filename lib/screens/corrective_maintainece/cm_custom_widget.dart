@@ -42,6 +42,19 @@ class CMCustomWidget extends StatefulWidget {
 }
 
 class _CMCustomWidgetState extends State<CMCustomWidget> {
+  static const TextStyle _impactedTableHeaderStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.bold,
+    fontFamily: fontFamilyMontserrat,
+    color: AppColors.color555555,
+  );
+  static const TextStyle _impactedTableCellStyle = TextStyle(
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    fontFamily: fontFamilyMontserrat,
+    color: AppColors.color555555,
+  );
+
   Uint8List? _safeDecodeDataUrl(String? dataUrlOrBase64) {
     if (dataUrlOrBase64 == null || dataUrlOrBase64.isEmpty) return null;
     try {
@@ -2143,12 +2156,19 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: 20,
-                horizontalMargin: 12,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: (_getAllChildItems().length +
+                          (_hasImgDependentElement() ? 1 : 0) +
+                          2) *
+                      118,
+                ),
+                child: DataTable(
+                columnSpacing: 24,
+                horizontalMargin: 16,
                 columns: [
                   DataColumn(
-                    label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text('Serial Number', style: _impactedTableHeaderStyle),
                   ),
                   // DataColumn(
                   //   label: Text('Scanned not added', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -2158,17 +2178,17 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   ..._getAllChildItems().map((childItem) {
                     final label = _getChildItemColumnLabel(childItem);
                     return DataColumn(
-                      label: Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(label, style: _impactedTableHeaderStyle),
                     );
                   }).toList(),
                   // Add Photo column if there's an IMG dependent element at parent level
                   if (_hasImgDependentElement()) ...[
                     DataColumn(
-                      label: Text('Photo', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text('Photo', style: _impactedTableHeaderStyle),
                     ),
                   ],
                   DataColumn(
-                    label: Text('Edit', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text('Edit', style: _impactedTableHeaderStyle),
                   ),
                 ],
                 rows: _dynamicDropdownData.asMap().entries.map((entry) {
@@ -2202,7 +2222,10 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   
                   return DataRow(
                     cells: [
-                      DataCell(Text(item['mfgSerialNo']?.toString() ?? '')),
+                      DataCell(Text(
+                        item['mfgSerialNo']?.toString() ?? '',
+                        style: _impactedTableCellStyle,
+                      )),
                       // DataCell(Text(item['isScanned'] == true ? 'Yes' : 'No')),
                       // Add cells for all child items from impacted_item_check_list
                       // (combining value and dependent_elements in the same cell)
@@ -2265,6 +2288,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                               Flexible(
                                 child: Text(
                                   childResponseValue ?? '',
+                                  style: _impactedTableCellStyle,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
@@ -2316,6 +2340,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     ],
                   );
                 }).toList(),
+              ),
               ),
             ),
           ),
@@ -2690,7 +2715,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 _currentItem['checklist_desc']?.toString() ?? '',
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.normal,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontFamily: fontFamilyMontserrat,
                 ),
               ),
             ),
@@ -2814,7 +2841,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                 _currentItem['checklist_desc']?.toString() ?? '',
                 style: const TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.normal,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontFamily: fontFamilyMontserrat,
                 ),
               ),
             ),
@@ -3199,7 +3228,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             parentDesc,
             style: const TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: Colors.white,
               fontFamily: fontFamilyMontserrat,
             ),
@@ -3214,16 +3243,20 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
             ),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
-              child: DataTable(
-                columnSpacing: 20,
-                horizontalMargin: 12,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: (orderedDescs.length + 1) * 118,
+                ),
+                child: DataTable(
+                columnSpacing: 24,
+                horizontalMargin: 16,
                 columns: [
-                  const DataColumn(
-                    label: Text('Serial Number', style: TextStyle(fontWeight: FontWeight.bold)),
+                  DataColumn(
+                    label: Text('Serial Number', style: _impactedTableHeaderStyle),
                   ),
                   ...orderedDescs.map((entry) => 
                     DataColumn(
-                      label: Text(entry.value, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(entry.value, style: _impactedTableHeaderStyle),
                     )
                   ),
                 ],
@@ -3233,13 +3266,13 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                   
                   return DataRow(
                     cells: [
-                      DataCell(Text(serialNo)),
+                      DataCell(Text(serialNo, style: _impactedTableCellStyle)),
                       ...orderedDescs.map((descEntry) {
                         final mstId = descEntry.key;
                         final item = itemsByMstId[mstId];
                         
                         if (item == null) {
-                          return const DataCell(Text(''));
+                          return DataCell(Text('', style: _impactedTableCellStyle));
                         }
                         
                         final respType = item['respType']?.toString() ?? 
@@ -3253,7 +3286,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                           cellContent = Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(resp),
+                              Text(resp, style: _impactedTableCellStyle),
                               if (images.isNotEmpty)
                                 Padding(
                                   padding: const EdgeInsets.only(left: 8),
@@ -3291,9 +3324,9 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                                   onTap: () => _showImageGallery(images),
                                   child: const Icon(Icons.camera_alt, size: 20, color: Colors.blue),
                                 )
-                              : const Text('');
+                              : Text('', style: _impactedTableCellStyle);
                         } else {
-                          cellContent = Text(resp);
+                          cellContent = Text(resp, style: _impactedTableCellStyle);
                         }
                         
                         return DataCell(cellContent);
@@ -3301,6 +3334,7 @@ class _CMCustomWidgetState extends State<CMCustomWidget> {
                     ],
                   );
                 }).toList(),
+              ),
               ),
             ),
           ),

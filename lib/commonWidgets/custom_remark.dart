@@ -68,13 +68,28 @@ class CustomRemarksField extends StatelessWidget {
           scrollPadding: const EdgeInsets.fromLTRB(8, 120, 8, 220),
           decoration: InputDecoration(
             hintText: hintText,
-            hintStyle: const TextStyle(color: AppColors.color555555),
+            hintStyle: TextStyle(
+              fontWeight: FontWeight.w400,
+              fontFamily: fontFamilyMontserrat,
+              fontSize: 16,
+              color: AppColors.color555555.withOpacity(0.6),
+            ),
             filled: true,
-            fillColor: Colors.white,
+            fillColor: isDisabled ? AppColors.borderColorE0E0E0 : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 8,
+              horizontal: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(5),
               borderSide: BorderSide.none,
             ),
+          ),
+          style: const TextStyle(
+            fontWeight: FontWeight.w400,
+            fontFamily: fontFamilyMontserrat,
+            fontSize: 16,
+            color: AppColors.color555555,
           ),
         ),
       ],

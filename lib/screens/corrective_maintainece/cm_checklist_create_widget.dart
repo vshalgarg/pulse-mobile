@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:app/constants/constants_strings.dart';
 import 'cm_custom_widget.dart';
 import 'cm_edit_view_checklist.dart';
 import '../../enum/corrective_maintenance_screen_mode_enum.dart';
@@ -162,9 +163,10 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
                     child: Text(
                       widget.equipmentType,
                       style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                         color: Colors.white,
+                        fontFamily: fontFamilyMontserrat,
                       ),
                     ),
                   ),
@@ -183,8 +185,7 @@ class _ChecklistCreateWidgetState extends State<ChecklistCreateWidget> {
           // Content
           if (_isExpanded)
             Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6F5EF).withOpacity(0.3), // 30% opacity of #e6f5ef
+              decoration: const BoxDecoration(
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(8),
                   bottomRight: Radius.circular(8),

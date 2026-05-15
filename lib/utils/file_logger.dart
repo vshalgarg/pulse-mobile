@@ -268,7 +268,10 @@ class FileLogger {
   /// Get log file content
   static Future<String> getLogFileContent(File file) async {
     try {
-      return await file.readAsString();
+      final bytes = await file.readAsBytes();
+      // Some log lines can contain malformed bytes from third-party/native output.
+      // Decode defensively so log viewing never crashes the workflow.
+      return utf8.decode(bytes, allowMalformed: true);
     } catch (e) {
       debugPrint('Failed to read log file: $e');
       return 'Error reading log file: $e';
