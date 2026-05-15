@@ -55,6 +55,10 @@ class Ticket extends Equatable {
   final String? status;
   final int? totalAssets;
   final int? siteId;
+  final String? category;
+  final String? issueTitle;
+  final String? assignedToName;
+  final String? priority;
 
   const Ticket({
     required this.ticketSchId,
@@ -72,6 +76,10 @@ class Ticket extends Equatable {
     this.status,
     this.totalAssets,
     this.siteId,
+    this.category,
+    this.issueTitle,
+    this.assignedToName,
+    this.priority,
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
@@ -111,6 +119,20 @@ class Ticket extends Equatable {
       status: json['status'],
       totalAssets: json['total_asset_cnt'] != null ? int.tryParse(json['total_asset_cnt'].toString()) : null,
       siteId: json['site_id'] != null ? int.tryParse(json['site_id'].toString()) : null,
+      category: json['category']?.toString() ??
+          json['asset_category']?.toString() ??
+          json['device_category']?.toString(),
+      issueTitle: json['issue_title']?.toString() ??
+          json['issueTitle']?.toString() ??
+          json['issue']?.toString() ??
+          json['problem_summary']?.toString() ??
+          json['problemSummary']?.toString() ??
+          json['fault_description']?.toString() ??
+          json['faultDescription']?.toString(),
+      assignedToName: json['assigned_to_name']?.toString() ??
+          json['assignedToName']?.toString() ??
+          json['assigned_to']?.toString(),
+      priority: json['priority']?.toString(),
     );
     
     // Debug logging for final ticket object
@@ -136,6 +158,10 @@ class Ticket extends Equatable {
       'status': status,
       'total_asset_cnt': totalAssets,
       'site_id': siteId,
+      'category': category,
+      'issue_title': issueTitle,
+      'assigned_to_name': assignedToName,
+      'priority': priority,
     };
   }
 
@@ -156,6 +182,10 @@ class Ticket extends Equatable {
         status,
         totalAssets,
         siteId,
+        category,
+        issueTitle,
+        assignedToName,
+        priority,
       ];
 }
 

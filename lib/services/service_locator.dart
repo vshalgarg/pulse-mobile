@@ -11,6 +11,8 @@ import 'package:app/repositories/cm_repository.dart';
 import 'package:app/repositories/sites.repository.dart';
 import 'package:app/repositories/general_inspection_repository.dart';
 import 'package:app/repositories/incident_repository.dart';
+import 'package:app/repositories/raise_it_ticket_repositories.dart';
+import 'package:app/services/raise_it_ticket_service.dart';
 
 class ServiceLocator {
   static final ServiceLocator _instance = ServiceLocator._internal();
@@ -30,6 +32,7 @@ class ServiceLocator {
   late GeneralInspectionRepository _generalInspectionRepository;
   IncidentRepository? _incidentRepository;
   RolesService? _rolesService;
+  RaiseItTicketRepository? _raiseItTicketRepository;
 
   /// Initialize all services
   Future<void> initializeServices(dynamic apiService) async {
@@ -63,6 +66,9 @@ class ServiceLocator {
       _generalInspectionRepository = GeneralInspectionRepository(apiService);
       _incidentRepository = IncidentRepository(apiService);
       _rolesService = RolesService(apiService: apiService);
+      _raiseItTicketRepository = RaiseItTicketRepository(
+        service: RaiseItTicketService(apiService: apiService),
+      );
 
       _isInitialized = true;
 
@@ -153,6 +159,19 @@ class ServiceLocator {
       _rolesService = RolesService(apiService: _apiService);
     }
     return _rolesService!;
+  }
+
+  RaiseItTicketRepository get raiseItTicketRepository {
+    _ensureInitialized();
+    if (_raiseItTicketRepository == null) {
+      Logger.debugLog(
+        '⚠️ RaiseItTicketRepository not initialized, initializing now...',
+      );
+      _raiseItTicketRepository = RaiseItTicketRepository(
+        service: RaiseItTicketService(apiService: _apiService),
+      );
+    }
+    return _raiseItTicketRepository!;
   }
 
   /// Check if services are initialized

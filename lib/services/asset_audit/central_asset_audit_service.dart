@@ -972,8 +972,6 @@ class CentralAssetAuditService {
                 key == 'identification_img_id' ||
                 key == 'timestampImgId' ||
                 key == 'timestamp_img_id' ||
-                key == 'fsrAttachmentId' ||
-                key == 'fsr_attachment_id' ||
                 key == 'customerPhotoId' ||
                 key == 'customer_photo_id') &&
             value != null) {

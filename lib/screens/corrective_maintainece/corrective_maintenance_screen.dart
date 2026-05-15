@@ -241,7 +241,7 @@ class _CorrectiveMaintenanceScreenState
     }
   }
 
-  void _loadImages(Map<String, dynamic> preloadedSite) async {
+  Future<void> _loadImages(Map<String, dynamic> preloadedSite) async {
     // Load Identification Photo
     dynamic identificationPhotoId = preloadedSite['identificationImgId'] ?? preloadedSite['identification_img_id'];
     _originalIdentificationPhotoId = identificationPhotoId;
@@ -272,11 +272,16 @@ class _CorrectiveMaintenanceScreenState
       final fsrAttachmentName =
           preloadedSite['fsrAttachmentName'] ?? preloadedSite['fsr_attachment_name'];
       if (fsrAttachmentId != null && fsrAttachmentId != 0) {
-        _fsrAttachmentId = fsrAttachmentId;
-        _fsrAttachmentName = (fsrAttachmentName != null &&
+        final resolvedName = (fsrAttachmentName != null &&
                 fsrAttachmentName.toString().trim().isNotEmpty)
             ? fsrAttachmentName.toString().trim()
             : fsrAttachmentId.toString();
+        if (mounted) {
+          setState(() {
+            _fsrAttachmentId = fsrAttachmentId;
+            _fsrAttachmentName = resolvedName;
+          });
+        }
       }
     }
   }
@@ -537,6 +542,7 @@ class _CorrectiveMaintenanceScreenState
       setState(() {
         _syncSiteContactControllers();
       });
+      await _loadImages(ticketData);
       await _enrichSiteContactsFromLocalDb();
     } catch (e) {
       Logger.errorLog('[CM] Failed to refresh ticket details from API: $e');
