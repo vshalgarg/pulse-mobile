@@ -287,6 +287,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
         return "Project";
       case ActivityTypeEnum.activityTicket:
         return "Activities";
+      case ActivityTypeEnum.itAssetIssueTicket:
+        return "IT Raise Ticket";
     }
   }
 
@@ -1022,6 +1024,8 @@ class _MyTicketsScreenState extends State<MyTicketsScreen>
       case ActivityTypeEnum.projectTicket:
       case ActivityTypeEnum.activityTicket:
         await _navigateToWorkflow(ticket);
+        break;
+      case ActivityTypeEnum.itAssetIssueTicket:
         break;
     }
   }

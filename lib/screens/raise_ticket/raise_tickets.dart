@@ -1,5 +1,6 @@
 import 'package:app/commonWidgets/raise_it_ticket_card.dart';
 import 'package:app/screens/raise_ticket/create_raise_it_ticket.dart';
+import 'package:app/screens/raise_ticket/edit_raise_ticket.dart';
 import 'package:app/constants/app_colors.dart';
 import 'package:app/constants/app_images.dart';
 import 'package:app/constants/constants_methods.dart';
@@ -126,11 +127,25 @@ class _RaiseTicketsScreenState extends State<RaiseTicketsScreen> {
           final ticket = _tickets[index];
           return RaiseItTicketCard(
             ticket: ticket,
-            onTap: () {
-              Toastbar.showInfoToastbar(
-                'Ticket details coming soon',
+            onTap: () async {
+              if (ticket.iaitId <= 0) {
+                Toastbar.showErrorToastbar(
+                  'Invalid ticket id',
+                  context,
+                );
+                return;
+              }
+              final updated = await Navigator.push<bool>(
                 context,
+                MaterialPageRoute(
+                  builder: (context) => EditRaiseItTicketScreen(
+                    iaitId: ticket.iaitId,
+                  ),
+                ),
               );
+              if (updated == true && mounted) {
+                _loadTickets(showFullScreenLoader: false);
+              }
             },
           );
         },

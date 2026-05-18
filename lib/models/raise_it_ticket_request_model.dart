@@ -6,6 +6,7 @@ class RaiseItTicketCommentRequest {
   final String? remarks;
   final String? attachmentName;
   final String? commentedByName;
+  final String? commentedDt;
 
   const RaiseItTicketCommentRequest({
     this.iaitcId,
@@ -15,6 +16,7 @@ class RaiseItTicketCommentRequest {
     this.remarks,
     this.attachmentName,
     this.commentedByName,
+    this.commentedDt,
   });
 
   factory RaiseItTicketCommentRequest.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,9 @@ class RaiseItTicketCommentRequest {
       remarks: _strOrNull(json['remarks']),
       attachmentName: _strOrNull(json['attachmentName']),
       commentedByName: _strOrNull(json['commentedByName']),
+      commentedDt: _strOrNull(
+        json['commentedDt'] ?? json['createdDt'] ?? json['modifiedDt'],
+      ),
     );
   }
 
@@ -43,14 +48,18 @@ class RaiseItTicketCommentRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      if (iaitcId != null) 'iaitcId': iaitcId,
-      if (comments != null) 'comments': comments,
-      if (itAssetAttachmentId != null)
+      'iaitcId': iaitcId ?? 0,
+      'comments': comments ?? '',
+      if (itAssetAttachmentId != null && itAssetAttachmentId! > 0)
         'itAssetAttachmentId': itAssetAttachmentId,
-      if (isActive != null) 'isActive': isActive,
-      if (remarks != null) 'remarks': remarks,
-      if (attachmentName != null) 'attachmentName': attachmentName,
-      if (commentedByName != null) 'commentedByName': commentedByName,
+      'isActive': isActive ?? true,
+      if (remarks != null && remarks!.trim().isNotEmpty) 'remarks': remarks,
+      if (attachmentName != null && attachmentName!.trim().isNotEmpty)
+        'attachmentName': attachmentName,
+      if (commentedByName != null && commentedByName!.trim().isNotEmpty)
+        'commentedByName': commentedByName,
+      if (commentedDt != null && commentedDt!.trim().isNotEmpty)
+        'commentedDt': commentedDt,
     };
   }
 }

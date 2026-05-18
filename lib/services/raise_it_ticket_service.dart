@@ -3,6 +3,7 @@ import 'package:app/models/it_asset_type_model.dart';
 import 'package:app/models/raise_it_ticket_detail_model.dart';
 import 'package:app/models/raise_it_ticket_model.dart';
 import 'package:app/models/raise_it_ticket_request_model.dart';
+import 'package:app/models/raise_it_ticket_status_model.dart';
 import 'package:app/models/raise_ticket_assigned_to_model.dart';
 import 'package:app/services/api_service.dart';
 import 'package:app/utils/logger.dart';
@@ -118,6 +119,51 @@ class RaiseItTicketService {
     } catch (e) {
       Logger.errorLog(
         '[RaiseItTicketService] Exception in getRaiseTicketAssignedTo: $e',
+      );
+      return ResponseResult.error(
+        errorMessage: 'Exception occurred: ${e.toString()}',
+      );
+    }
+  }
+
+  /// GET /api/v1/it-asset/it-asset-issue-status/dropdown
+  Future<ResponseResult<List<RaiseItTicketStatus>>> getRaiseTicketStatus() async {
+    try {
+      final response = await _apiService.get<List<dynamic>>(
+        path: '/api/v1/it-asset/it-asset-issue-status/dropdown',
+      );
+
+      if (!response.isSuccess || response.data == null) {
+        return ResponseResult.error(
+          errorMessage:
+              response.errorMessage ?? 'Failed to load ticket status list',
+          statusCode: response.statusCode,
+        );
+      }
+
+      final raw = response.data!;
+      final statuses = <RaiseItTicketStatus>[];
+      for (var i = 0; i < raw.length; i++) {
+        try {
+          final item = raw[i];
+          if (item is Map<String, dynamic>) {
+            statuses.add(RaiseItTicketStatus.fromJson(item));
+          } else if (item is Map) {
+            statuses.add(
+              RaiseItTicketStatus.fromJson(Map<String, dynamic>.from(item)),
+            );
+          }
+        } catch (e) {
+          Logger.errorLog(
+            '[RaiseItTicketService] Error parsing ticket status at index $i: $e',
+          );
+        }
+      }
+
+      return ResponseResult.success(statuses, response.statusCode);
+    } catch (e) {
+      Logger.errorLog(
+        '[RaiseItTicketService] Exception in getRaiseTicketStatus: $e',
       );
       return ResponseResult.error(
         errorMessage: 'Exception occurred: ${e.toString()}',

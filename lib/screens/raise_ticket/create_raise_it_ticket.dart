@@ -10,6 +10,7 @@ import 'package:app/constants/constants_strings.dart';
 import 'package:app/models/it_asset_code_model.dart';
 import 'package:app/models/it_asset_type_model.dart';
 import 'package:app/models/raise_it_ticket_request_model.dart';
+import 'package:app/models/raise_it_ticket_status_model.dart';
 import 'package:app/commonWidgets/safe_svg_picture.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/utils/logger.dart';
@@ -30,8 +31,8 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
 
   List<ItAssetType> _assetTypes = [];
   List<ItAssetCode> _assetCodes = [];
-
   ItAssetType? _selectedAssetType;
+  RaiseItTicketStatus? _openStatus;
   ItAssetCode? _selectedAssetCode;
   String? _selectedPriority;
 
@@ -54,15 +55,30 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
     super.dispose();
   }
 
+  RaiseItTicketStatus? _findOpenStatus(List<RaiseItTicketStatus> statuses) {
+    for (final status in statuses) {
+      final code = status.statusCode.trim().toUpperCase();
+      if (code == 'OPEN') return status;
+    }
+    return null;
+  }
+
   Future<void> _loadInitialData() async {
     setState(() => _isLoadingDropdowns = true);
     try {
-      final assetTypes =
-          await ServiceLocator().raiseItTicketRepository.getAssetType();
+      final repo = ServiceLocator().raiseItTicketRepository;
+      final results = await Future.wait([
+        repo.getAssetType(),
+        repo.getRaiseTicketStatus(),
+      ]);
+
+      final assetTypes = results[0] as List<ItAssetType>;
+      final statuses = results[1] as List<RaiseItTicketStatus>;
 
       if (!mounted) return;
       setState(() {
         _assetTypes = assetTypes;
+        _openStatus = _findOpenStatus(statuses);
         _isLoadingDropdowns = false;
       });
     } catch (e) {
@@ -147,6 +163,9 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
     if (_selectedPriority == null || _selectedPriority!.trim().isEmpty) {
       errors.add('Priority is required');
     }
+    if (_openStatus == null) {
+      errors.add('Unable to load OPEN status');
+    }
     return errors;
   }
 
@@ -202,15 +221,17 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
     LoaderWidget.showLoader(context);
 
     try {
+      final openStatus = _openStatus!;
       final request = RaiseItTicketRequest(
         iatmId: _selectedAssetType!.iatmId,
         iamId: _selectedAssetCode!.iamId,
         issueTitle: _issueTitleController.text.trim(),
         issueDescription: _issueDescriptionController.text.trim(),
-        priority: _selectedPriority!,
+        priority: _selectedPriority!.trim().toUpperCase(),
+        iaismId: openStatus.iaismId,
         assignedToId: '',
         assignedToName: '',
-        ticketStatus: 'Open',
+        ticketStatus: openStatus.statusCode,
         isActive: true,
       );
 
@@ -309,6 +330,8 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
                                   hintText: 'Issue Title',
                                   isRequired: true,
                                   controller: _issueTitleController,
+                                  inputType: InputType.multiline,
+                                  minLines: 2,
                                   inputBorderRadius: 8,
                                   validator: (_) => null,
                                 ),
@@ -319,6 +342,7 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
                                   isRequired: false,
                                   controller: _issueDescriptionController,
                                   inputType: InputType.multiline,
+                                  minLines: 4,
                                   inputBorderRadius: 8,
                                   maxLength: 500,
                                 ),

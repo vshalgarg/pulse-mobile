@@ -13,6 +13,9 @@ class RaiseItTicket {
   final String assetAcronym;
   
 
+  /// Same as [ticketSchId] — API `iait_id` / `iaitId`.
+  int get iaitId => ticketSchId;
+
   const RaiseItTicket({
     required this.ticketSchId,
     this.ticketNo = '',
@@ -29,7 +32,8 @@ class RaiseItTicket {
   factory RaiseItTicket.fromJson(Map<String, dynamic> json) {
     return RaiseItTicket(
       ticketSchId: _intVal(
-        json['iaitId'] ??
+        json['iait_id'] ??
+            json['iaitId'] ??
             json['ticket_sch_id'] ??
             json['ticketSchId'],
       ),

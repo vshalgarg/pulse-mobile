@@ -3,6 +3,7 @@ import 'package:app/models/it_asset_type_model.dart';
 import 'package:app/models/raise_it_ticket_detail_model.dart';
 import 'package:app/models/raise_it_ticket_model.dart';
 import 'package:app/models/raise_it_ticket_request_model.dart';
+import 'package:app/models/raise_it_ticket_status_model.dart';
 import 'package:app/models/raise_ticket_assigned_to_model.dart';
 import 'package:app/services/raise_it_ticket_service.dart';
 import 'package:app/utils/logger.dart';
@@ -75,6 +76,31 @@ class RaiseItTicketRepository {
     } catch (e) {
       Logger.errorLog(
         '[RaiseItTicketRepository] Exception in getRaiseTicketAssignedTo: $e',
+      );
+      rethrow;
+    }
+  }
+
+  Future<List<RaiseItTicketStatus>> getRaiseTicketStatus() async {
+    try {
+      Logger.debugLog(
+        '[RaiseItTicketRepository] Fetching raise ticket status dropdown',
+      );
+      final result = await _service.getRaiseTicketStatus();
+
+      if (result.isSuccess && result.data != null) {
+        Logger.infoLog(
+          '[RaiseItTicketRepository] Loaded ${result.data!.length} status(es)',
+        );
+        return result.data!;
+      }
+
+      throw Exception(
+        result.errorMessage ?? 'Failed to load ticket status list',
+      );
+    } catch (e) {
+      Logger.errorLog(
+        '[RaiseItTicketRepository] Exception in getRaiseTicketStatus: $e',
       );
       rethrow;
     }

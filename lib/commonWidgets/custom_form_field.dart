@@ -27,6 +27,8 @@ class CustomFormField extends StatelessWidget {
   final InputType? inputType;
   final int? maxLength;
   final Color? textColor;
+  final int? minLines;
+  final int? maxLines;
 
   /// Border radius for the white input container (default `5`).
   final double? inputBorderRadius;
@@ -47,6 +49,8 @@ class CustomFormField extends StatelessWidget {
     this.inputType,
     this.maxLength,
     this.textColor,
+    this.minLines,
+    this.maxLines,
     this.inputBorderRadius,
   });
 
@@ -173,7 +177,8 @@ class CustomFormField extends StatelessWidget {
           keyboardType: _getKeyboardType(),
           inputFormatters: finalInputFormatters,
           maxLength: maxLength,
-          maxLines: inputType == InputType.multiline ? null : 1,
+          minLines: inputType == InputType.multiline ? (minLines ?? 1) : 1,
+          maxLines: inputType == InputType.multiline ? maxLines : 1,
           decoration: InputDecoration(
             filled: true,
             fillColor: isEditable

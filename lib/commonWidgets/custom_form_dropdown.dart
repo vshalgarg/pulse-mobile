@@ -42,6 +42,16 @@ class _CustomDropdownState extends State<CustomDropdown> {
   }
 
   @override
+  void didUpdateWidget(CustomDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue &&
+        widget.initialValue != null &&
+        widget.items.contains(widget.initialValue)) {
+      setState(() => selectedValue = widget.initialValue);
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
