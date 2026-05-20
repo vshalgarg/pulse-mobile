@@ -135,6 +135,11 @@ class AssetAuditPostService {
       case ActivityTypeEnum.activityTicket:
         url += 'AssetAuditSiteResp';
         break;
+      case ActivityTypeEnum.itAssetIssueTicket:
+        Logger.debugLog(
+          'IT raise tickets use it-asset API directly, not mobile batch post',
+        );
+        return;
     }
 
     if (activityType == ActivityTypeEnum.siteVisit ||

@@ -42,6 +42,16 @@ class _CustomDropdownState extends State<CustomDropdown> {
   }
 
   @override
+  void didUpdateWidget(CustomDropdown oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue &&
+        widget.initialValue != null &&
+        widget.items.contains(widget.initialValue)) {
+      setState(() => selectedValue = widget.initialValue);
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -124,35 +134,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     widget.onChanged(value);
                   },
 
-            // dropdownSearchData: DropdownSearchData(
-            //   searchController: _searchController,
-            //   searchInnerWidgetHeight: 50,
-            //   searchInnerWidget: Padding(
-            //     padding: const EdgeInsets.all(8.0),
-            //     child: TextField(
-            //       controller: _searchController,
-            //       textInputAction: TextInputAction.search,
-            //       keyboardType: TextInputType.text,
-            //       decoration: InputDecoration(
-            //         isDense: true,
-            //         contentPadding: const EdgeInsets.symmetric(
-            //           horizontal: 10,
-            //           vertical: 8,
-            //         ),
-            //         hintText: 'Search...',
-            //         hintStyle: const TextStyle(fontSize: 14),
-            //         border: OutlineInputBorder(
-            //           borderRadius: BorderRadius.circular(8),
-            //         ),
-            //       ),
-            //     ),
-            //   ),
-            //   searchMatchFn: (item, searchValue) {
-            //     return item.value!.toLowerCase().contains(
-            //       searchValue.toLowerCase(),
-            //     );
-            //   },
-            // ),
+       
             onMenuStateChange: (isOpen) {
               if (!isOpen) {
                 _searchController.clear(); // clear search when closed

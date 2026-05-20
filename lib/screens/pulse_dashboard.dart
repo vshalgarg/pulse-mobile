@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:app/models/screen_permission.dart';
 import 'package:app/models/user_role_screen.dart';
 import 'package:app/screens/pmis/project_list.dart';
+import 'package:app/screens/raise_ticket/raise_tickets.dart';
 import 'package:app/screens/ticket_screen.dart';
 import 'package:app/services/service_locator.dart';
 import 'package:app/services/local_storage_db.dart';
@@ -464,7 +465,7 @@ class _PulseDashboardState extends State<PulseDashboard> {
           final screen = _roleScreens[index];
           final isComingSoon = _isComingSoonScreen(screen.screenId);
           return _buildTaskCard(
-            iconPath: _iconPathFromScreenId(screen.screenId),
+            iconPath: _iconPathForScreen(screen),
             label: screen.displayName,
             onTap: () => _navigateToScreen(screen),
             isComingSoon: isComingSoon,
@@ -504,12 +505,14 @@ class _PulseDashboardState extends State<PulseDashboard> {
                     ),
                   ],
                 ),
-                child: SafeSvgPicture.asset(
-                  iconPath,
-                  fit: BoxFit.contain,
-                  width: 0,
-                  height: 0,
-                  allowDrawingOutsideViewBox: true,
+                child: Center(
+                  child: SafeSvgPicture.asset(
+                    iconPath,
+                    fit: BoxFit.contain,
+                    width: 40,
+                    height: 40,
+                    allowDrawingOutsideViewBox: true,
+                  ),
                 ),
               ),
               if (isComingSoon)
@@ -555,6 +558,14 @@ class _PulseDashboardState extends State<PulseDashboard> {
     );
   }
 
+  String _iconPathForScreen(UserRoleScreen screen) {
+    final name = screen.displayName.trim().toLowerCase();
+    if (name.contains('raise it ticket')) {
+      return AppImages.raiseItTicket;
+    }
+    return _iconPathFromScreenId(screen.screenId);
+  }
+
   String _iconPathFromScreenId(int screenId) {
     switch (screenId) {
       case 76:
@@ -581,6 +592,8 @@ class _PulseDashboardState extends State<PulseDashboard> {
         return AppImages.project;
       case 87:
         return AppImages.siteaccess;
+      case 88:
+        return AppImages.raiseItTicket;
       default:
         return AppImages.project;
     }
@@ -600,6 +613,16 @@ class _PulseDashboardState extends State<PulseDashboard> {
 
   void _navigateToScreen(UserRoleScreen screen) {
     final permission = screen.permission;
+    if (screen.displayName.trim().toLowerCase().contains('raise it ticket') ||
+        screen.screenId == 88) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RaiseTicketsScreen(permission: permission),
+        ),
+      );
+      return;
+    }
     final taskName = _taskNameFromScreenId(screen.screenId);
     if (taskName == null) {
       Toastbar.showInfoToastbar(
@@ -637,12 +660,23 @@ class _PulseDashboardState extends State<PulseDashboard> {
         return 'Activity';
       case 87:
         return 'SV';
+      case 88:
+        return 'Raise It Ticket';
       default:
         return null;
     }
   }
 
   void _navigateToTask(String taskName, ScreenPermission permission) {
+    if (taskName == 'Raise It Ticket') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => RaiseTicketsScreen(permission: permission),
+        ),
+      );
+      return;
+    }
     if (taskName == 'Project' || taskName == 'Activity') {
       Navigator.push(
         context,

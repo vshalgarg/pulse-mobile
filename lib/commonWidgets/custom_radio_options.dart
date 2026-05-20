@@ -9,9 +9,12 @@ class CustomRadioButton extends StatefulWidget {
   final Function(String value)? onChanged;
   final String? initialValue;
   final bool isRequired;
+  final String? errorText;
   final double horizontalSpacing;
   final double iconTextSpacing;
   final Color? textColor;
+  final double iconSize;
+  final double fontSize;
 
   const CustomRadioButton({
     super.key,
@@ -20,9 +23,12 @@ class CustomRadioButton extends StatefulWidget {
     this.onChanged,
     this.initialValue,
     this.isRequired = false,
+    this.errorText,
     this.horizontalSpacing = 60.0,
     this.iconTextSpacing = 15.0,
     this.textColor,
+    this.iconSize = 28,
+    this.fontSize = 16,
   });
 
   @override
@@ -39,38 +45,44 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
   }
 
   @override
+  void didUpdateWidget(CustomRadioButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialValue != oldWidget.initialValue) {
+      selectedValue = widget.initialValue;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Label with required mark
-        if(widget.label != null) ...[
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  widget.label ?? '',
+        if (widget.label != null) ...[
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: widget.label ?? '',
                   style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                    fontFamily: fontFamilyMontserrat,
+                  ),
+                ),
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
-                      color: Colors.white,
-                      fontFamily: fontFamilyMontserrat
-                  ),
-                  softWrap: true,
-                ),
-              ),
-              if (widget.isRequired)
-                const Text(
-                  " *",
-                  style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
                       color: AppColors.errorColor,
-                      fontFamily: fontFamilyMontserrat
+                      fontFamily: fontFamilyMontserrat,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ],
         const SizedBox(height: 5),
@@ -94,15 +106,15 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
                   children: [
                     // Custom circle or icon
                     isSelected
-                        ? Icon(option.selectedIcon, color: AppColors.bulletIcon, size: 28)
-                        : Icon(option.unselectedIcon, color: AppColors.bulletIcon, size: 28),
+                        ? Icon(option.selectedIcon, color: AppColors.bulletIcon, size: widget.iconSize)
+                        : Icon(option.unselectedIcon, color: AppColors.bulletIcon, size: widget.iconSize),
 
                     SizedBox(width: widget.iconTextSpacing),
 
                     Text(
                       option.label,
                       style: TextStyle(
-                          fontSize: 16,
+                          fontSize: widget.fontSize,
                           fontWeight: FontWeight.w400,
                           color: widget.textColor ?? Colors.white,
                           fontFamily: fontFamilyMontserrat
@@ -116,20 +128,19 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
           ),
         ),
 
-        // // Validation
-        // if (widget.isRequired && selectedValue == null)
-        //   const Padding(
-        //     padding: EdgeInsets.only(top: 6),
-        //     child: Text(
-        //       "This field is required",
-        //       style: TextStyle(
-        //           fontWeight: FontWeight.w400,
-        //           fontFamily: fontFamilyMontserrat,
-        //           color: AppColors.errorColor,
-        //           fontSize: 13
-        //       ),
-        //     ),
-        //   ),
+        if (widget.errorText != null && widget.errorText!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              widget.errorText!,
+              style: const TextStyle(
+                fontWeight: FontWeight.w400,
+                fontFamily: fontFamilyMontserrat,
+                color: AppColors.errorColor,
+                fontSize: 13,
+              ),
+            ),
+          ),
       ],
     );
   }

@@ -13,7 +13,8 @@ enum ActivityTypeEnum {
   incidentSelf("incidentTicket"),
   generalInspChecklist("genInspectionResp"),
   projectTicket("Project"),
-  activityTicket("AI");
+  activityTicket("AI"),
+  itAssetIssueTicket("IAIT");
 
 
 
@@ -54,6 +55,8 @@ enum ActivityTypeEnum {
         return ActivityTypeEnum.activityTicket;
       case "Project":
         return ActivityTypeEnum.projectTicket;
+      case "IAIT":
+        return ActivityTypeEnum.itAssetIssueTicket;
       default:
         throw ArgumentError('Unknown ActivityTypeEnum value: $value');
     }
