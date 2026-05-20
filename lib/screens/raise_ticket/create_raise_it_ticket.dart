@@ -157,11 +157,8 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
     if (_selectedAssetCode == null) {
       errors.add('Please select asset code');
     }
-    if (_issueTitleController.text.trim().isEmpty) {
-      errors.add('Issue Title is required');
-    }
-    if (_selectedPriority == null || _selectedPriority!.trim().isEmpty) {
-      errors.add('Priority is required');
+    if (_issueDescriptionController.text.trim().isEmpty) {
+      errors.add('Issue Description is required');
     }
     if (_openStatus == null) {
       errors.add('Unable to load OPEN status');
@@ -227,7 +224,7 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
         iamId: _selectedAssetCode!.iamId,
         issueTitle: _issueTitleController.text.trim(),
         issueDescription: _issueDescriptionController.text.trim(),
-        priority: _selectedPriority!.trim().toUpperCase(),
+        priority: _selectedPriority?.trim().toUpperCase() ?? '',
         iaismId: openStatus.iaismId,
         assignedToId: '',
         assignedToName: '',
@@ -328,7 +325,7 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
                                 CustomFormField(
                                   label: 'Issue Title',
                                   hintText: 'Issue Title',
-                                  isRequired: true,
+                                  isRequired: false,
                                   controller: _issueTitleController,
                                   inputType: InputType.multiline,
                                   minLines: 2,
@@ -339,7 +336,7 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
                                 CustomFormField(
                                   label: 'Issue Description',
                                   hintText: 'Description',
-                                  isRequired: false,
+                                  isRequired: true,
                                   controller: _issueDescriptionController,
                                   inputType: InputType.multiline,
                                   minLines: 4,
@@ -349,9 +346,11 @@ class _CreateRaiseItTicketScreenState extends State<CreateRaiseItTicketScreen> {
                                 getHeight(16),
                                 CustomRadioButton(
                                   label: 'Priority',
-                                  isRequired: true,
-                                  horizontalSpacing: 24,
-                                  iconTextSpacing: 8,
+                                  isRequired: false,
+                                  horizontalSpacing: 8,
+                                  iconTextSpacing: 4,
+                                  iconSize: 20,
+                                  fontSize: 13,
                                   initialValue: _selectedPriority,
                                   options: _priorities
                                       .map(

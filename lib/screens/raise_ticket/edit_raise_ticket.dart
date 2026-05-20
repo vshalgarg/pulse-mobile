@@ -681,21 +681,20 @@ class _EditRaiseItTicketScreenState extends State<EditRaiseItTicketScreen> {
                 CustomDropdown(
                   key: ValueKey('assetType_$_assetTypeInitial'),
                   label: 'Asset Type',
-                  isRequired: true,
+                  isRequired: false,
                   items: _assetTypes.map((t) => t.assetType).toList(),
                   initialValue: _assetTypeInitial,
-                  isDisabled: _isViewMode,
+                  isDisabled: true,
                   onChanged: _onAssetTypeChanged,
                 ),
                 getHeight(16),
                 CustomDropdown(
                   key: ValueKey('assetCode_$_assetCodeInitial'),
                   label: 'Asset Code',
-                  isRequired: true,
+                  isRequired: false,
                   items: _assetCodes.map((c) => c.asset).toList(),
                   initialValue: _assetCodeInitial,
-                  isDisabled:
-                      _isViewMode || _selectedAssetType == null || _isLoadingAssetCodes,
+                  isDisabled: true,
                   onChanged: _onAssetCodeChanged,
                 ),
                 if (_isLoadingAssetCodes) ...[
@@ -728,7 +727,7 @@ class _EditRaiseItTicketScreenState extends State<EditRaiseItTicketScreen> {
                   label: 'Issue Description',
                   hintText: 'Enter issue description',
                   controller: _issueDescriptionController,
-                  isDisabled: _isViewMode,
+                  isDisabled: true,
                   maxLines: 4,
                 ),
                 getHeight(16),
@@ -737,8 +736,10 @@ class _EditRaiseItTicketScreenState extends State<EditRaiseItTicketScreen> {
                   child: CustomRadioButton(
                     label: 'Priority',
                     isRequired: true,
-                    horizontalSpacing: 24,
-                    iconTextSpacing: 8,
+                    horizontalSpacing: 8,
+                    iconTextSpacing: 4,
+                    iconSize: 20,
+                    fontSize: 13,
                     initialValue: _selectedPriority,
                     options: _priorities
                         .map((p) => OptionItem(value: p, label: p))

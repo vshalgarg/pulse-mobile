@@ -13,6 +13,8 @@ class CustomRadioButton extends StatefulWidget {
   final double horizontalSpacing;
   final double iconTextSpacing;
   final Color? textColor;
+  final double iconSize;
+  final double fontSize;
 
   const CustomRadioButton({
     super.key,
@@ -25,6 +27,8 @@ class CustomRadioButton extends StatefulWidget {
     this.horizontalSpacing = 60.0,
     this.iconTextSpacing = 15.0,
     this.textColor,
+    this.iconSize = 28,
+    this.fontSize = 16,
   });
 
   @override
@@ -102,15 +106,15 @@ class _CustomRadioButtonState extends State<CustomRadioButton> {
                   children: [
                     // Custom circle or icon
                     isSelected
-                        ? Icon(option.selectedIcon, color: AppColors.bulletIcon, size: 28)
-                        : Icon(option.unselectedIcon, color: AppColors.bulletIcon, size: 28),
+                        ? Icon(option.selectedIcon, color: AppColors.bulletIcon, size: widget.iconSize)
+                        : Icon(option.unselectedIcon, color: AppColors.bulletIcon, size: widget.iconSize),
 
                     SizedBox(width: widget.iconTextSpacing),
 
                     Text(
                       option.label,
                       style: TextStyle(
-                          fontSize: 16,
+                          fontSize: widget.fontSize,
                           fontWeight: FontWeight.w400,
                           color: widget.textColor ?? Colors.white,
                           fontFamily: fontFamilyMontserrat
